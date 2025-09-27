@@ -1,0 +1,34 @@
+User-agent: *
+Allow: /
+Allow: /portal
+Allow: /knowledge
+Allow: /api/files/*
+
+# Disallow admin and API routes (except public files)
+Disallow: /admin
+Disallow: /api/
+Allow: /api/files/
+
+# Allow specific public pages
+Allow: /login
+Allow: /register
+Allow: /forgot-password
+
+# Sitemap location
+Sitemap: https://servicedesk.com/sitemap.xml
+
+# Crawl delay for polite crawling
+Crawl-delay: 1
+
+# Search engine specific directives
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 2

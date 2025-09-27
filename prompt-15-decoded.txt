@@ -1,0 +1,831 @@
+# PROMPT: O seu primeiro Administrador - Painel Admin Completo
+
+## 🎯 OBJETIVO
+Criar um painel administrativo completo e moderno para seu aplicativo usando React, Next.js, Tailwind CSS e Headless UI. Este prompt irá guiá-lo na implementação de um dashboard profissional com navegação lateral, header responsivo e estrutura escalável.
+
+## 🚨 VERIFICAÇÕES CRÍTICAS OBRIGATÓRIAS
+
+### ⚠️ ANTES de implementar, execute estas correções para evitar erros:
+
+```bash
+# 1. Verificar versão do Headless UI (CRÍTICO para evitar erro de renderização)
+npm list @headlessui/react
+
+# 2. Se a versão for < 2.0, atualizar para versão compatível:
+npm install @headlessui/react@latest @heroicons/react@latest
+
+# 3. Verificar tipos TypeScript
+npx tsc --noEmit
+
+# 4. Testar build local
+npm run build
+```
+
+### 🔧 CORREÇÕES OBRIGATÓRIAS NO CÓDIGO:
+
+#### 1. Correção da Barra de Busca (Fundo Branco):
+**Problema**: Barra de busca aparece com fundo cinza
+**Solução**: Usar classes corretas do Tailwind
+
+```tsx
+// ❌ INCORRETO - Pode aparecer cinza
+<input
+  className="col-start-1 row-start-1 block size-full bg-white pl-8 text-base text-gray-900 outline-none placeholder:text-gray-400 sm:text-sm/6"
+/>
+
+// ✅ CORRETO - Fundo branco garantido
+<input
+  name="search"
+  type="search"
+  placeholder="Search"
+  aria-label="Search"
+  className="col-start-1 row-start-1 block size-full bg-white border-0 pl-8 text-base text-gray-900 outline-none placeholder:text-gray-400 focus:ring-0 sm:text-sm/6"
+/>
+```
+
+#### 2. Correção do Erro Headless UI (Versão Compatível):
+**Problema**: "Há um erro de renderização no servidor relacionado ao Headless UI"
+**Solução**: Usar versão simplificada e compatível
+
+```tsx
+// ❌ PROBLEMÁTICO - Versões antigas do Headless UI
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  TransitionChild,
+} from '@headlessui/react'
+
+// ✅ CORRETO - Versão compatível e simplificada
+import { Dialog, Transition } from '@headlessui/react'
+import { Fragment } from 'react'
+```
+
+#### 3. Função classNames TypeScript-Safe:
+```tsx
+// ✅ Função com tipos corretos
+function classNames(...classes: (string | boolean | undefined)[]): string {
+  return classes.filter(Boolean).join(' ')
+}
+```
+
+## 📋 PRÉ-REQUISITOS
+
+### Dependências Necessárias:
+```bash
+# Instalar versões compatíveis
+npm install @headlessui/react@latest @heroicons/react@latest
+
+# Verificar compatibilidade
+npm list @headlessui/react @heroicons/react
+```
+
+### Estrutura de Arquivos:
+```
+src/
+├── components/
+│   └── admin/
+│       ├── AdminDashboard.tsx
+│       ├── Sidebar.tsx
+│       └── Header.tsx
+├── pages/
+│   └── admin/
+│       └── dashboard.tsx
+└── styles/
+    └── globals.css (com Tailwind)
+```
+
+## 🚀 IMPLEMENTAÇÃO DO PAINEL ADMIN (VERSÃO CORRIGIDA)
+
+### Código Completo do Dashboard (SEM ERROS):
+
+```tsx
+'use client'
+
+import { useState, Fragment } from 'react'
+import { Dialog, Transition, Menu } from '@headlessui/react'
+import {
+  Bars3Icon,
+  BellIcon,
+  CalendarIcon,
+  ChartPieIcon,
+  Cog6ToothIcon,
+  DocumentDuplicateIcon,
+  FolderIcon,
+  HomeIcon,
+  UsersIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline'
+import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/20/solid'
+
+const navigation = [
+  { name: 'Dashboard', href: '#', icon: HomeIcon, current: true },
+  { name: 'Team', href: '#', icon: UsersIcon, current: false },
+  { name: 'Projects', href: '#', icon: FolderIcon, current: false },
+  { name: 'Calendar', href: '#', icon: CalendarIcon, current: false },
+  { name: 'Documents', href: '#', icon: DocumentDuplicateIcon, current: false },
+  { name: 'Reports', href: '#', icon: ChartPieIcon, current: false },
+]
+
+const teams = [
+  { id: 1, name: 'Heroicons', href: '#', initial: 'H', current: false },
+  { id: 2, name: 'Tailwind Labs', href: '#', initial: 'T', current: false },
+  { id: 3, name: 'Workcation', href: '#', initial: 'W', current: false },
+]
+
+const userNavigation = [
+  { name: 'Your profile', href: '#' },
+  { name: 'Sign out', href: '#' },
+]
+
+function classNames(...classes: (string | boolean | undefined)[]): string {
+  return classes.filter(Boolean).join(' ')
+}
+
+export default function AdminDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  return (
+    <>
+      <div>
+        <Transition.Root show={sidebarOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-50 lg:hidden" onClose={setSidebarOpen}>
+            <Transition.Child
+              as={Fragment}
+              enter="transition-opacity ease-linear duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="transition-opacity ease-linear duration-300"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-gray-900/80" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 flex">
+              <Transition.Child
+                as={Fragment}
+                enter="transition ease-in-out duration-300 transform"
+                enterFrom="-translate-x-full"
+                enterTo="translate-x-0"
+                leave="transition ease-in-out duration-300 transform"
+                leaveFrom="translate-x-0"
+                leaveTo="-translate-x-full"
+              >
+                <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
+                  <Transition.Child
+                    as={Fragment}
+                    enter="ease-in-out duration-300"
+                    enterFrom="opacity-0"
+                    enterTo="opacity-100"
+                    leave="ease-in-out duration-300"
+                    leaveFrom="opacity-100"
+                    leaveTo="opacity-0"
+                  >
+                    <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
+                      <button type="button" className="-m-2.5 p-2.5" onClick={() => setSidebarOpen(false)}>
+                        <span className="sr-only">Close sidebar</span>
+                        <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </Transition.Child>
+
+                  {/* Sidebar component, swap this element with another sidebar if you like */}
+                  <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4 ring-1 ring-white/10">
+                    <div className="flex h-16 shrink-0 items-center">
+                      <img
+                        className="h-8 w-auto"
+                        src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
+                        alt="Your Company"
+                      />
+                    </div>
+                    <nav className="flex flex-1 flex-col">
+                      <ul role="list" className="flex flex-1 flex-col gap-y-7">
+                        <li>
+                          <ul role="list" className="-mx-2 space-y-1">
+                            {navigation.map((item) => (
+                              <li key={item.name}>
+                                <a
+                                  href={item.href}
+                                  className={classNames(
+                                    item.current
+                                      ? 'bg-gray-800 text-white'
+                                      : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                                    'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                                  )}
+                                >
+                                  <item.icon
+                                    className={classNames(
+                                      item.current ? 'text-white' : 'text-gray-400 group-hover:text-white',
+                                      'h-6 w-6 shrink-0'
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                  {item.name}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                        <li>
+                          <div className="text-xs leading-6 font-semibold text-gray-400">Your teams</div>
+                          <ul role="list" className="-mx-2 mt-2 space-y-1">
+                            {teams.map((team) => (
+                              <li key={team.name}>
+                                <a
+                                  href={team.href}
+                                  className={classNames(
+                                    team.current
+                                      ? 'bg-gray-800 text-white'
+                                      : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                                    'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                                  )}
+                                >
+                                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">
+                                    {team.initial}
+                                  </span>
+                                  <span className="truncate">{team.name}</span>
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                        <li className="mt-auto">
+                          <a
+                            href="#"
+                            className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-400 hover:bg-gray-800 hover:text-white"
+                          >
+                            <Cog6ToothIcon
+                              className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-white"
+                              aria-hidden="true"
+                            />
+                            Settings
+                          </a>
+                        </li>
+                      </ul>
+                    </nav>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </Dialog>
+        </Transition.Root>
+
+        {/* Static sidebar for desktop */}
+        <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+          {/* Sidebar component, swap this element with another sidebar if you like */}
+          <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
+            <div className="flex h-16 shrink-0 items-center">
+              <img
+                className="h-8 w-auto"
+                src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
+                alt="Your Company"
+              />
+            </div>
+            <nav className="flex flex-1 flex-col">
+              <ul role="list" className="flex flex-1 flex-col gap-y-7">
+                <li>
+                  <ul role="list" className="-mx-2 space-y-1">
+                    {navigation.map((item) => (
+                      <li key={item.name}>
+                        <a
+                          href={item.href}
+                          className={classNames(
+                            item.current
+                              ? 'bg-gray-800 text-white'
+                              : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                            'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                          )}
+                        >
+                          <item.icon
+                            className={classNames(
+                              item.current ? 'text-white' : 'text-gray-400 group-hover:text-white',
+                              'h-6 w-6 shrink-0'
+                            )}
+                            aria-hidden="true"
+                          />
+                          {item.name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+                <li>
+                  <div className="text-xs leading-6 font-semibold text-gray-400">Your teams</div>
+                  <ul role="list" className="-mx-2 mt-2 space-y-1">
+                    {teams.map((team) => (
+                      <li key={team.name}>
+                        <a
+                          href={team.href}
+                          className={classNames(
+                            team.current
+                              ? 'bg-gray-800 text-white'
+                              : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                            'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                          )}
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-[0.625rem] font-medium text-gray-400 group-hover:text-white">
+                            {team.initial}
+                          </span>
+                          <span className="truncate">{team.name}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+                <li className="mt-auto">
+                  <a
+                    href="#"
+                    className="group -mx-2 flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-400 hover:bg-gray-800 hover:text-white"
+                  >
+                    <Cog6ToothIcon
+                      className="h-6 w-6 shrink-0 text-gray-400 group-hover:text-white"
+                      aria-hidden="true"
+                    />
+                    Settings
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+
+        <div className="lg:pl-72">
+          <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+            <button type="button" className="-m-2.5 p-2.5 text-gray-700 lg:hidden" onClick={() => setSidebarOpen(true)}>
+              <span className="sr-only">Open sidebar</span>
+              <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+            </button>
+
+            {/* Separator */}
+            <div className="h-6 w-px bg-gray-900/10 lg:hidden" aria-hidden="true" />
+
+            <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+              {/* BARRA DE BUSCA CORRIGIDA - FUNDO BRANCO GARANTIDO */}
+              <form className="relative flex flex-1" action="#" method="GET">
+                <label htmlFor="search-field" className="sr-only">
+                  Search
+                </label>
+                <MagnifyingGlassIcon
+                  className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400"
+                  aria-hidden="true"
+                />
+                <input
+                  id="search-field"
+                  className="block h-full w-full border-0 py-0 pl-8 pr-0 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm"
+                  placeholder="Search..."
+                  type="search"
+                  name="search"
+                />
+              </form>
+              <div className="flex items-center gap-x-4 lg:gap-x-6">
+                <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-500">
+                  <span className="sr-only">View notifications</span>
+                  <BellIcon className="h-6 w-6" aria-hidden="true" />
+                </button>
+
+                {/* Separator */}
+                <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-900/10" aria-hidden="true" />
+
+                {/* Profile dropdown */}
+                <Menu as="div" className="relative">
+                  <Menu.Button className="-m-1.5 flex items-center p-1.5">
+                    <span className="sr-only">Open user menu</span>
+                    <img
+                      className="h-8 w-8 rounded-full bg-gray-50"
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                      alt=""
+                    />
+                    <span className="hidden lg:flex lg:items-center">
+                      <span className="ml-4 text-sm leading-6 font-semibold text-gray-900" aria-hidden="true">
+                        Tom Cook
+                      </span>
+                      <ChevronDownIcon className="ml-2 h-5 w-5 text-gray-400" aria-hidden="true" />
+                    </span>
+                  </Menu.Button>
+                  <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-100"
+                    enterFrom="transform opacity-0 scale-95"
+                    enterTo="transform opacity-100 scale-100"
+                    leave="transition ease-in duration-75"
+                    leaveFrom="transform opacity-100 scale-100"
+                    leaveTo="transform opacity-0 scale-95"
+                  >
+                    <Menu.Items className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
+                      {userNavigation.map((item) => (
+                        <Menu.Item key={item.name}>
+                          {({ active }) => (
+                            <a
+                              href={item.href}
+                              className={classNames(
+                                active ? 'bg-gray-50' : '',
+                                'block px-3 py-1 text-sm leading-6 text-gray-900'
+                              )}
+                            >
+                              {item.name}
+                            </a>
+                          )}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Items>
+                  </Transition>
+                </Menu>
+              </div>
+            </div>
+          </div>
+
+          <main className="py-10">
+            <div className="px-4 sm:px-6 lg:px-8">
+              {/* Seu conteúdo aqui */}
+              <div className="mx-auto max-w-7xl">
+                <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+                  Dashboard
+                </h1>
+                
+                {/* Exemplo de cards de estatísticas */}
+                <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="bg-white overflow-hidden shadow rounded-lg">
+                    <div className="p-5">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <UsersIcon className="h-6 w-6 text-gray-400" aria-hidden="true" />
+                        </div>
+                        <div className="ml-5 w-0 flex-1">
+                          <dl>
+                            <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                            <dd className="text-lg font-medium text-gray-900">71,897</dd>
+                          </dl>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Adicione mais cards conforme necessário */}
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </>
+  )
+}
+```
+
+## ⚙️ CONFIGURAÇÕES E CUSTOMIZAÇÕES
+
+### 1. Personalização da Navegação:
+Edite o array `navigation` para adicionar suas próprias seções:
+```tsx
+const navigation = [
+  { name: 'Dashboard', href: '/admin', icon: HomeIcon, current: true },
+  { name: 'Usuários', href: '/admin/users', icon: UsersIcon, current: false },
+  { name: 'Produtos', href: '/admin/products', icon: FolderIcon, current: false },
+  { name: 'Pedidos', href: '/admin/orders', icon: DocumentDuplicateIcon, current: false },
+  { name: 'Relatórios', href: '/admin/reports', icon: ChartPieIcon, current: false },
+]
+```
+
+### 2. Configuração de Teams/Organizações:
+```tsx
+const teams = [
+  { id: 1, name: 'Marketing', href: '/admin/teams/marketing', initial: 'M', current: false },
+  { id: 2, name: 'Vendas', href: '/admin/teams/sales', initial: 'V', current: false },
+  { id: 3, name: 'Suporte', href: '/admin/teams/support', initial: 'S', current: false },
+]
+```
+
+### 3. Integração com Autenticação:
+```tsx
+// Adicione verificação de autenticação
+import { useUser } from '@/hooks/useAuth'
+
+export default function AdminDashboard() {
+  const { user, loading } = useUser()
+  
+  if (loading) return <div>Carregando...</div>
+  if (!user || !user.isAdmin) return <div>Acesso negado</div>
+  
+  // ... resto do componente
+}
+```
+
+## 🎨 ESTILOS E TEMA
+
+### CSS Global Necessário:
+```css
+/* globals.css */
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+```
+
+### Variáveis de Tema:
+```css
+:root {
+  --admin-primary: #4f46e5;
+  --admin-secondary: #6b7280;
+  --admin-sidebar: #111827;
+  --admin-background: #f9fafb;
+}
+```
+
+## 🔧 FUNCIONALIDADES AVANÇADAS
+
+### 1. Breadcrumbs:
+```tsx
+const Breadcrumb = ({ items }) => (
+  <nav className="flex" aria-label="Breadcrumb">
+    <ol className="flex items-center space-x-4">
+      {items.map((item, index) => (
+        <li key={item.name}>
+          <div className="flex items-center">
+            {index > 0 && <ChevronRightIcon className="h-5 w-5 text-gray-400" />}
+            <a href={item.href} className="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">
+              {item.name}
+            </a>
+          </div>
+        </li>
+      ))}
+    </ol>
+  </nav>
+)
+```
+
+### 2. Notificações:
+```tsx
+const [notifications, setNotifications] = useState([])
+
+const addNotification = (message, type = 'info') => {
+  setNotifications(prev => [...prev, { id: Date.now(), message, type }])
+}
+```
+
+### 3. Loading States:
+```tsx
+const [loading, setLoading] = useState(false)
+
+// Adicione skeleton loading
+const SkeletonCard = () => (
+  <div className="animate-pulse">
+    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+  </div>
+)
+```
+
+## 📱 RESPONSIVIDADE
+
+### Breakpoints Tailwind:
+- **sm**: 640px+
+- **md**: 768px+
+- **lg**: 1024px+ (sidebar fixo)
+- **xl**: 1280px+
+
+### Mobile-First Approach:
+```tsx
+// Sidebar mobile
+<Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
+
+// Sidebar desktop
+<div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+```
+
+## 🛠️ TROUBLESHOOTING - CORREÇÃO DE ERROS ESPECÍFICOS
+
+### 🚨 Erro: "Há um erro de renderização no servidor relacionado ao Headless UI"
+**Causa**: Incompatibilidade de versões ou uso incorreto de componentes
+**Solução**:
+
+```bash
+# 1. Atualizar para versão compatível
+npm uninstall @headlessui/react
+npm install @headlessui/react@latest
+
+# 2. Verificar versão instalada
+npm list @headlessui/react
+
+# 3. Limpar cache e reinstalar
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### 🎨 Problema: Barra de busca com fundo cinza
+**Causa**: Classes CSS conflitantes ou padrões do navegador
+**Solução**: Use a implementação corrigida acima com `border-0` e `focus:ring-0`
+
+### ⚡ Comandos de Verificação Rápida:
+```bash
+# Verificar se há erros de compilação
+npx tsc --noEmit
+
+# Testar componente isoladamente
+npm run dev
+
+# Verificar console do navegador para erros
+# Abrir DevTools > Console
+```
+
+## 🚀 DEPLOY E PERFORMANCE
+
+### Verificações Antes do Deploy:
+```bash
+# Verificar sintaxe e tipos
+npx tsc --noEmit
+
+# Build de produção
+npm run build
+
+# Testar localmente
+npm start
+
+# Verificar se não há erros no console
+```
+
+### Otimizações:
+1. **Code Splitting**: Use `dynamic import` para componentes pesados
+2. **Lazy Loading**: Implemente para seções não críticas
+3. **Memoização**: Use `React.memo` para componentes que re-renderizam frequentemente
+
+## 📖 DOCUMENTAÇÃO E PADRONIZAÇÃO
+
+### 1. Criação do Style Guide:
+Após implementar o dashboard, crie um arquivo `ADMIN_STYLE_GUIDE.md`:
+
+```markdown
+# Admin Dashboard Style Guide
+
+## Cores Padrão
+- Primary: #4f46e5 (Indigo 600)
+- Secondary: #6b7280 (Gray 500)
+- Sidebar: #111827 (Gray 900)
+- Background: #f9fafb (Gray 50)
+
+## Componentes Padrão
+- Sidebar: 288px (w-72)
+- Header: 64px (h-16)
+- Padding: 16px (p-4) mobile, 24px (p-6) desktop
+
+## Tipografia
+- Headings: font-semibold
+- Body: text-sm/6
+- Captions: text-xs/6
+```
+
+### 2. Componentes Reutilizáveis:
+Crie uma biblioteca de componentes admin:
+
+```tsx
+// components/admin/AdminCard.tsx
+export const AdminCard = ({ title, children, className = '' }) => (
+  <div className={`bg-white shadow rounded-lg p-6 ${className}`}>
+    {title && <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>}
+    {children}
+  </div>
+)
+
+// components/admin/AdminButton.tsx
+export const AdminButton = ({ variant = 'primary', children, ...props }) => {
+  const baseClasses = 'px-4 py-2 rounded-md font-medium focus:outline-none focus:ring-2'
+  const variants = {
+    primary: 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500',
+    secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500'
+  }
+  
+  return (
+    <button className={`${baseClasses} ${variants[variant]}`} {...props}>
+      {children}
+    </button>
+  )
+}
+```
+
+### 3. Documentação de Uso:
+```markdown
+# Como Usar o Admin Dashboard
+
+## Estrutura de Arquivos
+```
+src/
+├── components/admin/
+│   ├── AdminDashboard.tsx    # Componente principal
+│   ├── AdminCard.tsx         # Card padrão
+│   ├── AdminButton.tsx       # Botão padrão
+│   └── AdminTable.tsx        # Tabela padrão
+├── pages/admin/
+│   ├── index.tsx            # Dashboard principal
+│   ├── users.tsx            # Gestão de usuários
+│   └── settings.tsx         # Configurações
+└── styles/
+    └── admin.css            # Estilos específicos
+```
+
+## Implementação
+1. Copie o código do AdminDashboard
+2. Instale as dependências necessárias
+3. Configure as rotas no navigation array
+4. Personalize cores e layout conforme necessário
+5. Adicione suas páginas específicas
+```
+
+### 4. Padrão para Futuras Páginas Admin:
+```tsx
+// Template para novas páginas admin
+import AdminDashboard from '@/components/admin/AdminDashboard'
+import AdminCard from '@/components/admin/AdminCard'
+
+export default function AdminUsersPage() {
+  return (
+    <AdminDashboard currentPage="users">
+      <div className="space-y-6">
+        <div className="md:flex md:items-center md:justify-between">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+              Gestão de Usuários
+            </h2>
+          </div>
+          <div className="mt-4 flex md:ml-4 md:mt-0">
+            <AdminButton>Novo Usuário</AdminButton>
+          </div>
+        </div>
+        
+        <AdminCard title="Lista de Usuários">
+          {/* Conteúdo da página */}
+        </AdminCard>
+      </div>
+    </AdminDashboard>
+  )
+}
+```
+
+## ✅ CHECKLIST FINAL ANTI-ERRO
+
+### 🚨 Verificações Críticas (OBRIGATÓRIAS):
+- [ ] **Headless UI atualizado**: `npm list @headlessui/react` mostra versão 2.0+
+- [ ] **TypeScript sem erros**: `npx tsc --noEmit` executa sem erros
+- [ ] **Build local funcionando**: `npm run build` executa com sucesso
+- [ ] **Barra de busca branca**: Input usa `border-0` e `focus:ring-0`
+- [ ] **Console sem erros**: DevTools não mostram erros de renderização
+- [ ] **Imports corretos**: Usa `Dialog, Transition` do Headless UI v2
+
+### Implementação:
+- [ ] Dependências instaladas (@headlessui/react@latest, @heroicons/react@latest)
+- [ ] Código do dashboard implementado SEM ERROS
+- [ ] Navegação personalizada configurada
+- [ ] Responsividade testada em mobile e desktop
+- [ ] Autenticação integrada (se aplicável)
+
+### Personalização:
+- [ ] Logo da empresa adicionado
+- [ ] Cores do tema personalizadas
+- [ ] Menu de navegação adaptado ao projeto
+- [ ] Perfil do usuário configurado
+- [ ] **Barra de busca com fundo branco** confirmado
+
+### Documentação:
+- [ ] Style guide criado
+- [ ] Componentes reutilizáveis documentados
+- [ ] Template para novas páginas definido
+- [ ] Padrões de código estabelecidos
+
+### Performance:
+- [ ] Build de produção testado SEM FALHAS
+- [ ] Code splitting implementado
+- [ ] Lazy loading configurado
+- [ ] Otimizações aplicadas
+- [ ] **Zero erros no console do navegador**
+
+### 🛠️ Comandos de Emergência se Algo Falhar:
+```bash
+# Se der erro de Headless UI:
+npm uninstall @headlessui/react
+npm install @headlessui/react@latest
+rm -rf .next
+npm run build
+
+# Se barra de busca ficar cinza:
+# Verificar se usa: border-0 focus:ring-0 bg-white
+
+# Se der erro de TypeScript:
+npx tsc --noEmit --pretty
+# Corrigir erros mostrados antes de prosseguir
+```
+
+## 🎉 CONCLUSÃO
+
+Este painel administrativo fornece uma base sólida e profissional para gerenciar seu aplicativo. Com design responsivo, componentes reutilizáveis e estrutura escalável, você terá um admin dashboard moderno e funcional.
+
+**Próximos passos:**
+1. Implemente suas páginas específicas
+2. Adicione funcionalidades de CRUD
+3. Configure autenticação e permissões
+4. Crie dashboards com métricas e gráficos
+5. Mantenha a documentação atualizada
+
+**Lembre-se:** Este layout deve ser o padrão para todas as páginas administrativas do seu projeto, garantindo consistência e profissionalismo em toda a aplicação. 

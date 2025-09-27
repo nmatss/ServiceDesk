@@ -1,0 +1,614 @@
+# PROMPT: Implementação e Análise de Segurança do Stack Auth
+
+## 🎯 OBJETIVO
+Implementar e analisar a segurança do Stack Auth em projetos Next.js com foco em autenticação robusta, proteção de rotas, gerenciamento de sessões e auditoria de segurança. Este prompt fornece um guia completo para implementação segura do Stack Auth com Neon Database.
+
+## 🚨 VERIFICAÇÕES CRÍTICAS OBRIGATÓRIAS
+
+### ⚠️ ANTES de implementar, execute estas verificações para evitar vulnerabilidades:
+
+```bash
+# 1. Verificar versão do Stack Auth (CRÍTICO para segurança)
+npm list @stackframe/stack
+
+# 2. Verificar variáveis de ambiente de segurança
+echo "Verificando variáveis críticas..."
+[ -z "$STACK_SECRET_SERVER_KEY" ] && echo "❌ STACK_SECRET_SERVER_KEY não configurado"
+[ -z "$NEXT_PUBLIC_STACK_PROJECT_ID" ] && echo "❌ NEXT_PUBLIC_STACK_PROJECT_ID não configurado"
+[ -z "$DATABASE_URL" ] && echo "❌ DATABASE_URL não configurado"
+
+# 3. Verificar tipos TypeScript (OBRIGATÓRIO)
+npx tsc --noEmit
+
+# 4. Testar build de produção
+npm run build
+
+# 5. Verificar configuração de CORS
+curl -I https://stack-auth.com/api/v1/projects/YOUR_PROJECT_ID
+```
+
+### 🔧 CORREÇÕES CRÍTICAS DE SEGURANÇA:
+
+#### 1. Proteção contra Session Fixation
+**Problema**: Sessões não são renovadas após login
+**Solução**: Implementar renovação de sessão
+
+```tsx
+// ❌ INCORRETO - Vulnerável a session fixation
+const handleLogin = async (credentials: LoginCredentials) => {
+  const result = await signIn(credentials);
+  // Sessão não é renovada
+  return result;
+};
+
+// ✅ CORRETO - Sessão renovada após login
+const handleLogin = async (credentials: LoginCredentials) => {
+  const result = await signIn(credentials);
+  if (result.success) {
+    // Forçar renovação da sessão
+    await stackServerApp.refreshSession();
+  }
+  return result;
+};
+```
+
+#### 2. Validação de Entrada Segura
+**Problema**: Dados do usuário não são validados
+**Solução**: Usar Zod para validação
+
+```tsx
+// ❌ INCORRETO - Sem validação
+const updateProfile = async (data: any) => {
+  await sql`UPDATE users SET name = ${data.name} WHERE id = ${userId}`;
+};
+
+// ✅ CORRETO - Com validação Zod
+import { z } from 'zod';
+
+const profileSchema = z.object({
+  name: z.string().min(1).max(100).trim(),
+  email: z.string().email(),
+  phone: z.string().optional()
+});
+
+const updateProfile = async (data: unknown) => {
+  const validatedData = profileSchema.parse(data);
+  await sql`UPDATE users SET name = ${validatedData.name} WHERE id = ${userId}`;
+};
+```
+
+#### 3. Proteção CSRF em Formulários
+**Problema**: Formulários vulneráveis a CSRF
+**Solução**: Implementar tokens CSRF
+
+```tsx
+// ❌ INCORRETO - Sem proteção CSRF
+<form action="/api/update-profile" method="POST">
+  <input name="name" value={user.name} />
+  <button type="submit">Update</button>
+</form>
+
+// ✅ CORRETO - Com proteção CSRF
+import { generateCSRFToken } from '@/lib/csrf';
+
+const ProfileForm = () => {
+  const csrfToken = generateCSRFToken();
+  
+  return (
+    <form action="/api/update-profile" method="POST">
+      <input type="hidden" name="csrf_token" value={csrfToken} />
+      <input name="name" value={user.name} />
+      <button type="submit">Update</button>
+    </form>
+  );
+};
+```
+
+#### 4. Rate Limiting para APIs
+**Problema**: APIs vulneráveis a ataques de força bruta
+**Solução**: Implementar rate limiting
+
+```tsx
+// ❌ INCORRETO - Sem rate limiting
+export async function POST(request: NextRequest) {
+  const { email, password } = await request.json();
+  return await signIn(email, password);
+}
+
+// ✅ CORRETO - Com rate limiting
+import { rateLimit } from '@/lib/rate-limit';
+
+export async function POST(request: NextRequest) {
+  const ip = request.ip || 'unknown';
+  
+  // Limitar a 5 tentativas por minuto
+  const { success } = await rateLimit.limit(ip);
+  if (!success) {
+    return NextResponse.json({ error: 'Too many attempts' }, { status: 429 });
+  }
+  
+  const { email, password } = await request.json();
+  return await signIn(email, password);
+}
+```
+
+## 📋 PRÉ-REQUISITOS
+
+### Dependências de Segurança:
+```bash
+# Instalar Stack Auth e dependências de segurança
+npm install @stackframe/stack zod bcrypt helmet
+npm install -D @types/bcrypt
+
+# Instalar dependências para auditoria
+npm install @neondatabase/serverless jose
+```
+
+### Estrutura de Arquivos Segura:
+```
+src/
+├── lib/
+│   ├── auth.ts              # Configuração Stack Auth
+│   ├── security.ts          # Utilitários de segurança
+│   ├── rate-limit.ts        # Rate limiting
+│   ├── csrf.ts              # Proteção CSRF
+│   └── audit.ts             # Logs de auditoria
+├── middleware/
+│   ├── auth.ts              # Middleware de autenticação
+│   └── security.ts          # Middleware de segurança
+├── app/
+│   ├── api/
+│   │   ├── auth/            # Rotas de autenticação
+│   │   └── audit/           # Rotas de auditoria
+│   └── (auth)/              # Páginas de autenticação
+└── components/
+    ├── auth/                # Componentes de autenticação
+    └── security/            # Componentes de segurança
+```
+
+## 🚀 IMPLEMENTAÇÃO SEGURA DO STACK AUTH
+
+### 1. Configuração Base de Segurança (stack.tsx):
+
+```tsx
+import { StackServerApp } from "@stackframe/stack";
+
+export const stackServerApp = new StackServerApp({
+  tokenStore: "nextjs-cookie",
+  urls: {
+    signIn: "/auth/sign-in",
+    signUp: "/auth/sign-up",
+    emailVerification: "/auth/email-verification",
+    passwordReset: "/auth/password-reset",
+    home: "/dashboard",
+    afterSignIn: "/dashboard",
+    afterSignUp: "/auth/setup-profile",
+    afterEmailVerification: "/dashboard",
+    afterPasswordReset: "/dashboard",
+  },
+  // Configurações de segurança
+  cookies: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    sameSite: "strict",
+    maxAge: 24 * 60 * 60 * 1000, // 24 horas
+  },
+});
+```
+
+### 2. Middleware de Segurança (middleware.ts):
+
+```tsx
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { stackServerApp } from "@/stack";
+
+// Rotas protegidas
+const protectedRoutes = [
+  "/dashboard",
+  "/admin",
+  "/profile",
+  "/api/protected",
+];
+
+// Rotas de autenticação
+const authRoutes = [
+  "/auth/sign-in",
+  "/auth/sign-up",
+  "/auth/password-reset",
+];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  
+  // Headers de segurança
+  const response = NextResponse.next();
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  
+  // Verificar autenticação para rotas protegidas
+  if (protectedRoutes.some(route => pathname.startsWith(route))) {
+    const user = await stackServerApp.getUser({ or: "return-null" });
+    
+    if (!user) {
+      return NextResponse.redirect(new URL("/auth/sign-in", request.url));
+    }
+    
+    // Log de acesso para auditoria
+    await logAccess(user.id, pathname, request.ip);
+  }
+  
+  // Redirecionar usuários autenticados de páginas de auth
+  if (authRoutes.some(route => pathname.startsWith(route))) {
+    const user = await stackServerApp.getUser({ or: "return-null" });
+    
+    if (user) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+  
+  return response;
+}
+
+// Função de log de auditoria
+async function logAccess(userId: string, path: string, ip?: string) {
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql`
+      INSERT INTO audit_logs (user_id, action, path, ip_address, timestamp)
+      VALUES (${userId}, 'access', ${path}, ${ip || 'unknown'}, NOW())
+    `;
+  } catch (error) {
+    console.error("Erro ao registrar log de auditoria:", error);
+  }
+}
+
+export const config = {
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+  ],
+};
+```
+
+### 3. Proteção de Rotas API (api/protected/route.ts):
+
+```tsx
+import { NextRequest, NextResponse } from "next/server";
+import { stackServerApp } from "@/stack";
+import { z } from "zod";
+
+// Schema de validação
+const requestSchema = z.object({
+  action: z.enum(["create", "update", "delete"]),
+  data: z.object({
+    id: z.string().optional(),
+    title: z.string().min(1).max(255),
+    description: z.string().max(1000).optional(),
+  }),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    // Verificar autenticação
+    const user = await stackServerApp.getUser({ or: "return-null" });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
+    // Validar entrada
+    const body = await request.json();
+    const validatedData = requestSchema.parse(body);
+    
+    // Verificar permissões específicas
+    if (validatedData.action === "delete" && !user.serverMetadata?.isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    
+    // Log de auditoria
+    await logUserAction(user.id, validatedData.action, validatedData.data);
+    
+    // Processar requisição
+    const result = await processRequest(validatedData);
+    
+    return NextResponse.json({ success: true, data: result });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid data", details: error.errors }, { status: 400 });
+    }
+    
+    console.error("API Error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+async function logUserAction(userId: string, action: string, data: any) {
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql`
+      INSERT INTO audit_logs (user_id, action, data, timestamp)
+      VALUES (${userId}, ${action}, ${JSON.stringify(data)}, NOW())
+    `;
+  } catch (error) {
+    console.error("Erro ao registrar ação:", error);
+  }
+}
+
+async function processRequest(data: any) {
+  // Implementar lógica de negócio aqui
+  return { processed: true, timestamp: new Date().toISOString() };
+}
+```
+
+### 4. Componente de Auditoria (components/security/AuditLog.tsx):
+
+```tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useUser } from '@stackframe/stack';
+
+interface AuditEntry {
+  id: string;
+  user_id: string;
+  action: string;
+  path?: string;
+  data?: any;
+  ip_address?: string;
+  timestamp: string;
+}
+
+export default function AuditLog() {
+  const user = useUser({ or: "redirect" });
+  const [logs, setLogs] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    if (user?.serverMetadata?.isAdmin) {
+      fetchAuditLogs();
+    }
+  }, [user, filter]);
+
+  const fetchAuditLogs = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/audit/logs?filter=${filter}`);
+      const data = await response.json();
+      setLogs(data.logs);
+    } catch (error) {
+      console.error('Erro ao buscar logs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user?.serverMetadata?.isAdmin) {
+    return <div>Acesso negado</div>;
+  }
+
+  return (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          Logs de Auditoria
+        </h3>
+        
+        {/* Filtros */}
+        <div className="mb-4">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">Todas as ações</option>
+            <option value="access">Acessos</option>
+            <option value="create">Criações</option>
+            <option value="update">Atualizações</option>
+            <option value="delete">Exclusões</option>
+          </select>
+        </div>
+
+        {/* Tabela de logs */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Data/Hora
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Usuário
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ação
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Detalhes
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  IP
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {logs.map((log) => (
+                <tr key={log.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {log.user_id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      log.action === 'delete' ? 'bg-red-100 text-red-800' :
+                      log.action === 'create' ? 'bg-green-100 text-green-800' :
+                      log.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {log.action}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {log.path || JSON.stringify(log.data)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {log.ip_address}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+## ⚙️ CONFIGURAÇÕES DE SEGURANÇA AVANÇADAS
+
+### 1. Configuração de Rate Limiting (lib/rate-limit.ts):
+
+```tsx
+import { LRUCache } from 'lru-cache';
+
+type Options = {
+  uniqueTokenPerInterval?: number;
+  interval?: number;
+}
+
+export default function rateLimit(options?: Options) {
+  const tokenCache = new LRUCache({
+    max: options?.uniqueTokenPerInterval || 500,
+    ttl: options?.interval || 60000,
+  });
+
+  return {
+    check: (limit: number, token: string) =>
+      new Promise<void>((resolve, reject) => {
+        const tokenCount = (tokenCache.get(token) as number[]) || [0];
+        if (tokenCount[0] === 0) {
+          tokenCache.set(token, tokenCount);
+        }
+        tokenCount[0] += 1;
+
+        const currentUsage = tokenCount[0];
+        const isRateLimited = currentUsage >= limit;
+
+        if (isRateLimited) {
+          reject(new Error('Rate limit exceeded'));
+        } else {
+          resolve();
+        }
+      }),
+  };
+}
+```
+
+### 2. Configuração de CSRF (lib/csrf.ts):
+
+```tsx
+import { randomBytes } from 'crypto';
+
+const tokens = new Map<string, number>();
+
+export function generateCSRFToken(): string {
+  const token = randomBytes(32).toString('hex');
+  tokens.set(token, Date.now() + 3600000); // 1 hora
+  return token;
+}
+
+export function validateCSRFToken(token: string): boolean {
+  const expiry = tokens.get(token);
+  if (!expiry || Date.now() > expiry) {
+    tokens.delete(token);
+    return false;
+  }
+  
+  tokens.delete(token); // Token único
+  return true;
+}
+```
+
+### 3. Schema de Auditoria (database/audit_logs.sql):
+
+```sql
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  action VARCHAR(50) NOT NULL,
+  path TEXT,
+  data JSONB,
+  ip_address INET,
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para performance
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+```
+
+## 🛠️ TROUBLESHOOTING DE SEGURANÇA
+
+### Problema 1: Sessões não expiram
+**Causa**: Configuração incorreta do cookie
+**Solução**: Configurar maxAge corretamente
+
+### Problema 2: CSRF tokens inválidos
+**Causa**: Tokens não sincronizados
+**Solução**: Implementar store persistente para tokens
+
+### Problema 3: Rate limiting não funciona
+**Causa**: Cache não configurado
+**Solução**: Implementar cache Redis para produção
+
+### Problema 4: Logs de auditoria perdidos
+**Causa**: Falha na conexão com banco
+**Solução**: Implementar queue para logs críticos
+
+## ✅ CHECKLIST FINAL DE SEGURANÇA
+
+### Verificações Obrigatórias:
+- [ ] **Autenticação**: Stack Auth configurado corretamente
+- [ ] **Autorização**: Middleware de proteção implementado
+- [ ] **Validação**: Schemas Zod em todas as APIs
+- [ ] **Rate Limiting**: Proteção contra força bruta
+- [ ] **CSRF**: Proteção em formulários críticos
+- [ ] **Auditoria**: Logs de segurança implementados
+- [ ] **Headers**: Headers de segurança configurados
+- [ ] **Variáveis**: Secrets configurados corretamente
+- [ ] **Banco**: Conexão segura com Neon
+- [ ] **Build**: Sem erros de TypeScript
+- [ ] **Testes**: Testes de segurança executados
+
+### Comandos de Validação Final:
+```bash
+# Verificar configuração
+npm run build
+npx tsc --noEmit
+
+# Testar autenticação
+curl -X POST http://localhost:3000/api/auth/test
+
+# Verificar rate limiting
+for i in {1..10}; do curl -X POST http://localhost:3000/api/test; done
+
+# Testar auditoria
+curl -X GET http://localhost:3000/api/audit/logs
+```
+
+## 🎉 CONCLUSÃO
+
+Este prompt implementa uma arquitetura de segurança robusta com Stack Auth, incluindo:
+- ✅ **Autenticação segura** com renovação de sessões
+- ✅ **Proteção contra ataques** (CSRF, XSS, força bruta)
+- ✅ **Auditoria completa** de ações dos usuários
+- ✅ **Validação rigorosa** de dados de entrada
+- ✅ **Monitoramento** de segurança em tempo real
+
+**Mantenha sempre as dependências atualizadas e monitore os logs de segurança regularmente!** 
