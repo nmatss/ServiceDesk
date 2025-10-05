@@ -1,11 +1,17 @@
-import { beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals'
+import '@testing-library/jest-dom'
+import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import Database from 'better-sqlite3'
 
+// Set environment variables for tests
+process.env.NODE_ENV = 'test'
+process.env.JWT_SECRET = 'test-jwt-secret-minimum-32-characters-long-for-testing'
+process.env.DATABASE_URL = ':memory:'
+
 // Configuração para ambiente de teste
 export const TEST_DB_PATH = path.join(__dirname, '../data/test.db')
-export const ORIGINAL_ENV = process.env.NODE_ENV
+export const ORIGINAL_ENV = 'test'
 
 // Mock do banco de dados para testes
 let testDb: Database.Database

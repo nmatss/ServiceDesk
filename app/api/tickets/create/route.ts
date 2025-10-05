@@ -1,92 +1,114 @@
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import {
+  apiHandler,
+  getUserFromRequest,
+  getTenantFromRequest,
+  parseJSONBody,
+  validateTenantAccess,
+} from '@/lib/api/api-helpers'
+import { NotFoundError, ConflictError } from '@/lib/errors/error-handler'
+import { ticketSchemas } from '@/lib/validation/schemas'
+import { safeQuery, safeTransaction } from '@/lib/db/safe-queries'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { getWorkflowManager } from '@/lib/workflow/manager'
 import { getDb } from '@/lib/db'
 
-export async function POST(request: NextRequest) {
-  try {
-    const tenantId = getCurrentTenantId()
-    const workflowManager = getWorkflowManager()
-    const db = getDb()
-    const data = await request.json()
+/**
+ * POST /api/tickets/create
+ * Create a new ticket with workflow processing
+ */
+export const POST = apiHandler(async (request: NextRequest) => {
+  // 1. Extract authenticated user and tenant
+  const user = getUserFromRequest(request)
+  const tenant = getTenantFromRequest(request)
 
-    // Validate required fields
-    if (!data.title || !data.description || !data.ticket_type_id || !data.category_id || !data.priority_id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Missing required fields: title, description, ticket_type_id, category_id, priority_id'
-        },
-        { status: 400 }
-      )
-    }
+  // 2. Validate and parse request body with Zod schema
+  const createTicketSchema = ticketSchemas.create.extend({
+    ticket_type_id: ticketSchemas.create.shape.category_id,
+    impact: ticketSchemas.create.shape.priority_id.optional(),
+    urgency: ticketSchemas.create.shape.priority_id.optional(),
+    affected_users_count: ticketSchemas.create.shape.priority_id.optional(),
+    business_service: ticketSchemas.create.shape.title.optional(),
+    location: ticketSchemas.create.shape.title.optional(),
+    source: ticketSchemas.create.shape.title.optional(),
+  })
 
-    // Validate ticket type belongs to tenant
-    const ticketType = db.prepare(`
+  const data = await parseJSONBody(request, createTicketSchema as any)
+
+  const tenantId = tenant.id
+  const workflowManager = getWorkflowManager()
+  const db = getDb()
+
+  // 3. Validate ticket type belongs to tenant (with safe query)
+  const ticketTypeResult = safeQuery(
+    () => db.prepare(`
       SELECT * FROM ticket_types
       WHERE id = ? AND tenant_id = ? AND is_active = 1
-    `).get(data.ticket_type_id, tenantId)
+    `).get(data.ticket_type_id, tenantId),
+    'get ticket type'
+  )
 
-    if (!ticketType) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid ticket type' },
-        { status: 400 }
-      )
-    }
+  if (!ticketTypeResult.success || !ticketTypeResult.data) {
+    throw new NotFoundError('Ticket type')
+  }
 
-    // Validate category belongs to tenant
-    const category = db.prepare(`
+  const ticketType = ticketTypeResult.data
+
+  // 4. Validate category belongs to tenant
+  const categoryResult = safeQuery(
+    () => db.prepare(`
       SELECT * FROM categories
       WHERE id = ? AND tenant_id = ? AND is_active = 1
-    `).get(data.category_id, tenantId)
+    `).get(data.category_id, tenantId),
+    'get category'
+  )
 
-    if (!category) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid category' },
-        { status: 400 }
-      )
-    }
+  if (!categoryResult.success || !categoryResult.data) {
+    throw new NotFoundError('Category')
+  }
 
-    // Validate priority belongs to tenant
-    const priority = db.prepare(`
+  const category = categoryResult.data
+
+  // 5. Validate priority belongs to tenant
+  const priorityResult = safeQuery(
+    () => db.prepare(`
       SELECT * FROM priorities
       WHERE id = ? AND tenant_id = ? AND is_active = 1
-    `).get(data.priority_id, tenantId)
+    `).get(data.priority_id, tenantId),
+    'get priority'
+  )
 
-    if (!priority) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid priority' },
-        { status: 400 }
-      )
-    }
+  if (!priorityResult.success || !priorityResult.data) {
+    throw new NotFoundError('Priority')
+  }
 
-    // Prepare ticket data for workflow processing
-    const ticketData = {
-      tenant_id: tenantId,
-      title: data.title,
-      description: data.description,
-      ticket_type_id: data.ticket_type_id,
-      user_id: data.user_id || 1, // TODO: Get from authenticated user
-      category_id: data.category_id,
-      priority_id: data.priority_id,
-      impact: data.impact || 3,
-      urgency: data.urgency || 3,
-      affected_users_count: data.affected_users_count || 1,
-      business_service: data.business_service,
-      location: data.location
-    }
+  const priority = priorityResult.data
 
-    // Process through workflow manager
-    const workflowResult = await workflowManager.processTicketCreation(ticketData)
+  // 6. Prepare ticket data for workflow processing
+  const ticketData = {
+    tenant_id: tenantId,
+    title: data.title,
+    description: data.description,
+    ticket_type_id: data.ticket_type_id,
+    user_id: user.id, // ✅ From authenticated user (not hardcoded!)
+    category_id: data.category_id,
+    priority_id: data.priority_id,
+    impact: data.impact || 3,
+    urgency: data.urgency || 3,
+    affected_users_count: data.affected_users_count || 1,
+    business_service: data.business_service,
+    location: data.location
+  }
 
-    if (!workflowResult.success) {
-      return NextResponse.json(
-        { success: false, error: workflowResult.error },
-        { status: 400 }
-      )
-    }
+  // 7. Process through workflow manager
+  const workflowResult = await workflowManager.processTicketCreation(ticketData)
 
-    // Create ticket in database
+  if (!workflowResult.success) {
+    throw new ConflictError(workflowResult.error || 'Workflow processing failed')
+  }
+
+  // 8. Create ticket in database with transaction
+  const transactionResult = safeTransaction(db, (db) => {
     const insertTicket = db.prepare(`
       INSERT INTO tickets (
         tenant_id, title, description, ticket_type_id, user_id, category_id,
@@ -114,15 +136,23 @@ export async function POST(request: NextRequest) {
       data.source || 'web'
     )
 
-    const ticketId = result.lastInsertRowid as number
+    return result.lastInsertRowid as number
+  }, 'create ticket')
 
-    // Handle approval workflow if required
-    if (workflowResult.approval_required) {
-      await this.createApprovalWorkflow(ticketId, tenantId, ticketType)
-    }
+  if (!transactionResult.success) {
+    throw new Error(transactionResult.error)
+  }
 
-    // Get the created ticket with all relations
-    const createdTicket = db.prepare(`
+  const ticketId = transactionResult.data
+
+  // 9. Handle approval workflow if required
+  if (workflowResult.approval_required) {
+    await createApprovalWorkflow(ticketId, tenantId, ticketType)
+  }
+
+  // 10. Get the created ticket with all relations
+  const createdTicketResult = safeQuery(
+    () => db.prepare(`
       SELECT
         t.*,
         tt.name as ticket_type_name,
@@ -145,10 +175,19 @@ export async function POST(request: NextRequest) {
       LEFT JOIN users a ON t.assigned_to = a.id
       LEFT JOIN teams team ON t.assigned_team_id = team.id
       WHERE t.id = ?
-    `).get(ticketId)
+    `).get(ticketId),
+    'get created ticket'
+  )
 
-    // Log ticket creation for analytics
-    db.prepare(`
+  if (!createdTicketResult.success || !createdTicketResult.data) {
+    throw new Error('Failed to retrieve created ticket')
+  }
+
+  const createdTicket = createdTicketResult.data
+
+  // 11. Log ticket creation for analytics
+  safeQuery(
+    () => db.prepare(`
       INSERT INTO audit_logs (tenant_id, user_id, entity_type, entity_id, action, new_values)
       VALUES (?, ?, 'ticket', ?, 'create', ?)
     `).run(
@@ -156,37 +195,32 @@ export async function POST(request: NextRequest) {
       ticketData.user_id,
       ticketId,
       JSON.stringify({
-        ticket_type: ticketType.workflow_type,
-        category: category.name,
-        priority: priority.name,
+        ticket_type: (ticketType as any).workflow_type,
+        category: (category as any).name,
+        priority: (priority as any).name,
         workflow_result: workflowResult.message
       })
-    )
+    ),
+    'log ticket creation'
+  )
 
-    // Send notifications based on workflow type
-    await this.sendWorkflowNotifications(createdTicket, workflowResult, ticketType)
+  // 12. Send notifications based on workflow type
+  await sendWorkflowNotifications(createdTicket, workflowResult, ticketType)
 
-    return NextResponse.json({
-      success: true,
-      ticket: createdTicket,
-      workflow_result: {
-        message: workflowResult.message,
-        approval_required: workflowResult.approval_required,
-        assigned_team: workflowResult.assigned_team_id ? 'auto-assigned' : 'pending assignment'
-      },
-      message: `${ticketType.name} created successfully`
-    })
-
-  } catch (error) {
-    console.error('Error creating ticket:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to create ticket' },
-      { status: 500 }
-    )
+  // 13. Return success response
+  return {
+    ticket: createdTicket,
+    workflow_result: {
+      message: workflowResult.message,
+      approval_required: workflowResult.approval_required,
+      assigned_team: workflowResult.assigned_team_id ? 'auto-assigned' : 'pending assignment'
+    },
+    message: `${(ticketType as any).name} created successfully`
   }
+})
 
-  // Helper method to create approval workflow
-  async createApprovalWorkflow(ticketId: number, tenantId: number, ticketType: any) {
+// Helper function to create approval workflow
+async function createApprovalWorkflow(ticketId: number, tenantId: number, ticketType: any) {
     const db = getDb()
 
     // Find approval workflow for this ticket type
@@ -212,8 +246,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Helper method to send workflow-specific notifications
-  async sendWorkflowNotifications(ticket: any, workflowResult: any, ticketType: any) {
+// Helper function to send workflow-specific notifications
+async function sendWorkflowNotifications(ticket: any, workflowResult: any, ticketType: any) {
     // Implementation would depend on your notification system
     // This is where you'd send different notifications based on workflow type
 

@@ -1,413 +1,267 @@
-import validator from 'validator'
+/**
+ * Zod Validation Schemas
+ * Type-safe validation for all API inputs
+ */
 
-// Tipos de validação
-export interface ValidationResult {
-  valid: boolean
-  errors: string[]
-  sanitized?: any
-}
+import { z } from 'zod'
 
-export interface ValidationRule {
-  required?: boolean
-  type?: 'string' | 'number' | 'email' | 'url' | 'date' | 'boolean' | 'array' | 'object'
-  minLength?: number
-  maxLength?: number
-  min?: number
-  max?: number
-  pattern?: RegExp
-  enum?: string[]
-  custom?: (value: any) => string | null
-  sanitize?: boolean
-}
-
-export interface ValidationSchema {
-  [key: string]: ValidationRule
+/**
+ * Common validation schemas used across the application
+ */
+export const commonSchemas = {
+  id: z.number().int().positive(),
+  email: z.string().email().max(254),
+  slug: z.string().regex(/^[a-z0-9-]+$/),
+  password: z
+    .string()
+    .min(8)
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
+  organizationId: z.number().int().positive(),
+  url: z.string().url(),
+  hexColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
+  domain: z.string().regex(/^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i),
+  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/),
+  timezone: z.string().min(1).max(50),
 }
 
 /**
- * Sanitizar string removendo caracteres perigosos
+ * User validation schemas
  */
-function sanitizeString(str: string): string {
-  if (typeof str !== 'string') return str
+export const userSchemas = {
+  create: z.object({
+    name: z.string().min(1).max(255),
+    email: commonSchemas.email,
+    password: commonSchemas.password,
+    role: z.enum(['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'user']),
+    organization_id: commonSchemas.organizationId,
+    phone: commonSchemas.phoneNumber.optional(),
+    avatar_url: commonSchemas.url.optional(),
+  }),
 
-  return str
-    .trim()
-    .replace(/[<>\"']/g, '') // Remove caracteres HTML perigosos
-    .replace(/\x00/g, '') // Remove null bytes
-    .substring(0, 5000) // Limita tamanho
+  update: z.object({
+    id: commonSchemas.id,
+    name: z.string().min(1).max(255).optional(),
+    email: commonSchemas.email.optional(),
+    password: commonSchemas.password.optional(),
+    role: z.enum(['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'user']).optional(),
+    phone: commonSchemas.phoneNumber.optional(),
+    avatar_url: commonSchemas.url.optional(),
+    is_active: z.boolean().optional(),
+  }),
+
+  login: z.object({
+    email: commonSchemas.email,
+    password: z.string().min(1),
+  }),
+
+  query: z.object({
+    page: z.number().int().min(1).default(1),
+    limit: z.number().int().min(1).max(100).default(25),
+    role: z.enum(['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'user']).optional(),
+    is_active: z.boolean().optional(),
+    search: z.string().max(255).optional(),
+  }),
 }
 
 /**
- * Validar email
+ * Ticket validation schemas
  */
-function validateEmail(email: string): boolean {
-  return validator.isEmail(email) && email.length <= 254
+export const ticketSchemas = {
+  create: z.object({
+    title: z.string().min(1).max(500),
+    description: z.string().min(1).max(10000),
+    category_id: commonSchemas.id,
+    priority_id: commonSchemas.id,
+    organization_id: commonSchemas.organizationId,
+    user_id: commonSchemas.id,
+    assigned_to: commonSchemas.id.optional(),
+    tags: z.array(z.string().max(50)).max(10).optional(),
+  }),
+
+  update: z.object({
+    id: commonSchemas.id,
+    title: z.string().min(1).max(500).optional(),
+    description: z.string().min(1).max(10000).optional(),
+    category_id: commonSchemas.id.optional(),
+    priority_id: commonSchemas.id.optional(),
+    status_id: commonSchemas.id.optional(),
+    assigned_to: commonSchemas.id.nullable().optional(),
+    tags: z.array(z.string().max(50)).max(10).optional(),
+  }),
+
+  query: z.object({
+    page: z.number().int().min(1).default(1),
+    limit: z.number().int().min(1).max(100).default(25),
+    status_id: commonSchemas.id.optional(),
+    priority_id: commonSchemas.id.optional(),
+    category_id: commonSchemas.id.optional(),
+    assigned_to: commonSchemas.id.optional(),
+    user_id: commonSchemas.id.optional(),
+    search: z.string().max(255).optional(),
+    tags: z.array(z.string()).optional(),
+  }),
 }
 
 /**
- * Validar URL
+ * Comment validation schemas
  */
-function validateUrl(url: string): boolean {
-  return validator.isURL(url, {
-    protocols: ['http', 'https'],
-    require_protocol: true
-  })
+export const commentSchemas = {
+  create: z.object({
+    ticket_id: commonSchemas.id,
+    user_id: commonSchemas.id,
+    content: z.string().min(1).max(10000),
+    is_internal: z.boolean().default(false),
+  }),
+
+  update: z.object({
+    id: commonSchemas.id,
+    content: z.string().min(1).max(10000),
+    is_internal: z.boolean().optional(),
+  }),
 }
 
 /**
- * Validar data
+ * Attachment validation schemas
  */
-function validateDate(date: string): boolean {
-  return validator.isISO8601(date) || validator.isDate(date)
+export const attachmentSchemas = {
+  create: z.object({
+    ticket_id: commonSchemas.id,
+    filename: z.string().min(1).max(255),
+    file_path: z.string().min(1).max(500),
+    mime_type: z.string().min(1).max(100),
+    file_size: z.number().int().min(1).max(52428800), // 50MB max
+    uploaded_by: commonSchemas.id,
+  }),
 }
 
 /**
- * Validar valor individual
+ * Category validation schemas
  */
-function validateField(value: any, rule: ValidationRule, fieldName: string): ValidationResult {
-  const errors: string[] = []
-  let sanitized = value
+export const categorySchemas = {
+  create: z.object({
+    name: z.string().min(1).max(255),
+    description: z.string().max(1000).optional(),
+    color: commonSchemas.hexColor.default('#6B7280'),
+    icon: z.string().max(50).optional(),
+    organization_id: commonSchemas.organizationId,
+  }),
 
-  // Verificar se é obrigatório
-  if (rule.required && (value === undefined || value === null || value === '')) {
-    errors.push(`${fieldName} é obrigatório`)
-    return { valid: false, errors }
-  }
-
-  // Se não é obrigatório e está vazio, é válido
-  if (!rule.required && (value === undefined || value === null || value === '')) {
-    return { valid: true, errors: [], sanitized: value }
-  }
-
-  // Sanitização
-  if (rule.sanitize && typeof value === 'string') {
-    sanitized = sanitizeString(value)
-  }
-
-  // Validação por tipo
-  switch (rule.type) {
-    case 'string':
-      if (typeof value !== 'string') {
-        errors.push(`${fieldName} deve ser uma string`)
-      }
-      break
-
-    case 'number':
-      if (typeof value !== 'number' && !validator.isNumeric(String(value))) {
-        errors.push(`${fieldName} deve ser um número`)
-      } else {
-        sanitized = Number(value)
-      }
-      break
-
-    case 'email':
-      if (!validateEmail(String(value))) {
-        errors.push(`${fieldName} deve ser um email válido`)
-      }
-      break
-
-    case 'url':
-      if (!validateUrl(String(value))) {
-        errors.push(`${fieldName} deve ser uma URL válida`)
-      }
-      break
-
-    case 'date':
-      if (!validateDate(String(value))) {
-        errors.push(`${fieldName} deve ser uma data válida`)
-      }
-      break
-
-    case 'boolean':
-      if (typeof value !== 'boolean') {
-        // Tentar converter strings comuns
-        if (value === 'true' || value === '1') {
-          sanitized = true
-        } else if (value === 'false' || value === '0') {
-          sanitized = false
-        } else {
-          errors.push(`${fieldName} deve ser um boolean`)
-        }
-      }
-      break
-
-    case 'array':
-      if (!Array.isArray(value)) {
-        errors.push(`${fieldName} deve ser um array`)
-      }
-      break
-
-    case 'object':
-      if (typeof value !== 'object' || Array.isArray(value) || value === null) {
-        errors.push(`${fieldName} deve ser um objeto`)
-      }
-      break
-  }
-
-  // Validação de tamanho para strings
-  if (rule.type === 'string' && typeof sanitized === 'string') {
-    if (rule.minLength && sanitized.length < rule.minLength) {
-      errors.push(`${fieldName} deve ter pelo menos ${rule.minLength} caracteres`)
-    }
-    if (rule.maxLength && sanitized.length > rule.maxLength) {
-      errors.push(`${fieldName} deve ter no máximo ${rule.maxLength} caracteres`)
-    }
-  }
-
-  // Validação de valor para números
-  if (rule.type === 'number' && typeof sanitized === 'number') {
-    if (rule.min !== undefined && sanitized < rule.min) {
-      errors.push(`${fieldName} deve ser maior ou igual a ${rule.min}`)
-    }
-    if (rule.max !== undefined && sanitized > rule.max) {
-      errors.push(`${fieldName} deve ser menor ou igual a ${rule.max}`)
-    }
-  }
-
-  // Validação de padrão
-  if (rule.pattern && !rule.pattern.test(String(sanitized))) {
-    errors.push(`${fieldName} não atende ao formato exigido`)
-  }
-
-  // Validação de enum
-  if (rule.enum && !rule.enum.includes(String(sanitized))) {
-    errors.push(`${fieldName} deve ser um dos valores: ${rule.enum.join(', ')}`)
-  }
-
-  // Validação customizada
-  if (rule.custom) {
-    const customError = rule.custom(sanitized)
-    if (customError) {
-      errors.push(customError)
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-    sanitized
-  }
+  update: z.object({
+    id: commonSchemas.id,
+    name: z.string().min(1).max(255).optional(),
+    description: z.string().max(1000).optional(),
+    color: commonSchemas.hexColor.optional(),
+    icon: z.string().max(50).optional(),
+  }),
 }
 
 /**
- * Validar objeto completo usando schema
+ * Priority validation schemas
  */
-export function validateSchema(data: any, schema: ValidationSchema): ValidationResult {
-  if (!data || typeof data !== 'object') {
-    return {
-      valid: false,
-      errors: ['Dados devem ser um objeto válido']
-    }
-  }
+export const prioritySchemas = {
+  create: z.object({
+    name: z.string().min(1).max(255),
+    level: z.number().int().min(1).max(10),
+    color: commonSchemas.hexColor.default('#6B7280'),
+    response_time_hours: z.number().int().min(1).optional(),
+    resolution_time_hours: z.number().int().min(1).optional(),
+    organization_id: commonSchemas.organizationId,
+  }),
 
-  const allErrors: string[] = []
-  const sanitizedData: any = {}
-
-  // Validar cada campo do schema
-  for (const [fieldName, rule] of Object.entries(schema)) {
-    const result = validateField(data[fieldName], rule, fieldName)
-
-    if (!result.valid) {
-      allErrors.push(...result.errors)
-    } else {
-      sanitizedData[fieldName] = result.sanitized
-    }
-  }
-
-  return {
-    valid: allErrors.length === 0,
-    errors: allErrors,
-    sanitized: sanitizedData
-  }
-}
-
-// Schemas pré-definidos
-export const schemas = {
-  // Schema para login
-  login: {
-    email: {
-      required: true,
-      type: 'email' as const,
-      sanitize: true
-    },
-    password: {
-      required: true,
-      type: 'string' as const,
-      minLength: 6,
-      maxLength: 100
-    }
-  },
-
-  // Schema para registro de usuário
-  userRegistration: {
-    name: {
-      required: true,
-      type: 'string' as const,
-      minLength: 2,
-      maxLength: 100,
-      sanitize: true
-    },
-    email: {
-      required: true,
-      type: 'email' as const,
-      sanitize: true
-    },
-    password: {
-      required: true,
-      type: 'string' as const,
-      minLength: 8,
-      maxLength: 100,
-      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, // Pelo menos 1 minúscula, 1 maiúscula, 1 número
-      custom: (value: string) => {
-        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
-          return 'Senha deve conter pelo menos 1 letra minúscula, 1 maiúscula e 1 número'
-        }
-        return null
-      }
-    },
-    role: {
-      required: false,
-      type: 'string' as const,
-      enum: ['admin', 'agent', 'user']
-    }
-  },
-
-  // Schema para criação de ticket
-  ticketCreation: {
-    title: {
-      required: true,
-      type: 'string' as const,
-      minLength: 5,
-      maxLength: 200,
-      sanitize: true
-    },
-    description: {
-      required: true,
-      type: 'string' as const,
-      minLength: 10,
-      maxLength: 5000,
-      sanitize: true
-    },
-    priority_id: {
-      required: true,
-      type: 'number' as const,
-      min: 1
-    },
-    category_id: {
-      required: true,
-      type: 'number' as const,
-      min: 1
-    },
-    user_email: {
-      required: false,
-      type: 'email' as const,
-      sanitize: true
-    }
-  },
-
-  // Schema para upload de arquivo
-  fileUpload: {
-    filename: {
-      required: true,
-      type: 'string' as const,
-      maxLength: 255,
-      sanitize: true,
-      custom: (value: string) => {
-        if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
-          return 'Nome do arquivo contém caracteres inválidos'
-        }
-        return null
-      }
-    },
-    size: {
-      required: true,
-      type: 'number' as const,
-      min: 1,
-      max: 50 * 1024 * 1024 // 50MB
-    },
-    mimeType: {
-      required: true,
-      type: 'string' as const,
-      enum: [
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-        'application/pdf', 'text/plain',
-        'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      ]
-    }
-  },
-
-  // Schema para busca
-  search: {
-    query: {
-      required: true,
-      type: 'string' as const,
-      minLength: 1,
-      maxLength: 200,
-      sanitize: true
-    },
-    limit: {
-      required: false,
-      type: 'number' as const,
-      min: 1,
-      max: 100
-    },
-    offset: {
-      required: false,
-      type: 'number' as const,
-      min: 0
-    }
-  },
-
-  // Schema para comentário
-  comment: {
-    content: {
-      required: true,
-      type: 'string' as const,
-      minLength: 1,
-      maxLength: 2000,
-      sanitize: true
-    },
-    ticket_id: {
-      required: true,
-      type: 'number' as const,
-      min: 1
-    },
-    is_internal: {
-      required: false,
-      type: 'boolean' as const
-    }
-  }
+  update: z.object({
+    id: commonSchemas.id,
+    name: z.string().min(1).max(255).optional(),
+    level: z.number().int().min(1).max(10).optional(),
+    color: commonSchemas.hexColor.optional(),
+    response_time_hours: z.number().int().min(1).optional(),
+    resolution_time_hours: z.number().int().min(1).optional(),
+  }),
 }
 
 /**
- * Middleware de validação para APIs
+ * Status validation schemas
  */
-export function createValidationMiddleware(schemaName: keyof typeof schemas) {
-  return function validateRequest(data: any): ValidationResult {
-    const schema = schemas[schemaName]
-    return validateSchema(data, schema)
-  }
+export const statusSchemas = {
+  create: z.object({
+    name: z.string().min(1).max(255),
+    color: commonSchemas.hexColor.default('#6B7280'),
+    is_final: z.boolean().default(false),
+    order_index: z.number().int().min(0).default(0),
+    organization_id: commonSchemas.organizationId,
+  }),
+
+  update: z.object({
+    id: commonSchemas.id,
+    name: z.string().min(1).max(255).optional(),
+    color: commonSchemas.hexColor.optional(),
+    is_final: z.boolean().optional(),
+    order_index: z.number().int().min(0).optional(),
+  }),
 }
 
 /**
- * Validação de parâmetros de URL
+ * SLA Policy validation schemas
  */
-export function validateParams(params: any, rules: ValidationSchema): ValidationResult {
-  return validateSchema(params, rules)
+export const slaSchemas = {
+  create: z.object({
+    name: z.string().min(1).max(255),
+    priority_id: commonSchemas.id,
+    response_time_hours: z.number().int().positive(),
+    resolution_time_hours: z.number().int().positive(),
+    organization_id: commonSchemas.organizationId,
+  }),
+
+  update: z.object({
+    id: commonSchemas.id,
+    name: z.string().min(1).max(255).optional(),
+    response_time_hours: z.number().int().positive().optional(),
+    resolution_time_hours: z.number().int().positive().optional(),
+  }),
 }
 
 /**
- * Validação de query parameters
+ * Organization validation schemas
  */
-export function validateQuery(query: any, rules: ValidationSchema): ValidationResult {
-  return validateSchema(query, rules)
+export const organizationSchemas = {
+  create: z.object({
+    name: z.string().min(1).max(255),
+    slug: commonSchemas.slug,
+    domain: commonSchemas.domain.optional(),
+    settings: z.record(z.unknown()).optional(),
+  }),
+
+  update: z.object({
+    id: commonSchemas.id,
+    name: z.string().min(1).max(255).optional(),
+    domain: commonSchemas.domain.optional(),
+    settings: z.record(z.unknown()).optional(),
+    is_active: z.boolean().optional(),
+  }),
 }
 
-export default {
-  validateSchema,
-  validateField,
-  schemas,
-  createValidationMiddleware,
-  validateParams,
-  validateQuery
+/**
+ * Knowledge Base Article schemas
+ */
+export const kbArticleSchemas = {
+  create: z.object({
+    title: z.string().min(1).max(500),
+    content: z.string().min(1),
+    slug: commonSchemas.slug,
+    category_id: commonSchemas.id,
+    author_id: commonSchemas.id,
+    organization_id: commonSchemas.organizationId,
+    is_published: z.boolean().default(false),
+    tags: z.array(z.string().max(50)).max(20).optional(),
+  }),
+
+  update: z.object({
+    id: commonSchemas.id,
+    title: z.string().min(1).max(500).optional(),
+    content: z.string().min(1).optional(),
+    category_id: commonSchemas.id.optional(),
+    is_published: z.boolean().optional(),
+    tags: z.array(z.string().max(50)).max(20).optional(),
+  }),
 }
