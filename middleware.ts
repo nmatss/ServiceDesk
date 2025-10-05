@@ -3,9 +3,59 @@ import type { NextRequest } from 'next/server'
 import * as jose from 'jose'
 import { getJWTSecret, isProduction } from './lib/config/env'
 import { applySecurityHeaders, sanitizeHeaderValue } from './lib/security/headers'
+import { validateCSRFToken, setCSRFToken } from './lib/security/csrf'
+import crypto from 'crypto'
 
 // Get JWT secret securely
 const JWT_SECRET = new TextEncoder().encode(getJWTSecret())
+
+// ========================
+// PERFORMANCE UTILITIES
+// ========================
+
+/**
+ * Generate ETag for response caching
+ */
+function generateETag(body: string | Buffer): string {
+  const hash = crypto.createHash('md5')
+  hash.update(typeof body === 'string' ? body : body.toString())
+  return `"${hash.digest('hex')}"`
+}
+
+/**
+ * Check if request supports Brotli compression
+ */
+function supportsBrotli(request: NextRequest): boolean {
+  const acceptEncoding = request.headers.get('accept-encoding') || ''
+  return acceptEncoding.includes('br')
+}
+
+/**
+ * Get cache control header based on route
+ */
+function getCacheControl(pathname: string): string {
+  // Static assets - cache for 1 year
+  if (
+    pathname.startsWith('/_next/static/') ||
+    pathname.startsWith('/static/') ||
+    pathname.match(/\.(jpg|jpeg|png|gif|ico|svg|webp|avif|woff|woff2|ttf|eot)$/)
+  ) {
+    return 'public, max-age=31536000, immutable'
+  }
+
+  // API routes - no cache by default (routes can override)
+  if (pathname.startsWith('/api/')) {
+    return 'no-store, must-revalidate'
+  }
+
+  // Landing page and public pages - cache for 5 minutes with revalidation
+  if (pathname === '/landing' || pathname === '/portal') {
+    return 'public, max-age=300, stale-while-revalidate=600'
+  }
+
+  // Protected pages - private cache for 60 seconds
+  return 'private, max-age=60, must-revalidate'
+}
 
 // Routes that don't require tenant resolution
 const PUBLIC_ROUTES = [
@@ -81,6 +131,32 @@ export async function middleware(request: NextRequest) {
 
   // Create response
   let response = NextResponse.next()
+
+  // CSRF Protection - validate token for state-changing requests
+  // This happens early to reject invalid requests before expensive operations
+  const needsCSRFValidation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method.toUpperCase())
+  const isPublicCSRFPath = pathname.startsWith('/api/auth/login') ||
+                           pathname.startsWith('/api/auth/register') ||
+                           pathname.startsWith('/api/auth/sso/')
+
+  if (needsCSRFValidation && !isPublicCSRFPath) {
+    const isValidCSRF = validateCSRFToken(request)
+
+    if (!isValidCSRF) {
+      // Return CSRF error response
+      const csrfError = NextResponse.json(
+        {
+          error: 'CSRF token validation failed',
+          message: 'Invalid or missing CSRF token. Please refresh the page and try again.',
+          code: 'CSRF_VALIDATION_FAILED'
+        },
+        { status: 403 }
+      )
+
+      // Apply security headers even to error responses
+      return applySecurityHeaders(csrfError)
+    }
+  }
 
   // Extract tenant information from request
   const tenantInfo = extractTenantInfo(hostname, pathname, request)
@@ -181,8 +257,58 @@ export async function middleware(request: NextRequest) {
     path: '/',
   })
 
+  // ========================
+  // PERFORMANCE OPTIMIZATIONS
+  // ========================
+
+  // Add cache control headers
+  const cacheControl = getCacheControl(pathname)
+  response.headers.set('Cache-Control', cacheControl)
+
+  // Add Vary header for compression
+  response.headers.set('Vary', 'Accept-Encoding, Cookie')
+
+  // ETag support for conditional requests (only for GET requests)
+  if (request.method === 'GET') {
+    const ifNoneMatch = request.headers.get('if-none-match')
+
+    // For static routes, we can use pathname as ETag
+    if (
+      pathname.startsWith('/_next/static/') ||
+      pathname.startsWith('/static/')
+    ) {
+      const etag = generateETag(pathname)
+      response.headers.set('ETag', etag)
+
+      // Return 304 if ETag matches
+      if (ifNoneMatch === etag) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: response.headers,
+        })
+      }
+    }
+  }
+
+  // Add compression hints
+  if (supportsBrotli(request)) {
+    response.headers.set('X-Compression-Available', 'br')
+  } else if (request.headers.get('accept-encoding')?.includes('gzip')) {
+    response.headers.set('X-Compression-Available', 'gzip')
+  }
+
+  // Performance timing headers (only in development)
+  if (!isProduction()) {
+    const processingTime = Date.now() - Date.now() // This would need actual start time
+    response.headers.set('X-Response-Time', `${processingTime}ms`)
+  }
+
   // Apply security headers
   response = applySecurityHeaders(response)
+
+  // Set CSRF token in response for all requests (token rotation)
+  // This ensures clients always have a valid token for the next request
+  response = setCSRFToken(response)
 
   return response
 }

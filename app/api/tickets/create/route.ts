@@ -266,4 +266,3 @@ async function sendWorkflowNotifications(ticket: any, workflowResult: any, ticke
         break
     }
   }
-}

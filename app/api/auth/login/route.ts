@@ -3,9 +3,10 @@ import { verifyPassword } from '@/lib/auth/sqlite-auth';
 import { getDb } from '@/lib/db';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
+import { validateJWTSecret } from '@/lib/config/env';
 import * as jose from 'jose';
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key-for-jwt-development-only');
+const JWT_SECRET = new TextEncoder().encode(validateJWTSecret());
 
 // Rate limiting para login
 const loginRateLimit = createRateLimitMiddleware('auth');

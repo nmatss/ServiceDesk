@@ -1,143 +1,88 @@
 /**
- * Environment Configuration Module
- * Centralized and type-safe environment variable access
+ * Environment Variable Validation and Management
+ * Ensures critical environment variables are set in production
  */
 
-/**
- * Critical: JWT Secret
- * MUST be set in production, no defaults allowed
- */
-export function getJWTSecret(): string {
-  const secret = process.env.JWT_SECRET
-
-  if (!secret) {
+export function validateJWTSecret(): string {
+  if (!process.env.JWT_SECRET) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        'CRITICAL SECURITY ERROR: JWT_SECRET must be set in production environment'
-      )
+        '🔴 FATAL: JWT_SECRET environment variable must be set in production!\n' +
+        'Generate a secure secret with: openssl rand -hex 32\n' +
+        'Then set it in your .env file or deployment environment.'
+      );
     }
-    // Development only - log warning
+
     console.warn(
-      '⚠️  WARNING: Using default JWT_SECRET in development. DO NOT use in production!'
-    )
-    return 'dev-only-secret-change-in-production-8f7d9e6c5b4a3'
+      '⚠️  WARNING: Using development JWT secret. ' +
+      'This is INSECURE for production use!'
+    );
+
+    return 'dev-secret-CHANGE-ME-IN-PRODUCTION';
   }
 
-  // Validate secret length (minimum 32 characters)
-  if (secret.length < 32) {
-    throw new Error(
-      'SECURITY ERROR: JWT_SECRET must be at least 32 characters long'
-    )
+  // Validate minimum length (256 bits = 32 bytes)
+  if (process.env.JWT_SECRET.length < 32) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        '🔴 FATAL: JWT_SECRET must be at least 32 characters long for security!\n' +
+        'Generate a secure secret with: openssl rand -hex 32'
+      );
+    }
+
+    console.warn('⚠️  WARNING: JWT_SECRET is too short. Should be at least 32 characters.');
   }
 
-  return secret
+  return process.env.JWT_SECRET;
 }
 
-/**
- * Database configuration
- */
-export function getDatabasePath(): string {
-  return process.env.DATABASE_URL || './servicedesk.db'
-}
-
-/**
- * Node environment
- */
-export function getNodeEnv(): 'development' | 'production' | 'test' {
-  const env = process.env.NODE_ENV
-  if (env === 'production' || env === 'test') {
-    return env
+export function validateOpenAIKey(): string | undefined {
+  if (!process.env.OPENAI_API_KEY) {
+    console.warn('⚠️  OPENAI_API_KEY not set. AI features will be disabled.');
+    return undefined;
   }
-  return 'development'
-}
 
-/**
- * Check if in production
- */
-export function isProduction(): boolean {
-  return getNodeEnv() === 'production'
-}
-
-/**
- * Check if in development
- */
-export function isDevelopment(): boolean {
-  return getNodeEnv() === 'development'
-}
-
-/**
- * Get port configuration
- */
-export function getPort(): number {
-  const port = process.env.PORT
-  return port ? parseInt(port, 10) : 3000
-}
-
-/**
- * Get allowed origins for CORS
- */
-export function getAllowedOrigins(): string[] {
-  const origins = process.env.ALLOWED_ORIGINS
-  if (!origins) {
-    return isDevelopment()
-      ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
-      : []
+  if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
+    console.warn('⚠️  OPENAI_API_KEY may be invalid (should start with "sk-")');
   }
-  return origins.split(',').map(origin => origin.trim())
+
+  return process.env.OPENAI_API_KEY;
 }
 
-/**
- * Rate limiting configuration
- */
-export function getRateLimitConfig() {
-  return {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10), // 100 requests per window
+export function validateDatabaseURL(): string {
+  if (!process.env.DATABASE_URL) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        '🔴 FATAL: DATABASE_URL environment variable must be set in production!'
+      );
+    }
+
+    console.warn('⚠️  Using local SQLite database (servicedesk.db)');
+    return './servicedesk.db';
   }
+
+  return process.env.DATABASE_URL;
 }
 
-/**
- * Session configuration
- */
-export function getSessionConfig() {
-  return {
-    maxAge: parseInt(process.env.SESSION_MAX_AGE || '86400', 10), // 24 hours in seconds
-    cookieName: process.env.SESSION_COOKIE_NAME || 'auth_token',
-    secure: isProduction(),
-    httpOnly: true,
-    sameSite: 'lax' as const,
-  }
-}
-
-/**
- * Validate all required environment variables on startup
- */
 export function validateEnvironment(): void {
-  const required: Array<{ name: string; validator: () => void }> = [
-    {
-      name: 'JWT_SECRET',
-      validator: () => getJWTSecret(),
-    },
-  ]
+  console.log('🔍 Validating environment variables...');
 
-  const errors: string[] = []
+  try {
+    validateJWTSecret();
+    validateOpenAIKey();
+    validateDatabaseURL();
 
-  for (const { name, validator } of required) {
-    try {
-      validator()
-    } catch (error) {
-      errors.push(`${name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    console.log('✅ Environment validation passed!');
+  } catch (error) {
+    console.error('❌ Environment validation failed:', error);
+
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
     }
   }
+}
 
-  if (errors.length > 0) {
-    console.error('❌ Environment validation failed:')
-    errors.forEach(error => console.error(`   - ${error}`))
-
-    if (isProduction()) {
-      throw new Error('Environment validation failed. See errors above.')
-    }
-  } else {
-    console.log('✅ Environment validation passed')
-  }
+// Auto-validate on import in production
+if (process.env.NODE_ENV === 'production') {
+  validateEnvironment();
 }

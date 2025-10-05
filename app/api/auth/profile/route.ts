@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
+import { validateJWTSecret } from '@/lib/config/env'
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key-for-jwt-development-only')
+const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
 export async function GET(request: NextRequest) {
   try {

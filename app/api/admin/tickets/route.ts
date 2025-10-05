@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import jwt from 'jsonwebtoken'
+import { validateJWTSecret } from '@/lib/config/env'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = validateJWTSecret()
 
 function verifyToken(token: string) {
   try {

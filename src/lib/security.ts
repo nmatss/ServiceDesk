@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
 // Função para aplicar headers de segurança
 export function applySecurityHeaders(response: NextResponse): NextResponse {

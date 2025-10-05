@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
 import db from '../db/connection';
 import { User } from '../types/database';
+import { validateJWTSecret } from '@/lib/config/env';
 
 export interface LoginCredentials {
   email: string;
@@ -20,6 +21,8 @@ export interface AuthUser {
   name: string;
   email: string;
   role: 'admin' | 'agent' | 'user';
+  organization_id: number;
+  tenant_slug: string;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +51,19 @@ export function getUserByEmail(email: string): User | null {
     return user || null;
   } catch (error) {
     console.error('Error getting user by email:', error);
+    return null;
+  }
+}
+
+/**
+ * Busca organização por ID e retorna o slug
+ */
+export function getOrganizationById(orgId: number): { id: number; slug: string; name: string } | null {
+  try {
+    const org = db.prepare('SELECT id, slug, name FROM organizations WHERE id = ?').get(orgId) as { id: number; slug: string; name: string };
+    return org || null;
+  } catch (error) {
+    console.error('Error getting organization by ID:', error);
     return null;
   }
 }
@@ -112,12 +128,21 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       return null;
     }
 
+    // Buscar informações da organização
+    const organization = getOrganizationById(user.organization_id || 1);
+    if (!organization) {
+      console.error('Organization not found for user:', user.id);
+      return null;
+    }
+
     // Retornar dados do usuário sem a senha
     return {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      organization_id: user.organization_id || 1,
+      tenant_slug: organization.slug,
       created_at: user.created_at,
       updated_at: user.updated_at
     };
@@ -233,45 +258,69 @@ export function deleteUser(userId: number): boolean {
  * Gera token JWT
  */
 export async function generateToken(user: AuthUser): Promise<string> {
-  const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key');
-  
-  const token = await new SignJWT({ 
-    id: user.id, 
-    email: user.email, 
-    role: user.role 
+  const secret = new TextEncoder().encode(validateJWTSecret());
+
+  const token = await new SignJWT({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    organization_id: user.organization_id,
+    tenant_slug: user.tenant_slug
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('24h')
+    .setSubject(user.id.toString())
     .sign(secret);
-    
+
   return token;
 }
 
 /**
  * Verifica token JWT
  */
-export async function verifyToken(token: string): Promise<AuthUser | null> {
+export async function verifyToken(token: string, expectedTenantId?: number): Promise<AuthUser | null> {
   try {
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key-for-jwt-development-only');
-    
+    const secret = new TextEncoder().encode(validateJWTSecret());
+
     const { payload } = await jwtVerify(token, secret);
-    
+
     if (!payload.id || !payload.email || !payload.role) {
       return null;
     }
-    
+
+    // Validar tenant se fornecido
+    if (expectedTenantId && payload.organization_id !== expectedTenantId) {
+      console.error('Tenant mismatch in JWT');
+      return null;
+    }
+
     // Buscar usuário no banco para garantir que ainda existe
     const user = getUserById(payload.id as number);
     if (!user) {
       return null;
     }
-    
+
+    // Validar que o organization_id do usuário corresponde ao do token
+    if (user.organization_id !== payload.organization_id) {
+      console.error('User organization_id does not match token organization_id');
+      return null;
+    }
+
+    // Buscar informações da organização
+    const organization = getOrganizationById(user.organization_id || 1);
+    if (!organization) {
+      console.error('Organization not found for user:', user.id);
+      return null;
+    }
+
     return {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      organization_id: user.organization_id || 1,
+      tenant_slug: payload.tenant_slug as string,
       created_at: user.created_at,
       updated_at: user.updated_at
     };
