@@ -82,6 +82,20 @@ export function validateEnvironment(): void {
   }
 }
 
+/**
+ * Get JWT secret (alias for validateJWTSecret)
+ */
+export function getJWTSecret(): string {
+  return validateJWTSecret();
+}
+
+/**
+ * Check if running in production
+ */
+export function isProduction(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
 // Auto-validate on import in production
 if (process.env.NODE_ENV === 'production') {
   validateEnvironment();
