@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateJWTSecret } from '@/lib/config/env';
 import OpenAI from 'openai';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 // Initialize OpenAI client
 let openai: OpenAI | null = null;
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
       threshold_used: threshold,
     });
   } catch (error: any) {
-    console.error('Error detecting duplicates:', error);
+    logger.error('Error detecting duplicates', error);
 
     // Handle OpenAI API errors
     if (error?.status === 401) {

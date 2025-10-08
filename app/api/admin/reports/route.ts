@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { logger } from '@/lib/monitoring/logger';
 import {
   getTicketMetrics,
   getAgentPerformance,
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao gerar relatórios:', error);
+    logger.error('Erro ao gerar relatórios', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -187,7 +188,7 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
       }
     } catch (reportError) {
-      console.error('Erro ao gerar dados do relatório:', reportError);
+      logger.error('Erro ao gerar dados do relatório', reportError);
       return NextResponse.json({
         error: 'Erro ao processar relatório'
       }, { status: 500 });
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
     if (schedule) {
       // TODO: Implementar sistema de agendamento
       // Por enquanto, apenas retornar os dados
-      console.log('Agendamento de relatório solicitado:', schedule);
+      logger.info('Agendamento de relatório solicitado', schedule);
     }
 
     // Preparar resposta
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Erro ao criar relatório customizado:', error);
+    logger.error('Erro ao criar relatório customizado', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

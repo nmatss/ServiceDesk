@@ -4,6 +4,7 @@
  */
 
 import { getSecurityConfig } from './config';
+import { logger } from '../monitoring/logger';
 
 export interface PiiDetectionResult {
   hasPii: boolean;
@@ -442,7 +443,7 @@ export class DatabasePiiScanner {
       piiTypes: result.detections.map(d => d.type)
     };
 
-    console.log('PII Detection:', logData);
+    logger.info('PII Detection', logData);
   }
 }
 

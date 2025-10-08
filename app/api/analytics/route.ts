@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { analyticsQueries, slaQueries, dashboardQueries } from '@/lib/db/queries'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,6 +34,135 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30d' // 7d, 30d, 90d, 1y
     const metricType = searchParams.get('type') || 'overview'
+
+    // Handle new advanced analytics endpoints
+    if (metricType === 'advanced-kpis') {
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getRealTimeKPIs()
+      });
+    }
+
+    if (metricType === 'sla-analytics') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getSLAAnalytics(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'agent-performance') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getAgentPerformance(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'category-analytics') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getCategoryAnalytics(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'priority-distribution') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getPriorityDistribution(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'volume-trends') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getTicketVolumeTrends(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'response-time-analytics') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getResponseTimeAnalytics(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'satisfaction-trends') {
+      const periodMap: Record<string, 'week' | 'month' | 'quarter'> = {
+        '7d': 'week',
+        '30d': 'month',
+        '90d': 'quarter'
+      };
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getSatisfactionTrends(periodMap[period] || 'month')
+      });
+    }
+
+    if (metricType === 'sla-breaches') {
+      return NextResponse.json({
+        success: true,
+        data: slaQueries.getBreachedSLAs()
+      });
+    }
+
+    if (metricType === 'upcoming-breaches') {
+      return NextResponse.json({
+        success: true,
+        data: slaQueries.getUpcomingSLABreaches()
+      });
+    }
+
+    if (metricType === 'anomaly-detection') {
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getAnomalyDetectionData()
+      });
+    }
+
+    if (metricType === 'knowledge-base-stats') {
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getKnowledgeBaseAnalytics()
+      });
+    }
+
+    if (metricType === 'comparative') {
+      const compareBy = searchParams.get('compareBy') as 'category' | 'agent' | 'priority' || 'category';
+      const periods = searchParams.get('periods')?.split(',') || [];
+      return NextResponse.json({
+        success: true,
+        data: analyticsQueries.getComparativeAnalytics(compareBy, periods)
+      });
+    }
 
     let getDateFilter = (tableAlias = '') => {
       const alias = tableAlias ? `${tableAlias}.` : ''
@@ -224,7 +355,7 @@ export async function GET(request: NextRequest) {
       analytics
     })
   } catch (error) {
-    console.error('Error fetching analytics:', error)
+    logger.error('Error fetching analytics', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

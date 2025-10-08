@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ExclamationTriangleIcon,
   PlusCircleIcon,
@@ -92,7 +93,7 @@ export default function PortalClient() {
         secondary_color: '#1F2937'
       })
     } catch (error) {
-      console.error('Error fetching tenant info:', error)
+      logger.error('Error fetching tenant info', error)
     }
   }
 
@@ -105,7 +106,7 @@ export default function PortalClient() {
         setTicketTypes(data.ticket_types)
       }
     } catch (error) {
-      console.error('Error fetching ticket types:', error)
+      logger.error('Error fetching ticket types', error)
     } finally {
       setLoading(false)
     }

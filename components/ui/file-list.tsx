@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger';
 import {
   TrashIcon,
   EyeIcon,
@@ -81,7 +82,7 @@ export default function FileList({
         onFileDeleted(fileId)
       }
     } catch (error) {
-      console.error('Delete error:', error)
+      logger.error('Delete error', error)
       toast.error(error instanceof Error ? error.message : 'Erro ao excluir arquivo')
     } finally {
       setDeletingFiles(prev => {

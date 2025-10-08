@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { SchemaRegistry } from './validation'
 import { ErrorCode } from './types'
+import { logger } from '../monitoring/logger';
 
 // OpenAPI Schema Types
 interface OpenAPISchema {
@@ -305,7 +306,7 @@ export class OpenAPIGenerator {
       try {
         schemas[name] = this.zodToOpenAPI(schema)
       } catch (error) {
-        console.warn(`Failed to convert schema ${name}:`, error)
+        logger.warn(`Failed to convert schema ${name}:`, error)
       }
     })
 

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LRUCache } from 'lru-cache'
 import { ApiContext, RateLimitInfo } from './types'
 import { RateLimitError } from './errors'
+import { logger } from '../monitoring/logger';
 
 // Rate Limit Store Interface
 interface RateLimitStore {
@@ -282,7 +283,7 @@ export class RateLimiter {
       return null // Continue to next middleware
 
     } catch (error) {
-      console.error('Rate limit store error:', error)
+      logger.error('Rate limit store error', error)
       // On store error, allow request to continue
       return null
     }
@@ -328,7 +329,7 @@ export class RateLimiter {
         reset: Math.ceil(record.resetTime / 1000),
       }
     } catch (error) {
-      console.error('Rate limit status error:', error)
+      logger.error('Rate limit status error', error)
       return null
     }
   }
@@ -341,7 +342,7 @@ export class RateLimiter {
     try {
       await this.config.store.reset(rateLimitKey)
     } catch (error) {
-      console.error('Rate limit reset error:', error)
+      logger.error('Rate limit reset error', error)
     }
   }
 }

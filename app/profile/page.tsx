@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   UserIcon,
   EnvelopeIcon,
@@ -70,7 +71,7 @@ export default function ProfilePage() {
         router.push('/auth/login')
       }
     } catch (err) {
-      console.error('Erro ao buscar perfil:', err)
+      logger.error('Erro ao buscar perfil', err)
       error('Erro', 'Falha ao carregar perfil')
     } finally {
       setLoading(false)
@@ -102,7 +103,7 @@ export default function ProfilePage() {
         error('Erro', errorData.message || 'Falha ao atualizar perfil')
       }
     } catch (err) {
-      console.error('Erro ao atualizar perfil:', err)
+      logger.error('Erro ao atualizar perfil', err)
       error('Erro', 'Falha ao atualizar perfil')
     } finally {
       setSaving(false)
@@ -150,7 +151,7 @@ export default function ProfilePage() {
         error('Erro', errorData.message || 'Falha ao alterar senha')
       }
     } catch (err) {
-      console.error('Erro ao alterar senha:', err)
+      logger.error('Erro ao alterar senha', err)
       error('Erro', 'Falha ao alterar senha')
     } finally {
       setSaving(false)

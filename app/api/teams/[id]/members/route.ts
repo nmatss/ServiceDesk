@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { getDb } from '@/lib/db'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -26,7 +27,7 @@ export async function GET(
       members
     })
   } catch (error) {
-    console.error('Error fetching team members:', error)
+    logger.error('Error fetching team members', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch team members' },
       { status: 500 }
@@ -105,7 +106,7 @@ export async function POST(
       message: 'User added to team successfully'
     })
   } catch (error) {
-    console.error('Error adding team member:', error)
+    logger.error('Error adding team member', error)
     return NextResponse.json(
       { success: false, error: 'Failed to add team member' },
       { status: 500 }
@@ -170,7 +171,7 @@ export async function PUT(
       message: 'Team member updated successfully'
     })
   } catch (error) {
-    console.error('Error updating team member:', error)
+    logger.error('Error updating team member', error)
     return NextResponse.json(
       { success: false, error: 'Failed to update team member' },
       { status: 500 }

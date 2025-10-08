@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger';
 import {
   EnvelopeIcon,
   ClockIcon,
@@ -83,7 +84,7 @@ export default function EmailsPage() {
         })
       }
     } catch (error) {
-      console.error('Error fetching emails:', error)
+      logger.error('Error fetching emails', error)
       toast.error('Erro ao carregar emails')
     } finally {
       setLoading(false)

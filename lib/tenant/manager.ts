@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db'
 import { cookies } from 'next/headers'
+import { logger } from '../monitoring/logger';
 
 interface Tenant {
   id: number
@@ -96,7 +97,7 @@ export class TenantManager {
 
       return tenant
     } catch (error) {
-      console.error('Error getting tenant:', error)
+      logger.error('Error getting tenant', error)
       return null
     }
   }
@@ -118,7 +119,7 @@ export class TenantManager {
 
       return tenant
     } catch (error) {
-      console.error('Error getting tenant by ID:', error)
+      logger.error('Error getting tenant by ID', error)
       return null
     }
   }
@@ -167,7 +168,7 @@ export class TenantManager {
 
       return tenantId
     } catch (error) {
-      console.error('Error creating tenant:', error)
+      logger.error('Error creating tenant', error)
       throw error
     }
   }
@@ -183,7 +184,7 @@ export class TenantManager {
       // For now, return the default tenant
       return this.getTenantById(1)
     } catch (error) {
-      console.error('Error getting current tenant:', error)
+      logger.error('Error getting current tenant', error)
       return null
     }
   }
@@ -212,7 +213,7 @@ export class TenantManager {
         business_hours: team.business_hours ? JSON.parse(team.business_hours) : null
       }))
     } catch (error) {
-      console.error('Error getting teams:', error)
+      logger.error('Error getting teams', error)
       return []
     }
   }
@@ -238,7 +239,7 @@ export class TenantManager {
         business_hours: team.business_hours ? JSON.parse(team.business_hours) : null
       }
     } catch (error) {
-      console.error('Error getting team:', error)
+      logger.error('Error getting team', error)
       return null
     }
   }
@@ -281,7 +282,7 @@ export class TenantManager {
 
       return result.lastInsertRowid as number
     } catch (error) {
-      console.error('Error creating team:', error)
+      logger.error('Error creating team', error)
       throw error
     }
   }
@@ -296,7 +297,7 @@ export class TenantManager {
         VALUES (?, ?, ?)
       `).run(teamId, userId, role)
     } catch (error) {
-      console.error('Error adding user to team:', error)
+      logger.error('Error adding user to team', error)
       throw error
     }
   }
@@ -322,7 +323,7 @@ export class TenantManager {
           u.name
       `).all(teamId)
     } catch (error) {
-      console.error('Error getting team members:', error)
+      logger.error('Error getting team members', error)
       return []
     }
   }
@@ -342,7 +343,7 @@ export class TenantManager {
         ORDER BY sort_order, name
       `).all(tenantId) as TicketType[]
     } catch (error) {
-      console.error('Error getting ticket types:', error)
+      logger.error('Error getting ticket types', error)
       return []
     }
   }
@@ -358,7 +359,7 @@ export class TenantManager {
         ORDER BY sort_order, name
       `).all(tenantId) as TicketType[]
     } catch (error) {
-      console.error('Error getting customer ticket types:', error)
+      logger.error('Error getting customer ticket types', error)
       return []
     }
   }

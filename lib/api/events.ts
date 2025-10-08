@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import { SystemEvent } from './types'
+import { logger } from '../monitoring/logger';
 
 // Event Store Interface
 interface EventStore {
@@ -227,7 +228,7 @@ export class EventBus extends EventEmitter {
       try {
         await this.handleEvent(event)
       } catch (error) {
-        console.error(`Error handling event ${event.eventType}:`, error)
+        logger.error(`Error handling event ${event.eventType}:`, error)
         // Could implement retry logic or dead letter queue here
       }
     }
@@ -251,7 +252,7 @@ export class EventBus extends EventEmitter {
             await handler.handle(event)
           }
         } catch (error) {
-          console.error(`Handler error for event ${event.eventType}:`, error)
+          logger.error(`Handler error for event ${event.eventType}:`, error)
         }
       })
     )
@@ -381,27 +382,27 @@ export class TicketEventHandler implements EventHandler {
   }
 
   private async handleTicketCreated(event: DomainEvent): Promise<void> {
-    console.log('Handling ticket created:', event.data)
+    logger.info('Handling ticket created', event.data)
     // Implement business logic: notifications, SLA tracking, etc.
   }
 
   private async handleTicketUpdated(event: DomainEvent): Promise<void> {
-    console.log('Handling ticket updated:', event.data)
+    logger.info('Handling ticket updated', event.data)
     // Implement business logic: audit logging, notifications, etc.
   }
 
   private async handleTicketAssigned(event: DomainEvent): Promise<void> {
-    console.log('Handling ticket assigned:', event.data)
+    logger.info('Handling ticket assigned', event.data)
     // Implement business logic: notifications, workload tracking, etc.
   }
 
   private async handleTicketResolved(event: DomainEvent): Promise<void> {
-    console.log('Handling ticket resolved:', event.data)
+    logger.info('Handling ticket resolved', event.data)
     // Implement business logic: SLA completion, satisfaction surveys, etc.
   }
 
   private async handleTicketClosed(event: DomainEvent): Promise<void> {
-    console.log('Handling ticket closed:', event.data)
+    logger.info('Handling ticket closed', event.data)
     // Implement business logic: analytics, archiving, etc.
   }
 }
@@ -431,7 +432,7 @@ export class NotificationEventHandler implements EventHandler {
 
   private async sendNotification(userId: number, event: DomainEvent): Promise<void> {
     // Implement notification sending logic
-    console.log(`Sending notification to user ${userId} for event ${event.eventType}`)
+    logger.info(`Sending notification to user ${userId} for event ${event.eventType}`)
   }
 }
 
@@ -450,7 +451,7 @@ export class AnalyticsEventHandler implements EventHandler {
 
   private async updateMetrics(event: DomainEvent): Promise<void> {
     // Implement analytics collection logic
-    console.log(`Updating analytics metrics for event ${event.eventType}`)
+    logger.info(`Updating analytics metrics for event ${event.eventType}`)
   }
 }
 

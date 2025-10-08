@@ -6,6 +6,7 @@
 import { randomBytes, createCipheriv, createDecipheriv, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 import { getSecurityConfig } from './config';
+import { logger } from '../monitoring/logger';
 
 const scryptAsync = promisify(scrypt);
 
@@ -168,7 +169,7 @@ export class EncryptionManager {
     // 2. Re-encrypt all data with new key
     // 3. Update key in secure storage
     // 4. Clean up old keys after grace period
-    console.log('Key rotation not yet implemented');
+    logger.info('Key rotation not yet implemented');
   }
 }
 

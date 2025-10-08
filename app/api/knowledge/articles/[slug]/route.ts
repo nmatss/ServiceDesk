@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -123,7 +124,7 @@ export async function GET(
     })
 
   } catch (error) {
-    console.error('Error fetching article:', error)
+    logger.error('Error fetching article', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -250,7 +251,7 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('Error updating article:', error)
+    logger.error('Error updating article', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -302,7 +303,7 @@ export async function DELETE(
     })
 
   } catch (error) {
-    console.error('Error deleting article:', error)
+    logger.error('Error deleting article', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

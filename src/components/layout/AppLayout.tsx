@@ -6,6 +6,7 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/src/contexts/ThemeContext'
 import { NotificationProvider } from '@/src/components/notifications/NotificationProvider'
+import { logger } from '@/lib/monitoring/logger';
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -102,7 +103,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           }
         }
       } catch (error) {
-        console.error('Auth check failed:', error)
+        logger.error('Auth check failed', error)
 
         // Clear potentially corrupted auth data
         localStorage.removeItem('auth_token')
@@ -189,39 +190,51 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         />
 
         {/* Page content */}
-        <main className="flex-1 relative">
+        <main
+          id="main-content"
+          className="flex-1 relative"
+          role="main"
+          aria-label="Conteúdo principal"
+        >
           <div className="container-responsive py-6">
             {children}
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 py-4">
+        <footer
+          className="bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 py-4"
+          role="contentinfo"
+          aria-label="Rodapé"
+        >
           <div className="container-responsive">
             <div className="flex flex-col sm:flex-row justify-between items-center">
               <div className="text-sm text-neutral-600 dark:text-neutral-400">
                 © 2024 ServiceDesk Pro. Todos os direitos reservados.
               </div>
-              <div className="flex items-center space-x-4 mt-2 sm:mt-0">
+              <nav className="flex items-center space-x-4 mt-2 sm:mt-0" aria-label="Links do rodapé">
                 <a
                   href="/docs"
                   className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  aria-label="Ir para documentação"
                 >
                   Documentação
                 </a>
                 <a
                   href="/support"
                   className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  aria-label="Ir para suporte"
                 >
                   Suporte
                 </a>
                 <a
                   href="/privacy"
                   className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  aria-label="Ir para política de privacidade"
                 >
                   Privacidade
                 </a>
-              </div>
+              </nav>
             </div>
           </div>
         </footer>
@@ -253,7 +266,7 @@ export class AppLayoutErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error('Layout error:', error, errorInfo)
+    logger.error('Layout error', error, errorInfo)
   }
 
   render() {

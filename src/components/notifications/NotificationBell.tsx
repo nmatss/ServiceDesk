@@ -22,6 +22,7 @@ export default function NotificationBell() {
   } = useNotifications()
 
   const [isOpen, setIsOpen] = useState(false)
+  const [announcement, setAnnouncement] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
@@ -37,6 +38,22 @@ export default function NotificationBell() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  // Announce unread count changes to screen readers
+  useEffect(() => {
+    if (unreadCount > 0) {
+      setAnnouncement(`${unreadCount} ${unreadCount === 1 ? 'nova notificação' : 'novas notificações'}`)
+    } else {
+      setAnnouncement('Nenhuma notificação nova')
+    }
+  }, [unreadCount])
+
+  // Keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false)
+    }
+  }
 
   const formatTime = (timestamp: Date) => {
     const now = new Date()
@@ -76,25 +93,39 @@ export default function NotificationBell() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Bell Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-lg transition-colors ${
-          unreadCount > 0
-            ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20'
-            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-        }`}
-      >
+    <>
+      {/* Screen reader announcement region */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+
+      <div className="relative" ref={dropdownRef}>
+        {/* Bell Button */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          onKeyDown={handleKeyDown}
+          className={`relative p-2 rounded-lg transition-colors ${
+            unreadCount > 0
+              ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+          }`}
+          aria-label={unreadCount > 0 ? `Notificações: ${unreadCount} não lidas` : 'Notificações'}
+          aria-expanded={isOpen}
+          aria-haspopup="true"
+          aria-controls="notification-dropdown"
+        >
         {unreadCount > 0 ? (
-          <BellIconSolid className="h-6 w-6" />
+          <BellIconSolid className="h-6 w-6" aria-hidden="true" />
         ) : (
-          <BellIcon className="h-6 w-6" />
+          <BellIcon className="h-6 w-6" aria-hidden="true" />
         )}
 
         {/* Notification Badge */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 bg-error-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+          <span
+            className="absolute -top-1 -right-1 h-5 w-5 bg-error-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse"
+            aria-label={`${unreadCount} notificações não lidas`}
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -102,11 +133,20 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 animate-fade-in">
+        <div
+          id="notification-dropdown"
+          className="absolute right-0 mt-2 w-80 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 animate-fade-in"
+          role="region"
+          aria-label="Painel de notificações"
+          onKeyDown={handleKeyDown}
+        >
           {/* Header */}
           <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              <h3
+                className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
+                id="notifications-heading"
+              >
                 Notificações
               </h3>
               <div className="flex items-center space-x-2">
@@ -114,6 +154,7 @@ export default function NotificationBell() {
                   <button
                     onClick={markAllAsRead}
                     className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium"
+                    aria-label="Marcar todas as notificações como lidas"
                   >
                     Marcar todas como lidas
                   </button>
@@ -125,9 +166,10 @@ export default function NotificationBell() {
                       setIsOpen(false)
                     }}
                     className="p-1 text-neutral-400 hover:text-error-500 rounded"
+                    aria-label="Limpar todas as notificações"
                     title="Limpar todas"
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    <TrashIcon className="h-4 w-4" aria-hidden="true" />
                   </button>
                 )}
               </div>
@@ -140,10 +182,16 @@ export default function NotificationBell() {
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-96 overflow-y-auto">
+          <div
+            className="max-h-96 overflow-y-auto"
+            role="list"
+            aria-labelledby="notifications-heading"
+            aria-live="polite"
+            aria-atomic="false"
+          >
             {notifications.length === 0 ? (
-              <div className="p-8 text-center">
-                <BellIcon className="h-12 w-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+              <div className="p-8 text-center" role="status">
+                <BellIcon className="h-12 w-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" aria-hidden="true" />
                 <p className="text-neutral-600 dark:text-neutral-400 text-sm">
                   Nenhuma notificação
                 </p>
@@ -157,6 +205,8 @@ export default function NotificationBell() {
                       !notification.read ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''
                     }`}
                     onClick={() => handleNotificationClick(notification)}
+                    role="listitem"
+                    aria-label={`${notification.title}: ${notification.message}. ${!notification.read ? 'Não lida' : 'Lida'}. ${formatTime(notification.timestamp)}`}
                   >
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-0.5">
@@ -194,9 +244,10 @@ export default function NotificationBell() {
                                   markAsRead(notification.id)
                                 }}
                                 className="p-1 text-neutral-400 hover:text-brand-500 rounded"
+                                aria-label={`Marcar notificação "${notification.title}" como lida`}
                                 title="Marcar como lida"
                               >
-                                <EyeIcon className="h-4 w-4" />
+                                <EyeIcon className="h-4 w-4" aria-hidden="true" />
                               </button>
                             )}
                             <button
@@ -205,16 +256,17 @@ export default function NotificationBell() {
                                 removeNotification(notification.id)
                               }}
                               className="p-1 text-neutral-400 hover:text-error-500 rounded"
+                              aria-label={`Remover notificação "${notification.title}"`}
                               title="Remover"
                             >
-                              <TrashIcon className="h-4 w-4" />
+                              <TrashIcon className="h-4 w-4" aria-hidden="true" />
                             </button>
                           </div>
                         </div>
 
                         {/* Actions */}
                         {notification.actions && notification.actions.length > 0 && (
-                          <div className="flex items-center space-x-2 mt-3">
+                          <div className="flex items-center space-x-2 mt-3" role="group" aria-label="Ações da notificação">
                             {notification.actions.map((action, index) => (
                               <button
                                 key={index}
@@ -229,6 +281,7 @@ export default function NotificationBell() {
                                     ? 'bg-brand-600 text-white hover:bg-brand-700'
                                     : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
                                 }`}
+                                aria-label={`${action.label} para notificação "${notification.title}"`}
                               >
                                 {action.label}
                               </button>
@@ -261,6 +314,7 @@ export default function NotificationBell() {
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }

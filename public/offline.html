@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ServiceDesk Pro - Modo Offline</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 500px;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      text-align: center;
+      animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(135deg, #ff6b6b, #ffa726);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: #2d3748;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: #4a5568;
+      margin-bottom: 2rem;
+    }
+
+    .features {
+      background: #f7fafc;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 2rem 0;
+      text-align: left;
+    }
+
+    .features h3 {
+      color: #2d3748;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .feature-list {
+      list-style: none;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.8rem;
+      font-size: 0.9rem;
+      color: #4a5568;
+    }
+
+    .feature-list li::before {
+      content: '✓';
+      color: #48bb78;
+      font-weight: bold;
+      margin-right: 0.8rem;
+      font-size: 1.1rem;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: #fed7d7;
+      border-radius: 8px;
+      color: #c53030;
+      font-weight: 500;
+    }
+
+    .status.online {
+      background: #c6f6d5;
+      color: #2f855a;
+    }
+
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      background: #f56565;
+    }
+
+    .status.online .status-indicator {
+      background: #48bb78;
+    }
+
+    .retry-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+
+    .retry-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .tips {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #edf2f7;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: #4a5568;
+    }
+
+    @media (max-width: 480px) {
+      .container {
+        margin: 1rem;
+        padding: 1.5rem;
+      }
+
+      h1 {
+        font-size: 1.6rem;
+      }
+
+      .subtitle {
+        font-size: 1rem;
+      }
+    }
+
+    .connection-quality {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.8rem;
+      background: #bee3f8;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: #2c5282;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path>
+      </svg>
+    </div>
+
+    <h1>Modo Offline</h1>
+    <p class="subtitle">Você está temporariamente sem conexão com a internet</p>
+
+    <div id="connection-status" class="status">
+      <div class="status-indicator"></div>
+      <span>Verificando conexão...</span>
+    </div>
+
+    <div class="features">
+      <h3>🛠️ Recursos Disponíveis Offline</h3>
+      <ul class="feature-list">
+        <li>Visualizar tickets em cache</li>
+        <li>Navegar pela interface</li>
+        <li>Acessar configurações do perfil</li>
+        <li>Consultar dados salvos localmente</li>
+        <li>Criar tickets (serão sincronizados quando voltar online)</li>
+      </ul>
+    </div>
+
+    <button id="retry-btn" class="retry-btn" onclick="checkConnection()">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      Tentar Novamente
+    </button>
+
+    <div id="connection-quality" class="connection-quality">
+      <strong>Qualidade da Conexão:</strong> <span id="quality-text">Verificando...</span>
+    </div>
+
+    <div class="tips">
+      <strong>💡 Dicas:</strong><br>
+      • Suas ações offline serão sincronizadas automaticamente<br>
+      • Os dados em cache permitem navegar normalmente<br>
+      • Notificações serão atualizadas quando voltar online
+    </div>
+  </div>
+
+  <script>
+    let isOnline = navigator.onLine;
+    let connectionQuality = 'unknown';
+
+    function updateConnectionStatus() {
+      const status = document.getElementById('connection-status');
+      const indicator = status.querySelector('.status-indicator');
+      const text = status.querySelector('span');
+
+      if (navigator.onLine) {
+        status.className = 'status online';
+        text.textContent = 'Conexão restaurada!';
+
+        // Try to go back to the app
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+      } else {
+        status.className = 'status';
+        text.textContent = 'Sem conexão com a internet';
+      }
+    }
+
+    function checkConnection() {
+      const btn = document.getElementById('retry-btn');
+      const originalText = btn.innerHTML;
+
+      btn.innerHTML = `
+        <svg style="animation: spin 1s linear infinite;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Verificando...
+      `;
+      btn.disabled = true;
+
+      // Check connection with a simple fetch
+      fetch('/?ping=1', {
+        method: 'HEAD',
+        cache: 'no-cache',
+        signal: AbortSignal.timeout(5000)
+      })
+      .then(() => {
+        updateConnectionStatus();
+      })
+      .catch(() => {
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+        }, 1000);
+      });
+    }
+
+    function checkConnectionQuality() {
+      if ('connection' in navigator) {
+        const conn = navigator.connection;
+        const qualityDiv = document.getElementById('connection-quality');
+        const qualityText = document.getElementById('quality-text');
+
+        if (conn && navigator.onLine) {
+          let quality = 'Boa';
+          if (conn.effectiveType === '4g' && conn.downlink > 10) {
+            quality = 'Excelente';
+          } else if (conn.effectiveType === '3g' || conn.downlink < 1) {
+            quality = 'Lenta';
+          }
+
+          qualityText.textContent = `${quality} (${conn.effectiveType?.toUpperCase()}, ${conn.downlink} Mbps)`;
+          qualityDiv.style.display = 'block';
+        }
+      }
+    }
+
+    // Event listeners
+    window.addEventListener('online', () => {
+      updateConnectionStatus();
+      checkConnectionQuality();
+    });
+
+    window.addEventListener('offline', updateConnectionStatus);
+
+    // Add CSS animation for spinning icon
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Initial check
+    updateConnectionStatus();
+    if (navigator.onLine) {
+      checkConnectionQuality();
+    }
+
+    // Periodic connection check
+    setInterval(() => {
+      if (!navigator.onLine) {
+        // Try a simple fetch to really check connectivity
+        fetch('/?ping=1', {
+          method: 'HEAD',
+          cache: 'no-cache',
+          signal: AbortSignal.timeout(3000)
+        }).then(() => {
+          if (!navigator.onLine) {
+            // Browser thinks we're offline but we can reach the server
+            updateConnectionStatus();
+          }
+        }).catch(() => {
+          // Truly offline
+        });
+      }
+    }, 10000);
+  </script>
+</body>
+</html>

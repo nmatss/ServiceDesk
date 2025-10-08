@@ -3,6 +3,7 @@ import { attachmentQueries, ticketQueries } from '@/lib/db/queries';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -57,11 +58,11 @@ export async function GET(
         },
       });
     } catch (fileError) {
-      console.error('Erro ao ler arquivo:', fileError);
+      logger.error('Erro ao ler arquivo', fileError);
       return NextResponse.json({ error: 'Arquivo não encontrado no servidor' }, { status: 404 });
     }
   } catch (error) {
-    console.error('Erro ao baixar anexo:', error);
+    logger.error('Erro ao baixar anexo', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -107,7 +108,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Anexo deletado com sucesso' });
   } catch (error) {
-    console.error('Erro ao deletar anexo:', error);
+    logger.error('Erro ao deletar anexo', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

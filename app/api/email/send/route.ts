@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import emailService from '@/lib/email/service'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error sending email:', error)
+    logger.error('Error sending email', error)
     return NextResponse.json({
       error: 'Erro interno do servidor'
     }, { status: 500 })
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching email stats:', error)
+    logger.error('Error fetching email stats', error)
     return NextResponse.json({
       error: 'Erro interno do servidor'
     }, { status: 500 })

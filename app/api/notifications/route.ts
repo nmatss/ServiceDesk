@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 // GET - Buscar notificações do usuário
 export async function GET(request: NextRequest) {
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error getting notifications:', error);
+    logger.error('Error getting notifications', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       message: 'Notificação criada com sucesso'
     }, { status: 201 });
   } catch (error) {
-    console.error('Erro ao criar notificação:', error);
+    logger.error('Erro ao criar notificação', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -168,7 +169,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'notification_id ou mark_all_read é obrigatório' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Erro ao atualizar notificação:', error);
+    logger.error('Erro ao atualizar notificação', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

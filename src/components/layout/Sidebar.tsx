@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger'
 import {
   HomeIcon,
   TicketIcon,
@@ -85,7 +86,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
         })
       }
     } catch (error) {
-      console.error('Error fetching ticket counts:', error)
+      logger.error('Error fetching ticket counts', error)
     }
   }
 
@@ -95,6 +96,16 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
         ? prev.filter(name => name !== menuName)
         : [...prev, menuName]
     )
+  }
+
+  // Keyboard navigation for submenu items
+  const handleSubmenuKeyDown = (e: React.KeyboardEvent, menuName: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      toggleSubmenu(menuName)
+    } else if (e.key === 'Escape') {
+      setExpandedMenus(prev => prev.filter(name => name !== menuName))
+    }
   }
 
   // Menu items based on user role
@@ -254,7 +265,11 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto hide-scrollbar">
+      <nav
+        className="flex-1 px-4 py-6 space-y-2 overflow-y-auto hide-scrollbar"
+        role="navigation"
+        aria-label="Menu principal"
+      >
         {menuItems.map((item) => {
           const isItemActive = isActive(item.href)
           const hasActiveChild = hasActiveSubmenu(item.submenu)
@@ -274,16 +289,21 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                 {item.submenu ? (
                   <button
                     onClick={() => toggleSubmenu(item.name)}
+                    onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
                     className={`sidebar-item w-full ${
                       isItemActive || hasActiveChild ? 'sidebar-item-active' : ''
                     }`}
+                    aria-expanded={shouldExpand}
+                    aria-controls={`submenu-${item.name}`}
+                    aria-current={isItemActive ? 'page' : undefined}
+                    aria-label={`${item.name}${item.badge ? `, ${item.badge} itens` : ''}`}
                   >
-                    <IconComponent className="h-5 w-5 flex-shrink-0" />
+                    <IconComponent className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                     {open && (
                       <>
                         <span className="ml-3 flex-1 text-left">{item.name}</span>
                         {item.badge && (
-                          <span className="ml-2 badge badge-primary text-xs">
+                          <span className="ml-2 badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
                             {item.badge}
                           </span>
                         )}
@@ -294,6 +314,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
@@ -304,13 +325,15 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                   <Link
                     href={item.href}
                     className={`sidebar-item ${isItemActive ? 'sidebar-item-active' : ''}`}
+                    aria-current={isItemActive ? 'page' : undefined}
+                    aria-label={`${item.name}${item.badge ? `, ${item.badge} itens` : ''}`}
                   >
-                    <IconComponent className="h-5 w-5 flex-shrink-0" />
+                    <IconComponent className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                     {open && (
                       <>
                         <span className="ml-3">{item.name}</span>
                         {item.badge && (
-                          <span className="ml-auto badge badge-primary text-xs">
+                          <span className="ml-auto badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
                             {item.badge}
                           </span>
                         )}
@@ -321,7 +344,10 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
                 {/* Tooltip for collapsed sidebar */}
                 {!open && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap">
+                  <div
+                    className="absolute left-full ml-2 px-2 py-1 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap"
+                    role="tooltip"
+                  >
                     {item.name}
                     {item.badge && (
                       <span className="ml-2 bg-brand-500 text-white px-1.5 py-0.5 rounded-full text-xs">
@@ -334,7 +360,12 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
               {/* Submenu */}
               {item.submenu && open && shouldExpand && (
-                <div className="ml-4 mt-2 space-y-1 animate-slide-down">
+                <div
+                  id={`submenu-${item.name}`}
+                  className="ml-4 mt-2 space-y-1 animate-slide-down"
+                  role="group"
+                  aria-label={`${item.name} submenu`}
+                >
                   {item.submenu.map((subItem) => {
                     const isSubItemActive = isActive(subItem.href)
                     return (
@@ -346,11 +377,13 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                             ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
                             : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                         }`}
+                        aria-current={isSubItemActive ? 'page' : undefined}
+                        aria-label={`${subItem.name}${subItem.badge ? `, ${subItem.badge} itens` : ''}`}
                       >
-                        <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                        <subItem.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                         <span className="ml-3 flex-1">{subItem.name}</span>
                         {subItem.badge && (
-                          <span className="ml-2 badge badge-primary text-xs">
+                          <span className="ml-2 badge badge-primary text-xs" aria-label={`${subItem.badge} itens`}>
                             {subItem.badge}
                           </span>
                         )}
@@ -382,19 +415,24 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
         <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
           onClick={() => setOpen(false)}
+          role="presentation"
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar */}
-      <div
+      <aside
+        id="main-sidebar"
         className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 transform transition-all duration-300 ease-in-out ${
           open
             ? 'w-64 translate-x-0'
             : 'w-20 -translate-x-full lg:translate-x-0'
         }`}
+        aria-label="Barra lateral de navegação"
+        aria-hidden={!open && typeof window !== 'undefined' && window.innerWidth < 1024}
       >
         <SidebarContent />
-      </div>
+      </aside>
 
       {/* Spacer for desktop */}
       <div

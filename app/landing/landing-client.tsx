@@ -1,368 +1,671 @@
-'use client'
+"use client"
 
 export const dynamic = 'force-dynamic'
 
-import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
+import React, { useEffect, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import {
-  ChartBarIcon,
-  ClockIcon,
-  ShieldCheckIcon,
-  UserGroupIcon,
-  CheckCircleIcon,
-  ArrowRightIcon,
-  PlayCircleIcon,
-  StarIcon,
-  Bars3Icon,
-  XMarkIcon
-} from '@heroicons/react/24/outline'
+  Home,
+  Zap,
+  Shield,
+  TrendingUp,
+  Users,
+  Award,
+  Check,
+  ArrowRight,
+  Menu,
+  X,
+  Twitter,
+  Github,
+  Linkedin,
+  Mail,
+  ChevronRight,
+  Star
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/Button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 
-export default function LandingClient() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+// NavBar Component
+interface NavItem {
+  name: string
+  url: string
+  icon: React.ElementType
+}
+
+interface NavBarProps {
+  items: NavItem[]
+  className?: string
+}
+
+function NavBar({ items, className }: NavBarProps) {
+  const [activeTab, setActiveTab] = useState(items[0].name)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    handleResize()
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  if (!mounted) {
-    return null
-  }
+  return (
+    <div className={cn("fixed top-0 left-1/2 -translate-x-1/2 z-50 pt-6 w-full max-w-7xl px-4", className)}>
+      <div className="flex items-center justify-between gap-3 bg-background/80 border border-border backdrop-blur-lg py-3 px-6 rounded-full shadow-lg">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+            <Zap className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="font-bold text-lg hidden sm:inline">ProLanding</span>
+        </div>
 
+        <nav className="hidden md:flex items-center gap-1">
+          {items.map((item) => {
+            const Icon = item.icon
+            const isActive = activeTab === item.name
+            return (
+              <a
+                key={item.name}
+                href={item.url}
+                onClick={() => setActiveTab(item.name)}
+                className={cn(
+                  "relative cursor-pointer text-sm font-semibold px-4 py-2 rounded-full transition-colors",
+                  "text-foreground/80 hover:text-primary",
+                  isActive && "bg-muted text-primary"
+                )}
+              >
+                <span>{item.name}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="navbar-indicator"
+                    className="absolute inset-0 w-full bg-primary/5 rounded-full -z-10"
+                    initial={false}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 30,
+                    }}
+                  />
+                )}
+              </a>
+            )
+          })}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <Button size="sm" className="hidden sm:inline-flex">Get Started</Button>
+          <button
+            className="md:hidden p-2"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      {mobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="md:hidden mt-2 bg-background/95 backdrop-blur-lg border border-border rounded-2xl p-4 shadow-xl"
+        >
+          {items.map((item) => (
+            <a
+              key={item.name}
+              href={item.url}
+              className="block py-3 px-4 rounded-lg hover:bg-muted transition-colors"
+              onClick={() => {
+                setActiveTab(item.name)
+                setMobileMenuOpen(false)
+              }}
+            >
+              {item.name}
+            </a>
+          ))}
+        </motion.div>
+      )}
+    </div>
+  )
+}
+
+// Modern Hero Section with Image Collage
+function HeroSection() {
+  const images = [
+    "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=400&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=400&auto=format&fit=crop&q=80",
+    "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&auto=format&fit=crop&q=80",
+  ]
+
+  return (
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background pt-24 pb-12">
+      <div className="container relative z-10 mx-auto px-4">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Left Content */}
+          <div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6"
+            >
+              <Zap className="w-3.5 h-3.5 text-primary mr-2" />
+              <span className="text-xs font-medium">AI-Powered Landing Pages</span>
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-6 leading-[1.1]"
+            >
+              Build Your{" "}
+              <span className="bg-gradient-to-r from-primary via-blue-500 to-purple-600 bg-clip-text text-transparent">
+                Dream
+              </span>
+              <br />
+              Landing Page
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-lg md:text-xl text-muted-foreground mb-8 max-w-xl"
+            >
+              Create stunning, high-converting landing pages powered by AI.
+              No coding required. SEO optimized and mobile responsive.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="flex flex-col sm:flex-row gap-4"
+            >
+              <Button size="lg" className="text-lg px-8">
+                Start Free Trial <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              <Button size="lg" variant="outline" className="text-lg px-8">
+                Watch Demo
+              </Button>
+            </motion.div>
+          </div>
+
+          {/* Right Image Collage */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="relative h-[500px] lg:h-[600px]"
+          >
+            {/* Image 1 - Top Left */}
+            <motion.div
+              initial={{ opacity: 0, x: -20, y: -20 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="absolute top-0 left-0 w-48 h-48 md:w-56 md:h-56 overflow-hidden rounded-3xl shadow-2xl border-4 border-background z-10"
+              whileHover={{ scale: 1.05, rotate: -2, zIndex: 50 }}
+            >
+              <img src={images[0]} alt="Team collaboration" className="w-full h-full object-cover" />
+            </motion.div>
+
+            {/* Image 2 - Top Right */}
+            <motion.div
+              initial={{ opacity: 0, x: 20, y: -20 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+              className="absolute top-16 right-0 w-40 h-40 md:w-48 md:h-48 overflow-hidden rounded-3xl shadow-2xl border-4 border-background z-20"
+              whileHover={{ scale: 1.05, rotate: 2, zIndex: 50 }}
+            >
+              <img src={images[1]} alt="Business meeting" className="w-full h-full object-cover" />
+            </motion.div>
+
+            {/* Image 3 - Center Left */}
+            <motion.div
+              initial={{ opacity: 0, x: -20, y: 20 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.7 }}
+              className="absolute top-40 left-8 w-52 h-52 md:w-64 md:h-64 overflow-hidden rounded-3xl shadow-2xl border-4 border-background z-30"
+              whileHover={{ scale: 1.05, rotate: -3, zIndex: 50 }}
+            >
+              <img src={images[2]} alt="Team discussion" className="w-full h-full object-cover" />
+            </motion.div>
+
+            {/* Image 4 - Center Right */}
+            <motion.div
+              initial={{ opacity: 0, x: 20, y: 20 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.8 }}
+              className="absolute top-52 right-12 w-44 h-44 md:w-52 md:h-52 overflow-hidden rounded-3xl shadow-2xl border-4 border-background z-20"
+              whileHover={{ scale: 1.05, rotate: 3, zIndex: 50 }}
+            >
+              <img src={images[3]} alt="Workspace" className="w-full h-full object-cover" />
+            </motion.div>
+
+            {/* Image 5 - Bottom Center */}
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.9 }}
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-48 h-48 md:w-56 md:h-56 overflow-hidden rounded-3xl shadow-2xl border-4 border-background z-10"
+              whileHover={{ scale: 1.05, rotate: -2, zIndex: 50 }}
+            >
+              <img src={images[4]} alt="Creative work" className="w-full h-full object-cover" />
+            </motion.div>
+
+            {/* Decorative elements */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5 rounded-full blur-3xl -z-10" />
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// Features Section
+function FeaturesSection() {
   const features = [
     {
-      icon: <ChartBarIcon className="h-8 w-8" />,
-      title: 'Dashboard Inteligente',
-      description: 'Visualize métricas em tempo real e acompanhe o desempenho da sua equipe com gráficos interativos.'
+      icon: Zap,
+      title: "Lightning Fast",
+      description: "Optimized for speed with cutting-edge technology. Load times under 1 second guaranteed."
     },
     {
-      icon: <ClockIcon className="h-8 w-8" />,
-      title: 'Gestão de SLA',
-      description: 'Controle rigoroso de prazos e tempos de resposta para garantir a qualidade do atendimento.'
+      icon: Shield,
+      title: "Secure & Reliable",
+      description: "Enterprise-grade security with 99.9% uptime. Your data is always protected."
     },
     {
-      icon: <ShieldCheckIcon className="h-8 w-8" />,
-      title: 'Segurança Avançada',
-      description: 'Proteção de dados com criptografia e controle de acesso baseado em funções.'
+      icon: TrendingUp,
+      title: "SEO Optimized",
+      description: "Built-in SEO best practices to help you rank higher in search results."
     },
     {
-      icon: <UserGroupIcon className="h-8 w-8" />,
-      title: 'Colaboração em Equipe',
-      description: 'Facilite a comunicação entre agentes e compartilhe conhecimento eficientemente.'
-    }
-  ]
-
-  const stats = [
-    { label: 'Tickets Resolvidos', value: '50K+' },
-    { label: 'Empresas Ativas', value: '500+' },
-    { label: 'Satisfação', value: '98%' },
-    { label: 'Tempo Médio', value: '2h' }
-  ]
-
-  const testimonials = [
-    {
-      name: 'Maria Silva',
-      role: 'Gerente de TI',
-      company: 'TechCorp',
-      content: 'O ServiceDesk revolucionou nossa gestão de tickets. Reduzimos o tempo de resposta em 60%.',
-      rating: 5
+      icon: Users,
+      title: "Team Collaboration",
+      description: "Work together seamlessly with real-time collaboration features."
     },
     {
-      name: 'João Santos',
-      role: 'CEO',
-      company: 'InnovaCorp',
-      content: 'Interface intuitiva e recursos poderosos. Nossa equipe aumentou a produtividade significativamente.',
-      rating: 5
+      icon: Award,
+      title: "Award Winning",
+      description: "Recognized by industry leaders for excellence in design and functionality."
     },
     {
-      name: 'Ana Costa',
-      role: 'Diretora de Operações',
-      company: 'GlobalTech',
-      content: 'Excelente ferramenta para gestão de suporte. Recomendo para qualquer empresa.',
-      rating: 5
+      icon: Home,
+      title: "Easy Integration",
+      description: "Connect with your favorite tools and services in just a few clicks."
     }
   ]
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-brand-600">ServiceDesk Pro</h1>
-              </div>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <a href="#features" className="text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                  Recursos
-                </a>
-                <a href="#pricing" className="text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                  Preços
-                </a>
-                <a href="#about" className="text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                  Sobre
-                </a>
-                <a href="#contact" className="text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                  Contato
-                </a>
-              </div>
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="hidden md:flex items-center space-x-4">
-              <Link href="/login" className="text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                Entrar
-              </Link>
-              <Link href="/register" className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
-                Começar Grátis
-              </Link>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-gray-600 hover:text-brand-600 p-2"
-              >
-                {isMenuOpen ? (
-                  <XMarkIcon className="h-6 w-6" />
-                ) : (
-                  <Bars3Icon className="h-6 w-6" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Navigation */}
-          {isMenuOpen && (
-            <div className="md:hidden border-t border-gray-200">
-              <div className="px-2 pt-2 pb-3 space-y-1">
-                <a href="#features" className="block text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-base font-medium">
-                  Recursos
-                </a>
-                <a href="#pricing" className="block text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-base font-medium">
-                  Preços
-                </a>
-                <a href="#about" className="block text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-base font-medium">
-                  Sobre
-                </a>
-                <a href="#contact" className="block text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-base font-medium">
-                  Contato
-                </a>
-                <div className="border-t border-gray-200 pt-4">
-                  <Link href="/login" className="block text-gray-600 hover:text-brand-600 px-3 py-2 rounded-md text-base font-medium">
-                    Entrar
-                  </Link>
-                  <Link href="/register" className="block bg-brand-600 hover:bg-brand-700 text-white px-3 py-2 rounded-md text-base font-medium mt-2">
-                    Começar Grátis
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
+    <section className="py-24 bg-muted/30">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-16">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl md:text-5xl font-bold mb-4"
+          >
+            Everything You Need to Succeed
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-muted-foreground max-w-2xl mx-auto"
+          >
+            Powerful features designed to help you create, launch, and grow your business
+          </motion.p>
         </div>
-      </nav>
 
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-brand-50 to-brand-100 py-20 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-center">
-            <div className="lg:col-span-6">
-              <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
-                <span className="block">Sistema Completo de</span>
-                <span className="block text-brand-600">Atendimento ao Cliente</span>
-              </h1>
-              <p className="mt-6 text-xl text-gray-600 max-w-3xl">
-                Como posso te ajudar com atendimento ao cliente? O ServiceDesk Pro oferece gestão completa de tickets, SLA automático e relatórios avançados. Ideal para empresas que buscam excelência no suporte.
-              </p>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {features.map((feature, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card className="h-full hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                    <feature.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">{feature.description}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
 
-              <div className="mt-10 flex flex-col sm:flex-row gap-4">
-                <Link href="/register" className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 transition-colors">
-                  Começar Grátis
-                  <ArrowRightIcon className="ml-2 h-5 w-5" />
-                </Link>
-                <Link href="/portal" className="inline-flex items-center justify-center px-8 py-4 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                  <PlayCircleIcon className="mr-2 h-5 w-5" />
-                  Portal do Cliente
-                </Link>
-              </div>
+// Pricing Section
+function PricingSection() {
+  const [isYearly, setIsYearly] = useState(false)
 
-              <div className="mt-8 flex items-center space-x-6 text-sm text-gray-500">
-                <div className="flex items-center">
-                  <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                  Setup em 5 minutos
-                </div>
-                <div className="flex items-center">
-                  <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                  Suporte 24/7
-                </div>
-                <div className="flex items-center">
-                  <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                  30 dias grátis
-                </div>
-              </div>
-            </div>
+  const plans = [
+    {
+      name: "Starter",
+      description: "Perfect for individuals and small projects",
+      price: isYearly ? 99 : 12,
+      features: [
+        "Up to 5 landing pages",
+        "Basic analytics",
+        "Email support",
+        "Mobile responsive",
+        "SSL certificate"
+      ],
+      popular: false
+    },
+    {
+      name: "Professional",
+      description: "Best for growing businesses",
+      price: isYearly ? 299 : 29,
+      features: [
+        "Unlimited landing pages",
+        "Advanced analytics",
+        "Priority support",
+        "A/B testing",
+        "Custom domain",
+        "Team collaboration",
+        "Advanced SEO tools"
+      ],
+      popular: true
+    },
+    {
+      name: "Enterprise",
+      description: "For large organizations",
+      price: isYearly ? 899 : 99,
+      features: [
+        "Everything in Professional",
+        "Dedicated account manager",
+        "Custom integrations",
+        "White-label solution",
+        "SLA guarantee",
+        "Advanced security",
+        "Custom training"
+      ],
+      popular: false
+    }
+  ]
 
-            <div className="mt-16 lg:mt-0 lg:col-span-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-brand-400 to-brand-600 rounded-lg transform rotate-3"></div>
-                <div className="relative bg-white rounded-lg shadow-2xl p-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <span className="text-sm font-medium text-green-800">Ticket #1234 - Resolvido</span>
-                      <CheckCircleIcon className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                      <span className="text-sm font-medium text-yellow-800">Ticket #1235 - Em Andamento</span>
-                      <ClockIcon className="h-5 w-5 text-yellow-600" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <span className="text-sm font-medium text-blue-800">Ticket #1236 - Novo</span>
-                      <ArrowRightIcon className="h-5 w-5 text-blue-600" />
+  return (
+    <section className="py-24 bg-background">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-16">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl md:text-5xl font-bold mb-4"
+          >
+            Simple, Transparent Pricing
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-muted-foreground mb-8"
+          >
+            Choose the perfect plan for your needs
+          </motion.p>
+
+          <div className="flex items-center justify-center gap-4 mb-12">
+            <span className={cn("text-sm font-medium", !isYearly && "text-primary")}>Monthly</span>
+            <button
+              onClick={() => setIsYearly(!isYearly)}
+              className={cn(
+                "relative w-14 h-7 rounded-full transition-colors",
+                isYearly ? "bg-primary" : "bg-muted"
+              )}
+            >
+              <motion.div
+                className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-md"
+                animate={{ x: isYearly ? 28 : 4 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            </button>
+            <span className={cn("text-sm font-medium", isYearly && "text-primary")}>
+              Yearly <span className="text-xs text-green-600">(Save 20%)</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {plans.map((plan, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card className={cn(
+                "relative h-full",
+                plan.popular && "border-primary shadow-lg scale-105"
+              )}>
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-primary-foreground text-sm font-semibold rounded-full">
+                    Most Popular
+                  </div>
+                )}
+                <CardHeader>
+                  <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                  <p className="text-muted-foreground text-sm mb-4">{plan.description}</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold">${plan.price}</span>
+                    <span className="text-muted-foreground">/{isYearly ? 'year' : 'month'}</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Button className="w-full mb-6" variant={plan.popular ? "default" : "outline"}>
+                    Get Started
+                  </Button>
+                  <ul className="space-y-3">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// Testimonials Section
+function TestimonialsSection() {
+  const testimonials = [
+    {
+      name: "Sarah Johnson",
+      role: "CEO, TechStart",
+      image: "https://randomuser.me/api/portraits/women/44.jpg",
+      content: "This platform transformed how we build landing pages. The results have been incredible - 300% increase in conversions!"
+    },
+    {
+      name: "Michael Chen",
+      role: "Marketing Director, GrowthCo",
+      image: "https://randomuser.me/api/portraits/men/32.jpg",
+      content: "The best investment we've made. Easy to use, powerful features, and outstanding support. Highly recommended!"
+    },
+    {
+      name: "Emily Rodriguez",
+      role: "Founder, StartupHub",
+      image: "https://randomuser.me/api/portraits/women/68.jpg",
+      content: "Finally, a landing page builder that actually delivers on its promises. Our team loves it and so do our customers."
+    }
+  ]
+
+  return (
+    <section className="py-24 bg-muted/30">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-16">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-4xl md:text-5xl font-bold mb-4"
+          >
+            Loved by Thousands
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-muted-foreground"
+          >
+            See what our customers have to say
+          </motion.p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {testimonials.map((testimonial, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card className="h-full">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <img
+                      src={testimonial.image}
+                      alt={testimonial.name}
+                      className="w-12 h-12 rounded-full"
+                    />
+                    <div>
+                      <h4 className="font-semibold">{testimonial.name}</h4>
+                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                     </div>
                   </div>
-                </div>
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground">{testimonial.content}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// Footer
+function Footer() {
+  const footerLinks = {
+    Product: ["Features", "Pricing", "Templates", "Integrations"],
+    Company: ["About", "Blog", "Careers", "Contact"],
+    Resources: ["Documentation", "Help Center", "Community", "Status"],
+    Legal: ["Privacy", "Terms", "Security", "Cookies"]
+  }
+
+  return (
+    <footer className="bg-background border-t border-border py-12">
+      <div className="container mx-auto px-4">
+        <div className="grid md:grid-cols-5 gap-8 mb-8">
+          <div className="md:col-span-1">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                <Zap className="w-5 h-5 text-primary-foreground" />
               </div>
+              <span className="font-bold text-lg">ProLanding</span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl font-bold text-brand-600">{stat.value}</div>
-                <div className="mt-2 text-sm text-gray-600">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              Recursos Poderosos
-            </h2>
-            <p className="mt-4 max-w-2xl mx-auto text-xl text-gray-600">
-              Tudo que você precisa para gerenciar seu atendimento de forma eficiente
+            <p className="text-sm text-muted-foreground mb-4">
+              Build beautiful landing pages that convert.
             </p>
+            <div className="flex gap-3">
+              <a href="#" className="w-9 h-9 bg-muted rounded-full flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors">
+                <Twitter className="w-4 h-4" />
+              </a>
+              <a href="#" className="w-9 h-9 bg-muted rounded-full flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors">
+                <Github className="w-4 h-4" />
+              </a>
+              <a href="#" className="w-9 h-9 bg-muted rounded-full flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors">
+                <Linkedin className="w-4 h-4" />
+              </a>
+            </div>
           </div>
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="text-brand-600 mb-4">
-                  {feature.icon}
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
+          {Object.entries(footerLinks).map(([category, links]) => (
+            <div key={category}>
+              <h3 className="font-semibold mb-4">{category}</h3>
+              <ul className="space-y-2">
+                {links.map((link) => (
+                  <li key={link}>
+                    <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                      {link}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
-      </section>
 
-      {/* Testimonials Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-              O que nossos clientes dizem
-            </h2>
-          </div>
-
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <StarIcon key={i} className="h-5 w-5 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-gray-700 mb-4">"{testimonial.content}"</p>
-                <div>
-                  <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                  <div className="text-sm text-gray-600">{testimonial.role}, {testimonial.company}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-brand-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
-            Pronto para transformar seu atendimento?
-          </h2>
-          <p className="mt-4 text-xl text-brand-100">
-            Junte-se às empresas que já transformaram seu atendimento com o ServiceDesk Pro
+        <div className="border-t border-border pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-muted-foreground">
+            © 2024 ProLanding. All rights reserved.
           </p>
-          <div className="mt-8">
-            <Link href="/register" className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-md text-brand-600 bg-white hover:bg-gray-50 transition-colors">
-              Começar Agora - É Grátis
-              <ArrowRightIcon className="ml-2 h-5 w-5" />
-            </Link>
+          <div className="flex gap-6">
+            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Privacy Policy
+            </a>
+            <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Terms of Service
+            </a>
           </div>
         </div>
-      </section>
+      </div>
+    </footer>
+  )
+}
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">ServiceDesk Pro</h3>
-              <p className="text-gray-400">
-                Sistema completo de ServiceDesk para gestão de tickets, atendimento ao cliente e suporte técnico.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wide mb-4">Produto</h4>
-              <ul className="space-y-2">
-                <li><a href="#features" className="text-gray-400 hover:text-white transition-colors">Recursos</a></li>
-                <li><a href="/knowledge" className="text-gray-400 hover:text-white transition-colors">Base de Conhecimento</a></li>
-                <li><a href="/portal" className="text-gray-400 hover:text-white transition-colors">Portal do Cliente</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wide mb-4">Empresa</h4>
-              <ul className="space-y-2">
-                <li><a href="#about" className="text-gray-400 hover:text-white transition-colors">Sobre</a></li>
-                <li><a href="#contact" className="text-gray-400 hover:text-white transition-colors">Contato</a></li>
-                <li><a href="/login" className="text-gray-400 hover:text-white transition-colors">Login</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold uppercase tracking-wide mb-4">Suporte</h4>
-              <ul className="space-y-2">
-                <li><a href="/knowledge" className="text-gray-400 hover:text-white transition-colors">Central de Ajuda</a></li>
-                <li><a href="/portal" className="text-gray-400 hover:text-white transition-colors">Abrir Ticket</a></li>
-                <li><a href="#contact" className="text-gray-400 hover:text-white transition-colors">Contato</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-gray-800 text-center text-gray-400">
-            <p>&copy; 2024 ServiceDesk Pro. Todos os direitos reservados.</p>
-          </div>
-        </div>
-      </footer>
+// Main Landing Page Component
+export default function LandingClient() {
+  const navItems = [
+    { name: 'Home', url: '#home', icon: Home },
+    { name: 'Features', url: '#features', icon: Zap },
+    { name: 'Pricing', url: '#pricing', icon: TrendingUp },
+    { name: 'Testimonials', url: '#testimonials', icon: Users }
+  ]
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <NavBar items={navItems} />
+      <HeroSection />
+      <FeaturesSection />
+      <PricingSection />
+      <TestimonialsSection />
+      <Footer />
     </div>
   )
 }

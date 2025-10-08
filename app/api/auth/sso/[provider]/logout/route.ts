@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import ssoManager from '@/lib/auth/sso-manager';
+import { logger } from '@/lib/monitoring/logger';
 
 const COOKIE_NAME = 'servicedesk_token';
 
@@ -57,7 +58,7 @@ export async function POST(
       message: 'Logged out successfully',
     });
   } catch (error) {
-    console.error('SSO logout error:', error);
+    logger.error('SSO logout error', error);
     return NextResponse.json(
       { error: 'Failed to logout' },
       { status: 500 }

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSecurityConfig } from './config';
+import { logger } from '../monitoring/logger';
 
 export interface CorsOptions {
   origin?: string | string[] | ((origin: string) => boolean);
@@ -269,7 +270,7 @@ export function logCorsViolation(origin: string, reason: string, request: NextRe
     method: request.method
   };
 
-  console.warn('CORS Violation:', logData);
+  logger.warn('CORS Violation', logData);
 
   // In production, send to security monitoring system
   if (process.env.NODE_ENV === 'production') {

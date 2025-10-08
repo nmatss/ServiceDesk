@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import pool from './connection-pool';
 
 // Caminho para o arquivo do banco de dados
 const dbPath = path.join(process.cwd(), 'data', 'servicedesk.db');
@@ -12,19 +13,50 @@ try {
   // Diretório já existe ou erro de permissão
 }
 
-// Configurações do banco
-const db = new Database(dbPath, {
+/**
+ * LEGACY: Direct database connection
+ * @deprecated Use connection pool instead for better performance
+ * Import { pool } from './connection-pool' and use pool.execute()
+ */
+const legacyDb = new Database(dbPath, {
   verbose: process.env.NODE_ENV === 'development' ? console.log : undefined,
 });
 
 // Habilitar foreign keys
-db.pragma('foreign_keys = ON');
+legacyDb.pragma('foreign_keys = ON');
 
 // Configurações de performance
-db.pragma('journal_mode = WAL');
-db.pragma('synchronous = NORMAL');
-db.pragma('cache_size = 1000');
-db.pragma('temp_store = MEMORY');
+legacyDb.pragma('journal_mode = WAL');
+legacyDb.pragma('synchronous = NORMAL');
+legacyDb.pragma('cache_size = 1000');
+legacyDb.pragma('temp_store = MEMORY');
 
-export default db;
+/**
+ * Default export: Legacy direct connection for backward compatibility
+ * New code should use the connection pool instead
+ */
+export default legacyDb;
+
+/**
+ * Recommended: Use connection pool for better performance
+ *
+ * @example
+ * ```typescript
+ * import { getPooledConnection } from '@/lib/db/connection';
+ *
+ * const result = await getPooledConnection(async (db) => {
+ *   return db.prepare('SELECT * FROM users').all();
+ * });
+ * ```
+ */
+export async function getPooledConnection<T>(
+  operation: (db: Database.Database) => T | Promise<T>
+): Promise<T> {
+  return pool.execute(operation);
+}
+
+/**
+ * Export pool for direct access
+ */
+export { pool };
 

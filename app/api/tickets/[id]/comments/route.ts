@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { commentQueries, ticketQueries } from '@/lib/db/queries';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -39,7 +40,7 @@ export async function GET(
     const comments = commentQueries.getByTicketId(ticketId);
     return NextResponse.json({ comments });
   } catch (error) {
-    console.error('Erro ao buscar comentários:', error);
+    logger.error('Erro ao buscar comentários', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -97,7 +98,7 @@ export async function POST(
 
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error) {
-    console.error('Erro ao criar comentário:', error);
+    logger.error('Erro ao criar comentário', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

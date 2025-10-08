@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import ssoManager from '@/lib/auth/sso-manager';
+import { logger } from '@/lib/monitoring/logger';
 
 /**
  * GET /api/auth/sso/providers
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
       providers: publicProviders,
     });
   } catch (error) {
-    console.error('Get SSO providers error:', error);
+    logger.error('Get SSO providers error', error);
     return NextResponse.json(
       { error: 'Failed to get SSO providers' },
       { status: 500 }
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Configure SSO provider error:', error);
+    logger.error('Configure SSO provider error', error);
     return NextResponse.json(
       { error: 'Failed to configure SSO provider' },
       { status: 500 }

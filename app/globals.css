@@ -9,16 +9,16 @@
 /* CSS Variables for theming */
 :root {
   /* Brand Colors */
-  --color-brand-50: 240 249 255;
-  --color-brand-100: 224 242 254;
-  --color-brand-200: 186 230 253;
-  --color-brand-300: 125 211 252;
-  --color-brand-400: 56 189 248;
-  --color-brand-500: 14 165 233;
-  --color-brand-600: 2 132 199;
-  --color-brand-700: 3 105 161;
-  --color-brand-800: 7 89 133;
-  --color-brand-900: 12 74 110;
+  --color-indigo-50: 240 249 255;
+  --color-indigo-100: 224 242 254;
+  --color-indigo-200: 186 230 253;
+  --color-indigo-300: 125 211 252;
+  --color-indigo-400: 56 189 248;
+  --color-indigo-500: 14 165 233;
+  --color-indigo-600: 2 132 199;
+  --color-indigo-700: 3 105 161;
+  --color-indigo-800: 7 89 133;
+  --color-indigo-900: 12 74 110;
 
   /* Background Colors */
   --color-background: 255 255 255;
@@ -41,6 +41,28 @@
   /* Sidebar */
   --sidebar-width: 256px;
   --sidebar-width-collapsed: 80px;
+
+  /* Shadcn-compatible variables */
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.5rem;
 }
 
 /* Dark mode variables */
@@ -58,6 +80,27 @@
 
   --shadow-color: 0 0 0;
   --shadow-opacity: 0.3;
+
+  /* Shadcn-compatible dark mode variables */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
 }
 
 /* Base styles */
@@ -124,12 +167,12 @@
   }
 
   :focus-visible {
-    @apply ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900;
+    @apply ring-2 ring-indigo-500 ring-offset-2 ring-offset-white dark:ring-offset-neutral-900;
   }
 
   /* Selection styles */
   ::selection {
-    @apply bg-brand-100 dark:bg-brand-900 text-brand-900 dark:text-brand-100;
+    @apply bg-indigo-100 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-100;
   }
 }
 
@@ -141,28 +184,28 @@
   }
 
   .btn-primary {
-    @apply bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 shadow-sm;
+    @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 shadow-sm;
   }
 
   .btn-secondary {
-    @apply bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:ring-brand-500 shadow-sm;
+    @apply bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:ring-indigo-500 shadow-sm;
   }
 
   .btn-ghost {
-    @apply text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:ring-brand-500;
+    @apply text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:ring-indigo-500;
   }
 
   .btn-danger {
-    @apply bg-error-600 text-white hover:bg-error-700 focus:ring-error-500 shadow-sm;
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm;
   }
 
   .btn-success {
-    @apply bg-success-600 text-white hover:bg-success-700 focus:ring-success-500 shadow-sm;
+    @apply bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm;
   }
 
   /* Input styles */
   .input {
-    @apply block w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm transition-colors duration-200;
+    @apply block w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors duration-200;
   }
 
   /* Card styles */
@@ -188,19 +231,19 @@
   }
 
   .badge-primary {
-    @apply bg-brand-100 dark:bg-brand-900 text-brand-800 dark:text-brand-200;
+    @apply bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200;
   }
 
   .badge-success {
-    @apply bg-success-100 dark:bg-success-900 text-success-800 dark:text-success-200;
+    @apply bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200;
   }
 
   .badge-warning {
-    @apply bg-warning-100 dark:bg-warning-900 text-warning-800 dark:text-warning-200;
+    @apply bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200;
   }
 
   .badge-error {
-    @apply bg-error-100 dark:bg-error-900 text-error-800 dark:text-error-200;
+    @apply bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200;
   }
 
   .badge-neutral {
@@ -234,11 +277,11 @@
 
   /* Priority indicators */
   .priority-low {
-    @apply text-success-600 bg-success-50 dark:bg-success-900/20 dark:text-success-400;
+    @apply text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400;
   }
 
   .priority-medium {
-    @apply text-warning-600 bg-warning-50 dark:bg-warning-900/20 dark:text-warning-400;
+    @apply text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400;
   }
 
   .priority-high {
@@ -246,7 +289,7 @@
   }
 
   .priority-critical {
-    @apply text-error-600 bg-error-50 dark:bg-error-900/20 dark:text-error-400;
+    @apply text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400;
   }
 
   /* Status indicators */
@@ -255,11 +298,11 @@
   }
 
   .status-in-progress {
-    @apply text-warning-600 bg-warning-50 dark:bg-warning-900/20 dark:text-warning-400;
+    @apply text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400;
   }
 
   .status-resolved {
-    @apply text-success-600 bg-success-50 dark:bg-success-900/20 dark:text-success-400;
+    @apply text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400;
   }
 
   .status-closed {
@@ -267,7 +310,7 @@
   }
 
   .status-cancelled {
-    @apply text-error-600 bg-error-50 dark:bg-error-900/20 dark:text-error-400;
+    @apply text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400;
   }
 
   /* Sidebar styles */
@@ -284,12 +327,12 @@
   }
 
   .sidebar-item-active {
-    @apply bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border-r-2 border-brand-600;
+    @apply bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-r-2 border-indigo-600;
   }
 
   /* Loading states */
   .loading-spinner {
-    @apply animate-spin rounded-full border-2 border-neutral-200 dark:border-neutral-700 border-t-brand-600;
+    @apply animate-spin rounded-full border-2 border-neutral-200 dark:border-neutral-700 border-t-indigo-600;
   }
 
   .loading-skeleton {
@@ -310,7 +353,7 @@
 /* Utility classes */
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-indigo-600 to-indigo-500 bg-clip-text text-transparent;
   }
 
   .bg-pattern {
@@ -442,7 +485,7 @@
   }
 
   .mobile-nav-item-active {
-    @apply bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300;
+    @apply bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300;
   }
 
   /* Viewport height adjustments for mobile browsers */

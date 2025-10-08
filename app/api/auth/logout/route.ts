@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/monitoring/logger';
 
 export async function POST() {
   try {
@@ -17,7 +18,7 @@ export async function POST() {
 
     return response;
   } catch (error) {
-    console.error('Erro na API de logout:', error);
+    logger.error('Erro na API de logout', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

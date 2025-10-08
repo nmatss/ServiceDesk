@@ -3,6 +3,7 @@ import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { validateJWTSecret } from '@/lib/config/env'
+import { logger } from '@/lib/monitoring/logger';
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(user)
 
   } catch (error) {
-    console.error('Erro ao buscar perfil:', error)
+    logger.error('Erro ao buscar perfil', error)
     return NextResponse.json({ message: 'Erro interno do servidor' }, { status: 500 })
   }
 }
@@ -78,7 +79,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedUser)
 
   } catch (error) {
-    console.error('Erro ao atualizar perfil:', error)
+    logger.error('Erro ao atualizar perfil', error)
     return NextResponse.json({ message: 'Erro interno do servidor' }, { status: 500 })
   }
 }

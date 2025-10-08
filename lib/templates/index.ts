@@ -1,5 +1,6 @@
 import db from '../db/connection';
 import { Template, CreateTemplate, TemplateWithDetails } from '../types/database';
+import { logger } from '../monitoring/logger';
 
 /**
  * Busca templates por tipo e categoria
@@ -70,7 +71,7 @@ export function getTemplates(options: {
 
     return { templates, total };
   } catch (error) {
-    console.error('Error getting templates:', error);
+    logger.error('Error getting templates', error);
     return { templates: [], total: 0 };
   }
 }
@@ -93,7 +94,7 @@ export function getTemplateById(id: number): TemplateWithDetails | null {
       WHERE t.id = ?
     `).get(id) as TemplateWithDetails | null;
   } catch (error) {
-    console.error('Error getting template by ID:', error);
+    logger.error('Error getting template by ID', error);
     return null;
   }
 }
@@ -130,7 +131,7 @@ export function createTemplate(template: CreateTemplate): Template | null {
 
     return null;
   } catch (error) {
-    console.error('Error creating template:', error);
+    logger.error('Error creating template', error);
     return null;
   }
 }
@@ -169,7 +170,7 @@ export function updateTemplate(id: number, updates: Partial<Template>): boolean 
     const result = updateQuery.run(...values, id);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error updating template:', error);
+    logger.error('Error updating template', error);
     return false;
   }
 }
@@ -182,7 +183,7 @@ export function deleteTemplate(id: number): boolean {
     const result = db.prepare('DELETE FROM templates WHERE id = ?').run(id);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error deleting template:', error);
+    logger.error('Error deleting template', error);
     return false;
   }
 }
@@ -278,7 +279,7 @@ export function processTemplate(
       variables_used: variablesUsed
     };
   } catch (error) {
-    console.error('Error processing template:', error);
+    logger.error('Error processing template', error);
     return null;
   }
 }
@@ -304,7 +305,7 @@ export function recordTemplateUsage(templateId: number, ticketId?: number): bool
 
     return true;
   } catch (error) {
-    console.error('Error recording template usage:', error);
+    logger.error('Error recording template usage', error);
     return false;
   }
 }
@@ -328,7 +329,7 @@ export function getPopularTemplates(limit: number = 10): TemplateWithDetails[] {
       LIMIT ?
     `).all(limit) as TemplateWithDetails[];
   } catch (error) {
-    console.error('Error getting popular templates:', error);
+    logger.error('Error getting popular templates', error);
     return [];
   }
 }
@@ -359,7 +360,7 @@ export function getTemplatesByTags(tags: string[]): TemplateWithDetails[] {
       return tags.some(tag => templateTags.includes(tag));
     });
   } catch (error) {
-    console.error('Error getting templates by tags:', error);
+    logger.error('Error getting templates by tags', error);
     return [];
   }
 }
@@ -393,7 +394,7 @@ export function getTemplateUsageStats(templateId?: number): any {
 
     return templateId ? stats[0] || null : stats;
   } catch (error) {
-    console.error('Error getting template usage stats:', error);
+    logger.error('Error getting template usage stats', error);
     return templateId ? null : [];
   }
 }
@@ -421,7 +422,7 @@ export function duplicateTemplate(templateId: number, newName: string, userId: n
 
     return createTemplate(duplicate);
   } catch (error) {
-    console.error('Error duplicating template:', error);
+    logger.error('Error duplicating template', error);
     return null;
   }
 }
@@ -464,7 +465,7 @@ export function validateTemplateVariables(content: string, variables: Record<str
       extra_variables: extraVariables
     };
   } catch (error) {
-    console.error('Error validating template variables:', error);
+    logger.error('Error validating template variables', error);
     return {
       valid: false,
       missing_variables: [],

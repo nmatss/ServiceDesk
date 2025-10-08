@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import crypto from 'crypto'
+import { logger } from '../monitoring/logger';
 
 export interface UploadedFile {
   id: string
@@ -154,7 +155,7 @@ export async function deleteFile(filePath: string): Promise<void> {
   try {
     await fs.promises.unlink(fullPath)
   } catch (error) {
-    console.error('Error deleting file:', error)
+    logger.error('Error deleting file', error)
   }
 }
 

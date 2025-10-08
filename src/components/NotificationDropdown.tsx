@@ -45,18 +45,28 @@ export default function NotificationDropdown() {
 
   return (
     <Menu as="div" className="relative">
-      <Menu.Button className="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+      {({ open }) => (
+        <Menu.Button
+          className="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label={`Notificações${unreadCount > 0 ? `, ${unreadCount} não lidas` : ''}`}
+          aria-expanded={open}
+          aria-haspopup="true"
+        >
         <span className="sr-only">Ver notificações</span>
         <BellIcon className="h-6 w-6" aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-xs text-white flex items-center justify-center font-medium">
+          <span
+            className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-xs text-white flex items-center justify-center font-medium"
+            aria-label={`${unreadCount} notificações não lidas`}
+          >
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
         {isConnected && (
-          <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-green-500"></span>
+          <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-green-500" aria-label="Conectado"></span>
         )}
-      </Menu.Button>
+        </Menu.Button>
+      )}
 
       <Transition
         as={Fragment}
@@ -67,14 +77,19 @@ export default function NotificationDropdown() {
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <Menu.Items
+          className="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+          role="region"
+          aria-label="Painel de notificações"
+        >
           <div className="px-4 py-2 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-900">Notificações</h3>
+              <h3 className="text-sm font-medium text-gray-900" id="notifications-heading">Notificações</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
                   className="text-xs text-blue-600 hover:text-blue-500"
+                  aria-label="Marcar todas as notificações como lidas"
                 >
                   Marcar todas como lidas
                 </button>
@@ -82,9 +97,9 @@ export default function NotificationDropdown() {
             </div>
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-96 overflow-y-auto" role="list" aria-labelledby="notifications-heading" aria-live="polite" aria-atomic="false">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-500">
+              <div className="px-4 py-8 text-center text-sm text-gray-500" role="status">
                 Nenhuma notificação
               </div>
             ) : (
@@ -97,10 +112,19 @@ export default function NotificationDropdown() {
                         'px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0'
                       )}
                       onClick={() => !notification.is_read && markAsRead(notification.id)}
+                      role="listitem"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          !notification.is_read && markAsRead(notification.id)
+                        }
+                      }}
+                      aria-label={`${notification.title || notification.message}${!notification.is_read ? '. Não lida' : '. Lida'}. ${formatTimestamp(notification.timestamp)}`}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0">
-                          <span className="text-lg">
+                          <span className="text-lg" aria-hidden="true">
                             {getNotificationIcon(notification.type)}
                           </span>
                         </div>
@@ -113,7 +137,7 @@ export default function NotificationDropdown() {
                               {notification.title || notification.message}
                             </p>
                             {!notification.is_read && (
-                              <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0"></div>
+                              <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" aria-label="Não lida"></div>
                             )}
                           </div>
                           {notification.title && (
@@ -122,7 +146,9 @@ export default function NotificationDropdown() {
                             </p>
                           )}
                           <p className="text-xs text-gray-400 mt-1">
-                            {formatTimestamp(notification.timestamp)}
+                            <time dateTime={notification.timestamp}>
+                              {formatTimestamp(notification.timestamp)}
+                            </time>
                           </p>
                         </div>
                       </div>
@@ -135,7 +161,10 @@ export default function NotificationDropdown() {
 
           {notifications.length > 10 && (
             <div className="px-4 py-2 border-t border-gray-200">
-              <button className="text-xs text-blue-600 hover:text-blue-500 w-full text-center">
+              <button
+                className="text-xs text-blue-600 hover:text-blue-500 w-full text-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                aria-label={`Ver todas as ${notifications.length} notificações`}
+              >
                 Ver todas as notificações
               </button>
             </div>

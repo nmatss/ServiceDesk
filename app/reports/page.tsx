@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ChartBarIcon,
   ClockIcon,
@@ -101,7 +102,7 @@ export default function ReportsPage() {
       setTrends(mockTrends)
       setCategories(mockCategories)
     } catch (err) {
-      console.error('Erro ao buscar dados de relatórios:', err)
+      logger.error('Erro ao buscar dados de relatórios', err)
       error('Erro', 'Falha ao carregar relatórios')
     } finally {
       setLoading(false)

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error in notifications SSE:', error)
+    logger.error('Error in notifications SSE', error)
     return new Response('Erro interno do servidor', { status: 500 })
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import db from '@/lib/db/connection'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       users
     })
   } catch (error) {
-    console.error('Error fetching users:', error)
+    logger.error('Error fetching users', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

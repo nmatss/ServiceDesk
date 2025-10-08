@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 interface Context {
   params: Promise<{
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, { params }: Context) {
       policy
     });
   } catch (error) {
-    console.error('Error getting SLA policy:', error);
+    logger.error('Error getting SLA policy', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -119,7 +120,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
       policy: updatedPolicy
     });
   } catch (error) {
-    console.error('Error updating SLA policy:', error);
+    logger.error('Error updating SLA policy', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -164,7 +165,7 @@ export async function DELETE(request: NextRequest, { params }: Context) {
       message: 'Política deletada com sucesso'
     });
   } catch (error) {
-    console.error('Error deleting SLA policy:', error);
+    logger.error('Error deleting SLA policy', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

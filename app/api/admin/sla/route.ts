@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { getAllSLAPolicies, createSLAPolicy, getSLAMetrics } from '@/lib/sla';
 import { CreateSLAPolicy } from '@/lib/types/database';
+import { logger } from '@/lib/monitoring/logger';
 
 // GET - Listar todas as políticas de SLA ou métricas
 export async function GET(request: NextRequest) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       policies
     });
   } catch (error) {
-    console.error('Error in SLA API:', error);
+    logger.error('Error in SLA API', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       policy
     });
   } catch (error) {
-    console.error('Error creating SLA policy:', error);
+    logger.error('Error creating SLA policy', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

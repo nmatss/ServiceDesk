@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -46,7 +47,7 @@ export async function GET(
       tickets
     })
   } catch (error) {
-    console.error('Error fetching user tickets:', error)
+    logger.error('Error fetching user tickets', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

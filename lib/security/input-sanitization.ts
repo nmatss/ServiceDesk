@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSecurityConfig } from './config';
 import { securityLogger, SecurityEventType } from './monitoring';
+import { logger } from '../monitoring/logger';
 
 export interface SanitizationOptions {
   allowHtml?: boolean;
@@ -516,7 +517,7 @@ export function createSanitizationMiddleware(options: SanitizationOptions = {}) 
         });
       }
     } catch (error) {
-      console.error('Sanitization middleware error:', error);
+      logger.error('Sanitization middleware error', error);
     }
 
     return null;

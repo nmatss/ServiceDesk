@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +43,7 @@ export async function GET(
     const attachments = attachmentQueries.getByTicketId(ticketId);
     return NextResponse.json({ attachments });
   } catch (error) {
-    console.error('Erro ao buscar anexos:', error);
+    logger.error('Erro ao buscar anexos', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -132,7 +133,7 @@ export async function POST(
 
     return NextResponse.json({ attachment }, { status: 201 });
   } catch (error) {
-    console.error('Erro ao fazer upload do anexo:', error);
+    logger.error('Erro ao fazer upload do anexo', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

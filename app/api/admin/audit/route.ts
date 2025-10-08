@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 // GET - Buscar logs de auditoria
 export async function GET(request: NextRequest) {
@@ -144,7 +145,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar logs de auditoria:', error);
+    logger.error('Erro ao buscar logs de auditoria', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    console.error('Erro ao criar log de auditoria:', error);
+    logger.error('Erro ao criar log de auditoria', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -309,7 +310,7 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao limpar logs de auditoria:', error);
+    logger.error('Erro ao limpar logs de auditoria', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

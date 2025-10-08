@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/src/lib/auth";
 import { z } from "zod";
 import { logUserAction } from "@/src/lib/audit";
+import { logger } from '@/lib/monitoring/logger';
 
 // Schema de validação
 const requestSchema = z.object({
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid data", details: error.issues }, { status: 400 });
     }
     
-    console.error("API Error:", error);
+    logger.error("API Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

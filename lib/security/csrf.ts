@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { logger } from '../monitoring/logger';
 
 /**
  * CSRF Protection Middleware
@@ -41,7 +42,7 @@ export function validateCSRFToken(request: NextRequest): boolean {
 
   // Both must exist and match
   if (!cookieToken || !headerToken) {
-    console.warn('CSRF validation failed: Missing token', {
+    logger.warn('CSRF validation failed: Missing token', {
       hasCookie: !!cookieToken,
       hasHeader: !!headerToken,
       method,
@@ -54,7 +55,7 @@ export function validateCSRFToken(request: NextRequest): boolean {
   const isValid = timingSafeEqual(cookieToken, headerToken);
 
   if (!isValid) {
-    console.warn('CSRF validation failed: Token mismatch', {
+    logger.warn('CSRF validation failed: Token mismatch', {
       method,
       path: request.nextUrl.pathname
     });

@@ -4,6 +4,7 @@ import React, { useState, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger';
 import {
   CloudArrowUpIcon,
   DocumentIcon,
@@ -161,7 +162,7 @@ export default function FileUpload({
 
           toast.success(`${file.name} enviado com sucesso`)
         } catch (error) {
-          console.error('Upload error:', error)
+          logger.error('Upload error', error)
           toast.error(`Erro ao enviar ${file.name}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
         }
       }
@@ -171,7 +172,7 @@ export default function FileUpload({
         onFilesUploaded(uploadedFiles)
       }
     } catch (error) {
-      console.error('Upload error:', error)
+      logger.error('Upload error', error)
       toast.error('Erro no upload dos arquivos')
     } finally {
       setUploading(false)

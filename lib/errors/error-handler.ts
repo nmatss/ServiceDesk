@@ -5,6 +5,7 @@
 
 import type { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { logger } from '../monitoring/logger';
 
 /**
  * Application Error Types
@@ -189,7 +190,7 @@ export function logError(error: Error | AppError, context?: string): void {
   // In production, use structured logging
   if (isProduction) {
     // TODO: Integrate with logging service (e.g., Sentry, Winston, etc.)
-    console.error({
+    logger.error({
       timestamp: new Date().toISOString(),
       context,
       type: error instanceof AppError ? error.type : 'UNHANDLED_ERROR',
@@ -199,21 +200,21 @@ export function logError(error: Error | AppError, context?: string): void {
     })
   } else {
     // Development: detailed console output
-    console.error(`\n${'='.repeat(80)}`)
-    console.error(`ERROR${context ? ` in ${context}` : ''}`)
-    console.error('='.repeat(80))
-    console.error('Message:', error.message)
+    logger.error(`\n${'='.repeat(80)}`)
+    logger.error(`ERROR${context ? ` in ${context}` : ''}`)
+    logger.error('='.repeat(80))
+    logger.error('Message', error.message)
     if (error instanceof AppError) {
-      console.error('Type:', error.type)
-      console.error('Status:', error.statusCode)
-      console.error('Operational:', error.isOperational)
+      logger.error('Type', error.type)
+      logger.error('Status', error.statusCode)
+      logger.error('Operational', error.isOperational)
       if (error.details) {
-        console.error('Details:', error.details)
+        logger.error('Details', error.details)
       }
     }
-    console.error('\nStack:')
-    console.error(error.stack)
-    console.error('='.repeat(80) + '\n')
+    logger.error('\nStack')
+    logger.error(error.stack)
+    logger.error('='.repeat(80) + '\n')
   }
 }
 

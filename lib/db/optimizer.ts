@@ -1,11 +1,13 @@
 import db from './connection'
 import { logger } from '../monitoring/logger'
+import { cacheStrategy, CacheOptions } from '../cache/strategy'
 
 interface QueryStats {
   query: string
   executionTime: number
   rowsReturned: number
   planSteps: number
+  cacheHit?: boolean
 }
 
 interface IndexSuggestion {
@@ -15,52 +17,230 @@ interface IndexSuggestion {
   priority: 'high' | 'medium' | 'low'
 }
 
+interface ConnectionPoolStats {
+  active: number
+  idle: number
+  total: number
+  waitingRequests: number
+}
+
+interface QueryCacheStats {
+  hits: number
+  misses: number
+  evictions: number
+  size: number
+  hitRate: number
+}
+
 class DatabaseOptimizer {
   private queryCache = new Map<string, any>()
   private slowQueries: QueryStats[] = []
   private readonly SLOW_QUERY_THRESHOLD = 100 // ms
+  private cacheHits = 0
+  private cacheMisses = 0
+  private cacheEvictions = 0
+
+  // Connection pool simulation (SQLite doesn't have true pooling, but we track usage)
+  private activeConnections = 0
+  private maxConnections = 10
+  private connectionQueue: Array<() => void> = []
 
   /**
-   * Executar query com análise de performance
+   * Executar query com análise de performance e multi-layer caching
    */
-  async executeWithStats<T>(query: string, params: any[] = []): Promise<T> {
+  async executeWithStats<T>(
+    query: string,
+    params: any[] = [],
+    cacheOptions?: CacheOptions
+  ): Promise<T> {
     const startTime = Date.now()
 
     try {
-      // Verificar cache primeiro
+      // Verificar cache multi-layer (L1 memory -> L2 Redis)
       const cacheKey = this.generateCacheKey(query, params)
-      if (this.queryCache.has(cacheKey)) {
-        logger.debug('Query cache hit', { query: query.substring(0, 100) })
-        return this.queryCache.get(cacheKey)
+
+      // Try multi-layer cache first
+      const cachedResult = await cacheStrategy.get<T>(cacheKey)
+      if (cachedResult !== null) {
+        this.cacheHits++
+        const executionTime = Date.now() - startTime
+        logger.debug('Query cache hit (multi-layer)', {
+          query: query.substring(0, 100),
+          time: executionTime,
+        })
+
+        // Track as cache hit
+        this.slowQueries.push({
+          query,
+          executionTime,
+          rowsReturned: Array.isArray(cachedResult) ? cachedResult.length : 1,
+          planSteps: 0,
+          cacheHit: true,
+        })
+
+        return cachedResult
       }
 
-      // Executar query
-      const result = db.prepare(query).all(...params) as T
+      this.cacheMisses++
 
-      const executionTime = Date.now() - startTime
+      // Acquire connection from pool
+      await this.acquireConnection()
 
-      // Analisar performance
-      if (executionTime > this.SLOW_QUERY_THRESHOLD) {
-        await this.analyzeSlowQuery(query, params, executionTime, result)
+      try {
+        // Executar query
+        const result = db.prepare(query).all(...params) as T
+
+        const executionTime = Date.now() - startTime
+
+        // Analisar performance
+        if (executionTime > this.SLOW_QUERY_THRESHOLD) {
+          await this.analyzeSlowQuery(query, params, executionTime, result)
+        }
+
+        // Cache resultado com multi-layer strategy
+        if (this.shouldCache(query, executionTime)) {
+          const ttl = this.calculateOptimalTTL(query, executionTime)
+          await cacheStrategy.set(cacheKey, result, {
+            ttl,
+            tags: this.extractCacheTags(query),
+            ...cacheOptions,
+          })
+        }
+
+        logger.debug('Query executed', {
+          query: query.substring(0, 100),
+          executionTime,
+          rowsReturned: Array.isArray(result) ? result.length : 1,
+        })
+
+        return result
+      } finally {
+        // Release connection
+        this.releaseConnection()
       }
-
-      // Cache resultado se apropriado
-      if (this.shouldCache(query, executionTime)) {
-        this.queryCache.set(cacheKey, result)
-        // Limpar cache após 5 minutos
-        setTimeout(() => this.queryCache.delete(cacheKey), 300000)
-      }
-
-      logger.debug('Query executed', {
-        query: query.substring(0, 100),
-        executionTime,
-        rowsReturned: Array.isArray(result) ? result.length : 1
-      })
-
-      return result
     } catch (error) {
       logger.error('Query execution failed', { query, error })
       throw error
+    }
+  }
+
+  /**
+   * Acquire connection from pool
+   */
+  private async acquireConnection(): Promise<void> {
+    if (this.activeConnections < this.maxConnections) {
+      this.activeConnections++
+      return Promise.resolve()
+    }
+
+    // Wait for available connection
+    return new Promise((resolve) => {
+      this.connectionQueue.push(resolve)
+    })
+  }
+
+  /**
+   * Release connection back to pool
+   */
+  private releaseConnection(): void {
+    if (this.connectionQueue.length > 0) {
+      const nextInQueue = this.connectionQueue.shift()
+      if (nextInQueue) {
+        nextInQueue()
+      }
+    } else {
+      this.activeConnections = Math.max(0, this.activeConnections - 1)
+    }
+  }
+
+  /**
+   * Get connection pool statistics
+   */
+  getConnectionPoolStats(): ConnectionPoolStats {
+    return {
+      active: this.activeConnections,
+      idle: Math.max(0, this.maxConnections - this.activeConnections),
+      total: this.maxConnections,
+      waitingRequests: this.connectionQueue.length,
+    }
+  }
+
+  /**
+   * Calculate optimal TTL based on query characteristics
+   */
+  private calculateOptimalTTL(query: string, executionTime: number): number {
+    const lowerQuery = query.toLowerCase()
+
+    // Static reference data - cache longer
+    if (
+      lowerQuery.includes('categories') ||
+      lowerQuery.includes('priorities') ||
+      lowerQuery.includes('statuses')
+    ) {
+      return 3600 // 1 hour
+    }
+
+    // Slow queries - cache longer to avoid repeated expensive operations
+    if (executionTime > 500) {
+      return 900 // 15 minutes
+    }
+
+    // Analytics/aggregations - medium TTL
+    if (lowerQuery.includes('count') || lowerQuery.includes('group by')) {
+      return 300 // 5 minutes
+    }
+
+    // Default TTL
+    return 180 // 3 minutes
+  }
+
+  /**
+   * Extract cache tags from query for invalidation
+   */
+  private extractCacheTags(query: string): string[] {
+    const tags: string[] = []
+    const lowerQuery = query.toLowerCase()
+
+    // Extract table names as tags
+    const tables = [
+      'tickets',
+      'users',
+      'categories',
+      'priorities',
+      'statuses',
+      'comments',
+      'attachments',
+      'kb_articles',
+    ]
+
+    for (const table of tables) {
+      if (lowerQuery.includes(table)) {
+        tags.push(table)
+      }
+    }
+
+    return tags
+  }
+
+  /**
+   * Invalidate cache by table name
+   */
+  async invalidateCache(table: string): Promise<void> {
+    await cacheStrategy.invalidateByTag(table)
+    logger.info('Cache invalidated', { table })
+  }
+
+  /**
+   * Get query cache statistics
+   */
+  getQueryCacheStats(): QueryCacheStats {
+    const total = this.cacheHits + this.cacheMisses
+    return {
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      evictions: this.cacheEvictions,
+      size: this.queryCache.size,
+      hitRate: total > 0 ? this.cacheHits / total : 0,
     }
   }
 

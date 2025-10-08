@@ -235,7 +235,13 @@ function NotificationContainer() {
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed top-20 right-4 z-50 max-w-sm w-full space-y-2">
+    <div
+      className="fixed top-20 right-4 z-50 max-w-sm w-full space-y-2"
+      role="region"
+      aria-label="Notificações toast"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       {notifications.map((notification) => (
         <div
           key={notification.id}
@@ -243,6 +249,10 @@ function NotificationContainer() {
             !notification.read ? 'ring-2 ring-brand-500/20' : ''
           }`}
           onClick={() => markAsRead(notification.id)}
+          role="alert"
+          aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+          aria-label={`${notification.title}: ${notification.message}`}
         >
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
@@ -261,14 +271,15 @@ function NotificationContainer() {
                     removeNotification(notification.id)
                   }}
                   className="ml-2 flex-shrink-0 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                  aria-label={`Fechar notificação: ${notification.title}`}
                 >
-                  <XMarkIcon className="h-4 w-4" />
+                  <XMarkIcon className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
 
               {/* Actions */}
               {notification.actions && notification.actions.length > 0 && (
-                <div className="flex items-center space-x-2 mt-3">
+                <div className="flex items-center space-x-2 mt-3" role="group" aria-label="Ações da notificação">
                   {notification.actions.map((action, index) => (
                     <button
                       key={index}
@@ -282,6 +293,7 @@ function NotificationContainer() {
                           ? 'bg-current text-white bg-opacity-90 hover:bg-opacity-100'
                           : 'bg-current bg-opacity-10 hover:bg-opacity-20'
                       }`}
+                      aria-label={action.label}
                     >
                       {action.label}
                     </button>

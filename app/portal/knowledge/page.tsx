@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
   BookOpenIcon,
@@ -63,7 +64,7 @@ export default function KnowledgeBasePage() {
         setArticles(data.articles)
       }
     } catch (error) {
-      console.error('Error fetching articles:', error)
+      logger.error('Error fetching articles', error)
     } finally {
       setLoading(false)
     }
@@ -78,7 +79,7 @@ export default function KnowledgeBasePage() {
         setCategories(data.categories)
       }
     } catch (error) {
-      console.error('Error fetching categories:', error)
+      logger.error('Error fetching categories', error)
     }
   }
 

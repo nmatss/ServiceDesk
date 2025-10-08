@@ -1,4 +1,5 @@
 import { createEmailTransporter, getFromAddress } from './config'
+import { logger } from '../monitoring/logger';
 import {
   emailTemplates,
   compileTemplate,
@@ -67,7 +68,7 @@ class EmailService {
       const result = await this.transporter.sendMail(mailOptions)
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('📧 Email sent:', {
+        logger.info('📧 Email sent', {
           to: mailOptions.to,
           subject: mailOptions.subject,
           messageId: result.messageId
@@ -76,7 +77,7 @@ class EmailService {
 
       return true
     } catch (error) {
-      console.error('❌ Email sending failed:', error)
+      logger.error('❌ Email sending failed', error)
       return false
     }
   }
@@ -111,7 +112,7 @@ class EmailService {
 
       return result.lastInsertRowid as number
     } catch (error) {
-      console.error('Error queueing email:', error)
+      logger.error('Error queueing email', error)
       return null
     }
   }
@@ -137,7 +138,7 @@ class EmailService {
         await this.processQueuedEmail(email)
       }
     } catch (error) {
-      console.error('Error processing email queue:', error)
+      logger.error('Error processing email queue', error)
     }
   }
 
@@ -352,7 +353,7 @@ try {
     CREATE INDEX IF NOT EXISTS idx_email_queue_tenant ON email_queue(tenant_id);
   `)
 } catch (error) {
-  console.error('Error creating email_queue table:', error)
+  logger.error('Error creating email_queue table', error)
 }
 
 export const emailService = new EmailService()

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { logger } from '@/lib/monitoring/logger';
 
 interface Notification {
   type: string
@@ -43,7 +44,7 @@ export function useSocket(): UseSocketReturn {
     const token = localStorage.getItem('auth_token')
 
     if (!token) {
-      console.warn('No auth token found for socket connection')
+      logger.warn('No auth token found for socket connection')
       return
     }
 
@@ -65,7 +66,7 @@ export function useSocket(): UseSocketReturn {
 
     // Event handlers
     socket.on('connect', () => {
-      console.log('🔗 Socket connected:', socket.id)
+      logger.info('🔗 Socket connected', socket.id)
       setIsConnected(true)
 
       // Solicitar lista de usuários online
@@ -73,18 +74,18 @@ export function useSocket(): UseSocketReturn {
     })
 
     socket.on('disconnect', (reason) => {
-      console.log('🔌 Socket disconnected:', reason)
+      logger.info('🔌 Socket disconnected', reason)
       setIsConnected(false)
     })
 
     socket.on('connect_error', (error) => {
-      console.error('❌ Socket connection error:', error)
+      logger.error('❌ Socket connection error', error)
       setIsConnected(false)
     })
 
     // Receber notificações
     socket.on('notification', (notification: Notification) => {
-      console.log('📢 New notification:', notification)
+      logger.info('📢 New notification', notification)
 
       setNotifications(prev => [notification, ...prev.slice(0, 49)]) // Manter apenas 50 notificações
 
@@ -109,7 +110,7 @@ export function useSocket(): UseSocketReturn {
           // Solicitar permissão
           Notification.requestPermission().then(permission => {
             if (permission === 'granted') {
-              console.log('✅ Notification permission granted')
+              logger.info('✅ Notification permission granted')
             }
           })
         }
@@ -121,23 +122,23 @@ export function useSocket(): UseSocketReturn {
           const audio = new Audio('/sounds/notification.mp3')
           audio.volume = 0.3
           audio.play().catch(e => {
-            console.log('Could not play notification sound:', e)
+            logger.info('Could not play notification sound', e)
           })
         } catch (e) {
-          console.log('Audio not available')
+          logger.info('Audio not available')
         }
       }
     })
 
     // Atualizar lista de usuários online
     socket.on('online_users_updated', (users: OnlineUser[]) => {
-      console.log('👥 Online users updated:', users.length)
+      logger.info('👥 Online users updated', users.length)
       setOnlineUsers(users)
     })
 
     // Status de usuário mudou
     socket.on('user_status_changed', (data: { userId: number; isOnline: boolean }) => {
-      console.log(`👤 User ${data.userId} is now ${data.isOnline ? 'online' : 'offline'}`)
+      logger.info(`👤 User ${data.userId} is now ${data.isOnline ? 'online' : 'offline'}`)
 
       if (!data.isOnline) {
         setOnlineUsers(prev => prev.filter(user => user.id !== data.userId))
@@ -146,7 +147,7 @@ export function useSocket(): UseSocketReturn {
 
     // Indicador de digitação
     socket.on('user_typing', (data: { userName: string; userId: number; isTyping: boolean }) => {
-      console.log(`⌨️ ${data.userName} is ${data.isTyping ? 'typing' : 'stopped typing'}`)
+      logger.info(`⌨️ ${data.userName} is ${data.isTyping ? 'typing' : 'stopped typing'}`)
 
       // Emitir evento personalizado para componentes que estão escutando
       const event = new CustomEvent('user_typing', { detail: data })
@@ -155,7 +156,7 @@ export function useSocket(): UseSocketReturn {
 
     // Cleanup na desmontagem
     return () => {
-      console.log('🧹 Cleaning up socket connection')
+      logger.info('🧹 Cleaning up socket connection')
       socket.disconnect()
       socketRef.current = null
       setIsConnected(false)
@@ -173,14 +174,14 @@ export function useSocket(): UseSocketReturn {
   const joinTicketRoom = (ticketId: number) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('join_ticket', ticketId)
-      console.log(`📝 Joined ticket room: ${ticketId}`)
+      logger.info(`📝 Joined ticket room: ${ticketId}`)
     }
   }
 
   const leaveTicketRoom = (ticketId: number) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('leave_ticket', ticketId)
-      console.log(`📝 Left ticket room: ${ticketId}`)
+      logger.info(`📝 Left ticket room: ${ticketId}`)
     }
   }
 

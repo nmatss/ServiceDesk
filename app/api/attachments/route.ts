@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
       attachments
     })
   } catch (error) {
-    console.error('Error fetching attachments:', error)
+    logger.error('Error fetching attachments', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
       attachment: newAttachment
     }, { status: 201 })
   } catch (error) {
-    console.error('Error creating attachment:', error)
+    logger.error('Error creating attachment', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

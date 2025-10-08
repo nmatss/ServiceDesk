@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -74,11 +75,11 @@ export default function ArticlePage() {
       if (data.success) {
         setArticle(data.article)
       } else {
-        console.error('Erro ao carregar artigo:', data.error)
+        logger.error('Erro ao carregar artigo', data.error)
       }
 
     } catch (error) {
-      console.error('Error loading article:', error)
+      logger.error('Error loading article', error)
     } finally {
       setLoading(false)
     }
@@ -120,7 +121,7 @@ export default function ArticlePage() {
       }
 
     } catch (error) {
-      console.error('Error submitting feedback:', error)
+      logger.error('Error submitting feedback', error)
     } finally {
       setSubmittingFeedback(false)
     }
@@ -156,10 +157,10 @@ export default function ArticlePage() {
 
   if (loading) {
     return (
-      <div className=\"min-h-screen bg-gray-50 flex items-center justify-center\">
-        <div className=\"text-center\">
-          <div className=\"animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4\"></div>
-          <p className=\"text-gray-600\">Carregando artigo...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando artigo...</p>
         </div>
       </div>
     )
@@ -167,12 +168,12 @@ export default function ArticlePage() {
 
   if (!article) {
     return (
-      <div className=\"min-h-screen bg-gray-50 flex items-center justify-center\">
-        <div className=\"text-center\">
-          <h1 className=\"text-2xl font-bold text-gray-900 mb-4\">Artigo não encontrado</h1>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Artigo não encontrado</h1>
           <button
             onClick={() => router.push('/knowledge')}
-            className=\"text-blue-600 hover:text-blue-700\"
+            className="text-blue-600 hover:text-blue-700"
           >
             Voltar para Base de Conhecimento
           </button>
@@ -182,27 +183,27 @@ export default function ArticlePage() {
   }
 
   return (
-    <div className=\"min-h-screen bg-gray-50\">
-      <div className=\"max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8\">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navegação */}
-        <div className=\"mb-6\">
+        <div className="mb-6">
           <button
             onClick={() => router.push('/knowledge')}
-            className=\"flex items-center text-gray-600 hover:text-gray-900 transition-colors\"
+            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
           >
-            <ArrowLeftIcon className=\"w-4 h-4 mr-2\" />
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
             Voltar para Base de Conhecimento
           </button>
         </div>
 
         {/* Artigo */}
-        <article className=\"bg-white rounded-lg shadow-sm border\">
+        <article className="bg-white rounded-lg shadow-sm border">
           {/* Header */}
-          <div className=\"p-6 border-b border-gray-200\">
-            <div className=\"flex flex-wrap items-center gap-2 mb-4\">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               {article.category_name && (
                 <span
-                  className=\"px-3 py-1 rounded-full text-sm font-medium\"
+                  className="px-3 py-1 rounded-full text-sm font-medium"
                   style={{
                     backgroundColor: article.category_color + '20',
                     color: article.category_color
@@ -214,108 +215,108 @@ export default function ArticlePage() {
               {article.tags.map((tag, index) => (
                 <span
                   key={index}
-                  className=\"inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800\"
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                 >
-                  <TagIcon className=\"w-3 h-3 mr-1\" />
+                  <TagIcon className="w-3 h-3 mr-1" />
                   {tag.name}
                 </span>
               ))}
             </div>
 
-            <h1 className=\"text-3xl font-bold text-gray-900 mb-4\">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
               {article.title}
             </h1>
 
             {article.summary && (
-              <p className=\"text-lg text-gray-600 mb-6\">
+              <p className="text-lg text-gray-600 mb-6">
                 {article.summary}
               </p>
             )}
 
-            <div className=\"flex flex-wrap items-center gap-4 text-sm text-gray-500\">
-              <div className=\"flex items-center\">
-                <UserIcon className=\"w-4 h-4 mr-1\" />
+            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center">
+                <UserIcon className="w-4 h-4 mr-1" />
                 <span>{article.author_name}</span>
               </div>
-              <div className=\"flex items-center\">
-                <CalendarIcon className=\"w-4 h-4 mr-1\" />
+              <div className="flex items-center">
+                <CalendarIcon className="w-4 h-4 mr-1" />
                 <span>Publicado em {formatDate(article.published_at)}</span>
               </div>
-              <div className=\"flex items-center\">
-                <EyeIcon className=\"w-4 h-4 mr-1\" />
+              <div className="flex items-center">
+                <EyeIcon className="w-4 h-4 mr-1" />
                 <span>{article.view_count} visualizações</span>
               </div>
             </div>
           </div>
 
           {/* Conteúdo */}
-          <div className=\"p-6\">
+          <div className="p-6">
             <div
-              className=\"prose prose-lg max-w-none\"
+              className="prose prose-lg max-w-none"
               dangerouslySetInnerHTML={{ __html: article.content }}
             />
           </div>
 
           {/* Feedback */}
-          <div className=\"p-6 border-t border-gray-200 bg-gray-50\">
-            <h3 className=\"text-lg font-semibold text-gray-900 mb-4\">
+          <div className="p-6 border-t border-gray-200 bg-gray-50">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Este artigo foi útil?
             </h3>
 
             {feedbackGiven === null && !showFeedbackComment ? (
-              <div className=\"flex items-center space-x-4\">
+              <div className="flex items-center space-x-4">
                 <button
                   onClick={() => handleFeedback(true)}
                   disabled={submittingFeedback}
-                  className=\"flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50\"
+                  className="flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
                 >
-                  <HandThumbUpIcon className=\"w-5 h-5 mr-2\" />
+                  <HandThumbUpIcon className="w-5 h-5 mr-2" />
                   Sim, foi útil
                 </button>
                 <button
                   onClick={() => handleFeedback(false)}
                   disabled={submittingFeedback}
-                  className=\"flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50\"
+                  className="flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
                 >
-                  <HandThumbDownIcon className=\"w-5 h-5 mr-2\" />
+                  <HandThumbDownIcon className="w-5 h-5 mr-2" />
                   Não foi útil
                 </button>
               </div>
             ) : feedbackGiven === true ? (
-              <div className=\"flex items-center text-green-700\">
-                <HandThumbUpSolid className=\"w-5 h-5 mr-2\" />
+              <div className="flex items-center text-green-700">
+                <HandThumbUpSolid className="w-5 h-5 mr-2" />
                 <span>Obrigado pelo seu feedback!</span>
               </div>
             ) : feedbackGiven === false && !showFeedbackComment ? (
-              <div className=\"flex items-center text-red-700\">
-                <HandThumbDownSolid className=\"w-5 h-5 mr-2\" />
+              <div className="flex items-center text-red-700">
+                <HandThumbDownSolid className="w-5 h-5 mr-2" />
                 <span>Obrigado pelo seu feedback!</span>
               </div>
             ) : null}
 
             {showFeedbackComment && (
-              <div className=\"mt-4 p-4 bg-white rounded-lg border\">
-                <p className=\"text-sm text-gray-600 mb-3\">
+              <div className="mt-4 p-4 bg-white rounded-lg border">
+                <p className="text-sm text-gray-600 mb-3">
                   Como podemos melhorar este artigo?
                 </p>
                 <textarea
                   value={feedbackComment}
                   onChange={(e) => setFeedbackComment(e.target.value)}
-                  placeholder=\"Seu comentário (opcional)...\"
-                  className=\"w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent\"
+                  placeholder="Seu comentário (opcional)..."
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                 />
-                <div className=\"flex items-center space-x-3 mt-3\">
+                <div className="flex items-center space-x-3 mt-3">
                   <button
                     onClick={handleNegativeFeedbackSubmit}
                     disabled={submittingFeedback}
-                    className=\"px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50\"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     {submittingFeedback ? 'Enviando...' : 'Enviar'}
                   </button>
                   <button
                     onClick={() => setShowFeedbackComment(false)}
-                    className=\"px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors\"
+                    className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -324,9 +325,9 @@ export default function ArticlePage() {
             )}
 
             {/* Estatísticas */}
-            <div className=\"mt-6 pt-4 border-t border-gray-200\">
-              <div className=\"flex items-center justify-between text-sm text-gray-500\">
-                <div className=\"flex items-center space-x-4\">
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center space-x-4">
                   <span>{article.helpful_votes} pessoas acharam útil</span>
                   <span>{article.not_helpful_votes} pessoas acharam inútil</span>
                 </div>
@@ -338,22 +339,22 @@ export default function ArticlePage() {
 
         {/* Artigos relacionados */}
         {article.relatedArticles && article.relatedArticles.length > 0 && (
-          <div className=\"mt-8\">
-            <h2 className=\"text-2xl font-bold text-gray-900 mb-6\">Artigos Relacionados</h2>
-            <div className=\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4\">
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Artigos Relacionados</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {article.relatedArticles.map((relatedArticle) => (
                 <div
                   key={relatedArticle.id}
                   onClick={() => router.push(`/knowledge/article/${relatedArticle.slug}`)}
-                  className=\"bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer\"
+                  className="bg-white p-4 rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer"
                 >
-                  <h3 className=\"font-semibold text-gray-900 mb-2 line-clamp-2\">
+                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
                     {relatedArticle.title}
                   </h3>
-                  <p className=\"text-sm text-gray-600 mb-3 line-clamp-2\">
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                     {relatedArticle.summary}
                   </p>
-                  <div className=\"flex items-center justify-between text-xs text-gray-500\">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>{relatedArticle.view_count} views</span>
                     <span>{relatedArticle.helpful_votes} úteis</span>
                   </div>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
   AdjustmentsHorizontalIcon,
@@ -111,7 +112,7 @@ export default function AdvancedSearch() {
         setShowSuggestions(true)
       }
     } catch (error) {
-      console.error('Error fetching suggestions:', error)
+      logger.error('Error fetching suggestions', error)
     }
   }
 
@@ -151,7 +152,7 @@ export default function AdvancedSearch() {
         setResults(data)
       }
     } catch (error) {
-      console.error('Error performing search:', error)
+      logger.error('Error performing search', error)
     } finally {
       setLoading(false)
     }

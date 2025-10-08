@@ -1,5 +1,6 @@
 import db from '../db/connection';
 import { TicketWithDetails, KnowledgeArticleWithDetails, User } from '../types/database';
+import { logger } from '../monitoring/logger';
 
 export interface SearchFilters {
   query?: string;
@@ -207,7 +208,7 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
       facets
     };
   } catch (error) {
-    console.error('Error searching tickets:', error);
+    logger.error('Error searching tickets', error);
     return { items: [], total: 0, hasMore: false, facets: getEmptyFacets() };
   }
 }
@@ -293,7 +294,7 @@ export function searchKnowledgeBase(query: string, options: {
       facets: emptyFacets
     };
   } catch (error) {
-    console.error('Error searching knowledge base:', error);
+    logger.error('Error searching knowledge base', error);
     return { items: [], total: 0, hasMore: false, facets: getEmptyFacets() };
   }
 }
@@ -356,7 +357,7 @@ export function globalSearch(query: string, options: {
       total: tickets.length + articles.length + users.length
     };
   } catch (error) {
-    console.error('Error in global search:', error);
+    logger.error('Error in global search', error);
     return { tickets: [], articles: [], users: [], total: 0 };
   }
 }
@@ -469,7 +470,7 @@ function calculateTicketFacets(currentFilters: SearchFilters): SearchFacets {
       dateRanges
     };
   } catch (error) {
-    console.error('Error calculating facets:', error);
+    logger.error('Error calculating facets', error);
     return getEmptyFacets();
   }
 }
@@ -522,7 +523,7 @@ export function saveSearch(userId: number, query: string, filters: SearchFilters
 
     return result.changes > 0;
   } catch (error) {
-    console.error('Error saving search:', error);
+    logger.error('Error saving search', error);
     return false;
   }
 }
@@ -542,7 +543,7 @@ export function getSearchHistory(userId: number, limit: number = 10): any[] {
 
     return query.all(userId, limit) as any[];
   } catch (error) {
-    console.error('Error getting search history:', error);
+    logger.error('Error getting search history', error);
     return [];
   }
 }
@@ -565,7 +566,7 @@ export function getSearchSuggestions(userId: number, partialQuery: string, limit
     const results = query.all(userId, `%${partialQuery}%`, limit) as { query: string }[];
     return results.map(r => r.query);
   } catch (error) {
-    console.error('Error getting search suggestions:', error);
+    logger.error('Error getting search suggestions', error);
     return [];
   }
 }

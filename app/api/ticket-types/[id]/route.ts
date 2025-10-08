@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { getDb } from '@/lib/db'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +36,7 @@ export async function GET(
       ticket_type: ticketType
     })
   } catch (error) {
-    console.error('Error fetching ticket type:', error)
+    logger.error('Error fetching ticket type', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch ticket type' },
       { status: 500 }
@@ -133,7 +134,7 @@ export async function PUT(
       message: 'Ticket type updated successfully'
     })
   } catch (error) {
-    console.error('Error updating ticket type:', error)
+    logger.error('Error updating ticket type', error)
     return NextResponse.json(
       { success: false, error: 'Failed to update ticket type' },
       { status: 500 }
@@ -179,7 +180,7 @@ export async function DELETE(
       message: 'Ticket type deleted successfully'
     })
   } catch (error) {
-    console.error('Error deleting ticket type:', error)
+    logger.error('Error deleting ticket type', error)
     return NextResponse.json(
       { success: false, error: 'Failed to delete ticket type' },
       { status: 500 }

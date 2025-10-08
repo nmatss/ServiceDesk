@@ -6,6 +6,7 @@ import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { logger } from '@/lib/monitoring/logger';
 
 export default function NewUserPage() {
   const router = useRouter()
@@ -98,7 +99,7 @@ export default function NewUserPage() {
 
       router.push('/admin/users')
     } catch (error) {
-      console.error('Erro ao criar usuário:', error)
+      logger.error('Erro ao criar usuário', error)
       alert('Erro ao criar usuário')
     } finally {
       setLoading(false)

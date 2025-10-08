@@ -9,6 +9,7 @@
  */
 
 import db from './connection';
+import { logger } from '../monitoring/logger';
 
 // ============================================
 // COLUMN AND TABLE ALLOWLISTS
@@ -284,7 +285,7 @@ export function executeSafeSelect<T = any>(options: QueryOptions): T[] {
     const stmt = db.prepare(sql);
     return stmt.all(...params) as T[];
   } catch (error) {
-    console.error('Safe SELECT query failed:', { sql, error });
+    logger.error('Safe SELECT query failed', { sql, error });
     throw new Error('Database query failed');
   }
 }
@@ -300,7 +301,7 @@ export function executeSafeSelectOne<T = any>(options: QueryOptions): T | null {
     const result = stmt.get(...params) as T | undefined;
     return result || null;
   } catch (error) {
-    console.error('Safe SELECT query failed:', { sql, error });
+    logger.error('Safe SELECT query failed', { sql, error });
     throw new Error('Database query failed');
   }
 }
@@ -369,7 +370,7 @@ export function executeSafeUpdate(
     const result = stmt.run(...params);
     return result.changes;
   } catch (error) {
-    console.error('Safe UPDATE query failed:', { sql, error });
+    logger.error('Safe UPDATE query failed', { sql, error });
     throw new Error('Database update failed');
   }
 }
@@ -420,7 +421,7 @@ export function executeSafeDelete(table: string, where: WhereCondition[]): numbe
     const result = stmt.run(...params);
     return result.changes;
   } catch (error) {
-    console.error('Safe DELETE query failed:', { sql, error });
+    logger.error('Safe DELETE query failed', { sql, error });
     throw new Error('Database delete failed');
   }
 }

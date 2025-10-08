@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useUser } from '@stackframe/stack';
+import { logger } from '@/lib/monitoring/logger';
 
 interface AuditEntry {
   id: string;
@@ -34,7 +35,7 @@ export default function AuditLog() {
       const data = await response.json();
       setLogs(data.logs);
     } catch (error) {
-      console.error('Erro ao buscar logs:', error);
+      logger.error('Erro ao buscar logs', error);
     } finally {
       setLoading(false);
     }

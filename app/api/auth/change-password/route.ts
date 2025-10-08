@@ -3,6 +3,7 @@ import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { validateJWTSecret } from '@/lib/config/env'
+import { logger } from '@/lib/monitoring/logger';
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
@@ -58,7 +59,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ message: 'Senha alterada com sucesso' })
 
   } catch (error) {
-    console.error('Erro ao alterar senha:', error)
+    logger.error('Erro ao alterar senha', error)
     return NextResponse.json({ message: 'Erro interno do servidor' }, { status: 500 })
   }
 }

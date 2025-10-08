@@ -1,5 +1,6 @@
 import db from '../db/connection';
 import { SLAPolicy, SLATracking, CreateSLAPolicy, CreateSLATracking, CreateEscalation, CreateNotification } from '../types/database';
+import { logger } from '../monitoring/logger';
 
 /**
  * Verifica se estamos dentro do horário comercial
@@ -105,7 +106,7 @@ export function findApplicableSLAPolicy(priorityId: number, categoryId?: number)
 
     return generalPolicy || null;
   } catch (error) {
-    console.error('Error finding SLA policy:', error);
+    logger.error('Error finding SLA policy', error);
     return null;
   }
 }
@@ -152,7 +153,7 @@ export function createSLATracking(ticketId: number, slaPolicy: SLAPolicy, ticket
 
     return result.changes > 0;
   } catch (error) {
-    console.error('Error creating SLA tracking:', error);
+    logger.error('Error creating SLA tracking', error);
     return false;
   }
 }
@@ -180,7 +181,7 @@ export function checkSLABreaches(): SLATracking[] {
 
     return query.all(now, now) as SLATracking[];
   } catch (error) {
-    console.error('Error checking SLA breaches:', error);
+    logger.error('Error checking SLA breaches', error);
     return [];
   }
 }
@@ -209,7 +210,7 @@ export function checkSLAWarnings(warningMinutes: number = 30): SLATracking[] {
     const now = new Date().toISOString();
     return query.all(warningTime, now, warningTime, now) as SLATracking[];
   } catch (error) {
-    console.error('Error checking SLA warnings:', error);
+    logger.error('Error checking SLA warnings', error);
     return [];
   }
 }
@@ -231,7 +232,7 @@ export function markFirstResponse(ticketId: number, responseTime: number): boole
     const result = updateQuery.run(responseTime, ticketId);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error marking first response:', error);
+    logger.error('Error marking first response', error);
     return false;
   }
 }
@@ -253,7 +254,7 @@ export function markResolution(ticketId: number, resolutionTime: number): boolea
     const result = updateQuery.run(resolutionTime, ticketId);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error marking resolution:', error);
+    logger.error('Error marking resolution', error);
     return false;
   }
 }
@@ -327,7 +328,7 @@ export function escalateTicket(ticketId: number, reason: string, escalationType:
 
     return escalationResult.changes > 0;
   } catch (error) {
-    console.error('Error escalating ticket:', error);
+    logger.error('Error escalating ticket', error);
     return false;
   }
 }
@@ -373,7 +374,7 @@ export function getSLAMetrics(startDate?: string, endDate?: string): any {
       resolution_compliance_percentage: Math.round(resolutionCompliance * 100) / 100
     };
   } catch (error) {
-    console.error('Error getting SLA metrics:', error);
+    logger.error('Error getting SLA metrics', error);
     return null;
   }
 }
@@ -391,7 +392,7 @@ export function getAllSLAPolicies(): SLAPolicy[] {
       ORDER BY sp.priority_id DESC, sp.created_at DESC
     `).all() as SLAPolicy[];
   } catch (error) {
-    console.error('Error getting SLA policies:', error);
+    logger.error('Error getting SLA policies', error);
     return [];
   }
 }
@@ -428,7 +429,7 @@ export function createSLAPolicy(policy: CreateSLAPolicy): SLAPolicy | null {
 
     return null;
   } catch (error) {
-    console.error('Error creating SLA policy:', error);
+    logger.error('Error creating SLA policy', error);
     return null;
   }
 }
@@ -474,8 +475,8 @@ export function processSLAMonitoring(): void {
       escalateTicket(tracking.ticket_id, reason, 'sla_breach');
     });
 
-    console.log(`SLA Monitoring: ${warnings.length} warnings, ${breaches.length} breaches processed`);
+    logger.info(`SLA Monitoring: ${warnings.length} warnings, ${breaches.length} breaches processed`);
   } catch (error) {
-    console.error('Error in SLA monitoring:', error);
+    logger.error('Error in SLA monitoring', error);
   }
 }

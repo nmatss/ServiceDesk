@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
       teams
     })
   } catch (error) {
-    console.error('Error fetching teams:', error)
+    logger.error('Error fetching teams', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch teams' },
       { status: 500 }
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       message: 'Team created successfully'
     })
   } catch (error) {
-    console.error('Error creating team:', error)
+    logger.error('Error creating team', error)
     return NextResponse.json(
       { success: false, error: 'Failed to create team' },
       { status: 500 }

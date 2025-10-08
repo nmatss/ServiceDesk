@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { logger } from '../monitoring/logger';
 
 export interface MaskingRule {
   id: string;
@@ -110,7 +111,7 @@ class DataMaskingManager {
         maskingType: rule.maskingType
       };
     } catch (error) {
-      console.error('Error applying data masking:', error);
+      logger.error('Error applying data masking', error);
       return {
         originalValue: value,
         maskedValue: value,
@@ -181,7 +182,7 @@ class DataMaskingManager {
 
       return ruleId;
     } catch (error) {
-      console.error('Error creating masking rule:', error);
+      logger.error('Error creating masking rule', error);
       return null;
     }
   }
@@ -249,10 +250,10 @@ class DataMaskingManager {
   ): Promise<boolean> {
     // This would implement full database masking
     // For now, we'll just log the operation
-    console.log('Creating masked database copy...');
-    console.log('Source:', sourceConfig);
-    console.log('Target:', targetConfig);
-    console.log('Tables:', tables);
+    logger.info('Creating masked database copy...');
+    logger.info('Source', sourceConfig);
+    logger.info('Target', targetConfig);
+    logger.info('Tables', tables);
 
     // Implementation would:
     // 1. Connect to source database
@@ -652,7 +653,7 @@ class DataMaskingManager {
       this.createMaskingRule(rule);
     }
 
-    console.log('Default data masking rules initialized');
+    logger.info('Default data masking rules initialized');
   }
 }
 

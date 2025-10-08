@@ -1,5 +1,6 @@
 import { randomBytes, createCipher, createDecipher, createHash, pbkdf2Sync, scrypt } from 'crypto';
 import { promisify } from 'util';
+import { logger } from '../monitoring/logger';
 
 const scryptAsync = promisify(scrypt);
 
@@ -277,7 +278,7 @@ class EncryptionManager {
           return encryptedValue;
       }
     } catch (error) {
-      console.error(`Failed to decrypt field ${tableName}.${fieldName}:`, error);
+      logger.error(`Failed to decrypt field ${tableName}.${fieldName}:`, error);
       return '[ENCRYPTED]';
     }
   }

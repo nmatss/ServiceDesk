@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
   DocumentTextIcon,
@@ -118,7 +119,7 @@ export default function KnowledgePage() {
         setArticles([])
       }
     } catch (err) {
-      console.error('Erro ao buscar base de conhecimento:', err)
+      logger.error('Erro ao buscar base de conhecimento', err)
       error('Erro', 'Falha ao carregar base de conhecimento')
     } finally {
       setLoading(false)

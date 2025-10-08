@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import jwt from 'jsonwebtoken'
 import { validateJWTSecret } from '@/lib/config/env'
+import { logger } from '@/lib/monitoring/logger';
 
 const JWT_SECRET = validateJWTSecret()
 
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       stats
     })
   } catch (error) {
-    console.error('Error fetching stats:', error)
+    logger.error('Error fetching stats', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db'
 import { getTenantManager } from '@/lib/tenant/manager'
+import { logger } from '../monitoring/logger';
 
 interface TicketData {
   id?: number
@@ -63,7 +64,7 @@ export class WorkflowManager {
           return await this.processDefaultWorkflow(ticketData, ticketType)
       }
     } catch (error) {
-      console.error('Error processing ticket workflow:', error)
+      logger.error('Error processing ticket workflow', error)
       return { success: false, error: 'Failed to process ticket workflow' }
     }
   }

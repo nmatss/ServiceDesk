@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stackServerApp } from "@/src/lib/auth";
 import { logLoginAttempt } from "@/src/lib/audit";
+import { logger } from '@/lib/monitoring/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
   } catch (error) {
-    console.error("Auth test error:", error);
+    logger.error("Auth test error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

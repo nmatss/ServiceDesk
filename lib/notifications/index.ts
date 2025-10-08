@@ -1,5 +1,6 @@
 import db from '../db/connection';
 import { CreateNotification, Notification, NotificationWithDetails } from '../types/database';
+import { logger } from '../monitoring/logger';
 
 /**
  * Cria uma notificação
@@ -30,7 +31,7 @@ export function createNotification(notification: CreateNotification): Notificati
 
     return null;
   } catch (error) {
-    console.error('Error creating notification:', error);
+    logger.error('Error creating notification', error);
     return null;
   }
 }
@@ -97,7 +98,7 @@ export function getUserNotifications(
 
     return { notifications, total, unread };
   } catch (error) {
-    console.error('Error getting user notifications:', error);
+    logger.error('Error getting user notifications', error);
     return { notifications: [], total: 0, unread: 0 };
   }
 }
@@ -119,7 +120,7 @@ export function markAsRead(notificationIds: number[], userId: number): number {
     const result = updateQuery.run(...notificationIds, userId);
     return result.changes;
   } catch (error) {
-    console.error('Error marking notifications as read:', error);
+    logger.error('Error marking notifications as read', error);
     return 0;
   }
 }
@@ -138,7 +139,7 @@ export function markAllAsRead(userId: number): number {
     const result = updateQuery.run(userId);
     return result.changes;
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    logger.error('Error marking all notifications as read', error);
     return 0;
   }
 }
@@ -159,7 +160,7 @@ export function deleteOldNotifications(daysOld: number = 30): number {
     const result = deleteQuery.run(cutoffDate.toISOString());
     return result.changes;
   } catch (error) {
-    console.error('Error deleting old notifications:', error);
+    logger.error('Error deleting old notifications', error);
     return 0;
   }
 }
@@ -190,7 +191,7 @@ export function notifyTicketAssigned(ticketId: number, assignedTo: number, assig
       sent_via_email: true
     }) !== null;
   } catch (error) {
-    console.error('Error creating ticket assigned notification:', error);
+    logger.error('Error creating ticket assigned notification', error);
     return false;
   }
 }
@@ -236,7 +237,7 @@ export function notifyTicketUpdated(ticketId: number, userId: number, updateType
 
     return true;
   } catch (error) {
-    console.error('Error creating ticket updated notification:', error);
+    logger.error('Error creating ticket updated notification', error);
     return false;
   }
 }
@@ -296,7 +297,7 @@ export function notifyCommentAdded(ticketId: number, commentAuthor: number, isIn
 
     return true;
   } catch (error) {
-    console.error('Error creating comment notification:', error);
+    logger.error('Error creating comment notification', error);
     return false;
   }
 }
@@ -350,7 +351,7 @@ export function notifySLAWarning(ticketId: number, warningType: 'response' | 're
 
     return true;
   } catch (error) {
-    console.error('Error creating SLA warning notification:', error);
+    logger.error('Error creating SLA warning notification', error);
     return false;
   }
 }
@@ -402,7 +403,7 @@ export function notifySLABreach(ticketId: number, breachType: 'response' | 'reso
 
     return true;
   } catch (error) {
-    console.error('Error creating SLA breach notification:', error);
+    logger.error('Error creating SLA breach notification', error);
     return false;
   }
 }
@@ -428,7 +429,7 @@ export function notifyEscalation(ticketId: number, escalatedTo: number, reason: 
       sent_via_email: true
     }) !== null;
   } catch (error) {
-    console.error('Error creating escalation notification:', error);
+    logger.error('Error creating escalation notification', error);
     return false;
   }
 }
@@ -462,7 +463,7 @@ export function getNotificationStats(userId?: number): any {
 
     return stats;
   } catch (error) {
-    console.error('Error getting notification stats:', error);
+    logger.error('Error getting notification stats', error);
     return null;
   }
 }
@@ -475,10 +476,10 @@ export function cleanupNotifications(): number {
     // Deletar notificações lidas com mais de 30 dias
     const deleted = deleteOldNotifications(30);
 
-    console.log(`Cleanup: ${deleted} old notifications deleted`);
+    logger.info(`Cleanup: ${deleted} old notifications deleted`);
     return deleted;
   } catch (error) {
-    console.error('Error in notification cleanup:', error);
+    logger.error('Error in notification cleanup', error);
     return 0;
   }
 }

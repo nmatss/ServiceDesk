@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AdminDashboard from '@/src/components/admin/AdminDashboard'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ClockIcon,
   ExclamationTriangleIcon,
@@ -100,7 +101,7 @@ export default function SLAPage() {
         setSLAStats(ticketsData.stats)
       }
     } catch (error) {
-      console.error('Erro ao buscar dados SLA:', error)
+      logger.error('Erro ao buscar dados SLA', error)
     } finally {
       setLoading(false)
     }
@@ -126,7 +127,7 @@ export default function SLAPage() {
         setSLAStats(data.stats)
       }
     } catch (error) {
-      console.error('Erro ao buscar tickets SLA:', error)
+      logger.error('Erro ao buscar tickets SLA', error)
     }
   }
 

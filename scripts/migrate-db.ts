@@ -6,30 +6,31 @@
  */
 
 import db from '../lib/db/connection'
+import { logger } from '@/lib/monitoring/logger';
 
 async function migrateDatabase() {
   try {
-    console.log('🔄 Migrating database...')
+    logger.info('🔄 Migrating database...')
 
     // Verificar se a coluna password_hash já existe
     const tableInfo = db.prepare("PRAGMA table_info(users)").all() as any[]
     const hasPasswordHash = tableInfo.some(column => column.name === 'password_hash')
 
     if (!hasPasswordHash) {
-      console.log('📝 Adding password_hash column to users table...')
+      logger.info('📝 Adding password_hash column to users table...')
       
       // Adicionar coluna password_hash
       db.prepare('ALTER TABLE users ADD COLUMN password_hash TEXT').run()
       
-      console.log('✅ password_hash column added successfully')
+      logger.info('✅ password_hash column added successfully')
     } else {
-      console.log('✅ password_hash column already exists')
+      logger.info('✅ password_hash column already exists')
     }
 
-    console.log('✅ Database migration completed successfully!')
+    logger.info('✅ Database migration completed successfully!')
     return true
   } catch (error) {
-    console.error('❌ Error during database migration:', error)
+    logger.error('❌ Error during database migration', error)
     return false
   }
 }

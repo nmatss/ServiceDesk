@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import slugify from 'slugify'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching articles:', error)
+    logger.error('Error fetching articles', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -228,7 +229,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error creating article:', error)
+    logger.error('Error creating article', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

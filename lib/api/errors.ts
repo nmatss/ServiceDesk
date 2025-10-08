@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { ApiError, ApiResponse, ErrorCode, HTTP_STATUS, HttpStatus } from './types'
+import { logger } from '../monitoring/logger';
 
 // Custom Error Classes
 export class ApiErrorBase extends Error {
@@ -132,7 +133,7 @@ export class ErrorHandler {
       },
     }
 
-    console.error('API Error:', JSON.stringify(logData, null, 2))
+    logger.error('API Error', JSON.stringify(logData, null, 2))
 
     // In production, you would send this to your logging service
     // Example: Sentry, LogRocket, CloudWatch, etc.

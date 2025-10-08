@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from 'socket.io'
 import { Server as HTTPServer } from 'http'
 import { getDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { logger } from '../monitoring/logger';
 
 export class SocketServer {
   private io: SocketIOServer
@@ -45,7 +46,7 @@ export class SocketServer {
 
       next()
     } catch (error) {
-      console.error('Socket authentication error:', error)
+      logger.error('Socket authentication error', error)
       next(new Error('Authentication error'))
     }
   }
@@ -73,9 +74,9 @@ export class SocketServer {
         sessionData.isActive ? 1 : 0
       )
 
-      console.log(`🔗 User ${socket.userName} (${socket.userId}) connected with session ${socket.id}`)
+      logger.info(`🔗 User ${socket.userName} (${socket.userId}) connected with session ${socket.id}`)
     } catch (error) {
-      console.error('Error saving user session:', error)
+      logger.error('Error saving user session', error)
     }
   }
 
@@ -87,9 +88,9 @@ export class SocketServer {
         WHERE id = ?
       `).run(socket.id)
 
-      console.log(`🔌 User ${socket.userName} (${socket.userId}) disconnected from session ${socket.id}`)
+      logger.info(`🔌 User ${socket.userName} (${socket.userId}) disconnected from session ${socket.id}`)
     } catch (error) {
-      console.error('Error removing user session:', error)
+      logger.error('Error removing user session', error)
     }
   }
 
@@ -98,7 +99,7 @@ export class SocketServer {
     this.io.use(this.authenticateSocket.bind(this))
 
     this.io.on('connection', (socket) => {
-      console.log(`✅ Socket connected: ${socket.id} (User: ${socket.userName})`)
+      logger.info(`✅ Socket connected: ${socket.id} (User: ${socket.userName})`)
 
       // Entrar em sala baseada no role do usuário
       const userRoom = `user_${socket.userId}`
@@ -120,12 +121,12 @@ export class SocketServer {
       // Eventos do socket
       socket.on('join_ticket', (ticketId: number) => {
         socket.join(`ticket_${ticketId}`)
-        console.log(`👤 User ${socket.userName} joined ticket room: ${ticketId}`)
+        logger.info(`👤 User ${socket.userName} joined ticket room: ${ticketId}`)
       })
 
       socket.on('leave_ticket', (ticketId: number) => {
         socket.leave(`ticket_${ticketId}`)
-        console.log(`👤 User ${socket.userName} left ticket room: ${ticketId}`)
+        logger.info(`👤 User ${socket.userName} left ticket room: ${ticketId}`)
       })
 
       socket.on('typing_start', (data: { ticketId: number; userName: string }) => {
@@ -157,12 +158,12 @@ export class SocketServer {
             WHERE id = ?
           `).run(socket.id)
         } catch (error) {
-          console.error('Error updating activity:', error)
+          logger.error('Error updating activity', error)
         }
       }, 30000) // A cada 30 segundos
 
       socket.on('disconnect', (reason) => {
-        console.log(`❌ Socket disconnected: ${socket.id} (Reason: ${reason})`)
+        logger.info(`❌ Socket disconnected: ${socket.id} (Reason: ${reason})`)
         clearInterval(activityInterval)
         this.removeUserSession(socket)
 
@@ -191,7 +192,7 @@ export class SocketServer {
 
       socket.emit('online_users_updated', onlineUsers)
     } catch (error) {
-      console.error('Error fetching online users:', error)
+      logger.error('Error fetching online users', error)
     }
   }
 
@@ -289,7 +290,7 @@ export class SocketServer {
         JSON.stringify(payload)
       )
     } catch (error) {
-      console.error('Error saving notification event:', error)
+      logger.error('Error saving notification event', error)
     }
   }
 
@@ -320,7 +321,7 @@ export class SocketServer {
         usersByRole
       }
     } catch (error) {
-      console.error('Error getting connection stats:', error)
+      logger.error('Error getting connection stats', error)
       return {
         totalConnections: 0,
         activeUsers: 0,

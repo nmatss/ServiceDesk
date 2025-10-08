@@ -1,5 +1,6 @@
 import db from './connection';
 import { hashPassword } from '../auth/sqlite-auth';
+import { logger } from '../monitoring/logger';
 
 /**
  * Insere dados iniciais no banco de dados
@@ -9,11 +10,11 @@ export async function seedDatabase() {
     // Verifica se já existem dados
     const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
     if (userCount.count > 0) {
-      console.log('📊 Database already has data, skipping seed');
+      logger.info('📊 Database already has data, skipping seed');
       return true;
     }
 
-    console.log('🌱 Seeding database with initial data...');
+    logger.info('🌱 Seeding database with initial data...');
 
     // Hash da senha padrão 123456
     const defaultPasswordHash = await hashPassword('123456');
@@ -365,10 +366,10 @@ export async function seedDatabase() {
       insertKnowledge.run(title, content, summary, categoryId, tags, isPublished ? 1 : 0, viewCount, helpfulCount, notHelpfulCount, authorId);
     });
 
-    console.log('✅ Database seeded successfully with advanced features');
+    logger.info('✅ Database seeded successfully with advanced features');
     return true;
   } catch (error) {
-    console.error('❌ Error seeding database:', error);
+    logger.error('❌ Error seeding database', error);
     return false;
   }
 }
@@ -378,7 +379,7 @@ export async function seedDatabase() {
  */
 export function clearDatabase() {
   try {
-    console.log('🧹 Clearing database...');
+    logger.info('🧹 Clearing database...');
     
     // Desabilitar foreign keys temporariamente
     db.pragma('foreign_keys = OFF');
@@ -412,10 +413,10 @@ export function clearDatabase() {
     // Reabilitar foreign keys
     db.pragma('foreign_keys = ON');
     
-    console.log('✅ Database cleared successfully');
+    logger.info('✅ Database cleared successfully');
     return true;
   } catch (error) {
-    console.error('❌ Error clearing database:', error);
+    logger.error('❌ Error clearing database', error);
     return false;
   }
 }

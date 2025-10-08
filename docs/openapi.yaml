@@ -1,0 +1,1868 @@
+openapi: 3.0.3
+info:
+  title: ServiceDesk Pro API
+  version: 1.0.0
+  description: |
+    Complete REST API for ServiceDesk Pro - Enterprise Service Desk System
+
+    ## Features
+    - JWT-based authentication with refresh tokens
+    - Multi-tenant architecture with tenant isolation
+    - Role-based access control (RBAC)
+    - Rate limiting on all endpoints
+    - Comprehensive audit logging
+    - Real-time notifications via SSE
+    - AI-powered ticket classification and suggestions
+    - WhatsApp integration
+    - Knowledge base management
+    - SLA tracking and automation
+
+    ## Authentication
+    Most endpoints require authentication via JWT token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    Obtain a token by calling POST /api/v1/auth/login
+
+    ## Rate Limiting
+    Rate limits are applied per IP address and endpoint type:
+    - Auth endpoints: 5 requests / 15 minutes
+    - API endpoints: 100 requests / 15 minutes
+    - Upload endpoints: 10 requests / 5 minutes
+    - Search endpoints: 30 requests / 1 minute
+
+    Rate limit headers are returned in all responses:
+    - X-RateLimit-Limit: Maximum requests allowed
+    - X-RateLimit-Remaining: Requests remaining in window
+    - X-RateLimit-Reset: Time when limit resets
+
+  contact:
+    name: ServiceDesk Pro Support
+    email: support@servicedesk.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+  - url: https://api.servicedesk.com/v1
+    description: Production server
+  - url: https://staging-api.servicedesk.com/v1
+    description: Staging server
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization operations
+  - name: Tickets
+    description: Ticket management operations
+  - name: Admin
+    description: Administrative operations
+  - name: Users
+    description: User management operations
+  - name: Knowledge Base
+    description: Knowledge base articles and categories
+  - name: Analytics
+    description: Analytics and reporting
+  - name: Notifications
+    description: Real-time notification system
+  - name: SLA
+    description: Service Level Agreement management
+  - name: Teams
+    description: Team and department management
+  - name: Workflows
+    description: Workflow automation
+  - name: AI
+    description: AI-powered features
+  - name: Integrations
+    description: Third-party integrations
+  - name: Files
+    description: File upload and management
+  - name: Search
+    description: Search functionality
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================
+  # AUTHENTICATION ENDPOINTS
+  # ============================================
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      description: Authenticate user with email and password, returns JWT token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@servicedesk.com
+                password:
+                  type: string
+                  format: password
+                  example: Admin@123
+                tenant_slug:
+                  type: string
+                  example: acme-corp
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Request limit per window
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Remaining requests in window
+            X-RateLimit-Reset:
+              schema:
+                type: string
+              description: Time when rate limit resets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Login realizado com sucesso
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePass123!
+                tenant_slug:
+                  type: string
+                  example: acme-corp
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate current JWT token and clear session
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/verify:
+    get:
+      tags:
+        - Authentication
+      summary: Verify JWT token
+      description: Verify if current JWT token is valid
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get user profile
+      description: Retrieve authenticated user's profile information
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/change-password:
+    put:
+      tags:
+        - Authentication
+      summary: Change password
+      description: Change authenticated user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # ============================================
+  # TICKET ENDPOINTS
+  # ============================================
+  /tickets:
+    get:
+      tags:
+        - Tickets
+      summary: List tickets
+      description: Retrieve paginated list of tickets (filtered by role)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tickets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  tickets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TicketWithDetails'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags:
+        - Tickets
+      summary: Create ticket
+      description: Create a new support ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - category_id
+                - priority_id
+              properties:
+                title:
+                  type: string
+                  example: Cannot access dashboard
+                description:
+                  type: string
+                  example: I am unable to access the admin dashboard after login
+                category_id:
+                  type: integer
+                  example: 1
+                priority_id:
+                  type: integer
+                  example: 2
+      responses:
+        '201':
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  ticket:
+                    $ref: '#/components/schemas/TicketWithDetails'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /tickets/{id}:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket by ID
+      description: Retrieve detailed information about a specific ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ticket retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketWithDetails'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    put:
+      tags:
+        - Tickets
+      summary: Update ticket
+      description: Update ticket information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                status_id:
+                  type: integer
+                priority_id:
+                  type: integer
+                assigned_to:
+                  type: integer
+      responses:
+        '200':
+          description: Ticket updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  ticket:
+                    $ref: '#/components/schemas/TicketWithDetails'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - Tickets
+      summary: Delete ticket
+      description: Delete a ticket (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ticket deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /tickets/{id}/comments:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket comments
+      description: Retrieve all comments for a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+
+    post:
+      tags:
+        - Tickets
+      summary: Add comment to ticket
+      description: Add a new comment to a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  example: I have investigated this issue and found the root cause
+                is_internal:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+
+  /tickets/{id}/attachments:
+    post:
+      tags:
+        - Tickets
+      summary: Upload attachment to ticket
+      description: Upload a file attachment to a ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Attachment uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  attachment:
+                    $ref: '#/components/schemas/Attachment'
+
+  # ============================================
+  # ADMIN ENDPOINTS
+  # ============================================
+  /admin/users:
+    get:
+      tags:
+        - Admin
+        - Users
+      summary: List all users (Admin)
+      description: Retrieve list of all users in the tenant (admin only)
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Admin
+        - Users
+      summary: Create user (Admin)
+      description: Create a new user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - role
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                role:
+                  type: string
+                  enum: [admin, agent, user, manager, read_only]
+      responses:
+        '201':
+          description: User created successfully
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/users/{id}:
+    put:
+      tags:
+        - Admin
+        - Users
+      summary: Update user (Admin)
+      description: Update user information (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                role:
+                  type: string
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: User updated successfully
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    delete:
+      tags:
+        - Admin
+        - Users
+      summary: Delete user (Admin)
+      description: Delete a user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User deleted successfully
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/stats:
+    get:
+      tags:
+        - Admin
+        - Analytics
+      summary: Get admin statistics
+      description: Retrieve overall system statistics (admin only)
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  stats:
+                    type: object
+                    properties:
+                      total_tickets:
+                        type: integer
+                      open_tickets:
+                        type: integer
+                      total_users:
+                        type: integer
+                      avg_resolution_time:
+                        type: number
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/reports:
+    get:
+      tags:
+        - Admin
+        - Analytics
+      summary: Generate reports
+      description: Generate various system reports (admin only)
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [tickets, users, sla, performance]
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Report generated successfully
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # KNOWLEDGE BASE ENDPOINTS
+  # ============================================
+  /knowledge/articles:
+    get:
+      tags:
+        - Knowledge Base
+      summary: List knowledge base articles
+      description: Retrieve published knowledge base articles
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Articles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  articles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/KnowledgeArticle'
+
+    post:
+      tags:
+        - Knowledge Base
+      summary: Create knowledge article
+      description: Create a new knowledge base article (agent/admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                summary:
+                  type: string
+                category_id:
+                  type: integer
+                tags:
+                  type: array
+                  items:
+                    type: string
+                is_published:
+                  type: boolean
+      responses:
+        '201':
+          description: Article created successfully
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /knowledge/articles/{slug}:
+    get:
+      tags:
+        - Knowledge Base
+      summary: Get article by slug
+      description: Retrieve a specific knowledge base article
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Article retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeArticle'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /knowledge/search:
+    get:
+      tags:
+        - Knowledge Base
+        - Search
+      summary: Search knowledge base
+      description: Search for articles in knowledge base
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/KnowledgeArticle'
+
+  # ============================================
+  # ANALYTICS ENDPOINTS
+  # ============================================
+  /analytics/overview:
+    get:
+      tags:
+        - Analytics
+      summary: Get analytics overview
+      description: Retrieve overview of key metrics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: month
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets_created:
+                    type: integer
+                  tickets_resolved:
+                    type: integer
+                  avg_resolution_time:
+                    type: number
+                  sla_compliance:
+                    type: number
+
+  /analytics/realtime:
+    get:
+      tags:
+        - Analytics
+      summary: Get real-time metrics
+      description: Retrieve real-time system metrics
+      responses:
+        '200':
+          description: Real-time metrics retrieved successfully
+
+  # ============================================
+  # NOTIFICATION ENDPOINTS
+  # ============================================
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      description: Retrieve notifications for authenticated user
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+
+  /notifications/unread:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread count
+      description: Get count of unread notifications
+      responses:
+        '200':
+          description: Unread count retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+
+  /notifications/sse:
+    get:
+      tags:
+        - Notifications
+      summary: Server-Sent Events stream
+      description: Subscribe to real-time notifications via SSE
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ============================================
+  # SLA ENDPOINTS
+  # ============================================
+  /sla:
+    get:
+      tags:
+        - SLA
+      summary: List SLA policies
+      description: Retrieve all SLA policies
+      responses:
+        '200':
+          description: SLA policies retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SLAPolicy'
+
+  /admin/sla:
+    post:
+      tags:
+        - Admin
+        - SLA
+      summary: Create SLA policy
+      description: Create a new SLA policy (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - response_time_hours
+                - resolution_time_hours
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                priority_id:
+                  type: integer
+                category_id:
+                  type: integer
+                response_time_hours:
+                  type: number
+                resolution_time_hours:
+                  type: number
+                business_hours_only:
+                  type: boolean
+      responses:
+        '201':
+          description: SLA policy created successfully
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================
+  # TEAM ENDPOINTS
+  # ============================================
+  /teams:
+    get:
+      tags:
+        - Teams
+      summary: List teams
+      description: Retrieve all teams
+      responses:
+        '200':
+          description: Teams retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  teams:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Team'
+
+    post:
+      tags:
+        - Teams
+      summary: Create team
+      description: Create a new team (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Team created successfully
+
+  /teams/{id}/members:
+    post:
+      tags:
+        - Teams
+      summary: Add team member
+      description: Add a user to a team
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+                role:
+                  type: string
+                  enum: [member, lead, manager]
+      responses:
+        '201':
+          description: Member added successfully
+
+  # ============================================
+  # AI ENDPOINTS
+  # ============================================
+  /ai/classify-ticket:
+    post:
+      tags:
+        - AI
+      summary: AI ticket classification
+      description: Classify ticket using AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Classification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggested_category:
+                    type: string
+                  suggested_priority:
+                    type: string
+                  confidence:
+                    type: number
+
+  /ai/suggest-solutions:
+    post:
+      tags:
+        - AI
+      summary: AI solution suggestions
+      description: Get AI-powered solution suggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticket_id
+              properties:
+                ticket_id:
+                  type: integer
+      responses:
+        '200':
+          description: Suggestions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        content:
+                          type: string
+                        confidence:
+                          type: number
+
+  /ai/analyze-sentiment:
+    post:
+      tags:
+        - AI
+      summary: Analyze sentiment
+      description: Analyze sentiment of text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '200':
+          description: Sentiment analyzed successfully
+
+  # ============================================
+  # METADATA ENDPOINTS
+  # ============================================
+  /categories:
+    get:
+      tags:
+        - Tickets
+      summary: List categories
+      description: Retrieve all ticket categories
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+  /priorities:
+    get:
+      tags:
+        - Tickets
+      summary: List priorities
+      description: Retrieve all ticket priorities
+      responses:
+        '200':
+          description: Priorities retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Priority'
+
+  /statuses:
+    get:
+      tags:
+        - Tickets
+      summary: List statuses
+      description: Retrieve all ticket statuses
+      responses:
+        '200':
+          description: Statuses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Status'
+
+  # ============================================
+  # WORKFLOW ENDPOINTS
+  # ============================================
+  /workflows/definitions:
+    get:
+      tags:
+        - Workflows
+      summary: List workflow definitions
+      description: Retrieve all workflow definitions
+      responses:
+        '200':
+          description: Workflows retrieved successfully
+
+    post:
+      tags:
+        - Workflows
+      summary: Create workflow
+      description: Create a new workflow definition (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - trigger_conditions
+                - steps_json
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                trigger_conditions:
+                  type: object
+                steps_json:
+                  type: object
+      responses:
+        '201':
+          description: Workflow created successfully
+
+  /workflows/execute:
+    post:
+      tags:
+        - Workflows
+      summary: Execute workflow
+      description: Manually execute a workflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - workflow_id
+              properties:
+                workflow_id:
+                  type: integer
+                context:
+                  type: object
+      responses:
+        '200':
+          description: Workflow execution started
+
+  # ============================================
+  # INTEGRATION ENDPOINTS
+  # ============================================
+  /integrations/whatsapp/send:
+    post:
+      tags:
+        - Integrations
+      summary: Send WhatsApp message
+      description: Send a message via WhatsApp integration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone_number
+                - message
+              properties:
+                phone_number:
+                  type: string
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Message sent successfully
+
+  /integrations/whatsapp/webhook:
+    post:
+      tags:
+        - Integrations
+      summary: WhatsApp webhook
+      description: Webhook endpoint for WhatsApp messages
+      security: []
+      responses:
+        '200':
+          description: Webhook processed
+
+  # ============================================
+  # FILE ENDPOINTS
+  # ============================================
+  /files/upload:
+    post:
+      tags:
+        - Files
+      summary: Upload file
+      description: Upload a file to the system
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                category:
+                  type: string
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  file:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      url:
+                        type: string
+                      filename:
+                        type: string
+                      size:
+                        type: integer
+
+  # ============================================
+  # SEARCH ENDPOINTS
+  # ============================================
+  /search:
+    get:
+      tags:
+        - Search
+      summary: Global search
+      description: Search across tickets, users, and knowledge base
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [tickets, users, knowledge, all]
+            default: all
+      responses:
+        '200':
+          description: Search results retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: object
+                    properties:
+                      tickets:
+                        type: array
+                      users:
+                        type: array
+                      articles:
+                        type: array
+
+  /search/suggestions:
+    get:
+      tags:
+        - Search
+      summary: Get search suggestions
+      description: Get autocomplete suggestions for search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Suggestions retrieved
+
+# ============================================
+# COMPONENTS
+# ============================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        role:
+          type: string
+          enum: [admin, agent, user, manager, read_only, api_client]
+          example: agent
+        tenant_id:
+          type: integer
+          example: 1
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        user_id:
+          type: integer
+        assigned_to:
+          type: integer
+        category_id:
+          type: integer
+        priority_id:
+          type: integer
+        status_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+
+    TicketWithDetails:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          properties:
+            user_name:
+              type: string
+            status:
+              type: string
+            priority:
+              type: string
+            category:
+              type: string
+            assigned_agent_name:
+              type: string
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticket_id:
+          type: integer
+        user_id:
+          type: integer
+        content:
+          type: string
+        is_internal:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+        ticket_id:
+          type: integer
+        filename:
+          type: string
+        original_name:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+        uploaded_by:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+
+    Priority:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        level:
+          type: integer
+        color:
+          type: string
+
+    Status:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+        is_final:
+          type: boolean
+
+    SLAPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        response_time_hours:
+          type: number
+        resolution_time_hours:
+          type: number
+        business_hours_only:
+          type: boolean
+        is_active:
+          type: boolean
+
+    KnowledgeArticle:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        summary:
+          type: string
+        category_id:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        is_published:
+          type: boolean
+        views_count:
+          type: integer
+        helpful_count:
+          type: integer
+        not_helpful_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        ticket_id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        code:
+          type: string
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Usuário não autenticado
+            code: UNAUTHORIZED
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Acesso negado - permissão insuficiente
+            code: FORBIDDEN
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Recurso não encontrado
+            code: NOT_FOUND
+
+    BadRequestError:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Parâmetros inválidos
+            code: BAD_REQUEST
+
+    RateLimitError:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Request limit per window
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Remaining requests (0 when exceeded)
+        X-RateLimit-Reset:
+          schema:
+            type: string
+          description: Time when rate limit resets
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until retry allowed
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Error'
+              - type: object
+                properties:
+                  retryAfter:
+                    type: integer
+          example:
+            success: false
+            error: Muitas requisições. Tente novamente em 15 minutos.
+            code: RATE_LIMIT_EXCEEDED
+            retryAfter: 900
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: Erro interno do servidor
+            code: INTERNAL_ERROR

@@ -1,6 +1,7 @@
 import emailService from './service'
 import { TicketEmailData, UserEmailData } from './templates'
 import db from '@/lib/db/connection'
+import { logger } from '../monitoring/logger';
 
 // Helper function to get ticket data for email
 export const getTicketEmailData = (ticketId: number): TicketEmailData | null => {
@@ -50,7 +51,7 @@ export const getTicketEmailData = (ticketId: number): TicketEmailData | null => 
       }
     }
   } catch (error) {
-    console.error('Error getting ticket email data:', error)
+    logger.error('Error getting ticket email data', error)
     return null
   }
 }
@@ -84,7 +85,7 @@ export const getUserEmailData = (userId: number, includePassword = false): UserE
       }
     }
   } catch (error) {
-    console.error('Error getting user email data:', error)
+    logger.error('Error getting user email data', error)
     return null
   }
 }
@@ -107,10 +108,10 @@ export const emailHooks = {
       const ticketData = getTicketEmailData(ticketId)
       if (ticketData) {
         await emailService.sendTicketCreatedEmail(ticketData)
-        console.log(`📧 Ticket created email queued for ticket ${ticketData.ticketNumber}`)
+        logger.info(`📧 Ticket created email queued for ticket ${ticketData.ticketNumber}`)
       }
     } catch (error) {
-      console.error('Error sending ticket created email:', error)
+      logger.error('Error sending ticket created email', error)
     }
   },
 
@@ -120,10 +121,10 @@ export const emailHooks = {
       const ticketData = getTicketEmailData(ticketId)
       if (ticketData) {
         await emailService.sendTicketUpdatedEmail(ticketData)
-        console.log(`📧 Ticket updated email queued for ticket ${ticketData.ticketNumber}`)
+        logger.info(`📧 Ticket updated email queued for ticket ${ticketData.ticketNumber}`)
       }
     } catch (error) {
-      console.error('Error sending ticket updated email:', error)
+      logger.error('Error sending ticket updated email', error)
     }
   },
 
@@ -133,10 +134,10 @@ export const emailHooks = {
       const ticketData = getTicketEmailData(ticketId)
       if (ticketData) {
         await emailService.sendTicketResolvedEmail(ticketData)
-        console.log(`📧 Ticket resolved email queued for ticket ${ticketData.ticketNumber}`)
+        logger.info(`📧 Ticket resolved email queued for ticket ${ticketData.ticketNumber}`)
       }
     } catch (error) {
-      console.error('Error sending ticket resolved email:', error)
+      logger.error('Error sending ticket resolved email', error)
     }
   },
 
@@ -158,10 +159,10 @@ export const emailHooks = {
         }
 
         await emailService.sendTicketUpdatedEmail(customData)
-        console.log(`📧 Ticket assignment email queued for user ${userData.name}`)
+        logger.info(`📧 Ticket assignment email queued for user ${userData.name}`)
       }
     } catch (error) {
-      console.error('Error sending ticket assignment email:', error)
+      logger.error('Error sending ticket assignment email', error)
     }
   },
 
@@ -174,10 +175,10 @@ export const emailHooks = {
           userData.password = tempPassword
         }
         await emailService.sendWelcomeEmail(userData)
-        console.log(`📧 Welcome email queued for user ${userData.email}`)
+        logger.info(`📧 Welcome email queued for user ${userData.email}`)
       }
     } catch (error) {
-      console.error('Error sending welcome email:', error)
+      logger.error('Error sending welcome email', error)
     }
   },
 
@@ -190,10 +191,10 @@ export const emailHooks = {
         userData.urls.resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
 
         await emailService.sendPasswordResetEmail(userData)
-        console.log(`📧 Password reset email queued for user ${userData.email}`)
+        logger.info(`📧 Password reset email queued for user ${userData.email}`)
       }
     } catch (error) {
-      console.error('Error sending password reset email:', error)
+      logger.error('Error sending password reset email', error)
     }
   },
 
@@ -225,10 +226,10 @@ export const emailHooks = {
         }
 
         await emailService.sendTicketUpdatedEmail(emailData)
-        console.log(`📧 Comment notification email queued for ticket ${ticketData.ticketNumber}`)
+        logger.info(`📧 Comment notification email queued for ticket ${ticketData.ticketNumber}`)
       }
     } catch (error) {
-      console.error('Error sending comment notification email:', error)
+      logger.error('Error sending comment notification email', error)
     }
   }
 }
@@ -237,9 +238,9 @@ export const emailHooks = {
 export const processEmailQueuePeriodically = async (): Promise<void> => {
   try {
     await emailService.processEmailQueue(50) // Process up to 50 emails
-    console.log('📧 Email queue processed')
+    logger.info('📧 Email queue processed')
   } catch (error) {
-    console.error('Error processing email queue:', error)
+    logger.error('Error processing email queue', error)
   }
 }
 

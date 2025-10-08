@@ -5,6 +5,7 @@ import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { AdminTable } from '@/src/components/admin/AdminTable'
 import { useState, useEffect } from 'react'
+import { logger } from '@/lib/monitoring/logger';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false)
@@ -23,7 +24,7 @@ export default function AdminUsersPage() {
         setUsers(data.users || [])
       }
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error)
+      logger.error('Erro ao buscar usuários', error)
     } finally {
       setLoading(false)
     }
@@ -192,7 +193,7 @@ export default function AdminUsersPage() {
           data={users}
           loading={loading}
           emptyMessage="Nenhum usuário encontrado"
-          onRowClick={(row) => console.log('User clicked:', row)}
+          onRowClick={(row) => logger.info('User clicked', row)}
         />
 
         {/* Filters */}

@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 import { validateJWTSecret } from '@/lib/config/env';
+import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import * as jose from 'jose';
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret());
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
     return response;
 
   } catch (error) {
-    console.error('Erro na API de login:', error);
+    captureAuthError(error, { method: 'password' });
     return NextResponse.json({
       success: false,
       error: 'Erro interno do servidor'

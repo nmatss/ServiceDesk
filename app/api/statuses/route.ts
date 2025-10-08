@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       statuses: parsedStatuses
     })
   } catch (error) {
-    console.error('Error fetching statuses:', error)
+    logger.error('Error fetching statuses', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       status: newStatus
     }, { status: 201 })
   } catch (error) {
-    console.error('Error creating status:', error)
+    logger.error('Error creating status', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

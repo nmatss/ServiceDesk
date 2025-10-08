@@ -1,4 +1,5 @@
 import db from '../db/connection';
+import { logger } from '../monitoring/logger';
 
 // Interface para cache
 interface CacheEntry {
@@ -43,7 +44,7 @@ function createCacheTable() {
       CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at)
     `);
   } catch (error) {
-    console.error('Error creating cache table:', error);
+    logger.error('Error creating cache table', error);
   }
 }
 
@@ -52,7 +53,7 @@ function createCacheTable() {
  */
 export function configureCacheSystem(newConfig: Partial<CacheConfig>): void {
   config = { ...config, ...newConfig };
-  console.log('Cache system configured:', config);
+  logger.info('Cache system configured', config);
 }
 
 /**
@@ -110,7 +111,7 @@ export function getFromCache<T>(key: string): T | null {
 
     return JSON.parse(entry.value) as T;
   } catch (error) {
-    console.error('Error getting from cache:', error);
+    logger.error('Error getting from cache', error);
     return null;
   }
 }
@@ -136,7 +137,7 @@ export function setCache<T>(key: string, value: T, ttl: number = config.defaultT
 
     return true;
   } catch (error) {
-    console.error('Error setting cache:', error);
+    logger.error('Error setting cache', error);
     return false;
   }
 }
@@ -151,7 +152,7 @@ export function removeFromCache(key: string): boolean {
     const result = db.prepare('DELETE FROM cache WHERE key = ?').run(key);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error removing from cache:', error);
+    logger.error('Error removing from cache', error);
     return false;
   }
 }
@@ -166,7 +167,7 @@ export function removeCachePattern(pattern: string): number {
     const result = db.prepare('DELETE FROM cache WHERE key LIKE ?').run(pattern);
     return result.changes;
   } catch (error) {
-    console.error('Error removing cache pattern:', error);
+    logger.error('Error removing cache pattern', error);
     return 0;
   }
 }
@@ -182,12 +183,12 @@ export function cleanupExpiredCache(): number {
     `).run();
 
     if (result.changes > 0) {
-      console.log(`Cleaned up ${result.changes} expired cache entries`);
+      logger.info(`Cleaned up ${result.changes} expired cache entries`);
     }
 
     return result.changes;
   } catch (error) {
-    console.error('Error cleaning up expired cache:', error);
+    logger.error('Error cleaning up expired cache', error);
     return 0;
   }
 }
@@ -212,10 +213,10 @@ function cleanupCacheIfNeeded(): void {
         )
       `).run(entriesToRemove);
 
-      console.log(`Cleaned up ${entriesToRemove} cache entries due to size limit`);
+      logger.info(`Cleaned up ${entriesToRemove} cache entries due to size limit`);
     }
   } catch (error) {
-    console.error('Error in cache cleanup:', error);
+    logger.error('Error in cache cleanup', error);
   }
 }
 
@@ -225,10 +226,10 @@ function cleanupCacheIfNeeded(): void {
 export function clearAllCache(): number {
   try {
     const result = db.prepare('DELETE FROM cache').run();
-    console.log(`Cleared all cache: ${result.changes} entries removed`);
+    logger.info(`Cleared all cache: ${result.changes} entries removed`);
     return result.changes;
   } catch (error) {
-    console.error('Error clearing all cache:', error);
+    logger.error('Error clearing all cache', error);
     return 0;
   }
 }
@@ -268,7 +269,7 @@ export function getCacheStats(): {
       size_mb: Math.round(size_mb * 100) / 100
     };
   } catch (error) {
-    console.error('Error getting cache stats:', error);
+    logger.error('Error getting cache stats', error);
     return {
       total_entries: 0,
       expired_entries: 0,
@@ -352,7 +353,7 @@ export function invalidateTicketCache(ticketId: number): void {
   removeCachePattern(`reports:%`);
   removeCachePattern(`stats:%`);
   removeFromCache(`ticket:${ticketId}`);
-  console.log(`Invalidated cache for ticket ${ticketId}`);
+  logger.info(`Invalidated cache for ticket ${ticketId}`);
 }
 
 /**
@@ -361,7 +362,7 @@ export function invalidateTicketCache(ticketId: number): void {
 export function invalidateUserCache(userId: number): void {
   removeCachePattern(`user:${userId}:%`);
   removeCachePattern(`tickets:search:%`);
-  console.log(`Invalidated cache for user ${userId}`);
+  logger.info(`Invalidated cache for user ${userId}`);
 }
 
 /**
@@ -370,7 +371,7 @@ export function invalidateUserCache(userId: number): void {
 export function invalidateStatsCache(): void {
   removeCachePattern('stats:%');
   removeCachePattern('reports:%');
-  console.log('Invalidated stats cache');
+  logger.info('Invalidated stats cache');
 }
 
 /**
@@ -395,7 +396,7 @@ export function withCache<T>(
       setCache(cacheKey, result, ttl);
       resolve(result);
     } catch (error) {
-      console.error('Error in withCache:', error);
+      logger.error('Error in withCache', error);
       throw error;
     }
   });
@@ -454,9 +455,9 @@ export function initializeCacheSystem(): void {
     // Limpeza inicial
     cleanupExpiredCache();
 
-    console.log('Cache system initialized successfully');
+    logger.info('Cache system initialized successfully');
   } catch (error) {
-    console.error('Error initializing cache system:', error);
+    logger.error('Error initializing cache system', error);
   }
 }
 
@@ -469,7 +470,7 @@ export function startCacheCleanupProcess(): void {
     cleanupExpiredCache();
   }, 5 * 60 * 1000);
 
-  console.log('Cache cleanup process started');
+  logger.info('Cache cleanup process started');
 }
 
 // Exportar configuração atual

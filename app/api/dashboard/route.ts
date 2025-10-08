@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { getCachedStats, cacheStats } from '@/lib/cache';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 // GET - Dashboard analytics
 export async function GET(request: NextRequest) {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar dados do dashboard:', error);
+    logger.error('Erro ao buscar dados do dashboard', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -151,7 +152,7 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
       users: userStats
     };
   } catch (error) {
-    console.error('Error getting system overview:', error);
+    logger.error('Error getting system overview', error);
     return {};
   }
 }
@@ -208,7 +209,7 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
       daily_resolved: dailyResolved
     };
   } catch (error) {
-    console.error('Error getting ticket metrics:', error);
+    logger.error('Error getting ticket metrics', error);
     return {};
   }
 }
@@ -241,7 +242,7 @@ async function getAgentPerformance(tenant: any, startDate: Date) {
       resolution_rate: agent.tickets_assigned > 0 ? Math.round((agent.tickets_resolved / agent.tickets_assigned) * 100) : 0
     }));
   } catch (error) {
-    console.error('Error getting agent performance:', error);
+    logger.error('Error getting agent performance', error);
     return [];
   }
 }
@@ -291,7 +292,7 @@ async function getSLAData(user: any, tenant: any, startDate: Date) {
       resolution_compliant: slaStats?.resolution_compliant || 0
     };
   } catch (error) {
-    console.error('Error getting SLA data:', error);
+    logger.error('Error getting SLA data', error);
     return {};
   }
 }
@@ -330,7 +331,7 @@ async function getRecentActivity(user: any, tenant: any, limit: number) {
 
     return recentTickets;
   } catch (error) {
-    console.error('Error getting recent activity:', error);
+    logger.error('Error getting recent activity', error);
     return [];
   }
 }
@@ -372,7 +373,7 @@ async function getTrendAnalytics(user: any, startDate: Date, days: number) {
       trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
     };
   } catch (error) {
-    console.error('Error getting trend analytics:', error);
+    logger.error('Error getting trend analytics', error);
     return {};
   }
 }
@@ -399,7 +400,7 @@ async function getCategoryStats(user: any, startDate: Date) {
       ORDER BY count DESC
     `).all(startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])) as any[];
   } catch (error) {
-    console.error('Error getting category stats:', error);
+    logger.error('Error getting category stats', error);
     return [];
   }
 }
@@ -427,7 +428,7 @@ async function getPriorityStats(user: any, startDate: Date) {
       ORDER BY p.level DESC, count DESC
     `).all(startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])) as any[];
   } catch (error) {
-    console.error('Error getting priority stats:', error);
+    logger.error('Error getting priority stats', error);
     return [];
   }
 }
@@ -451,7 +452,7 @@ async function getRoleSpecificData(user: any, startDate: Date) {
 
     return data;
   } catch (error) {
-    console.error('Error getting role specific data:', error);
+    logger.error('Error getting role specific data', error);
     return {};
   }
 }
@@ -468,7 +469,7 @@ async function getSystemHealthData() {
 
     return health;
   } catch (error) {
-    console.error('Error getting system health data:', error);
+    logger.error('Error getting system health data', error);
     return {};
   }
 }
@@ -489,7 +490,7 @@ async function getUserActivityData(startDate: Date) {
       LIMIT 10
     `).all(startDate.toISOString()) as any[];
   } catch (error) {
-    console.error('Error getting user activity data:', error);
+    logger.error('Error getting user activity data', error);
     return [];
   }
 }
@@ -512,7 +513,7 @@ async function getAgentAssignments(agentId: number) {
       LIMIT 10
     `).all(agentId) as any[];
   } catch (error) {
-    console.error('Error getting agent assignments:', error);
+    logger.error('Error getting agent assignments', error);
     return [];
   }
 }
@@ -532,7 +533,7 @@ async function getAgentWorkload(agentId: number) {
       WHERE t.assigned_to = ?
     `).get(agentId) as any;
   } catch (error) {
-    console.error('Error getting agent workload:', error);
+    logger.error('Error getting agent workload', error);
     return {};
   }
 }
@@ -555,7 +556,7 @@ async function getUserTicketsSummary(userId: number, startDate: Date) {
       WHERE t.user_id = ?
     `).get(startDate.toISOString(), userId) as any;
   } catch (error) {
-    console.error('Error getting user tickets summary:', error);
+    logger.error('Error getting user tickets summary', error);
     return {};
   }
 }

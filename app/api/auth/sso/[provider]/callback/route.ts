@@ -10,6 +10,7 @@ import { cookies } from 'next/headers';
 import ssoManager from '@/lib/auth/sso-manager';
 import { sign } from 'jsonwebtoken';
 import { validateJWTSecret } from '@/lib/config/env';
+import { logger } from '@/lib/monitoring/logger';
 
 const JWT_SECRET = validateJWTSecret();
 const COOKIE_NAME = 'servicedesk_token';
@@ -34,7 +35,7 @@ export async function GET(
 
     // Handle OAuth error
     if (error) {
-      console.error('SSO provider error:', error, errorDescription);
+      logger.error('SSO provider error', error, errorDescription);
       return NextResponse.redirect(
         new URL(`/auth/login?error=${encodeURIComponent(errorDescription || error)}`, request.url)
       );
@@ -106,7 +107,7 @@ export async function GET(
     // Redirect to application
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   } catch (error) {
-    console.error('SSO callback error:', error);
+    logger.error('SSO callback error', error);
     return NextResponse.redirect(
       new URL('/auth/login?error=SSO authentication failed', request.url)
     );
@@ -197,7 +198,7 @@ export async function POST(
     // Redirect to application
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   } catch (error) {
-    console.error('SAML callback error:', error);
+    logger.error('SAML callback error', error);
     return NextResponse.redirect(
       new URL('/auth/login?error=SAML authentication failed', request.url)
     );

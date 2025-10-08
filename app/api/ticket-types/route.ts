@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
       ticket_types: ticketTypes
     })
   } catch (error) {
-    console.error('Error fetching ticket types:', error)
+    logger.error('Error fetching ticket types', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch ticket types' },
       { status: 500 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       message: 'Ticket type created successfully'
     })
   } catch (error) {
-    console.error('Error creating ticket type:', error)
+    logger.error('Error creating ticket type', error)
     return NextResponse.json(
       { success: false, error: 'Failed to create ticket type' },
       { status: 500 }

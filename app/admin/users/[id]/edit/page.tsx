@@ -6,6 +6,7 @@ import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { logger } from '@/lib/monitoring/logger';
 
 interface User {
   id: number
@@ -70,7 +71,7 @@ export default function EditUserPage() {
         role: data.user.role
       })
     } catch (error) {
-      console.error('Erro ao buscar usuário:', error)
+      logger.error('Erro ao buscar usuário', error)
       setError('Erro ao carregar usuário')
     } finally {
       setLoading(false)
@@ -146,7 +147,7 @@ export default function EditUserPage() {
 
       router.push('/admin/users')
     } catch (error) {
-      console.error('Erro ao atualizar usuário:', error)
+      logger.error('Erro ao atualizar usuário', error)
       alert('Erro ao atualizar usuário')
     } finally {
       setSaving(false)

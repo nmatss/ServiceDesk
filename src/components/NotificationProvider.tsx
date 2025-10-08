@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { logger } from '@/lib/monitoring/logger';
 
 interface Notification {
   id: number
@@ -57,7 +58,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         'X-Tenant-ID': '1'
       },
       body: JSON.stringify({ notification_id: id })
-    }).catch(console.error)
+    }).catch(err => logger.error('Error marking notification as read', err))
   }
 
   const markAllAsRead = () => {
@@ -72,7 +73,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         'X-Tenant-ID': '1'
       },
       body: JSON.stringify({ mark_all_read: true })
-    }).catch(console.error)
+    }).catch(err => logger.error('Error marking all notifications as read', err))
   }
 
   useEffect(() => {
@@ -82,24 +83,24 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
     eventSource.onopen = () => {
       setIsConnected(true)
-      console.log('Connected to notification stream')
+      logger.info('Connected to notification stream')
     }
 
     eventSource.onmessage = (event) => {
       try {
         const notification = JSON.parse(event.data)
-        console.log('Received notification:', notification)
+        logger.info('Received notification', notification)
 
         if (notification.type !== 'connection') {
           setNotifications(prev => [notification, ...prev.slice(0, 99)]) // Manter apenas 100 notificações
         }
       } catch (error) {
-        console.error('Error parsing notification:', error)
+        logger.error('Error parsing notification', error)
       }
     }
 
     eventSource.onerror = (error) => {
-      console.error('SSE error:', error)
+      logger.error('SSE error', error)
       setIsConnected(false)
     }
 

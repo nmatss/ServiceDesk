@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ticketQueries } from '@/lib/db/queries';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -38,7 +39,7 @@ export async function GET(
 
     return NextResponse.json({ ticket });
   } catch (error) {
-    console.error('Erro ao buscar ticket:', error);
+    logger.error('Erro ao buscar ticket', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -101,7 +102,7 @@ export async function PUT(
 
     return NextResponse.json({ ticket: updatedTicket });
   } catch (error) {
-    console.error('Erro ao atualizar ticket:', error);
+    logger.error('Erro ao atualizar ticket', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -147,7 +148,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Ticket deletado com sucesso' });
   } catch (error) {
-    console.error('Erro ao deletar ticket:', error);
+    logger.error('Erro ao deletar ticket', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

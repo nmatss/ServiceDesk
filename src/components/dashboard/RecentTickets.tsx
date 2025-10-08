@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ClockIcon,
   UserIcon,
@@ -67,7 +68,7 @@ export default function RecentTickets({ limit = 5, showUserTickets = false, clas
       const ticketsData = showUserTickets ? data.tickets : data.tickets
       setTickets(ticketsData.slice(0, limit))
     } catch (error) {
-      console.error('Erro ao buscar tickets recentes:', error)
+      logger.error('Erro ao buscar tickets recentes', error)
       setError('Erro ao carregar tickets')
     } finally {
       setLoading(false)

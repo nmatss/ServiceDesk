@@ -5,6 +5,7 @@
 
 import { getSecurityConfig } from './config';
 import { DatabasePiiScanner } from './pii-detection';
+import { logger } from '../monitoring/logger';
 
 export interface LgpdConsentRecord {
   id: string;
@@ -356,23 +357,23 @@ export class LgpdComplianceManager {
 
   private async storeConsentRecord(record: LgpdConsentRecord): Promise<void> {
     // TODO: Implement database storage
-    console.log('Storing consent record:', record.id);
+    logger.info('Storing consent record', record.id);
   }
 
   private async getConsentRecord(consentId: string): Promise<LgpdConsentRecord | null> {
     // TODO: Implement database retrieval
-    console.log('Getting consent record:', consentId);
+    logger.info('Getting consent record', consentId);
     return null;
   }
 
   private async updateConsentRecord(record: LgpdConsentRecord): Promise<void> {
     // TODO: Implement database update
-    console.log('Updating consent record:', record.id);
+    logger.info('Updating consent record', record.id);
   }
 
   private async reviewDataProcessingForRevokedConsent(consentId: string): Promise<void> {
     // TODO: Implement data processing review
-    console.log('Reviewing data processing for revoked consent:', consentId);
+    logger.info('Reviewing data processing for revoked consent', consentId);
   }
 
   private shouldAutoApproveErasure(reason: LgpdErasureReason): boolean {
@@ -384,22 +385,22 @@ export class LgpdComplianceManager {
 
   private async scheduleDataDeletion(request: DataErasureRequest): Promise<void> {
     // TODO: Implement scheduled deletion
-    console.log('Scheduling data deletion for request:', request.id);
+    logger.info('Scheduling data deletion for request', request.id);
   }
 
   private async storeErasureRequest(request: DataErasureRequest): Promise<void> {
     // TODO: Implement database storage
-    console.log('Storing erasure request:', request.id);
+    logger.info('Storing erasure request', request.id);
   }
 
   private async storePortabilityRequest(request: DataPortabilityRequest): Promise<void> {
     // TODO: Implement database storage
-    console.log('Storing portability request:', request.id);
+    logger.info('Storing portability request', request.id);
   }
 
   private async processDataExtraction(request: DataPortabilityRequest): Promise<void> {
     // TODO: Implement data extraction
-    console.log('Processing data extraction for request:', request.id);
+    logger.info('Processing data extraction for request', request.id);
   }
 
   private async findExpiredData(): Promise<any[]> {
@@ -409,7 +410,7 @@ export class LgpdComplianceManager {
 
   private async deleteExpiredData(data: any): Promise<void> {
     // TODO: Implement data deletion
-    console.log('Deleting expired data:', data.id);
+    logger.info('Deleting expired data', data.id);
   }
 
   private async getComplianceSummary(startDate: Date, endDate: Date): Promise<any> {
@@ -487,7 +488,7 @@ export class LgpdComplianceManager {
       type: 'lgpd_compliance'
     };
 
-    console.log('LGPD Compliance Event:', logEntry);
+    logger.info('LGPD Compliance Event', logEntry);
 
     // TODO: Send to compliance audit system
   }
@@ -521,7 +522,7 @@ export class LgpdAutomationService {
 
   private scheduleTask(name: string, cron: string, task: () => void): void {
     // TODO: Implement cron scheduling
-    console.log(`Scheduled LGPD task: ${name} with cron: ${cron}`);
+    logger.info(`Scheduled LGPD task: ${name} with cron: ${cron}`);
   }
 
   private async generateWeeklyReport(): Promise<void> {
@@ -532,11 +533,11 @@ export class LgpdAutomationService {
     const report = await this.complianceManager.generateAuditReport(startDate, endDate);
 
     // TODO: Send report to compliance team
-    console.log('Weekly LGPD compliance report generated:', report.summary);
+    logger.info('Weekly LGPD compliance report generated', report.summary);
   }
 
   private async checkConsentExpiry(): Promise<void> {
     // TODO: Implement consent expiry check
-    console.log('Checking for expiring consents');
+    logger.info('Checking for expiring consents');
   }
 }

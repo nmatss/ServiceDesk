@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { logger } from '@/lib/monitoring/logger';
 import {
   HomeIcon,
   UsersIcon,
@@ -73,7 +74,7 @@ export default function AdminLayout({
 
   const handleLogout = () => {
     // Implement logout logic
-    console.log('Logout')
+    logger.info('Logout')
   }
 
   return (

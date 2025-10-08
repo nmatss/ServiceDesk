@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { logger } from '@/lib/monitoring/logger';
 
 // Interface para logs de auditoria
 export interface AuditLog {
@@ -15,7 +16,7 @@ export interface AuditLog {
 export async function logAuditEvent(logData: AuditLog): Promise<void> {
   try {
     if (!process.env.DATABASE_URL) {
-      console.warn('DATABASE_URL não configurado, log de auditoria não será salvo');
+      logger.warn('DATABASE_URL não configurado, log de auditoria não será salvo');
       return;
     }
 
@@ -28,7 +29,7 @@ export async function logAuditEvent(logData: AuditLog): Promise<void> {
               ${logData.ip_address || null}, NOW())
     `;
   } catch (error) {
-    console.error('Erro ao registrar log de auditoria:', error);
+    logger.error('Erro ao registrar log de auditoria', error);
     // Em produção, considere usar um serviço de logging externo
   }
 }

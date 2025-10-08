@@ -2,6 +2,7 @@ import db from '../db/connection';
 import { Automation } from '../types/database';
 import { createNotification } from '../notifications';
 import { logAuditAction } from '../audit';
+import { logger } from '../monitoring/logger';
 
 // Tipos para automação
 interface AutomationCondition {
@@ -34,7 +35,7 @@ export function getActiveAutomations(triggerType: string): Automation[] {
       ORDER BY created_at ASC
     `).all(triggerType) as Automation[];
   } catch (error) {
-    console.error('Error getting active automations:', error);
+    logger.error('Error getting active automations', error);
     return [];
   }
 }
@@ -53,20 +54,20 @@ export async function executeAutomations(
       return true;
     }
 
-    console.log(`Executing ${automations.length} automations for trigger: ${triggerType}`);
+    logger.info(`Executing ${automations.length} automations for trigger: ${triggerType}`);
 
     for (const automation of automations) {
       try {
         await executeAutomation(automation, triggerData);
       } catch (error) {
-        console.error(`Error executing automation ${automation.id}:`, error);
+        logger.error(`Error executing automation ${automation.id}:`, error);
         // Continue com outras automações mesmo se uma falhar
       }
     }
 
     return true;
   } catch (error) {
-    console.error('Error executing automations:', error);
+    logger.error('Error executing automations', error);
     return false;
   }
 }
@@ -87,7 +88,7 @@ async function executeAutomation(
       return false;
     }
 
-    console.log(`Executing automation: ${automation.name}`);
+    logger.info(`Executing automation: ${automation.name}`);
 
     // Executar ações
     for (const action of actions) {
@@ -116,7 +117,7 @@ async function executeAutomation(
 
     return true;
   } catch (error) {
-    console.error(`Error executing automation ${automation.id}:`, error);
+    logger.error(`Error executing automation ${automation.id}:`, error);
     return false;
   }
 }
@@ -143,7 +144,7 @@ function evaluateConditions(
 
     return false;
   } catch (error) {
-    console.error('Error evaluating conditions:', error);
+    logger.error('Error evaluating conditions', error);
     return false;
   }
 }
@@ -176,7 +177,7 @@ function evaluateCondition(condition: AutomationCondition, triggerData: TriggerD
         return false;
     }
   } catch (error) {
-    console.error('Error evaluating condition:', error);
+    logger.error('Error evaluating condition', error);
     return false;
   }
 }
@@ -235,7 +236,7 @@ function getFieldValue(field: string, triggerData: TriggerData): any {
         return null;
     }
   } catch (error) {
-    console.error('Error getting field value:', error);
+    logger.error('Error getting field value', error);
     return null;
   }
 }
@@ -265,11 +266,11 @@ async function executeAction(action: AutomationAction, triggerData: TriggerData)
         return await escalateTicket(action.parameters, triggerData);
 
       default:
-        console.warn(`Unknown action type: ${action.type}`);
+        logger.warn(`Unknown action type: ${action.type}`);
         return false;
     }
   } catch (error) {
-    console.error(`Error executing action ${action.type}:`, error);
+    logger.error(`Error executing action ${action.type}:`, error);
     return false;
   }
 }
@@ -304,7 +305,7 @@ async function assignTicket(parameters: any, triggerData: TriggerData): Promise<
 
     return true;
   } catch (error) {
-    console.error('Error assigning ticket:', error);
+    logger.error('Error assigning ticket', error);
     return false;
   }
 }
@@ -328,7 +329,7 @@ async function changeTicketStatus(parameters: any, triggerData: TriggerData): Pr
 
     return true;
   } catch (error) {
-    console.error('Error changing ticket status:', error);
+    logger.error('Error changing ticket status', error);
     return false;
   }
 }
@@ -352,7 +353,7 @@ async function changeTicketPriority(parameters: any, triggerData: TriggerData): 
 
     return true;
   } catch (error) {
-    console.error('Error changing ticket priority:', error);
+    logger.error('Error changing ticket priority', error);
     return false;
   }
 }
@@ -379,7 +380,7 @@ async function addTicketComment(parameters: any, triggerData: TriggerData): Prom
 
     return true;
   } catch (error) {
-    console.error('Error adding ticket comment:', error);
+    logger.error('Error adding ticket comment', error);
     return false;
   }
 }
@@ -404,7 +405,7 @@ async function sendNotification(parameters: any, triggerData: TriggerData): Prom
 
     return true;
   } catch (error) {
-    console.error('Error sending notification:', error);
+    logger.error('Error sending notification', error);
     return false;
   }
 }
@@ -448,7 +449,7 @@ async function escalateTicket(parameters: any, triggerData: TriggerData): Promis
 
     return true;
   } catch (error) {
-    console.error('Error escalating ticket:', error);
+    logger.error('Error escalating ticket', error);
     return false;
   }
 }
@@ -583,7 +584,7 @@ export function createDefaultAutomations(): boolean {
 
     return true;
   } catch (error) {
-    console.error('Error creating default automations:', error);
+    logger.error('Error creating default automations', error);
     return false;
   }
 }

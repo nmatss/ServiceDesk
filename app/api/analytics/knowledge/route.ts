@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -223,7 +224,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching knowledge analytics:', error)
+    logger.error('Error fetching knowledge analytics', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

@@ -2,6 +2,7 @@
 
 // ServiceDesk PWA - Service Worker Registration and Management
 import { toast } from 'react-hot-toast';
+import { logger } from '../monitoring/logger';
 
 interface PWAInstallPrompt extends Event {
   platforms: string[];
@@ -47,7 +48,7 @@ class PWAManager {
   private async initializePWA() {
     // Check if service workers are supported
     if (!('serviceWorker' in navigator)) {
-      console.warn('Service Workers not supported');
+      logger.warn('Service Workers not supported');
       return;
     }
 
@@ -81,7 +82,7 @@ class PWAManager {
       });
 
       this.state.registration = registration;
-      console.log('Service Worker registered successfully:', registration);
+      logger.info('Service Worker registered successfully', registration);
 
       // Listen for service worker messages
       navigator.serviceWorker.addEventListener('message', this.handleServiceWorkerMessage.bind(this));
@@ -98,7 +99,7 @@ class PWAManager {
 
       return registration;
     } catch (error) {
-      console.error('Service Worker registration failed:', error);
+      logger.error('Service Worker registration failed', error);
       this.emit('sw-error', error);
       throw error;
     }
@@ -133,7 +134,7 @@ class PWAManager {
       this.state.installPrompt = e as PWAInstallPrompt;
       this.state.isInstallable = true;
 
-      console.log('PWA install prompt available');
+      logger.info('PWA install prompt available');
       this.emit('install-available', true);
 
       // Show install banner after a delay
@@ -143,7 +144,7 @@ class PWAManager {
     });
 
     window.addEventListener('appinstalled', () => {
-      console.log('PWA installed successfully');
+      logger.info('PWA installed successfully');
       this.state.isInstallable = false;
       this.state.installPrompt = null;
       this.emit('app-installed', true);
@@ -157,7 +158,7 @@ class PWAManager {
 
   private async setupPushNotifications() {
     if (!('Notification' in window) || !this.state.registration) {
-      console.warn('Push notifications not supported');
+      logger.warn('Push notifications not supported');
       return;
     }
 
@@ -173,7 +174,7 @@ class PWAManager {
 
   private setupBackgroundSync() {
     if (!this.state.registration || !('sync' in window.ServiceWorkerRegistration.prototype)) {
-      console.warn('Background Sync not supported');
+      logger.warn('Background Sync not supported');
       return;
     }
 
@@ -185,7 +186,7 @@ class PWAManager {
 
   private setupPeriodicSync() {
     if (!this.state.registration || !('periodicSync' in window.ServiceWorkerRegistration.prototype)) {
-      console.warn('Periodic Background Sync not supported');
+      logger.warn('Periodic Background Sync not supported');
       return;
     }
 
@@ -193,7 +194,7 @@ class PWAManager {
     this.state.registration.periodicSync?.register('notification-sync', {
       minInterval: 24 * 60 * 60 * 1000, // 24 hours
     }).catch((error) => {
-      console.warn('Periodic sync registration failed:', error);
+      logger.warn('Periodic sync registration failed', error);
     });
   }
 
@@ -232,7 +233,7 @@ class PWAManager {
         break;
 
       default:
-        console.log('Unknown service worker message:', data);
+        logger.info('Unknown service worker message', data);
     }
   }
 
@@ -273,7 +274,7 @@ class PWAManager {
 
   async installApp(): Promise<boolean> {
     if (!this.state.installPrompt) {
-      console.warn('No install prompt available');
+      logger.warn('No install prompt available');
       return false;
     }
 
@@ -282,14 +283,14 @@ class PWAManager {
       const { outcome } = await this.state.installPrompt.userChoice;
 
       if (outcome === 'accepted') {
-        console.log('User accepted the install prompt');
+        logger.info('User accepted the install prompt');
         return true;
       } else {
-        console.log('User dismissed the install prompt');
+        logger.info('User dismissed the install prompt');
         return false;
       }
     } catch (error) {
-      console.error('Install prompt failed:', error);
+      logger.error('Install prompt failed', error);
       return false;
     }
   }
@@ -329,7 +330,7 @@ class PWAManager {
         ),
       });
 
-      console.log('Push subscription created:', subscription);
+      logger.info('Push subscription created', subscription);
 
       // Send subscription to server
       await this.sendSubscriptionToServer(subscription);
@@ -337,7 +338,7 @@ class PWAManager {
       this.emit('push-subscription-created', subscription);
       return subscription;
     } catch (error) {
-      console.error('Push subscription failed:', error);
+      logger.error('Push subscription failed', error);
       return null;
     }
   }
@@ -374,9 +375,9 @@ class PWAManager {
 
     try {
       await this.state.registration.sync.register('ticket-sync');
-      console.log('Background sync registered');
+      logger.info('Background sync registered');
     } catch (error) {
-      console.error('Background sync registration failed:', error);
+      logger.error('Background sync registration failed', error);
     }
   }
 
@@ -472,7 +473,7 @@ class PWAManager {
         body: JSON.stringify(subscription),
       });
     } catch (error) {
-      console.error('Failed to send subscription to server:', error);
+      logger.error('Failed to send subscription to server', error);
     }
   }
 

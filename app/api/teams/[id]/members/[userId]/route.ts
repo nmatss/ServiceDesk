@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { getDb } from '@/lib/db'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function DELETE(
   request: NextRequest,
@@ -54,7 +55,7 @@ export async function DELETE(
       message: 'User removed from team successfully'
     })
   } catch (error) {
-    console.error('Error removing team member:', error)
+    logger.error('Error removing team member', error)
     return NextResponse.json(
       { success: false, error: 'Failed to remove team member' },
       { status: 500 }

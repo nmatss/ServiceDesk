@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger'
 import {
   FunnelIcon,
   MagnifyingGlassIcon,
@@ -133,7 +134,7 @@ export default function TicketList({
       const data = await response.json()
       setTickets(data.tickets || [])
     } catch (error) {
-      console.error('Erro ao buscar tickets:', error)
+      logger.error('Erro ao buscar tickets', error)
       setError('Erro ao carregar tickets')
     } finally {
       setLoading(false)
@@ -162,7 +163,7 @@ export default function TicketList({
         setStats(data.stats || stats)
       }
     } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error)
+      logger.error('Erro ao buscar estatísticas', error)
     }
   }
 
@@ -241,39 +242,48 @@ export default function TicketList({
     if (!showSearch && !showFilters) return null
 
     return (
-      <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 mb-6">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 mb-6" role="search" aria-label="Busca e filtros de tickets">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
           {/* Search */}
           {showSearch && (
             <div className="flex-1 max-w-md">
+              <label htmlFor="ticket-search" className="sr-only">Buscar tickets por título ou descrição</label>
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" aria-hidden="true" />
                 <input
-                  type="text"
+                  id="ticket-search"
+                  type="search"
                   placeholder="Buscar tickets..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
                   className="input input-bordered w-full pl-10"
+                  aria-label="Campo de busca de tickets"
+                  aria-describedby="search-help"
                 />
+                <span id="search-help" className="sr-only">Digite para buscar tickets por título ou descrição</span>
               </div>
             </div>
           )}
 
           {/* Controls */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2" role="group" aria-label="Controles de visualização">
             {/* View Mode Toggle */}
-            <div className="btn-group">
+            <div className="btn-group" role="group" aria-label="Modo de visualização">
               <button
                 className={`btn btn-sm ${viewMode === 'cards' ? 'btn-active' : ''}`}
                 onClick={() => setViewMode('cards')}
+                aria-label="Visualizar em lista"
+                aria-pressed={viewMode === 'cards'}
               >
-                <ListBulletIcon className="h-4 w-4" />
+                <ListBulletIcon className="h-4 w-4" aria-hidden="true" />
               </button>
               <button
                 className={`btn btn-sm ${viewMode === 'grid' ? 'btn-active' : ''}`}
                 onClick={() => setViewMode('grid')}
+                aria-label="Visualizar em grade"
+                aria-pressed={viewMode === 'grid'}
               >
-                <Squares2X2Icon className="h-4 w-4" />
+                <Squares2X2Icon className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -282,23 +292,31 @@ export default function TicketList({
               <button
                 className={`btn btn-sm ${showFiltersPanel ? 'btn-active' : ''}`}
                 onClick={() => setShowFiltersPanel(!showFiltersPanel)}
+                aria-label={showFiltersPanel ? "Ocultar filtros" : "Mostrar filtros"}
+                aria-expanded={showFiltersPanel}
+                aria-controls="filter-panel"
               >
-                <FunnelIcon className="h-4 w-4 mr-1" />
+                <FunnelIcon className="h-4 w-4 mr-1" aria-hidden="true" />
                 Filtros
               </button>
             )}
 
             {/* Sort */}
             <div className="dropdown dropdown-end">
-              <button className="btn btn-sm">
-                <ArrowsUpDownIcon className="h-4 w-4 mr-1" />
+              <button
+                className="btn btn-sm"
+                aria-label="Ordenar tickets"
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                <ArrowsUpDownIcon className="h-4 w-4 mr-1" aria-hidden="true" />
                 Ordenar
               </button>
-              <ul className="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box w-52">
-                <li><button onClick={() => handleSortChange('created_at')}>Data de Criação</button></li>
-                <li><button onClick={() => handleSortChange('updated_at')}>Última Atualização</button></li>
-                <li><button onClick={() => handleSortChange('priority_level')}>Prioridade</button></li>
-                <li><button onClick={() => handleSortChange('title')}>Título</button></li>
+              <ul className="dropdown-content z-10 menu p-2 shadow bg-base-100 rounded-box w-52" role="menu" aria-label="Opções de ordenação">
+                <li role="none"><button onClick={() => handleSortChange('created_at')} role="menuitem">Data de Criação</button></li>
+                <li role="none"><button onClick={() => handleSortChange('updated_at')} role="menuitem">Última Atualização</button></li>
+                <li role="none"><button onClick={() => handleSortChange('priority_level')} role="menuitem">Prioridade</button></li>
+                <li role="none"><button onClick={() => handleSortChange('title')} role="menuitem">Título</button></li>
               </ul>
             </div>
           </div>
@@ -306,13 +324,15 @@ export default function TicketList({
 
         {/* Advanced Filters */}
         {showFilters && showFiltersPanel && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+          <div id="filter-panel" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-neutral-200 dark:border-neutral-700" role="region" aria-label="Filtros avançados">
             <div>
-              <label className="label label-text">Status</label>
+              <label htmlFor="status-filter" className="label label-text">Status</label>
               <select
+                id="status-filter"
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
                 className="select select-bordered w-full"
+                aria-label="Filtrar por status"
               >
                 <option value="">Todos</option>
                 <option value="new">Novo</option>
@@ -324,11 +344,13 @@ export default function TicketList({
             </div>
 
             <div>
-              <label className="label label-text">Prioridade</label>
+              <label htmlFor="priority-filter" className="label label-text">Prioridade</label>
               <select
+                id="priority-filter"
                 value={filters.priority}
                 onChange={(e) => handleFilterChange('priority', e.target.value)}
                 className="select select-bordered w-full"
+                aria-label="Filtrar por prioridade"
               >
                 <option value="">Todas</option>
                 <option value="1">Baixa</option>
@@ -339,11 +361,13 @@ export default function TicketList({
             </div>
 
             <div>
-              <label className="label label-text">Categoria</label>
+              <label htmlFor="category-filter" className="label label-text">Categoria</label>
               <select
+                id="category-filter"
                 value={filters.category}
                 onChange={(e) => handleFilterChange('category', e.target.value)}
                 className="select select-bordered w-full"
+                aria-label="Filtrar por categoria"
               >
                 <option value="">Todas</option>
                 {categories.map(category => (
@@ -354,11 +378,13 @@ export default function TicketList({
 
             {(userRole === 'admin' || userRole === 'agent') && (
               <div>
-                <label className="label label-text">Agente</label>
+                <label htmlFor="agent-filter" className="label label-text">Agente</label>
                 <select
+                  id="agent-filter"
                   value={filters.assignedAgent}
                   onChange={(e) => handleFilterChange('assignedAgent', e.target.value)}
                   className="select select-bordered w-full"
+                  aria-label="Filtrar por agente"
                 >
                   <option value="">Todos</option>
                   <option value="unassigned">Não atribuído</option>
@@ -374,6 +400,7 @@ export default function TicketList({
               <button
                 onClick={clearFilters}
                 className="btn btn-outline w-full"
+                aria-label="Limpar todos os filtros aplicados"
               >
                 Limpar Filtros
               </button>
@@ -448,7 +475,11 @@ export default function TicketList({
       : 'space-y-4'
 
     return (
-      <div className={gridClass}>
+      <div
+        className={gridClass}
+        role="list"
+        aria-label={`Lista de tickets (${tickets.length} ticket${tickets.length !== 1 ? 's' : ''} encontrado${tickets.length !== 1 ? 's' : ''})`}
+      >
         {tickets.map((ticket) => (
           <TicketCard
             key={ticket.id}

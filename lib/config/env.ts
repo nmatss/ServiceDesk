@@ -1,3 +1,5 @@
+import { logger } from '../monitoring/logger';
+
 /**
  * Environment Variable Validation and Management
  * Ensures critical environment variables are set in production
@@ -13,7 +15,7 @@ export function validateJWTSecret(): string {
       );
     }
 
-    console.warn(
+    logger.warn(
       '⚠️  WARNING: Using development JWT secret. ' +
       'This is INSECURE for production use!'
     );
@@ -30,7 +32,7 @@ export function validateJWTSecret(): string {
       );
     }
 
-    console.warn('⚠️  WARNING: JWT_SECRET is too short. Should be at least 32 characters.');
+    logger.warn('⚠️  WARNING: JWT_SECRET is too short. Should be at least 32 characters.');
   }
 
   return process.env.JWT_SECRET;
@@ -38,12 +40,12 @@ export function validateJWTSecret(): string {
 
 export function validateOpenAIKey(): string | undefined {
   if (!process.env.OPENAI_API_KEY) {
-    console.warn('⚠️  OPENAI_API_KEY not set. AI features will be disabled.');
+    logger.warn('⚠️  OPENAI_API_KEY not set. AI features will be disabled.');
     return undefined;
   }
 
   if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
-    console.warn('⚠️  OPENAI_API_KEY may be invalid (should start with "sk-")');
+    logger.warn('⚠️  OPENAI_API_KEY may be invalid (should start with "sk-")');
   }
 
   return process.env.OPENAI_API_KEY;
@@ -57,7 +59,7 @@ export function validateDatabaseURL(): string {
       );
     }
 
-    console.warn('⚠️  Using local SQLite database (servicedesk.db)');
+    logger.warn('⚠️  Using local SQLite database (servicedesk.db)');
     return './servicedesk.db';
   }
 
@@ -65,16 +67,16 @@ export function validateDatabaseURL(): string {
 }
 
 export function validateEnvironment(): void {
-  console.log('🔍 Validating environment variables...');
+  logger.info('🔍 Validating environment variables...');
 
   try {
     validateJWTSecret();
     validateOpenAIKey();
     validateDatabaseURL();
 
-    console.log('✅ Environment validation passed!');
+    logger.info('✅ Environment validation passed!');
   } catch (error) {
-    console.error('❌ Environment validation failed:', error);
+    logger.error('❌ Environment validation failed', error);
 
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);

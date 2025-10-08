@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger'
 import {
   PaperClipIcon,
   XMarkIcon,
@@ -82,6 +83,8 @@ export default function TicketForm({
   const [success, setSuccess] = useState('')
   const [dragActive, setDragActive] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [statusMessage, setStatusMessage] = useState('')
 
   useEffect(() => {
     fetchFormData()
@@ -126,13 +129,21 @@ export default function TicketForm({
         setAgents(data.agents || [])
       }
     } catch (error) {
-      console.error('Error fetching form data:', error)
+      logger.error('Error fetching form data', error)
     }
   }
 
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (error) setError('')
+    // Clear field-specific error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      })
+    }
   }
 
   const handleTagAdd = (tag: string) => {
@@ -187,22 +198,30 @@ export default function TicketForm({
   }
 
   const validateForm = () => {
+    const errors: Record<string, string> = {}
+
     if (!formData.title.trim()) {
-      setError('O título é obrigatório')
-      return false
+      errors.title = 'O título é obrigatório'
     }
     if (!formData.description.trim()) {
-      setError('A descrição é obrigatória')
-      return false
+      errors.description = 'A descrição é obrigatória'
     }
     if (!formData.category_id) {
-      setError('Selecione uma categoria')
-      return false
+      errors.category_id = 'Selecione uma categoria'
     }
     if (!formData.priority_id) {
-      setError('Selecione uma prioridade')
+      errors.priority_id = 'Selecione uma prioridade'
+    }
+
+    setFieldErrors(errors)
+
+    if (Object.keys(errors).length > 0) {
+      const errorMessage = Object.values(errors).join('. ')
+      setError(errorMessage)
+      setStatusMessage(`Erro de validação: ${errorMessage}`)
       return false
     }
+
     return true
   }
 
@@ -257,6 +276,12 @@ export default function TicketForm({
       const data = await response.json()
 
       if (response.ok) {
+        const successMsg = mode === 'create'
+          ? `Ticket criado com sucesso. ID: ${data.ticket.id}`
+          : `Ticket atualizado com sucesso`
+        setSuccess(successMsg)
+        setStatusMessage(successMsg)
+
         if (mode === 'create') {
           notifications.ticketCreated(data.ticket.id)
         } else {
@@ -305,10 +330,15 @@ export default function TicketForm({
 
   return (
     <div className={`card ${className}`}>
+      {/* Status announcements for screen readers */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {statusMessage}
+      </div>
+
       <div className="card-header">
-        <h2 className="text-xl font-semibold">
+        <h1 className="text-xl font-semibold">
           {mode === 'create' ? 'Novo Ticket' : 'Editar Ticket'}
-        </h2>
+        </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           {mode === 'create'
             ? 'Preencha as informações para criar um novo ticket'
@@ -317,13 +347,14 @@ export default function TicketForm({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="card-body space-y-6">
+      <form onSubmit={handleSubmit} className="card-body space-y-6" aria-label={mode === 'create' ? 'Formulário de criação de ticket' : 'Formulário de edição de ticket'} noValidate>
         {/* Title */}
         <div>
-          <label className="label label-text font-medium">
+          <label htmlFor="ticket-title" className="label label-text font-medium">
             Título do Ticket *
           </label>
           <input
+            id="ticket-title"
             type="text"
             value={formData.title}
             onChange={(e) => handleInputChange('title', e.target.value)}
@@ -331,34 +362,60 @@ export default function TicketForm({
             className="input input-bordered w-full"
             maxLength={255}
             required
+            aria-required="true"
+            aria-label="Título do ticket"
+            aria-describedby={fieldErrors.title ? "title-error title-description" : "title-description"}
+            aria-invalid={fieldErrors.title ? 'true' : 'false'}
           />
+          <span id="title-description" className="sr-only">Digite um título breve e descritivo para o ticket, máximo de 255 caracteres</span>
+          {fieldErrors.title && (
+            <p id="title-error" className="mt-1 text-sm text-error-600" role="alert">
+              {fieldErrors.title}
+            </p>
+          )}
         </div>
 
         {/* Description */}
         <div>
-          <label className="label label-text font-medium">
+          <label htmlFor="ticket-description" className="label label-text font-medium">
             Descrição Detalhada *
           </label>
           <textarea
+            id="ticket-description"
             value={formData.description}
             onChange={(e) => handleInputChange('description', e.target.value)}
             placeholder="Forneça todos os detalhes relevantes sobre o problema ou solicitação..."
             className="textarea textarea-bordered w-full h-32"
             required
+            aria-required="true"
+            aria-label="Descrição detalhada do ticket"
+            aria-describedby={fieldErrors.description ? "description-error description-help" : "description-help"}
+            aria-invalid={fieldErrors.description ? 'true' : 'false'}
           />
+          <span id="description-help" className="sr-only">Forneça todos os detalhes relevantes sobre o problema ou solicitação</span>
+          {fieldErrors.description && (
+            <p id="description-error" className="mt-1 text-sm text-error-600" role="alert">
+              {fieldErrors.description}
+            </p>
+          )}
         </div>
 
         {/* Category and Priority */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="label label-text font-medium">
+            <label htmlFor="ticket-category" className="label label-text font-medium">
               Categoria *
             </label>
             <select
+              id="ticket-category"
               value={formData.category_id}
               onChange={(e) => handleInputChange('category_id', e.target.value)}
               className="select select-bordered w-full"
               required
+              aria-required="true"
+              aria-label="Categoria do ticket"
+              aria-describedby={fieldErrors.category_id ? "category-error category-help" : "category-help"}
+              aria-invalid={fieldErrors.category_id ? 'true' : 'false'}
             >
               <option value="">Selecione uma categoria</option>
               {categories.map((category) => (
@@ -367,17 +424,28 @@ export default function TicketForm({
                 </option>
               ))}
             </select>
+            <span id="category-help" className="sr-only">Selecione a categoria que melhor se aplica ao ticket</span>
+            {fieldErrors.category_id && (
+              <p id="category-error" className="mt-1 text-sm text-error-600" role="alert">
+                {fieldErrors.category_id}
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="label label-text font-medium">
+            <label htmlFor="ticket-priority" className="label label-text font-medium">
               Prioridade *
             </label>
             <select
+              id="ticket-priority"
               value={formData.priority_id}
               onChange={(e) => handleInputChange('priority_id', e.target.value)}
               className="select select-bordered w-full"
               required
+              aria-required="true"
+              aria-label="Prioridade do ticket"
+              aria-describedby={fieldErrors.priority_id ? "priority-error priority-help" : "priority-help"}
+              aria-invalid={fieldErrors.priority_id ? 'true' : 'false'}
             >
               <option value="">Selecione uma prioridade</option>
               {priorities.map((priority) => (
@@ -386,6 +454,12 @@ export default function TicketForm({
                 </option>
               ))}
             </select>
+            <span id="priority-help" className="sr-only">Selecione o nível de prioridade do ticket</span>
+            {fieldErrors.priority_id && (
+              <p id="priority-error" className="mt-1 text-sm text-error-600" role="alert">
+                {fieldErrors.priority_id}
+              </p>
+            )}
             {formData.priority_id && (
               <div className="mt-2">
                 {(() => {
@@ -405,14 +479,17 @@ export default function TicketForm({
         {/* Assigned Agent (Admin/Agent only) */}
         {(userRole === 'admin' || userRole === 'agent') && (
           <div>
-            <label className="label label-text font-medium">
-              <UserIcon className="h-4 w-4 mr-1" />
+            <label htmlFor="assigned-agent" className="label label-text font-medium">
+              <UserIcon className="h-4 w-4 mr-1" aria-hidden="true" />
               Agente Responsável
             </label>
             <select
+              id="assigned-agent"
               value={formData.assigned_agent_id}
               onChange={(e) => handleInputChange('assigned_agent_id', e.target.value)}
               className="select select-bordered w-full"
+              aria-label="Agente responsável pelo ticket"
+              aria-describedby="agent-help"
             >
               <option value="">Não atribuído</option>
               {agents.map((agent) => (
@@ -421,35 +498,39 @@ export default function TicketForm({
                 </option>
               ))}
             </select>
+            <span id="agent-help" className="sr-only">Selecione o agente que será responsável por este ticket</span>
           </div>
         )}
 
         {/* Tags */}
         <div>
-          <label className="label label-text font-medium">
-            <TagIcon className="h-4 w-4 mr-1" />
+          <label htmlFor="tag-input" className="label label-text font-medium">
+            <TagIcon className="h-4 w-4 mr-1" aria-hidden="true" />
             Tags
           </label>
           <div className="space-y-2">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" role="list" aria-label="Tags do ticket">
               {formData.tags.map((tag, index) => (
                 <span
                   key={index}
                   className="badge badge-outline flex items-center gap-1"
+                  role="listitem"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => handleTagRemove(tag)}
                     className="hover:text-error-500"
+                    aria-label={`Remover tag ${tag}`}
                   >
-                    <XMarkIcon className="h-3 w-3" />
+                    <XMarkIcon className="h-3 w-3" aria-hidden="true" />
                   </button>
                 </span>
               ))}
             </div>
             <div className="flex gap-2">
               <input
+                id="tag-input"
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
@@ -461,12 +542,16 @@ export default function TicketForm({
                 }}
                 placeholder="Digite uma tag e pressione Enter"
                 className="input input-bordered flex-1"
+                aria-label="Adicionar nova tag"
+                aria-describedby="tag-help"
               />
+              <span id="tag-help" className="sr-only">Digite uma tag e pressione Enter ou clique no botão Adicionar</span>
               <button
                 type="button"
                 onClick={() => handleTagAdd(tagInput)}
                 className="btn btn-outline"
                 disabled={!tagInput.trim()}
+                aria-label="Adicionar tag"
               >
                 Adicionar
               </button>
@@ -477,7 +562,7 @@ export default function TicketForm({
         {/* File Attachments */}
         <div>
           <label className="label label-text font-medium">
-            <PaperClipIcon className="h-4 w-4 mr-1" />
+            <PaperClipIcon className="h-4 w-4 mr-1" aria-hidden="true" />
             Anexos
           </label>
           <div
@@ -489,8 +574,10 @@ export default function TicketForm({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            role="region"
+            aria-label="Área de upload de arquivos"
           >
-            <PaperClipIcon className="h-8 w-8 mx-auto text-neutral-400 mb-2" />
+            <PaperClipIcon className="h-8 w-8 mx-auto text-neutral-400 mb-2" aria-hidden="true" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
               Arraste arquivos aqui ou clique para selecionar
             </p>
@@ -500,10 +587,15 @@ export default function TicketForm({
               onChange={(e) => e.target.files && handleFileChange(e.target.files)}
               className="hidden"
               id="file-upload"
+              aria-label="Selecionar arquivos para upload"
+              aria-describedby="file-upload-description"
             />
+            <span id="file-upload-description" className="sr-only">Selecione um ou mais arquivos para anexar ao ticket</span>
             <label
               htmlFor="file-upload"
               className="btn btn-outline btn-sm cursor-pointer"
+              role="button"
+              tabIndex={0}
             >
               Selecionar Arquivos
             </label>
@@ -511,14 +603,15 @@ export default function TicketForm({
 
           {/* File List */}
           {formData.attachments.length > 0 && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-2" role="list" aria-label="Arquivos anexados">
               {formData.attachments.map((file, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg"
+                  role="listitem"
                 >
                   <div className="flex items-center space-x-3">
-                    <PaperClipIcon className="h-4 w-4 text-neutral-400" />
+                    <PaperClipIcon className="h-4 w-4 text-neutral-400" aria-hidden="true" />
                     <span className="text-sm text-neutral-700 dark:text-neutral-300">
                       {file.name}
                     </span>
@@ -530,8 +623,9 @@ export default function TicketForm({
                     type="button"
                     onClick={() => handleFileRemove(index)}
                     className="text-error-500 hover:text-error-600"
+                    aria-label={`Remover arquivo ${file.name}`}
                   >
-                    <XMarkIcon className="h-4 w-4" />
+                    <XMarkIcon className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
               ))}
@@ -541,15 +635,15 @@ export default function TicketForm({
 
         {/* Error/Success Messages */}
         {error && (
-          <div className="alert alert-error">
-            <ExclamationTriangleIcon className="h-5 w-5" />
+          <div className="alert alert-error" role="alert" aria-live="assertive">
+            <ExclamationTriangleIcon className="h-5 w-5" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="alert alert-success">
-            <CheckCircleIcon className="h-5 w-5" />
+          <div className="alert alert-success" role="status" aria-live="polite">
+            <CheckCircleIcon className="h-5 w-5" aria-hidden="true" />
             <span>{success}</span>
           </div>
         )}
@@ -561,6 +655,7 @@ export default function TicketForm({
             onClick={handleCancel}
             className="btn btn-outline order-2 sm:order-1"
             disabled={loading}
+            aria-label="Cancelar e voltar"
           >
             Cancelar
           </button>
@@ -568,10 +663,12 @@ export default function TicketForm({
             type="submit"
             className="btn btn-primary order-1 sm:order-2 sm:ml-auto"
             disabled={loading}
+            aria-label={mode === 'create' ? 'Criar ticket' : 'Salvar alterações do ticket'}
+            aria-busy={loading}
           >
             {loading ? (
               <>
-                <span className="loading loading-spinner loading-sm"></span>
+                <span className="loading loading-spinner loading-sm" aria-hidden="true"></span>
                 {mode === 'create' ? 'Criando...' : 'Salvando...'}
               </>
             ) : (

@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import db from '../db/connection';
 import { User } from '../types/database';
 import { validateJWTSecret } from '@/lib/config/env';
+import { captureDatabaseError, captureAuthError } from '@/lib/monitoring/sentry-helpers';
 
 export interface LoginCredentials {
   email: string;
@@ -50,7 +51,7 @@ export function getUserByEmail(email: string): User | null {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
     return user || null;
   } catch (error) {
-    console.error('Error getting user by email:', error);
+    captureDatabaseError(error, 'SELECT * FROM users WHERE email = ?', [email]);
     return null;
   }
 }
@@ -63,7 +64,7 @@ export function getOrganizationById(orgId: number): { id: number; slug: string; 
     const org = db.prepare('SELECT id, slug, name FROM organizations WHERE id = ?').get(orgId) as { id: number; slug: string; name: string };
     return org || null;
   } catch (error) {
-    console.error('Error getting organization by ID:', error);
+    captureDatabaseError(error, 'SELECT id, slug, name FROM organizations WHERE id = ?', [orgId]);
     return null;
   }
 }
@@ -76,7 +77,7 @@ export function getUserById(id: number): User | null {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User;
     return user || null;
   } catch (error) {
-    console.error('Error getting user by ID:', error);
+    captureDatabaseError(error, 'SELECT * FROM users WHERE id = ?', [id]);
     return null;
   }
 }
@@ -87,23 +88,23 @@ export function getUserById(id: number): User | null {
 export async function createUser(userData: RegisterData): Promise<User | null> {
   try {
     const hashedPassword = await hashPassword(userData.password);
-    
+
     const insertUser = db.prepare(`
-      INSERT INTO users (name, email, password_hash, role) 
+      INSERT INTO users (name, email, password_hash, role)
       VALUES (?, ?, ?, ?)
     `);
-    
+
     const result = insertUser.run(
       userData.name,
       userData.email,
       hashedPassword,
       userData.role || 'user'
     );
-    
+
     const newUser = getUserById(result.lastInsertRowid as number);
     return newUser;
   } catch (error) {
-    console.error('Error creating user:', error);
+    captureDatabaseError(error, 'INSERT INTO users', [userData.name, userData.email, '***', userData.role]);
     return null;
   }
 }
@@ -131,7 +132,7 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
     // Buscar informações da organização
     const organization = getOrganizationById(user.organization_id || 1);
     if (!organization) {
-      console.error('Organization not found for user:', user.id);
+      captureAuthError(new Error('Organization not found for user'), { username: user.email });
       return null;
     }
 
@@ -147,7 +148,7 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       updated_at: user.updated_at
     };
   } catch (error) {
-    console.error('Error authenticating user:', error);
+    captureAuthError(error, { username: credentials.email, method: 'password' });
     return null;
   }
 }
@@ -167,7 +168,7 @@ export async function updateUserPassword(userId: number, newPassword: string): P
     const result = updatePassword.run(hashedPassword, userId);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error updating password:', error);
+    captureDatabaseError(error, 'UPDATE users SET password_hash = ?', [userId]);
     return false;
   }
 }
@@ -180,7 +181,7 @@ export function emailExists(email: string): boolean {
     const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
     return !!user;
   } catch (error) {
-    console.error('Error checking email existence:', error);
+    captureDatabaseError(error, 'SELECT id FROM users WHERE email = ?', [email]);
     return false;
   }
 }
@@ -193,7 +194,7 @@ export function getAllUsers(): User[] {
     const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all() as User[];
     return users;
   } catch (error) {
-    console.error('Error getting all users:', error);
+    captureDatabaseError(error, 'SELECT * FROM users ORDER BY created_at DESC');
     return [];
   }
 }
@@ -235,7 +236,7 @@ export function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 
     const result = updateUser.run(...values);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error updating user:', error);
+    captureDatabaseError(error, `UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
     return false;
   }
 }
@@ -249,7 +250,7 @@ export function deleteUser(userId: number): boolean {
     const result = deleteUser.run(userId);
     return result.changes > 0;
   } catch (error) {
-    console.error('Error deleting user:', error);
+    captureDatabaseError(error, 'DELETE FROM users WHERE id = ?', [userId]);
     return false;
   }
 }
@@ -291,7 +292,10 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
 
     // Validar tenant se fornecido
     if (expectedTenantId && payload.organization_id !== expectedTenantId) {
-      console.error('Tenant mismatch in JWT');
+      captureAuthError(new Error('Tenant mismatch in JWT'), {
+        username: payload.email as string,
+        method: 'jwt'
+      });
       return null;
     }
 
@@ -303,14 +307,20 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
 
     // Validar que o organization_id do usuário corresponde ao do token
     if (user.organization_id !== payload.organization_id) {
-      console.error('User organization_id does not match token organization_id');
+      captureAuthError(new Error('User organization_id does not match token organization_id'), {
+        username: user.email,
+        method: 'jwt'
+      });
       return null;
     }
 
     // Buscar informações da organização
     const organization = getOrganizationById(user.organization_id || 1);
     if (!organization) {
-      console.error('Organization not found for user:', user.id);
+      captureAuthError(new Error('Organization not found for user'), {
+        username: user.email,
+        method: 'jwt'
+      });
       return null;
     }
 
@@ -325,7 +335,7 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
       updated_at: user.updated_at
     };
   } catch (error) {
-    console.error('Error verifying token:', error);
+    captureAuthError(error, { method: 'jwt' });
     return null;
   }
 }

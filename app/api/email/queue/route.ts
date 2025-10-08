@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import emailService from '@/lib/email/service'
 import db from '@/lib/db/connection'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching email queue:', error)
+    logger.error('Error fetching email queue', error)
     return NextResponse.json({
       error: 'Erro interno do servidor'
     }, { status: 500 })
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
     }, { status: 400 })
 
   } catch (error) {
-    console.error('Error processing email queue action:', error)
+    logger.error('Error processing email queue action', error)
     return NextResponse.json({
       error: 'Erro interno do servidor'
     }, { status: 500 })

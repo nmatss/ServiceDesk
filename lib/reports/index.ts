@@ -1,4 +1,5 @@
 import db from '../db/connection';
+import { logger } from '../monitoring/logger';
 
 export interface ReportFilters {
   startDate?: string;
@@ -141,7 +142,7 @@ export function getTicketMetrics(filters: ReportFilters = {}): TicketMetrics {
       slaCompliance: Math.round((result.slaCompliance || 0) * 100) / 100
     };
   } catch (error) {
-    console.error('Error getting ticket metrics:', error);
+    logger.error('Error getting ticket metrics', error);
     return {
       total: 0,
       open: 0,
@@ -197,7 +198,7 @@ export function getAgentPerformance(filters: ReportFilters = {}): AgentPerforman
       satisfactionRating: Math.round((result.satisfactionRating || 0) * 100) / 100
     }));
   } catch (error) {
-    console.error('Error getting agent performance:', error);
+    logger.error('Error getting agent performance', error);
     return [];
   }
 }
@@ -238,7 +239,7 @@ export function getCategoryStats(filters: ReportFilters = {}): CategoryStats[] {
       slaCompliance: Math.round((result.slaCompliance || 0) * 100) / 100
     }));
   } catch (error) {
-    console.error('Error getting category stats:', error);
+    logger.error('Error getting category stats', error);
     return [];
   }
 }
@@ -287,7 +288,7 @@ export function getPriorityDistribution(filters: ReportFilters = {}): PriorityDi
       avgResolutionTime: Math.round(result.avgResolutionTime || 0)
     }));
   } catch (error) {
-    console.error('Error getting priority distribution:', error);
+    logger.error('Error getting priority distribution', error);
     return [];
   }
 }
@@ -336,7 +337,7 @@ export function getSatisfactionMetrics(filters: ReportFilters = {}): Satisfactio
       ratingDistribution: distribution
     };
   } catch (error) {
-    console.error('Error getting satisfaction metrics:', error);
+    logger.error('Error getting satisfaction metrics', error);
     return {
       totalSurveys: 0,
       avgRating: 0,
@@ -390,7 +391,7 @@ export function getTrendData(filters: ReportFilters = {}, groupBy: 'day' | 'week
       avgResolutionTime: Math.round(result.avgResolutionTime || 0)
     }));
   } catch (error) {
-    console.error('Error getting trend data:', error);
+    logger.error('Error getting trend data', error);
     return [];
   }
 }
@@ -433,7 +434,7 @@ export function getSLAReport(filters: ReportFilters = {}): any {
       avgResolutionTime: Math.round(result.avgResolutionTime || 0)
     }));
   } catch (error) {
-    console.error('Error getting SLA report:', error);
+    logger.error('Error getting SLA report', error);
     return [];
   }
 }
@@ -467,7 +468,7 @@ export function getExecutiveDashboard(filters: ReportFilters = {}): any {
       trends: trendData.slice(-8) // Últimas 8 semanas
     };
   } catch (error) {
-    console.error('Error getting executive dashboard:', error);
+    logger.error('Error getting executive dashboard', error);
     return null;
   }
 }
@@ -497,7 +498,7 @@ export function exportToCSV(data: any[], filename: string): string {
 
     return csvContent;
   } catch (error) {
-    console.error('Error exporting to CSV:', error);
+    logger.error('Error exporting to CSV', error);
     return '';
   }
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { toast } from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ArrowLeftIcon,
   ChatBubbleBottomCenterTextIcon,
@@ -122,7 +123,7 @@ export default function TicketDetailPage() {
         router.push('/portal/tickets')
       }
     } catch (error) {
-      console.error('Error fetching ticket:', error)
+      logger.error('Error fetching ticket', error)
       toast.error('Erro ao carregar ticket')
       router.push('/portal/tickets')
     } finally {
@@ -162,7 +163,7 @@ export default function TicketDetailPage() {
         toast.error(data.error || 'Erro ao adicionar comentário')
       }
     } catch (error) {
-      console.error('Error adding comment:', error)
+      logger.error('Error adding comment', error)
       toast.error('Erro ao adicionar comentário')
     } finally {
       setAddingComment(false)

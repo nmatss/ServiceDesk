@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 // POST - Aplicar template
 export async function POST(request: NextRequest) {
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao aplicar template:', error);
+    logger.error('Erro ao aplicar template', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -259,7 +260,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao visualizar template:', error);
+    logger.error('Erro ao visualizar template', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

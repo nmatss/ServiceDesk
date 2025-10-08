@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { headers } from 'next/headers'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log da verificação (simplificado)
-    console.log('Token verified for user:', user.email)
+    logger.info('Token verified for user', user.email)
 
     return NextResponse.json({
       success: true,
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error verifying token:', error)
+    logger.error('Error verifying token', error)
 
     return NextResponse.json(
       {
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error verifying token:', error)
+    logger.error('Error verifying token', error)
 
     return NextResponse.json(
       {

@@ -1,5 +1,6 @@
 import { getSocketServer } from '@/lib/socket/server'
 import { getDb } from '@/lib/db'
+import { logger } from '../monitoring/logger';
 
 interface TicketData {
   id: number
@@ -50,10 +51,10 @@ export class TicketNotificationManager {
       // Enviar para agentes e admins
       socketServer.getIO().to('agents').emit('notification', notification)
 
-      console.log(`📢 Notified agents about new ticket #${ticketData.id}`)
+      logger.info(`📢 Notified agents about new ticket #${ticketData.id}`)
 
     } catch (error) {
-      console.error('Error notifying ticket creation:', error)
+      logger.error('Error notifying ticket creation', error)
     }
   }
 
@@ -82,10 +83,10 @@ export class TicketNotificationManager {
       // Enviar notificação específica para o usuário atribuído
       socketServer.getIO().to(`user_${assignedToUserId}`).emit('notification', notification)
 
-      console.log(`📢 Notified user ${assignedToUserId} about ticket assignment #${ticketId}`)
+      logger.info(`📢 Notified user ${assignedToUserId} about ticket assignment #${ticketId}`)
 
     } catch (error) {
-      console.error('Error notifying ticket assignment:', error)
+      logger.error('Error notifying ticket assignment', error)
     }
   }
 
@@ -154,10 +155,10 @@ export class TicketNotificationManager {
       // Notificar também a sala do ticket
       socketServer.getIO().to(`ticket_${ticketId}`).except(`user_${updatedByUserId}`).emit('notification', notification)
 
-      console.log(`📢 Notified stakeholders about ticket update #${ticketId}`)
+      logger.info(`📢 Notified stakeholders about ticket update #${ticketId}`)
 
     } catch (error) {
-      console.error('Error notifying ticket update:', error)
+      logger.error('Error notifying ticket update', error)
     }
   }
 
@@ -201,10 +202,10 @@ export class TicketNotificationManager {
       // Notificar também a sala do ticket
       socketServer.getIO().to(`ticket_${commentData.ticket_id}`).except(`user_${commentData.user_id}`).emit('notification', notification)
 
-      console.log(`📢 Notified about new comment on ticket #${commentData.ticket_id}`)
+      logger.info(`📢 Notified about new comment on ticket #${commentData.ticket_id}`)
 
     } catch (error) {
-      console.error('Error notifying comment added:', error)
+      logger.error('Error notifying comment added', error)
     }
   }
 
@@ -245,10 +246,10 @@ export class TicketNotificationManager {
         })
       }
 
-      console.log(`⚠️ Sent SLA warning for ticket #${ticketId} (${minutesLeft} minutes left)`)
+      logger.info(`⚠️ Sent SLA warning for ticket #${ticketId} (${minutesLeft} minutes left)`)
 
     } catch (error) {
-      console.error('Error sending SLA warning:', error)
+      logger.error('Error sending SLA warning', error)
     }
   }
 
@@ -274,7 +275,7 @@ export class TicketNotificationManager {
         WHERE t.id = ?
       `).get(ticketId)
     } catch (error) {
-      console.error('Error getting ticket info:', error)
+      logger.error('Error getting ticket info', error)
       return null
     }
   }
@@ -283,7 +284,7 @@ export class TicketNotificationManager {
     try {
       return this.db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId)
     } catch (error) {
-      console.error('Error getting user info:', error)
+      logger.error('Error getting user info', error)
       return null
     }
   }
@@ -292,7 +293,7 @@ export class TicketNotificationManager {
     try {
       return this.db.prepare('SELECT id, name, is_final FROM statuses WHERE id = ?').get(statusId)
     } catch (error) {
-      console.error('Error getting status info:', error)
+      logger.error('Error getting status info', error)
       return null
     }
   }
@@ -301,7 +302,7 @@ export class TicketNotificationManager {
     try {
       return this.db.prepare('SELECT id, name, level FROM priorities WHERE id = ?').get(priorityId)
     } catch (error) {
-      console.error('Error getting priority info:', error)
+      logger.error('Error getting priority info', error)
       return null
     }
   }
@@ -324,7 +325,7 @@ export class TicketNotificationManager {
 
       return stakeholders.map((s: any) => s.id).filter(Boolean)
     } catch (error) {
-      console.error('Error getting ticket stakeholders:', error)
+      logger.error('Error getting ticket stakeholders', error)
       return []
     }
   }

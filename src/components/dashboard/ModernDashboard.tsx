@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import StatsCard, { StatsGrid, StatsCardSkeleton } from '@/src/components/ui/StatsCard'
+import { logger } from '@/lib/monitoring/logger';
 import {
   ChartBarIcon,
   ClockIcon,
@@ -139,7 +140,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       setData(result.data)
       setError(null)
     } catch (error) {
-      console.error('Error fetching dashboard:', error)
+      logger.error('Error fetching dashboard', error)
       setError('Erro ao carregar dados do dashboard')
     } finally {
       setLoading(false)

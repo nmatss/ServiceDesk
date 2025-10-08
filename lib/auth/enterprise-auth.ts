@@ -5,6 +5,7 @@ import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import db from '../db/connection';
 import { validateJWTSecret } from '@/lib/config/env';
+import { logger } from '../monitoring/logger';
 import {
   User,
   RefreshToken,
@@ -173,7 +174,7 @@ export async function generateRefreshToken(
 
     return { token, tokenHash, expiresAt };
   } catch (error) {
-    console.error('Error creating refresh token:', error);
+    logger.error('Error creating refresh token', error);
     throw new Error('Failed to create refresh token');
   }
 }
@@ -188,7 +189,7 @@ export async function verifyAccessToken(token: string): Promise<JWTPayload | nul
 
     return payload as JWTPayload;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    logger.error('Token verification failed', error);
     return null;
   }
 }
@@ -227,7 +228,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       }
     };
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    logger.error('Error refreshing token', error);
     return { success: false, error: 'Failed to refresh token' };
   }
 }
@@ -315,7 +316,7 @@ export async function checkRateLimit(
     };
 
   } catch (error) {
-    console.error('Rate limiting error:', error);
+    logger.error('Rate limiting error', error);
     // Em caso de erro, permitir a requisição para não bloquear o sistema
     return { allowed: true, remainingAttempts: maxAttempts };
   }
@@ -360,7 +361,7 @@ export async function setupTwoFactor(userId: number): Promise<TwoFactorSetup> {
       backupCodes
     };
   } catch (error) {
-    console.error('Error setting up 2FA:', error);
+    logger.error('Error setting up 2FA', error);
     throw new Error('Failed to setup two-factor authentication');
   }
 }
@@ -399,7 +400,7 @@ export async function enableTwoFactor(userId: number, token: string): Promise<bo
 
     return false;
   } catch (error) {
-    console.error('Error enabling 2FA:', error);
+    logger.error('Error enabling 2FA', error);
     return false;
   }
 }
@@ -437,7 +438,7 @@ export async function verifyTwoFactor(userId: number, token: string): Promise<bo
       window: 2
     });
   } catch (error) {
-    console.error('Error verifying 2FA:', error);
+    logger.error('Error verifying 2FA', error);
     return false;
   }
 }
@@ -451,7 +452,7 @@ export function getUserById(id: number): User | null {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User;
     return user || null;
   } catch (error) {
-    console.error('Error getting user by ID:', error);
+    logger.error('Error getting user by ID', error);
     return null;
   }
 }
@@ -461,7 +462,7 @@ export function getUserByEmail(email: string): User | null {
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
     return user || null;
   } catch (error) {
-    console.error('Error getting user by email:', error);
+    logger.error('Error getting user by email', error);
     return null;
   }
 }
@@ -494,7 +495,7 @@ export async function getUserWithRoles(userId: number): Promise<UserWithRoles | 
       permissions
     };
   } catch (error) {
-    console.error('Error getting user with roles:', error);
+    logger.error('Error getting user with roles', error);
     return null;
   }
 }
@@ -664,7 +665,7 @@ export async function authenticateUser(
     };
 
   } catch (error) {
-    console.error('Authentication error:', error);
+    logger.error('Authentication error', error);
     return { success: false, error: 'Authentication failed' };
   }
 }
@@ -722,7 +723,7 @@ export async function registerUser(userData: RegisterData): Promise<AuthResult> 
     return { success: true, user };
 
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error('Registration error', error);
     return { success: false, error: 'Registration failed' };
   }
 }
@@ -776,7 +777,7 @@ export async function validatePassword(password: string, userRole?: string): Pro
     return { valid: true };
 
   } catch (error) {
-    console.error('Password validation error:', error);
+    logger.error('Password validation error', error);
     return { valid: true }; // Em caso de erro, permitir para não bloquear o sistema
   }
 }
@@ -799,7 +800,7 @@ export async function addPasswordHistory(userId: number, passwordHash: string): 
       )
     `).run(userId, userId);
   } catch (error) {
-    console.error('Error adding password history:', error);
+    logger.error('Error adding password history', error);
   }
 }
 
@@ -820,7 +821,7 @@ export async function checkPasswordReuse(userId: number, newPassword: string): P
 
     return false;
   } catch (error) {
-    console.error('Error checking password reuse:', error);
+    logger.error('Error checking password reuse', error);
     return false;
   }
 }
@@ -867,7 +868,7 @@ export async function generateVerificationCode(
 
     return code;
   } catch (error) {
-    console.error('Error generating verification code:', error);
+    logger.error('Error generating verification code', error);
     throw new Error('Failed to generate verification code');
   }
 }
@@ -906,7 +907,7 @@ export async function verifyCode(
     return { valid: true, userId: verification.user_id || undefined };
 
   } catch (error) {
-    console.error('Error verifying code:', error);
+    logger.error('Error verifying code', error);
     return { valid: false, error: 'Verification failed' };
   }
 }
@@ -955,7 +956,7 @@ export async function logAuthEvent(
       auditData.data_retention_expires_at
     );
   } catch (error) {
-    console.error('Error logging auth event:', error);
+    logger.error('Error logging auth event', error);
   }
 }
 
@@ -978,7 +979,7 @@ export async function logLoginAttempt(attemptData: CreateLoginAttempt): Promise<
       attemptData.session_id
     );
   } catch (error) {
-    console.error('Error logging login attempt:', error);
+    logger.error('Error logging login attempt', error);
   }
 }
 
@@ -1006,7 +1007,7 @@ export async function logout(refreshToken: string, userId?: number): Promise<boo
 
     return result.changes > 0;
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Logout error', error);
     return false;
   }
 }
@@ -1026,7 +1027,7 @@ export async function revokeAllTokens(userId: number): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error('Error revoking tokens:', error);
+    logger.error('Error revoking tokens', error);
     return false;
   }
 }
@@ -1069,9 +1070,9 @@ export async function cleanupExpiredData(): Promise<void> {
       WHERE created_at < datetime('now', '-30 days')
     `).run();
 
-    console.log('Cleanup completed successfully');
+    logger.info('Cleanup completed successfully');
   } catch (error) {
-    console.error('Error during cleanup:', error);
+    logger.error('Error during cleanup', error);
   }
 }
 

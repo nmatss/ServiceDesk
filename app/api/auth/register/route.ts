@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { validateJWTSecret } from '@/lib/config/env'
 import * as jose from 'jose'
+import { logger } from '@/lib/monitoring/logger';
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
     return response
 
   } catch (error) {
-    console.error('Register error:', error)
+    logger.error('Register error', error)
     return NextResponse.json({
       success: false,
       error: 'Erro interno do servidor'

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://servicedesk.com'
@@ -85,7 +86,7 @@ ${allPages
       }
     })
   } catch (error) {
-    console.error('Error generating sitemap:', error)
+    logger.error('Error generating sitemap', error)
     return new NextResponse('Error generating sitemap', { status: 500 })
   }
 }

@@ -4,6 +4,7 @@
  */
 
 import type { Database, RunResult } from 'better-sqlite3'
+import { logger } from '../monitoring/logger';
 
 /**
  * Query execution result
@@ -39,7 +40,7 @@ export function safeQuery<T>(
 
     // Log error in development
     if (process.env.NODE_ENV === 'development') {
-      console.error(`Database error${context ? ` in ${context}` : ''}:`, errorMessage)
+      logger.error(`Database error${context ? ` in ${context}` : ''}:`, errorMessage)
     }
 
     return {
@@ -71,7 +72,7 @@ export function safeTransaction<T>(
       error instanceof Error ? error.message : 'Unknown transaction error'
 
     if (process.env.NODE_ENV === 'development') {
-      console.error(
+      logger.error(
         `Transaction error${context ? ` in ${context}` : ''}:`,
         errorMessage
       )

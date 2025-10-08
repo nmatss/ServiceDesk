@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { 
-  ArrowLeftIcon, 
-  PaperClipIcon, 
+import { logger } from '@/lib/monitoring/logger';
+import {
+  ArrowLeftIcon,
+  PaperClipIcon,
   ChatBubbleLeftRightIcon,
   UserIcon,
   CalendarIcon,
@@ -109,7 +110,7 @@ export default function TicketDetailsPage() {
       setComments(data.comments || [])
       setAttachments(data.attachments || [])
     } catch (error) {
-      console.error('Erro ao buscar ticket:', error)
+      logger.error('Erro ao buscar ticket', error)
       setError('Erro ao carregar ticket')
     } finally {
       setLoading(false)
@@ -145,7 +146,7 @@ export default function TicketDetailsPage() {
       setNewComment('')
       setIsInternal(false)
     } catch (error) {
-      console.error('Erro ao adicionar comentário:', error)
+      logger.error('Erro ao adicionar comentário', error)
       alert('Erro ao adicionar comentário')
     } finally {
       setSubmittingComment(false)

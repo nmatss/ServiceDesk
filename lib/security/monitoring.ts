@@ -4,6 +4,7 @@
  */
 
 import { getSecurityConfig } from './config';
+import { logger } from '../monitoring/logger';
 
 export interface SecurityEvent {
   id: string;
@@ -172,7 +173,7 @@ export class SecurityLogger {
     try {
       await this.persistEvents(events);
     } catch (error) {
-      console.error('Failed to persist security events:', error);
+      logger.error('Failed to persist security events', error);
       // Re-add events to buffer for retry
       this.eventBuffer.unshift(...events);
     }
@@ -371,7 +372,7 @@ export class SecurityLogger {
     };
 
     // TODO: Store alert in database
-    console.log('Security alert created:', alert.id);
+    logger.info('Security alert created', alert.id);
   }
 
   /**
@@ -424,19 +425,19 @@ export class SecurityLogger {
   private async blockIPAddress(ipAddress?: string): Promise<void> {
     if (!ipAddress) return;
     // TODO: Implement IP blocking
-    console.log(`Automated response: Blocking IP ${ipAddress}`);
+    logger.info(`Automated response: Blocking IP ${ipAddress}`);
   }
 
   private async quarantineSession(sessionId?: string): Promise<void> {
     if (!sessionId) return;
     // TODO: Implement session quarantine
-    console.log(`Automated response: Quarantining session ${sessionId}`);
+    logger.info(`Automated response: Quarantining session ${sessionId}`);
   }
 
   private async requireMFA(userId?: string): Promise<void> {
     if (!userId) return;
     // TODO: Implement MFA requirement
-    console.log(`Automated response: Requiring MFA for user ${userId}`);
+    logger.info(`Automated response: Requiring MFA for user ${userId}`);
   }
 
   /**
@@ -499,38 +500,38 @@ export class SecurityLogger {
 
     switch (event.severity) {
       case 'low':
-        console.info(logMessage);
+        logger.info(logMessage);
         break;
       case 'medium':
-        console.warn(logMessage);
+        logger.warn(logMessage);
         break;
       case 'high':
       case 'critical':
-        console.error(logMessage);
+        logger.error(logMessage);
         break;
     }
   }
 
   private async persistEvents(events: SecurityEvent[]): Promise<void> {
     // TODO: Implement event persistence (database, SIEM, etc.)
-    console.log(`Persisting ${events.length} security events`);
+    logger.info(`Persisting ${events.length} security events`);
   }
 
   private async sendWebhookAlert(webhook: string, alert: any): Promise<void> {
     try {
       // TODO: Implement webhook sending
-      console.log(`Sending webhook alert to ${webhook}`);
+      logger.info(`Sending webhook alert to ${webhook}`);
     } catch (error) {
-      console.error(`Failed to send webhook alert: ${error}`);
+      logger.error(`Failed to send webhook alert: ${error}`);
     }
   }
 
   private async sendEmailAlert(email: string, alert: any): Promise<void> {
     try {
       // TODO: Implement email sending
-      console.log(`Sending email alert to ${email}`);
+      logger.info(`Sending email alert to ${email}`);
     } catch (error) {
-      console.error(`Failed to send email alert: ${error}`);
+      logger.error(`Failed to send email alert: ${error}`);
     }
   }
 }

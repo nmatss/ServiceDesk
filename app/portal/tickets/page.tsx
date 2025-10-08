@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -97,7 +98,7 @@ export default function MyTicketsPage() {
         toast.error('Erro ao carregar tickets')
       }
     } catch (error) {
-      console.error('Error fetching tickets:', error)
+      logger.error('Error fetching tickets', error)
       toast.error('Erro ao carregar tickets')
     } finally {
       setLoading(false)
@@ -112,7 +113,7 @@ export default function MyTicketsPage() {
         setStatuses(data.statuses)
       }
     } catch (error) {
-      console.error('Error fetching statuses:', error)
+      logger.error('Error fetching statuses', error)
     }
   }
 
@@ -124,7 +125,7 @@ export default function MyTicketsPage() {
         setPriorities(data.priorities)
       }
     } catch (error) {
-      console.error('Error fetching priorities:', error)
+      logger.error('Error fetching priorities', error)
     }
   }
 

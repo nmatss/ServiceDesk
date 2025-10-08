@@ -1,6 +1,7 @@
 import db from './connection';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../monitoring/logger';
 
 /**
  * Inicializa o banco de dados criando as tabelas se elas não existirem
@@ -14,10 +15,10 @@ export function initializeDatabase() {
     // Executa o schema
     db.exec(schema);
     
-    console.log('✅ Database initialized successfully');
+    logger.info('✅ Database initialized successfully');
     return true;
   } catch (error) {
-    console.error('❌ Error initializing database:', error);
+    logger.error('❌ Error initializing database', error);
     return false;
   }
 }
@@ -35,7 +36,7 @@ export function isDatabaseInitialized(): boolean {
     
     return !!result;
   } catch (error) {
-    console.error('Error checking database initialization:', error);
+    logger.error('Error checking database initialization', error);
     return false;
   }
 }
@@ -46,9 +47,9 @@ export function isDatabaseInitialized(): boolean {
 export function closeDatabase() {
   try {
     db.close();
-    console.log('✅ Database connection closed');
+    logger.info('✅ Database connection closed');
   } catch (error) {
-    console.error('❌ Error closing database:', error);
+    logger.error('❌ Error closing database', error);
   }
 }
 

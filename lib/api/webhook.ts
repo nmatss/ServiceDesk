@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { WebhookEvent, WebhookEndpoint, WebhookDelivery } from './types'
 import { v4 as uuidv4 } from 'uuid'
+import { logger } from '../monitoring/logger';
 
 // Webhook Configuration
 interface WebhookConfig {
@@ -253,7 +254,7 @@ export class WebhookManager {
       try {
         await this.processDelivery(delivery)
       } catch (error) {
-        console.error('Error processing webhook delivery:', error)
+        logger.error('Error processing webhook delivery', error)
       }
     }
   }
@@ -408,7 +409,7 @@ export class WebhookManager {
         Buffer.from(expected)
       )
     } catch (error) {
-      console.error('Webhook signature verification error:', error)
+      logger.error('Webhook signature verification error', error)
       return false
     }
   }

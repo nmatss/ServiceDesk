@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
       sla_policies: slaList
     })
   } catch (error) {
-    console.error('Error fetching SLA policies:', error)
+    logger.error('Error fetching SLA policies', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
       sla_policy: newSlaPolicy
     }, { status: 201 })
   } catch (error) {
-    console.error('Error creating SLA policy:', error)
+    logger.error('Error creating SLA policy', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

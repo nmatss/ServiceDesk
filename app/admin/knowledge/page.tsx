@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AdminDashboard from '@/src/components/admin/AdminDashboard'
+import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -65,7 +66,7 @@ export default function KnowledgePage() {
         setCategories(data.categories)
       }
     } catch (error) {
-      console.error('Erro ao buscar artigos:', error)
+      logger.error('Erro ao buscar artigos', error)
     } finally {
       setLoading(false)
     }
@@ -87,7 +88,7 @@ export default function KnowledgePage() {
         fetchArticles()
       }
     } catch (error) {
-      console.error('Erro ao excluir artigo:', error)
+      logger.error('Erro ao excluir artigo', error)
     }
   }
 

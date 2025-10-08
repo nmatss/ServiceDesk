@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { getDb } from '@/lib/db'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -37,7 +38,7 @@ export async function GET(
       members
     })
   } catch (error) {
-    console.error('Error fetching team:', error)
+    logger.error('Error fetching team', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch team' },
       { status: 500 }
@@ -126,7 +127,7 @@ export async function PUT(
       message: 'Team updated successfully'
     })
   } catch (error) {
-    console.error('Error updating team:', error)
+    logger.error('Error updating team', error)
     return NextResponse.json(
       { success: false, error: 'Failed to update team' },
       { status: 500 }
@@ -172,7 +173,7 @@ export async function DELETE(
       message: 'Team deleted successfully'
     })
   } catch (error) {
-    console.error('Error deleting team:', error)
+    logger.error('Error deleting team', error)
     return NextResponse.json(
       { success: false, error: 'Failed to delete team' },
       { status: 500 }

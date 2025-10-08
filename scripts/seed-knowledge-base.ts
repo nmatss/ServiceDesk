@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
 import { getDb } from '../lib/db'
+import { logger } from '@/lib/monitoring/logger';
 
 /**
  * Script para popular a base de conhecimento com dados de exemplo
@@ -9,7 +10,7 @@ function seedKnowledgeBase() {
   const db = getDb()
 
   try {
-    console.log('🌱 Populando base de conhecimento...')
+    logger.info('🌱 Populando base de conhecimento...')
 
     // Inserir categorias
     const categories = [
@@ -275,7 +276,7 @@ function seedKnowledgeBase() {
       )
 
       if (result.changes > 0) {
-        console.log(`✅ Artigo criado: ${article.title}`)
+        logger.info(`✅ Artigo criado: ${article.title}`)
       }
     }
 
@@ -300,19 +301,19 @@ function seedKnowledgeBase() {
       `).run(tag.name, tag.slug)
     }
 
-    console.log('✅ Base de conhecimento populada com sucesso!')
-    console.log('📊 Estatísticas:')
+    logger.info('✅ Base de conhecimento populada com sucesso!')
+    logger.info('📊 Estatísticas')
 
     const categoryCount = db.prepare('SELECT COUNT(*) as count FROM kb_categories').get()
     const articleCount = db.prepare('SELECT COUNT(*) as count FROM kb_articles').get()
     const tagCount = db.prepare('SELECT COUNT(*) as count FROM kb_tags').get()
 
-    console.log(`   - ${categoryCount.count} categorias`)
-    console.log(`   - ${articleCount.count} artigos`)
-    console.log(`   - ${tagCount.count} tags`)
+    logger.info(`   - ${categoryCount.count} categorias`)
+    logger.info(`   - ${articleCount.count} artigos`)
+    logger.info(`   - ${tagCount.count} tags`)
 
   } catch (error) {
-    console.error('❌ Erro ao popular base de conhecimento:', error)
+    logger.error('❌ Erro ao popular base de conhecimento', error)
     throw error
   }
 }

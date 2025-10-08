@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { logger } from '@/lib/monitoring/logger';
 import {
   UsersIcon,
   TicketIcon,
@@ -49,7 +50,7 @@ export default function AdminPage() {
         }
       }
     } catch (error) {
-      console.error('Erro ao buscar estatísticas:', error)
+      logger.error('Erro ao buscar estatísticas', error)
     } finally {
       setLoading(false)
     }

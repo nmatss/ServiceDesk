@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { searchTickets, searchKnowledgeBase, globalSearch, saveSearch, getSearchHistory, getSearchSuggestions } from '@/lib/search';
 import { getCachedTicketSearch, cacheTicketSearch } from '@/lib/cache';
 import db from '@/lib/db/connection';
+import { logger } from '@/lib/monitoring/logger';
 
 // GET - Busca avançada
 export async function GET(request: NextRequest) {
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
       ...results
     });
   } catch (error) {
-    console.error('Error in search API:', error);
+    logger.error('Error in search API', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
       results
     });
   } catch (error) {
-    console.error('Error in advanced search API:', error);
+    logger.error('Error in advanced search API', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

@@ -18,6 +18,7 @@ import ssoManager from '@/lib/auth/sso-manager';
 import db from '@/lib/db/connection';
 import { sign } from 'jsonwebtoken';
 import { validateJWTSecret } from '@/lib/config/env';
+import { logger } from '@/lib/monitoring/logger';
 
 const JWT_SECRET = validateJWTSecret();
 const COOKIE_NAME = 'servicedesk_token';
@@ -84,7 +85,7 @@ export async function GET(
     // Redirect to provider
     return NextResponse.redirect(authUrl);
   } catch (error) {
-    console.error('SSO initiation error:', error);
+    logger.error('SSO initiation error', error);
     return NextResponse.json(
       { error: 'Failed to initiate SSO login' },
       { status: 500 }
@@ -119,7 +120,7 @@ export async function POST(
       { status: 400 }
     );
   } catch (error) {
-    console.error('SSO callback error:', error);
+    logger.error('SSO callback error', error);
     return NextResponse.json(
       { error: 'Failed to process SSO callback' },
       { status: 500 }
@@ -206,7 +207,7 @@ async function handleOAuthCallback(
       redirectUrl,
     });
   } catch (error) {
-    console.error('OAuth callback error:', error);
+    logger.error('OAuth callback error', error);
     return NextResponse.json(
       { error: 'OAuth authentication failed' },
       { status: 500 }
@@ -296,7 +297,7 @@ async function handleSAMLCallback(
       redirectUrl,
     });
   } catch (error) {
-    console.error('SAML callback error:', error);
+    logger.error('SAML callback error', error);
     return NextResponse.json(
       { error: 'SAML authentication failed' },
       { status: 500 }

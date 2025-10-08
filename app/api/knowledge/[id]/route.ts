@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -63,7 +64,7 @@ export async function GET(
       article
     })
   } catch (error) {
-    console.error('Error fetching knowledge article:', error)
+    logger.error('Error fetching knowledge article', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
@@ -144,7 +145,7 @@ export async function PATCH(
       article: updatedArticle
     })
   } catch (error) {
-    console.error('Error updating knowledge article:', error)
+    logger.error('Error updating knowledge article', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
@@ -190,7 +191,7 @@ export async function DELETE(
       message: 'Artigo excluído com sucesso'
     })
   } catch (error) {
-    console.error('Error deleting knowledge article:', error)
+    logger.error('Error deleting knowledge article', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

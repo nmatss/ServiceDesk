@@ -4,6 +4,7 @@ import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { useState, useEffect } from 'react'
+import { logger } from '@/lib/monitoring/logger';
 
 interface ReportData {
   overview: {
@@ -64,7 +65,7 @@ export default function AdminReportsPage() {
       const data = await response.json()
       setReportData(data)
     } catch (error) {
-      console.error('Erro ao buscar dados dos relatórios:', error)
+      logger.error('Erro ao buscar dados dos relatórios', error)
       setError('Erro ao carregar dados dos relatórios')
     } finally {
       setDataLoading(false)

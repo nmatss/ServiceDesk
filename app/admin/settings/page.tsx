@@ -4,6 +4,7 @@ import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { useState } from 'react'
+import { logger } from '@/lib/monitoring/logger';
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(false)
@@ -206,7 +207,7 @@ export default function AdminSettingsPage() {
                 onClick={() => {
                   if (confirm('Tem certeza que deseja limpar o cache do sistema?')) {
                     // Implementar limpeza de cache
-                    console.log('Cache limpo')
+                    logger.info('Cache limpo')
                   }
                 }}
               >

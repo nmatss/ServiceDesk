@@ -1,4 +1,5 @@
 import db from '../db/connection'
+import { logger } from '../monitoring/logger';
 
 interface RateLimitConfig {
   windowMs: number // Janela de tempo em ms
@@ -61,7 +62,7 @@ function initRateLimitTable() {
       ON rate_limits(reset_time)
     `)
   } catch (error) {
-    console.error('Error creating rate_limits table:', error)
+    logger.error('Error creating rate_limits table', error)
   }
 }
 
@@ -91,10 +92,10 @@ function cleanupExpiredEntries() {
     `).run()
 
     if (result.changes > 0) {
-      console.log(`Cleaned up ${result.changes} expired rate limit entries`)
+      logger.info(`Cleaned up ${result.changes} expired rate limit entries`)
     }
   } catch (error) {
-    console.error('Error cleaning up rate limits:', error)
+    logger.error('Error cleaning up rate limits', error)
   }
 }
 
@@ -170,7 +171,7 @@ export async function applyRateLimit(
       }
     }
   } catch (error) {
-    console.error('Rate limit error:', error)
+    logger.error('Rate limit error', error)
     // Em caso de erro, permitir a requisição
     return {
       allowed: true,
@@ -259,7 +260,7 @@ export async function checkRateLimit(
       resetTime: new Date(Date.now() + config.windowMs)
     }
   } catch (error) {
-    console.error('Check rate limit error:', error)
+    logger.error('Check rate limit error', error)
     return {
       allowed: true,
       remaining: config.maxRequests,
@@ -281,7 +282,7 @@ export function resetRateLimit(request: any, endpoint: string): boolean {
 
     return result.changes > 0
   } catch (error) {
-    console.error('Reset rate limit error:', error)
+    logger.error('Reset rate limit error', error)
     return false
   }
 }
@@ -310,7 +311,7 @@ export function getRateLimitStats(): {
       expiredEntries: total.count - active.count
     }
   } catch (error) {
-    console.error('Get rate limit stats error:', error)
+    logger.error('Get rate limit stats error', error)
     return {
       totalEntries: 0,
       activeEntries: 0,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { logger } from '@/lib/monitoring/logger';
 
 interface Ticket {
   id: number
@@ -129,7 +130,7 @@ export default function EditTicketPage() {
         assigned_to: ticketData.ticket.assigned_to || 0
       })
     } catch (error) {
-      console.error('Erro ao buscar dados:', error)
+      logger.error('Erro ao buscar dados', error)
       setError('Erro ao carregar dados')
     } finally {
       setLoading(false)
@@ -170,7 +171,7 @@ export default function EditTicketPage() {
 
       router.push(`/tickets/${ticketId}`)
     } catch (error) {
-      console.error('Erro ao atualizar ticket:', error)
+      logger.error('Erro ao atualizar ticket', error)
       alert('Erro ao atualizar ticket')
     } finally {
       setSaving(false)

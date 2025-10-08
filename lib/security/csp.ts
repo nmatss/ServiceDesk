@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { getSecurityConfig } from './config';
+import { logger } from '../monitoring/logger';
 
 export interface CspNonce {
   nonce: string;
@@ -158,7 +159,7 @@ export function processCspViolation(report: CspViolationReport, request: NextReq
   };
 
   // Log the violation
-  console.warn('CSP Violation:', logData);
+  logger.warn('CSP Violation', logData);
 
   // Filter out known false positives
   if (isKnownFalsePositive(violation)) {
@@ -227,7 +228,7 @@ function checkViolationPattern(violation: any): void {
   const rate = existing.count / (timeDiff / 1000 / 60); // violations per minute
 
   if (rate > 10) { // More than 10 violations per minute
-    console.error('CSP Violation Storm Detected:', {
+    logger.error('CSP Violation Storm Detected', {
       pattern: key,
       count: existing.count,
       rate: rate.toFixed(2),
@@ -251,7 +252,7 @@ function sendSecurityAlert(type: string, data: any): void {
   };
 
   // Log for now, replace with actual alert mechanism
-  console.log('Security Alert:', alertData);
+  logger.info('Security Alert', alertData);
 }
 
 /**

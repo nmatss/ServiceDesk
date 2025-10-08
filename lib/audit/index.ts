@@ -1,5 +1,6 @@
 import db from '../db/connection';
 import { AuditLog, CreateAuditLog, AuditLogWithDetails } from '../types/database';
+import { logger } from '../monitoring/logger';
 
 /**
  * Registra uma ação no log de auditoria
@@ -31,7 +32,7 @@ export function logAuditAction(auditData: CreateAuditLog): AuditLog | null {
 
     return null;
   } catch (error) {
-    console.error('Error logging audit action:', error);
+    logger.error('Error logging audit action', error);
     return null;
   }
 }
@@ -58,7 +59,7 @@ export function logCreate(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging create action:', error);
+    logger.error('Error logging create action', error);
     return false;
   }
 }
@@ -87,7 +88,7 @@ export function logUpdate(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging update action:', error);
+    logger.error('Error logging update action', error);
     return false;
   }
 }
@@ -114,7 +115,7 @@ export function logDelete(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging delete action:', error);
+    logger.error('Error logging delete action', error);
     return false;
   }
 }
@@ -139,7 +140,7 @@ export function logView(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging view action:', error);
+    logger.error('Error logging view action', error);
     return false;
   }
 }
@@ -167,7 +168,7 @@ export function logLogin(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging login action:', error);
+    logger.error('Error logging login action', error);
     return false;
   }
 }
@@ -193,7 +194,7 @@ export function logLogout(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging logout action:', error);
+    logger.error('Error logging logout action', error);
     return false;
   }
 }
@@ -219,7 +220,7 @@ export function logPasswordChange(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging password change:', error);
+    logger.error('Error logging password change', error);
     return false;
   }
 }
@@ -249,7 +250,7 @@ export function logAccessDenied(
       user_agent: userAgent
     }) !== null;
   } catch (error) {
-    console.error('Error logging access denied:', error);
+    logger.error('Error logging access denied', error);
     return false;
   }
 }
@@ -334,7 +335,7 @@ export function getAuditLogs(options: {
 
     return { logs, total };
   } catch (error) {
-    console.error('Error getting audit logs:', error);
+    logger.error('Error getting audit logs', error);
     return { logs: [], total: 0 };
   }
 }
@@ -358,7 +359,7 @@ export function getResourceAuditHistory(
       ORDER BY al.created_at DESC
     `).all(resourceType, resourceId) as AuditLogWithDetails[];
   } catch (error) {
-    console.error('Error getting resource audit history:', error);
+    logger.error('Error getting resource audit history', error);
     return [];
   }
 }
@@ -445,7 +446,7 @@ export function getAuditStats(days: number = 30): any {
       }
     };
   } catch (error) {
-    console.error('Error getting audit stats:', error);
+    logger.error('Error getting audit stats', error);
     return null;
   }
 }
@@ -467,10 +468,10 @@ export function cleanupOldAuditLogs(daysOld: number = 90): number {
       WHERE created_at < ?
     `).run(cutoffDate.toISOString());
 
-    console.log(`Cleanup: ${result.changes} audit logs deleted (older than ${daysOld} days)`);
+    logger.info(`Cleanup: ${result.changes} audit logs deleted (older than ${daysOld} days)`);
     return result.changes;
   } catch (error) {
-    console.error('Error cleaning up audit logs:', error);
+    logger.error('Error cleaning up audit logs', error);
     return 0;
   }
 }
@@ -526,7 +527,7 @@ export function exportAuditLogsToCSV(options: {
 
     return csvRows.join('\n');
   } catch (error) {
-    console.error('Error exporting audit logs to CSV:', error);
+    logger.error('Error exporting audit logs to CSV', error);
     return '';
   }
 }
@@ -592,7 +593,7 @@ export function verifyAuditIntegrity(): {
       suspicious_activity
     };
   } catch (error) {
-    console.error('Error verifying audit integrity:', error);
+    logger.error('Error verifying audit integrity', error);
     return {
       total_logs: 0,
       missing_users: 0,

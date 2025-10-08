@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { NextRequest } from 'next/server'
+import { logger } from '../monitoring/logger';
 
 export interface TenantContext {
   id: number
@@ -35,7 +36,7 @@ export function getTenantContext(): TenantContext | null {
       name: tenantName
     }
   } catch (error) {
-    console.error('Error getting tenant context:', error)
+    logger.error('Error getting tenant context', error)
     return null
   }
 }
@@ -60,7 +61,7 @@ export function getUserContext(): UserContext | null {
       role: userRole
     }
   } catch (error) {
-    console.error('Error getting user context:', error)
+    logger.error('Error getting user context', error)
     return null
   }
 }
@@ -84,7 +85,7 @@ export function getTenantContextFromRequest(request: NextRequest): TenantContext
       name: tenantName
     }
   } catch (error) {
-    console.error('Error getting tenant context from request:', error)
+    logger.error('Error getting tenant context from request', error)
     return null
   }
 }
@@ -108,7 +109,7 @@ export function getUserContextFromRequest(request: NextRequest): UserContext | n
       role: userRole
     }
   } catch (error) {
-    console.error('Error getting user context from request:', error)
+    logger.error('Error getting user context from request', error)
     return null
   }
 }

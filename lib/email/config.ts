@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { logger } from '../monitoring/logger';
 
 export interface EmailConfig {
   host: string
@@ -37,7 +38,7 @@ export const createEmailTransporter = () => {
 
   // For development/testing, log emails to console
   if (process.env.NODE_ENV === 'development' && !config.auth.user) {
-    console.log('⚠️  Email not configured. Using test account...')
+    logger.info('⚠️  Email not configured. Using test account...')
 
     return nodemailer.createTransporter({
       host: 'smtp.ethereal.email',

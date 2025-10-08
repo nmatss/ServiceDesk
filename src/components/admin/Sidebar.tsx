@@ -93,7 +93,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                   <div className="flex h-16 shrink-0 items-center">
                     <h1 className="text-xl font-bold text-gray-900">ServiceDesk Pro</h1>
                   </div>
-                  <nav className="flex flex-1 flex-col">
+                  <nav className="flex flex-1 flex-col" role="navigation" aria-label="Menu de administração">
                     <ul role="list" className="flex flex-1 flex-col gap-y-7">
                       <li>
                         <ul role="list" className="-mx-2 space-y-1">
@@ -107,6 +107,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                                     : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50',
                                   'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                                 )}
+                                aria-current={item.current ? 'page' : undefined}
+                                aria-label={item.name}
                               >
                                 <item.icon
                                   className={classNames(
@@ -122,7 +124,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                         </ul>
                       </li>
                       <li>
-                        <div className="text-xs font-semibold leading-6 text-gray-400 uppercase tracking-wider">
+                        <div
+                          className="text-xs font-semibold leading-6 text-gray-400 uppercase tracking-wider"
+                          role="heading"
+                          aria-level={2}
+                        >
                           Configurações
                         </div>
                         <ul role="list" className="-mx-2 mt-2 space-y-1">
@@ -131,6 +137,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                               <a
                                 href={item.href}
                                 className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold"
+                                aria-label={item.name}
                               >
                                 <item.icon
                                   className="text-gray-400 group-hover:text-blue-600 h-6 w-6 shrink-0"
@@ -152,12 +159,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
       </Transition.Root>
 
       {/* Static sidebar for desktop */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+      <aside
+        className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col"
+        aria-label="Barra lateral de navegação"
+      >
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6">
           <div className="flex h-16 shrink-0 items-center">
             <h1 className="text-xl font-bold text-gray-900">ServiceDesk Pro</h1>
           </div>
-          <nav className="flex flex-1 flex-col">
+          <nav className="flex flex-1 flex-col" role="navigation" aria-label="Menu de administração">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
@@ -171,6 +181,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                             : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50',
                           'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                         )}
+                        aria-current={item.current ? 'page' : undefined}
+                        aria-label={item.name}
                       >
                         <item.icon
                           className={classNames(
@@ -186,7 +198,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                 </ul>
               </li>
               <li>
-                <div className="text-xs font-semibold leading-6 text-gray-400 uppercase tracking-wider">
+                <div
+                  className="text-xs font-semibold leading-6 text-gray-400 uppercase tracking-wider"
+                  role="heading"
+                  aria-level={2}
+                >
                   Configurações
                 </div>
                 <ul role="list" className="-mx-2 mt-2 space-y-1">
@@ -195,6 +211,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
                       <a
                         href={item.href}
                         className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold"
+                        aria-label={item.name}
                       >
                         <item.icon
                           className="text-gray-400 group-hover:text-blue-600 h-6 w-6 shrink-0"
@@ -209,9 +226,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
 
               {/* Tenant Info */}
               <li className="mt-auto">
-                <div className="border-t border-gray-200 pt-4">
+                <div className="border-t border-gray-200 pt-4" role="region" aria-label="Informações da organização">
                   <div className="flex items-center gap-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600" aria-hidden="true">
                       <span className="text-sm font-semibold text-white">ED</span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -224,7 +241,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             </ul>
           </nav>
         </div>
-      </div>
+      </aside>
     </>
   )
 }

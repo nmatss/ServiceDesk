@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
   request: NextRequest,
@@ -79,7 +80,7 @@ export async function GET(
     return new NextResponse(fileBuffer, { headers })
 
   } catch (error) {
-    console.error('Error serving file:', error)
+    logger.error('Error serving file', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
@@ -156,7 +157,7 @@ export async function DELETE(
     })
 
   } catch (error) {
-    console.error('Error deleting file:', error)
+    logger.error('Error deleting file', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }

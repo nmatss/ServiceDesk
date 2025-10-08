@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LRUCache } from 'lru-cache'
 import { ApiContext, CacheOptions, CacheMeta } from './types'
 import crypto from 'crypto'
+import { logger } from '../monitoring/logger';
 
 // Cache Store Interface
 interface CacheStore {
@@ -191,7 +192,7 @@ class RedisCacheStore implements CacheStore {
       this.updateHitRate()
       return null
     } catch (error) {
-      console.error('Redis cache get error:', error)
+      logger.error('Redis cache get error', error)
       this.stats.misses++
       return null
     }
@@ -210,7 +211,7 @@ class RedisCacheStore implements CacheStore {
 
       this.stats.sets++
     } catch (error) {
-      console.error('Redis cache set error:', error)
+      logger.error('Redis cache set error', error)
     }
   }
 
@@ -219,7 +220,7 @@ class RedisCacheStore implements CacheStore {
       await this.redis.del(key)
       this.stats.deletes++
     } catch (error) {
-      console.error('Redis cache delete error:', error)
+      logger.error('Redis cache delete error', error)
     }
   }
 
@@ -235,7 +236,7 @@ class RedisCacheStore implements CacheStore {
         await this.redis.flushdb()
       }
     } catch (error) {
-      console.error('Redis cache clear error:', error)
+      logger.error('Redis cache clear error', error)
     }
   }
 
@@ -243,7 +244,7 @@ class RedisCacheStore implements CacheStore {
     try {
       return (await this.redis.exists(key)) === 1
     } catch (error) {
-      console.error('Redis cache has error:', error)
+      logger.error('Redis cache has error', error)
       return false
     }
   }
@@ -252,7 +253,7 @@ class RedisCacheStore implements CacheStore {
     try {
       return await this.redis.keys(pattern || '*')
     } catch (error) {
-      console.error('Redis cache keys error:', error)
+      logger.error('Redis cache keys error', error)
       return []
     }
   }
@@ -261,7 +262,7 @@ class RedisCacheStore implements CacheStore {
     try {
       return await this.redis.dbsize()
     } catch (error) {
-      console.error('Redis cache size error:', error)
+      logger.error('Redis cache size error', error)
       return 0
     }
   }

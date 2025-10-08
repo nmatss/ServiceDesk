@@ -4,6 +4,7 @@ import * as jose from 'jose'
 import { getJWTSecret, isProduction } from './lib/config/env'
 import { applySecurityHeaders, sanitizeHeaderValue } from './lib/security/headers'
 import { validateCSRFToken, setCSRFToken } from './lib/security/csrf'
+import { captureAuthError, captureException } from './lib/monitoring/sentry-helpers'
 import crypto from 'crypto'
 
 // Get JWT secret securely
@@ -172,7 +173,11 @@ export async function middleware(request: NextRequest) {
 
   // Validate tenant data before setting headers
   if (!isValidTenant(tenantInfo.tenant)) {
-    console.error('Invalid tenant data detected', { hostname, pathname })
+    captureException(new Error('Invalid tenant data detected'), {
+      tags: { errorType: 'tenant_validation' },
+      extra: { hostname, pathname },
+      level: 'warning'
+    })
     return NextResponse.redirect(new URL('/tenant-not-found', request.url))
   }
 
@@ -208,7 +213,7 @@ export async function middleware(request: NextRequest) {
 
     // Validate user data
     if (!authResult.user || !isValidUser(authResult.user)) {
-      console.error('Invalid user data detected')
+      captureAuthError(new Error('Invalid user data detected'), { method: 'jwt' })
       return NextResponse.json(
         { success: false, error: 'Invalid user session' },
         { status: 401 }
@@ -493,12 +498,10 @@ async function checkAuthentication(
 
     // CRITICAL: Validate tenant matches JWT
     if (payload.organization_id !== tenant.id) {
-      // Use structured logging instead of console.error in production
-      if (!isProduction()) {
-        console.warn(
-          `Tenant mismatch: JWT has ${payload.organization_id}, expected ${tenant.id}`
-        )
-      }
+      captureAuthError(new Error('Tenant mismatch in JWT'), {
+        username: payload.email as string,
+        method: 'jwt'
+      })
       return { authenticated: false }
     }
 
@@ -524,9 +527,7 @@ async function checkAuthentication(
     return { authenticated: true, user }
   } catch (error) {
     // Log authentication errors securely (don't expose sensitive data)
-    if (!isProduction() && error instanceof Error) {
-      console.error('Authentication error:', error.message)
-    }
+    captureAuthError(error, { method: 'jwt' })
     return { authenticated: false }
   }
 }

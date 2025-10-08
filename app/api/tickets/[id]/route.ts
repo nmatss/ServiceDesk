@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { logger } from '@/lib/monitoring/logger';
 
 // GET single ticket
 export async function GET(
@@ -80,7 +81,7 @@ export async function GET(
       ticket
     })
   } catch (error) {
-    console.error('Error fetching ticket:', error)
+    logger.error('Error fetching ticket', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -230,7 +231,7 @@ export async function PATCH(
       ticket: updatedTicket
     })
   } catch (error) {
-    console.error('Error updating ticket:', error)
+    logger.error('Error updating ticket', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
