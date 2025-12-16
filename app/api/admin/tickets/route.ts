@@ -1,51 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
-import jwt from 'jsonwebtoken'
-import { validateJWTSecret } from '@/lib/config/env'
-import { logger } from '@/lib/monitoring/logger';
-
-const JWT_SECRET = validateJWTSecret()
-
-function verifyToken(token: string) {
-  try {
-    return jwt.verify(token, JWT_SECRET) as any
-  } catch (error) {
-    return null
-  }
-}
+import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { logger } from '@/lib/monitoring/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // SECURITY: Verificar autenticação via cookies httpOnly
+    const decoded = await verifyTokenFromCookies(request)
+    if (!decoded) {
       return NextResponse.json(
         { error: 'Token de autenticação necessário' },
         { status: 401 }
       )
     }
 
-    const token = authHeader.substring(7)
-    const decoded = verifyToken(token)
-    
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      )
-    }
-
     // Verificar se é admin
-    if (decoded.role !== 'admin') {
+    const adminRoles = ['admin', 'super_admin', 'tenant_admin', 'team_manager']
+    if (!adminRoles.includes(decoded.role)) {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }
       )
     }
 
-    // Buscar todos os tickets com informações relacionadas
+    // SECURITY: Get tenant ID from authenticated user
+    const tenantId = decoded.organization_id || 1
+
+    // Buscar todos os tickets com informações relacionadas (com tenant isolation)
     const tickets = db.prepare(`
-      SELECT 
+      SELECT
         t.id,
         t.title,
         t.description,
@@ -56,6 +39,7 @@ export async function GET(request: NextRequest) {
         s.color as status_color,
         p.name as priority,
         p.color as priority_color,
+        p.level as priority_level,
         c.name as category,
         c.color as category_color,
         u.name as user_name,
@@ -67,8 +51,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users agent ON t.assigned_to = agent.id
+      WHERE t.tenant_id = ? OR t.tenant_id IS NULL
       ORDER BY t.created_at DESC
-    `).all()
+    `).all(tenantId)
 
     return NextResponse.json({
       success: true,

@@ -14,10 +14,11 @@ export const commonSchemas = {
   slug: z.string().regex(/^[a-z0-9-]+$/),
   password: z
     .string()
-    .min(8)
+    .min(12, 'Password must be at least 12 characters long')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/, 'Password must contain at least one special character'),
   organizationId: z.number().int().positive(),
   url: z.string().url(),
   hexColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),

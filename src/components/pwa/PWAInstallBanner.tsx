@@ -51,7 +51,7 @@ export default function PWAInstallBanner() {
       const daysPassed = (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
 
       // Show again after 7 days, or sooner for engaged users
-      const threshold = installStats?.userEngagement.sessions > 5 ? 3 : 7;
+      const threshold = (installStats?.userEngagement.sessions ?? 0) > 5 ? 3 : 7;
       if (daysPassed < threshold) {
         setIsDismissed(true);
         return;
@@ -68,7 +68,7 @@ export default function PWAInstallBanner() {
       const shouldShow = installPrompt.canInstall();
       if (shouldShow) {
         // Smart timing based on user engagement
-        const delay = installStats?.userEngagement.sessions > 3 ? 10000 : 30000;
+        const delay = (installStats?.userEngagement.sessions ?? 0) > 3 ? 10000 : 30000;
         const timer = setTimeout(() => {
           setShowBanner(true);
         }, delay);
@@ -76,6 +76,7 @@ export default function PWAInstallBanner() {
         return () => clearTimeout(timer);
       }
     }
+    return undefined;
   }, [isInstallable, isInstalled, isDismissed, installPrompt, installStats]);
 
   const handleInstall = useCallback(async () => {

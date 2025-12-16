@@ -3,6 +3,42 @@ import crypto from 'crypto';
 
 export class WebhookManager {
   /**
+   * Verifies incoming webhook signature
+   * Uses timing-safe comparison to prevent timing attacks
+   */
+  static verifyIncomingSignature(
+    payload: string,
+    signature: string,
+    secret: string
+  ): boolean {
+    try {
+      // Handle null/undefined inputs
+      if (!payload || !signature || !secret) {
+        return false;
+      }
+
+      const expectedSignature = 'sha256=' + crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+
+      // Ensure both signatures have the same length before comparison
+      // This prevents timing attack and RangeError
+      if (signature.length !== expectedSignature.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      );
+    } catch (error) {
+      console.error('Error verifying webhook signature:', error);
+      return false;
+    }
+  }
+
+  /**
    * Dispara webhook para eventos
    */
   async trigger(
@@ -157,7 +193,7 @@ export class WebhookManager {
   /**
    * Agenda retry
    */
-  private async scheduleRetry(deliveryId: number, webhook: any): Promise<void> {
+  private async scheduleRetry(deliveryId: number, _webhook: any): Promise<void> {
     // Incrementar retry counter
     db.prepare(`
       UPDATE webhook_deliveries

@@ -3,13 +3,10 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 import {
   AchievementEngine,
-  Badge,
-  BADGES
 } from '@/lib/gamification/achievements';
 import {
   PointsEngine,
   LeaderboardManager,
-  TeamCompetitionManager,
   LeaderboardEntry,
   DEFAULT_POINTS_CONFIG
 } from '@/lib/gamification/points-system';
@@ -38,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-    const userId = searchParams.get('userId') || authResult.user!.id;
+    const userId = String(searchParams.get('userId') || authResult.user!.id);
     const period = searchParams.get('period') as 'day' | 'week' | 'month' | 'all-time' || 'month';
     const teamId = searchParams.get('teamId');
     const challengeId = searchParams.get('challengeId');
@@ -102,30 +99,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
 
+    const currentUserId = String(authResult.user!.id);
+
     switch (action) {
       case 'award-points':
-        return await awardPoints(authResult.user!.id, body);
+        return await awardPoints(currentUserId, body);
 
       case 'unlock-achievement':
-        return await unlockAchievement(authResult.user!.id, body);
+        return await unlockAchievement(currentUserId, body);
 
       case 'join-challenge':
-        return await joinChallenge(authResult.user!.id, body.challengeId);
+        return await joinChallenge(currentUserId, body.challengeId);
 
       case 'leave-challenge':
-        return await leaveChallenge(authResult.user!.id, body.challengeId);
+        return await leaveChallenge(currentUserId, body.challengeId);
 
       case 'opt-in':
-        return await updateLeaderboardOptIn(authResult.user!.id, true);
+        return await updateLeaderboardOptIn(currentUserId, true);
 
       case 'opt-out':
-        return await updateLeaderboardOptIn(authResult.user!.id, false);
+        return await updateLeaderboardOptIn(currentUserId, false);
 
       case 'send-kudos':
-        return await sendKudos(authResult.user!.id, body);
+        return await sendKudos(currentUserId, body);
 
       case 'react':
-        return await addReaction(authResult.user!.id, body);
+        return await addReaction(currentUserId, body);
 
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -334,8 +333,6 @@ async function getChallengeDetail(challengeId: string, userId: string) {
  */
 async function getPointsHistory(userId: string) {
   // Mock points transactions - replace with actual database queries
-  const pointsEngine = new PointsEngine();
-
   const transactions = [
     {
       id: '1',

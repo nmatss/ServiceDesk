@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowPathIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface TouchPosition {
   x: number;
@@ -33,17 +33,23 @@ export function SwipeGesture({
 
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
-    setTouchStart({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
+    const touch = e.targetTouches[0];
+    if (touch) {
+      setTouchStart({
+        x: touch.clientX,
+        y: touch.clientY,
+      });
+    }
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY,
-    });
+    const touch = e.targetTouches[0];
+    if (touch) {
+      setTouchEnd({
+        x: touch.clientX,
+        y: touch.clientY,
+      });
+    }
   };
 
   const onTouchEnd = () => {
@@ -113,7 +119,10 @@ export function PullToRefresh({
     const container = containerRef.current;
     if (!container || container.scrollTop > 0) return;
 
-    setStartY(e.touches[0].clientY);
+    const touch = e.touches[0];
+    if (touch) {
+      setStartY(touch.clientY);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -122,12 +131,15 @@ export function PullToRefresh({
     const container = containerRef.current;
     if (!container || container.scrollTop > 0) return;
 
-    const currentY = e.touches[0].clientY;
-    const distance = Math.max(0, currentY - startY);
+    const touch = e.touches[0];
+    if (touch) {
+      const currentY = touch.clientY;
+      const distance = Math.max(0, currentY - startY);
 
-    if (distance > 0) {
-      e.preventDefault();
-      setPullDistance(Math.min(distance, threshold * 1.5));
+      if (distance > 0) {
+        e.preventDefault();
+        setPullDistance(Math.min(distance, threshold * 1.5));
+      }
     }
   };
 
@@ -291,55 +303,75 @@ export function BottomSheet({
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setStartY(e.touches[0].clientY);
-    setIsDragging(true);
+    const touch = e.touches[0];
+    if (touch) {
+      setStartY(touch.clientY);
+      setIsDragging(true);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
 
-    const currentY = e.touches[0].clientY;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const currentY = touch.clientY;
     const deltaY = currentY - startY;
     const sheet = sheetRef.current;
 
     if (sheet) {
-      const currentHeight = snapPoints[currentSnap] * window.innerHeight;
-      const newHeight = Math.max(0, currentHeight - deltaY);
-      const newSnapRatio = newHeight / window.innerHeight;
+      const currentSnapPoint = snapPoints[currentSnap];
+      if (currentSnapPoint !== undefined) {
+        const currentHeight = currentSnapPoint * window.innerHeight;
+        const newHeight = Math.max(0, currentHeight - deltaY);
 
-      sheet.style.height = `${newHeight}px`;
+        sheet.style.height = `${newHeight}px`;
+      }
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (!isDragging) return;
 
-    const currentY = e.changedTouches[0].clientY;
+    const touch = e.changedTouches[0];
+    if (!touch) {
+      setIsDragging(false);
+      return;
+    }
+
+    const currentY = touch.clientY;
     const deltaY = currentY - startY;
     const sheet = sheetRef.current;
 
     if (sheet) {
-      const currentHeight = snapPoints[currentSnap] * window.innerHeight;
-      const newHeight = currentHeight - deltaY;
-      const newSnapRatio = newHeight / window.innerHeight;
+      const currentSnapPoint = snapPoints[currentSnap];
+      if (currentSnapPoint !== undefined) {
+        const currentHeight = currentSnapPoint * window.innerHeight;
+        const newHeight = currentHeight - deltaY;
+        const newSnapRatio = newHeight / window.innerHeight;
 
-      // Find closest snap point
-      let closestSnap = currentSnap;
-      let minDistance = Math.abs(snapPoints[currentSnap] - newSnapRatio);
+        // Find closest snap point
+        let closestSnap = currentSnap;
+        const currentSnapForDistance = snapPoints[currentSnap];
+        if (currentSnapForDistance !== undefined) {
+          let minDistance = Math.abs(currentSnapForDistance - newSnapRatio);
 
-      snapPoints.forEach((snap, index) => {
-        const distance = Math.abs(snap - newSnapRatio);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestSnap = index;
+          snapPoints.forEach((snap, index) => {
+            const distance = Math.abs(snap - newSnapRatio);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestSnap = index;
+            }
+          });
+
+          // Close if dragged down significantly
+          if (deltaY > 100 && closestSnap === 0) {
+            onClose();
+          } else {
+            setCurrentSnap(closestSnap);
+          }
         }
-      });
-
-      // Close if dragged down significantly
-      if (deltaY > 100 && closestSnap === 0) {
-        onClose();
-      } else {
-        setCurrentSnap(closestSnap);
       }
     }
 
@@ -361,7 +393,7 @@ export function BottomSheet({
         ref={sheetRef}
         className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 transition-all duration-300 ease-out"
         style={{
-          height: `${snapPoints[currentSnap] * 100}vh`,
+          height: `${(snapPoints[currentSnap] ?? 0.3) * 100}vh`,
           maxHeight: '90vh',
         }}
         onTouchStart={handleTouchStart}

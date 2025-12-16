@@ -1,14 +1,20 @@
 // AI Core System for ServiceDesk
 // Main export file for all AI functionality
 
-// Core AI Services
+// Import for internal use
+import openAIClientInstance from './openai-client';
+import { createAIAuditTable as createAIAuditTableFn } from './audit-trail';
+import logger from '../monitoring/structured-logger';
+
+// Core AI Services (re-export for external use)
 export { default as openAIClient } from './openai-client';
 export { default as TicketClassifier } from './ticket-classifier';
 export { default as SolutionSuggester } from './solution-suggester';
 export { default as VectorDatabase } from './vector-database';
 export { default as AIDatabaseService } from './database-integration';
 export { default as AIAuditTrail, createAIAuditTable } from './audit-trail';
-import { logger } from '../monitoring/logger';
+export { default as HybridSearchEngine } from './hybrid-search';
+export { default as EmbeddingUtils } from './embedding-utils';
 
 // Prompt Templates and Context Types
 export {
@@ -72,8 +78,27 @@ export type {
 export type {
   SearchResult,
   EmbeddingGenerationResult,
-  SimilaritySearchOptions
+  SimilaritySearchOptions,
+  BatchEmbeddingJob,
+  BatchProcessingResult
 } from './vector-database';
+
+// Hybrid Search Types
+export type {
+  HybridSearchOptions,
+  HybridSearchResult,
+  HybridSearchResponse,
+  SearchFacet,
+  AutoCompleteOptions,
+  AutoCompleteResult
+} from './hybrid-search';
+
+// Embedding Utils Types
+export type {
+  TextPreprocessingOptions,
+  EmbeddingQualityMetrics,
+  IncrementalUpdateOptions
+} from './embedding-utils';
 
 // Audit Trail Types
 export type {
@@ -98,7 +123,7 @@ export const AIUtils = {
    */
   calculateCombinedConfidence: (scores: number[]): number => {
     if (scores.length === 0) return 0;
-    if (scores.length === 1) return scores[0];
+    if (scores.length === 1) return scores[0] ?? 0;
 
     // Média ponderada com peso maior para scores mais altos
     const sortedScores = scores.sort((a, b) => b - a);
@@ -193,7 +218,7 @@ export const AIUtils = {
     };
 
     const modelPricing = pricing[modelName] || pricing['gpt-4o-mini'];
-    return ((inputTokens / 1000) * modelPricing.input) + ((outputTokens / 1000) * modelPricing.output);
+    return ((inputTokens / 1000) * (modelPricing?.input ?? 0)) + ((outputTokens / 1000) * (modelPricing?.output ?? 0));
   },
 
   /**
@@ -323,7 +348,7 @@ export const AISystem = {
   async initialize(db: any, config?: any): Promise<boolean> {
     try {
       // Criar tabelas de auditoria se necessário
-      await createAIAuditTable(db);
+      await createAIAuditTableFn(db);
 
       // Validar configuração
       const validationResult = AIConfig.validateConfig(config || AIConfig.getDefaultConfig());
@@ -334,7 +359,7 @@ export const AISystem = {
 
       // Verificar conectividade com OpenAI
       try {
-        const healthCheck = await openAIClient.chatCompletion([
+        const healthCheck = await openAIClientInstance.chatCompletion([
           { role: 'user', content: 'Hello' }
         ], { maxTokens: 5 });
 
@@ -367,7 +392,7 @@ export const AISystem = {
 
     // Verificar OpenAI
     try {
-      await openAIClient.getRateLimitStatus();
+      await openAIClientInstance.getRateLimitStatus();
       services.openai = true;
     } catch (error) {
       services.openai = false;

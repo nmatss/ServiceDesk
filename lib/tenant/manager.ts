@@ -1,6 +1,5 @@
 import { getDb } from '@/lib/db'
-import { cookies } from 'next/headers'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface Tenant {
   id: number
@@ -92,8 +91,8 @@ export class TenantManager {
       if (!tenant) return null
 
       // Parse JSON fields
-      tenant.features = tenant.features ? JSON.parse(tenant.features) : []
-      tenant.settings = tenant.settings ? JSON.parse(tenant.settings) : {}
+      tenant.features = (tenant.features && typeof tenant.features === 'string') ? JSON.parse(tenant.features) : []
+      tenant.settings = (tenant.settings && typeof tenant.settings === 'string') ? JSON.parse(tenant.settings) : {}
 
       return tenant
     } catch (error) {
@@ -114,8 +113,8 @@ export class TenantManager {
       if (!tenant) return null
 
       // Parse JSON fields
-      tenant.features = tenant.features ? JSON.parse(tenant.features) : []
-      tenant.settings = tenant.settings ? JSON.parse(tenant.settings) : {}
+      tenant.features = (tenant.features && typeof tenant.features === 'string') ? JSON.parse(tenant.features) : []
+      tenant.settings = (tenant.settings && typeof tenant.settings === 'string') ? JSON.parse(tenant.settings) : {}
 
       return tenant
     } catch (error) {
@@ -431,7 +430,17 @@ export class TenantManager {
   }
 
   private createDefaultTeams(tenantId: number): void {
-    const defaultTeams = [
+    const defaultTeams: Array<{
+      name: string;
+      slug: string;
+      description: string;
+      team_type: 'technical' | 'business' | 'support' | 'management';
+      specializations: string[];
+      capabilities: string[];
+      icon: string;
+      color: string;
+      sla_response_time: number;
+    }> = [
       {
         name: 'Infraestrutura',
         slug: 'infrastructure',
@@ -504,5 +513,7 @@ export function getCurrentTenant(): Tenant | null {
 
 export function getCurrentTenantId(): number {
   const tenant = getCurrentTenant()
-  return tenant?.id || 1 // Default to tenant 1
+  // Fallback to tenant 1 for development/backward compatibility
+  // In production, middleware should always set tenant context
+  return tenant?.id || 1
 }

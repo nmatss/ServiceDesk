@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/Button'
 import { toast } from 'react-hot-toast'
 import { logger } from '@/lib/monitoring/logger';
 import {
@@ -77,7 +77,7 @@ export default function EmailsPage() {
         }, {})
 
         setStats({
-          total: Object.values(statsMap).reduce((a: any, b: any) => a + b, 0),
+          total: Object.values(statsMap).reduce((a: any, b: any) => (a as number) + (b as number), 0) as number,
           sent: statsMap.sent || 0,
           failed: statsMap.failed || 0,
           pending: statsMap.pending || 0

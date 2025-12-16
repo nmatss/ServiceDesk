@@ -11,14 +11,33 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
+    // SECURITY: Verify authentication via httpOnly cookies only
+    const verifyAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      router.push('/auth/login')
-      return
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setLoading(false)
+      } catch {
+        router.push('/auth/login')
+      }
     }
 
-    setLoading(false)
+    verifyAuth()
   }, [router])
 
   if (loading) {

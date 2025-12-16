@@ -20,7 +20,7 @@ export async function GET(
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
-    if (!authResult.success || !authResult.user) {
+    if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -85,9 +85,9 @@ export async function GET(
     `).get(workflowId);
 
     const parsedWorkflow = {
-      ...workflow,
-      trigger_conditions: JSON.parse(workflow.trigger_conditions || '{}'),
-      steps_json: JSON.parse(workflow.steps_json || '{}'),
+      ...(workflow as Record<string, unknown>),
+      trigger_conditions: JSON.parse((workflow as any).trigger_conditions || '{}'),
+      steps_json: JSON.parse((workflow as any).steps_json || '{}'),
       steps: steps.map((step: any) => ({
         ...step,
         configuration: JSON.parse(step.configuration || '{}')
@@ -117,7 +117,7 @@ export async function PUT(
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
-    if (!authResult.success || !authResult.user) {
+    if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -141,7 +141,7 @@ export async function PUT(
     }
 
     // Check ownership or admin rights
-    if (authResult.user.role !== 'admin' && existingWorkflow.created_by !== authResult.user.id) {
+    if (authResult.user.role !== 'admin' && (existingWorkflow as any).created_by !== authResult.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -199,7 +199,7 @@ export async function PUT(
 
       // Update workflow definition if nodes/edges/variables are provided
       if (data.nodes || data.edges || data.variables || data.metadata) {
-        const currentDefinition = db.prepare('SELECT steps_json FROM workflow_definitions WHERE id = ?').get(workflowId);
+        const currentDefinition = db.prepare('SELECT steps_json FROM workflow_definitions WHERE id = ?').get(workflowId) as { steps_json?: string } | undefined;
         const currentStepsJson = currentDefinition ? JSON.parse(currentDefinition.steps_json || '{}') : {};
 
         const newStepsJson = {
@@ -280,9 +280,9 @@ export async function PUT(
     `).get(workflowId);
 
     const parsedWorkflow = {
-      ...updatedWorkflow,
-      trigger_conditions: JSON.parse(updatedWorkflow.trigger_conditions || '{}'),
-      steps_json: JSON.parse(updatedWorkflow.steps_json || '{}')
+      ...(updatedWorkflow as Record<string, unknown>),
+      trigger_conditions: JSON.parse((updatedWorkflow as any).trigger_conditions || '{}'),
+      steps_json: JSON.parse((updatedWorkflow as any).steps_json || '{}')
     };
 
     return NextResponse.json({
@@ -310,7 +310,7 @@ export async function DELETE(
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
-    if (!authResult.success || !authResult.user) {
+    if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -327,7 +327,7 @@ export async function DELETE(
     const db = getConnection();
 
     // Check if workflow exists
-    const workflow = db.prepare('SELECT id, name FROM workflows WHERE id = ?').get(workflowId);
+    const workflow = db.prepare('SELECT id, name FROM workflows WHERE id = ?').get(workflowId) as { id: number; name: string } | undefined;
     if (!workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }

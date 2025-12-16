@@ -72,28 +72,24 @@ export default function EditTicketPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
 
+      // SECURITY: Use httpOnly cookies for authentication
       // Buscar dados em paralelo
       const [ticketRes, categoriesRes, prioritiesRes, statusesRes, agentsRes] = await Promise.all([
         fetch(`/api/tickets/${ticketId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // Use httpOnly cookies
         }),
         fetch('/api/categories', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // Use httpOnly cookies
         }),
         fetch('/api/priorities', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // Use httpOnly cookies
         }),
         fetch('/api/statuses', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // Use httpOnly cookies
         }),
         fetch('/api/admin/users', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'include' // Use httpOnly cookies
         })
       ])
 
@@ -147,14 +143,14 @@ export default function EditTicketPage() {
 
     try {
       setSaving(true)
-      const token = localStorage.getItem('auth_token')
-      
+
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/tickets/${ticketId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           title: formData.title.trim(),
           description: formData.description.trim(),

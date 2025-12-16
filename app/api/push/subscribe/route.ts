@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDB } from '@/lib/db/connection';
+import dbConnection from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getDB();
+    const db = dbConnection;
 
     // Create push_subscriptions table if it doesn't exist
     db.exec(`
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const db = getDB();
+    const db = dbConnection;
 
     const subscriptions = db.prepare(`
       SELECT

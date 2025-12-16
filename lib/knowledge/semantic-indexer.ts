@@ -1,8 +1,8 @@
 // Semantic indexer para indexação automática de conteúdo
 import { vectorSearchEngine } from './vector-search';
 import { elasticsearchIntegration } from './elasticsearch-integration';
-import { db } from '../db/connection';
-import { logger } from '../monitoring/logger';
+import db from '../db/connection';
+import logger from '../monitoring/structured-logger';
 
 interface IndexingJob {
   id: string;
@@ -278,7 +278,7 @@ export class SemanticIndexer {
    */
   private async indexComment(commentId: number): Promise<void> {
     try {
-      const comment = await db.get(`
+      const comment = db.prepare(`
         SELECT c.*, t.title as ticket_title, t.category_id,
                cat.name as category_name, u.name as author_name
         FROM comments c
@@ -286,7 +286,7 @@ export class SemanticIndexer {
         LEFT JOIN categories cat ON t.category_id = cat.id
         LEFT JOIN users u ON c.user_id = u.id
         WHERE c.id = ? AND c.is_internal = 0
-      `, [commentId]);
+      `).get(commentId) as any;
 
       if (!comment) {
         return; // Não indexa comentários internos
@@ -337,10 +337,10 @@ export class SemanticIndexer {
    */
   private async removeVectorEmbedding(entityType: string, entityId: number): Promise<void> {
     try {
-      await db.run(`
+      db.prepare(`
         DELETE FROM vector_embeddings
         WHERE entity_type = ? AND entity_id = ?
-      `, [entityType, entityId]);
+      `).run(entityType, entityId);
 
       logger.info(`Embedding removido: ${entityType}:${entityId}`);
     } catch (error) {
@@ -357,7 +357,7 @@ export class SemanticIndexer {
       logger.info('Verificando atualizações pendentes...');
 
       // Artigos modificados recentemente
-      const recentArticles = await db.all(`
+      const recentArticles = db.prepare(`
         SELECT id, updated_at
         FROM kb_articles
         WHERE status = 'published'
@@ -367,14 +367,14 @@ export class SemanticIndexer {
             WHERE entity_type = 'kb_article'
               AND updated_at > datetime('now', '-1 day')
           )
-      `);
+      `).all() as Array<{ id: number; updated_at: string }>;
 
       for (const article of recentArticles) {
         await this.queueIndexing('kb_article', article.id, 'update', 1);
       }
 
       // Tickets resolvidos recentemente
-      const recentTickets = await db.all(`
+      const recentTickets = db.prepare(`
         SELECT id
         FROM tickets
         WHERE resolved_at IS NOT NULL
@@ -384,7 +384,7 @@ export class SemanticIndexer {
             WHERE entity_type = 'ticket'
               AND updated_at > datetime('now', '-1 day')
           )
-      `);
+      `).all() as Array<{ id: number }>;
 
       for (const ticket of recentTickets) {
         await this.queueIndexing('ticket', ticket.id, 'index', 0);
@@ -410,18 +410,18 @@ export class SemanticIndexer {
 
         switch (entityType) {
           case 'kb_article':
-            const articles = await db.all(`
+            const articles = db.prepare(`
               SELECT id FROM kb_articles WHERE status = 'published'
-            `);
+            `).all() as Array<{ id: number }>;
             for (const article of articles) {
               await this.queueIndexing('kb_article', article.id, 'index', 1);
             }
             break;
 
           case 'ticket':
-            const tickets = await db.all(`
+            const tickets = db.prepare(`
               SELECT id FROM tickets WHERE resolved_at IS NOT NULL
-            `);
+            `).all() as Array<{ id: number }>;
             for (const ticket of tickets) {
               await this.queueIndexing('ticket', ticket.id, 'index', 0);
             }
@@ -454,7 +454,7 @@ export class SemanticIndexer {
       }
 
       // Remove entidades deletadas do banco
-      const deletedEntities = await db.all(`
+      const deletedEntities = db.prepare(`
         SELECT DISTINCT ve.entity_type, ve.entity_id
         FROM vector_embeddings ve
         LEFT JOIN kb_articles ka ON ve.entity_type = 'kb_article' AND ve.entity_id = ka.id
@@ -463,7 +463,7 @@ export class SemanticIndexer {
         WHERE (ve.entity_type = 'kb_article' AND ka.id IS NULL)
            OR (ve.entity_type = 'ticket' AND t.id IS NULL)
            OR (ve.entity_type = 'comment' AND c.id IS NULL)
-      `);
+      `).all() as Array<{ entity_type: string; entity_id: number }>;
 
       for (const entity of deletedEntities) {
         await this.queueIndexing(
@@ -499,7 +499,7 @@ export class SemanticIndexer {
       }
 
       // Identifica documentos com baixa qualidade para reindexação
-      const lowQualityDocs = await db.all(`
+      const lowQualityDocs = db.prepare(`
         SELECT entity_type, entity_id, updated_at
         FROM vector_embeddings ve
         WHERE updated_at < datetime('now', '-30 days')
@@ -509,7 +509,7 @@ export class SemanticIndexer {
             WHERE helpful_votes < not_helpful_votes
               OR view_count = 0
           )
-      `);
+      `).all() as Array<{ entity_type: string; entity_id: number; updated_at: string }>;
 
       for (const doc of lowQualityDocs) {
         await this.queueIndexing(doc.entity_type, doc.entity_id, 'update', -1);

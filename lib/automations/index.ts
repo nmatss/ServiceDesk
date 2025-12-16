@@ -2,7 +2,10 @@ import db from '../db/connection';
 import { Automation } from '../types/database';
 import { createNotification } from '../notifications';
 import { logAuditAction } from '../audit';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+// Limite de cascata de automações
+const MAX_CASCADE_DEPTH = 10;
 
 // Tipos para automação
 interface AutomationCondition {
@@ -12,7 +15,7 @@ interface AutomationCondition {
 }
 
 interface AutomationAction {
-  type: 'assign_ticket' | 'change_status' | 'change_priority' | 'add_comment' | 'send_notification' | 'create_task' | 'escalate';
+  type: 'assign_ticket' | 'change_status' | 'change_priority' | 'add_comment' | 'send_notification' | 'create_task' | 'escalate' | 'send_webhook';
   parameters: Record<string, any>;
 }
 
@@ -45,20 +48,27 @@ export function getActiveAutomations(triggerType: string): Automation[] {
  */
 export async function executeAutomations(
   triggerType: string,
-  triggerData: TriggerData
+  triggerData: TriggerData,
+  cascadeDepth: number = 0
 ): Promise<boolean> {
   try {
+    // Verificar profundidade de cascata
+    if (cascadeDepth >= MAX_CASCADE_DEPTH) {
+      logger.warn(`Maximum cascade depth reached for trigger ${triggerType}`, { triggerData, cascadeDepth });
+      return false;
+    }
+
     const automations = getActiveAutomations(triggerType);
 
     if (automations.length === 0) {
       return true;
     }
 
-    logger.info(`Executing ${automations.length} automations for trigger: ${triggerType}`);
+    logger.info(`Executing ${automations.length} automations for trigger: ${triggerType}`, { cascadeDepth });
 
     for (const automation of automations) {
       try {
-        await executeAutomation(automation, triggerData);
+        await executeAutomation(automation, triggerData, cascadeDepth);
       } catch (error) {
         logger.error(`Error executing automation ${automation.id}:`, error);
         // Continue com outras automações mesmo se uma falhar
@@ -77,7 +87,8 @@ export async function executeAutomations(
  */
 async function executeAutomation(
   automation: Automation,
-  triggerData: TriggerData
+  triggerData: TriggerData,
+  cascadeDepth: number = 0
 ): Promise<boolean> {
   try {
     const conditions = JSON.parse(automation.conditions);
@@ -88,11 +99,11 @@ async function executeAutomation(
       return false;
     }
 
-    logger.info(`Executing automation: ${automation.name}`);
+    logger.info(`Executing automation: ${automation.name}`, { cascadeDepth });
 
-    // Executar ações
+    // Executar ações (passando cascadeDepth para ações que podem disparar outras automações)
     for (const action of actions) {
-      await executeAction(action, triggerData);
+      await executeAction(action, triggerData, cascadeDepth);
     }
 
     // Atualizar contador de execução
@@ -244,26 +255,29 @@ function getFieldValue(field: string, triggerData: TriggerData): any {
 /**
  * Executa uma ação específica
  */
-async function executeAction(action: AutomationAction, triggerData: TriggerData): Promise<boolean> {
+async function executeAction(action: AutomationAction, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
     switch (action.type) {
       case 'assign_ticket':
-        return await assignTicket(action.parameters, triggerData);
+        return await assignTicket(action.parameters, triggerData, cascadeDepth);
 
       case 'change_status':
-        return await changeTicketStatus(action.parameters, triggerData);
+        return await changeTicketStatus(action.parameters, triggerData, cascadeDepth);
 
       case 'change_priority':
-        return await changeTicketPriority(action.parameters, triggerData);
+        return await changeTicketPriority(action.parameters, triggerData, cascadeDepth);
 
       case 'add_comment':
-        return await addTicketComment(action.parameters, triggerData);
+        return await addTicketComment(action.parameters, triggerData, cascadeDepth);
 
       case 'send_notification':
         return await sendNotification(action.parameters, triggerData);
 
       case 'escalate':
-        return await escalateTicket(action.parameters, triggerData);
+        return await escalateTicket(action.parameters, triggerData, cascadeDepth);
+
+      case 'send_webhook':
+        return await sendWebhook(action.parameters, triggerData);
 
       default:
         logger.warn(`Unknown action type: ${action.type}`);
@@ -276,9 +290,58 @@ async function executeAction(action: AutomationAction, triggerData: TriggerData)
 }
 
 /**
+ * Envia webhook para sistema externo
+ */
+/**
+ * Envia webhook para sistema externo com retry exponential backoff
+ */
+async function sendWebhook(parameters: any, triggerData: TriggerData): Promise<boolean> {
+  const { url, method = 'POST', headers = {}, max_retries = 3 } = parameters;
+  if (!url) return false;
+
+  const body = JSON.stringify({
+    event: 'automation_webhook',
+    timestamp: new Date().toISOString(),
+    data: triggerData
+  });
+
+  let attempt = 0;
+
+  while (attempt <= max_retries) {
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body
+      });
+
+      if (response.ok) {
+        return true;
+      }
+
+      logger.warn(`Webhook attempt ${attempt + 1} failed with status ${response.status}`);
+    } catch (error) {
+      logger.warn(`Webhook attempt ${attempt + 1} failed with error`, error);
+    }
+
+    attempt++;
+    if (attempt <= max_retries) {
+      const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  logger.error(`Webhook failed after ${max_retries + 1} attempts: ${url}`);
+  return false;
+}
+
+/**
  * Atribui ticket a um agente
  */
-async function assignTicket(parameters: any, triggerData: TriggerData): Promise<boolean> {
+async function assignTicket(parameters: any, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
     if (!triggerData.ticket_id) return false;
 
@@ -288,6 +351,9 @@ async function assignTicket(parameters: any, triggerData: TriggerData): Promise<
     // Verificar se agente existe
     const agent = db.prepare('SELECT id FROM users WHERE id = ? AND role IN ("agent", "admin")').get(agent_id);
     if (!agent) return false;
+
+    // Buscar valores antigos
+    const oldTicket = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?').get(triggerData.ticket_id) as any;
 
     // Atualizar ticket
     db.prepare('UPDATE tickets SET assigned_to = ? WHERE id = ?').run(agent_id, triggerData.ticket_id);
@@ -303,6 +369,14 @@ async function assignTicket(parameters: any, triggerData: TriggerData): Promise<
       sent_via_email: true
     });
 
+    // Disparar automações em cascata (se houver)
+    await executeAutomations('ticket_assigned', {
+      ticket_id: triggerData.ticket_id,
+      old_values: { assigned_to: oldTicket?.assigned_to },
+      new_values: { assigned_to: agent_id },
+      context: { action: 'assigned_by_automation' }
+    }, cascadeDepth + 1);
+
     return true;
   } catch (error) {
     logger.error('Error assigning ticket', error);
@@ -313,7 +387,7 @@ async function assignTicket(parameters: any, triggerData: TriggerData): Promise<
 /**
  * Altera status do ticket
  */
-async function changeTicketStatus(parameters: any, triggerData: TriggerData): Promise<boolean> {
+async function changeTicketStatus(parameters: any, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
     if (!triggerData.ticket_id) return false;
 
@@ -324,8 +398,19 @@ async function changeTicketStatus(parameters: any, triggerData: TriggerData): Pr
     const status = db.prepare('SELECT id FROM statuses WHERE id = ?').get(status_id);
     if (!status) return false;
 
+    // Buscar valores antigos
+    const oldTicket = db.prepare('SELECT status_id FROM tickets WHERE id = ?').get(triggerData.ticket_id) as any;
+
     // Atualizar ticket
     db.prepare('UPDATE tickets SET status_id = ? WHERE id = ?').run(status_id, triggerData.ticket_id);
+
+    // Disparar automações em cascata (se houver)
+    await executeAutomations('ticket_updated', {
+      ticket_id: triggerData.ticket_id,
+      old_values: { status_id: oldTicket?.status_id },
+      new_values: { status_id },
+      context: { action: 'status_changed_by_automation' }
+    }, cascadeDepth + 1);
 
     return true;
   } catch (error) {
@@ -337,7 +422,7 @@ async function changeTicketStatus(parameters: any, triggerData: TriggerData): Pr
 /**
  * Altera prioridade do ticket
  */
-async function changeTicketPriority(parameters: any, triggerData: TriggerData): Promise<boolean> {
+async function changeTicketPriority(parameters: any, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
     if (!triggerData.ticket_id) return false;
 
@@ -348,8 +433,19 @@ async function changeTicketPriority(parameters: any, triggerData: TriggerData): 
     const priority = db.prepare('SELECT id FROM priorities WHERE id = ?').get(priority_id);
     if (!priority) return false;
 
+    // Buscar valores antigos
+    const oldTicket = db.prepare('SELECT priority_id FROM tickets WHERE id = ?').get(triggerData.ticket_id) as any;
+
     // Atualizar ticket
     db.prepare('UPDATE tickets SET priority_id = ? WHERE id = ?').run(priority_id, triggerData.ticket_id);
+
+    // Disparar automações em cascata (se houver)
+    await executeAutomations('ticket_updated', {
+      ticket_id: triggerData.ticket_id,
+      old_values: { priority_id: oldTicket?.priority_id },
+      new_values: { priority_id },
+      context: { action: 'priority_changed_by_automation' }
+    }, cascadeDepth + 1);
 
     return true;
   } catch (error) {
@@ -361,7 +457,7 @@ async function changeTicketPriority(parameters: any, triggerData: TriggerData): 
 /**
  * Adiciona comentário ao ticket
  */
-async function addTicketComment(parameters: any, triggerData: TriggerData): Promise<boolean> {
+async function addTicketComment(parameters: any, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
     if (!triggerData.ticket_id) return false;
 
@@ -373,10 +469,18 @@ async function addTicketComment(parameters: any, triggerData: TriggerData): Prom
     if (!systemUser) return false;
 
     // Adicionar comentário
-    db.prepare(`
+    const result = db.prepare(`
       INSERT INTO comments (ticket_id, user_id, content, is_internal)
       VALUES (?, ?, ?, ?)
     `).run(triggerData.ticket_id, systemUser.id, content, is_internal ? 1 : 0);
+
+    // Disparar automações em cascata (se houver)
+    await executeAutomations('comment_added', {
+      ticket_id: triggerData.ticket_id,
+      user_id: systemUser.id,
+      new_values: { content, is_internal },
+      context: { action: 'comment_added_by_automation', comment_id: result.lastInsertRowid }
+    }, cascadeDepth + 1);
 
     return true;
   } catch (error) {
@@ -413,7 +517,7 @@ async function sendNotification(parameters: any, triggerData: TriggerData): Prom
 /**
  * Escalona ticket
  */
-async function escalateTicket(parameters: any, triggerData: TriggerData): Promise<boolean> {
+async function escalateTicket(parameters: any, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
     if (!triggerData.ticket_id) return false;
 
@@ -446,6 +550,14 @@ async function escalateTicket(parameters: any, triggerData: TriggerData): Promis
       is_read: false,
       sent_via_email: true
     });
+
+    // Disparar automações em cascata (se houver)
+    await executeAutomations('ticket_assigned', {
+      ticket_id: triggerData.ticket_id,
+      old_values: { assigned_to: ticket?.assigned_to },
+      new_values: { assigned_to: escalated_to },
+      context: { action: 'escalated_by_automation', reason }
+    }, cascadeDepth + 1);
 
     return true;
   } catch (error) {
@@ -514,6 +626,20 @@ export async function triggerCommentAdded(
     user_id: userId,
     new_values: comment as any,
     context: { action: 'comment_added', comment_id: commentId }
+  });
+}
+
+export async function triggerSLABreach(ticketId: number, slaTracking: any): Promise<boolean> {
+  return executeAutomations('sla_breach', {
+    ticket_id: ticketId,
+    context: { action: 'breach', sla: slaTracking }
+  });
+}
+
+export async function triggerSLAWarning(ticketId: number, slaTracking: any): Promise<boolean> {
+  return executeAutomations('sla_warning', {
+    ticket_id: ticketId,
+    context: { action: 'warning', sla: slaTracking }
   });
 }
 

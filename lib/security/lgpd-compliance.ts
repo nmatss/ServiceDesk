@@ -4,8 +4,10 @@
  */
 
 import { getSecurityConfig } from './config';
-import { DatabasePiiScanner } from './pii-detection';
-import { logger } from '../monitoring/logger';
+// import { DatabasePiiScanner } from './pii-detection'; // TODO: Uncomment when PII scanning is integrated
+import logger from '../monitoring/structured-logger';
+import db from '../db/connection';
+import type { LGPDConsent, CreateLGPDConsent } from '../types/database';
 
 export interface LgpdConsentRecord {
   id: string;
@@ -19,7 +21,7 @@ export interface LgpdConsentRecord {
   ipAddress: string;
   userAgent: string;
   lawfulBasis: LgpdLawfulBasis;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DataProcessingRecord {
@@ -79,7 +81,7 @@ export enum LgpdErasureReason {
  */
 export class LgpdComplianceManager {
   private config = getSecurityConfig();
-  private piiScanner = new DatabasePiiScanner();
+  // private piiScanner = new DatabasePiiScanner(); // TODO: Implement PII scanning integration
 
   /**
    * Record consent for data processing
@@ -89,7 +91,7 @@ export class LgpdComplianceManager {
     purpose: string,
     dataTypes: string[],
     lawfulBasis: LgpdLawfulBasis,
-    request: { ip?: string; userAgent?: string; metadata?: Record<string, any> }
+    request: { ip?: string; userAgent?: string; metadata?: Record<string, unknown> }
   ): Promise<LgpdConsentRecord> {
     const consentRecord: LgpdConsentRecord = {
       id: this.generateId(),
@@ -224,7 +226,11 @@ export class LgpdComplianceManager {
     deletedRecords: number;
     errors: string[];
   }> {
-    const results = {
+    const results: {
+      expiredRecords: number;
+      deletedRecords: number;
+      errors: string[];
+    } = {
       expiredRecords: 0,
       deletedRecords: 0,
       errors: []
@@ -241,7 +247,8 @@ export class LgpdComplianceManager {
           await this.deleteExpiredData(data);
           results.deletedRecords++;
         } catch (error) {
-          results.errors.push(`Failed to delete ${data.id}: ${error}`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          results.errors.push(`Failed to delete ${data.id}: ${errorMessage}`);
         }
       }
 
@@ -252,7 +259,8 @@ export class LgpdComplianceManager {
       });
 
     } catch (error) {
-      results.errors.push(`Retention check failed: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      results.errors.push(`Retention check failed: ${errorMessage}`);
     }
 
     return results;
@@ -270,10 +278,10 @@ export class LgpdComplianceManager {
       complianceScore: number;
     };
     details: {
-      consentActivity: any[];
-      erasureActivity: any[];
-      portabilityActivity: any[];
-      violations: any[];
+      consentActivity: unknown[];
+      erasureActivity: unknown[];
+      portabilityActivity: unknown[];
+      violations: unknown[];
     };
     recommendations: string[];
   }> {
@@ -317,10 +325,12 @@ export class LgpdComplianceManager {
         issues.push('Valid consent required for this data processing');
       } else {
         // Check for other lawful basis
-        lawfulBasis = this.determineLawfulBasis(dataType, purpose);
-        if (!lawfulBasis) {
+        const basis = this.determineLawfulBasis(dataType, purpose);
+        if (!basis) {
           compliant = false;
           issues.push('No lawful basis found for data processing');
+        } else {
+          lawfulBasis = basis;
         }
       }
     } else {
@@ -335,7 +345,7 @@ export class LgpdComplianceManager {
 
     return {
       compliant,
-      lawfulBasis,
+      lawfulBasis: lawfulBasis ?? undefined,
       consentRequired,
       issues
     };
@@ -356,19 +366,138 @@ export class LgpdComplianceManager {
   }
 
   private async storeConsentRecord(record: LgpdConsentRecord): Promise<void> {
-    // TODO: Implement database storage
-    logger.info('Storing consent record', record.id);
+    try {
+      const consentData: CreateLGPDConsent = {
+        user_id: parseInt(record.userId),
+        consent_type: record.purpose, // Using purpose as consent_type
+        purpose: record.purpose,
+        legal_basis: record.lawfulBasis,
+        is_given: record.consentGiven,
+        consent_method: 'web_form',
+        consent_evidence: JSON.stringify({
+          dataTypes: record.dataTypes,
+          metadata: record.metadata,
+          consentId: record.id
+        }),
+        ip_address: record.ipAddress,
+        user_agent: record.userAgent,
+        expires_at: record.expiryDate?.toISOString(),
+        withdrawn_at: record.revokedDate?.toISOString(),
+        withdrawal_reason: undefined
+      };
+
+      const stmt = db.prepare(`
+        INSERT INTO lgpd_consents (
+          user_id, consent_type, purpose, legal_basis, is_given,
+          consent_method, consent_evidence, ip_address, user_agent,
+          expires_at, withdrawn_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      stmt.run(
+        consentData.user_id,
+        consentData.consent_type,
+        consentData.purpose,
+        consentData.legal_basis,
+        consentData.is_given ? 1 : 0,
+        consentData.consent_method,
+        consentData.consent_evidence,
+        consentData.ip_address,
+        consentData.user_agent,
+        consentData.expires_at,
+        consentData.withdrawn_at
+      );
+
+      logger.info('Consent record stored successfully', { id: record.id, userId: record.userId });
+    } catch (error) {
+      logger.error('Failed to store consent record', { error, recordId: record.id });
+      throw new Error(`Failed to store consent record: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private async getConsentRecord(consentId: string): Promise<LgpdConsentRecord | null> {
-    // TODO: Implement database retrieval
-    logger.info('Getting consent record', consentId);
-    return null;
+    try {
+      const stmt = db.prepare(`
+        SELECT * FROM lgpd_consents
+        WHERE consent_evidence LIKE ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+
+      const row = stmt.get(`%"consentId":"${consentId}"%`) as LGPDConsent | undefined;
+
+      if (!row) {
+        return null;
+      }
+
+      // Parse consent evidence to get original data
+      const evidence = row.consent_evidence ? JSON.parse(row.consent_evidence) : {};
+
+      return {
+        id: evidence.consentId || consentId,
+        userId: row.user_id.toString(),
+        purpose: row.purpose,
+        dataTypes: evidence.dataTypes || [],
+        consentGiven: row.is_given,
+        consentDate: new Date(row.created_at),
+        expiryDate: row.expires_at ? new Date(row.expires_at) : undefined,
+        revokedDate: row.withdrawn_at ? new Date(row.withdrawn_at) : undefined,
+        ipAddress: row.ip_address || 'unknown',
+        userAgent: row.user_agent || 'unknown',
+        lawfulBasis: row.legal_basis as LgpdLawfulBasis,
+        metadata: evidence.metadata
+      };
+    } catch (error) {
+      logger.error('Failed to get consent record', { error, consentId });
+      return null;
+    }
   }
 
   private async updateConsentRecord(record: LgpdConsentRecord): Promise<void> {
-    // TODO: Implement database update
-    logger.info('Updating consent record', record.id);
+    try {
+      // First, get the existing database record to update
+      const existingStmt = db.prepare(`
+        SELECT id FROM lgpd_consents
+        WHERE consent_evidence LIKE ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+
+      const existingRow = existingStmt.get(`%"consentId":"${record.id}"%`) as { id: number } | undefined;
+
+      if (!existingRow) {
+        throw new Error(`Consent record not found: ${record.id}`);
+      }
+
+      // Update the consent record
+      const updateStmt = db.prepare(`
+        UPDATE lgpd_consents
+        SET is_given = ?,
+            withdrawn_at = ?,
+            withdrawal_reason = ?,
+            consent_evidence = ?
+        WHERE id = ?
+      `);
+
+      const evidence = JSON.stringify({
+        dataTypes: record.dataTypes,
+        metadata: record.metadata,
+        consentId: record.id
+      });
+
+      updateStmt.run(
+        record.consentGiven ? 1 : 0,
+        record.revokedDate?.toISOString() || null,
+        record.metadata?.revocationReason as string || null,
+        evidence,
+        existingRow.id
+      );
+
+      logger.info('Consent record updated successfully', { id: record.id, userId: record.userId });
+    } catch (error) {
+      logger.error('Failed to update consent record', { error, recordId: record.id });
+      throw new Error(`Failed to update consent record: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private async reviewDataProcessingForRevokedConsent(consentId: string): Promise<void> {
@@ -403,17 +532,23 @@ export class LgpdComplianceManager {
     logger.info('Processing data extraction for request', request.id);
   }
 
-  private async findExpiredData(): Promise<any[]> {
+  private async findExpiredData(): Promise<Array<{ id: string; [key: string]: unknown }>> {
     // TODO: Implement expired data finder
     return [];
   }
 
-  private async deleteExpiredData(data: any): Promise<void> {
+  private async deleteExpiredData(data: { id: string; [key: string]: unknown }): Promise<void> {
     // TODO: Implement data deletion
     logger.info('Deleting expired data', data.id);
   }
 
-  private async getComplianceSummary(startDate: Date, endDate: Date): Promise<any> {
+  private async getComplianceSummary(_startDate: Date, _endDate: Date): Promise<{
+    consentRecords: number;
+    erasureRequests: number;
+    portabilityRequests: number;
+    dataBreaches: number;
+    complianceScore: number;
+  }> {
     // TODO: Implement compliance summary
     return {
       consentRecords: 0,
@@ -424,7 +559,12 @@ export class LgpdComplianceManager {
     };
   }
 
-  private async getComplianceDetails(startDate: Date, endDate: Date): Promise<any> {
+  private async getComplianceDetails(_startDate: Date, _endDate: Date): Promise<{
+    consentActivity: unknown[];
+    erasureActivity: unknown[];
+    portabilityActivity: unknown[];
+    violations: unknown[];
+  }> {
     // TODO: Implement compliance details
     return {
       consentActivity: [],
@@ -434,7 +574,13 @@ export class LgpdComplianceManager {
     };
   }
 
-  private generateComplianceRecommendations(summary: any): string[] {
+  private generateComplianceRecommendations(summary: {
+    consentRecords: number;
+    erasureRequests: number;
+    portabilityRequests: number;
+    dataBreaches: number;
+    complianceScore: number;
+  }): string[] {
     const recommendations: string[] = [];
 
     if (summary.complianceScore < 80) {
@@ -450,21 +596,21 @@ export class LgpdComplianceManager {
   }
 
   private async getValidConsent(
-    userId: string,
-    purpose: string,
-    dataType: string
+    _userId: string,
+    _purpose: string,
+    _dataType: string
   ): Promise<LgpdConsentRecord | null> {
     // TODO: Implement consent validation
     return null;
   }
 
-  private isConsentRequired(dataType: string, purpose: string): boolean {
+  private isConsentRequired(dataType: string, _purpose: string): boolean {
     // Sensitive personal data typically requires consent
     const sensitiveTypes = ['health', 'biometric', 'genetic', 'sexual_orientation', 'political_opinions'];
     return sensitiveTypes.some(type => dataType.includes(type));
   }
 
-  private determineLawfulBasis(dataType: string, purpose: string): LgpdLawfulBasis | null {
+  private determineLawfulBasis(_dataType: string, purpose: string): LgpdLawfulBasis | null {
     // Simple logic - in practice this would be more complex
     if (purpose.includes('contract')) return LgpdLawfulBasis.CONTRACT;
     if (purpose.includes('legal')) return LgpdLawfulBasis.LEGAL_OBLIGATION;
@@ -475,12 +621,12 @@ export class LgpdComplianceManager {
     return null;
   }
 
-  private isWithinRetentionPeriod(userId: string, dataType: string): boolean {
+  private isWithinRetentionPeriod(_userId: string, _dataType: string): boolean {
     // TODO: Implement retention period check
     return true;
   }
 
-  private logComplianceEvent(event: string, data: any): void {
+  private logComplianceEvent(event: string, data: Record<string, unknown>): void {
     const logEntry = {
       timestamp: new Date().toISOString(),
       event,
@@ -520,7 +666,7 @@ export class LgpdAutomationService {
     });
   }
 
-  private scheduleTask(name: string, cron: string, task: () => void): void {
+  private scheduleTask(name: string, cron: string, _task: () => void): void {
     // TODO: Implement cron scheduling
     logger.info(`Scheduled LGPD task: ${name} with cron: ${cron}`);
   }

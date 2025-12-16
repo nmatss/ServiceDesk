@@ -6,7 +6,7 @@
 import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
 import { getSystemSetting } from '@/lib/db/queries';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
 
 interface PixConfig {
   bankCode: string;
@@ -689,7 +689,7 @@ export class PixClient {
       clientId,
       clientSecret,
       environment: environment as 'sandbox' | 'production',
-      apiVersion
+      apiVersion: apiVersion || 'v2'
     });
   }
 }

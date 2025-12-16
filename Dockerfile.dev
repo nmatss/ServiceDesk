@@ -1,0 +1,80 @@
+# ==============================================================================
+# ServiceDesk Development Dockerfile
+# Optimized for local development with hot reload and debugging tools
+# ==============================================================================
+
+FROM node:20-alpine AS development
+
+# Set working directory
+WORKDIR /app
+
+# Install development dependencies
+# git: For version control integration
+# python3, make, g++: For native module compilation
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++ \
+    git \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Create non-root user for development (same UID as production for consistency)
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 --ingroup nodejs nextjs
+
+# Set development environment variables
+ENV NODE_ENV=development \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    CHOKIDAR_USEPOLLING=true \
+    WATCHPACK_POLLING=true
+
+# Copy package files
+COPY --chown=nextjs:nodejs package.json package-lock.json* ./
+
+# Install all dependencies (including devDependencies)
+RUN npm ci
+
+# Copy application source code
+# In development, this will be overridden by volume mount
+COPY --chown=nextjs:nodejs . .
+
+# Create data directories
+RUN mkdir -p /app/data /app/data/uploads \
+    && chown -R nextjs:nodejs /app/data
+
+# Switch to non-root user
+USER nextjs
+
+# Expose development ports
+EXPOSE 3000
+# Debug port for Node.js inspector
+EXPOSE 9229
+
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Start development server with hot reload
+CMD ["npm", "run", "dev"]
+
+# ==============================================================================
+# Alternative: Development with debugging enabled
+# ==============================================================================
+FROM development AS development-debug
+
+# Expose debug port
+EXPOSE 9229
+
+# Start with Node.js debugging enabled
+CMD ["node", "--inspect=0.0.0.0:9229", "node_modules/.bin/next", "dev"]
+
+# ==============================================================================
+# Metadata
+# ==============================================================================
+LABEL org.opencontainers.image.title="ServiceDesk Development" \
+      org.opencontainers.image.description="ServiceDesk development environment with hot reload" \
+      org.opencontainers.image.version="1.0.0-dev" \
+      maintainer="ServiceDesk Team"

@@ -6,15 +6,14 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useSocket } from '../../hooks/useSocket';
-import { useDebounce } from '../../hooks/useDebounce';
-import type { User } from '../../../lib/types/database';
+import { useSocket } from '@/src/hooks/useSocket';
+import { useDebounce } from '@/src/hooks/useDebounce';
+import type { User } from '@/lib/types/database';
+import type { Socket } from 'socket.io-client';
 
 // Icons
 import {
   UserIcon,
-  EyeIcon,
-  PencilIcon,
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -73,10 +72,11 @@ interface EditorState {
   saveError: string | null;
 }
 
-const COLLABORATOR_COLORS = [
-  '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
-  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
-];
+// Reserved for future use when assigning colors to new collaborators
+// const COLLABORATOR_COLORS = [
+//   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+//   '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+// ];
 
 export function CollaborativeEditor({
   ticketId,
@@ -95,7 +95,6 @@ export function CollaborativeEditor({
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const operationIdRef = useRef(0);
-  const versionRef = useRef(0);
 
   // State
   const [editorState, setEditorState] = useState<EditorState>({
@@ -108,12 +107,13 @@ export function CollaborativeEditor({
   });
 
   const [collaborators, setCollaborators] = useState<Map<number, CollaborativeUser>>(new Map());
-  const [operations, setOperations] = useState<EditOperation[]>([]);
+  const [_operations, setOperations] = useState<EditOperation[]>([]);
   const [conflicts, setConflicts] = useState<ConflictResolution[]>([]);
   const [isConnected, setIsConnected] = useState(false);
 
   // Socket connection
-  const socket = useSocket();
+  const socketConnection = useSocket();
+  const socket: Socket | null = socketConnection.socket;
 
   // Debounced content for auto-save
   const debouncedContent = useDebounce(editorState.content, autoSaveDelay);
@@ -123,6 +123,7 @@ export function CollaborativeEditor({
     if (autoSave && editorState.isDirty && debouncedContent && onSave) {
       handleAutoSave();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedContent, autoSave, editorState.isDirty]);
 
   // Socket event handlers
@@ -224,7 +225,8 @@ export function CollaborativeEditor({
       socket.off('edit-conflict', handleConflict);
       socket.emit('leave-editor', { ticketId, userId: currentUser.id });
     };
-  }, [socket, ticketId, currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, ticketId, currentUser.id]);
 
   // Apply received operation
   const applyOperation = useCallback((operation: EditOperation) => {
@@ -275,6 +277,7 @@ export function CollaborativeEditor({
         }
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, isConnected, ticketId, currentUser.id]);
 
   // Handle text area changes
@@ -315,6 +318,7 @@ export function CollaborativeEditor({
     if (onContentChange) {
       onContentChange(newContent);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorState.content, socket, isConnected, ticketId, sendOperation, onContentChange]);
 
   // Handle selection changes
@@ -334,7 +338,7 @@ export function CollaborativeEditor({
   }, [socket, isConnected, ticketId]);
 
   // Typing indicator
-  const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const handleTyping = useCallback(() => {
     if (!socket || !isConnected) return;
 
@@ -342,8 +346,8 @@ export function CollaborativeEditor({
     socket.emit('typing-status', { ticketId, isTyping: true });
 
     // Clear existing timer
-    if (typingTimer) {
-      clearTimeout(typingTimer);
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
     }
 
     // Set timer to stop typing indicator
@@ -351,8 +355,8 @@ export function CollaborativeEditor({
       socket.emit('typing-status', { ticketId, isTyping: false });
     }, 1000);
 
-    setTypingTimer(timer);
-  }, [socket, isConnected, ticketId, typingTimer]);
+    typingTimerRef.current = timer;
+  }, [socket, isConnected, ticketId]);
 
   // Auto-save handler
   const handleAutoSave = useCallback(async () => {
@@ -540,7 +544,7 @@ export function CollaborativeEditor({
             {activeCollaborators.map((collaborator) => {
               if (!collaborator.cursor.selection) return null;
 
-              const { start, end } = collaborator.cursor.selection;
+              const { start } = collaborator.cursor.selection;
               // In a real implementation, you'd calculate pixel positions
               // This is a simplified example
               return (

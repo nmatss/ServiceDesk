@@ -13,15 +13,10 @@ import {
   Upload,
   RefreshCw,
   Settings,
-  Bell,
   User,
-  Zap,
   Clock,
-  Star,
-  Archive,
   Trash2,
   Edit,
-  Eye,
   Send,
   Calendar,
   Tag,
@@ -30,7 +25,6 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle,
-  X,
 } from 'lucide-react';
 import { cn } from '@/lib/design-system/utils';
 import { Button } from './Button';

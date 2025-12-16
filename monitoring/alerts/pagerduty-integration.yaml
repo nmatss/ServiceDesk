@@ -1,0 +1,115 @@
+# PagerDuty Integration for Prometheus Alertmanager
+#
+# Add this to your alertmanager.yml configuration:
+
+route:
+  # Default receiver for all alerts
+  receiver: 'pagerduty-default'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'severity', 'component']
+
+  # Wait time before sending initial notification
+  group_wait: 30s
+
+  # Wait time before sending additional notifications for grouped alerts
+  group_interval: 5m
+
+  # Wait time before re-sending a notification for firing alerts
+  repeat_interval: 4h
+
+  # Route specific alerts to specific receivers
+  routes:
+    # Critical alerts -> immediate PagerDuty page
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      continue: true
+
+    # Warning alerts -> PagerDuty with lower urgency
+    - match:
+        severity: warning
+      receiver: 'pagerduty-warning'
+      continue: true
+
+    # Security alerts -> separate PagerDuty service
+    - match:
+        component: security
+      receiver: 'pagerduty-security'
+      continue: true
+
+    # Business metrics -> Slack notification only (no page)
+    - match:
+        component: business
+      receiver: 'slack-business'
+
+receivers:
+  # Default PagerDuty receiver
+  - name: 'pagerduty-default'
+    pagerduty_configs:
+      - service_key: '<YOUR_PAGERDUTY_SERVICE_KEY>'
+        severity: '{{ .GroupLabels.severity }}'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.description" . }}'
+
+  # Critical alerts - high urgency
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '<YOUR_PAGERDUTY_CRITICAL_SERVICE_KEY>'
+        severity: 'critical'
+        description: '[CRITICAL] {{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.description" . }}'
+          num_firing: '{{ .Alerts.Firing | len }}'
+          num_resolved: '{{ .Alerts.Resolved | len }}'
+          resolved: '{{ template "pagerduty.default.resolved" . }}'
+        client: 'ServiceDesk Monitoring'
+        client_url: 'https://grafana.yourcompany.com'
+
+  # Warning alerts - low urgency
+  - name: 'pagerduty-warning'
+    pagerduty_configs:
+      - service_key: '<YOUR_PAGERDUTY_WARNING_SERVICE_KEY>'
+        severity: 'warning'
+        description: '[WARNING] {{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.description" . }}'
+
+  # Security alerts - separate service
+  - name: 'pagerduty-security'
+    pagerduty_configs:
+      - service_key: '<YOUR_PAGERDUTY_SECURITY_SERVICE_KEY>'
+        severity: 'critical'
+        description: '[SECURITY] {{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ template "pagerduty.default.description" . }}'
+          runbook: '{{ .CommonAnnotations.runbook_url }}'
+
+  # Business metrics to Slack (no PagerDuty)
+  - name: 'slack-business'
+    slack_configs:
+      - api_url: '<YOUR_SLACK_WEBHOOK_URL>'
+        channel: '#servicedesk-metrics'
+        title: '{{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+# Templates for PagerDuty descriptions
+templates:
+  - '/etc/alertmanager/templates/pagerduty.tmpl'
+
+# Inhibition rules - suppress certain alerts when others are firing
+inhibit_rules:
+  # Suppress warning if critical is firing for same alert
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'component']
+
+  # Suppress SLA compliance warnings if there's an application down alert
+  - source_match:
+      alertname: 'ApplicationDown'
+    target_match:
+      component: 'sla'

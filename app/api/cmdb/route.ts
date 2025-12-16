@@ -1,0 +1,273 @@
+/**
+ * CMDB (Configuration Management Database) API
+ *
+ * Provides endpoints for managing Configuration Items (CIs) and their relationships.
+ * Supports full ITIL 4 CMDB functionality.
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getDatabase } from '@/lib/db/connection'
+import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { logger } from '@/lib/monitoring/logger'
+import { z } from 'zod'
+
+// Validation schemas
+const createCISchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  description: z.string().optional(),
+  ci_type_id: z.number().int().positive(),
+  status_id: z.number().int().positive().default(1),
+  owner_id: z.number().int().positive().optional(),
+  managed_by_team_id: z.number().int().positive().optional(),
+  vendor: z.string().optional(),
+  manufacturer: z.string().optional(),
+  location: z.string().optional(),
+  environment: z.enum(['production', 'staging', 'development', 'test', 'dr']).optional(),
+  data_center: z.string().optional(),
+  rack_position: z.string().optional(),
+  serial_number: z.string().optional(),
+  asset_tag: z.string().optional(),
+  ip_address: z.string().optional(),
+  mac_address: z.string().optional(),
+  hostname: z.string().optional(),
+  os_version: z.string().optional(),
+  business_service: z.string().optional(),
+  criticality: z.enum(['critical', 'high', 'medium', 'low']).default('medium'),
+  business_impact: z.string().optional(),
+  recovery_time_objective: z.number().int().optional(),
+  recovery_point_objective: z.number().int().optional(),
+  purchase_date: z.string().optional(),
+  installation_date: z.string().optional(),
+  warranty_expiry: z.string().optional(),
+  end_of_life_date: z.string().optional(),
+  custom_attributes: z.record(z.any()).optional()
+})
+
+const querySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().optional(),
+  ci_type_id: z.coerce.number().int().positive().optional(),
+  status_id: z.coerce.number().int().positive().optional(),
+  environment: z.enum(['production', 'staging', 'development', 'test', 'dr']).optional(),
+  criticality: z.enum(['critical', 'high', 'medium', 'low']).optional(),
+  owner_id: z.coerce.number().int().positive().optional(),
+  team_id: z.coerce.number().int().positive().optional()
+})
+
+/**
+ * Generate unique CI number
+ */
+function generateCINumber(db: ReturnType<typeof getDatabase>): string {
+  const result = db.prepare(
+    `SELECT MAX(CAST(SUBSTR(ci_number, 4) AS INTEGER)) as max_num
+     FROM configuration_items WHERE ci_number LIKE 'CI-%'`
+  ).get() as { max_num: number | null }
+
+  const nextNum = (result?.max_num || 0) + 1
+  return `CI-${String(nextNum).padStart(5, '0')}`
+}
+
+/**
+ * GET /api/cmdb - List Configuration Items
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await verifyAuth(request)
+    if (!auth.authenticated || !auth.user) {
+      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const params = querySchema.parse(Object.fromEntries(searchParams))
+
+    const db = getDatabase()
+    const offset = (params.page - 1) * params.limit
+
+    // Build query
+    let whereClause = 'WHERE ci.organization_id = ?'
+    const queryParams: (string | number)[] = [auth.user.organization_id]
+
+    if (params.search) {
+      whereClause += ` AND (ci.name LIKE ? OR ci.ci_number LIKE ? OR ci.description LIKE ? OR ci.hostname LIKE ? OR ci.ip_address LIKE ?)`
+      const searchPattern = `%${params.search}%`
+      queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern)
+    }
+
+    if (params.ci_type_id) {
+      whereClause += ' AND ci.ci_type_id = ?'
+      queryParams.push(params.ci_type_id)
+    }
+
+    if (params.status_id) {
+      whereClause += ' AND ci.status_id = ?'
+      queryParams.push(params.status_id)
+    }
+
+    if (params.environment) {
+      whereClause += ' AND ci.environment = ?'
+      queryParams.push(params.environment)
+    }
+
+    if (params.criticality) {
+      whereClause += ' AND ci.criticality = ?'
+      queryParams.push(params.criticality)
+    }
+
+    if (params.owner_id) {
+      whereClause += ' AND ci.owner_id = ?'
+      queryParams.push(params.owner_id)
+    }
+
+    if (params.team_id) {
+      whereClause += ' AND ci.managed_by_team_id = ?'
+      queryParams.push(params.team_id)
+    }
+
+    // Get total count
+    const countResult = db.prepare(
+      `SELECT COUNT(*) as total FROM configuration_items ci ${whereClause}`
+    ).get(...queryParams) as { total: number }
+
+    // Get CIs with related data
+    const cis = db.prepare(`
+      SELECT
+        ci.*,
+        ct.name as ci_type_name,
+        ct.icon as ci_type_icon,
+        ct.color as ci_type_color,
+        cs.name as status_name,
+        cs.color as status_color,
+        cs.is_operational,
+        u.name as owner_name,
+        t.name as team_name
+      FROM configuration_items ci
+      LEFT JOIN ci_types ct ON ci.ci_type_id = ct.id
+      LEFT JOIN ci_statuses cs ON ci.status_id = cs.id
+      LEFT JOIN users u ON ci.owner_id = u.id
+      LEFT JOIN teams t ON ci.managed_by_team_id = t.id
+      ${whereClause}
+      ORDER BY ci.criticality DESC, ci.updated_at DESC
+      LIMIT ? OFFSET ?
+    `).all(...queryParams, params.limit, offset)
+
+    return NextResponse.json({
+      success: true,
+      configuration_items: cis,
+      pagination: {
+        total: countResult.total,
+        page: params.page,
+        limit: params.limit,
+        total_pages: Math.ceil(countResult.total / params.limit)
+      }
+    })
+  } catch (error) {
+    logger.error('Error listing configuration items', error)
+    return NextResponse.json(
+      { success: false, error: 'Erro ao listar itens de configuração' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * POST /api/cmdb - Create Configuration Item
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await verifyAuth(request)
+    if (!auth.authenticated || !auth.user) {
+      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
+    }
+
+    // Check permissions (admin, agent, or manager)
+    if (!['admin', 'agent', 'manager'].includes(auth.user.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Permissão negada' },
+        { status: 403 }
+      )
+    }
+
+    const body = await request.json()
+    const data = createCISchema.parse(body)
+
+    const db = getDatabase()
+    const ciNumber = generateCINumber(db)
+
+    const result = db.prepare(`
+      INSERT INTO configuration_items (
+        ci_number, name, description, ci_type_id, status_id, organization_id,
+        owner_id, managed_by_team_id, vendor, manufacturer, location, environment,
+        data_center, rack_position, serial_number, asset_tag, ip_address, mac_address,
+        hostname, os_version, business_service, criticality, business_impact,
+        recovery_time_objective, recovery_point_objective, purchase_date, installation_date,
+        warranty_expiry, end_of_life_date, custom_attributes, created_by
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )
+    `).run(
+      ciNumber,
+      data.name,
+      data.description || null,
+      data.ci_type_id,
+      data.status_id,
+      auth.user.organization_id,
+      data.owner_id || null,
+      data.managed_by_team_id || null,
+      data.vendor || null,
+      data.manufacturer || null,
+      data.location || null,
+      data.environment || null,
+      data.data_center || null,
+      data.rack_position || null,
+      data.serial_number || null,
+      data.asset_tag || null,
+      data.ip_address || null,
+      data.mac_address || null,
+      data.hostname || null,
+      data.os_version || null,
+      data.business_service || null,
+      data.criticality,
+      data.business_impact || null,
+      data.recovery_time_objective || null,
+      data.recovery_point_objective || null,
+      data.purchase_date || null,
+      data.installation_date || null,
+      data.warranty_expiry || null,
+      data.end_of_life_date || null,
+      data.custom_attributes ? JSON.stringify(data.custom_attributes) : '{}',
+      auth.user.id
+    )
+
+    // Log CI creation in history
+    db.prepare(`
+      INSERT INTO ci_history (ci_id, action, changed_by)
+      VALUES (?, 'created', ?)
+    `).run(result.lastInsertRowid, auth.user.id)
+
+    // Get created CI
+    const ci = db.prepare(
+      `SELECT * FROM configuration_items WHERE id = ?`
+    ).get(result.lastInsertRowid)
+
+    logger.info(`CI created: ${ciNumber} by user ${auth.user.id}`)
+
+    return NextResponse.json({
+      success: true,
+      configuration_item: ci,
+      message: 'Item de configuração criado com sucesso'
+    }, { status: 201 })
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, error: 'Dados inválidos', details: error.issues },
+        { status: 400 }
+      )
+    }
+    logger.error('Error creating configuration item', error)
+    return NextResponse.json(
+      { success: false, error: 'Erro ao criar item de configuração' },
+      { status: 500 }
+    )
+  }
+}

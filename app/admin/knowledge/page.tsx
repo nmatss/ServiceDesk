@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
@@ -53,11 +52,9 @@ export default function KnowledgePage() {
       if (selectedCategory) params.append('category', selectedCategory)
       if (selectedStatus !== 'all') params.append('status', selectedStatus)
 
+      // SECURITY: Use httpOnly cookies for authentication - tenant is extracted server-side
       const response = await fetch(`/api/knowledge?${params}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': '1'
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {
@@ -76,12 +73,10 @@ export default function KnowledgePage() {
     if (!confirm('Tem certeza que deseja excluir este artigo?')) return
 
     try {
+      // SECURITY: Use httpOnly cookies for authentication - tenant is extracted server-side
       const response = await fetch(`/api/knowledge/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': '1'
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {
@@ -123,8 +118,7 @@ export default function KnowledgePage() {
   }
 
   return (
-    <AdminDashboard>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
@@ -306,6 +300,5 @@ export default function KnowledgePage() {
           </div>
         </div>
       </div>
-    </AdminDashboard>
   )
 }

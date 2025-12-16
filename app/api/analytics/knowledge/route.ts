@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -26,9 +26,6 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30d'
-
-    const db = getDb()
-
     // Calcular data de início
     let dateFilter = ''
     switch (period) {
@@ -165,7 +162,7 @@ export async function GET(request: NextRequest) {
       ORDER BY date ASC
     `).all()
 
-    const totalSearches = popularSearches.reduce((sum, day) => sum + day.kb_searches_performed, 0)
+    const totalSearches = (popularSearches as any[]).reduce((sum: number, day: any) => sum + day.kb_searches_performed, 0) as number
 
     // Taxa de conversão (visualizações de artigos após busca)
     const searchToViewConversion = totalSearches > 0 && totalViews.total > 0
@@ -214,7 +211,7 @@ export async function GET(request: NextRequest) {
           searches: popularSearches
         },
         feedback: {
-          recent: recentFeedback.map(item => ({
+          recent: recentFeedback.map((item: any) => ({
             ...item,
             user_name: item.user_name || 'Usuário anônimo'
           }))

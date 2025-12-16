@@ -56,15 +56,23 @@ export function SLAPerformanceWidget({
     const latest = data[data.length - 1];
     const previous = data[data.length - 2];
 
+    if (!latest) return null;
+
+    // Safe division helper to avoid NaN
+    const safePercentChange = (current: number | undefined, prev: number | undefined): number => {
+      const curr = current ?? 0;
+      const p = prev ?? 0;
+      if (p === 0) return curr > 0 ? 100 : 0;
+      return ((curr - p) / p) * 100;
+    };
+
     return {
-      responseRate: latest?.response_sla_rate || 0,
-      resolutionRate: latest?.resolution_sla_rate || 0,
-      avgResponseTime: latest?.avg_response_time || 0,
-      avgResolutionTime: latest?.avg_resolution_time || 0,
-      responseChange: previous ?
-        ((latest.response_sla_rate - previous.response_sla_rate) / previous.response_sla_rate) * 100 : 0,
-      resolutionChange: previous ?
-        ((latest.resolution_sla_rate - previous.resolution_sla_rate) / previous.resolution_sla_rate) * 100 : 0
+      responseRate: latest.response_sla_rate ?? 0,
+      resolutionRate: latest.resolution_sla_rate ?? 0,
+      avgResponseTime: latest.avg_response_time ?? 0,
+      avgResolutionTime: latest.avg_resolution_time ?? 0,
+      responseChange: previous ? safePercentChange(latest.response_sla_rate, previous.response_sla_rate) : 0,
+      resolutionChange: previous ? safePercentChange(latest.resolution_sla_rate, previous.resolution_sla_rate) : 0
     };
   }, [data]);
 

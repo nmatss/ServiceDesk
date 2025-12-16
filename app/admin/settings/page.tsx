@@ -1,6 +1,5 @@
 'use client'
 
-import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { useState } from 'react'
@@ -9,44 +8,42 @@ import { logger } from '@/lib/monitoring/logger';
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(false)
   const [settings, setSettings] = useState({
-    siteName: 'ServiceDesk',
-    siteDescription: 'Sistema de gerenciamento de tickets',
+    siteName: '',
+    siteDescription: '',
     emailNotifications: true,
     autoAssignTickets: false,
     maxTicketsPerUser: 10,
     ticketTimeout: 24,
     maintenanceMode: false,
   })
+  const [hasChanges, setHasChanges] = useState(false)
+
+  const updateSettings = (key: string, value: any) => {
+    setSettings(prev => ({ ...prev, [key]: value }))
+    setHasChanges(true)
+  }
 
   const handleSave = async () => {
     setLoading(true)
     // Simular salvamento
     await new Promise(resolve => setTimeout(resolve, 1000))
     setLoading(false)
+    setHasChanges(false)
     // Aqui você implementaria a lógica de salvamento
   }
 
   return (
-    <AdminDashboard currentPage="configurações">
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Configurações do Sistema
+            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
+              Configurações
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Gerencie as configurações gerais do sistema
+              Gerencie as configurações gerais do ServiceDesk Pro
             </p>
-          </div>
-          <div className="mt-4 flex md:ml-4 md:mt-0">
-            <AdminButton 
-              variant="primary" 
-              onClick={handleSave}
-              loading={loading}
-            >
-              Salvar Configurações
-            </AdminButton>
           </div>
         </div>
 
@@ -61,7 +58,8 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={settings.siteName}
-                  onChange={(e) => setSettings({...settings, siteName: e.target.value})}
+                  onChange={(e) => updateSettings('siteName', e.target.value)}
+                  placeholder="Ex: Suporte Técnico da Empresa"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
               </div>
@@ -72,7 +70,8 @@ export default function AdminSettingsPage() {
                 <input
                   type="text"
                   value={settings.siteDescription}
-                  onChange={(e) => setSettings({...settings, siteDescription: e.target.value})}
+                  onChange={(e) => updateSettings('siteDescription', e.target.value)}
+                  placeholder="Ex: Central de atendimento ao cliente"
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
               </div>
@@ -96,7 +95,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.emailNotifications}
-                  onChange={(e) => setSettings({...settings, emailNotifications: e.target.checked})}
+                  onChange={(e) => updateSettings('emailNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -116,7 +115,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.autoAssignTickets}
-                  onChange={(e) => setSettings({...settings, autoAssignTickets: e.target.checked})}
+                  onChange={(e) => updateSettings('autoAssignTickets', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -138,7 +137,7 @@ export default function AdminSettingsPage() {
                   min="1"
                   max="100"
                   value={settings.maxTicketsPerUser}
-                  onChange={(e) => setSettings({...settings, maxTicketsPerUser: parseInt(e.target.value)})}
+                  onChange={(e) => updateSettings('maxTicketsPerUser', parseInt(e.target.value))}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
                 <p className="mt-1 text-sm text-gray-500">
@@ -154,7 +153,7 @@ export default function AdminSettingsPage() {
                   min="1"
                   max="168"
                   value={settings.ticketTimeout}
-                  onChange={(e) => setSettings({...settings, ticketTimeout: parseInt(e.target.value)})}
+                  onChange={(e) => updateSettings('ticketTimeout', parseInt(e.target.value))}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                 />
                 <p className="mt-1 text-sm text-gray-500">
@@ -181,7 +180,7 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.maintenanceMode}
-                  onChange={(e) => setSettings({...settings, maintenanceMode: e.target.checked})}
+                  onChange={(e) => updateSettings('maintenanceMode', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -230,14 +229,15 @@ export default function AdminSettingsPage() {
                   if (confirm('Tem certeza que deseja resetar todas as configurações? Esta ação não pode ser desfeita.')) {
                     // Implementar reset das configurações
                     setSettings({
-                      siteName: 'ServiceDesk',
-                      siteDescription: 'Sistema de gerenciamento de tickets',
+                      siteName: '',
+                      siteDescription: '',
                       emailNotifications: true,
                       autoAssignTickets: false,
                       maxTicketsPerUser: 10,
                       ticketTimeout: 24,
                       maintenanceMode: false,
                     })
+                    setHasChanges(false)
                   }
                 }}
               >
@@ -246,8 +246,48 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </AdminCard>
+
+        {/* Spacer for sticky button */}
+        <div className="h-20"></div>
       </div>
-    </AdminDashboard>
+
+      {/* Sticky Save Button */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg z-50">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Você tem alterações não salvas
+            </p>
+            <div className="flex space-x-3">
+              <AdminButton
+                variant="secondary"
+                onClick={() => {
+                  setSettings({
+                    siteName: '',
+                    siteDescription: '',
+                    emailNotifications: true,
+                    autoAssignTickets: false,
+                    maxTicketsPerUser: 10,
+                    ticketTimeout: 24,
+                    maintenanceMode: false,
+                  })
+                  setHasChanges(false)
+                }}
+              >
+                Descartar
+              </AdminButton>
+              <AdminButton
+                variant="primary"
+                onClick={handleSave}
+                loading={loading}
+              >
+                Salvar Configurações
+              </AdminButton>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

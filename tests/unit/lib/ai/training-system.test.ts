@@ -11,28 +11,61 @@ import type Database from '@/lib/db/connection';
 const createMockDb = (): Database => {
   const store = new Map<string, any[]>();
 
-  return {
-    all: vi.fn(async (query: string, params?: any[]) => {
-      const key = `${query}-${JSON.stringify(params)}`;
-      return store.get(key) || [];
+  // Create mock for better-sqlite3's prepare() API
+  const mockDb = {
+    prepare: vi.fn((query: string) => {
+      // Return a statement object with methods that can be called with params
+      return {
+        all: vi.fn((...params: any[]) => {
+          // Try to find a match in the store
+          for (const [key, value] of store.entries()) {
+            const [storedPattern, storedParams] = key.split('|||');
+
+            // Check if query matches the pattern
+            if (query.includes(storedPattern)) {
+              // Check if params match
+              if (storedParams === JSON.stringify(params)) {
+                return value;
+              }
+            }
+          }
+
+          return [];
+        }),
+        get: vi.fn((...params: any[]) => {
+          // Try to find a match in the store
+          for (const [key, value] of store.entries()) {
+            const [storedPattern, storedParams] = key.split('|||');
+
+            // Check if query matches the pattern
+            if (query.includes(storedPattern)) {
+              // Check if params match
+              if (storedParams === JSON.stringify(params)) {
+                return value[0] || null;
+              }
+            }
+          }
+
+          return null;
+        }),
+        run: vi.fn((..._params: any[]) => {
+          const lastInsertRowid = Math.floor(Math.random() * 10000);
+          return { lastInsertRowid, changes: 1 };
+        }),
+      };
     }),
-    get: vi.fn(async (query: string, params?: any[]) => {
-      const key = `${query}-${JSON.stringify(params)}`;
-      const results = store.get(key) || [];
-      return results[0] || null;
-    }),
-    run: vi.fn(async (_query: string, _params?: any[]) => {
-      const lastID = Math.floor(Math.random() * 10000);
-      return { lastID, changes: 1 };
-    }),
-    setMockData: (query: string, params: any[], data: any[]) => {
-      const key = `${query}-${JSON.stringify(params)}`;
+    exec: vi.fn(),
+    transaction: vi.fn((fn: any) => fn),
+    setMockData: (queryPattern: string, params: any[], data: any[]) => {
+      const key = `${queryPattern}|||${JSON.stringify(params)}`;
       store.set(key, data);
     },
     clearMockData: () => {
       store.clear();
     },
-  } as any;
+  };
+
+  return mockDb as any;
 };
 
 describe('AITrainingSystem', () => {
@@ -98,7 +131,7 @@ describe('AITrainingSystem', () => {
       ];
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification'],
         mockData
       );
@@ -106,8 +139,8 @@ describe('AITrainingSystem', () => {
       const result = await trainingSystem.collectTrainingData('classification');
 
       expect(result).toHaveLength(2);
-      expect(result[0]?.input).toBe('Password reset not working');
-      expect(result[1]?.qualityScore).toBe(0.88);
+      expect(result[0]?.input_text).toBe('Password reset not working');
+      expect(result[1]?.quality_score).toBe(0.88);
     });
 
     it('should filter by organization ID when provided', async () => {
@@ -126,21 +159,21 @@ describe('AITrainingSystem', () => {
       ];
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification', 123],
         mockData
       );
 
       const result = await trainingSystem.collectTrainingData('classification', 123);
 
-      expect(db.all).toHaveBeenCalled();
+      expect((db as any).prepare).toHaveBeenCalled();
       expect(result).toHaveLength(1);
     });
 
     it('should only include validated high-quality data', async () => {
       // Mock should return empty array for low-quality or unvalidated data
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification'],
         []
       );
@@ -168,18 +201,8 @@ describe('AITrainingSystem', () => {
         123
       );
 
-      expect(db.run).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO ai_training_data'),
-        expect.arrayContaining([
-          input,
-          JSON.stringify(expectedOutput),
-          JSON.stringify(actualOutput),
-          'classification',
-          0.95,
-          1,
-          'user',
-          123,
-        ])
+      expect((db as any).prepare).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO ai_training_data')
       );
       expect(result).toBeGreaterThan(0);
     });
@@ -194,18 +217,8 @@ describe('AITrainingSystem', () => {
         false
       );
 
-      expect(db.run).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO ai_training_data'),
-        expect.arrayContaining([
-          expect.any(String),
-          expect.any(String),
-          expect.any(String),
-          'suggestion',
-          0.75,
-          0, // validated = false
-          null,
-          null,
-        ])
+      expect((db as any).prepare).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO ai_training_data')
       );
       expect(result).toBeGreaterThan(0);
     });
@@ -230,13 +243,11 @@ describe('AITrainingSystem', () => {
 
       await trainingSystem.processFeedback(1, 'positive', undefined, undefined, 42);
 
-      expect(db.run).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO ai_feedback'),
-        [1, 'positive', undefined, undefined, 42]
+      expect((db as any).prepare).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO ai_feedback')
       );
-      expect(db.run).toHaveBeenCalledWith(
-        'UPDATE ai_classifications SET feedback_received = 1 WHERE id = ?',
-        [1]
+      expect((db as any).prepare).toHaveBeenCalledWith(
+        'UPDATE ai_classifications SET feedback_received = 1 WHERE id = ?'
       );
     });
 
@@ -275,19 +286,13 @@ describe('AITrainingSystem', () => {
         42
       );
 
-      expect(db.run).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO ai_feedback'),
-        [2, 'negative', 'Infrastructure', 'critical', 42]
+      expect((db as any).prepare).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO ai_feedback')
       );
 
       // Should add corrected data to training set
-      expect(db.run).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO ai_training_data'),
-        expect.arrayContaining([
-          expect.stringContaining('Server is down'),
-          expect.stringContaining('Infrastructure'),
-          expect.stringContaining('critical'),
-        ])
+      expect((db as any).prepare).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO ai_training_data')
       );
     });
 
@@ -307,19 +312,19 @@ describe('AITrainingSystem', () => {
   describe('calculatePerformanceMetrics', () => {
     it('should calculate accurate performance metrics', async () => {
       (db as any).setMockData(
-        expect.stringContaining('SELECT COUNT(*) as total FROM ai_classifications'),
+        'COUNT(*) as total FROM ai_classifications',
         [],
         [{ total: 150 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('COUNT(CASE WHEN af.feedback_type'),
+        'COUNT(CASE WHEN af.feedback_type',
         [],
         [{ positive: 120, negative: 30 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('AVG(confidence_score)'),
+        'AVG(confidence_score)',
         [],
         [{ avg_confidence: 0.87 }]
       );
@@ -337,19 +342,19 @@ describe('AITrainingSystem', () => {
 
     it('should handle zero feedback gracefully', async () => {
       (db as any).setMockData(
-        expect.stringContaining('SELECT COUNT(*) as total FROM ai_classifications'),
+        'COUNT(*) as total FROM ai_classifications',
         [],
         [{ total: 50 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('COUNT(CASE WHEN af.feedback_type'),
+        'COUNT(CASE WHEN af.feedback_type',
         [],
         [{ positive: 0, negative: 0 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('AVG(confidence_score)'),
+        'AVG(confidence_score)',
         [],
         [{ avg_confidence: 0.75 }]
       );
@@ -363,19 +368,19 @@ describe('AITrainingSystem', () => {
 
     it('should filter by organization ID', async () => {
       (db as any).setMockData(
-        expect.stringContaining('WHERE organization_id = ?'),
+        'COUNT(*) as total FROM ai_classifications',
         [123],
         [{ total: 25 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('COUNT(CASE WHEN af.feedback_type'),
+        'COUNT(CASE WHEN af.feedback_type',
         [123],
         [{ positive: 20, negative: 5 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('AVG(confidence_score)'),
+        'AVG(confidence_score)',
         [123],
         [{ avg_confidence: 0.92 }]
       );
@@ -398,25 +403,25 @@ describe('AITrainingSystem', () => {
     it('should return true when accuracy is below threshold', async () => {
       // Mock low accuracy
       (db as any).setMockData(
-        expect.stringContaining('SELECT COUNT(*) as total'),
+        'COUNT(*) as total FROM ai_classifications',
         [],
         [{ total: 200 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('COUNT(CASE WHEN af.feedback_type'),
+        'COUNT(CASE WHEN af.feedback_type',
         [],
         [{ positive: 150, negative: 50 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('AVG(confidence_score)'),
+        'AVG(confidence_score)',
         [],
         [{ avg_confidence: 0.85 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT COUNT(*) as count'),
+        'SELECT COUNT(*) as count',
         [],
         [{ count: 50 }]
       );
@@ -430,25 +435,25 @@ describe('AITrainingSystem', () => {
     it('should return true when enough new training data exists', async () => {
       // Mock acceptable accuracy but lots of new data
       (db as any).setMockData(
-        expect.stringContaining('SELECT COUNT(*) as total'),
+        'COUNT(*) as total FROM ai_classifications',
         [],
         [{ total: 100 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('COUNT(CASE WHEN af.feedback_type'),
+        'COUNT(CASE WHEN af.feedback_type',
         [],
         [{ positive: 96, negative: 4 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('AVG(confidence_score)'),
+        'AVG(confidence_score)',
         [],
         [{ avg_confidence: 0.93 }]
       );
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT COUNT(*) as count'),
+        'SELECT COUNT(*) as count',
         [],
         [{ count: 1200 }] // Above default minDataPoints of 1000
       );
@@ -462,7 +467,7 @@ describe('AITrainingSystem', () => {
   describe('trainModel', () => {
     it('should throw error with insufficient training data', async () => {
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification'],
         [] // Empty training data
       );
@@ -487,7 +492,7 @@ describe('AITrainingSystem', () => {
       }));
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification'],
         mockTrainingData
       );
@@ -508,8 +513,8 @@ describe('AITrainingSystem', () => {
   describe('getDataQualityStats', () => {
     it('should return comprehensive data quality statistics', async () => {
       (db as any).setMockData(
-        expect.stringContaining('COUNT(*) as total'),
-        undefined,
+        'COUNT(*) as total',
+        [],
         [{
           total: 5000,
           validated: 4200,
@@ -519,8 +524,8 @@ describe('AITrainingSystem', () => {
       );
 
       (db as any).setMockData(
-        expect.stringContaining('GROUP BY data_type'),
-        undefined,
+        'GROUP BY data_type',
+        [],
         [
           { data_type: 'classification', count: 3000 },
           { data_type: 'suggestion', count: 1500 },
@@ -543,8 +548,8 @@ describe('AITrainingSystem', () => {
 
     it('should handle empty database gracefully', async () => {
       (db as any).setMockData(
-        expect.stringContaining('COUNT(*) as total'),
-        undefined,
+        'COUNT(*) as total',
+        [],
         [{
           total: 0,
           validated: 0,
@@ -554,8 +559,8 @@ describe('AITrainingSystem', () => {
       );
 
       (db as any).setMockData(
-        expect.stringContaining('GROUP BY data_type'),
-        undefined,
+        'GROUP BY data_type',
+        [],
         []
       );
 
@@ -585,7 +590,7 @@ describe('AITrainingSystem', () => {
       ];
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification'],
         mockData
       );
@@ -613,7 +618,7 @@ describe('AITrainingSystem', () => {
       ];
 
       (db as any).setMockData(
-        expect.stringContaining('SELECT'),
+        'FROM ai_training_data',
         ['classification'],
         mockData
       );

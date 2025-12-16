@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth';
+import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -7,16 +8,23 @@ import { logger } from '@/lib/monitoring/logger';
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
+    const user = await verifyTokenFromCookies(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
@@ -25,28 +33,29 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
+    // FILTRAR POR TENANT - templates criados por usuários do tenant
+    let whereClause = 'WHERE u.organization_id = ?';
+    const params: any[] = [tenantId];
 
     // Filtrar por tipo
     if (type) {
-      whereClause += ' AND type = ?';
+      whereClause += ' AND t.type = ?';
       params.push(type);
     }
 
     // Filtrar por categoria
     if (categoryId) {
-      whereClause += ' AND category_id = ?';
+      whereClause += ' AND t.category_id = ?';
       params.push(parseInt(categoryId));
     }
 
     // Filtrar por status ativo
     if (isActive !== null) {
-      whereClause += ' AND is_active = ?';
+      whereClause += ' AND t.is_active = ?';
       params.push(isActive === 'true' ? 1 : 0);
     }
 
-    // Buscar templates
+    // Buscar templates FILTRADOS POR TENANT
     const templates = db.prepare(`
       SELECT
         t.*,
@@ -61,27 +70,30 @@ export async function GET(request: NextRequest) {
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset);
 
-    // Contar total
+    // Contar total FILTRADO POR TENANT
     const { total } = db.prepare(`
       SELECT COUNT(*) as total
       FROM templates t
+      LEFT JOIN users u ON t.created_by = u.id
       ${whereClause}
     `).get(...params) as { total: number };
 
     return NextResponse.json({
       success: true,
-      templates,
-      pagination: {
-        total,
-        limit,
-        offset,
-        hasMore: (offset + limit) < total
+      data: {
+        templates,
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: (offset + limit) < total
+        }
       }
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar templates', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    logger.error('Error fetching templates', error);
+    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }
 
@@ -89,21 +101,28 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
+    const user = await verifyTokenFromCookies(request);
     if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
     }
 
     // Apenas admins e agentes podem criar templates
-    if (!['admin', 'agent'].includes(user.role)) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!['admin', 'agent', 'tenant_admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Access denied', code: 'PERMISSION_DENIED' }, { status: 403 });
     }
+
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
+    }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const body = await request.json();
     const {
@@ -133,24 +152,26 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verificar se categoria existe (se fornecida)
+    // Verificar se categoria existe E PERTENCE AO TENANT (se fornecida)
     if (category_id) {
-      const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
+      const category = db.prepare('SELECT id FROM categories WHERE id = ? AND tenant_id = ?').get(category_id, tenantId);
       if (!category) {
         return NextResponse.json({
-          error: 'Categoria não encontrada'
+          error: 'Categoria não encontrada neste tenant'
         }, { status: 404 });
       }
     }
 
-    // Verificar se já existe template com o mesmo nome
-    const existingTemplate = db.prepare(
-      'SELECT id FROM templates WHERE name = ? AND type = ?'
-    ).get(name, type);
+    // Verificar se já existe template com o mesmo nome NO TENANT
+    const existingTemplate = db.prepare(`
+      SELECT t.id FROM templates t
+      LEFT JOIN users u ON t.created_by = u.id
+      WHERE t.name = ? AND t.type = ? AND u.organization_id = ?
+    `).get(name, type, tenantId);
 
     if (existingTemplate) {
       return NextResponse.json({
-        error: 'Já existe um template com este nome para este tipo'
+        error: 'Já existe um template com este nome para este tipo neste tenant'
       }, { status: 409 });
     }
 
@@ -189,13 +210,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Template criado com sucesso',
-      template: newTemplate
+      data: newTemplate,
+      message: 'Template created successfully'
     }, { status: 201 });
 
   } catch (error) {
-    logger.error('Erro ao criar template', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    logger.error('Error creating template', error);
+    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }
 
@@ -203,16 +224,23 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
+    const user = await verifyTokenFromCookies(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const body = await request.json();
     const {
@@ -232,14 +260,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID do template é obrigatório' }, { status: 400 });
     }
 
-    // Verificar se template existe
-    const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(id);
+    // Verificar se template existe E PERTENCE AO TENANT
+    const template = db.prepare(`
+      SELECT t.* FROM templates t
+      LEFT JOIN users u ON t.created_by = u.id
+      WHERE t.id = ? AND u.organization_id = ?
+    `).get(id, tenantId);
     if (!template) {
-      return NextResponse.json({ error: 'Template não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Template não encontrado neste tenant' }, { status: 404 });
     }
 
     // Verificar permissão
-    if (!['admin', 'agent'].includes(user.role) && (template as any).created_by !== user.id) {
+    if (!['admin', 'agent', 'tenant_admin'].includes(user.role) && (template as any).created_by !== user.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -284,13 +316,13 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Template atualizado com sucesso',
-      template: updatedTemplate
+      data: updatedTemplate,
+      message: 'Template updated successfully'
     });
 
   } catch (error) {
-    logger.error('Erro ao atualizar template', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    logger.error('Error updating template', error);
+    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }
 
@@ -298,16 +330,23 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
+    const user = await verifyTokenFromCookies(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -316,40 +355,46 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID do template é obrigatório' }, { status: 400 });
     }
 
-    // Verificar se template existe
-    const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(parseInt(id));
+    // Verificar se template existe E PERTENCE AO TENANT
+    const template = db.prepare(`
+      SELECT t.* FROM templates t
+      LEFT JOIN users u ON t.created_by = u.id
+      WHERE t.id = ? AND u.organization_id = ?
+    `).get(parseInt(id), tenantId);
     if (!template) {
-      return NextResponse.json({ error: 'Template não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Template não encontrado neste tenant' }, { status: 404 });
     }
 
     // Verificar permissão
-    if (user.role !== 'admin' && (template as any).created_by !== user.id) {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin' && (template as any).created_by !== user.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    // Verificar se template está sendo usado
+    // Verificar se template está sendo usado NO TENANT
+    // FIX: Use template ID instead of name for lookup
     const usageCount = db.prepare(`
       SELECT COUNT(*) as count
       FROM tickets
-      WHERE template_used = ?
-    `).get((template as any).name) as { count: number };
+      WHERE template_id = ? AND tenant_id = ?
+    `).get(parseInt(id), tenantId) as { count: number };
 
     if (usageCount.count > 0) {
       return NextResponse.json({
-        error: `Template não pode ser excluído pois está sendo usado em ${usageCount.count} ticket(s)`
+        error: `Template cannot be deleted because it is being used in ${usageCount.count} ticket(s)`,
+        code: 'TEMPLATE_IN_USE'
       }, { status: 409 });
     }
 
-    // Excluir template
+    // Excluir template (já validado que pertence ao tenant)
     db.prepare('DELETE FROM templates WHERE id = ?').run(parseInt(id));
 
     return NextResponse.json({
       success: true,
-      message: 'Template excluído com sucesso'
+      message: 'Template deleted successfully'
     });
 
   } catch (error) {
-    logger.error('Erro ao excluir template', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    logger.error('Error deleting template', error);
+    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@
  */
 
 import db from './connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // ============================================
 // COLUMN AND TABLE ALLOWLISTS

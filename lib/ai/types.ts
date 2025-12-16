@@ -186,19 +186,22 @@ export interface AIOperationMetadata {
 
 export interface AITrainingDataEntry {
   id?: number;
-  input: string;
-  expectedOutput: string;
-  actualOutput?: string;
+  input_text: string;
+  expected_output: string;
+  actual_output?: string;
   feedback?: string;
-  dataType: 'classification' | 'suggestion' | 'sentiment' | 'response' | 'duplicate_detection';
-  qualityScore: number; // 0.0 to 1.0
-  sourceEntityType?: string;
-  sourceEntityId?: number;
-  isValidated: boolean;
-  createdBy?: number;
-  reviewedBy?: number;
-  reviewedAt?: string;
-  modelVersion: string;
+  data_type: 'classification' | 'suggestion' | 'sentiment' | 'response' | 'duplicate_detection';
+  quality_score: number; // 0.0 to 1.0
+  source_entity_type?: string;
+  source_entity_id?: number;
+  validated: boolean;
+  created_by?: number;
+  reviewed_by?: number;
+  reviewed_at?: string;
+  validation_source?: 'user' | 'expert' | 'automated';
+  model_version: string;
+  organization_id?: number;
+  created_at?: string;
 }
 
 export interface AIFeedbackEntry {
@@ -287,7 +290,7 @@ export interface VectorSearchResult {
   entityId: number;
   similarityScore: number;
   content?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   distance?: number;
 }
 
@@ -361,15 +364,15 @@ export interface AIIntegrationEvent {
   entityType: string;
   entityId: number;
   triggeredBy: string;
-  payload: any;
+  payload: Record<string, unknown>;
   context: AIOperationContext;
   timestamp: string;
 }
 
 export interface AIWorkflowStep {
   stepType: 'classification' | 'suggestion' | 'response' | 'sentiment' | 'duplicate_check';
-  config: any;
-  conditions?: any;
+  config: Record<string, unknown>;
+  conditions?: Record<string, unknown>;
   onSuccess?: string;
   onFailure?: string;
   timeout?: number;
@@ -383,7 +386,7 @@ export class AIOperationError extends Error {
     public code: string,
     public operationType: string,
     public originalError?: Error,
-    public metadata?: any
+    public metadata?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'AIOperationError';
@@ -441,34 +444,3 @@ export type AIProcessingStatus =
   | 'failed'
   | 'cancelled'
   | 'timeout';
-
-// Export all types
-export type {
-  AIOperationContext,
-  AIModelConfig,
-  AIClassificationRequest,
-  AIClassificationResponse,
-  AISuggestionRequest,
-  AISuggestionResponse,
-  AIResponseGenerationRequest,
-  AIResponseGenerationResponse,
-  AISentimentAnalysisRequest,
-  AISentimentAnalysisResponse,
-  AIDuplicateDetectionRequest,
-  AIDuplicateDetectionResponse,
-  AIOperationMetadata,
-  AITrainingDataEntry,
-  AIFeedbackEntry,
-  AIPerformanceMetrics,
-  AISystemStatus,
-  VectorSearchRequest,
-  VectorSearchResult,
-  EmbeddingGenerationJob,
-  AIConfiguration,
-  AIIntegrationEvent,
-  AIWorkflowStep,
-  AIOperationType,
-  AIFeedbackType,
-  AIModelProvider,
-  AIProcessingStatus
-};

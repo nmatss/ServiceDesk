@@ -10,11 +10,12 @@
  * - Errors in root layout
  * - Critical application failures
  * - Errors before other error boundaries can catch them
+ *
+ * NOTE: This is a client component. Do NOT import server-only modules.
+ * Using inline styles because CSS might not be available during critical errors.
  */
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
-import { logger } from '@/lib/monitoring/logger';
 
 interface GlobalErrorProps {
   error: Error & { digest?: string }
@@ -23,25 +24,39 @@ interface GlobalErrorProps {
 
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
-    // Log critical error to Sentry with high priority
-    Sentry.captureException(error, {
-      level: 'fatal',
-      tags: {
-        errorBoundary: 'global',
-        critical: 'true',
-      },
-      contexts: {
-        errorInfo: {
-          digest: error.digest,
-          message: error.message,
-          name: error.name,
-          stack: error.stack,
-        },
-      },
-    })
+    // Log critical error to console
+    console.error('[GlobalError] Critical error:', error)
 
-    // Log to console
-    logger.error('Global Error Boundary', error)
+    // Report error to monitoring service (if available)
+    // Using dynamic import to avoid Edge Runtime issues
+    const reportError = async () => {
+      try {
+        // Only import Sentry in the browser, not during SSR/Edge
+        if (typeof window !== 'undefined') {
+          const Sentry = await import('@sentry/nextjs')
+          Sentry.captureException(error, {
+            level: 'fatal',
+            tags: {
+              errorBoundary: 'global',
+              critical: 'true',
+            },
+            contexts: {
+              errorInfo: {
+                digest: error.digest,
+                message: error.message,
+                name: error.name,
+                stack: error.stack,
+              },
+            },
+          })
+        }
+      } catch (e) {
+        // Silently fail if Sentry is not available
+        console.error('[GlobalError] Failed to report error:', e)
+      }
+    }
+
+    reportError()
   }, [error])
 
   return (
@@ -215,6 +230,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                     borderRadius: '0.5rem',
                     textDecoration: 'none',
                     boxSizing: 'border-box',
+                    textAlign: 'center',
                   }}
                   onMouseOver={(e) => {
                     e.currentTarget.style.background = '#e5e7eb'
@@ -237,7 +253,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               >
                 Se o problema persistir,{' '}
                 <a
-                  href="/suporte"
+                  href="/portal"
                   style={{
                     color: '#2563eb',
                     fontWeight: '500',

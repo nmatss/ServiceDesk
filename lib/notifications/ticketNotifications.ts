@@ -1,6 +1,6 @@
 import { getSocketServer } from '@/lib/socket/server'
 import { getDb } from '@/lib/db'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface TicketData {
   id: number
@@ -24,11 +24,38 @@ interface CommentData {
   created_at: string
 }
 
+interface TicketInfoResult {
+  id: number
+  title: string
+  description: string
+  user_id: number
+  assigned_to?: number
+  category_id: number
+  priority_id: number
+  status_id: number
+  created_at: string
+  updated_at: string
+  category_name?: string
+  priority_name?: string
+  priority_level?: number
+  status_name?: string
+  status_is_final?: boolean
+  creator_name?: string
+  assignee_name?: string
+}
+
+interface UserInfoResult {
+  id: number
+  name: string
+  email: string
+  role: string
+}
+
 export class TicketNotificationManager {
   private db = getDb()
 
   // Notificar quando um ticket é criado
-  async notifyTicketCreated(ticketData: TicketData) {
+  async notifyTicketCreated(ticketData: TicketData): Promise<void> {
     const socketServer = getSocketServer()
     if (!socketServer) return
 
@@ -59,7 +86,7 @@ export class TicketNotificationManager {
   }
 
   // Notificar quando um ticket é atribuído
-  async notifyTicketAssigned(ticketId: number, assignedToUserId: number, assignedByUserId: number) {
+  async notifyTicketAssigned(ticketId: number, assignedToUserId: number, assignedByUserId: number): Promise<void> {
     const socketServer = getSocketServer()
     if (!socketServer) return
 
@@ -91,7 +118,7 @@ export class TicketNotificationManager {
   }
 
   // Notificar quando um ticket é atualizado
-  async notifyTicketUpdated(ticketId: number, updatedByUserId: number, changes: any) {
+  async notifyTicketUpdated(ticketId: number, updatedByUserId: number, changes: Record<string, unknown>): Promise<void> {
     const socketServer = getSocketServer()
     if (!socketServer) return
 
@@ -107,7 +134,7 @@ export class TicketNotificationManager {
       let message = `Ticket #${ticketId} foi atualizado por ${updatedBy?.name}`
       let priority: 'low' | 'medium' | 'high' = 'medium'
 
-      if (changes.status_id) {
+      if ('status_id' in changes && typeof changes.status_id === 'number') {
         const statusInfo = this.getStatusInfo(changes.status_id)
         title = 'Status do ticket alterado'
         message = `Ticket #${ticketId} mudou para: ${statusInfo?.name}`
@@ -117,15 +144,15 @@ export class TicketNotificationManager {
           message = `Ticket #${ticketId} foi resolvido`
           priority = 'high'
         }
-      } else if (changes.priority_id) {
+      } else if ('priority_id' in changes && typeof changes.priority_id === 'number') {
         const priorityInfo = this.getPriorityInfo(changes.priority_id)
         title = 'Prioridade alterada'
         message = `Ticket #${ticketId} teve sua prioridade alterada para: ${priorityInfo?.name}`
 
-        if (priorityInfo?.level >= 3) {
+        if (priorityInfo?.level && priorityInfo.level >= 3) {
           priority = 'high'
         }
-      } else if (changes.assigned_to) {
+      } else if ('assigned_to' in changes && typeof changes.assigned_to === 'number') {
         const assignee = this.getUserInfo(changes.assigned_to)
         title = 'Ticket reatribuído'
         message = `Ticket #${ticketId} foi atribuído para: ${assignee?.name}`
@@ -163,7 +190,7 @@ export class TicketNotificationManager {
   }
 
   // Notificar quando um comentário é adicionado
-  async notifyCommentAdded(commentData: CommentData) {
+  async notifyCommentAdded(commentData: CommentData): Promise<void> {
     const socketServer = getSocketServer()
     if (!socketServer) return
 
@@ -210,7 +237,7 @@ export class TicketNotificationManager {
   }
 
   // Notificar sobre violações de SLA
-  async notifySLAWarning(ticketId: number, slaType: 'response' | 'resolution', minutesLeft: number) {
+  async notifySLAWarning(ticketId: number, slaType: 'response' | 'resolution', minutesLeft: number): Promise<void> {
     const socketServer = getSocketServer()
     if (!socketServer) return
 
@@ -254,9 +281,9 @@ export class TicketNotificationManager {
   }
 
   // Métodos auxiliares
-  private getTicketInfo(ticketId: number) {
+  private getTicketInfo(ticketId: number): TicketInfoResult | null {
     try {
-      return this.db.prepare(`
+      const result = this.db.prepare(`
         SELECT
           t.*,
           c.name as category_name,
@@ -273,34 +300,38 @@ export class TicketNotificationManager {
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users a ON t.assigned_to = a.id
         WHERE t.id = ?
-      `).get(ticketId)
+      `).get(ticketId) as TicketInfoResult | undefined
+      return result || null
     } catch (error) {
       logger.error('Error getting ticket info', error)
       return null
     }
   }
 
-  private getUserInfo(userId: number) {
+  private getUserInfo(userId: number): UserInfoResult | null {
     try {
-      return this.db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId)
+      const result = this.db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId) as UserInfoResult | undefined
+      return result || null
     } catch (error) {
       logger.error('Error getting user info', error)
       return null
     }
   }
 
-  private getStatusInfo(statusId: number) {
+  private getStatusInfo(statusId: number): { id: number; name: string; is_final: boolean } | null {
     try {
-      return this.db.prepare('SELECT id, name, is_final FROM statuses WHERE id = ?').get(statusId)
+      const result = this.db.prepare('SELECT id, name, is_final FROM statuses WHERE id = ?').get(statusId) as { id: number; name: string; is_final: boolean } | undefined
+      return result || null
     } catch (error) {
       logger.error('Error getting status info', error)
       return null
     }
   }
 
-  private getPriorityInfo(priorityId: number) {
+  private getPriorityInfo(priorityId: number): { id: number; name: string; level: number } | null {
     try {
-      return this.db.prepare('SELECT id, name, level FROM priorities WHERE id = ?').get(priorityId)
+      const result = this.db.prepare('SELECT id, name, level FROM priorities WHERE id = ?').get(priorityId) as { id: number; name: string; level: number } | undefined
+      return result || null
     } catch (error) {
       logger.error('Error getting priority info', error)
       return null
@@ -321,9 +352,9 @@ export class TicketNotificationManager {
           -- Usuários que comentaram
           SELECT user_id FROM comments WHERE ticket_id = ?
         )
-      `).all(ticketId, ticketId, ticketId)
+      `).all(ticketId, ticketId, ticketId) as Array<{ id: number | null }>
 
-      return stakeholders.map((s: any) => s.id).filter(Boolean)
+      return stakeholders.map((s) => s.id).filter((id): id is number => id !== null)
     } catch (error) {
       logger.error('Error getting ticket stakeholders', error)
       return []

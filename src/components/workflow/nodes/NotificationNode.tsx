@@ -13,10 +13,20 @@ import { NotificationNodeConfig } from '@/lib/types/workflow';
 
 interface NotificationNodeData {
   label: string;
-  configuration: NotificationNodeConfig;
+  configuration: Partial<NotificationNodeConfig>;
   description?: string;
   timeout?: number;
   isOptional?: boolean;
+}
+
+interface ColorClasses {
+  bg: string;
+  border: string;
+  iconBg: string;
+  text: string;
+  subtext: string;
+  ring: string;
+  badge: string;
 }
 
 const notificationTypeIcons = {
@@ -41,21 +51,23 @@ const notificationTypeColors = {
 
 export default function NotificationNode({ data, selected }: NodeProps<NotificationNodeData>) {
   const { label, configuration, description, timeout, isOptional } = data;
-  const notificationType = configuration.notificationType;
+  const notificationType = configuration.notificationType || 'in_app';
   const color = notificationTypeColors[notificationType] || 'blue';
   const IconComponent = notificationTypeIcons[notificationType] || BellIcon;
 
-  const getColorClasses = (color: string) => {
-    const colorMap = {
-      blue: {
-        bg: 'from-blue-50 to-blue-100',
-        border: 'border-blue-300',
-        iconBg: 'bg-blue-500',
-        text: 'text-blue-900',
-        subtext: 'text-blue-700',
-        ring: 'ring-blue-400',
-        badge: 'bg-blue-100 text-blue-800',
-      },
+  const getColorClasses = (color: string): ColorClasses => {
+    const defaultColors: ColorClasses = {
+      bg: 'from-blue-50 to-blue-100',
+      border: 'border-blue-300',
+      iconBg: 'bg-blue-500',
+      text: 'text-blue-900',
+      subtext: 'text-blue-700',
+      ring: 'ring-blue-400',
+      badge: 'bg-blue-100 text-blue-800',
+    };
+
+    const colorMap: Record<string, ColorClasses> = {
+      blue: defaultColors,
       green: {
         bg: 'from-green-50 to-green-100',
         border: 'border-green-300',
@@ -111,7 +123,7 @@ export default function NotificationNode({ data, selected }: NodeProps<Notificat
         badge: 'bg-indigo-100 text-indigo-800',
       },
     };
-    return colorMap[color] || colorMap.blue;
+    return colorMap[color] ?? defaultColors;
   };
 
   const colorClasses = getColorClasses(color);

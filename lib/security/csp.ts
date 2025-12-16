@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { getSecurityConfig } from './config';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface CspNonce {
   nonce: string;
@@ -154,7 +154,7 @@ export function processCspViolation(report: CspViolationReport, request: NextReq
     violatedDirective: violation['violated-directive'],
     scriptSample: violation['script-sample'],
     userAgent: request.headers.get('user-agent'),
-    ip: request.ip || request.headers.get('x-forwarded-for'),
+    ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
     referrer: violation.referrer
   };
 
@@ -180,7 +180,7 @@ export function processCspViolation(report: CspViolationReport, request: NextReq
  */
 function isKnownFalsePositive(violation: CspViolationReport['csp-report']): boolean {
   const blockedUri = violation['blocked-uri'];
-  const documentUri = violation['document-uri'];
+  // documentUri is available for future use if needed
 
   // Browser extensions
   const extensionPatterns = [

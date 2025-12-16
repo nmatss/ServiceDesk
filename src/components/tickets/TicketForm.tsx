@@ -11,7 +11,7 @@ import {
   TagIcon,
   UserIcon
 } from '@heroicons/react/24/outline'
-import { Ticket } from './TicketCard'
+import { TicketData as Ticket } from '../../../components/ui/TicketCard'
 import { useNotificationHelpers } from '@/src/components/notifications/NotificationProvider'
 
 interface Category {
@@ -103,14 +103,12 @@ export default function TicketForm({
 
   const fetchFormData = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
+      // SECURITY: Use httpOnly cookies for authentication
       const [categoriesRes, prioritiesRes, agentsRes] = await Promise.all([
-        fetch('/api/categories', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/priorities', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/categories', { credentials: 'include' }),
+        fetch('/api/priorities', { credentials: 'include' }),
         userRole === 'admin' || userRole === 'agent'
-          ? fetch('/api/agents', { headers: { 'Authorization': `Bearer ${token}` } })
+          ? fetch('/api/agents', { credentials: 'include' })
           : Promise.resolve({ ok: false })
       ])
 
@@ -234,12 +232,7 @@ export default function TicketForm({
     setError('')
 
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
-
+      // SECURITY: Use httpOnly cookies for authentication
       // Create FormData for file upload
       const submitData = new FormData()
       submitData.append('title', formData.title.trim())
@@ -267,9 +260,7 @@ export default function TicketForm({
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        credentials: 'include', // Use httpOnly cookies
         body: submitData
       })
 

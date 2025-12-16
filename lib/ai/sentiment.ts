@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SentimentResult {
   score: number; // -1 (negativo) a +1 (positivo)
@@ -63,7 +63,7 @@ Retorne um JSON com:
         temperature: 0.3
       });
 
-      return JSON.parse(completion.choices[0].message.content || '{}');
+      return JSON.parse(completion.choices[0]?.message.content || '{}');
 
     } catch (error) {
       logger.error('Sentiment analysis error', error);

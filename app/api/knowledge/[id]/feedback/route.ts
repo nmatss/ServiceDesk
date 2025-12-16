@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
@@ -40,7 +39,7 @@ export async function POST(
     const existingFeedback = db.prepare(`
       SELECT id, helpful FROM knowledge_feedback
       WHERE article_id = ? AND user_id = ? AND tenant_id = ?
-    `).get(articleId, userContext.id, tenantContext.id)
+    `).get(articleId, userContext.id, tenantContext.id) as any
 
     if (existingFeedback) {
       // Update existing feedback

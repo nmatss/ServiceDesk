@@ -71,7 +71,7 @@ export function HourlyPerformanceHeatMap({
       .domain([0, d3.max(data, d => d.value) || 0]);
 
     // Create cells
-    const cells = g
+    g
       .selectAll('.cell')
       .data(data)
       .enter()
@@ -126,7 +126,7 @@ export function HourlyPerformanceHeatMap({
 
         d3.selectAll('.heatmap-tooltip').remove();
       })
-      .on('click', function(event, d) {
+      .on('click', function(_event, d) {
         setSelectedCell(d);
         if (onCellClick) {
           onCellClick(d);
@@ -299,12 +299,12 @@ export function DepartmentHeatMap({
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
     // Process data for department view
-    const departments = Array.from(new Set(data.map(d => d.department).filter(Boolean)));
+    const departments = Array.from(new Set(data.map(d => d.department).filter(Boolean))) as string[];
     const metrics = ['Volume', 'Avg Response Time', 'Satisfaction', 'Resolution Rate'];
 
     // Create mock data for departments and metrics
     const heatmapData = departments.flatMap(dept =>
-      metrics.map((metric, i) => ({
+      metrics.map((metric) => ({
         department: dept,
         metric,
         value: Math.random() * 100 // Replace with actual metric calculation

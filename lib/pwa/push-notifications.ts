@@ -1,9 +1,15 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Push Notifications Manager
  * Handles push notification subscriptions, sending, and management
  */
+
+interface NotificationAction {
+  action: string;
+  title: string;
+  icon?: string;
+}
 
 interface NotificationConfig {
   title: string;
@@ -12,7 +18,7 @@ interface NotificationConfig {
   badge?: string;
   image?: string;
   tag?: string;
-  data?: any;
+  data?: unknown;
   requireInteraction?: boolean;
   silent?: boolean;
   vibrate?: number[];
@@ -36,7 +42,6 @@ interface PushSubscriptionData {
 class PushNotificationManager {
   private registration: ServiceWorkerRegistration | null = null;
   private subscription: PushSubscription | null = null;
-  private vapidPublicKey: string = '';
 
   constructor() {
     this.init();
@@ -90,8 +95,6 @@ class PushNotificationManager {
       return null;
     }
 
-    this.vapidPublicKey = vapidPublicKey;
-
     try {
       // Check if already subscribed
       const existingSubscription = await this.registration.pushManager.getSubscription();
@@ -102,9 +105,10 @@ class PushNotificationManager {
       }
 
       // Create new subscription
+      const appServerKey = this.urlBase64ToUint8Array(vapidPublicKey);
       const subscription = await this.registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
+        applicationServerKey: appServerKey as BufferSource
       });
 
       this.subscription = subscription;
@@ -156,25 +160,42 @@ class PushNotificationManager {
           tag: config.tag,
           data: config.data,
           requireInteraction: config.requireInteraction,
-          silent: config.silent,
-          vibrate: config.vibrate
+          silent: config.silent
         });
       }
       return;
     }
 
     try {
-      await this.registration.showNotification(config.title, {
+      const notificationOptions: NotificationOptions = {
         body: config.body,
         icon: config.icon || '/icon-192.png',
         badge: config.badge || '/icon-96.png',
-        image: config.image,
         tag: config.tag,
         data: config.data,
         requireInteraction: config.requireInteraction || false,
-        silent: config.silent || false,
-        vibrate: config.vibrate || [200, 100, 200],
-        actions: config.actions || [
+        silent: config.silent || false
+      };
+
+      // Add image if provided
+      if (config.image) {
+        (notificationOptions as any).image = config.image;
+      }
+
+      // Add vibration pattern if provided
+      if (config.vibrate) {
+        (notificationOptions as any).vibrate = config.vibrate;
+      }
+
+      // Add actions if provided
+      if (config.actions) {
+        (notificationOptions as any).actions = config.actions.map(a => ({
+          action: a.action,
+          title: a.title,
+          icon: a.icon
+        }));
+      } else {
+        (notificationOptions as any).actions = [
           {
             action: 'view',
             title: 'Ver',
@@ -185,8 +206,10 @@ class PushNotificationManager {
             title: 'Dispensar',
             icon: '/icons/action-dismiss.png'
           }
-        ]
-      });
+        ];
+      }
+
+      await this.registration.showNotification(config.title, notificationOptions);
     } catch (error) {
       logger.error('Failed to show notification', error);
     }
@@ -333,7 +356,7 @@ class PushNotificationManager {
   }
 
   // Notification analytics
-  public async trackNotificationInteraction(action: string, notificationData?: any): Promise<void> {
+  public async trackNotificationInteraction(action: string, notificationData?: unknown): Promise<void> {
     try {
       await fetch('/api/analytics/notifications', {
         method: 'POST',
@@ -484,9 +507,10 @@ class PushNotificationManager {
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
     let binary = '';
+    const len = bytes.byteLength;
 
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i] || 0);
     }
 
     return window.btoa(binary);

@@ -1,0 +1,139 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: servicedesk-backup-verification
+  namespace: servicedesk
+  labels:
+    app: servicedesk
+    component: backup
+    type: verification
+spec:
+  # Run weekly on Sunday at 4:00 AM UTC
+  schedule: "0 4 * * 0"
+  successfulJobsHistoryLimit: 4
+  failedJobsHistoryLimit: 2
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        app: servicedesk
+        component: backup
+        type: verification
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200  # 2 hours timeout
+      template:
+        metadata:
+          labels:
+            app: servicedesk
+            component: backup
+            type: verification
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: servicedesk-backup
+
+          containers:
+          - name: backup-verification
+            image: servicedesk/backup:latest
+            imagePullPolicy: Always
+
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "========================================="
+              echo "Starting weekly backup verification"
+              echo "========================================="
+
+              # Verify latest backup
+              /app/scripts/backup/verify-backup.sh latest
+
+              RESULT=$?
+
+              if [ $RESULT -eq 0 ]; then
+                echo "✅ Backup verification PASSED"
+                # Send success notification
+                curl -X POST "$NOTIFICATION_WEBHOOK" \
+                  -H "Content-Type: application/json" \
+                  -d '{"status":"success","message":"Weekly backup verification passed"}'
+              else
+                echo "❌ Backup verification FAILED"
+                # Send failure notification
+                curl -X POST "$NOTIFICATION_WEBHOOK" \
+                  -H "Content-Type: application/json" \
+                  -d '{"status":"failure","message":"Weekly backup verification failed","severity":"critical"}'
+                exit 1
+              fi
+
+            env:
+            - name: STORAGE_TYPE
+              value: "s3"
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-backup-config
+                  key: s3.bucket
+            - name: S3_PREFIX
+              value: "backups/database"
+            - name: DB_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-config
+                  key: database.type
+            - name: GPG_RECIPIENT
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-backup-config
+                  key: gpg.recipient
+            - name: NOTIFICATION_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-backup-secrets
+                  key: notification.webhook
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-backup-config
+                  key: aws.region
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-aws-credentials
+                  key: access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-aws-credentials
+                  key: secret-access-key
+
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+              limits:
+                memory: "4Gi"
+                cpu: "2000m"
+
+            volumeMounts:
+            - name: test-restore
+              mountPath: /tmp/servicedesk-restore-test
+            - name: gpg-keys
+              mountPath: /root/.gnupg
+              readOnly: true
+            - name: scripts
+              mountPath: /app/scripts
+              readOnly: true
+
+          volumes:
+          - name: test-restore
+            emptyDir:
+              sizeLimit: 20Gi
+          - name: gpg-keys
+            secret:
+              secretName: servicedesk-gpg-keys
+              defaultMode: 0600
+          - name: scripts
+            configMap:
+              name: servicedesk-backup-scripts
+              defaultMode: 0755

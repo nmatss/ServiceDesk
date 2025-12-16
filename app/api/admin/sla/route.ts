@@ -68,9 +68,10 @@ export async function POST(request: NextRequest) {
       category_id,
       response_time_minutes,
       resolution_time_minutes,
-      escalation_time_minutes,
+      escalation_time_minutes: _escalation_time_minutes,
       business_hours_only,
-      is_active
+      is_active,
+      organization_id
     } = body;
 
     if (!name || !priority_id || !response_time_minutes || !resolution_time_minutes) {
@@ -87,7 +88,8 @@ export async function POST(request: NextRequest) {
       response_time_hours: Math.ceil(parseInt(response_time_minutes) / 60),
       resolution_time_hours: Math.ceil(parseInt(resolution_time_minutes) / 60),
       business_hours_only: business_hours_only === true,
-      is_active: is_active !== false
+      is_active: is_active !== false,
+      organization_id: organization_id || user.organization_id || 1
     };
 
     const policy = createSLAPolicy(policyData);

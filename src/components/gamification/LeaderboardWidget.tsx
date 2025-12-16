@@ -244,7 +244,7 @@ export default function LeaderboardWidget({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {displayLeaderboard.map((entry, index) => (
+            {displayLeaderboard.map((entry, _index) => (
               <tr
                 key={entry.userId}
                 className={`

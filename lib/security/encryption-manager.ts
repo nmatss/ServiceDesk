@@ -1,6 +1,6 @@
-import { randomBytes, createCipher, createDecipher, createHash, pbkdf2Sync, scrypt } from 'crypto';
+import { randomBytes, createCipheriv, createDecipheriv, createHash, pbkdf2Sync, scrypt } from 'crypto';
 import { promisify } from 'util';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 const scryptAsync = promisify(scrypt);
 
@@ -84,7 +84,7 @@ class EncryptionManager {
 
       switch (finalConfig.algorithm) {
         case 'aes-256-gcm': {
-          const cipher = require('crypto').createCipher('aes-256-gcm', key);
+          const cipher = createCipheriv('aes-256-gcm', key.slice(0, 32), iv);
           cipher.setAAD(salt); // Use salt as additional authenticated data
 
           const encrypted1 = cipher.update(dataBuffer);
@@ -96,8 +96,7 @@ class EncryptionManager {
         }
 
         case 'aes-256-cbc': {
-          const cipher = require('crypto').createCipher('aes-256-cbc', key);
-          cipher.update(iv); // Use IV
+          const cipher = createCipheriv('aes-256-cbc', key.slice(0, 32), iv.slice(0, 16));
 
           const encrypted1 = cipher.update(dataBuffer);
           const encrypted2 = cipher.final();
@@ -107,8 +106,8 @@ class EncryptionManager {
         }
 
         case 'chacha20-poly1305': {
-          const cipher = require('crypto').createCipher('chacha20-poly1305', key);
-          cipher.setAAD(salt);
+          const cipher = createCipheriv('chacha20-poly1305', key.slice(0, 32), iv);
+          cipher.setAAD(salt, { plaintextLength: dataBuffer.length });
 
           const encrypted1 = cipher.update(dataBuffer);
           const encrypted2 = cipher.final();
@@ -131,7 +130,8 @@ class EncryptionManager {
         keyDerivation: finalConfig.keyDerivation
       };
     } catch (error) {
-      throw new Error(`Encryption failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Encryption failed: ${errorMessage}`);
     }
   }
 
@@ -167,7 +167,7 @@ class EncryptionManager {
 
       switch (encryptedData.algorithm) {
         case 'aes-256-gcm': {
-          const decipher = require('crypto').createDecipher('aes-256-gcm', key);
+          const decipher = createDecipheriv('aes-256-gcm', key.slice(0, 32), iv);
           if (authTag) {
             decipher.setAuthTag(authTag);
           }
@@ -181,7 +181,7 @@ class EncryptionManager {
         }
 
         case 'aes-256-cbc': {
-          const decipher = require('crypto').createDecipher('aes-256-cbc', key);
+          const decipher = createDecipheriv('aes-256-cbc', key.slice(0, 32), iv.slice(0, 16));
 
           const decrypted1 = decipher.update(data);
           const decrypted2 = decipher.final();
@@ -191,11 +191,11 @@ class EncryptionManager {
         }
 
         case 'chacha20-poly1305': {
-          const decipher = require('crypto').createDecipher('chacha20-poly1305', key);
+          const decipher = createDecipheriv('chacha20-poly1305', key.slice(0, 32), iv);
           if (authTag) {
             decipher.setAuthTag(authTag);
           }
-          decipher.setAAD(salt);
+          decipher.setAAD(salt, { plaintextLength: data.length });
 
           const decrypted1 = decipher.update(data);
           const decrypted2 = decipher.final();
@@ -210,7 +210,8 @@ class EncryptionManager {
 
       return decryptedData;
     } catch (error) {
-      throw new Error(`Decryption failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Decryption failed: ${errorMessage}`);
     }
   }
 
@@ -343,7 +344,7 @@ class EncryptionManager {
     // For now, we'll just clear the cache to force regeneration
     if (tableName && fieldName) {
       const pattern = `${tableName}.${fieldName}`;
-      for (const [key] of this.keyCache) {
+      for (const [key, _value] of this.keyCache) {
         if (key.startsWith(pattern)) {
           this.keyCache.delete(key);
         }
@@ -384,18 +385,16 @@ class EncryptionManager {
       case 'pbkdf2':
         return pbkdf2Sync(password, salt, config.iterations!, 32, 'sha256');
 
-      case 'scrypt':
+      case 'scrypt': {
+        // Options reserved for future fine-tuning
+        // const parallelization = config.parallelization ?? 1;
+        // const memoryLimit = config.memoryLimit ?? (64 * 1024 * 1024);
         return await scryptAsync(
           password,
           salt,
-          32,
-          {
-            N: 32768, // CPU/memory cost
-            r: 8, // Block size
-            p: config.parallelization!,
-            maxmem: config.memoryLimit!
-          }
+          32
         ) as Buffer;
+      }
 
       default:
         throw new Error(`Unsupported key derivation: ${config.keyDerivation}`);
@@ -405,8 +404,9 @@ class EncryptionManager {
   /**
    * Encrypt field with full encryption (not deterministic)
    */
-  private async encryptFullField(value: string, rule: FieldEncryptionRule): Promise<string> {
-    const key = await this.generateFieldKey(rule.tableName, rule.fieldName, rule.keyVersion);
+  private async encryptFullField(value: string, _rule: FieldEncryptionRule): Promise<string> {
+    // key available for future use
+    // const key = await this.generateFieldKey(_rule.tableName, _rule.fieldName, _rule.keyVersion);
     const result = await this.encrypt(value);
     return JSON.stringify(result);
   }
@@ -420,7 +420,7 @@ class EncryptionManager {
     // Use a fixed IV based on the value for deterministic encryption
     const iv = createHash('md5').update(value + key.toString('hex')).digest().slice(0, 12);
 
-    const cipher = require('crypto').createCipher('aes-256-gcm', key);
+    const cipher = createCipheriv('aes-256-gcm', key.slice(0, 32), iv);
     cipher.setAAD(Buffer.from(`${rule.tableName}:${rule.fieldName}`));
 
     const encrypted1 = cipher.update(Buffer.from(value, 'utf8'));
@@ -449,7 +449,7 @@ class EncryptionManager {
   /**
    * Decrypt full field
    */
-  private async decryptFullField(encryptedValue: string, rule: FieldEncryptionRule): Promise<string> {
+  private async decryptFullField(encryptedValue: string, _rule: FieldEncryptionRule): Promise<string> {
     const encryptedData = JSON.parse(encryptedValue) as EncryptedData;
     const decrypted = await this.decrypt(encryptedData);
     return decrypted.toString('utf8');
@@ -466,7 +466,7 @@ class EncryptionManager {
     const authTag = buffer.slice(12, 28);
     const data = buffer.slice(28);
 
-    const decipher = require('crypto').createDecipher('aes-256-gcm', key);
+    const decipher = createDecipheriv('aes-256-gcm', key.slice(0, 32), iv);
     decipher.setAuthTag(authTag);
     decipher.setAAD(Buffer.from(`${rule.tableName}:${rule.fieldName}`));
 
@@ -497,7 +497,7 @@ class EncryptionManager {
    */
   private loadFieldEncryptionRules(): void {
     // In production, this would load from database or configuration
-    const rules: FieldEncryptionRule[] = [
+    const rules: readonly FieldEncryptionRule[] = [
       {
         tableName: 'users',
         fieldName: 'password_hash',

@@ -17,8 +17,8 @@ import {
 } from 'recharts';
 import {
   ChartBarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
@@ -363,9 +363,9 @@ export function TicketVolumeWidget({
               metrics.trend >= 0 ? 'text-green-600' : 'text-red-600'
             }`}>
               {metrics.trend >= 0 ? (
-                <TrendingUpIcon className="w-4 h-4 mr-1" />
+                <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
               ) : (
-                <TrendingDownIcon className="w-4 h-4 mr-1" />
+                <ArrowTrendingDownIcon className="w-4 h-4 mr-1" />
               )}
               {Math.abs(metrics.trend).toFixed(1)}%
             </div>
@@ -457,7 +457,7 @@ export function TicketVolumeWidget({
           {metrics.trend > 20 && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
               <div className="flex items-center">
-                <TrendingUpIcon className="w-5 h-5 text-yellow-500 mr-2" />
+                <ArrowTrendingUpIcon className="w-5 h-5 text-yellow-500 mr-2" />
                 <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
                   High Volume Alert
                 </span>

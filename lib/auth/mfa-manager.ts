@@ -3,7 +3,7 @@ import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
 import db from '../db/connection';
 import { User } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface MFASetup {
   secret: string;
@@ -28,7 +28,6 @@ export interface MFADevice {
 }
 
 class MFAManager {
-  private readonly BACKUP_CODE_LENGTH = 8;
   private readonly BACKUP_CODE_COUNT = 10;
   private readonly SMS_CODE_LENGTH = 6;
   private readonly EMAIL_CODE_LENGTH = 6;
@@ -47,9 +46,6 @@ class MFAManager {
 
       // Generate backup codes
       const backupCodes = this.generateBackupCodes();
-
-      // Create service name
-      const serviceName = `${issuer} (${user.email})`;
 
       // Generate QR code URL
       const otpauthUrl = authenticator.keyuri(user.email, issuer, secret);
@@ -127,8 +123,7 @@ class MFAManager {
 
       const isValid = authenticator.verify({
         token,
-        secret: user.two_factor_secret,
-        window: 2 // Allow 2 time windows (60 seconds each) for clock drift
+        secret: user.two_factor_secret
       });
 
       if (isValid) {
@@ -196,7 +191,7 @@ class MFAManager {
   /**
    * Generate and send SMS code
    */
-  async generateSMSCode(userId: number, phoneNumber: string): Promise<boolean> {
+  async generateSMSCode(userId: number, _phoneNumber: string): Promise<boolean> {
     try {
       const code = this.generateNumericCode(this.SMS_CODE_LENGTH);
       const expiresAt = new Date(Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000);
@@ -210,8 +205,10 @@ class MFAManager {
       `).run(userId, code, hashedCode, expiresAt.toISOString());
 
       // TODO: Integrate with SMS provider (Twilio, AWS SNS, etc.)
-      // For now, log the code (remove in production)
-      logger.info(`SMS MFA Code for user ${userId}: ${code}`);
+      // SECURITY FIX: Never log MFA codes in production
+      if (process.env.NODE_ENV === 'development') {
+        logger.debug('SMS MFA code generated for user', { userId, codeLength: code.length });
+      }
 
       this.logMFAEvent(userId, 'sms_code_sent');
       return true;
@@ -290,9 +287,11 @@ class MFAManager {
         VALUES (?, ?, ?, ?, 'two_factor_email', ?, 3)
       `).run(userId, user.email, code, hashedCode, expiresAt.toISOString());
 
-      // TODO: Send email with code
-      // For now, log the code (remove in production)
-      logger.info(`Email MFA Code for user ${userId}: ${code}`);
+      // TODO: Send email with code using email service
+      // SECURITY FIX: Never log MFA codes in production
+      if (process.env.NODE_ENV === 'development') {
+        logger.debug('Email MFA code generated for user', { userId, email: user.email, codeLength: code.length });
+      }
 
       this.logMFAEvent(userId, 'email_code_sent');
       return true;

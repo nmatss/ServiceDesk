@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as jose from 'jose'
-import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { validateJWTSecret } from '@/lib/config/env'
 import { logger } from '@/lib/monitoring/logger';

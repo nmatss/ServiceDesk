@@ -49,7 +49,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const findNearestSnapPoint = useCallback((height: number) => {
     const heightPercent = (height / window.innerHeight) * 100
     let nearestIndex = 0
-    let minDiff = Math.abs(snapPoints[0] - heightPercent)
+    let minDiff = Math.abs((snapPoints[0] ?? 0) - heightPercent)
 
     snapPoints.forEach((point, index) => {
       const diff = Math.abs(point - heightPercent)
@@ -63,23 +63,25 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   }, [snapPoints])
 
   // Touch gesture handlers
-  const handleTouchStart = useCallback((event: TouchEvent) => {
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (!sheetRef.current) return
 
     const touch = event.touches[0]
-    setStartY(touch.clientY)
-    setCurrentY(touch.clientY)
+    if (!touch) return
+    setStartY(touch.clientY ?? 0)
+    setCurrentY(touch.clientY ?? 0)
     setIsDragging(true)
   }, [])
 
-  const handleTouchMove = useCallback((event: TouchEvent) => {
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (!isDragging || !sheetRef.current) return
 
     const touch = event.touches[0]
-    setCurrentY(touch.clientY)
+    if (!touch) return
+    setCurrentY(touch.clientY ?? 0)
 
-    const deltaY = touch.clientY - startY
-    const currentHeight = window.innerHeight * (snapPoints[currentSnapPoint] / 100)
+    const deltaY = (touch.clientY ?? 0) - startY
+    const currentHeight = window.innerHeight * ((snapPoints[currentSnapPoint] ?? 0) / 100)
     const newHeight = Math.max(100, currentHeight - deltaY)
 
     // Apply transform for smooth dragging
@@ -89,13 +91,13 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
     event.preventDefault()
   }, [isDragging, startY, currentSnapPoint, snapPoints])
 
-  const handleTouchEnd = useCallback((event: TouchEvent) => {
+  const handleTouchEnd = useCallback((_event: React.TouchEvent<HTMLDivElement>) => {
     if (!isDragging || !sheetRef.current) return
 
     setIsDragging(false)
 
     const deltaY = currentY - startY
-    const currentHeight = window.innerHeight * (snapPoints[currentSnapPoint] / 100)
+    const currentHeight = window.innerHeight * ((snapPoints[currentSnapPoint] ?? 0) / 100)
     const newHeight = currentHeight - deltaY
 
     // Check if should close (dragged down significantly from smallest snap point)
@@ -122,9 +124,27 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   // Touch gestures for handle and header
   const { ref: handleRef } = useTouchGestures({
-    onTouchStart: handleTouchStart,
-    onTouchMove: handleTouchMove,
-    onTouchEnd: handleTouchEnd,
+    onTouchStart: (e: TouchEvent) => {
+      const reactEvent = {
+        touches: e.touches,
+        preventDefault: () => e.preventDefault()
+      } as unknown as React.TouchEvent<HTMLDivElement>
+      handleTouchStart(reactEvent)
+    },
+    onTouchMove: (e: TouchEvent) => {
+      const reactEvent = {
+        touches: e.touches,
+        preventDefault: () => e.preventDefault()
+      } as unknown as React.TouchEvent<HTMLDivElement>
+      handleTouchMove(reactEvent)
+    },
+    onTouchEnd: (e: TouchEvent) => {
+      const reactEvent = {
+        touches: e.changedTouches,
+        preventDefault: () => e.preventDefault()
+      } as unknown as React.TouchEvent<HTMLDivElement>
+      handleTouchEnd(reactEvent)
+    },
     onSwipe: (gesture) => {
       if (gesture.direction === 'down' && gesture.velocity > 0.5) {
         // Fast swipe down - go to next lower snap point or close

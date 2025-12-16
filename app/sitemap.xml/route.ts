@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://servicedesk.com'
 
   try {

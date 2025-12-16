@@ -1,0 +1,174 @@
+{
+  "dashboard": {
+    "title": "ServiceDesk - SLA Metrics",
+    "tags": ["servicedesk", "sla", "tickets"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "title": "SLA Compliance Rate",
+        "type": "gauge",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "servicedesk_sla_compliance_rate",
+            "legendFormat": "{{priority}} - Org {{organization_id}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.8, "color": "yellow" },
+                { "value": 0.95, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "SLA Breaches (24h)",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "increase(servicedesk_sla_breaches_total[24h])",
+            "legendFormat": "{{priority}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 10, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Response Time by Priority",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(servicedesk_sla_response_time_seconds_bucket[1h]))",
+            "legendFormat": "p95 - {{priority}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(servicedesk_sla_response_time_seconds_bucket[1h]))",
+            "legendFormat": "p50 - {{priority}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Response Time" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Ticket Resolution Time by Priority",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(servicedesk_ticket_resolution_time_seconds_bucket[1h]))",
+            "legendFormat": "p95 - {{priority}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "label": "Resolution Time" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Tickets Created vs Resolved",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "rate(servicedesk_tickets_created_total[1h])",
+            "legendFormat": "Created - {{priority}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(servicedesk_tickets_resolved_total[1h])",
+            "legendFormat": "Resolved - {{priority}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ticketspm", "label": "Tickets/hour" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Active Tickets by Priority",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum by (priority) (servicedesk_tickets_active)",
+            "legendFormat": "{{priority}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "SLA Breach Rate Trend",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "rate(servicedesk_sla_breaches_total[1h])",
+            "legendFormat": "{{priority}} - Org {{organization_id}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Breaches/hour" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "name": "SLA Breach Spike",
+          "conditions": [
+            {
+              "evaluator": { "params": [5], "type": "gt" },
+              "query": { "params": ["A", "1h", "now"] }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

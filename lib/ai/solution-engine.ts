@@ -1,7 +1,7 @@
 import db from '../db/connection';
 import { OpenAI } from 'openai';
 import type { TicketWithDetails, KnowledgeArticle } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // Solution Suggestion Engine - provides intelligent recommendations based on historical data
 export class SolutionEngine {
@@ -64,9 +64,9 @@ export class SolutionEngine {
       id: ticket.id,
       title: ticket.title,
       description: ticket.description.substring(0, 500), // Limit description length
-      category: ticket.category_name,
-      priority: ticket.priority_name,
-      status: ticket.status_name
+      category: ticket.category?.name ?? 'Unknown',
+      priority: ticket.priority?.name ?? 'Unknown',
+      status: ticket.status?.name ?? 'Unknown'
     }));
 
     const prompt = `
@@ -126,7 +126,7 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      const analysis = JSON.parse(response.choices[0].message.content || '{}');
+      const analysis = JSON.parse(response.choices[0]?.message.content || '{}');
 
       // Map the analysis back to full ticket objects
       const similarTickets = analysis.similarTickets
@@ -259,7 +259,7 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      return JSON.parse(response.choices[0]?.message.content || '{}');
 
     } catch (error) {
       logger.error('Solution Generation Error', error);
@@ -347,7 +347,7 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      return JSON.parse(response.choices[0]?.message.content || '{}');
 
     } catch (error) {
       logger.error('Response Generation Error', error);

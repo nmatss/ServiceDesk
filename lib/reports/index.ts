@@ -1,9 +1,11 @@
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface ReportFilters {
+  tenantId: number; // REQUIRED - Multi-tenant security: always filter by tenant
   startDate?: string;
   endDate?: string;
+  period?: string;
   categoryId?: number;
   priorityId?: number;
   statusId?: number;
@@ -62,10 +64,18 @@ export interface SatisfactionMetrics {
 
 /**
  * Constrói cláusula WHERE baseada nos filtros
+ * SECURITY: tenant_id filter is ALWAYS applied first for multi-tenant isolation
  */
 function buildWhereClause(filters: ReportFilters, tableAlias: string = 't'): { whereClause: string; params: any[] } {
   const conditions: string[] = [];
   const params: any[] = [];
+
+  // SECURITY: ALWAYS filter by tenant_id first - this is mandatory for multi-tenant security
+  if (!filters.tenantId || filters.tenantId <= 0) {
+    throw new Error('Security violation: tenantId is required for all report queries');
+  }
+  conditions.push(`${tableAlias}.tenant_id = ?`);
+  params.push(filters.tenantId);
 
   if (filters.startDate) {
     conditions.push(`${tableAlias}.created_at >= ?`);
@@ -102,14 +112,16 @@ function buildWhereClause(filters: ReportFilters, tableAlias: string = 't'): { w
     params.push(filters.userId);
   }
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  // Always have at least tenant_id condition, so WHERE is always present
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
   return { whereClause, params };
 }
 
 /**
  * Relatório de métricas gerais de tickets
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getTicketMetrics(filters: ReportFilters = {}): TicketMetrics {
+export function getTicketMetrics(filters: ReportFilters): TicketMetrics {
   try {
     const { whereClause, params } = buildWhereClause(filters);
 
@@ -158,9 +170,15 @@ export function getTicketMetrics(filters: ReportFilters = {}): TicketMetrics {
 
 /**
  * Relatório de performance de agentes
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getAgentPerformance(filters: ReportFilters = {}): AgentPerformance[] {
+export function getAgentPerformance(filters: ReportFilters): AgentPerformance[] {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for agent performance report');
+    }
+
     const { whereClause, params } = buildWhereClause(filters);
 
     const query = db.prepare(`
@@ -174,18 +192,20 @@ export function getAgentPerformance(filters: ReportFilters = {}): AgentPerforman
         (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / COUNT(t.id)) as slaCompliance,
         AVG(ss.agent_rating) as satisfactionRating
       FROM users u
-      LEFT JOIN tickets t ON u.id = t.assigned_to
+      LEFT JOIN tickets t ON u.id = t.assigned_to AND t.tenant_id = ?
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
       WHERE u.role IN ('admin', 'agent')
-      ${whereClause ? whereClause.replace('WHERE', 'AND') : ''}
+      AND u.organization_id = ?
+      ${whereClause.replace('WHERE', 'AND')}
       GROUP BY u.id, u.name
       HAVING COUNT(t.id) > 0
       ORDER BY ticketsAssigned DESC
     `);
 
-    const results = query.all(...params) as any[];
+    // Add tenant_id for the JOIN and organization filter, then spread other params
+    const results = query.all(filters.tenantId, filters.tenantId, ...params) as any[];
 
     return results.map(result => ({
       agentId: result.agentId,
@@ -205,9 +225,15 @@ export function getAgentPerformance(filters: ReportFilters = {}): AgentPerforman
 
 /**
  * Relatório de estatísticas por categoria
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getCategoryStats(filters: ReportFilters = {}): CategoryStats[] {
+export function getCategoryStats(filters: ReportFilters): CategoryStats[] {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for category stats report');
+    }
+
     const { whereClause, params } = buildWhereClause(filters);
 
     const query = db.prepare(`
@@ -219,16 +245,18 @@ export function getCategoryStats(filters: ReportFilters = {}): CategoryStats[] {
         AVG(CASE WHEN st.resolution_met = 1 THEN st.resolution_time_minutes END) as avgResolutionTime,
         (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / COUNT(t.id)) as slaCompliance
       FROM categories c
-      LEFT JOIN tickets t ON c.id = t.category_id
+      LEFT JOIN tickets t ON c.id = t.category_id AND t.tenant_id = ?
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-      ${whereClause ? whereClause.replace('WHERE', 'WHERE') : ''}
+      WHERE c.tenant_id = ?
+      ${whereClause.replace('WHERE', 'AND')}
       GROUP BY c.id, c.name
       HAVING COUNT(t.id) > 0
       ORDER BY totalTickets DESC
     `);
 
-    const results = query.all(...params) as any[];
+    // Add tenant_id for JOIN and categories filter, then spread other params
+    const results = query.all(filters.tenantId, filters.tenantId, ...params) as any[];
 
     return results.map(result => ({
       categoryId: result.categoryId,
@@ -246,9 +274,15 @@ export function getCategoryStats(filters: ReportFilters = {}): CategoryStats[] {
 
 /**
  * Distribuição por prioridade
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getPriorityDistribution(filters: ReportFilters = {}): PriorityDistribution[] {
+export function getPriorityDistribution(filters: ReportFilters): PriorityDistribution[] {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for priority distribution report');
+    }
+
     const { whereClause, params } = buildWhereClause(filters);
 
     // Primeiro, obter o total de tickets para calcular percentuais
@@ -269,15 +303,17 @@ export function getPriorityDistribution(filters: ReportFilters = {}): PriorityDi
         COUNT(t.id) as ticketCount,
         AVG(CASE WHEN st.resolution_met = 1 THEN st.resolution_time_minutes END) as avgResolutionTime
       FROM priorities p
-      LEFT JOIN tickets t ON p.id = t.priority_id
+      LEFT JOIN tickets t ON p.id = t.priority_id AND t.tenant_id = ?
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-      ${whereClause ? whereClause.replace('WHERE', 'WHERE') : ''}
+      WHERE p.tenant_id = ?
+      ${whereClause.replace('WHERE', 'AND')}
       GROUP BY p.id, p.name, p.level
       HAVING COUNT(t.id) > 0
       ORDER BY p.level DESC
     `);
 
-    const results = query.all(...params) as any[];
+    // Add tenant_id for JOIN and priorities filter, then spread other params
+    const results = query.all(filters.tenantId, filters.tenantId, ...params) as any[];
 
     return results.map(result => ({
       priorityId: result.priorityId,
@@ -295,9 +331,15 @@ export function getPriorityDistribution(filters: ReportFilters = {}): PriorityDi
 
 /**
  * Métricas de satisfação
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getSatisfactionMetrics(filters: ReportFilters = {}): SatisfactionMetrics {
+export function getSatisfactionMetrics(filters: ReportFilters): SatisfactionMetrics {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for satisfaction metrics report');
+    }
+
     const { whereClause, params } = buildWhereClause(filters, 't');
 
     const query = db.prepare(`
@@ -351,9 +393,15 @@ export function getSatisfactionMetrics(filters: ReportFilters = {}): Satisfactio
 
 /**
  * Relatório de tendências (dados por período)
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getTrendData(filters: ReportFilters = {}, groupBy: 'day' | 'week' | 'month' = 'day'): any[] {
+export function getTrendData(filters: ReportFilters, groupBy: 'day' | 'week' | 'month' = 'day'): any[] {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for trend data report');
+    }
+
     let dateFormat: string;
     switch (groupBy) {
       case 'week':
@@ -398,9 +446,15 @@ export function getTrendData(filters: ReportFilters = {}, groupBy: 'day' | 'week
 
 /**
  * Relatório de SLA
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getSLAReport(filters: ReportFilters = {}): any {
+export function getSLAReport(filters: ReportFilters): any {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for SLA report');
+    }
+
     const { whereClause, params } = buildWhereClause(filters);
 
     const query = db.prepare(`
@@ -414,14 +468,15 @@ export function getSLAReport(filters: ReportFilters = {}): any {
         AVG(st.response_time_minutes) as avgResponseTime,
         AVG(st.resolution_time_minutes) as avgResolutionTime
       FROM sla_tracking st
-      JOIN sla_policies sp ON st.sla_policy_id = sp.id
+      JOIN sla_policies sp ON st.sla_policy_id = sp.id AND sp.tenant_id = ?
       JOIN tickets t ON st.ticket_id = t.id
       ${whereClause}
       GROUP BY sp.id, sp.name
       ORDER BY totalTickets DESC
     `);
 
-    const results = query.all(...params) as any[];
+    // Add tenant_id for SLA policies filter, then spread other params
+    const results = query.all(filters.tenantId, ...params) as any[];
 
     return results.map(result => ({
       slaName: result.slaName,
@@ -441,9 +496,15 @@ export function getSLAReport(filters: ReportFilters = {}): any {
 
 /**
  * Dashboard executivo com métricas principais
+ * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getExecutiveDashboard(filters: ReportFilters = {}): any {
+export function getExecutiveDashboard(filters: ReportFilters): any {
   try {
+    // SECURITY: Validate tenant_id is provided
+    if (!filters.tenantId || filters.tenantId <= 0) {
+      throw new Error('Security violation: tenantId is required for executive dashboard');
+    }
+
     const ticketMetrics = getTicketMetrics(filters);
     const agentPerformance = getAgentPerformance(filters);
     const categoryStats = getCategoryStats(filters);

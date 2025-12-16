@@ -1,4 +1,4 @@
-import { Server as SocketIOServer } from 'socket.io'
+import { Server as SocketIOServer, Socket as BaseSocket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
 import { getDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
@@ -7,26 +7,58 @@ import { NotificationBatchingEngine } from './batching'
 import { DeliveryTracker } from './delivery-tracking'
 import { SmartFilteringEngine } from './smart-filtering'
 import { EscalationManager } from './escalation-manager'
-import { PresenceManager } from './presence-manager'
-import { logger } from '../monitoring/logger';
+import { PresenceManager, UserPresence } from './presence-manager'
+import logger from '../monitoring/structured-logger';
+
+// Extended Socket type with custom properties
+export interface ExtendedSocket extends BaseSocket {
+  userId: number
+  userRole: string
+  userName: string
+  userEmail: string
+}
+
+export interface NotificationData {
+  [key: string]: unknown
+}
+
+export interface NotificationMetadata {
+  [key: string]: unknown
+  timestamp?: string
+}
+
+export interface EscalationRule {
+  id: string
+  condition: string
+  action: string
+  delay?: number
+  [key: string]: unknown
+}
+
+export interface DeviceInfo {
+  userAgent: string
+  platform: string
+  browser: string
+  isMobile: boolean
+}
 
 export interface NotificationPayload {
   id?: string
   type: string
   title: string
   message: string
-  data?: any
+  data?: NotificationData
   priority: 'low' | 'medium' | 'high' | 'critical'
   targetUsers?: number[]
   targetRoles?: string[]
   ticketId?: number
   authorId?: number
   channels?: string[]
-  metadata?: any
+  metadata?: NotificationMetadata
   expiresAt?: Date
   deliveryTracking?: boolean
   batchable?: boolean
-  escalationRules?: any[]
+  escalationRules?: EscalationRule[]
 }
 
 export interface UserSession {
@@ -37,29 +69,36 @@ export interface UserSession {
   lastActivity: Date
   isOnline: boolean
   presence: 'online' | 'away' | 'busy' | 'offline'
-  deviceInfo?: any
+  deviceInfo?: DeviceInfo
   ipAddress?: string
   userAgent?: string
 }
 
+export interface UserNotificationPreferences {
+  inApp?: boolean
+  email?: boolean
+  push?: boolean
+  teams?: boolean
+  [key: string]: unknown
+}
+
 export class RealtimeNotificationEngine {
-  private io: SocketIOServer
+  private io!: SocketIOServer
   private db = getDb()
   private activeSessions = new Map<string, UserSession>()
   private userSockets = new Map<number, Set<string>>() // userId -> socketIds
 
   // Engine components
-  private channelManager: NotificationChannelManager
-  private batchingEngine: NotificationBatchingEngine
-  private deliveryTracker: DeliveryTracker
-  private smartFiltering: SmartFilteringEngine
-  private escalationManager: EscalationManager
-  private presenceManager: PresenceManager
+  private channelManager!: NotificationChannelManager
+  private batchingEngine!: NotificationBatchingEngine
+  private deliveryTracker!: DeliveryTracker
+  private smartFiltering!: SmartFilteringEngine
+  private escalationManager!: EscalationManager
+  private presenceManager!: PresenceManager
 
   // Notification queues
   private pendingNotifications = new Map<string, NotificationPayload[]>()
   private processingQueue: NotificationPayload[] = []
-  private readonly MAX_QUEUE_SIZE = 10000
   private readonly BATCH_PROCESS_INTERVAL = 1000 // 1 second
 
   constructor(httpServer: HTTPServer) {
@@ -115,11 +154,12 @@ export class RealtimeNotificationEngine {
           return next(new Error('Invalid authentication token'))
         }
 
-        // Add user info to socket
-        socket.userId = user.id
-        socket.userRole = user.role
-        socket.userName = user.name
-        socket.userEmail = user.email
+        // Add user info to socket (type assertion to ExtendedSocket)
+        const extendedSocket = socket as unknown as ExtendedSocket
+        extendedSocket.userId = user.id
+        extendedSocket.userRole = user.role
+        extendedSocket.userName = user.name
+        extendedSocket.userEmail = user.email
 
         next()
       } catch (error) {
@@ -131,12 +171,13 @@ export class RealtimeNotificationEngine {
 
   private setupConnectionHandlers() {
     this.io.on('connection', (socket) => {
-      this.handleUserConnection(socket)
-      this.setupSocketEventHandlers(socket)
+      const extendedSocket = socket as unknown as ExtendedSocket
+      this.handleUserConnection(extendedSocket)
+      this.setupSocketEventHandlers(extendedSocket)
     })
   }
 
-  private handleUserConnection(socket: any) {
+  private handleUserConnection(socket: ExtendedSocket) {
     const session: UserSession = {
       socketId: socket.id,
       userId: socket.userId,
@@ -177,7 +218,7 @@ export class RealtimeNotificationEngine {
     logger.info(`🔗 User ${session.userName} (${session.userId}) connected [${socket.id}]`)
   }
 
-  private setupSocketEventHandlers(socket: any) {
+  private setupSocketEventHandlers(socket: ExtendedSocket) {
     // Presence events
     socket.on('presence:update', (presence: string) => {
       this.handlePresenceUpdate(socket, presence)
@@ -248,7 +289,7 @@ export class RealtimeNotificationEngine {
     })
   }
 
-  private joinUserRooms(socket: any) {
+  private joinUserRooms(socket: ExtendedSocket) {
     // User-specific room
     socket.join(`user_${socket.userId}`)
 
@@ -269,19 +310,20 @@ export class RealtimeNotificationEngine {
     }
   }
 
-  private handlePresenceUpdate(socket: any, presence: string) {
+  private handlePresenceUpdate(socket: ExtendedSocket, presence: string) {
     const session = this.activeSessions.get(socket.id)
     if (session) {
-      session.presence = presence as any
+      const validPresence = presence as 'online' | 'away' | 'busy' | 'offline'
+      session.presence = validPresence
       session.lastActivity = new Date()
       this.activeSessions.set(socket.id, session)
 
-      this.presenceManager.setUserPresence(socket.userId, presence as any)
+      this.presenceManager.setUserPresence(socket.userId, validPresence)
       this.broadcastPresenceUpdate(socket.userId, presence)
     }
   }
 
-  private handleUserDisconnection(socket: any, reason: string) {
+  private handleUserDisconnection(socket: ExtendedSocket, reason: string) {
     const session = this.activeSessions.get(socket.id)
     if (!session) return
 
@@ -297,6 +339,8 @@ export class RealtimeNotificationEngine {
         // User is completely offline
         this.presenceManager.setUserPresence(socket.userId, 'offline')
         this.broadcastPresenceUpdate(socket.userId, 'offline')
+        // Limpar timers do usuário
+        this.presenceManager.clearUserTimers(socket.userId)
       }
     }
 
@@ -391,7 +435,7 @@ export class RealtimeNotificationEngine {
       for (const channel of channels) {
         if (channel !== 'socket' && channel !== 'in-app') {
           deliveryPromises.push(
-            this.channelManager.deliverViaChannel(channel, notification, userId, userPreferences)
+            this.channelManager.deliverViaChannel(channel, notification, userId, userPreferences).then(() => {})
           )
         }
       }
@@ -449,7 +493,7 @@ export class RealtimeNotificationEngine {
     }
 
     // Remove duplicates and exclude author if specified
-    const uniqueUsers = [...new Set(targetUsers)]
+    const uniqueUsers = Array.from(new Set(targetUsers))
     if (notification.authorId) {
       return uniqueUsers.filter(id => id !== notification.authorId)
     }
@@ -471,7 +515,7 @@ export class RealtimeNotificationEngine {
           SELECT user_id FROM ticket_followers WHERE ticket_id = ?
         )
         WHERE user_id IS NOT NULL
-      `).all(ticketId, ticketId, ticketId, ticketId) as { user_id: number }[]
+      `).all(ticketId, ticketId, ticketId, ticketId) as Array<{ user_id: number }>
 
       return participants.map(p => p.user_id)
     } catch (error) {
@@ -486,7 +530,7 @@ export class RealtimeNotificationEngine {
       const users = this.db.prepare(`
         SELECT id FROM users
         WHERE role IN (${placeholders}) AND is_active = 1
-      `).all(...roles) as { id: number }[]
+      `).all(...roles) as Array<{ id: number }>
 
       return users.map(u => u.id)
     } catch (error) {
@@ -499,7 +543,7 @@ export class RealtimeNotificationEngine {
     try {
       const users = this.db.prepare(`
         SELECT id FROM users WHERE is_active = 1
-      `).all() as { id: number }[]
+      `).all() as Array<{ id: number }>
 
       return users.map(u => u.id)
     } catch (error) {
@@ -512,7 +556,7 @@ export class RealtimeNotificationEngine {
     return `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   }
 
-  private extractDeviceInfo(socket: any): any {
+  private extractDeviceInfo(socket: ExtendedSocket): DeviceInfo {
     const userAgent = socket.handshake.headers['user-agent'] || ''
     return {
       userAgent,
@@ -620,11 +664,11 @@ export class RealtimeNotificationEngine {
     }
   }
 
-  private async getUserNotificationPreferences(userId: number): Promise<any> {
+  private async getUserNotificationPreferences(userId: number): Promise<UserNotificationPreferences> {
     try {
       const prefs = this.db.prepare(`
         SELECT notification_preferences FROM users WHERE id = ?
-      `).get(userId) as { notification_preferences: string | null }
+      `).get(userId) as { notification_preferences: string | null } | undefined
 
       return prefs?.notification_preferences ? JSON.parse(prefs.notification_preferences) : {}
     } catch (error) {
@@ -633,7 +677,7 @@ export class RealtimeNotificationEngine {
     }
   }
 
-  private determineChannelsFromPreferences(preferences: any, notification: NotificationPayload): string[] {
+  private determineChannelsFromPreferences(preferences: UserNotificationPreferences, notification: NotificationPayload): string[] {
     const defaultChannels = ['socket']
 
     if (!preferences || Object.keys(preferences).length === 0) {
@@ -697,9 +741,9 @@ export class RealtimeNotificationEngine {
         SELECT COUNT(*) as count
         FROM notifications
         WHERE user_id = ? AND is_read = 0
-      `).get(userId) as { count: number }
+      `).get(userId) as { count: number } | undefined
 
-      return result.count
+      return result?.count || 0
     } catch (error) {
       logger.error('Error getting unread notification count', error)
       return 0
@@ -755,7 +799,7 @@ export class RealtimeNotificationEngine {
   private cleanupInactiveSessions() {
     const cutoffTime = new Date(Date.now() - 5 * 60 * 1000) // 5 minutes ago
 
-    for (const [socketId, session] of this.activeSessions.entries()) {
+    for (const [socketId, session] of Array.from(this.activeSessions.entries())) {
       if (session.lastActivity < cutoffTime) {
         this.activeSessions.delete(socketId)
 
@@ -772,18 +816,20 @@ export class RealtimeNotificationEngine {
   }
 
   private cleanupOldPendingNotifications() {
-    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours ago
+    const MAX_AGE = 24 * 60 * 60 * 1000 // 24 horas
+    const now = Date.now()
 
-    for (const [userKey, notifications] of this.pendingNotifications.entries()) {
-      const validNotifications = notifications.filter(n => {
-        const notificationTime = n.metadata?.timestamp ? new Date(n.metadata.timestamp) : new Date()
-        return notificationTime > cutoffTime
+    for (const [key, notifications] of this.pendingNotifications) {
+      const filtered = notifications.filter(n => {
+        const timestamp = n.metadata?.timestamp || n.metadata?.created_at
+        const notificationTime = timestamp ? new Date(timestamp as string).getTime() : now
+        return now - notificationTime < MAX_AGE
       })
 
-      if (validNotifications.length === 0) {
-        this.pendingNotifications.delete(userKey)
-      } else if (validNotifications.length !== notifications.length) {
-        this.pendingNotifications.set(userKey, validNotifications)
+      if (filtered.length === 0) {
+        this.pendingNotifications.delete(key)
+      } else if (filtered.length !== notifications.length) {
+        this.pendingNotifications.set(key, filtered)
       }
     }
   }
@@ -793,7 +839,7 @@ export class RealtimeNotificationEngine {
     return Array.from(this.activeSessions.values())
   }
 
-  public getUserPresence(userId: number): string | null {
+  public getUserPresence(userId: number): UserPresence | null {
     return this.presenceManager.getUserPresence(userId)
   }
 

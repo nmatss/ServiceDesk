@@ -34,6 +34,7 @@ export default function AchievementBadge({
       const timeout = setTimeout(() => setIsUnlocking(false), 1000);
       return () => clearTimeout(timeout);
     }
+    return undefined;
   }, [animated, unlocked]);
 
   const sizeClasses = {

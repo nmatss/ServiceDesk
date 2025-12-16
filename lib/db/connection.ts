@@ -38,6 +38,32 @@ legacyDb.pragma('temp_store = MEMORY');
 export default legacyDb;
 
 /**
+ * Named export for db (for consistent imports)
+ */
+export const db = legacyDb;
+
+/**
+ * Named export for getDb function (for consistent imports)
+ */
+export const getDb = () => legacyDb;
+
+/**
+ * Named export for getDB function (for consistent imports)
+ */
+export const getDB = () => legacyDb;
+
+/**
+ * Named export for getConnection (for consistent imports)
+ */
+export const getConnection = () => legacyDb;
+
+/**
+ * Named export for getDatabase (for consistent imports)
+ * Alias for getDB - added for compatibility with newer API routes
+ */
+export const getDatabase = () => legacyDb;
+
+/**
  * Recommended: Use connection pool for better performance
  *
  * @example

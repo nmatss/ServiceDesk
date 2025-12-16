@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 
 export async function DELETE(
@@ -11,8 +11,6 @@ export async function DELETE(
     const tenantId = getCurrentTenantId()
     const teamId = parseInt(params.id)
     const userId = parseInt(params.userId)
-    const db = getDb()
-
     if (isNaN(teamId) || isNaN(userId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid team ID or user ID' },

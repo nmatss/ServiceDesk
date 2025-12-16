@@ -4,20 +4,27 @@ import {
   getUserFromRequest,
   getTenantFromRequest,
   parseJSONBody,
-  validateTenantAccess,
 } from '@/lib/api/api-helpers'
 import { NotFoundError, ConflictError } from '@/lib/errors/error-handler'
 import { ticketSchemas } from '@/lib/validation/schemas'
 import { safeQuery, safeTransaction } from '@/lib/db/safe-queries'
-import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { getWorkflowManager } from '@/lib/workflow/manager'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
+import { createRateLimitMiddleware } from '@/lib/rate-limit'
+
+// Rate limiting moderado para criação de tickets (100 requests em 15 minutos)
+const createTicketRateLimit = createRateLimitMiddleware('api')
 
 /**
  * POST /api/tickets/create
  * Create a new ticket with workflow processing
  */
 export const POST = apiHandler(async (request: NextRequest) => {
+  // Aplicar rate limiting
+  const rateLimitResult = await createTicketRateLimit(request, '/api/tickets/create')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
   // 1. Extract authenticated user and tenant
   const user = getUserFromRequest(request)
   const tenant = getTenantFromRequest(request)
@@ -33,12 +40,11 @@ export const POST = apiHandler(async (request: NextRequest) => {
     source: ticketSchemas.create.shape.title.optional(),
   })
 
-  const data = await parseJSONBody(request, createTicketSchema as any)
+  type CreateTicketData = typeof createTicketSchema._output
+  const data = await parseJSONBody<CreateTicketData>(request, createTicketSchema)
 
   const tenantId = tenant.id
   const workflowManager = getWorkflowManager()
-  const db = getDb()
-
   // 3. Validate ticket type belongs to tenant (with safe query)
   const ticketTypeResult = safeQuery(
     () => db.prepare(`
@@ -221,8 +227,6 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
 // Helper function to create approval workflow
 async function createApprovalWorkflow(ticketId: number, tenantId: number, ticketType: any) {
-    const db = getDb()
-
     // Find approval workflow for this ticket type
     const workflow = db.prepare(`
       SELECT * FROM approval_workflows

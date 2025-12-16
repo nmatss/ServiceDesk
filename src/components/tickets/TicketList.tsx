@@ -7,12 +7,11 @@ import {
   FunnelIcon,
   MagnifyingGlassIcon,
   ArrowsUpDownIcon,
-  ViewColumnsIcon,
   ListBulletIcon,
   Squares2X2Icon
 } from '@heroicons/react/24/outline'
-import TicketCard, { Ticket } from './TicketCard'
-import StatsCard from '../ui/StatsCard'
+import TicketCard, { TicketData as Ticket } from '../../../components/ui/TicketCard'
+import StatsCard from '@/components/ui/StatsCard'
 
 interface TicketListProps {
   userRole?: 'admin' | 'agent' | 'user'
@@ -104,27 +103,22 @@ export default function TicketList({
   const fetchTickets = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
 
       const params = new URLSearchParams()
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value)
       })
       if (limit) params.append('limit', limit.toString())
+      if (showUserTickets) params.append('my_tickets', 'true')
 
       let url = '/api/tickets'
       if (userRole === 'admin' && !showUserTickets) {
         url = '/api/admin/tickets'
-      } else if (showUserTickets) {
-        const userId = localStorage.getItem('user_id')
-        url = `/api/tickets/user/${userId}`
       }
 
+      // SECURITY: Use cookies instead of localStorage token
       const response = await fetch(`${url}?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       })
 
       if (!response.ok) {
@@ -143,19 +137,11 @@ export default function TicketList({
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
+      const url = showUserTickets ? '/api/tickets/stats?my_tickets=true' : '/api/tickets/stats'
 
-      let url = '/api/tickets/stats'
-      if (showUserTickets) {
-        const userId = localStorage.getItem('user_id')
-        url = `/api/tickets/user/${userId}/stats`
-      }
-
+      // SECURITY: Use cookies instead of localStorage token
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       })
 
       if (response.ok) {
@@ -484,9 +470,8 @@ export default function TicketList({
           <TicketCard
             key={ticket.id}
             ticket={ticket}
-            variant={compact ? 'compact' : 'default'}
+            compact={compact}
             showActions={userRole === 'admin' || userRole === 'agent'}
-            userRole={userRole}
             onClick={() => handleTicketClick(ticket.id)}
           />
         ))}

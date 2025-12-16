@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // Enterprise Machine Learning Pipeline for ServiceDesk Analytics
 // Provides core ML infrastructure for predictive analytics, feature engineering, and model management
@@ -15,7 +15,7 @@ export interface MLModel {
   last_trained_at: Date;
   last_evaluated_at: Date;
   model_artifact_path?: string;
-  hyperparameters: Record<string, any>;
+  hyperparameters: Record<string, unknown>;
   training_logs: string[];
 }
 
@@ -38,29 +38,29 @@ export interface DerivedFeature {
 export interface PreprocessingStep {
   name: string;
   type: 'normalize' | 'scale' | 'encode' | 'impute' | 'transform';
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   target_features?: string[];
 }
 
 export interface TrainingData {
-  features: Record<string, any>;
-  target: any;
+  features: Record<string, unknown>;
+  target: unknown;
   timestamp: Date;
   entity_id: string;
   entity_type: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PredictionRequest {
   model_id: string;
-  features: Record<string, any>;
+  features: Record<string, unknown>;
   confidence_threshold?: number;
   explain_prediction?: boolean;
 }
 
 export interface PredictionResult {
   model_id: string;
-  prediction: any;
+  prediction: unknown;
   confidence: number;
   probability_distribution?: Record<string, number>;
   feature_importance?: Record<string, number>;
@@ -94,7 +94,6 @@ export class MLPipeline {
   private models: Map<string, MLModel> = new Map();
   private featureStore: FeatureStore;
   private modelRegistry: ModelRegistry;
-  private trainingQueue: TrainingJob[] = [];
 
   constructor() {
     this.featureStore = new FeatureStore();
@@ -153,8 +152,8 @@ export class MLPipeline {
     entityType: string,
     entityId: string,
     featureConfig: FeatureConfig
-  ): Promise<Record<string, any>> {
-    const features: Record<string, any> = {};
+  ): Promise<Record<string, unknown>> {
+    const features: Record<string, unknown> = {};
 
     // Extract base features from entity
     const entityData = await this.featureStore.getEntityData(entityType, entityId);
@@ -190,18 +189,19 @@ export class MLPipeline {
     return this.applyPreprocessing(features, featureConfig.preprocessing_steps);
   }
 
-  private extractNumericalFeature(data: any, feature: string): number {
+  private extractNumericalFeature(data: unknown, feature: string): number {
     const value = this.getNestedValue(data, feature);
     return typeof value === 'number' ? value : 0;
   }
 
-  private extractCategoricalFeature(data: any, feature: string): string {
+  private extractCategoricalFeature(data: unknown, feature: string): string {
     const value = this.getNestedValue(data, feature);
     return typeof value === 'string' ? value : 'unknown';
   }
 
-  private async extractTextFeatures(data: any, feature: string): Promise<Record<string, any>> {
-    const text = this.getNestedValue(data, feature) || '';
+  private async extractTextFeatures(data: unknown, feature: string): Promise<Record<string, unknown>> {
+    const value = this.getNestedValue(data, feature);
+    const text = typeof value === 'string' ? value : '';
 
     return {
       [`${feature}_length`]: text.length,
@@ -214,8 +214,9 @@ export class MLPipeline {
     };
   }
 
-  private extractTemporalFeatures(data: any, feature: string): Record<string, any> {
-    const date = new Date(this.getNestedValue(data, feature));
+  private extractTemporalFeatures(data: unknown, feature: string): Record<string, unknown> {
+    const value = this.getNestedValue(data, feature);
+    const date = new Date(value as string | number | Date);
     const now = new Date();
 
     return {
@@ -228,7 +229,7 @@ export class MLPipeline {
     };
   }
 
-  private calculateDerivedFeature(features: Record<string, any>, config: DerivedFeature): any {
+  private calculateDerivedFeature(features: Record<string, unknown>, config: DerivedFeature): number {
     try {
       // Simple formula evaluation - in production, use a proper expression evaluator
       let formula = config.formula;
@@ -238,27 +239,30 @@ export class MLPipeline {
       }
 
       // Basic mathematical operations
-      formula = formula.replace(/\bmax\(([^)]+)\)/g, (_, args) => {
+      formula = formula.replace(/\bmax\(([^)]+)\)/g, (_match, args: string) => {
         const values = args.split(',').map((v: string) => parseFloat(v.trim()));
         return String(Math.max(...values));
       });
 
-      formula = formula.replace(/\bmin\(([^)]+)\)/g, (_, args) => {
+      formula = formula.replace(/\bmin\(([^)]+)\)/g, (_match, args: string) => {
         const values = args.split(',').map((v: string) => parseFloat(v.trim()));
         return String(Math.min(...values));
       });
 
-      return eval(formula);
+      // eslint-disable-next-line no-eval
+      const result = eval(formula);
+      return typeof result === 'number' ? result : 0;
     } catch (error) {
-      logger.warn(`[ML Pipeline] Error calculating derived feature ${config.name}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.warn(`[ML Pipeline] Error calculating derived feature ${config.name}: ${errorMessage}`);
       return 0;
     }
   }
 
   private applyPreprocessing(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     steps: PreprocessingStep[]
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     let processedFeatures = { ...features };
 
     for (const step of steps) {
@@ -269,9 +273,9 @@ export class MLPipeline {
   }
 
   private applyPreprocessingStep(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     step: PreprocessingStep
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const targetFeatures = step.target_features || Object.keys(features);
 
     switch (step.type) {
@@ -333,7 +337,7 @@ export class MLPipeline {
     return result;
   }
 
-  private async runInference(model: MLModel, features: Record<string, any>): Promise<any> {
+  private async runInference(model: MLModel, _features: Record<string, unknown>): Promise<{ value: unknown; probabilities?: Record<string, number> }> {
     // Mock inference - replace with actual model inference
     switch (model.type) {
       case 'classification':
@@ -399,7 +403,8 @@ export class MLPipeline {
 
     } catch (error) {
       model.status = 'failed';
-      model.training_logs.push(`Training failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      model.training_logs.push(`Training failed: ${errorMessage}`);
       await this.modelRegistry.save(model);
       throw error;
     }
@@ -408,7 +413,7 @@ export class MLPipeline {
   private async prepareTrainingData(
     data: TrainingData[],
     featureConfig: FeatureConfig
-  ): Promise<Record<string, any>[]> {
+  ): Promise<Record<string, unknown>[]> {
     const preparedData = [];
 
     for (const sample of data) {
@@ -463,8 +468,13 @@ export class MLPipeline {
   // UTILITY METHODS
   // ========================================
 
-  private getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
+  private getNestedValue(obj: unknown, path: string): unknown {
+    return path.split('.').reduce((current: unknown, key: string) => {
+      if (current && typeof current === 'object' && key in current) {
+        return (current as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, obj);
   }
 
   private async analyzeSentiment(text: string): Promise<number> {
@@ -502,18 +512,18 @@ export class MLPipeline {
   }
 
   private normalizeFeatures(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     targetFeatures: string[],
-    config: any
-  ): Record<string, any> {
+    config: Record<string, unknown>
+  ): Record<string, unknown> {
     // Z-score normalization
     const result = { ...features };
 
     for (const feature of targetFeatures) {
       if (typeof features[feature] === 'number') {
-        const mean = config[`${feature}_mean`] || 0;
-        const std = config[`${feature}_std`] || 1;
-        result[feature] = (features[feature] - mean) / std;
+        const mean = typeof config[`${feature}_mean`] === 'number' ? config[`${feature}_mean`] as number : 0;
+        const std = typeof config[`${feature}_std`] === 'number' ? config[`${feature}_std`] as number : 1;
+        result[feature] = ((features[feature] as number) - mean) / std;
       }
     }
 
@@ -521,18 +531,18 @@ export class MLPipeline {
   }
 
   private scaleFeatures(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     targetFeatures: string[],
-    config: any
-  ): Record<string, any> {
+    config: Record<string, unknown>
+  ): Record<string, unknown> {
     // Min-max scaling
     const result = { ...features };
 
     for (const feature of targetFeatures) {
       if (typeof features[feature] === 'number') {
-        const min = config[`${feature}_min`] || 0;
-        const max = config[`${feature}_max`] || 1;
-        result[feature] = (features[feature] - min) / (max - min);
+        const min = typeof config[`${feature}_min`] === 'number' ? config[`${feature}_min`] as number : 0;
+        const max = typeof config[`${feature}_max`] === 'number' ? config[`${feature}_max`] as number : 1;
+        result[feature] = ((features[feature] as number) - min) / (max - min);
       }
     }
 
@@ -540,16 +550,17 @@ export class MLPipeline {
   }
 
   private encodeFeatures(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     targetFeatures: string[],
-    config: any
-  ): Record<string, any> {
+    config: Record<string, unknown>
+  ): Record<string, unknown> {
     const result = { ...features };
 
     for (const feature of targetFeatures) {
       if (typeof features[feature] === 'string') {
-        const encoding = config[`${feature}_encoding`] || {};
-        result[feature] = encoding[features[feature]] || 0;
+        const encoding = config[`${feature}_encoding`];
+        const encodingMap = typeof encoding === 'object' && encoding !== null ? encoding as Record<string, number> : {};
+        result[feature] = encodingMap[features[feature] as string] || 0;
       }
     }
 
@@ -557,10 +568,10 @@ export class MLPipeline {
   }
 
   private imputeFeatures(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     targetFeatures: string[],
-    config: any
-  ): Record<string, any> {
+    config: Record<string, unknown>
+  ): Record<string, unknown> {
     const result = { ...features };
 
     for (const feature of targetFeatures) {
@@ -573,33 +584,33 @@ export class MLPipeline {
   }
 
   private transformFeatures(
-    features: Record<string, any>,
+    features: Record<string, unknown>,
     targetFeatures: string[],
-    config: any
-  ): Record<string, any> {
+    config: Record<string, unknown>
+  ): Record<string, unknown> {
     const result = { ...features };
 
     for (const feature of targetFeatures) {
       const transform = config[`${feature}_transform`];
 
       if (transform === 'log' && typeof features[feature] === 'number') {
-        result[feature] = Math.log(Math.max(features[feature], 1));
+        result[feature] = Math.log(Math.max(features[feature] as number, 1));
       } else if (transform === 'sqrt' && typeof features[feature] === 'number') {
-        result[feature] = Math.sqrt(Math.max(features[feature], 0));
+        result[feature] = Math.sqrt(Math.max(features[feature] as number, 0));
       }
     }
 
     return result;
   }
 
-  private calculateConfidence(prediction: any, model: MLModel): number {
+  private calculateConfidence(_prediction: { value: unknown; probabilities?: Record<string, number> }, _model: MLModel): number {
     // Mock confidence calculation
     return Math.random() * 0.4 + 0.6; // Between 0.6 and 1.0
   }
 
   private explainPrediction(
-    features: Record<string, any>,
-    model: MLModel
+    features: Record<string, unknown>,
+    _model: MLModel
   ): Record<string, number> {
     // Mock feature importance for explanation
     const importance: Record<string, number> = {};
@@ -612,7 +623,7 @@ export class MLPipeline {
     return importance;
   }
 
-  private generateExplanation(prediction: any, featureImportance?: Record<string, number>): string {
+  private generateExplanation(_prediction: { value: unknown; probabilities?: Record<string, number> }, featureImportance?: Record<string, number>): string {
     if (!featureImportance) return 'No explanation available';
 
     const topFeatures = Object.entries(featureImportance)
@@ -624,15 +635,15 @@ export class MLPipeline {
     return `Prediction based on: ${topFeatures}`;
   }
 
-  private async logPrediction(result: PredictionResult, features: Record<string, any>): Promise<void> {
+  private async logPrediction(result: PredictionResult, _features: Record<string, unknown>): Promise<void> {
     // Log prediction for monitoring and retraining
     logger.info(`[ML Pipeline] Prediction logged for model ${result.model_id}`);
   }
 
   private async runTraining(
     model: MLModel,
-    features: Record<string, any>[],
-    targets: any[]
+    _features: Record<string, unknown>[],
+    _targets: unknown[]
   ): Promise<MLModel> {
     // Mock training - replace with actual ML training
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate training time
@@ -659,7 +670,7 @@ export class MLPipeline {
     };
   }
 
-  private calculateClassificationMetrics(actual: any[], predicted: any[]): any {
+  private calculateClassificationMetrics(_actual: unknown[], _predicted: unknown[]): ModelEvaluation['metrics'] {
     // Mock classification metrics
     return {
       accuracy: 0.85,
@@ -670,9 +681,14 @@ export class MLPipeline {
     };
   }
 
-  private calculateRegressionMetrics(actual: number[], predicted: number[]): any {
-    // Mock regression metrics
-    const errors = actual.map((a, i) => a - predicted[i]);
+  private calculateRegressionMetrics(actual: unknown[], predicted: unknown[]): ModelEvaluation['metrics'] {
+    // Mock regression metrics - cast to numbers for calculation
+    const actualNumbers = actual.map(a => typeof a === 'number' ? a : 0);
+    const predictedNumbers = predicted.map(p => typeof p === 'number' ? p : 0);
+    const errors = actualNumbers.map((a, i) => {
+      const predictedValue = predictedNumbers[i];
+      return a - (predictedValue ?? 0);
+    });
     const mse = errors.reduce((sum, e) => sum + e * e, 0) / errors.length;
 
     return {
@@ -683,22 +699,25 @@ export class MLPipeline {
   }
 
   private calculateFeatureImportance(
-    model: MLModel,
-    features: Record<string, any>[]
+    _model: MLModel,
+    features: Record<string, unknown>[]
   ): Record<string, number> {
     // Mock feature importance calculation
     const importance: Record<string, number> = {};
 
     if (features.length > 0) {
-      for (const key of Object.keys(features[0])) {
-        importance[key] = Math.random();
+      const firstFeature = features[0];
+      if (firstFeature) {
+        for (const key of Object.keys(firstFeature)) {
+          importance[key] = Math.random();
+        }
       }
     }
 
     return importance;
   }
 
-  private calculateDataQualityScore(features: Record<string, any>[]): number {
+  private calculateDataQualityScore(_features: Record<string, unknown>[]): number {
     // Mock data quality score
     return Math.random() * 0.2 + 0.8; // Between 0.8 and 1.0
   }
@@ -709,7 +728,7 @@ export class MLPipeline {
 // ========================================
 
 class FeatureStore {
-  async getEntityData(entityType: string, entityId: string): Promise<any> {
+  async getEntityData(entityType: string, entityId: string): Promise<Record<string, unknown>> {
     // Mock implementation - replace with actual data fetching
     return {
       id: entityId,
@@ -738,15 +757,6 @@ class ModelRegistry {
   async delete(modelId: string): Promise<void> {
     this.models.delete(modelId);
   }
-}
-
-interface TrainingJob {
-  id: string;
-  model_id: string;
-  status: 'queued' | 'running' | 'completed' | 'failed';
-  created_at: Date;
-  started_at?: Date;
-  completed_at?: Date;
 }
 
 // Export singleton instance

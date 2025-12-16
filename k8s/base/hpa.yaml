@@ -1,0 +1,109 @@
+---
+# HorizontalPodAutoscaler - Auto-scaling based on CPU and Memory
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: servicedesk-app-hpa
+  labels:
+    app: servicedesk
+    component: app
+  annotations:
+    description: "Auto-scaling for ServiceDesk application"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: servicedesk-app
+
+  minReplicas: 3
+  maxReplicas: 10
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Min
+
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 4
+          periodSeconds: 30
+      selectPolicy: Max
+
+  metrics:
+    # CPU-based scaling
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+    # Memory-based scaling
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+    # Custom metrics (requires Prometheus Adapter)
+    # Uncomment if you have custom metrics configured
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: http_requests_per_second
+    #     target:
+    #       type: AverageValue
+    #       averageValue: "1000"
+
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: response_time_p95
+    #     target:
+    #       type: AverageValue
+    #       averageValue: "500m"
+
+---
+# VerticalPodAutoscaler (optional - requires VPA controller)
+# VPA automatically adjusts CPU and memory requests/limits
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: servicedesk-app-vpa
+  labels:
+    app: servicedesk
+    component: app
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: servicedesk-app
+
+  updatePolicy:
+    updateMode: "Auto"
+
+  resourcePolicy:
+    containerPolicies:
+      - containerName: app
+        minAllowed:
+          cpu: "250m"
+          memory: "256Mi"
+        maxAllowed:
+          cpu: "2000m"
+          memory: "2Gi"
+        controlledResources:
+          - cpu
+          - memory

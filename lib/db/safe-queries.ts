@@ -4,7 +4,7 @@
  */
 
 import type { Database, RunResult } from 'better-sqlite3'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Query execution result

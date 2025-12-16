@@ -13,7 +13,6 @@
 
 // Data Protection (NEW - Sprint 7)
 export { dataProtection } from './data-protection';
-import { logger } from '../monitoring/logger';
 export type {
   FieldEncryptionConfig,
   EncryptedField,
@@ -28,28 +27,13 @@ export { encryptionManager } from './encryption-manager';
 export { dataMasking } from './data-masking';
 
 // PII Detection
-export { piiDetector } from './pii-detection';
-
-// LGPD Compliance
-export { lgpdCompliance } from './lgpd-compliance';
+export { PiiDetector } from './pii-detection';
 
 // Input Sanitization
-export { inputSanitizer } from './input-sanitization';
-
-// Security Monitoring
-export { securityMonitor } from './monitoring';
-
-// Encryption Utilities
-export { encrypt, decrypt } from './encryption';
+export { sanitizeHTML, sanitizeMarkdown, sanitizeUserInput } from './sanitize';
 
 // Security Configuration
-export { securityConfig } from './config';
-
-// CORS Configuration
-export { corsConfig } from './cors';
-
-// CSP Configuration
-export { cspConfig } from './csp';
+export type { SecurityConfig } from './config';
 
 /**
  * Quick Start Examples

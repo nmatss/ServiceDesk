@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { CameraIcon, PhotoIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { CameraIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { BottomSheet } from './BottomSheet'
 
 export interface CapturedImage {
@@ -248,7 +248,9 @@ export const ImageCapture: React.FC<ImageCaptureProps> = ({
     setCapturedImages(prev => {
       const newImages = [...prev]
       const removed = newImages.splice(index, 1)[0]
-      URL.revokeObjectURL(removed.preview)
+      if (removed) {
+        URL.revokeObjectURL(removed.preview)
+      }
       return newImages
     })
   }, [])
@@ -418,7 +420,9 @@ export const useImageCapture = () => {
     setCapturedImages(prev => {
       const newImages = [...prev]
       const removed = newImages.splice(index, 1)[0]
-      URL.revokeObjectURL(removed.preview)
+      if (removed) {
+        URL.revokeObjectURL(removed.preview)
+      }
       return newImages
     })
   }, [])

@@ -1,6 +1,5 @@
 'use client'
 
-import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { AdminTable } from '@/src/components/admin/AdminTable'
@@ -68,7 +67,7 @@ export default function AdminUsersPage() {
     {
       key: 'actions',
       label: 'Ações',
-      render: (value: any, row: any) => (
+      render: (_value: any, _row: any) => (
         <div className="flex space-x-2">
           <AdminButton variant="secondary" size="sm">
             Editar
@@ -82,8 +81,7 @@ export default function AdminUsersPage() {
   ]
 
   return (
-    <AdminDashboard currentPage="usuários">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
@@ -238,6 +236,5 @@ export default function AdminUsersPage() {
           </div>
         </AdminCard>
       </div>
-    </AdminDashboard>
   )
 }

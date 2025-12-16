@@ -100,7 +100,8 @@ class L1Cache {
 
   invalidateByTag(tag: string): number {
     let count = 0
-    for (const [key, entry] of this.cache.entries()) {
+    const cacheEntries = Array.from(this.cache.entries())
+    for (const [key, entry] of cacheEntries) {
       if (entry.tags.includes(tag)) {
         this.cache.delete(key)
         count++

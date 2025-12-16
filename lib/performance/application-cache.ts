@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Application-Level Cache Management
@@ -67,7 +67,6 @@ export class ApplicationCache<T = any> {
 
   private cleanupInterval?: NodeJS.Timeout;
   private syncInterval?: NodeJS.Timeout;
-  private clusters = new Map<string, CacheCluster>();
 
   constructor(private config: ApplicationCacheConfig) {
     this.startCleanupScheduler();
@@ -499,19 +498,19 @@ export class ApplicationCache<T = any> {
 
     switch (this.config.evictionPolicy) {
       case 'lru':
-        keyToEvict = this.accessOrder.values().next().value;
+        keyToEvict = this.accessOrder.values().next().value || '';
         break;
       case 'lfu':
         keyToEvict = this.findLFUKey();
         break;
       case 'fifo':
-        keyToEvict = this.entries.keys().next().value;
+        keyToEvict = this.entries.keys().next().value || '';
         break;
       case 'ttl':
         keyToEvict = this.findShortestTTLKey();
         break;
       default:
-        keyToEvict = this.entries.keys().next().value;
+        keyToEvict = this.entries.keys().next().value || '';
     }
 
     if (keyToEvict) {
@@ -565,7 +564,6 @@ export class ApplicationCache<T = any> {
   }
 
   private cleanup(): void {
-    const now = Date.now();
     const keysToDelete: string[] = [];
 
     for (const [key, entry] of this.entries.entries()) {
@@ -587,7 +585,7 @@ export class ApplicationCache<T = any> {
     }, this.config.clustering.syncInterval);
   }
 
-  private scheduleClusterSync(key: string): void {
+  private scheduleClusterSync(_key: string): void {
     // Implementation would schedule sync for specific key
   }
 

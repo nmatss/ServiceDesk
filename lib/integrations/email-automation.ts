@@ -17,11 +17,15 @@
 import nodemailer from 'nodemailer';
 import Handlebars from 'handlebars';
 import { ImapFlow } from 'imapflow';
-import { simpleParser, ParsedMail, Attachment } from 'mailparser';
+import { simpleParser, Attachment } from 'mailparser';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import db from '../db/connection';
-import { createTicket, addComment, getTicketById } from '@/lib/db/queries';
-import type { Ticket } from '@/lib/types/database';
-import { logger } from '@/lib/monitoring/logger';
+import { ticketQueries, commentQueries } from '@/lib/db/queries';
+import logger from '@/lib/monitoring/structured-logger';
+
+const createTicket = ticketQueries.create;
+const addComment = commentQueries.create;
+const getTicketById = ticketQueries.getById;
 
 // Email Configuration
 interface EmailConfig {
@@ -301,10 +305,11 @@ export class EmailAutomation {
   async sendTicketNotification(
     ticketId: number,
     eventType: 'created' | 'assigned' | 'updated' | 'resolved',
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     organizationId?: number
   ): Promise<void> {
     try {
-      const ticket = await getTicketById(ticketId);
+      const ticket = await getTicketById(ticketId, organizationId || 1);
       if (!ticket) {
         logger.error('Ticket not found', ticketId);
         return;
@@ -318,6 +323,7 @@ export class EmailAutomation {
 
       const rendered = this.renderTemplate(templateName, {
         ticketId: ticket.id,
+        ticketNumber: ticket.ticket_number || `#${ticket.id}`,
         title: ticket.title,
         description: ticket.description,
         status: ticket.status_id,

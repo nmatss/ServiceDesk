@@ -8,14 +8,11 @@ import {
   BookOpenIcon,
   FolderIcon,
   ArrowLeftIcon,
-  ThumbUpIcon,
-  ThumbDownIcon,
-  EyeIcon,
-  StarIcon
+  HandThumbUpIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 import {
-  ThumbUpIcon as ThumbUpSolidIcon,
-  ThumbDownIcon as ThumbDownSolidIcon,
+  HandThumbUpIcon as _HandThumbUpSolidIcon,
   StarIcon as StarSolidIcon
 } from '@heroicons/react/24/solid'
 
@@ -219,7 +216,7 @@ export default function KnowledgeBasePage() {
                               {article.viewCount}
                             </span>
                             <span className="flex items-center">
-                              <ThumbUpIcon className="w-4 h-4 mr-1" />
+                              <HandThumbUpIcon className="w-4 h-4 mr-1" />
                               {article.helpfulCount}
                             </span>
                           </div>
@@ -307,7 +304,7 @@ export default function KnowledgeBasePage() {
                             {article.viewCount} visualizações
                           </span>
                           <span className="flex items-center">
-                            <ThumbUpIcon className="w-4 h-4 mr-1" />
+                            <HandThumbUpIcon className="w-4 h-4 mr-1" />
                             {article.helpfulCount} útil
                           </span>
                         </div>

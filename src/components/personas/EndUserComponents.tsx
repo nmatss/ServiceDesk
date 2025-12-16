@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   MagnifyingGlassIcon,
   QuestionMarkCircleIcon,
@@ -22,7 +22,6 @@ import {
   ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline';
 import { PersonaType } from '../../../lib/design-system/tokens';
-import { getPersonaVariants } from '../../../lib/design-system/persona-variants';
 
 interface EndUserComponentProps {
   className?: string;
@@ -30,7 +29,7 @@ interface EndUserComponentProps {
 }
 
 // Simplified search bar with prominent help text
-export function EndUserSearchBar({ className = '', ...props }: EndUserComponentProps) {
+function EndUserSearchBar({ className = '' }: EndUserComponentProps) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -95,7 +94,7 @@ export function EndUserSearchBar({ className = '', ...props }: EndUserComponentP
 }
 
 // Quick action cards for common tasks
-export function EndUserQuickActions({ className = '', ...props }: EndUserComponentProps) {
+function EndUserQuickActions({ className = '' }: EndUserComponentProps) {
   const quickActions = [
     {
       title: 'Submit Request',
@@ -156,7 +155,7 @@ export function EndUserQuickActions({ className = '', ...props }: EndUserCompone
 }
 
 // Simple status display for tickets
-export function EndUserTicketStatus({ className = '', ...props }: EndUserComponentProps) {
+function EndUserTicketStatus({ className = '' }: EndUserComponentProps) {
   const [tickets] = useState([
     {
       id: 'REQ-001',
@@ -260,7 +259,7 @@ export function EndUserTicketStatus({ className = '', ...props }: EndUserCompone
 }
 
 // Support contact information
-export function EndUserContactInfo({ className = '', ...props }: EndUserComponentProps) {
+function EndUserContactInfo({ className = '' }: EndUserComponentProps) {
   const contactMethods = [
     {
       title: 'Live Chat',
@@ -330,7 +329,7 @@ export function EndUserContactInfo({ className = '', ...props }: EndUserComponen
 }
 
 // FAQ component with simple accordion
-export function EndUserFAQ({ className = '', ...props }: EndUserComponentProps) {
+function EndUserFAQ({ className = '' }: EndUserComponentProps) {
   const [openItem, setOpenItem] = useState<number | null>(null);
 
   const faqs = [
@@ -402,13 +401,12 @@ export function EndUserFAQ({ className = '', ...props }: EndUserComponentProps) 
 }
 
 // Simple notification banner
-export function EndUserNotificationBanner({
+function EndUserNotificationBanner({
   type = 'info',
   title,
   message,
   onDismiss,
-  className = '',
-  ...props
+  className = ''
 }: EndUserComponentProps & {
   type?: 'info' | 'success' | 'warning' | 'error';
   title: string;

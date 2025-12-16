@@ -107,13 +107,15 @@ typings/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
-.env.test
-.env.production
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Block all .env files
+.env*
+
+# Except example files
+!.env.example
+!.env.*.example
+!.env.local.example
+!.env.production.example
+!.env.monitoring.example
 
 # Sentry configuration with sensitive tokens
 .sentryclirc
@@ -149,4 +151,18 @@ dist
 
 # TernJS port file
 .tern-port
+
+# Security scan reports
+security-reports/
+npm-audit-report.json
+outdated-packages.txt
+snyk-report.json
+gitleaks-report.json
+gitleaks-output.txt
+trufflehog-report.json
+license-summary.txt
+security-report.txt
+security-report.txt.summary
+secrets-scan-report.txt
+secrets-scan-report.txt.summary
 

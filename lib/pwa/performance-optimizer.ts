@@ -1,4 +1,5 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+import { sanitizeHTML } from '../security/sanitize';
 
 /**
  * Performance Optimization Utilities
@@ -56,7 +57,10 @@ class PerformanceOptimizer {
             break;
 
           case 'first-input':
-            this.metrics.fid = entry.processingStart - entry.startTime;
+            const firstInputEntry = entry as any;
+            if ('processingStart' in firstInputEntry) {
+              this.metrics.fid = firstInputEntry.processingStart - entry.startTime;
+            }
             break;
 
           case 'layout-shift':
@@ -226,7 +230,8 @@ class PerformanceOptimizer {
       fetch(src)
         .then(response => response.text())
         .then(html => {
-          element.innerHTML = html;
+          // SECURITY: Sanitize HTML before inserting to prevent XSS
+          element.innerHTML = sanitizeHTML(html);
           element.removeAttribute('data-lazy');
         })
         .catch(error => {
@@ -305,7 +310,7 @@ class PerformanceOptimizer {
 
       // Add decode="async" for better perceived performance
       if (!img.hasAttribute('decode')) {
-        img.decode = 'async';
+        img.decoding = 'async';
       }
 
       // Optimize image loading based on viewport
@@ -334,11 +339,11 @@ class PerformanceOptimizer {
   }
 
   // Bundle optimization helpers
-  public async loadChunk(chunkName: string): Promise<any> {
+  public async loadChunk(chunkName: string): Promise<unknown> {
     try {
       // Dynamic import with chunk naming
-      const module = await import(/* webpackChunkName: "[request]" */ `@/components/${chunkName}`);
-      return module.default || module;
+      const loadedModule = await import(/* webpackChunkName: "[request]" */ `@/components/${chunkName}`);
+      return loadedModule.default || loadedModule;
     } catch (error) {
       logger.error(`Failed to load chunk ${chunkName}:`, error);
       throw error;

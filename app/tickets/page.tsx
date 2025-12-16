@@ -12,16 +12,30 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    const role = localStorage.getItem('user_role') as 'admin' | 'agent' | 'user'
+    // Fetch user data - middleware already handles authentication/redirect
+    const fetchUserData = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      router.push('/auth/login')
-      return
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.user) {
+            setUserRole(data.user.role || 'user')
+          }
+        }
+        // Always stop loading regardless of response
+        // Middleware handles redirects for unauthenticated users
+        setLoading(false)
+      } catch (err) {
+        console.error('Failed to fetch user data:', err)
+        setLoading(false)
+      }
     }
 
-    setUserRole(role || 'user')
-    setLoading(false)
+    fetchUserData()
   }, [router])
 
   if (loading) {

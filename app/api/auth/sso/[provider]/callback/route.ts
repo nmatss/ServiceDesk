@@ -35,7 +35,7 @@ export async function GET(
 
     // Handle OAuth error
     if (error) {
-      logger.error('SSO provider error', error, errorDescription);
+      logger.error('SSO provider error', { error, errorDescription });
       return NextResponse.redirect(
         new URL(`/auth/login?error=${encodeURIComponent(errorDescription || error)}`, request.url)
       );
@@ -49,7 +49,7 @@ export async function GET(
     }
 
     // Verify state parameter (CSRF protection)
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const savedState = cookieStore.get('sso_state')?.value;
 
     if (!savedState || savedState !== state) {
@@ -138,7 +138,7 @@ export async function POST(
 
     // Verify relay state if present (CSRF protection)
     if (relayState) {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       const savedState = cookieStore.get('sso_state')?.value;
 
       if (savedState && savedState !== relayState) {
@@ -167,7 +167,7 @@ export async function POST(
     }
 
     // Generate JWT token
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = sign(
       {
         userId: user.id,

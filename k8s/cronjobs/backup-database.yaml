@@ -1,0 +1,297 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: servicedesk-database-backup-full
+  namespace: servicedesk
+  labels:
+    app: servicedesk
+    component: backup
+    type: database-full
+spec:
+  # Run daily at 2:00 AM UTC
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        app: servicedesk
+        component: backup
+        type: database-full
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600  # 1 hour timeout
+      template:
+        metadata:
+          labels:
+            app: servicedesk
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: servicedesk-backup
+
+          # Use node affinity to run on dedicated backup nodes
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                  - key: workload-type
+                    operator: In
+                    values:
+                    - backup
+
+          containers:
+          - name: database-backup
+            image: servicedesk/backup:latest
+            imagePullPolicy: Always
+
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "Starting full database backup..."
+              /app/scripts/backup/database-backup.sh
+              echo "Backup completed successfully"
+
+            env:
+            - name: BACKUP_TYPE
+              value: "full"
+            - name: DB_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-config
+                  key: database.type
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-db-credentials
+                  key: host
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-db-credentials
+                  key: database
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-db-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-db-credentials
+                  key: password
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-backup-config
+                  key: s3.bucket
+            - name: S3_PREFIX
+              value: "backups/database"
+            - name: ENCRYPT_BACKUPS
+              value: "true"
+            - name: GPG_RECIPIENT
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-backup-config
+                  key: gpg.recipient
+            - name: NOTIFICATION_WEBHOOK
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-backup-secrets
+                  key: notification.webhook
+                  optional: true
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-backup-config
+                  key: aws.region
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-aws-credentials
+                  key: access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: servicedesk-aws-credentials
+                  key: secret-access-key
+
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "500m"
+              limits:
+                memory: "2Gi"
+                cpu: "2000m"
+
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /var/backups/servicedesk
+            - name: gpg-keys
+              mountPath: /root/.gnupg
+              readOnly: true
+            - name: scripts
+              mountPath: /app/scripts
+              readOnly: true
+
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: servicedesk-backup-pvc
+          - name: gpg-keys
+            secret:
+              secretName: servicedesk-gpg-keys
+              defaultMode: 0600
+          - name: scripts
+            configMap:
+              name: servicedesk-backup-scripts
+              defaultMode: 0755
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: servicedesk-database-backup-incremental
+  namespace: servicedesk
+  labels:
+    app: servicedesk
+    component: backup
+    type: database-incremental
+spec:
+  # Run every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+  schedule: "0 */6 * * *"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      labels:
+        app: servicedesk
+        component: backup
+        type: database-incremental
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800  # 30 minutes timeout
+      template:
+        metadata:
+          labels:
+            app: servicedesk
+            component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: servicedesk-backup
+
+          containers:
+          - name: database-backup
+            image: servicedesk/backup:latest
+            imagePullPolicy: Always
+
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              echo "Starting incremental database backup..."
+              /app/scripts/backup/database-backup.sh
+              echo "Incremental backup completed"
+
+            env:
+            - name: BACKUP_TYPE
+              value: "incremental"
+            - name: DB_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: servicedesk-config
+                  key: database.type
+            # ... (same env vars as full backup)
+
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "1Gi"
+                cpu: "1000m"
+
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /var/backups/servicedesk
+            - name: gpg-keys
+              mountPath: /root/.gnupg
+              readOnly: true
+            - name: scripts
+              mountPath: /app/scripts
+              readOnly: true
+
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: servicedesk-backup-pvc
+          - name: gpg-keys
+            secret:
+              secretName: servicedesk-gpg-keys
+              defaultMode: 0600
+          - name: scripts
+            configMap:
+              name: servicedesk-backup-scripts
+              defaultMode: 0755
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: servicedesk-backup-pvc
+  namespace: servicedesk
+  labels:
+    app: servicedesk
+    component: backup
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: servicedesk-backup
+  namespace: servicedesk
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/servicedesk-backup-role
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: servicedesk-backup-role
+  namespace: servicedesk
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: servicedesk-backup-rolebinding
+  namespace: servicedesk
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: servicedesk-backup-role
+subjects:
+- kind: ServiceAccount
+  name: servicedesk-backup
+  namespace: servicedesk

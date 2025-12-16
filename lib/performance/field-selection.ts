@@ -126,8 +126,6 @@ export class FieldSelector {
     selection: SelectionQuery,
     context: SelectionContext = {}
   ): Promise<SelectionResult<T | T[]>> {
-    const startTime = Date.now();
-
     // Generate cache key
     const cacheKey = this.generateCacheKey(entityName, selection, context);
 
@@ -263,7 +261,7 @@ export class FieldSelector {
    * Create middleware for automatic field selection
    */
   middleware(entityName: string) {
-    return async (req: any, res: any, next: any) => {
+    return async (req: any, _res: any, next: any) => {
       // Parse field selection from query parameters
       const selection = this.parseFieldSelection(req.query);
 
@@ -370,10 +368,11 @@ export class FieldSelector {
 
     for (const relation of relations) {
       const parts = relation.split('.');
-      let current = include;
+      let current: Record<string, SelectionQuery> = include;
 
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
+        if (!part) continue;
 
         if (i === parts.length - 1) {
           // Last part - create the selection
@@ -381,8 +380,10 @@ export class FieldSelector {
         } else {
           // Intermediate part - ensure include exists
           current[part] = current[part] || {};
-          current[part].include = current[part].include || {};
-          current = current[part].include!;
+          if (!current[part].include) {
+            current[part].include = {};
+          }
+          current = current[part].include as Record<string, SelectionQuery>;
         }
       }
     }
@@ -422,7 +423,7 @@ export class FieldSelector {
   private determineFieldsToInclude(
     entityName: string,
     selection: SelectionQuery,
-    context: SelectionContext
+    _context: SelectionContext
   ): {
     includedFields: string[];
     excludedFields: string[];

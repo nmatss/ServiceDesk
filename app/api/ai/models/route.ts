@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db/connection';
+import db from '@/lib/db/connection';
 import AIModelManager from '@/lib/ai/model-manager';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action } = body;
 
-    const db = await getDb();
+    // Using imported db connection
     const modelManager = new AIModelManager(db);
     await modelManager.initialize();
 
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
-    const db = await getDb();
+    // Using imported db connection
     const modelManager = new AIModelManager(db);
     await modelManager.initialize();
 

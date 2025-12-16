@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSecurityConfig } from './config';
 import { securityLogger, SecurityEventType } from './monitoring';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SanitizationOptions {
   allowHtml?: boolean;
@@ -450,7 +450,7 @@ export class InputValidator {
 
     let sum = 0;
     for (let i = 0; i < 12; i++) {
-      sum += parseInt(cleaned.charAt(i)) * weights1[i];
+      sum += parseInt(cleaned.charAt(i)) * (weights1[i] ?? 0);
     }
 
     let digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
@@ -458,7 +458,7 @@ export class InputValidator {
 
     sum = 0;
     for (let i = 0; i < 13; i++) {
-      sum += parseInt(cleaned.charAt(i)) * weights2[i];
+      sum += parseInt(cleaned.charAt(i)) * (weights2[i] ?? 0);
     }
 
     digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
@@ -499,7 +499,7 @@ export function createSanitizationMiddleware(options: SanitizationOptions = {}) 
             },
             {
               severity: 'medium',
-              ipAddress: request.ip,
+              ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
               userAgent: request.headers.get('user-agent') || undefined
             }
           );

@@ -1,0 +1,270 @@
+---
+# ServiceMonitor - Prometheus Operator CRD for monitoring
+# Requires Prometheus Operator to be installed
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: servicedesk-app
+  labels:
+    app: servicedesk
+    component: app
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: servicedesk
+      component: app
+
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      scheme: http
+
+      # Relabeling
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+
+      # Metric relabeling
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: '(nodejs_|http_|process_).*'
+          action: keep
+
+  namespaceSelector:
+    matchNames:
+      - servicedesk
+
+---
+# ServiceMonitor for Redis
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: servicedesk-redis
+  labels:
+    app: servicedesk
+    component: redis
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: servicedesk
+      component: redis
+
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+
+  namespaceSelector:
+    matchNames:
+      - servicedesk
+
+---
+# PodMonitor - Alternative to ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: servicedesk-app-pods
+  labels:
+    app: servicedesk
+    component: app
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: servicedesk
+      component: app
+
+  podMetricsEndpoints:
+    - port: http
+      path: /api/metrics
+      interval: 30s
+      scrapeTimeout: 10s
+
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+
+  namespaceSelector:
+    matchNames:
+      - servicedesk
+
+---
+# PrometheusRule - Alerting rules
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: servicedesk-alerts
+  labels:
+    app: servicedesk
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: servicedesk.rules
+      interval: 30s
+      rules:
+        # High CPU usage
+        - alert: ServiceDeskHighCPU
+          expr: |
+            rate(container_cpu_usage_seconds_total{
+              namespace="servicedesk",
+              pod=~"servicedesk-app-.*"
+            }[5m]) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            component: app
+          annotations:
+            summary: "ServiceDesk pod {{ $labels.pod }} has high CPU usage"
+            description: "CPU usage is {{ $value | humanizePercentage }}"
+
+        # High memory usage
+        - alert: ServiceDeskHighMemory
+          expr: |
+            container_memory_usage_bytes{
+              namespace="servicedesk",
+              pod=~"servicedesk-app-.*"
+            } / container_spec_memory_limit_bytes > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            component: app
+          annotations:
+            summary: "ServiceDesk pod {{ $labels.pod }} has high memory usage"
+            description: "Memory usage is {{ $value | humanizePercentage }}"
+
+        # Pod not ready
+        - alert: ServiceDeskPodNotReady
+          expr: |
+            kube_pod_status_ready{
+              namespace="servicedesk",
+              pod=~"servicedesk-app-.*",
+              condition="true"
+            } == 0
+          for: 5m
+          labels:
+            severity: critical
+            component: app
+          annotations:
+            summary: "ServiceDesk pod {{ $labels.pod }} is not ready"
+            description: "Pod has been in not ready state for more than 5 minutes"
+
+        # High error rate
+        - alert: ServiceDeskHighErrorRate
+          expr: |
+            rate(http_requests_total{
+              namespace="servicedesk",
+              status=~"5.."
+            }[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            component: app
+          annotations:
+            summary: "ServiceDesk has high error rate"
+            description: "Error rate is {{ $value | humanizePercentage }}"
+
+        # High response time
+        - alert: ServiceDeskHighResponseTime
+          expr: |
+            histogram_quantile(0.95,
+              rate(http_request_duration_seconds_bucket{
+                namespace="servicedesk"
+              }[5m])
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+            component: app
+          annotations:
+            summary: "ServiceDesk has high response time"
+            description: "P95 response time is {{ $value }} seconds"
+
+        # Deployment replica mismatch
+        - alert: ServiceDeskReplicaMismatch
+          expr: |
+            kube_deployment_spec_replicas{
+              namespace="servicedesk",
+              deployment="servicedesk-app"
+            } != kube_deployment_status_replicas_available
+          for: 10m
+          labels:
+            severity: warning
+            component: app
+          annotations:
+            summary: "ServiceDesk deployment has replica mismatch"
+            description: "Expected {{ $value }} replicas but have different number available"
+
+        # PostgreSQL down
+        - alert: ServiceDeskPostgresDown
+          expr: |
+            up{
+              namespace="servicedesk",
+              job="servicedesk-postgres"
+            } == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: postgres
+          annotations:
+            summary: "ServiceDesk PostgreSQL is down"
+            description: "PostgreSQL has been down for more than 2 minutes"
+
+        # Redis down
+        - alert: ServiceDeskRedisDown
+          expr: |
+            up{
+              namespace="servicedesk",
+              job="servicedesk-redis"
+            } == 0
+          for: 2m
+          labels:
+            severity: critical
+            component: redis
+          annotations:
+            summary: "ServiceDesk Redis is down"
+            description: "Redis has been down for more than 2 minutes"
+
+        # HPA at max replicas
+        - alert: ServiceDeskHPAMaxReplicas
+          expr: |
+            kube_horizontalpodautoscaler_status_current_replicas{
+              namespace="servicedesk",
+              horizontalpodautoscaler="servicedesk-app-hpa"
+            } >= kube_horizontalpodautoscaler_spec_max_replicas
+          for: 15m
+          labels:
+            severity: warning
+            component: app
+          annotations:
+            summary: "ServiceDesk HPA is at maximum replicas"
+            description: "HPA has been at max replicas for 15 minutes, consider increasing max"
+
+        # Persistent volume almost full
+        - alert: ServiceDeskPVCAlmostFull
+          expr: |
+            kubelet_volume_stats_used_bytes{
+              namespace="servicedesk"
+            } / kubelet_volume_stats_capacity_bytes > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            component: storage
+          annotations:
+            summary: "ServiceDesk PVC {{ $labels.persistentvolumeclaim }} is almost full"
+            description: "PVC is {{ $value | humanizePercentage }} full"

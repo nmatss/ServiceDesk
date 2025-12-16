@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     // Salva mensagem enviada no banco
     if (response.messages && response.messages.length > 0) {
-      const messageId = response.messages[0].id;
+      const messageId = response.messages[0]?.id || '';
 
       await createWhatsAppMessage({
         contact_id: contact.id,
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       );
     }

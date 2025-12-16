@@ -21,10 +21,8 @@ import {
 import {
   UserIcon,
   ChartBarIcon,
-  ClockIcon,
   StarIcon,
-  TrophyIcon,
-  ExclamationCircleIcon
+  TrophyIcon
 } from '@heroicons/react/24/outline';
 import { AgentPerformanceData } from '@/lib/analytics/realtime-engine';
 
@@ -408,7 +406,7 @@ export function AgentPerformanceWidget({
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {sortedData.map((agent, index) => (
+              {sortedData.map((agent, _index) => (
                 <tr key={agent.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">

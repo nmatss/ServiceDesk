@@ -198,7 +198,7 @@ const enduserVariants: PersonaVariants = {
 
   form: {
     labelPosition: 'top',
-    fieldSpacing: 'comfortable',
+    fieldSpacing: 'relaxed',
     groupSpacing: 'spacious',
   },
 };
@@ -424,7 +424,7 @@ const managerVariants: PersonaVariants = {
 
   form: {
     labelPosition: 'floating',
-    fieldSpacing: 'comfortable',
+    fieldSpacing: 'normal',
     groupSpacing: 'comfortable',
   },
 };
@@ -452,6 +452,26 @@ export function getComponentVariant<T extends keyof PersonaVariants>(
 export function generateVariantClasses(persona: PersonaType, component: keyof PersonaVariants): Record<string, string> {
   const variant = getComponentVariant(persona, component);
   const classes: Record<string, string> = {};
+
+  // Type guard to check if variant has ComponentVariant properties
+  const hasComponentVariantProps = (v: unknown): v is ComponentVariant => {
+    return (
+      typeof v === 'object' &&
+      v !== null &&
+      'size' in v &&
+      'density' in v &&
+      'borderRadius' in v &&
+      'shadow' in v &&
+      'animation' in v &&
+      'padding' in v &&
+      'typography' in v
+    );
+  };
+
+  if (!hasComponentVariantProps(variant)) {
+    // For non-ComponentVariant types, return empty classes
+    return classes;
+  }
 
   // Size classes
   classes.size = `size-${variant.size}`;
@@ -487,6 +507,27 @@ export interface ResponsiveVariant {
 export function getResponsiveVariant(persona: PersonaType, component: keyof PersonaVariants): ResponsiveVariant {
   const baseVariant = getComponentVariant(persona, component);
 
+  // Type guard to check if variant has ComponentVariant properties
+  const isComponentVariant = (v: unknown): v is ComponentVariant => {
+    return (
+      typeof v === 'object' &&
+      v !== null &&
+      'size' in v &&
+      'density' in v &&
+      'padding' in v &&
+      'typography' in v
+    );
+  };
+
+  // For non-ComponentVariant types, return the base variant for all breakpoints
+  if (!isComponentVariant(baseVariant)) {
+    return {
+      mobile: {},
+      tablet: {},
+      desktop: {},
+    };
+  }
+
   switch (persona) {
     case 'enduser':
       return {
@@ -495,8 +536,8 @@ export function getResponsiveVariant(persona: PersonaType, component: keyof Pers
           padding: 'relaxed',
           typography: 'large',
         },
-        tablet: baseVariant,
-        desktop: baseVariant,
+        tablet: baseVariant as Partial<ComponentVariant>,
+        desktop: baseVariant as Partial<ComponentVariant>,
       };
 
     case 'agent':
@@ -506,9 +547,9 @@ export function getResponsiveVariant(persona: PersonaType, component: keyof Pers
           padding: 'normal',
           density: 'comfortable',
         },
-        tablet: baseVariant,
+        tablet: baseVariant as Partial<ComponentVariant>,
         desktop: {
-          ...baseVariant,
+          ...(baseVariant as ComponentVariant),
           density: 'compact',
         },
       };
@@ -520,18 +561,18 @@ export function getResponsiveVariant(persona: PersonaType, component: keyof Pers
           padding: 'relaxed',
           typography: 'comfortable',
         },
-        tablet: baseVariant,
+        tablet: baseVariant as Partial<ComponentVariant>,
         desktop: {
-          ...baseVariant,
+          ...(baseVariant as ComponentVariant),
           size: 'xl',
         },
       };
 
     default:
       return {
-        mobile: baseVariant,
-        tablet: baseVariant,
-        desktop: baseVariant,
+        mobile: baseVariant as Partial<ComponentVariant>,
+        tablet: baseVariant as Partial<ComponentVariant>,
+        desktop: baseVariant as Partial<ComponentVariant>,
       };
   }
 }

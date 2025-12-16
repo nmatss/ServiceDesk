@@ -4,7 +4,7 @@
  */
 
 import type { Priority, CreateTicket, User, Category } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface PriorityPrediction {
   priority: Priority;
@@ -70,7 +70,7 @@ export interface PriorityModel {
 
 class PriorityPredictor {
   private priorities: Priority[] = [];
-  private priorityMatrix: PriorityMatrix;
+  private priorityMatrix!: PriorityMatrix;
   private models: Map<string, PriorityModel> = new Map();
   private urgencyKeywords: Map<string, number> = new Map();
   private impactKeywords: Map<string, number> = new Map();
@@ -226,7 +226,7 @@ class PriorityPredictor {
    */
   private async analyzeImpact(
     ticketData: { title: string; description: string; },
-    context?: PriorityContext
+    _context?: PriorityContext
   ): Promise<{ score: number; confidence: number; factors: PriorityFactor[] }> {
     const text = `${ticketData.title} ${ticketData.description}`.toLowerCase();
     const factors: PriorityFactor[] = [];
@@ -282,7 +282,7 @@ class PriorityPredictor {
    * Analyze contextual factors
    */
   private async analyzeContext(
-    ticketData: { title: string; description: string; },
+    _ticketData: { title: string; description: string; },
     context?: PriorityContext
   ): Promise<{ score: number; confidence: number; factors: PriorityFactor[] }> {
     const factors: PriorityFactor[] = [];
@@ -338,7 +338,7 @@ class PriorityPredictor {
    */
   private async analyzeBusinessImplications(
     ticketData: { title: string; description: string; },
-    context?: PriorityContext
+    _context?: PriorityContext
   ): Promise<{ score: number; confidence: number; factors: PriorityFactor[] }> {
     const text = `${ticketData.title} ${ticketData.description}`.toLowerCase();
     const factors: PriorityFactor[] = [];
@@ -386,7 +386,7 @@ class PriorityPredictor {
    */
   private async analyzeRiskFactors(
     ticketData: { title: string; description: string; },
-    context?: PriorityContext
+    _context?: PriorityContext
   ): Promise<{ score: number; confidence: number; factors: PriorityFactor[] }> {
     const text = `${ticketData.title} ${ticketData.description}`.toLowerCase();
     const factors: PriorityFactor[] = [];
@@ -750,7 +750,13 @@ class PriorityPredictor {
     return scores[criticality as keyof typeof scores] || 0.3;
   }
 
-  private calculateCombinedScore(analyses: any): { totalScore: number; confidence: number } {
+  private calculateCombinedScore(analyses: {
+    urgency: { score: number; confidence: number; factors: PriorityFactor[] };
+    impact: { score: number; confidence: number; factors: PriorityFactor[] };
+    context: { score: number; confidence: number; factors: PriorityFactor[] };
+    business: { score: number; confidence: number; factors: PriorityFactor[] };
+    risk: { score: number; confidence: number; factors: PriorityFactor[] };
+  }): { totalScore: number; confidence: number } {
     const weights = {
       urgency: 0.3,
       impact: 0.3,
@@ -778,13 +784,31 @@ class PriorityPredictor {
 
   private mapScoreToPriority(score: number): Priority {
     // Map combined score to priority level
-    if (score >= 0.8) return this.priorities.find(p => p.level === 4) || this.priorities[0];
-    if (score >= 0.6) return this.priorities.find(p => p.level === 3) || this.priorities[0];
-    if (score >= 0.4) return this.priorities.find(p => p.level === 2) || this.priorities[0];
-    return this.priorities.find(p => p.level === 1) || this.priorities[0];
+    const defaultPriority: Priority = {
+      id: 1,
+      name: 'Low',
+      level: 1,
+      color: '#10B981',
+      response_time: 48,
+      resolution_time: 168,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (score >= 0.8) return this.priorities.find(p => p.level === 4) ?? this.priorities[0] ?? defaultPriority;
+    if (score >= 0.6) return this.priorities.find(p => p.level === 3) ?? this.priorities[0] ?? defaultPriority;
+    if (score >= 0.4) return this.priorities.find(p => p.level === 2) ?? this.priorities[0] ?? defaultPriority;
+    return this.priorities.find(p => p.level === 1) ?? this.priorities[0] ?? defaultPriority;
   }
 
-  private generateReasoning(data: any): string {
+  private generateReasoning(data: {
+    urgency: { score: number; confidence: number; factors: PriorityFactor[] };
+    impact: { score: number; confidence: number; factors: PriorityFactor[] };
+    context: { score: number; confidence: number; factors: PriorityFactor[] };
+    business: { score: number; confidence: number; factors: PriorityFactor[] };
+    risk: { score: number; confidence: number; factors: PriorityFactor[] };
+    predicted: Priority;
+  }): string {
     const reasons = [];
 
     if (data.urgency.score > 0.6) {
@@ -855,6 +879,5 @@ class PriorityPredictor {
 // Export singleton instance
 export const priorityPredictor = new PriorityPredictor();
 
-// Export types and classes
+// Export class
 export { PriorityPredictor };
-export type { PriorityMatrix, PriorityModel, PriorityContext };

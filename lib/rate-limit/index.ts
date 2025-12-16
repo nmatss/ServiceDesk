@@ -1,5 +1,5 @@
 import db from '../db/connection'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface RateLimitConfig {
   windowMs: number // Janela de tempo em ms
@@ -26,8 +26,18 @@ export const rateLimitConfigs = {
   },
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutos
-    maxRequests: 5,
+    maxRequests: 5, // Máximo 5 tentativas de login em 15 minutos
     message: 'Muitas tentativas de login. Tente novamente em 15 minutos.'
+  },
+  'auth-strict': {
+    windowMs: 60 * 60 * 1000, // 1 hora
+    maxRequests: 3, // Máximo 3 tentativas em 1 hora (mais rigoroso)
+    message: 'Muitas tentativas de autenticação. Conta temporariamente bloqueada por 1 hora.'
+  },
+  refresh: {
+    windowMs: 5 * 60 * 1000, // 5 minutos
+    maxRequests: 10, // Permite múltiplos refreshes
+    message: 'Muitas requisições de refresh. Tente novamente em 5 minutos.'
   },
   upload: {
     windowMs: 5 * 60 * 1000, // 5 minutos
@@ -38,6 +48,26 @@ export const rateLimitConfigs = {
     windowMs: 1 * 60 * 1000, // 1 minuto
     maxRequests: 30,
     message: 'Muitas pesquisas. Tente novamente em 1 minuto.'
+  },
+  'password-reset': {
+    windowMs: 60 * 60 * 1000, // 1 hora
+    maxRequests: 3,
+    message: 'Muitas solicitações de redefinição de senha. Tente novamente em 1 hora.'
+  },
+  'embedding-generation': {
+    windowMs: 5 * 60 * 1000, // 5 minutos
+    maxRequests: 20,
+    message: 'Muitas requisições de geração de embeddings. Tente novamente em 5 minutos.'
+  },
+  'semantic-search': {
+    windowMs: 1 * 60 * 1000, // 1 minuto
+    maxRequests: 50,
+    message: 'Muitas pesquisas semânticas. Tente novamente em 1 minuto.'
+  },
+  'search-suggest': {
+    windowMs: 1 * 60 * 1000, // 1 minuto
+    maxRequests: 60,
+    message: 'Muitas requisições de sugestão de pesquisa. Tente novamente em 1 minuto.'
   }
 }
 

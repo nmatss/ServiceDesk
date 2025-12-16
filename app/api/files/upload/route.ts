@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
       FROM file_storage fs
       LEFT JOIN users u ON fs.uploaded_by = u.id AND u.tenant_id = ?
       WHERE fs.id = ?
-    `).get(tenantContext.id, result.lastInsertRowid)
+    `).get(tenantContext.id, result.lastInsertRowid) as any
 
     // Build response with additional metadata
     const responseData = {
@@ -210,7 +210,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON fs.uploaded_by = u.id AND u.tenant_id = ?
       WHERE fs.tenant_id = ?
     `
-    const queryParams = [tenantContext.id, tenantContext.id]
+    const queryParams: (string | number)[] = [tenantContext.id, tenantContext.id]
 
     if (entityType) {
       query += ' AND fs.entity_type = ?'
@@ -231,11 +231,11 @@ export async function GET(request: NextRequest) {
     query += ' ORDER BY fs.created_at DESC LIMIT ? OFFSET ?'
     queryParams.push(limit, offset)
 
-    const files = db.prepare(query).all(...queryParams)
+    const files = db.prepare(query).all(...queryParams) as any[]
 
     // Get total count for pagination
     let countQuery = 'SELECT COUNT(*) as count FROM file_storage WHERE tenant_id = ?'
-    const countParams = [tenantContext.id]
+    const countParams: (string | number)[] = [tenantContext.id]
 
     if (entityType) {
       countQuery += ' AND entity_type = ?'
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
       countParams.push(userContext.id)
     }
 
-    const totalCount = db.prepare(countQuery).get(...countParams)?.count || 0
+    const totalCount = (db.prepare(countQuery).get(...countParams) as any)?.count || 0
 
     // Add metadata to files
     const filesWithMetadata = files.map(file => ({

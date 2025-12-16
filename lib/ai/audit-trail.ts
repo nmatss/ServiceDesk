@@ -1,6 +1,6 @@
 import { Database } from 'sqlite';
 import sqlite3 from 'sqlite3';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import {
   AIOperationType,
   AIOperationContext,

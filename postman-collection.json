@@ -1,0 +1,683 @@
+{
+  "info": {
+    "name": "ServiceDesk API",
+    "description": "Complete API collection for ServiceDesk platform with multi-tenant support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "tenant_slug",
+      "value": "acme-corp",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenant_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ticket_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save auth token for subsequent requests",
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('auth_token', jsonData.token || '');",
+                  "    pm.environment.set('user_id', jsonData.user?.id || '');",
+                  "    pm.environment.set('tenant_id', jsonData.tenant?.id || '');",
+                  "    pm.environment.set('tenant_slug', jsonData.tenant?.slug || '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"Admin@123\",\n  \"tenant_slug\": \"{{tenant_slug}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate user and obtain JWT token"
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"SecureP@ss123\",\n  \"tenant_slug\": \"{{tenant_slug}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "profile"]
+            },
+            "description": "Get current user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"timezone\": \"America/Sao_Paulo\",\n  \"language\": \"pt-BR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "profile"]
+            },
+            "description": "Update current user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"OldP@ss123\",\n  \"new_password\": \"NewSecureP@ss123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Change user password"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify"]
+            },
+            "description": "Verify if authentication token is valid"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout and invalidate session"
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication and user management endpoints"
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "List Tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "priority_id",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paginated list of tickets"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save created ticket ID",
+                  "if (pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.environment.set('ticket_id', jsonData.ticket?.id || '');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cannot access dashboard\",\n  \"description\": \"I'm unable to access the dashboard after logging in. The page just shows a loading spinner indefinitely.\",\n  \"category_id\": 1,\n  \"priority_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets"]
+            },
+            "description": "Create a new support ticket"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticket_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticket_id}}"]
+            },
+            "description": "Get details of a specific ticket"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Ticket",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status_id\": 2,\n  \"priority_id\": 3,\n  \"assigned_to\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticket_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticket_id}}"]
+            },
+            "description": "Update ticket information"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Ticket",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticket_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticket_id}}"]
+            },
+            "description": "Delete a ticket (admin only)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Ticket management endpoints"
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "List Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticket_id}}/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticket_id}}", "comments"]
+            },
+            "description": "Get all comments for a ticket"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"I've investigated this issue and found that it's related to the recent server update.\",\n  \"is_internal\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticket_id}}/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["tickets", "{{ticket_id}}", "comments"]
+            },
+            "description": "Add a comment to a ticket"
+          },
+          "response": []
+        }
+      ],
+      "description": "Ticket comment endpoints"
+    },
+    {
+      "name": "Knowledge Base",
+      "item": [
+        {
+          "name": "List Articles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/knowledge?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["knowledge"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get knowledge base articles"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Article",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"How to Reset Your Password\",\n  \"content\": \"# Password Reset Guide\\n\\n1. Click 'Forgot Password' on the login page\\n2. Enter your email address\\n3. Check your email for reset link\\n4. Follow the link and enter new password\",\n  \"excerpt\": \"Quick guide to reset your password\",\n  \"category\": \"Getting Started\",\n  \"tags\": \"[\\\"password\\\",\\\"security\\\",\\\"authentication\\\"]\",\n  \"status\": \"published\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/knowledge",
+              "host": ["{{baseUrl}}"],
+              "path": ["knowledge"]
+            },
+            "description": "Create a new knowledge base article (admin only)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Knowledge base article endpoints"
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get Overview Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics?period=30d&type=overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "30d",
+                  "description": "7d, 30d, 90d, 1y"
+                },
+                {
+                  "key": "type",
+                  "value": "overview",
+                  "description": "overview, tickets, trends, users, performance"
+                }
+              ]
+            },
+            "description": "Get analytics overview (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics?period=30d&type=tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "30d"
+                },
+                {
+                  "key": "type",
+                  "value": "tickets"
+                }
+              ]
+            },
+            "description": "Get ticket-specific analytics"
+          },
+          "response": []
+        }
+      ],
+      "description": "Analytics and reporting endpoints (admin only)"
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "is_read",
+                  "value": "false",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user notifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/unread",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "unread"]
+            },
+            "description": "Get count of unread notifications"
+          },
+          "response": []
+        }
+      ],
+      "description": "User notification endpoints"
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "Get all users in tenant (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "List SLA Policies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sla",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "sla"]
+            },
+            "description": "Get all SLA policies (admin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create SLA Policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Critical Priority SLA\",\n  \"description\": \"SLA for critical priority tickets\",\n  \"priority_id\": 4,\n  \"response_time_hours\": 1,\n  \"resolution_time_hours\": 4,\n  \"business_hours_only\": false,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/sla",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "sla"]
+            },
+            "description": "Create a new SLA policy (admin only)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Administrative endpoints (admin only)"
+    },
+    {
+      "name": "Reference Data",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["categories"]
+            },
+            "description": "Get all ticket categories"
+          },
+          "response": []
+        },
+        {
+          "name": "List Priorities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/priorities",
+              "host": ["{{baseUrl}}"],
+              "path": ["priorities"]
+            },
+            "description": "Get all ticket priorities"
+          },
+          "response": []
+        },
+        {
+          "name": "List Statuses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/statuses",
+              "host": ["{{baseUrl}}"],
+              "path": ["statuses"]
+            },
+            "description": "Get all ticket statuses"
+          },
+          "response": []
+        }
+      ],
+      "description": "Reference data endpoints (categories, priorities, statuses)"
+    },
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check API health status"
+          },
+          "response": []
+        }
+      ],
+      "description": "System health and status endpoints"
+    }
+  ]
+}

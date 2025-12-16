@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -36,8 +36,6 @@ export async function GET(request: NextRequest) {
         message: 'Digite pelo menos 2 caracteres para buscar'
       })
     }
-
-    const db = getDb()
     const suggestions: any[] = []
 
     // Buscar tickets se type for 'all' ou 'tickets'
@@ -218,7 +216,7 @@ export async function GET(request: NextRequest) {
 
       relatedTerms.push(...recentSearches
         .map((row: any) => row.term)
-        .filter(term => term && term !== query)
+        .filter((term: any) => term && term !== query)
       )
     }
 

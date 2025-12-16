@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Advanced Pagination Optimizer for Large Datasets
@@ -241,8 +241,8 @@ export class PaginationOptimizer {
       .slice(0, 3);
 
     if (topPageSizes.length > 0) {
-      const mostPopularPageSize = topPageSizes[0][0];
-      if (mostPopularPageSize !== this.config.defaultPageSize) {
+      const mostPopularPageSize = topPageSizes[0]?.[0];
+      if (mostPopularPageSize && mostPopularPageSize !== this.config.defaultPageSize) {
         optimizedConfig.defaultPageSize = mostPopularPageSize;
         recommendations.push(`Adjust default page size to ${mostPopularPageSize} based on usage patterns`);
       }
@@ -278,7 +278,7 @@ export class PaginationOptimizer {
    * Estimate query cost for different pagination strategies
    */
   async estimateQueryCost(
-    queryBuilder: {
+    _queryBuilder: {
       select: string;
       from: string;
       where?: string;
@@ -349,9 +349,12 @@ export class PaginationOptimizer {
     const prefetchPromises: Promise<void>[] = [];
 
     for (let i = 1; i <= prefetchCount; i++) {
-      const nextPagination = {
-        ...currentPagination,
-        page: (currentPagination.page || 1) + i
+      const nextPagination: Required<PaginationQuery> = {
+        page: (currentPagination.page || 1) + i,
+        pageSize: currentPagination.pageSize || this.config.defaultPageSize,
+        cursor: currentPagination.cursor || '',
+        sort: currentPagination.sort || [{ field: 'id', direction: 'asc' }],
+        filters: currentPagination.filters || {}
       };
 
       const cacheKey = this.generateCacheKey(queryBuilder, nextPagination);
@@ -388,7 +391,7 @@ export class PaginationOptimizer {
 
   private selectPaginationStrategy(
     pagination: Required<PaginationQuery>,
-    queryBuilder: any
+    _queryBuilder: any
   ): 'cursor' | 'offset-optimized' | 'keyset' | 'standard' {
     // Use cursor if available and enabled
     if (pagination.cursor && this.config.cursors.enabled) {
@@ -412,7 +415,7 @@ export class PaginationOptimizer {
   private async executeCursorPagination<T>(
     queryBuilder: any,
     pagination: Required<PaginationQuery>,
-    options: any
+    _options: any
   ): Promise<PaginationResult<T>> {
     const cursorInfo = pagination.cursor ? this.decodeCursor(pagination.cursor) : null;
 
@@ -473,7 +476,7 @@ export class PaginationOptimizer {
     // For offset optimization, we might use a covering index or subquery
     let optimizedQuery = queryBuilder;
 
-    if (this.config.optimization.indexHints && options.useIndex) {
+    if (this.config.optimization.indexHints && options?.useIndex) {
       optimizedQuery = {
         ...queryBuilder,
         from: `${queryBuilder.from} USE INDEX (${options.useIndex})`
@@ -525,7 +528,7 @@ export class PaginationOptimizer {
   private async executeStandardPagination<T>(
     queryBuilder: any,
     pagination: Required<PaginationQuery>,
-    options: any
+    _options: any
   ): Promise<PaginationResult<T>> {
     const offset = (pagination.page - 1) * pagination.pageSize;
     const query = this.buildQuery(queryBuilder, pagination, offset);
@@ -700,7 +703,9 @@ export class PaginationOptimizer {
     // Clean cache if needed
     if (this.cache.size >= this.config.caching.maxPages) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
     }
 
     this.cache.set(cacheKey, {

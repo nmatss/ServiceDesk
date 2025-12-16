@@ -1,0 +1,103 @@
+---
+# Kustomization - Staging overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: servicedesk-staging
+  annotations:
+    description: "Staging environment overlay for ServiceDesk"
+
+# Base configuration
+bases:
+  - ../../base
+
+# Namespace
+namespace: servicedesk-staging
+
+# Common labels
+commonLabels:
+  environment: staging
+
+# Common annotations
+commonAnnotations:
+  environment: staging
+
+# Replicas (same as production for testing)
+replicas:
+  - name: servicedesk-app
+    count: 3
+
+# Images
+images:
+  - name: servicedesk
+    newName: your-registry/servicedesk
+    newTag: staging
+
+# ConfigMap patches for staging environment
+configMapGenerator:
+  - name: servicedesk-config
+    behavior: merge
+    literals:
+      - NODE_ENV=staging
+      - DEBUG=false
+      - LOG_LEVEL=info
+      - ENABLE_MOCK_DATA=false
+      - SKIP_EMAIL_VERIFICATION=false
+      - SENTRY_ENVIRONMENT=staging
+      - DD_ENV=staging
+      - NEXT_PUBLIC_APP_URL=https://staging.servicedesk.example.com
+
+# Patches
+patches:
+  # Moderate resources for staging
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: servicedesk-app
+      spec:
+        template:
+          spec:
+            containers:
+              - name: app
+                resources:
+                  requests:
+                    cpu: "250m"
+                    memory: "512Mi"
+                  limits:
+                    cpu: "1000m"
+                    memory: "1Gi"
+
+  # HPA for staging
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: servicedesk-app-hpa
+      spec:
+        minReplicas: 2
+        maxReplicas: 5
+
+  # Ingress with staging domain
+  - patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: servicedesk-ingress
+      spec:
+        tls:
+          - hosts:
+              - staging.servicedesk.example.com
+            secretName: servicedesk-staging-tls
+        rules:
+          - host: staging.servicedesk.example.com
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: servicedesk-app
+                      port:
+                        name: http

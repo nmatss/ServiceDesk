@@ -24,7 +24,7 @@ const ExecuteWorkflowSchema = z.object({
     triggerType: z.string().optional(),
     triggerConditions: z.any().optional(),
   }).optional(),
-  triggerData: z.record(z.any()),
+  triggerData: z.record(z.string(), z.any()),
   entityType: z.string().optional(),
   entityId: z.number().optional(),
   userId: z.number().optional(),
@@ -264,44 +264,46 @@ export async function DELETE(request: NextRequest) {
 
 // Helper functions
 
+import { getWorkflowById as dbGetWorkflowById } from '@/lib/db/queries';
+import { WorkflowPersistenceAdapter } from '@/lib/workflow/persistence-adapter';
+import { WorkflowQueueManager } from '@/lib/workflow/queue-manager';
+import { WorkflowMetricsCollector } from '@/lib/workflow/metrics-collector';
+
 async function getWorkflowById(workflowId: number): Promise<WorkflowDefinition | null> {
-  // TODO: Implement database query
-  // For now, return null - this should be implemented with actual database
-  return null;
+  try {
+    return dbGetWorkflowById(workflowId);
+  } catch (error) {
+    logger.error('Error fetching workflow from database', error);
+    throw error;
+  }
 }
 
+// Singleton instances for workflow infrastructure
+let persistenceAdapter: WorkflowPersistenceAdapter | null = null;
+let queueManager: WorkflowQueueManager | null = null;
+let metricsCollector: WorkflowMetricsCollector | null = null;
+
 async function initializeWorkflowEngine(): Promise<WorkflowEngine> {
-  // TODO: Implement with actual persistence adapter, queue manager, and metrics collector
-  // For now, create a mock engine
+  // Initialize singleton instances if not already created
+  if (!persistenceAdapter) {
+    persistenceAdapter = new WorkflowPersistenceAdapter();
+    logger.info('WorkflowPersistenceAdapter initialized');
+  }
 
-  // Mock implementations
-  const mockPersistenceAdapter = {
-    getWorkflowDefinition: async (id: number) => null,
-    createExecution: async (execution: any) => ({ ...execution, id: Date.now() }),
-    updateExecution: async (execution: any) => {},
-    getExecution: async (id: number) => null,
-    createStepExecution: async (stepExecution: any) => ({ ...stepExecution, id: Date.now() }),
-    updateStepExecution: async (stepExecution: any) => {},
-    incrementWorkflowSuccessCount: async (workflowId: number) => {},
-    incrementWorkflowFailureCount: async (workflowId: number) => {},
-  };
+  if (!queueManager) {
+    queueManager = new WorkflowQueueManager();
+    logger.info('WorkflowQueueManager initialized');
+  }
 
-  const mockQueueManager = {
-    enqueue: async (job: any) => {},
-    process: (handler: (job: any) => Promise<void>) => {},
-  };
-
-  const mockMetricsCollector = {
-    recordExecutionStart: (workflowId: number, duration: number) => {},
-    recordExecutionSuccess: (workflowId: number) => {},
-    recordExecutionFailure: (workflowId: number, error: string) => {},
-    recordExecutionError: (workflowId: number, error: string) => {},
-  };
+  if (!metricsCollector) {
+    metricsCollector = new WorkflowMetricsCollector();
+    logger.info('WorkflowMetricsCollector initialized');
+  }
 
   return new WorkflowEngine(
-    mockPersistenceAdapter,
-    mockQueueManager,
-    mockMetricsCollector
+    persistenceAdapter,
+    queueManager,
+    metricsCollector
   );
 }
 

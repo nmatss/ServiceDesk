@@ -3,8 +3,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { openDb } from './connection';
-import { logger } from '../monitoring/logger';
+import db from './connection';
+import logger from '../monitoring/structured-logger';
+
+// Helper function to match the expected openDb API
+const openDb = async () => db;
 
 interface Migration {
   id: string;
@@ -13,7 +16,7 @@ interface Migration {
   sql: string;
 }
 
-export class DatabaseMigrator {
+class DatabaseMigrator {
   private db: any;
   private migrationsDir: string;
 
@@ -68,7 +71,7 @@ export class DatabaseMigrator {
 
   private extractMigrationName(sql: string): string | null {
     const match = sql.match(/-- Description: (.+)/);
-    return match ? match[1].trim() : null;
+    return match && match[1] ? match[1].trim() : null;
   }
 
   async getExecutedMigrations(): Promise<string[]> {

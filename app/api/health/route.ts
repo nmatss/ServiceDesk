@@ -15,7 +15,7 @@ import db from '@/lib/db/connection';
  * Returns health status of the application and its dependencies
  */
 export const GET = withObservability(
-  async (request: NextRequest) => {
+  async (_request: NextRequest) => {
     const checks: Record<string, any> = {};
 
     // Check database connectivity

@@ -8,45 +8,21 @@ import {
   Hash,
   User,
   Clock,
-  Tag,
-  FileText,
   Settings,
   HelpCircle,
   ArrowRight,
   Command,
   Zap,
   Star,
-  Calendar,
   Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Send,
-  Archive,
-  Filter,
-  Sort,
-  Download,
-  Upload,
-  Refresh,
-  Bell,
   UserPlus,
-  Users,
   BarChart3,
   TrendingUp,
-  AlertTriangle,
-  CheckCircle,
   X,
   BookOpen,
-  MessageSquare,
-  Paperclip,
-  Phone,
-  Mail,
-  Globe,
   Home,
-  Folder,
-  Database,
 } from 'lucide-react';
-import { cn } from '@/lib/design-system/utils';
+import { cn } from '@/lib/utils';
 import Fuse from 'fuse.js';
 
 export interface CommandItem {
@@ -126,7 +102,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   commands,
   placeholder = 'Type a command or search...',
   emptyText = 'No results found.',
-  persona = 'agent',
+  persona: _persona = 'agent',
   enableCategories = true,
   enableRecents = true,
   enableFavorites = true,
@@ -217,8 +193,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
     // Add any remaining categories
     Object.keys(groups).forEach(category => {
-      if (!sortedGroups[category]) {
-        sortedGroups[category] = groups[category];
+      if (!sortedGroups[category] && groups[category]) {
+        sortedGroups[category] = groups[category] as CommandItem[];
       }
     });
 
@@ -440,7 +416,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 'dark:bg-neutral-800 dark:ring-1 dark:ring-neutral-700',
                 className
               )}>
-                <Combobox onChange={executeCommand}>
+                <Combobox onChange={(value: CommandItem | null) => {
+                  if (value) executeCommand(value);
+                }}>
                   {/* Search input */}
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
@@ -488,7 +466,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                                       {categoryLabels[category as CommandCategory] || category}
                                     </div>
                                   </div>
-                                  {items.map((command, index) => {
+                                  {items.map((command) => {
                                     const globalIndex = filteredCommands.indexOf(command);
                                     return renderCommandItem(command, globalIndex);
                                   })}

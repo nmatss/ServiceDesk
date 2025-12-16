@@ -4,11 +4,11 @@
  */
 
 import { WhatsAppBusinessClient } from './client';
-import { createTicket, createComment, updateTicket, getUserByPhone } from '@/lib/db/queries';
 import { WhatsAppMessage, WhatsAppContact, WhatsAppSession } from '@/lib/types/database';
 import { createAuditLog } from '@/lib/audit/logger';
 import { getWhatsAppContact, createWhatsAppContact, getActiveSessionByPhone, createWhatsAppSession, updateWhatsAppSession } from './storage';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
+import { getDb } from '@/lib/db';
 
 interface WebhookEntry {
   id: string;
@@ -114,17 +114,10 @@ interface WebhookPayload {
   entry: WebhookEntry[];
 }
 
-interface TicketCreationRule {
-  keywords: string[];
-  categoryId: number;
-  priorityId: number;
-  autoAssign?: number;
-}
-
 export class WhatsAppWebhookHandler {
   private client: WhatsAppBusinessClient;
+  private db = getDb();
   private sessionTimeout = 24 * 60 * 60 * 1000; // 24 horas
-  private messageProcessingDelay = 2000; // 2 segundos para evitar duplicatas
 
   constructor(client: WhatsAppBusinessClient) {
     this.client = client;
@@ -150,7 +143,7 @@ export class WhatsAppWebhookHandler {
   /**
    * Processa mensagens recebidas
    */
-  private async processMessages(value: any): Promise<void> {
+  private async processMessages(value: WebhookEntry['changes'][0]['value']): Promise<void> {
     const { messages, contacts, statuses } = value;
 
     // Processa contatos primeiro
@@ -178,7 +171,10 @@ export class WhatsAppWebhookHandler {
   /**
    * Processa contato
    */
-  private async processContact(contact: any): Promise<WhatsAppContact> {
+  private async processContact(contact: {
+    wa_id: string
+    profile?: { name: string }
+  }): Promise<WhatsAppContact> {
     const phoneNumber = contact.wa_id;
     const displayName = contact.profile?.name;
 
@@ -186,7 +182,10 @@ export class WhatsAppWebhookHandler {
 
     if (!whatsappContact) {
       // Busca usuário existente pelo telefone
-      const existingUser = await getUserByPhone(phoneNumber);
+      // Try to find existing user by phone
+      const existingUser = this.db.prepare(`
+        SELECT id FROM users WHERE phone = ?
+      `).get(phoneNumber) as { id: number } | undefined;
 
       whatsappContact = await createWhatsAppContact({
         user_id: existingUser?.id,
@@ -206,7 +205,7 @@ export class WhatsAppWebhookHandler {
       // Atualiza nome se mudou
       whatsappContact.display_name = displayName;
       whatsappContact.updated_at = new Date().toISOString();
-      await updateWhatsAppContact(whatsappContact);
+      await this.updateWhatsAppContact(whatsappContact);
     }
 
     return whatsappContact;
@@ -215,7 +214,8 @@ export class WhatsAppWebhookHandler {
   /**
    * Processa mensagem recebida
    */
-  private async processMessage(message: any): Promise<void> {
+  private async processMessage(msg: NonNullable<WebhookEntry['changes'][0]['value']['messages']>[0]): Promise<void> {
+    const message = msg;
     const phoneNumber = message.from;
     const messageId = message.id;
     const timestamp = new Date(parseInt(message.timestamp) * 1000).toISOString();
@@ -286,12 +286,13 @@ export class WhatsAppWebhookHandler {
   /**
    * Extrai conteúdo da mensagem baseado no tipo
    */
-  private extractMessageContent(message: any): {
+  private extractMessageContent(msg: NonNullable<WebhookEntry['changes'][0]['value']['messages']>[0]): {
     text?: string;
     mediaUrl?: string;
     mimeType?: string;
     caption?: string;
   } {
+    const message = msg;
     const { type } = message;
 
     switch (type) {
@@ -331,14 +332,17 @@ export class WhatsAppWebhookHandler {
 
       case 'location':
         const loc = message.location;
-        return {
-          text: `📍 Localização: ${loc.name || 'Local'}\n${loc.address || ''}\nCoordenadas: ${loc.latitude}, ${loc.longitude}`
-        };
+        if (loc) {
+          return {
+            text: `📍 Localização: ${loc.name || 'Local'}\n${loc.address || ''}\nCoordenadas: ${loc.latitude}, ${loc.longitude}`
+          };
+        }
+        return { text: '[Localização]' };
 
       case 'contacts':
-        const contacts = message.contacts;
-        const contactText = contacts.map((c: any) =>
-          `👤 ${c.name.formatted_name}\n${c.phones?.map((p: any) => p.phone).join(', ') || ''}`
+        const contacts = message.contacts || [];
+        const contactText = contacts.map((c: { name: { formatted_name: string }; phones?: Array<{ phone: string }> }) =>
+          `👤 ${c.name.formatted_name}\n${c.phones?.map((p: { phone: string }) => p.phone).join(', ') || ''}`
         ).join('\n\n');
         return { text: contactText };
 
@@ -354,7 +358,12 @@ export class WhatsAppWebhookHandler {
     contact: WhatsAppContact,
     message: WhatsAppMessage,
     session: WhatsAppSession,
-    content: any
+    content: {
+      text?: string
+      mediaUrl?: string
+      mimeType?: string
+      caption?: string
+    }
   ): Promise<void> {
     const sessionData = JSON.parse(session.session_data || '{}');
 
@@ -363,7 +372,7 @@ export class WhatsAppWebhookHandler {
       await this.addCommentToExistingTicket(sessionData.activeTicketId, contact, message, content);
     } else {
       // Verifica se deve criar novo ticket baseado em regras
-      const shouldCreateTicket = await this.shouldCreateTicket(content.text, contact);
+      const shouldCreateTicket = await this.shouldCreateTicket(content.text);
 
       if (shouldCreateTicket) {
         const ticketId = await this.createTicketFromWhatsApp(contact, message, content);
@@ -384,7 +393,7 @@ export class WhatsAppWebhookHandler {
   /**
    * Determina se deve criar ticket baseado em regras
    */
-  private async shouldCreateTicket(messageText?: string, contact?: WhatsAppContact): Promise<boolean> {
+  private async shouldCreateTicket(messageText?: string): Promise<boolean> {
     if (!messageText) return false;
 
     const text = messageText.toLowerCase();
@@ -422,7 +431,12 @@ export class WhatsAppWebhookHandler {
   private async createTicketFromWhatsApp(
     contact: WhatsAppContact,
     message: WhatsAppMessage,
-    content: any
+    content: {
+      text?: string
+      mediaUrl?: string
+      mimeType?: string
+      caption?: string
+    }
   ): Promise<number> {
     const title = this.generateTicketTitle(content.text);
     const description = this.generateTicketDescription(contact, message, content);
@@ -430,36 +444,42 @@ export class WhatsAppWebhookHandler {
     // Determina categoria e prioridade baseado no conteúdo
     const { categoryId, priorityId } = await this.determineTicketClassification(content.text);
 
-    const ticket = await createTicket({
+    // Create ticket using direct DB query
+    const result = this.db.prepare(`
+      INSERT INTO tickets (title, description, user_id, category_id, priority_id, status_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).run(
       title,
       description,
-      user_id: contact.user_id || 1, // User system se não tiver usuário vinculado
-      category_id: categoryId,
-      priority_id: priorityId,
-      status_id: 1 // Aberto
-    });
+      contact.user_id || 1,
+      categoryId,
+      priorityId,
+      1
+    );
+
+    const ticketId = result.lastInsertRowid as number;
 
     // Atualiza mensagem com ID do ticket
     await this.updateWhatsAppMessage({
       ...message,
-      ticket_id: ticket.id
+      ticket_id: ticketId
     });
 
     await createAuditLog({
       action: 'ticket_created_from_whatsapp',
       resource_type: 'ticket',
-      resource_id: ticket.id,
+      resource_id: ticketId,
       new_values: JSON.stringify({
-        ticketId: ticket.id,
+        ticketId,
         whatsappMessageId: message.id,
         contactPhone: contact.phone_number
       })
     });
 
     // Envia confirmação
-    await this.sendTicketCreatedConfirmation(contact.phone_number, ticket.id);
+    await this.sendTicketCreatedConfirmation(contact.phone_number, ticketId);
 
-    return ticket.id;
+    return ticketId;
   }
 
   /**
@@ -469,16 +489,20 @@ export class WhatsAppWebhookHandler {
     ticketId: number,
     contact: WhatsAppContact,
     message: WhatsAppMessage,
-    content: any
+    content: {
+      text?: string
+      mediaUrl?: string
+      mimeType?: string
+      caption?: string
+    }
   ): Promise<void> {
     const commentContent = this.formatCommentFromWhatsApp(message, content);
 
-    await createComment({
-      ticket_id: ticketId,
-      user_id: contact.user_id || 1,
-      content: commentContent,
-      is_internal: false
-    });
+    // Create comment using direct DB query
+    this.db.prepare(`
+      INSERT INTO comments (ticket_id, author_id, content, is_internal, created_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(ticketId, contact.user_id || 1, commentContent, 0);
 
     // Atualiza mensagem com ID do ticket
     await this.updateWhatsAppMessage({
@@ -487,19 +511,18 @@ export class WhatsAppWebhookHandler {
     });
 
     // Atualiza timestamp do ticket
-    await updateTicket({
-      id: ticketId,
-      updated_at: new Date().toISOString()
-    });
+    this.db.prepare(`
+      UPDATE tickets SET updated_at = datetime('now') WHERE id = ?
+    `).run(ticketId);
   }
 
   /**
    * Processa status de entrega de mensagem
    */
-  private async processMessageStatus(status: any): Promise<void> {
+  private async processMessageStatus(stat: NonNullable<WebhookEntry['changes'][0]['value']['statuses']>[0]): Promise<void> {
+    const status = stat;
     const messageId = status.id;
     const statusType = status.status;
-    const timestamp = new Date(parseInt(status.timestamp) * 1000).toISOString();
 
     const message = await this.getWhatsAppMessageById(messageId);
     if (message) {
@@ -527,7 +550,12 @@ export class WhatsAppWebhookHandler {
   private generateTicketDescription(
     contact: WhatsAppContact,
     message: WhatsAppMessage,
-    content: any
+    content: {
+      text?: string
+      mediaUrl?: string
+      mimeType?: string
+      caption?: string
+    }
   ): string {
     let description = `Solicitação recebida via WhatsApp\n\n`;
     description += `📱 Contato: ${contact.display_name || contact.phone_number}\n`;
@@ -567,7 +595,12 @@ export class WhatsAppWebhookHandler {
   /**
    * Formata comentário a partir de mensagem WhatsApp
    */
-  private formatCommentFromWhatsApp(message: WhatsAppMessage, content: any): string {
+  private formatCommentFromWhatsApp(message: WhatsAppMessage, content: {
+    text?: string
+    mediaUrl?: string
+    mimeType?: string
+    caption?: string
+  }): string {
     let comment = `💬 WhatsApp (${new Date(message.timestamp).toLocaleString('pt-BR')}):\n`;
     comment += content.text || '[Mídia anexada]';
 
@@ -597,7 +630,12 @@ export class WhatsAppWebhookHandler {
   /**
    * Trata mensagens que não geram tickets
    */
-  private async handleNonTicketMessage(contact: WhatsAppContact, content: any): Promise<void> {
+  private async handleNonTicketMessage(contact: WhatsAppContact, content: {
+    text?: string
+    mediaUrl?: string
+    mimeType?: string
+    caption?: string
+  }): Promise<void> {
     const text = content.text?.toLowerCase();
 
     if (!text) return;
@@ -626,21 +664,21 @@ export class WhatsAppWebhookHandler {
   // Métodos de placeholder para interação com banco de dados
   // Estes devem ser implementados conforme a estrutura do seu banco
 
-  private async getWhatsAppMessageById(messageId: string): Promise<WhatsAppMessage | null> {
+  private async getWhatsAppMessageById(_messageId: string): Promise<WhatsAppMessage | null> {
     // TODO: Implementar query no banco de dados
     return null;
   }
 
-  private async saveWhatsAppMessage(data: any): Promise<WhatsAppMessage> {
+  private async saveWhatsAppMessage(data: Partial<WhatsAppMessage>): Promise<WhatsAppMessage> {
     // TODO: Implementar inserção no banco de dados
     return data as WhatsAppMessage;
   }
 
-  private async updateWhatsAppMessage(message: WhatsAppMessage): Promise<void> {
+  private async updateWhatsAppMessage(_message: WhatsAppMessage): Promise<void> {
     // TODO: Implementar atualização no banco de dados
   }
 
-  private async updateWhatsAppContact(contact: WhatsAppContact): Promise<void> {
+  private async updateWhatsAppContact(_contact: WhatsAppContact): Promise<void> {
     // TODO: Implementar atualização no banco de dados
   }
 }

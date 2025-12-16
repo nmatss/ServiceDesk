@@ -4,19 +4,17 @@
  * Error Boundary for App Router
  *
  * This component catches errors in the application and provides a fallback UI.
- * It automatically reports errors to Sentry.
  *
  * Triggered by:
  * - Errors thrown in components
  * - Errors in event handlers
  * - Errors in useEffect
  * - Errors in Server Components (passed to nearest error boundary)
+ *
+ * NOTE: This is a client component. Do NOT import server-only modules.
  */
 
 import { useEffect } from 'react'
-import * as Sentry from '@sentry/nextjs'
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-import { logger } from '@/lib/monitoring/logger';
 
 interface ErrorProps {
   error: Error & { digest?: string }
@@ -25,24 +23,38 @@ interface ErrorProps {
 
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
-    // Log error to Sentry
-    Sentry.captureException(error, {
-      tags: {
-        errorBoundary: 'app',
-      },
-      contexts: {
-        errorInfo: {
-          digest: error.digest,
-          message: error.message,
-          name: error.name,
-        },
-      },
-    })
-
-    // Log to console in development
+    // Log error to console in development
     if (process.env.NODE_ENV === 'development') {
-      logger.error('App Error Boundary', error)
+      console.error('[ErrorBoundary] App Error:', error)
     }
+
+    // Report error to monitoring service (if available)
+    // Using dynamic import to avoid Edge Runtime issues
+    const reportError = async () => {
+      try {
+        // Only import Sentry in the browser, not during SSR/Edge
+        if (typeof window !== 'undefined') {
+          const Sentry = await import('@sentry/nextjs')
+          Sentry.captureException(error, {
+            tags: {
+              errorBoundary: 'app',
+            },
+            contexts: {
+              errorInfo: {
+                digest: error.digest,
+                message: error.message,
+                name: error.name,
+              },
+            },
+          })
+        }
+      } catch (e) {
+        // Silently fail if Sentry is not available
+        console.error('[ErrorBoundary] Failed to report error:', e)
+      }
+    }
+
+    reportError()
   }, [error])
 
   return (
@@ -52,7 +64,20 @@ export default function Error({ error, reset }: ErrorProps) {
           {/* Icon */}
           <div className="mb-6 flex justify-center">
             <div className="rounded-full bg-red-100 dark:bg-red-900/20 p-4">
-              <ExclamationTriangleIcon className="h-12 w-12 text-red-600 dark:text-red-400" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-12 w-12 text-red-600 dark:text-red-400"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                />
+              </svg>
             </div>
           </div>
 
@@ -104,7 +129,7 @@ export default function Error({ error, reset }: ErrorProps) {
           <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
             Precisa de ajuda?{' '}
             <a
-              href="/suporte"
+              href="/portal"
               className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
             >
               Entre em contato com o suporte

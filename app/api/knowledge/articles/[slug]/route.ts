@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -8,8 +8,6 @@ export async function GET(
   { params }: { params: { slug: string } }
 ) {
   try {
-    const db = getDb()
-
     // Buscar artigo por slug
     const article = db.prepare(`
       SELECT
@@ -155,9 +153,6 @@ export async function PUT(
         { status: 403 }
       )
     }
-
-    const db = getDb()
-
     // Verificar se artigo existe
     const existingArticle = db.prepare('SELECT id, author_id FROM kb_articles WHERE slug = ?').get(params.slug)
     if (!existingArticle) {
@@ -282,9 +277,6 @@ export async function DELETE(
         { status: 403 }
       )
     }
-
-    const db = getDb()
-
     // Verificar se artigo existe
     const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug)
     if (!article) {

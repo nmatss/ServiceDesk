@@ -153,7 +153,17 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
     };
   } catch (error) {
     logger.error('Error getting system overview', error);
-    return {};
+    return {
+      tickets: {
+        total: 0,
+        open: 0,
+        closed: 0,
+        period: 0,
+        unassigned: 0,
+        avg_resolution_hours: 0
+      },
+      users: null
+    };
   }
 }
 
@@ -210,7 +220,11 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
     };
   } catch (error) {
     logger.error('Error getting ticket metrics', error);
-    return {};
+    return {
+      by_status: [],
+      daily_created: [],
+      daily_resolved: []
+    };
   }
 }
 
@@ -249,11 +263,11 @@ async function getAgentPerformance(tenant: any, startDate: Date) {
 
 async function getSLAData(user: any, tenant: any, startDate: Date) {
   try {
-    let whereClause = '';
-    const params: any[] = [];
+    let whereClause = 'AND t.tenant_id = ?';
+    const params: any[] = [tenant.id];
 
     if (user.role === 'user') {
-      whereClause = 'AND t.user_id = ?';
+      whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
 
@@ -293,7 +307,13 @@ async function getSLAData(user: any, tenant: any, startDate: Date) {
     };
   } catch (error) {
     logger.error('Error getting SLA data', error);
-    return {};
+    return {
+      total_tracked: 0,
+      response_compliance: 0,
+      resolution_compliance: 0,
+      response_compliant: 0,
+      resolution_compliant: 0
+    };
   }
 }
 
@@ -336,13 +356,14 @@ async function getRecentActivity(user: any, tenant: any, limit: number) {
   }
 }
 
-async function getTrendAnalytics(user: any, startDate: Date, days: number) {
+async function getTrendAnalytics(user: any, tenant: any, startDate: Date, days: number) {
   try {
-    let whereClause = '';
-    const params: any[] = [];
+    // SECURITY: Always filter by tenant
+    let whereClause = 'AND t.tenant_id = ?';
+    const params: any[] = [tenant.id];
 
     if (user.role === 'user') {
-      whereClause = 'AND t.user_id = ?';
+      whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
 
@@ -374,18 +395,25 @@ async function getTrendAnalytics(user: any, startDate: Date, days: number) {
     };
   } catch (error) {
     logger.error('Error getting trend analytics', error);
-    return {};
+    return {
+      current_period: 0,
+      previous_period: 0,
+      change_percentage: 0,
+      trend: 'stable' as const
+    };
   }
 }
 
-async function getCategoryStats(user: any, startDate: Date) {
+async function getCategoryStats(user: any, tenant: any, startDate: Date) {
   try {
-    let whereClause = '';
-    const params: any[] = [];
+    // SECURITY: Always filter by tenant
+    const baseParams: any[] = [tenant.id, tenant.id];
+    let additionalWhere = '';
+    const additionalParams: any[] = [];
 
     if (user.role === 'user') {
-      whereClause = 'WHERE t.user_id = ?';
-      params.push(user.id);
+      additionalWhere = 'AND t.user_id = ?';
+      additionalParams.push(user.id);
     }
 
     return db.prepare(`
@@ -395,24 +423,26 @@ async function getCategoryStats(user: any, startDate: Date) {
         COUNT(t.id) as count,
         COUNT(CASE WHEN t.created_at >= ? THEN 1 END) as count_period
       FROM categories c
-      LEFT JOIN tickets t ON c.id = t.category_id ${whereClause ? (whereClause.includes('WHERE') ? 'AND' : 'WHERE') + ' t.user_id = ?' : ''}
+      LEFT JOIN tickets t ON c.id = t.category_id AND t.tenant_id = ? ${additionalWhere}
+      WHERE c.tenant_id = ?
       GROUP BY c.id, c.name, c.color
       ORDER BY count DESC
-    `).all(startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])) as any[];
+    `).all(startDate.toISOString(), tenant.id, ...additionalParams, tenant.id) as any[];
   } catch (error) {
     logger.error('Error getting category stats', error);
     return [];
   }
 }
 
-async function getPriorityStats(user: any, startDate: Date) {
+async function getPriorityStats(user: any, tenant: any, startDate: Date) {
   try {
-    let whereClause = '';
-    const params: any[] = [];
+    // SECURITY: Always filter by tenant
+    let additionalWhere = '';
+    const additionalParams: any[] = [];
 
     if (user.role === 'user') {
-      whereClause = 'WHERE t.user_id = ?';
-      params.push(user.id);
+      additionalWhere = 'AND t.user_id = ?';
+      additionalParams.push(user.id);
     }
 
     return db.prepare(`
@@ -423,80 +453,95 @@ async function getPriorityStats(user: any, startDate: Date) {
         COUNT(t.id) as count,
         COUNT(CASE WHEN t.created_at >= ? THEN 1 END) as count_period
       FROM priorities p
-      LEFT JOIN tickets t ON p.id = t.priority_id ${whereClause ? (whereClause.includes('WHERE') ? 'AND' : 'WHERE') + ' t.user_id = ?' : ''}
+      LEFT JOIN tickets t ON p.id = t.priority_id AND t.tenant_id = ? ${additionalWhere}
+      WHERE p.tenant_id = ?
       GROUP BY p.id, p.name, p.color, p.level
       ORDER BY p.level DESC, count DESC
-    `).all(startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])) as any[];
+    `).all(startDate.toISOString(), tenant.id, ...additionalParams, tenant.id) as any[];
   } catch (error) {
     logger.error('Error getting priority stats', error);
     return [];
   }
 }
 
-async function getRoleSpecificData(user: any, startDate: Date) {
+async function getRoleSpecificData(user: any, tenant: any, startDate: Date) {
   try {
     const data: any = {};
 
-    if (user.role === 'admin') {
+    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'tenant_admin') {
       // Dados específicos para admin
-      data.system_health = await getSystemHealthData();
-      data.user_activity = await getUserActivityData(startDate);
-    } else if (user.role === 'agent') {
+      data.system_health = await getSystemHealthData(tenant);
+      data.user_activity = await getUserActivityData(tenant, startDate);
+    } else if (user.role === 'agent' || user.role === 'team_manager') {
       // Dados específicos para agente
-      data.my_assignments = await getAgentAssignments(user.id);
-      data.workload = await getAgentWorkload(user.id);
+      data.my_assignments = await getAgentAssignments(user.id, tenant);
+      data.workload = await getAgentWorkload(user.id, tenant);
     } else if (user.role === 'user') {
       // Dados específicos para usuário final
-      data.my_tickets = await getUserTicketsSummary(user.id, startDate);
+      data.my_tickets = await getUserTicketsSummary(user.id, tenant, startDate);
     }
 
     return data;
   } catch (error) {
     logger.error('Error getting role specific data', error);
-    return {};
+    return {
+      system_health: null,
+      user_activity: null,
+      my_assignments: null,
+      my_workload: null,
+      my_tickets: null
+    };
   }
 }
 
-async function getSystemHealthData() {
+async function getSystemHealthData(tenant: any) {
   try {
+    // SECURITY: Always filter by tenant
     const health = db.prepare(`
       SELECT
-        (SELECT COUNT(*) FROM tickets WHERE created_at >= datetime('now', '-1 hour')) as tickets_last_hour,
-        (SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-24 hours')) as new_users_today,
-        (SELECT COUNT(*) FROM notifications WHERE created_at >= datetime('now', '-1 hour') AND is_read = 0) as unread_notifications,
-        (SELECT COUNT(*) FROM sla_tracking WHERE resolution_breached = 1) as sla_breaches
-    `).get() as any;
+        (SELECT COUNT(*) FROM tickets WHERE tenant_id = ? AND created_at >= datetime('now', '-1 hour')) as tickets_last_hour,
+        (SELECT COUNT(*) FROM users WHERE tenant_id = ? AND created_at >= datetime('now', '-24 hours')) as new_users_today,
+        (SELECT COUNT(*) FROM notifications WHERE tenant_id = ? AND created_at >= datetime('now', '-1 hour') AND is_read = 0) as unread_notifications,
+        (SELECT COUNT(*) FROM sla_tracking st JOIN tickets t ON st.ticket_id = t.id WHERE t.tenant_id = ? AND st.resolution_breached = 1) as sla_breaches
+    `).get(tenant.id, tenant.id, tenant.id, tenant.id) as any;
 
     return health;
   } catch (error) {
     logger.error('Error getting system health data', error);
-    return {};
+    return {
+      tickets_last_hour: 0,
+      new_users_today: 0,
+      unread_notifications: 0,
+      sla_breaches: 0
+    };
   }
 }
 
-async function getUserActivityData(startDate: Date) {
+async function getUserActivityData(tenant: any, startDate: Date) {
   try {
+    // SECURITY: Always filter by tenant
     return db.prepare(`
       SELECT
         u.name,
         u.role,
         COUNT(t.id) as tickets_created
       FROM users u
-      LEFT JOIN tickets t ON u.id = t.user_id AND t.created_at >= ?
-      WHERE u.role = 'user'
+      LEFT JOIN tickets t ON u.id = t.user_id AND t.tenant_id = ? AND t.created_at >= ?
+      WHERE u.tenant_id = ? AND u.role = 'user'
       GROUP BY u.id, u.name, u.role
       HAVING tickets_created > 0
       ORDER BY tickets_created DESC
       LIMIT 10
-    `).all(startDate.toISOString()) as any[];
+    `).all(tenant.id, startDate.toISOString(), tenant.id) as any[];
   } catch (error) {
     logger.error('Error getting user activity data', error);
     return [];
   }
 }
 
-async function getAgentAssignments(agentId: number) {
+async function getAgentAssignments(agentId: number, tenant: any) {
   try {
+    // SECURITY: Always filter by tenant
     return db.prepare(`
       SELECT
         t.id,
@@ -506,20 +551,21 @@ async function getAgentAssignments(agentId: number) {
         p.color as priority_color,
         s.name as status_name
       FROM tickets t
-      JOIN priorities p ON t.priority_id = p.id
-      JOIN statuses s ON t.status_id = s.id
-      WHERE t.assigned_to = ? AND s.is_final = 0
+      JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
+      JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
+      WHERE t.tenant_id = ? AND t.assigned_to = ? AND s.is_final = 0
       ORDER BY p.level DESC, t.created_at ASC
       LIMIT 10
-    `).all(agentId) as any[];
+    `).all(tenant.id, tenant.id, tenant.id, agentId) as any[];
   } catch (error) {
     logger.error('Error getting agent assignments', error);
     return [];
   }
 }
 
-async function getAgentWorkload(agentId: number) {
+async function getAgentWorkload(agentId: number, tenant: any) {
   try {
+    // SECURITY: Always filter by tenant
     return db.prepare(`
       SELECT
         COUNT(*) as total_assigned,
@@ -527,19 +573,25 @@ async function getAgentWorkload(agentId: number) {
         COUNT(CASE WHEN p.level = 4 THEN 1 END) as critical_tickets,
         COUNT(CASE WHEN st.response_due_at < datetime('now') AND st.first_response_at IS NULL THEN 1 END) as overdue_response
       FROM tickets t
-      LEFT JOIN statuses s ON t.status_id = s.id
-      LEFT JOIN priorities p ON t.priority_id = p.id
+      LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
+      LEFT JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-      WHERE t.assigned_to = ?
-    `).get(agentId) as any;
+      WHERE t.tenant_id = ? AND t.assigned_to = ?
+    `).get(tenant.id, tenant.id, tenant.id, agentId) as any;
   } catch (error) {
     logger.error('Error getting agent workload', error);
-    return {};
+    return {
+      total_assigned: 0,
+      open_tickets: 0,
+      critical_tickets: 0,
+      overdue_response: 0
+    };
   }
 }
 
-async function getUserTicketsSummary(userId: number, startDate: Date) {
+async function getUserTicketsSummary(userId: number, tenant: any, startDate: Date) {
   try {
+    // SECURITY: Always filter by tenant
     return db.prepare(`
       SELECT
         COUNT(*) as total_tickets,
@@ -552,11 +604,17 @@ async function getUserTicketsSummary(userId: number, startDate: Date) {
           ELSE NULL
         END) as avg_resolution_hours
       FROM tickets t
-      LEFT JOIN statuses s ON t.status_id = s.id
-      WHERE t.user_id = ?
-    `).get(startDate.toISOString(), userId) as any;
+      LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
+      WHERE t.tenant_id = ? AND t.user_id = ?
+    `).get(startDate.toISOString(), tenant.id, tenant.id, userId) as any;
   } catch (error) {
     logger.error('Error getting user tickets summary', error);
-    return {};
+    return {
+      total_tickets: 0,
+      open_tickets: 0,
+      closed_tickets: 0,
+      tickets_period: 0,
+      avg_resolution_hours: 0
+    };
   }
 }

@@ -88,7 +88,6 @@ export default function CommunityContributions() {
     type: 'all',
     sort: 'newest'
   });
-  const [showContributionForm, setShowContributionForm] = useState(false);
   const [newComment, setNewComment] = useState('');
 
   useEffect(() => {
@@ -285,7 +284,7 @@ export default function CommunityContributions() {
               </p>
             </div>
             <button
-              onClick={() => setShowContributionForm(true)}
+              onClick={() => {/* TODO: Implement contribution form */}}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
@@ -553,7 +552,7 @@ export default function CommunityContributions() {
               </h3>
               <div className="space-y-3">
                 <button
-                  onClick={() => setShowContributionForm(true)}
+                  onClick={() => {/* TODO: Implement contribution form */}}
                   className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                 >
                   Nova Contribuição

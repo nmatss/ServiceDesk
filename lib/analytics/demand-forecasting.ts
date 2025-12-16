@@ -1,8 +1,7 @@
 // Enterprise Demand Forecasting with Seasonality Analysis
 // Predicts ticket volume, resource requirements, and capacity planning with advanced time series analysis
 
-import { mlPipeline, MLModel } from './ml-pipeline';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface DemandForecast {
   forecast_id: string;
@@ -112,10 +111,7 @@ export interface CapacityRecommendation {
 }
 
 export class DemandForecastingEngine {
-  private forecastModels: Map<string, string> = new Map();
-  private historicalData: Map<string, TimeSeriesData[]> = new Map();
   private externalFactors: ExternalFactor[] = [];
-  private lastModelUpdate: Date = new Date();
 
   constructor() {
     this.initializeModels();
@@ -220,6 +216,8 @@ export class DemandForecastingEngine {
       const actual = historicalData[i];
       const predicted = forecast.predictions[i];
 
+      if (!actual || !predicted) continue;
+
       const deviation = Math.abs(actual.value - predicted.predicted_value);
       const threshold = predicted.upper_bound - predicted.predicted_value;
 
@@ -245,7 +243,7 @@ export class DemandForecastingEngine {
 
   private async detectSeasonality(
     data: TimeSeriesData[],
-    timeHorizon: string
+    timeHorizon: DemandForecast['time_horizon']
   ): Promise<SeasonalityComponent[]> {
     const components: SeasonalityComponent[] = [];
 
@@ -360,7 +358,6 @@ export class DemandForecastingEngine {
 
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const maxDay = dailyAverages.indexOf(Math.max(...dailyAverages));
-    const minDay = dailyAverages.indexOf(Math.min(...dailyAverages));
 
     const patterns: DetectedPattern[] = [
       {
@@ -512,7 +509,7 @@ export class DemandForecastingEngine {
     const n = x.length;
     const sumX = x.reduce((a, b) => a + b, 0);
     const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+    const sumXY = x.reduce((sum, xi, i) => sum + xi * (y[i] || 0), 0);
     const sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
@@ -522,7 +519,7 @@ export class DemandForecastingEngine {
     const yMean = sumY / n;
     const totalSumSquares = y.reduce((sum, yi) => sum + Math.pow(yi - yMean, 2), 0);
     const residualSumSquares = y.reduce((sum, yi, i) => {
-      const predicted = slope * x[i] + intercept;
+      const predicted = slope * (x[i] || 0) + intercept;
       return sum + Math.pow(yi - predicted, 2);
     }, 0);
     const r2 = 1 - (residualSumSquares / totalSumSquares);
@@ -543,14 +540,15 @@ export class DemandForecastingEngine {
 
       const magnitude = Math.abs(afterMean - beforeMean);
       const threshold = this.calculateChangePointThreshold(data, i);
+      const currentPoint = data[i];
 
-      if (magnitude > threshold) {
+      if (magnitude > threshold && currentPoint) {
         changepoints.push({
-          timestamp: data[i].timestamp,
+          timestamp: currentPoint.timestamp,
           magnitude: magnitude,
           direction: afterMean > beforeMean ? 'increase' : 'decrease',
           confidence: Math.min(magnitude / threshold, 1),
-          probable_cause: this.identifyChangePointCause(data[i].timestamp, magnitude)
+          probable_cause: this.identifyChangePointCause(currentPoint.timestamp, magnitude)
         });
       }
     }
@@ -565,12 +563,17 @@ export class DemandForecastingEngine {
   private async generatePredictions(
     historicalData: TimeSeriesData[],
     forecastPeriods: number,
-    timeHorizon: string,
+    timeHorizon: DemandForecast['time_horizon'],
     seasonalityComponents: SeasonalityComponent[],
     trendAnalysis: TrendAnalysis
   ): Promise<ForecastPrediction[]> {
     const predictions: ForecastPrediction[] = [];
     const lastDataPoint = historicalData[historicalData.length - 1];
+
+    if (!lastDataPoint) {
+      return predictions;
+    }
+
     const timeIncrement = this.getTimeIncrement(timeHorizon);
 
     for (let i = 1; i <= forecastPeriods; i++) {
@@ -661,12 +664,15 @@ export class DemandForecastingEngine {
 
   private async applyExternalFactors(
     predictions: ForecastPrediction[],
-    timeHorizon: string
+    timeHorizon: DemandForecast['time_horizon']
   ): Promise<ForecastPrediction[]> {
     const adjustedPredictions = [...predictions];
 
     for (let i = 0; i < adjustedPredictions.length; i++) {
       const prediction = adjustedPredictions[i];
+
+      if (!prediction) continue;
+
       let totalAdjustment = 0;
 
       for (const factor of this.externalFactors) {
@@ -691,7 +697,7 @@ export class DemandForecastingEngine {
   private async calculateExternalFactorImpact(
     timestamp: Date,
     factor: ExternalFactor,
-    timeHorizon: string
+    _timeHorizon: DemandForecast['time_horizon']
   ): Promise<number> {
     switch (factor.factor_type) {
       case 'calendar':
@@ -762,7 +768,6 @@ export class DemandForecastingEngine {
     if (agents <= traffic) return 0;
 
     // Simplified service level calculation
-    const utilization = traffic / agents;
     const waitProbability = this.calculateErlangC(traffic, agents);
     const avgWaitTime = waitProbability / (agents - traffic);
 
@@ -782,7 +787,7 @@ export class DemandForecastingEngine {
   // UTILITY METHODS
   // ========================================
 
-  private getTimeIncrement(timeHorizon: string): number {
+  private getTimeIncrement(timeHorizon: DemandForecast['time_horizon']): number {
     switch (timeHorizon) {
       case 'hourly': return 60 * 60 * 1000; // 1 hour in ms
       case 'daily': return 24 * 60 * 60 * 1000; // 1 day in ms
@@ -859,17 +864,17 @@ export class DemandForecastingEngine {
   }
 
   private async prepareHistoricalData(
-    forecastType: string,
-    timeHorizon: string,
-    filters?: ForecastFilters
+    _forecastType: DemandForecast['forecast_type'],
+    _timeHorizon: DemandForecast['time_horizon'],
+    _filters?: ForecastFilters
   ): Promise<TimeSeriesData[]> {
     // Mock implementation
     return [];
   }
 
   private async evaluateForecastPerformance(
-    historicalData: TimeSeriesData[],
-    forecastType: string
+    _historicalData: TimeSeriesData[],
+    _forecastType: DemandForecast['forecast_type']
   ): Promise<ForecastMetrics> {
     return {
       mae: 5.2,
@@ -896,7 +901,7 @@ export class DemandForecastingEngine {
     return slope > 0 ? 'increasing' : 'decreasing';
   }
 
-  private decomposeTrend(data: TimeSeriesData[]): TrendDecomposition {
+  private decomposeTrend(_data: TimeSeriesData[]): TrendDecomposition {
     return {
       linear_component: 0.6,
       exponential_component: 0.1,
@@ -920,25 +925,25 @@ export class DemandForecastingEngine {
   }
 
   // Additional helper methods (simplified implementations)
-  private getNextOccurrence(value: number, type: string): Date { return new Date(); }
+  private getNextOccurrence(_value: number, _type: 'hour' | 'day' | 'month'): Date { return new Date(); }
   private getNextWeekend(): Date { return new Date(); }
-  private calculateWeekendEffect(dailyAverages: number[]): number { return 0.2; }
-  private calculateHolidayImpact(data: TimeSeriesData[], holiday: any): number { return 0.1; }
-  private getLastHolidayOccurrence(holiday: any): Date { return new Date(); }
-  private getNextHolidayOccurrence(holiday: any): Date { return new Date(); }
-  private calculateChangePointThreshold(data: TimeSeriesData[], index: number): number { return 10; }
-  private identifyChangePointCause(timestamp: Date, magnitude: number): string { return 'Unknown'; }
-  private calculateCalendarImpact(timestamp: Date, factor: ExternalFactor): number { return 0; }
-  private async calculateEconomicImpact(timestamp: Date, factor: ExternalFactor): Promise<number> { return 0; }
-  private async calculateWeatherImpact(timestamp: Date, factor: ExternalFactor): Promise<number> { return 0; }
-  private async calculateEventImpact(timestamp: Date, factor: ExternalFactor): Promise<number> { return 0; }
-  private calculateBusinessImpact(timestamp: Date, factor: ExternalFactor): number { return 0; }
+  private calculateWeekendEffect(_dailyAverages: number[]): number { return 0.2; }
+  private calculateHolidayImpact(_data: TimeSeriesData[], _holiday: { name: string; month: number; day: number }): number { return 0.1; }
+  private getLastHolidayOccurrence(_holiday: { name: string; month: number; day: number }): Date { return new Date(); }
+  private getNextHolidayOccurrence(_holiday: { name: string; month: number; day: number }): Date { return new Date(); }
+  private calculateChangePointThreshold(_data: TimeSeriesData[], _index: number): number { return 10; }
+  private identifyChangePointCause(_timestamp: Date, _magnitude: number): string { return 'Unknown'; }
+  private calculateCalendarImpact(_timestamp: Date, _factor: ExternalFactor): number { return 0; }
+  private async calculateEconomicImpact(_timestamp: Date, _factor: ExternalFactor): Promise<number> { return 0; }
+  private async calculateWeatherImpact(_timestamp: Date, _factor: ExternalFactor): Promise<number> { return 0; }
+  private async calculateEventImpact(_timestamp: Date, _factor: ExternalFactor): Promise<number> { return 0; }
+  private calculateBusinessImpact(_timestamp: Date, _factor: ExternalFactor): number { return 0; }
   private async getCurrentAgentCount(): Promise<number> { return 10; }
-  private generateRecommendationReason(agentDifference: number, predictedSL: number, targetSL: number): string {
+  private generateRecommendationReason(agentDifference: number, _predictedSL: number, _targetSL: number): string {
     return `Recommended ${agentDifference > 0 ? 'increase' : 'decrease'} in staffing to maintain service level`;
   }
-  private async getHistoricalData(dataType: string, timeWindow: string): Promise<TimeSeriesData[]> { return []; }
-  private async identifyAnomalyCauses(actual: TimeSeriesData, predicted: ForecastPrediction): Promise<string[]> {
+  private async getHistoricalData(_dataType: string, _timeWindow: string): Promise<TimeSeriesData[]> { return []; }
+  private async identifyAnomalyCauses(_actual: TimeSeriesData, _predicted: ForecastPrediction): Promise<string[]> {
     return ['System overload', 'Unexpected event'];
   }
 }

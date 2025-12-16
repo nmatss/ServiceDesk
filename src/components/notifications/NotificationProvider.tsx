@@ -6,8 +6,7 @@ import {
   ExclamationTriangleIcon,
   InformationCircleIcon,
   XCircleIcon,
-  XMarkIcon,
-  BellIcon
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 
 export interface Notification {
@@ -104,45 +103,17 @@ export function NotificationProvider({ children, maxNotifications = 5 }: Notific
 
   // Listen for server-sent events or WebSocket for real-time notifications
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
-
+    // SECURITY: Use httpOnly cookies for authentication - no token check needed
     // Example WebSocket connection (you would implement the actual WebSocket logic)
-    const connectWebSocket = () => {
-      // This is a placeholder for WebSocket connection
-      // In a real implementation, you would connect to your WebSocket server
-      /*
-      const ws = new WebSocket(`ws://localhost:3001/notifications?token=${token}`)
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        addNotification({
-          type: data.type,
-          title: data.title,
-          message: data.message,
-          persistent: data.persistent
-        })
-      }
-
-      ws.onclose = () => {
-        // Reconnect logic
-        setTimeout(connectWebSocket, 5000)
-      }
-
-      return ws
-      */
-    }
+    // Placeholder for WebSocket connection implementation
+    // In a real implementation, you would connect to your WebSocket server
 
     // For now, we'll simulate real-time notifications with polling
     const pollNotifications = async () => {
       try {
-        const currentToken = localStorage.getItem('auth_token')
-        if (!currentToken) return // Stop polling if no token
-
+        // SECURITY: Use httpOnly cookies for authentication
         const response = await fetch('/api/notifications/unread', {
-          headers: {
-            'Authorization': `Bearer ${currentToken}`
-          }
+          credentials: 'include' // Use httpOnly cookies
         })
 
         if (response.ok) {

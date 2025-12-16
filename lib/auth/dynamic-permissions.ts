@@ -1,6 +1,9 @@
 import db from '../db/connection';
-import { rbacEngine, AccessContext } from './rbac-engine';
-import { logger } from '../monitoring/logger';
+import { rbac as rbacEngine } from './rbac-engine';
+
+// AccessContext type for compatibility
+interface AccessContext { [key: string]: any; }
+import logger from '../monitoring/structured-logger';
 
 export interface DynamicRule {
   id: string;
@@ -61,12 +64,17 @@ class DynamicPermissionManager {
 
       if (rules.length === 0) {
         // Fall back to static RBAC if no dynamic rules
-        const staticResult = await rbacEngine.checkPermission(context);
+        const staticGranted = await rbacEngine.checkPermission(
+          context.user.id,
+          context.resource.type,
+          context.action,
+          context.tenant.id
+        );
         return {
-          granted: staticResult.granted,
-          reason: staticResult.reason || 'Static RBAC evaluation',
+          granted: staticGranted,
+          reason: 'Static RBAC evaluation',
           appliedRules: [],
-          score: staticResult.granted ? 100 : 0
+          score: staticGranted ? 100 : 0
         };
       }
 
@@ -115,12 +123,17 @@ class DynamicPermissionManager {
       logger.error('Error evaluating dynamic permissions', error);
 
       // Fall back to static RBAC on error
-      const staticResult = await rbacEngine.checkPermission(context);
+      const staticGranted = await rbacEngine.checkPermission(
+        context.user.id,
+        context.resource.type,
+        context.action,
+        context.tenant.id
+      );
       return {
-        granted: staticResult.granted,
+        granted: staticGranted,
         reason: 'Fallback to static RBAC due to error',
         appliedRules: [],
-        score: staticResult.granted ? 50 : 0
+        score: staticGranted ? 50 : 0
       };
     }
   }
@@ -328,11 +341,12 @@ class DynamicPermissionManager {
         };
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Error evaluating rule ${rule.name}:`, error);
       return {
         applies: false,
         granted: false,
-        reason: `Rule "${rule.name}" evaluation failed: ${error.message}`
+        reason: `Rule "${rule.name}" evaluation failed: ${errorMessage}`
       };
     }
   }
@@ -480,7 +494,7 @@ class DynamicPermissionManager {
   /**
    * Log rule evaluation for analysis
    */
-  private logRuleEvaluation(
+  private _logRuleEvaluation(
     ruleId: string,
     userId: number,
     granted: boolean,

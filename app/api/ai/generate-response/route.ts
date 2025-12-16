@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
-import { db } from '@/lib/db/connection';
+import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
+import { verifyToken } from '@/lib/auth/sqlite-auth';
 
 const generateResponseSchema = z.object({
   ticketId: z.number(),
@@ -18,8 +17,18 @@ const generateResponseSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -27,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar permissões (apenas agentes e admins podem gerar respostas)
-    if (!['agent', 'admin', 'manager'].includes(session.user.role)) {
+    if (!['agent', 'admin', 'manager'].includes(user.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -45,10 +54,8 @@ export async function POST(request: NextRequest) {
       customContext
     } = generateResponseSchema.parse(body);
 
-    const startTime = Date.now();
-
-    // Buscar dados do ticket
-    const ticket = await db.get(`
+        // Buscar dados do ticket
+    const ticket = db.prepare(`
       SELECT t.*, c.name as category_name, p.name as priority_name,
              s.name as status_name, u.name as user_name, u.email as user_email
       FROM tickets t
@@ -57,7 +64,7 @@ export async function POST(request: NextRequest) {
       JOIN statuses s ON t.status_id = s.id
       JOIN users u ON t.user_id = u.id
       WHERE t.id = ?
-    `, [ticketId]);
+    `).get(ticketId) as any;
 
     if (!ticket) {
       return NextResponse.json(
@@ -67,14 +74,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar histórico da conversa
-    const conversationHistory = await db.all(`
+    const conversationHistory = db.prepare(`
       SELECT c.content, c.is_internal, c.created_at,
              u.name as user_name, u.role
       FROM comments c
       JOIN users u ON c.user_id = u.id
       WHERE c.ticket_id = ?
       ORDER BY c.created_at ASC
-    `, [ticketId]);
+    `).all(ticketId) as any[];
 
     // Formatar histórico para o AI
     const formattedHistory = conversationHistory.map(comment => ({
@@ -90,7 +97,7 @@ export async function POST(request: NextRequest) {
       try {
         const queryText = `${ticket.title} ${ticket.description}`;
 
-        knowledgeBase = await db.all(`
+        knowledgeBase = db.prepare(`
           SELECT title, content
           FROM kb_articles
           WHERE is_published = 1
@@ -101,12 +108,12 @@ export async function POST(request: NextRequest) {
             )
           ORDER BY helpful_votes DESC
           LIMIT ?
-        `, [
+        `).all(
           `%${queryText}%`,
           `%${queryText}%`,
           `%${queryText}%`,
           maxKnowledgeArticles
-        ]);
+        ) as any[];
       } catch (error) {
         logger.warn('Failed to fetch knowledge base articles', error);
       }
@@ -135,12 +142,12 @@ export async function POST(request: NextRequest) {
     );
 
     // Salvar sugestão de resposta no banco
-    const suggestionId = await db.run(`
+    const suggestionId = db.prepare(`
       INSERT INTO ai_suggestions (
         ticket_id, suggestion_type, content, confidence_score,
         model_name, source_type, reasoning
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `).run(
       ticketId,
       'response',
       responseGeneration.responseText,
@@ -148,7 +155,7 @@ export async function POST(request: NextRequest) {
       'gpt-4o-mini',
       'ai_model',
       `Generated ${responseType} response with ${tone} tone`
-    ]);
+    );
 
     // Determinar se deve sugerir escalação baseado no contexto
     const shouldEscalate = responseGeneration.escalationNeeded ||
@@ -160,15 +167,15 @@ export async function POST(request: NextRequest) {
     logger.info(`Response generation completed for ticket ${ticketId} in ${responseGeneration.processingTimeMs}ms`);
 
     // Auditoria
-    await db.run(`
+    db.prepare(`
       INSERT INTO audit_logs (
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-      session.user.id,
+    `).run(
+      user.id,
       'ai_suggestion',
-      suggestionId.lastID,
+      suggestionId.lastInsertRowid,
       'generate_response',
       JSON.stringify({
         ticketId,
@@ -178,12 +185,12 @@ export async function POST(request: NextRequest) {
         escalationNeeded: shouldEscalate
       }),
       request.headers.get('x-forwarded-for') || 'unknown'
-    ]);
+    );
 
     return NextResponse.json({
       success: true,
       response: {
-        id: suggestionId.lastID,
+        id: suggestionId.lastInsertRowid,
         text: responseGeneration.responseText,
         type: responseGeneration.responseType,
         tone: responseGeneration.toneUsed,
@@ -218,7 +225,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }
@@ -232,8 +239,18 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -259,12 +276,12 @@ export async function GET(request: NextRequest) {
 
       query += ` ORDER BY created_at DESC`;
 
-      const responses = await db.all(query, params);
+      const responses = db.prepare(query).all(...params);
 
       return NextResponse.json({ responses });
     } else {
       // Buscar estatísticas de geração de respostas
-      const stats = await db.get(`
+      const stats = db.prepare(`
         SELECT
           COUNT(*) as total_responses,
           COUNT(CASE WHEN was_used = 1 THEN 1 END) as used_count,
@@ -273,9 +290,9 @@ export async function GET(request: NextRequest) {
         FROM ai_suggestions
         WHERE created_at >= datetime('now', '-30 days')
           AND suggestion_type = 'response'
-      `);
+      `).get() as any;
 
-      const responseTypeStats = await db.all(`
+      const responseTypeStats = db.prepare(`
         SELECT
           CASE
             WHEN content LIKE '%"responseType":"initial_response"%' THEN 'initial_response'
@@ -290,9 +307,9 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'response'
         GROUP BY response_type
         ORDER BY count DESC
-      `);
+      `).all() as any[];
 
-      const toneStats = await db.all(`
+      const toneStats = db.prepare(`
         SELECT
           CASE
             WHEN content LIKE '%"tone":"professional"%' THEN 'professional'
@@ -308,7 +325,7 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'response'
         GROUP BY tone
         ORDER BY count DESC
-      `);
+      `).all() as any[];
 
       return NextResponse.json({
         stats: {

@@ -1,7 +1,7 @@
-import { createHash } from 'crypto';
+import { randomInt } from 'crypto';
 import bcrypt from 'bcrypt';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface PasswordPolicy {
   id: number;
@@ -75,8 +75,8 @@ class PasswordPolicyManager {
 
       return {
         ...policy,
-        applies_to_roles: policy.applies_to_roles ? JSON.parse(policy.applies_to_roles) : []
-      };
+        applies_to_roles: policy.applies_to_roles ? JSON.parse(policy.applies_to_roles as string) : []
+      } as PasswordPolicy;
     } catch (error) {
       logger.error('Error getting password policy for role', error);
       return null;
@@ -227,12 +227,12 @@ class PasswordPolicyManager {
     try {
       const user = db.prepare(`
         SELECT password_changed_at, role FROM users WHERE id = ?
-      `).get(userId) as any;
+      `).get(userId) as any | undefined;
 
       if (!user || !user.password_changed_at) return false;
 
-      const policy = this.getPolicyForRole(user.role) || this.getDefaultPolicy();
-      const passwordChangedAt = new Date(user.password_changed_at);
+      const policy = this.getPolicyForRole(user.role as string) || this.getDefaultPolicy();
+      const passwordChangedAt = new Date(user.password_changed_at as string);
       const expiryDate = new Date(passwordChangedAt.getTime() + (policy.max_age_days * 24 * 60 * 60 * 1000));
 
       return new Date() > expiryDate;
@@ -249,12 +249,12 @@ class PasswordPolicyManager {
     try {
       const user = db.prepare(`
         SELECT password_changed_at, role FROM users WHERE id = ?
-      `).get(userId) as any;
+      `).get(userId) as any | undefined;
 
       if (!user || !user.password_changed_at) return null;
 
-      const policy = this.getPolicyForRole(user.role) || this.getDefaultPolicy();
-      const passwordChangedAt = new Date(user.password_changed_at);
+      const policy = this.getPolicyForRole(user.role as string) || this.getDefaultPolicy();
+      const passwordChangedAt = new Date(user.password_changed_at as string);
       const expiryDate = new Date(passwordChangedAt.getTime() + (policy.max_age_days * 24 * 60 * 60 * 1000));
       const now = new Date();
 
@@ -279,9 +279,9 @@ class PasswordPolicyManager {
       `).run(userId, passwordHash);
 
       // Clean up old password history based on policy
-      const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+      const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any | undefined;
       if (user) {
-        const policy = this.getPolicyForRole(user.role) || this.getDefaultPolicy();
+        const policy = this.getPolicyForRole(user.role as string) || this.getDefaultPolicy();
 
         // Keep only the last N passwords
         db.prepare(`
@@ -313,7 +313,7 @@ class PasswordPolicyManager {
       `).all(userId, preventReuseCount) as any[];
 
       for (const record of recentPasswords) {
-        if (bcrypt.compareSync(password, record.password_hash)) {
+        if (bcrypt.compareSync(password, record.password_hash as string)) {
           return true;
         }
       }
@@ -438,8 +438,8 @@ class PasswordPolicyManager {
 
       return policies.map(policy => ({
         ...policy,
-        applies_to_roles: policy.applies_to_roles ? JSON.parse(policy.applies_to_roles) : []
-      }));
+        applies_to_roles: policy.applies_to_roles ? JSON.parse(policy.applies_to_roles as string) : []
+      } as PasswordPolicy));
     } catch (error) {
       logger.error('Error getting all password policies', error);
       return [];
@@ -461,7 +461,8 @@ class PasswordPolicyManager {
   }
 
   /**
-   * Generate secure password
+   * Generate cryptographically secure password
+   * Uses crypto.randomBytes for true randomness instead of Math.random()
    */
   generateSecurePassword(length: number = 16, includeSymbols: boolean = true): string {
     const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -474,24 +475,33 @@ class PasswordPolicyManager {
       charset += symbols;
     }
 
-    let password = '';
+    const passwordChars: string[] = [];
 
-    // Ensure at least one character from each required set
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
+    // Ensure at least one character from each required set using crypto.randomInt
+    passwordChars.push(lowercase.charAt(randomInt(0, lowercase.length)));
+    passwordChars.push(uppercase.charAt(randomInt(0, uppercase.length)));
+    passwordChars.push(numbers.charAt(randomInt(0, numbers.length)));
 
     if (includeSymbols) {
-      password += symbols[Math.floor(Math.random() * symbols.length)];
+      passwordChars.push(symbols.charAt(randomInt(0, symbols.length)));
     }
 
-    // Fill the rest randomly
-    for (let i = password.length; i < length; i++) {
-      password += charset[Math.floor(Math.random() * charset.length)];
+    // Fill the rest using cryptographically secure random
+    for (let i = passwordChars.length; i < length; i++) {
+      passwordChars.push(charset.charAt(randomInt(0, charset.length)));
     }
 
-    // Shuffle the password
-    return password.split('').sort(() => 0.5 - Math.random()).join('');
+    // Fisher-Yates shuffle using crypto.randomInt for secure shuffling
+    for (let i = passwordChars.length - 1; i > 0; i--) {
+      const j = randomInt(0, i + 1);
+      const temp = passwordChars[i];
+      const temp2 = passwordChars[j];
+      if (temp && temp2) {
+        [passwordChars[i], passwordChars[j]] = [temp2, temp];
+      }
+    }
+
+    return passwordChars.join('');
   }
 
   /**

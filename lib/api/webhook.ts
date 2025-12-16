@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { WebhookEvent, WebhookEndpoint, WebhookDelivery } from './types'
 import { v4 as uuidv4 } from 'uuid'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // Webhook Configuration
 interface WebhookConfig {

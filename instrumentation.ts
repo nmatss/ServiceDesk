@@ -1,5 +1,3 @@
-import { logger } from '@/lib/monitoring/logger';
-
 /**
  * Next.js Instrumentation
  * Runs once when the server starts (both dev and production)
@@ -9,10 +7,24 @@ import { logger } from '@/lib/monitoring/logger';
  * - Datadog APM and tracing
  * - Cache layer
  * - Performance monitoring
+ *
+ * IMPORTANT: No top-level Node.js module imports allowed here
+ * because this file is evaluated in both Node.js and Edge runtimes.
+ * Use dynamic imports inside the register() function instead.
  */
+
+// Simple console logger for Edge runtime (no Node.js dependencies)
+const edgeLogger = {
+  info: (message: string, _details?: unknown) => console.log(`[INFO] ${message}`),
+  error: (message: string, _error?: unknown) => console.error(`[ERROR] ${message}`),
+  warn: (message: string, _details?: unknown) => console.warn(`[WARN] ${message}`),
+};
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Dynamically import the full logger only in Node.js runtime
+    const { logger } = await import('./lib/monitoring/logger');
+
     logger.info('📊 Initializing ServiceDesk instrumentation...');
 
     try {
@@ -50,8 +62,7 @@ export async function register() {
     }
 
     try {
-      // 4. Initialize performance monitoring
-      const { logger } = await import('./lib/monitoring/logger');
+      // 4. Log instrumentation summary
       logger.info('ServiceDesk observability infrastructure ready', {
         sentry: !!process.env.SENTRY_DSN,
         datadog: process.env.DD_TRACE_ENABLED === 'true',
@@ -70,10 +81,10 @@ export async function register() {
       // Initialize Sentry for Edge runtime
       if (process.env.SENTRY_DSN) {
         await import('./sentry.edge.config');
-        logger.info('✓ Sentry Edge runtime initialized');
+        edgeLogger.info('✓ Sentry Edge runtime initialized');
       }
     } catch (error) {
-      logger.error('✗ Failed to initialize Sentry Edge runtime', error);
+      edgeLogger.error('✗ Failed to initialize Sentry Edge runtime', error);
     }
   }
 }

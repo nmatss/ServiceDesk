@@ -7,7 +7,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { mkdirSync } from 'fs';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface PoolConnection {
   db: Database.Database;

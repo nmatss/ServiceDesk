@@ -8,13 +8,12 @@ import {
   EyeIcon,
   HandThumbUpIcon,
   HandThumbDownIcon,
-  ChatBubbleBottomCenterTextIcon,
   UserIcon,
   CalendarIcon,
-  TagIcon,
-  ShareIcon
+  TagIcon
 } from '@heroicons/react/24/outline'
 import { HandThumbUpIcon as HandThumbUpSolid, HandThumbDownIcon as HandThumbDownSolid } from '@heroicons/react/24/solid'
+import { sanitizeMarkdown } from '@/lib/security/sanitize'
 
 interface Article {
   id: number
@@ -64,10 +63,9 @@ export default function ArticlePage() {
     try {
       setLoading(true)
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/knowledge/articles/${slug}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       const data = await response.json()
@@ -91,12 +89,13 @@ export default function ArticlePage() {
     try {
       setSubmittingFeedback(true)
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/knowledge/articles/${article.slug}/feedback`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           was_helpful: wasHelpful,
           comment: feedbackComment || null
@@ -253,7 +252,7 @@ export default function ArticlePage() {
           <div className="p-6">
             <div
               className="prose prose-lg max-w-none"
-              dangerouslySetInnerHTML={{ __html: article.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizeMarkdown(article.content) }}
             />
           </div>
 

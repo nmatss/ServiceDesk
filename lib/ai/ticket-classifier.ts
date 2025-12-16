@@ -1,7 +1,8 @@
 import { openAIClient } from './openai-client';
 import { PromptTemplates, ClassificationContext } from './prompt-templates';
-import { Category, Priority, Ticket } from '../types/database';
-import { logger } from '../monitoring/logger';
+import { Category, Priority } from '../types/database';
+import logger from '../monitoring/structured-logger';
+import { aiCache } from './cache';
 
 export interface ClassificationResult {
   categoryId: number;
@@ -49,9 +50,6 @@ export interface IntentClassificationResult {
 }
 
 export class TicketClassifier {
-  private static readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-  private static cache = new Map<string, { result: any; timestamp: number }>();
-
   /**
    * Classifica automaticamente um ticket em categoria e prioridade
    */
@@ -68,17 +66,12 @@ export class TicketClassifier {
 
     try {
       // Create cache key
-      const cacheKey = openAIClient.createCacheKey({
-        title: ticket.title,
-        description: ticket.description,
-        categories: availableCategories.map(c => c.id),
-        priorities: availablePriorities.map(p => p.id)
-      });
+      const cacheText = `${ticket.title} ${ticket.description}`;
 
       // Check cache
-      const cached = this.cache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
-        return cached.result;
+      const cached = aiCache.getClassification(cacheText);
+      if (cached) {
+        return cached;
       }
 
       // Prepare context
@@ -152,7 +145,7 @@ export class TicketClassifier {
       }
 
       // Cache result
-      this.cache.set(cacheKey, { result, timestamp: Date.now() });
+      aiCache.setClassification(cacheText, result);
 
       return result;
 
@@ -291,7 +284,6 @@ export class TicketClassifier {
 
       // Simple rule-based fallback
       const title = ticket.title.toLowerCase();
-      const description = ticket.description.toLowerCase();
 
       let intent = 'information_request'; // default
       let complexityLevel: 'simple' | 'moderate' | 'complex' = 'simple';
@@ -367,10 +359,10 @@ export class TicketClassifier {
     }
 
     return {
-      categoryId: selectedCategory.id,
-      categoryName: selectedCategory.name,
-      priorityId: selectedPriority.id,
-      priorityName: selectedPriority.name,
+      categoryId: selectedCategory?.id ?? 0,
+      categoryName: selectedCategory?.name ?? '',
+      priorityId: selectedPriority?.id ?? 0,
+      priorityName: selectedPriority?.name ?? '',
       confidenceScore: 0.5, // Lower confidence for rule-based
       reasoning: 'Classificação baseada em regras simples (fallback)',
       suggestedActions: ['Verificar classificação manual', 'Confirmar categoria e prioridade'],
@@ -382,36 +374,15 @@ export class TicketClassifier {
    * Limpa o cache de classificação
    */
   static clearCache(): void {
-    this.cache.clear();
-  }
-
-  /**
-   * Remove entradas antigas do cache
-   */
-  static cleanupCache(): void {
-    const now = Date.now();
-    for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp > this.CACHE_TTL_MS) {
-        this.cache.delete(key);
-      }
-    }
+    aiCache.clearClassifications();
   }
 
   /**
    * Estatísticas do cache
    */
-  static getCacheStats(): { size: number; hitRate: number } {
-    // Simplified stats - in production, you'd track hits/misses
-    return {
-      size: this.cache.size,
-      hitRate: 0.75 // Placeholder
-    };
+  static getCacheStats(): { size: number; max: number } {
+    return aiCache.getClassificationStats();
   }
 }
-
-// Auto cleanup cache every 10 minutes
-setInterval(() => {
-  TicketClassifier.cleanupCache();
-}, 10 * 60 * 1000);
 
 export default TicketClassifier;

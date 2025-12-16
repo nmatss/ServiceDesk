@@ -31,8 +31,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   mainIcon = <PlusIcon className="h-6 w-6" />,
   mainAction,
   autoHide = true,
-  className = '',
-  style = 'standard'
+  className = ''
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
@@ -62,7 +61,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
 
   // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: Event) => {
       if (fabRef.current && !fabRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
@@ -167,9 +166,9 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
                 `}
                 aria-label={action.label}
               >
-                {React.cloneElement(action.icon as React.ReactElement, {
+                {React.isValidElement(action.icon) && React.cloneElement(action.icon, {
                   className: iconSizeClasses.sm
-                })}
+                } as any)}
 
                 {/* Badge */}
                 {action.badge && action.badge > 0 && (
@@ -197,9 +196,9 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
         {isOpen ? (
           <XMarkIcon className={iconSizeClasses[size]} />
         ) : (
-          React.cloneElement(mainIcon as React.ReactElement, {
+          React.isValidElement(mainIcon) && React.cloneElement(mainIcon, {
             className: iconSizeClasses[size]
-          })
+          } as any)
         )}
       </button>
 
@@ -345,9 +344,9 @@ export const MiniFloatingActionButton: React.FC<MiniFABProps> = ({
       `}
       aria-label={ariaLabel}
     >
-      {React.cloneElement(icon as React.ReactElement, {
+      {React.isValidElement(icon) && React.cloneElement(icon, {
         className: 'h-5 w-5'
-      })}
+      } as any)}
     </button>
   )
 }

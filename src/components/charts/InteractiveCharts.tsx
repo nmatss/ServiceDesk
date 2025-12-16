@@ -13,7 +13,6 @@ import {
   Tooltip,
   Legend,
   Brush,
-  ReferenceLine,
   ReferenceArea
 } from 'recharts';
 
@@ -41,7 +40,6 @@ export function DrilldownChart({
   height?: number;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [currentLevel, setCurrentLevel] = useState(0);
   const [breadcrumb, setBreadcrumb] = useState<string[]>(['Overview']);
 
   useEffect(() => {
@@ -126,10 +124,9 @@ export function DrilldownChart({
 
         d3.selectAll('.tooltip').remove();
       })
-      .on('click', function(event, d) {
+      .on('click', function(_event, d) {
         if (d.children && onDrillDown) {
           onDrillDown(d);
-          setCurrentLevel(prev => prev + 1);
           setBreadcrumb(prev => [...prev, d.name]);
         }
       });
@@ -140,7 +137,7 @@ export function DrilldownChart({
       .attr('y', innerHeight)
       .transition()
       .duration(800)
-      .delay((d, i) => i * 100)
+      .delay((_d, i) => i * 100)
       .attr('height', d => innerHeight - yScale(d.value))
       .attr('y', d => yScale(d.value));
 

@@ -43,21 +43,12 @@ export default function RecentTickets({ limit = 5, showUserTickets = false, clas
   const fetchRecentTickets = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
 
-      const userRole = localStorage.getItem('user_role')
-      const userId = localStorage.getItem('user_id')
-
-      let url = '/api/admin/tickets'
-      if (showUserTickets && userId) {
-        url = `/api/tickets/user/${userId}`
-      }
+      // SECURITY: Use httpOnly cookies for authentication
+      let url = showUserTickets ? '/api/tickets?my_tickets=true' : '/api/admin/tickets'
 
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (!response.ok) {

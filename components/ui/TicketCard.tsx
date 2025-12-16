@@ -8,8 +8,6 @@ import {
   User,
   MessageSquare,
   Paperclip,
-  AlertTriangle,
-  CheckCircle,
   Circle,
   Calendar,
   Tag,
@@ -18,7 +16,7 @@ import {
   Edit,
   Trash2
 } from 'lucide-react';
-import { cn, getPersonaClasses, getPriorityClasses, getStatusClasses } from '@/lib/design-system/utils';
+import { cn } from '@/lib/design-system/utils';
 import { Button } from './Button';
 import { StatusBadge } from './Table';
 

@@ -1,16 +1,12 @@
-import crypto from 'crypto';
-import { SignJWT, jwtVerify } from 'jose';
+import * as crypto from 'crypto';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import {
   SSOProvider,
-  User,
   CreateSSOProvider,
-  AuthResult,
-  CreateUser,
-  AuthAuditLog
+  User
 } from '../types/database';
-import { logAuthEvent, getUserByEmail, createUser as createUserAuth } from './enterprise-auth';
+import { logAuthEvent, getUserByEmail, registerUser } from './enterprise-auth';
 
 // ========================================
 // SSO (Single Sign-On) Infrastructure
@@ -272,8 +268,16 @@ function decryptSSOConfiguration(encryptedConfig: string): string {
       return encryptedConfig; // Not encrypted or old format
     }
 
-    const [ivHex, tagHex, encrypted] = encryptedConfig.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
+    const parts = encryptedConfig.split(':');
+    if (parts.length !== 3) {
+      return encryptedConfig; // Invalid format
+    }
+
+    const [ivHex, tagHex, encrypted] = parts;
+    if (!ivHex || !tagHex || !encrypted) {
+      return encryptedConfig; // Missing parts
+    }
+
     const tag = Buffer.from(tagHex, 'hex');
 
     const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
@@ -354,7 +358,7 @@ export async function handleSAMLResponse(
 }
 
 function buildSAMLRedirectUrl(
-  samlConfig: any,
+  samlConfig: NonNullable<SSOConfiguration['saml']>,
   requestId: string,
   timestamp: string,
   returnUrl?: string
@@ -380,10 +384,10 @@ function buildSAMLRedirectUrl(
   return `${samlConfig.entryPoint}?${params.toString()}`;
 }
 
-async function validateSAMLResponse(samlResponse: string, samlConfig: any): Promise<SSOUserProfile | null> {
+async function validateSAMLResponse(samlResponse: string, _samlConfig: NonNullable<SSOConfiguration['saml']>): Promise<SSOUserProfile | null> {
   try {
-    // Decodificar resposta SAML
-    const decodedResponse = Buffer.from(samlResponse, 'base64').toString('utf8');
+    // Decodificar resposta SAML (validation implementation needed)
+    Buffer.from(samlResponse, 'base64').toString('utf8');
 
     // Aqui você implementaria a validação completa do SAML:
     // - Verificar assinatura digital
@@ -449,7 +453,7 @@ export async function initiateOAuth2Auth(request: SSOAuthRequest): Promise<SSOAu
 
 export async function handleOAuth2Callback(
   code: string,
-  state: string,
+  _state: string,
   providerId: number,
   clientIp?: string,
   userAgent?: string
@@ -487,7 +491,7 @@ export async function handleOAuth2Callback(
   }
 }
 
-async function exchangeCodeForToken(code: string, oauthConfig: any): Promise<any> {
+async function exchangeCodeForToken(code: string, oauthConfig: NonNullable<SSOConfiguration['oauth']>): Promise<{ access_token: string; [key: string]: any } | null> {
   try {
     const tokenParams = new URLSearchParams({
       grant_type: oauthConfig.grantType,
@@ -517,7 +521,7 @@ async function exchangeCodeForToken(code: string, oauthConfig: any): Promise<any
   }
 }
 
-async function fetchOAuth2UserProfile(accessToken: string, oauthConfig: any): Promise<SSOUserProfile | null> {
+async function fetchOAuth2UserProfile(accessToken: string, oauthConfig: NonNullable<SSOConfiguration['oauth']>): Promise<SSOUserProfile | null> {
   try {
     const response = await fetch(oauthConfig.userInfoURL, {
       headers: {
@@ -530,17 +534,17 @@ async function fetchOAuth2UserProfile(accessToken: string, oauthConfig: any): Pr
       throw new Error(`User info fetch failed: ${response.status}`);
     }
 
-    const userData = await response.json();
+    const userData = await response.json() as Record<string, any>;
 
     // Mapear atributos usando a configuração
-    const mapping = oauthConfig.attributeMapping || {};
+    const mapping = oauthConfig.attributeMapping || { email: 'email', name: 'name' };
 
     return {
-      email: userData[mapping.email || 'email'],
-      name: userData[mapping.name || 'name'],
-      role: userData[mapping.role] || 'user',
-      department: userData[mapping.department],
-      avatarUrl: userData.picture || userData.avatar_url,
+      email: userData[mapping.email || 'email'] as string,
+      name: userData[mapping.name || 'name'] as string,
+      role: (mapping.role && userData[mapping.role] as string | undefined) || 'user',
+      department: (mapping.department && userData[mapping.department]) as string | undefined,
+      avatarUrl: (userData.picture || userData.avatar_url) as string | undefined,
       metadata: userData
     };
   } catch (error) {
@@ -595,7 +599,7 @@ export async function initiateGovBrAuth(request: SSOAuthRequest): Promise<SSOAut
 
 export async function handleGovBrCallback(
   code: string,
-  state: string,
+  _state: string,
   providerId: number,
   clientIp?: string,
   userAgent?: string
@@ -637,7 +641,7 @@ export async function handleGovBrCallback(
   }
 }
 
-async function exchangeGovBrCodeForTokens(code: string, govbrConfig: any, baseUrl: string): Promise<any> {
+async function exchangeGovBrCodeForTokens(code: string, govbrConfig: NonNullable<SSOConfiguration['govbr']>, baseUrl: string): Promise<{ access_token: string; [key: string]: any } | null> {
   try {
     const tokenParams = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -713,10 +717,11 @@ async function processExternalUser(
 
     if (!user) {
       // Criar novo usuário
-      const userData: any = {
+      const userData = {
         name: profile.name,
         email: profile.email,
-        role: profile.role || 'user',
+        password: crypto.randomBytes(32).toString('hex'), // Senha aleatória para usuários SSO
+        role: (profile.role || 'user') as 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client',
         sso_provider: provider.name,
         sso_user_id: profile.metadata?.sub || profile.email,
         avatar_url: profile.avatarUrl,
@@ -727,12 +732,12 @@ async function processExternalUser(
         })
       };
 
-      const authResult = await createUserAuth(userData);
+      const authResult = await registerUser(userData);
       if (!authResult.success || !authResult.user) {
         return { success: false, error: 'Failed to create user from SSO profile' };
       }
 
-      user = authResult.user;
+      user = authResult.user as User;
     } else {
       // Atualizar dados do usuário existente se necessário
       if (user.sso_provider !== provider.name) {
@@ -742,6 +747,10 @@ async function processExternalUser(
           WHERE id = ?
         `).run(provider.name, profile.metadata?.sub || profile.email, user.id);
       }
+    }
+
+    if (!user) {
+      return { success: false, error: 'Failed to create or find user' };
     }
 
     // Log de auditoria para login SSO
@@ -895,20 +904,4 @@ export function initializeDefaultSSOProviders(): boolean {
 // ========================================
 // EXPORTS
 // ========================================
-
-export {
-  createSSOProvider,
-  getSSOProviderById,
-  getSSOProviderByName,
-  getAllSSOProviders,
-  getActiveSSOProviders,
-  updateSSOProvider,
-  deleteSSOProvider,
-  initiateSAMLAuth,
-  handleSAMLResponse,
-  initiateOAuth2Auth,
-  handleOAuth2Callback,
-  initiateGovBrAuth,
-  handleGovBrCallback,
-  initializeDefaultSSOProviders
-};
+// All functions are already exported inline above

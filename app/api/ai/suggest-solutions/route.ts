@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
-import VectorDatabase from '@/lib/ai/vector-database';
-import { db } from '@/lib/db/connection';
+import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
+import { verifyToken } from '@/lib/auth/sqlite-auth';
 
 const suggestSolutionsSchema = z.object({
   ticketId: z.number().optional(),
@@ -21,8 +19,18 @@ const suggestSolutionsSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -42,125 +50,55 @@ export async function POST(request: NextRequest) {
       includeUserContext
     } = suggestSolutionsSchema.parse(body);
 
-    const startTime = Date.now();
-
-    // Buscar artigos relevantes da knowledge base usando busca vetorial
-    const vectorDb = new VectorDatabase(db);
+    // Buscar artigos relevantes da knowledge base usando busca textual
     const queryText = `${title} ${description}`;
 
-    let knowledgeArticles: any[] = [];
-    try {
-      const relatedArticles = await vectorDb.findRelatedKnowledgeArticles(
-        queryText,
-        maxKnowledgeArticles
-      );
+    // Busca textual para artigos da knowledge base
+    const knowledgeArticles = db.prepare(`
+      SELECT id, title, summary, content
+      FROM kb_articles
+      WHERE is_published = 1
+        AND (
+          LOWER(title) LIKE LOWER(?) OR
+          LOWER(content) LIKE LOWER(?) OR
+          LOWER(search_keywords) LIKE LOWER(?)
+        )
+      ORDER BY
+        CASE WHEN LOWER(title) LIKE LOWER(?) THEN 1 ELSE 2 END,
+        helpful_votes DESC
+      LIMIT ?
+    `).all(
+      `%${queryText}%`,
+      `%${queryText}%`,
+      `%${queryText}%`,
+      `%${title}%`,
+      maxKnowledgeArticles
+    ) as any[];
 
-      // Buscar detalhes completos dos artigos
-      for (const article of relatedArticles) {
-        const fullArticle = await db.get(`
-          SELECT id, title, summary, content
-          FROM kb_articles
-          WHERE id = ? AND is_published = 1
-        `, [article.entityId]);
-
-        if (fullArticle) {
-          knowledgeArticles.push({
-            id: fullArticle.id,
-            title: fullArticle.title,
-            summary: fullArticle.summary,
-            content: fullArticle.content,
-            relevanceScore: article.similarityScore
-          });
-        }
-      }
-    } catch (error) {
-      logger.warn('Vector search failed, using fallback text search', error);
-
-      // Fallback para busca textual simples
-      knowledgeArticles = await db.all(`
-        SELECT id, title, summary, content
-        FROM kb_articles
-        WHERE is_published = 1
-          AND (
-            LOWER(title) LIKE LOWER(?) OR
-            LOWER(content) LIKE LOWER(?) OR
-            LOWER(search_keywords) LIKE LOWER(?)
-          )
-        ORDER BY
-          CASE WHEN LOWER(title) LIKE LOWER(?) THEN 1 ELSE 2 END,
-          helpful_votes DESC
-        LIMIT ?
-      `, [
-        `%${queryText}%`,
-        `%${queryText}%`,
-        `%${queryText}%`,
-        `%${title}%`,
-        maxKnowledgeArticles
-      ]);
-    }
-
-    // Buscar tickets similares resolvidos
-    let similarTickets: any[] = [];
-    try {
-      const similarResults = await vectorDb.findSimilarTickets(
-        title,
-        description,
-        ticketId,
-        maxSimilarTickets
-      );
-
-      // Buscar detalhes completos dos tickets, incluindo resolução
-      for (const ticket of similarResults) {
-        const fullTicket = await db.get(`
-          SELECT t.id, t.title, t.description, t.resolved_at,
-                 GROUP_CONCAT(c.content, ' | ') as resolution_comments
-          FROM tickets t
-          LEFT JOIN comments c ON t.id = c.ticket_id
-            AND c.is_internal = 0
-            AND c.created_at >= t.resolved_at
-          WHERE t.id = ?
-            AND t.resolved_at IS NOT NULL
-          GROUP BY t.id, t.title, t.description, t.resolved_at
-        `, [ticket.entityId]);
-
-        if (fullTicket) {
-          similarTickets.push({
-            id: fullTicket.id,
-            title: fullTicket.title,
-            description: fullTicket.description,
-            resolution: fullTicket.resolution_comments,
-            similarityScore: ticket.similarityScore
-          });
-        }
-      }
-    } catch (error) {
-      logger.warn('Similar ticket search failed, using fallback', error);
-
-      // Fallback para busca textual
-      similarTickets = await db.all(`
-        SELECT t.id, t.title, t.description,
-               GROUP_CONCAT(c.content, ' | ') as resolution
-        FROM tickets t
-        LEFT JOIN comments c ON t.id = c.ticket_id
-          AND c.is_internal = 0
-          AND c.created_at >= COALESCE(t.resolved_at, datetime('now'))
-        WHERE t.resolved_at IS NOT NULL
-          AND t.id != COALESCE(?, 0)
-          AND (
-            LOWER(t.title) LIKE LOWER(?) OR
-            LOWER(t.description) LIKE LOWER(?)
-          )
-        GROUP BY t.id, t.title, t.description
-        ORDER BY t.resolved_at DESC
-        LIMIT ?
-      `, [ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets]);
-    }
+    // Buscar tickets similares resolvidos via busca textual
+    const similarTickets = db.prepare(`
+      SELECT t.id, t.title, t.description,
+             GROUP_CONCAT(c.content, ' | ') as resolution
+      FROM tickets t
+      LEFT JOIN comments c ON t.id = c.ticket_id
+        AND c.is_internal = 0
+        AND c.created_at >= COALESCE(t.resolved_at, datetime('now'))
+      WHERE t.resolved_at IS NOT NULL
+        AND t.id != COALESCE(?, 0)
+        AND (
+          LOWER(t.title) LIKE LOWER(?) OR
+          LOWER(t.description) LIKE LOWER(?)
+        )
+      GROUP BY t.id, t.title, t.description
+      ORDER BY t.resolved_at DESC
+      LIMIT ?
+    `).all(ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets) as any[];
 
     // Buscar contexto do usuário se solicitado
     let userContext;
-    if (includeUserContext && session.user.id) {
+    if (includeUserContext && user.id) {
       try {
-        const userTickets = await db.all(`
+        const userTickets = db.prepare(`
           SELECT c.name as category, COUNT(*) as count
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
@@ -169,12 +107,11 @@ export async function POST(request: NextRequest) {
           GROUP BY c.name
           ORDER BY count DESC
           LIMIT 5
-        `, [session.user.id]);
+        `).all(user.id) as any[];
 
         userContext = {
-          role: session.user.role,
-          department: session.user.department,
-          previousIssues: userTickets.map(ticket => ticket.category)
+          role: user.role,
+          previousIssues: userTickets.map((ticket: any) => ticket.category)
         };
       } catch (error) {
         logger.warn('Failed to fetch user context', error);
@@ -190,12 +127,12 @@ export async function POST(request: NextRequest) {
     );
 
     // Salvar sugestão no banco de dados
-    const suggestionId = await db.run(`
+    const suggestionId = db.prepare(`
       INSERT INTO ai_suggestions (
         ticket_id, suggestion_type, content, confidence_score,
         model_name, source_type, source_references, reasoning
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `).run(
       ticketId || null,
       'solution',
       JSON.stringify(suggestions.primarySolution),
@@ -204,24 +141,24 @@ export async function POST(request: NextRequest) {
       'hybrid',
       JSON.stringify({
         knowledgeArticles: suggestions.knowledgeBaseReferences,
-        similarTickets: similarTickets.map(t => t.id)
+        similarTickets: similarTickets.map((t: any) => t.id)
       }),
       'AI-generated solution based on knowledge base and similar tickets'
-    ]);
+    ).lastInsertRowid;
 
     // Log da operação
     logger.info(`Solution suggestion completed for "${title}" in ${suggestions.processingTimeMs}ms`);
 
     // Auditoria
-    await db.run(`
+    db.prepare(`
       INSERT INTO audit_logs (
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-      session.user.id,
+    `).run(
+      user.id,
       'ai_suggestion',
-      suggestionId.lastID,
+      suggestionId,
       'suggest_solution',
       JSON.stringify({
         ticketId,
@@ -231,12 +168,12 @@ export async function POST(request: NextRequest) {
         similarTicketsCount: similarTickets.length
       }),
       request.headers.get('x-forwarded-for') || 'unknown'
-    ]);
+    );
 
     return NextResponse.json({
       success: true,
       suggestion: {
-        id: suggestionId.lastID,
+        id: suggestionId,
         primarySolution: suggestions.primarySolution,
         alternativeSolutions: suggestions.alternativeSolutions,
         escalationTriggers: suggestions.escalationTriggers,
@@ -245,12 +182,12 @@ export async function POST(request: NextRequest) {
         requiresSpecialist: suggestions.requiresSpecialist
       },
       sources: {
-        knowledgeArticles: knowledgeArticles.map(kb => ({
+        knowledgeArticles: knowledgeArticles.map((kb: any) => ({
           id: kb.id,
           title: kb.title,
           relevanceScore: kb.relevanceScore || 0.5
         })),
-        similarTickets: similarTickets.map(ticket => ({
+        similarTickets: similarTickets.map((ticket: any) => ({
           id: ticket.id,
           title: ticket.title,
           similarityScore: ticket.similarityScore || 0.5
@@ -271,7 +208,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }
@@ -285,8 +222,18 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -298,16 +245,16 @@ export async function GET(request: NextRequest) {
 
     if (ticketId) {
       // Buscar sugestões para um ticket específico
-      const suggestions = await db.all(`
+      const suggestions = db.prepare(`
         SELECT * FROM ai_suggestions
         WHERE ticket_id = ?
         ORDER BY created_at DESC
-      `, [ticketId]);
+      `).all(ticketId) as any[];
 
       return NextResponse.json({ suggestions });
     } else {
       // Buscar estatísticas de sugestões
-      const stats = await db.get(`
+      const stats = db.prepare(`
         SELECT
           COUNT(*) as total_suggestions,
           AVG(confidence_score) as avg_confidence,
@@ -317,9 +264,9 @@ export async function GET(request: NextRequest) {
         FROM ai_suggestions
         WHERE created_at >= datetime('now', '-30 days')
           AND suggestion_type = 'solution'
-      `);
+      `).get() as any;
 
-      const sourceStats = await db.all(`
+      const sourceStats = db.prepare(`
         SELECT
           source_type,
           COUNT(*) as count,
@@ -329,7 +276,7 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'solution'
         GROUP BY source_type
         ORDER BY count DESC
-      `);
+      `).all() as any[];
 
       return NextResponse.json({
         stats: {

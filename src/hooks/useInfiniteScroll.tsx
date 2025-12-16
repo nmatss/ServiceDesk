@@ -130,8 +130,8 @@ export const useInfiniteScroll = <T,>(
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && !isLoadingMore) {
+        const entry = entries[0]
+        if (entry && entry.isIntersecting && !isLoadingMore) {
           loadMore()
         }
       },

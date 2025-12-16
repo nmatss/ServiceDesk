@@ -39,11 +39,17 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user_id')
-    localStorage.removeItem('user_role')
-    localStorage.removeItem('user_name')
+  const handleLogout = async () => {
+    try {
+      // Call logout API to clear server-side cookies
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (error) {
+      // Continue with redirect even if API call fails
+      console.error('Logout API error:', error)
+    }
     router.push('/auth/login')
   }
 
@@ -61,8 +67,8 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
       const userMenuButton = document.querySelector('[aria-controls="user-menu-dropdown"]')
 
       if (showUserMenu && userMenu && userMenuButton &&
-          !userMenu.contains(event.target as Node) &&
-          !userMenuButton.contains(event.target as Node)) {
+        !userMenu.contains(event.target as Node) &&
+        !userMenuButton.contains(event.target as Node)) {
         setShowUserMenu(false)
       }
     }
@@ -75,7 +81,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
   return (
     <>
       <header
-        className="sticky top-0 z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border-b border-neutral-200 dark:border-neutral-700"
+        className="sticky top-0 z-40 glass border-b border-white/10"
         role="banner"
       >
         <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
@@ -176,14 +182,13 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
                     <p className="text-xs text-neutral-600 dark:text-neutral-400">
                       {user?.email}
                     </p>
-                    <span className={`inline-flex mt-2 badge ${
-                      user?.role === 'admin' ? 'badge-error' :
-                      user?.role === 'agent' ? 'badge-warning' :
-                      'badge-neutral'
-                    }`}>
+                    <span className={`inline-flex mt-2 badge ${user?.role === 'admin' ? 'badge-error' :
+                        user?.role === 'agent' ? 'badge-warning' :
+                          'badge-neutral'
+                      }`}>
                       {user?.role === 'admin' ? 'Administrador' :
-                       user?.role === 'agent' ? 'Agente' :
-                       'Usuário'}
+                        user?.role === 'agent' ? 'Agente' :
+                          'Usuário'}
                     </span>
                   </div>
 

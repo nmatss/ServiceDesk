@@ -1,17 +1,14 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'react-hot-toast'
 import { logger } from '@/lib/monitoring/logger';
 import {
   CloudArrowUpIcon,
   DocumentIcon,
-  XMarkIcon,
   PhotoIcon,
-  DocumentTextIcon,
-  ArchiveBoxIcon
+  DocumentTextIcon
 } from '@heroicons/react/24/outline'
 
 export interface UploadedFile {
@@ -66,14 +63,6 @@ export default function FileUpload({
   const [uploadProgress, setUploadProgress] = useState(0)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
 
   const validateFile = (file: File): { valid: boolean; error?: string } => {
     // Check file size
@@ -210,15 +199,6 @@ export default function FileUpload({
   const handleDragLeave = (event: React.DragEvent) => {
     event.preventDefault()
     setDragOver(false)
-  }
-
-  const getFileTypeIcon = (type: string) => {
-    if (type.startsWith('image/')) return PhotoIcon
-    if (type === 'application/pdf') return DocumentTextIcon
-    if (type.includes('word') || type.includes('document')) return DocumentIcon
-    if (type.includes('excel') || type.includes('spreadsheet')) return DocumentIcon
-    if (type.includes('zip') || type.includes('rar')) return ArchiveBoxIcon
-    return DocumentIcon
   }
 
   return (

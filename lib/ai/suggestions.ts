@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import db from '../db/connection';
 import { aiClassifier } from './classifier';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export class AISuggestions {
   private openai: OpenAI;
@@ -148,7 +148,7 @@ export class AISuggestions {
     ticket: any,
     similarTickets: any[],
     kbArticles: any[],
-    organizationId: number
+    _organizationId: number
   ): Promise<any[]> {
     const prompt = `
 Você é um assistente técnico especializado em suporte.
@@ -200,7 +200,7 @@ Retorne um JSON array:
         temperature: 0.5
       });
 
-      const result = JSON.parse(completion.choices[0].message.content || '{"suggestions": []}');
+      const result = JSON.parse(completion.choices[0]?.message.content || '{"suggestions": []}');
       return result.suggestions || [];
 
     } catch (error) {
@@ -259,7 +259,7 @@ Gere uma resposta profissional e útil para o usuário.
         max_tokens: 500
       });
 
-      return completion.choices[0].message.content || '';
+      return completion.choices[0]?.message.content || '';
 
     } catch (error) {
       logger.error('Auto-response error', error);

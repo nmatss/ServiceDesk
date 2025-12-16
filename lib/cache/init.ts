@@ -3,16 +3,16 @@
  * Integrates Redis with the existing cache system
  */
 
-import { createRedisManager, defaultCacheConfig } from '@/lib/performance/redis-manager';
-import { configureCacheStore } from '@/lib/api/cache';
-import { dbOptimizer } from '@/lib/db/optimizer';
-import { logger } from '../monitoring/logger';
+import { getRedisClient } from './redis-client';
+import { getCacheManager } from './cache-manager';
+import logger from '../monitoring/structured-logger';
 
-let redisManager: ReturnType<typeof createRedisManager> | null = null;
+let redisClient: ReturnType<typeof getRedisClient> | null = null;
+let cacheManager: ReturnType<typeof getCacheManager> | null = null;
 let isInitialized = false;
 
 /**
- * Initialize Redis caching layer and database optimizer
+ * Initialize Redis caching layer
  * Call this at application startup
  */
 export async function initializeCache(): Promise<void> {
@@ -22,14 +22,6 @@ export async function initializeCache(): Promise<void> {
   }
 
   try {
-    // Initialize database optimizer first
-    logger.info('🔍 Initializing database optimizer...');
-    await dbOptimizer.optimizeTables();
-    logger.info('✅ Database optimizer initialized (ANALYZE completed)');
-    logger.info(`   - Database size: ${dbOptimizer.getDatabaseSize().sizeMB} MB`);
-    const dbStats = dbOptimizer.getPerformanceStats();
-    logger.info(`   - Slow queries tracked: ${dbStats.slowQueries.length}`);
-    logger.info(`   - Average query time: ${dbStats.averageQueryTime}ms`);
     // Check if Redis is configured
     const redisHost = process.env.REDIS_HOST || process.env.REDIS_URL;
 
@@ -47,39 +39,26 @@ export async function initializeCache(): Promise<void> {
 
     logger.info('🚀 Initializing Redis caching layer...');
 
-    // Create Redis manager
-    redisManager = createRedisManager(defaultCacheConfig);
+    // Initialize Redis client
+    redisClient = getRedisClient();
 
-    // Wait for Redis connection
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Redis connection timeout'));
-      }, 5000);
+    // Connect to Redis
+    await redisClient.connect();
 
-      // Test connection
-      redisManager!.healthCheck()
-        .then(health => {
-          clearTimeout(timeout);
-          if (health.status === 'healthy' || health.status === 'degraded') {
-            resolve(health);
-          } else {
-            reject(new Error(`Redis unhealthy: ${health.errors.join(', ')}`));
-          }
-        })
-        .catch(reject);
-    });
+    // Test connection
+    const health = await redisClient.healthCheck();
 
-    // Get Redis client for the API cache
-    const redisClient = (redisManager as any).redis;
+    if (health.status === 'unhealthy') {
+      throw new Error('Redis health check failed');
+    }
 
-    // Configure the API cache store to use Redis
-    configureCacheStore(redisClient);
+    // Initialize cache manager
+    cacheManager = getCacheManager();
 
-    const stats = redisManager.getStats();
     logger.info('✅ Redis caching initialized successfully');
-    logger.info(`   - Hit rate: ${stats.hitRate.toFixed(2)}%`);
-    logger.info(`   - Total keys: ${stats.totalKeys}`);
-    logger.info(`   - Layers configured: ${stats.layerStats.size}`);
+    logger.info(`   - Status: ${health.status}`);
+    logger.info(`   - Latency: ${health.latency}ms`);
+    logger.info(`   - Connected: ${health.connected}`);
 
     isInitialized = true;
   } catch (error) {
@@ -90,27 +69,28 @@ export async function initializeCache(): Promise<void> {
 }
 
 /**
- * Get Redis manager instance
+ * Get Redis client instance
  */
 export function getRedisManager() {
-  return redisManager;
+  return redisClient;
 }
 
 /**
  * Check if Redis is active
  */
 export function isRedisActive(): boolean {
-  return redisManager !== null;
+  return redisClient !== null && cacheManager !== null;
 }
 
 /**
  * Shutdown cache gracefully
  */
 export async function shutdownCache(): Promise<void> {
-  if (redisManager) {
+  if (redisClient) {
     logger.info('🛑 Shutting down Redis cache...');
-    await redisManager.shutdown();
-    redisManager = null;
+    await redisClient.disconnect();
+    redisClient = null;
+    cacheManager = null;
     isInitialized = false;
     logger.info('✅ Redis cache shut down successfully');
   }

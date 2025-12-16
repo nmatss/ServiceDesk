@@ -4,7 +4,7 @@ import React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Loader2 } from 'lucide-react';
-import { cn, focusClasses, interactiveStates } from '@/lib/design-system/utils';
+import { cn } from '@/lib/design-system/utils';
 
 const buttonVariants = cva(
   [
@@ -130,7 +130,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    const Comp = asChild ? Slot : 'button';
     const isDisabled = disabled || loading;
 
     const iconSize = {
@@ -144,8 +143,26 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       'icon-lg': 'w-5 h-5',
     }[size || 'md'];
 
+    // When asChild is true, Slot expects exactly one child element
+    // So we pass children directly without any wrapper elements
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(
+            buttonVariants({ variant, size, rounded, persona }),
+            fullWidth && 'w-full',
+            className
+          )}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </Slot>
+      );
+    }
+
     return (
-      <Comp
+      <button
         className={cn(
           buttonVariants({ variant, size, rounded, persona }),
           fullWidth && 'w-full',
@@ -171,7 +188,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             {rightIcon}
           </span>
         )}
-      </Comp>
+      </button>
     );
   }
 );

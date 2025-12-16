@@ -1,7 +1,22 @@
 import emailService from './service'
 import { TicketEmailData, UserEmailData } from './templates'
 import db from '@/lib/db/connection'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+// Interface for ticket database row
+interface TicketRow {
+  id: number
+  ticket_number: string
+  title: string
+  description: string
+  created_at: string
+  priority_name: string
+  status_name: string
+  customer_name: string
+  customer_email: string
+  assigned_name: string | null
+  tenant_name: string
+}
 
 // Helper function to get ticket data for email
 export const getTicketEmailData = (ticketId: number): TicketEmailData | null => {
@@ -26,7 +41,7 @@ export const getTicketEmailData = (ticketId: number): TicketEmailData | null => 
       LEFT JOIN users assigned ON t.assigned_to = assigned.id
       LEFT JOIN tenants tenant ON t.tenant_id = tenant.id
       WHERE t.id = ?
-    `).get(ticketId)
+    `).get(ticketId) as TicketRow | undefined
 
     if (!ticket) return null
 
@@ -36,7 +51,7 @@ export const getTicketEmailData = (ticketId: number): TicketEmailData | null => 
       description: ticket.description,
       priority: ticket.priority_name,
       status: ticket.status_name,
-      assignedTo: ticket.assigned_name,
+      assignedTo: ticket.assigned_name ?? undefined,
       customer: {
         name: ticket.customer_name,
         email: ticket.customer_email
@@ -56,6 +71,14 @@ export const getTicketEmailData = (ticketId: number): TicketEmailData | null => 
   }
 }
 
+// Interface for user database row
+interface UserRow {
+  id: number
+  name: string
+  email: string
+  tenant_name: string
+}
+
 // Helper function to get user data for email
 export const getUserEmailData = (userId: number, includePassword = false): UserEmailData | null => {
   try {
@@ -68,7 +91,7 @@ export const getUserEmailData = (userId: number, includePassword = false): UserE
       FROM users u
       LEFT JOIN tenants tenant ON u.tenant_id = tenant.id
       WHERE u.id = ?
-    `).get(userId)
+    `).get(userId) as UserRow | undefined
 
     if (!user) return null
 
@@ -149,9 +172,12 @@ export const emailHooks = {
 
       if (ticketData && userData) {
         // Send notification to assigned user
-        const customData = {
+        const customData: TicketEmailData = {
           ...ticketData,
-          customer: userData, // Override customer with assigned user
+          customer: {
+            name: userData.name,
+            email: userData.email
+          },
           urls: {
             ...ticketData.urls,
             ticketUrl: `${process.env.APP_URL || 'http://localhost:3000'}/admin/tickets/${ticketId}`
@@ -201,6 +227,14 @@ export const emailHooks = {
   // Comment added (for internal notifications)
   onCommentAdded: async (ticketId: number, commentId: number): Promise<void> => {
     try {
+      // Interface for comment database row
+      interface CommentRow {
+        content: string
+        is_internal: number
+        author_name: string
+        author_email: string
+      }
+
       // Get comment details
       const comment = db.prepare(`
         SELECT
@@ -211,7 +245,7 @@ export const emailHooks = {
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
         WHERE c.id = ?
-      `).get(commentId)
+      `).get(commentId) as CommentRow | undefined
 
       if (!comment || comment.is_internal) {
         return // Don't send emails for internal comments
@@ -220,7 +254,7 @@ export const emailHooks = {
       const ticketData = getTicketEmailData(ticketId)
       if (ticketData) {
         // Add comment to the email data
-        const emailData = {
+        const emailData: TicketEmailData = {
           ...ticketData,
           description: `Nova atualização por ${comment.author_name}:\n\n${comment.content}`
         }

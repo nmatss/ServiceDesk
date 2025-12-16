@@ -2,8 +2,13 @@
  * Traces customizados para operações de ticket
  */
 
-import { ddTracer, SpanAttributes } from '../datadog-tracer';
+import { ddTracer } from '../datadog-tracer';
 import { logger } from '../logger';
+
+// Span type from OpenTelemetry
+type Span = {
+  setAttribute(key: string, value: string | number | boolean): void;
+};
 
 /**
  * Trace de criação de ticket
@@ -16,7 +21,7 @@ export async function traceCreateTicket(
 ): Promise<any> {
   return await ddTracer.trace(
     'ticket.create',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'create');
       span.setAttribute('ticket.user_id', userId);
       span.setAttribute('ticket.organization_id', organizationId);
@@ -74,7 +79,7 @@ export async function traceUpdateTicket(
 ): Promise<any> {
   return await ddTracer.trace(
     'ticket.update',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'update');
       span.setAttribute('ticket.id', ticketId);
       span.setAttribute('ticket.user_id', userId);
@@ -132,7 +137,7 @@ export async function traceGetTickets(
 ): Promise<any[]> {
   return await ddTracer.trace(
     'ticket.list',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'list');
       span.setAttribute('ticket.organization_id', organizationId);
       span.setAttribute('resource.name', 'GET /api/tickets');
@@ -180,7 +185,7 @@ export async function traceGetTicketById(
 ): Promise<any> {
   return await ddTracer.trace(
     'ticket.get',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'get');
       span.setAttribute('ticket.id', ticketId);
       span.setAttribute('ticket.organization_id', organizationId);
@@ -232,7 +237,7 @@ export async function traceAssignTicket(
 ): Promise<any> {
   return await ddTracer.trace(
     'ticket.assign',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'assign');
       span.setAttribute('ticket.id', ticketId);
       span.setAttribute('ticket.user_id', userId);
@@ -289,7 +294,7 @@ export async function traceResolveTicket(
 ): Promise<any> {
   return await ddTracer.trace(
     'ticket.resolve',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'resolve');
       span.setAttribute('ticket.id', ticketId);
       span.setAttribute('ticket.user_id', userId);
@@ -351,7 +356,7 @@ export async function traceAddComment(
 ): Promise<any> {
   return await ddTracer.trace(
     'ticket.comment.add',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'add_comment');
       span.setAttribute('ticket.id', ticketId);
       span.setAttribute('ticket.user_id', userId);
@@ -407,7 +412,7 @@ export async function traceGetUserTickets(
 ): Promise<any[]> {
   return await ddTracer.trace(
     'ticket.user_tickets',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('ticket.operation', 'user_tickets');
       span.setAttribute('ticket.user_id', userId);
       span.setAttribute('ticket.organization_id', organizationId);

@@ -6,12 +6,11 @@ import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
   DocumentTextIcon,
-  FolderIcon,
   ClockIcon,
   EyeIcon,
   PlusIcon,
-  TagIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  TagIcon
 } from '@heroicons/react/24/outline'
 import { useNotificationHelpers } from '@/src/components/notifications/NotificationProvider'
 
@@ -44,38 +43,53 @@ export default function KnowledgePage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [userRole, setUserRole] = useState<'admin' | 'agent' | 'user'>('user')
-  const { success, error } = useNotificationHelpers()
+  const { error } = useNotificationHelpers()
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    const role = localStorage.getItem('user_role') as 'admin' | 'agent' | 'user'
+    // SECURITY: Verify authentication via httpOnly cookies only
+    const verifyAndLoad = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      router.push('/auth/login')
-      return
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUserRole(data.user.role || 'user')
+        fetchKnowledgeData()
+      } catch {
+        router.push('/auth/login')
+      }
     }
 
-    setUserRole(role || 'user')
-    fetchKnowledgeData()
+    verifyAndLoad()
   }, [router])
 
   const fetchKnowledgeData = async () => {
     try {
       setLoading(true)
 
+      // SECURITY: Use httpOnly cookies for authentication
       // Buscar categorias
       const categoriesResponse = await fetch('/api/knowledge/categories', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
       const categoriesData = await categoriesResponse.json()
 
       // Buscar artigos
       const articlesResponse = await fetch('/api/knowledge/articles?status=published&limit=50', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
       const articlesData = await articlesResponse.json()
 

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const { url, state, codeVerifier } = govbrClient.generateAuthorizationUrl();
 
     // Salva state e code verifier em cookies seguros
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('govbr_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

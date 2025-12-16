@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * PWA Update Manager
@@ -172,7 +172,7 @@ class PWAUpdateManager {
     }
   }
 
-  private handleUpdateAvailable(data?: any) {
+  private handleUpdateAvailable(data?: { version?: string; size?: number; description?: string; forced?: boolean }) {
     logger.info('[PWA Update] Update available');
 
     this.updateInfo = {
@@ -200,7 +200,7 @@ class PWAUpdateManager {
     this.dispatchEvent('updateInstalled', {});
   }
 
-  private handleCacheUpdate(data: any) {
+  private handleCacheUpdate(data: unknown) {
     this.dispatchEvent('cacheUpdate', data);
   }
 
@@ -307,7 +307,7 @@ class PWAUpdateManager {
     }
   }
 
-  private dispatchEvent(eventType: string, detail: any) {
+  private dispatchEvent(eventType: string, detail: unknown) {
     window.dispatchEvent(new CustomEvent(`pwa:${eventType}`, { detail }));
   }
 

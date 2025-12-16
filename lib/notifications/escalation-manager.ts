@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db'
 import { NotificationPayload } from './realtime-engine'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface EscalationRule {
   id: string
@@ -240,7 +240,11 @@ export class EscalationManager {
 
   private createDefaultRules() {
     for (const rule of this.DEFAULT_RULES) {
-      this.createEscalationRule(rule, 1) // System user
+      const ruleWithCreatedBy = {
+        ...rule,
+        createdBy: 1
+      };
+      this.createEscalationRule(ruleWithCreatedBy, 1) // System user
     }
   }
 
@@ -292,7 +296,8 @@ export class EscalationManager {
       }
     } else {
       // Use specified escalation rules
-      for (const ruleId of notification.escalationRules) {
+      for (const escalationRule of notification.escalationRules) {
+        const ruleId = typeof escalationRule === 'string' ? escalationRule : escalationRule.id;
         const rule = this.escalationRules.find(r => r.id === ruleId)
         if (rule && rule.isActive) {
           this.createEscalationInstance(notification, rule)
@@ -478,17 +483,14 @@ export class EscalationManager {
     }
   }
 
-  private checkDeliveryFailure(notification: any, parameters: any): boolean {
+  private checkDeliveryFailure(_notification: any, _parameters: any): boolean {
     // Check if specified channels have failed
-    const failedChannels = parameters.failedChannels || []
-    const requiredFailureCount = parameters.failureCount || 1
-
     // This would integrate with the delivery tracker
     // For now, simulate based on notification age
     return false // Placeholder
   }
 
-  private checkNoResponse(notification: any, parameters: any): boolean {
+  private checkNoResponse(_notification: any, parameters: any): boolean {
     if (!parameters.expectedResponse) return false
 
     // Check if notification requires response and hasn't been acknowledged
@@ -496,8 +498,7 @@ export class EscalationManager {
     return false // Placeholder
   }
 
-  private checkChannelFailure(notification: any, parameters: any): boolean {
-    const failedChannels = parameters.channels || []
+  private checkChannelFailure(_notification: any, _parameters: any): boolean {
     // Check if specified channels are currently unavailable
     return false // Placeholder
   }
@@ -505,7 +506,6 @@ export class EscalationManager {
   private checkUserAvailability(notification: any, parameters: any): boolean {
     if (!parameters.checkPresence) return false
 
-    const unavailableMinutes = parameters.unavailableMinutes || 10
     const targetUsers = notification.targetUsers || []
 
     // Check if target users are offline/away for specified time
@@ -632,7 +632,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeChangePriorityAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeChangePriorityAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<any> {
     const newPriority = action.parameters.newPriority
 
     try {
@@ -673,7 +673,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeCreateTicketAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeCreateTicketAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<any> {
     const ticketData = {
       title: action.parameters.title || `Escalation for notification ${notification.id}`,
       description: `Auto-generated ticket due to notification escalation.\n\nOriginal notification: ${notification.title}\nMessage: ${notification.message}`,
@@ -723,7 +723,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeSMSFallbackAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeSMSFallbackAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<any> {
     // This would integrate with SMS service (Twilio, etc.)
     const phoneNumbers = action.parameters.phoneNumbers || []
     const message = `URGENT: ${notification.title} - ${notification.message}`

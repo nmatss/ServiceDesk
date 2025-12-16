@@ -24,7 +24,7 @@ export default defineConfig({
       '.next/**',
       'playwright-report/**',
       'tests/**/*.spec.ts', // Exclude Playwright E2E tests
-      'tests/lib/**', // Exclude old test utilities
+      'tests/setup.ts', // Exclude test setup file
     ],
   },
   resolve: {

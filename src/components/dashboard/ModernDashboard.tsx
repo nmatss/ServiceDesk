@@ -2,14 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import StatsCard, { StatsGrid, StatsCardSkeleton } from '@/src/components/ui/StatsCard'
+import StatsCard, { StatsGrid, StatsCardSkeleton } from '@/components/ui/StatsCard'
 import { logger } from '@/lib/monitoring/logger';
 import {
   ChartBarIcon,
-  ClockIcon,
-  UserIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
   EyeIcon,
   PlusIcon,
   FunnelIcon,
@@ -120,16 +116,9 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         setLoading(true)
       }
 
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
-
+      // Use credentials: 'include' to send httpOnly cookies automatically
       const response = await fetch(`/api/dashboard?period=${period}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       })
 
       if (!response.ok) {
@@ -179,6 +168,16 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
   if (!data) return null
 
+  // Safe access helpers to prevent crashes
+  const overview = data.overview ?? { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } }
+  const tickets = overview.tickets ?? { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 }
+  const trends = data.trends ?? { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const }
+  const sla = data.sla ?? { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 }
+  const categories = data.categories ?? []
+  const priorities = data.priorities ?? []
+  const recentActivity = data.recent_activity ?? []
+  const agentPerformance = data.agent_performance ?? []
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -218,12 +217,12 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       <StatsGrid cols={userRole === 'admin' ? 4 : 3}>
         <StatsCard
           title="Total de Tickets"
-          value={data.overview.tickets.total}
+          value={tickets.total ?? 0}
           icon="tickets"
           color="brand"
           change={{
-            value: Math.abs(data.trends.change_percentage),
-            type: data.trends.trend === 'up' ? 'increase' : data.trends.trend === 'down' ? 'decrease' : 'neutral',
+            value: Math.abs(trends.change_percentage ?? 0),
+            type: trends.trend === 'up' ? 'increase' : trends.trend === 'down' ? 'decrease' : 'neutral',
             period: `vs ${period} dias anteriores`
           }}
           onClick={() => router.push(userRole === 'admin' ? '/admin/tickets' : '/tickets')}
@@ -231,7 +230,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
         <StatsCard
           title="Em Aberto"
-          value={data.overview.tickets.open}
+          value={tickets.open ?? 0}
           icon="pending"
           color="warning"
           onClick={() => router.push(userRole === 'admin' ? '/admin/tickets?status=open' : '/tickets?status=open')}
@@ -239,16 +238,16 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
         <StatsCard
           title="Resolvidos"
-          value={data.overview.tickets.closed}
+          value={tickets.closed ?? 0}
           icon="resolved"
           color="success"
           onClick={() => router.push(userRole === 'admin' ? '/admin/tickets?status=resolved' : '/tickets?status=resolved')}
         />
 
-        {userRole === 'admin' && data.overview.users && (
+        {userRole === 'admin' && overview.users && (
           <StatsCard
             title="Usuários Ativos"
-            value={data.overview.users.total_users}
+            value={overview.users.total_users ?? 0}
             icon="users"
             color="neutral"
             onClick={() => router.push('/admin/users')}
@@ -258,7 +257,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         {userRole === 'agent' && (
           <StatsCard
             title="Não Atribuídos"
-            value={data.overview.tickets.unassigned}
+            value={tickets.unassigned ?? 0}
             icon="time"
             color="error"
             onClick={() => router.push('/tickets?unassigned=true')}
@@ -267,7 +266,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       </StatsGrid>
 
       {/* SLA Stats */}
-      {data.sla.total_tracked > 0 && (
+      {sla.total_tracked > 0 && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
@@ -278,21 +277,21 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
             <StatsGrid cols={3}>
               <StatsCard
                 title="Conformidade Resposta"
-                value={`${data.sla.response_compliance.toFixed(1)}%`}
+                value={`${(sla.response_compliance ?? 0).toFixed(1)}%`}
                 icon="time"
-                color={data.sla.response_compliance >= 90 ? 'success' : data.sla.response_compliance >= 70 ? 'warning' : 'error'}
+                color={(sla.response_compliance ?? 0) >= 90 ? 'success' : (sla.response_compliance ?? 0) >= 70 ? 'warning' : 'error'}
                 size="sm"
               />
               <StatsCard
                 title="Conformidade Resolução"
-                value={`${data.sla.resolution_compliance.toFixed(1)}%`}
+                value={`${(sla.resolution_compliance ?? 0).toFixed(1)}%`}
                 icon="resolved"
-                color={data.sla.resolution_compliance >= 90 ? 'success' : data.sla.resolution_compliance >= 70 ? 'warning' : 'error'}
+                color={(sla.resolution_compliance ?? 0) >= 90 ? 'success' : (sla.resolution_compliance ?? 0) >= 70 ? 'warning' : 'error'}
                 size="sm"
               />
               <StatsCard
                 title="Tickets Monitorados"
-                value={data.sla.total_tracked}
+                value={sla.total_tracked ?? 0}
                 icon="chart"
                 color="brand"
                 size="sm"
@@ -303,7 +302,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       )}
 
       {/* Performance dos Agentes (Admin only) */}
-      {userRole === 'admin' && data.agent_performance && data.agent_performance.length > 0 && (
+      {userRole === 'admin' && agentPerformance.length > 0 && (
         <div className="card">
           <div className="card-header">
             <div className="flex items-center justify-between">
@@ -320,7 +319,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
           </div>
           <div className="card-body">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.agent_performance.slice(0, 6).map((agent) => (
+              {agentPerformance.slice(0, 6).map((agent) => (
                 <div
                   key={agent.id}
                   className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg"
@@ -328,27 +327,27 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center">
                       <span className="text-white text-sm font-medium">
-                        {agent.name.charAt(0).toUpperCase()}
+                        {(agent.name ?? 'A').charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1">
                       <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
-                        {agent.name}
+                        {agent.name ?? 'Agente'}
                       </h4>
                       <div className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {agent.tickets_resolved} resolvidos
+                        {agent.tickets_resolved ?? 0} resolvidos
                       </div>
                       <div className="text-xs text-neutral-500">
-                        {agent.avg_resolution_hours.toFixed(1)}h média
+                        {(agent.avg_resolution_hours ?? 0).toFixed(1)}h média
                       </div>
                     </div>
                     <div className="text-right">
                       <div className={`text-sm font-medium ${
-                        agent.resolution_rate >= 80 ? 'text-success-600 dark:text-success-400' :
-                        agent.resolution_rate >= 60 ? 'text-warning-600 dark:text-warning-400' :
+                        (agent.resolution_rate ?? 0) >= 80 ? 'text-success-600 dark:text-success-400' :
+                        (agent.resolution_rate ?? 0) >= 60 ? 'text-warning-600 dark:text-warning-400' :
                         'text-error-600 dark:text-error-400'
                       }`}>
-                        {agent.resolution_rate}%
+                        {agent.resolution_rate ?? 0}%
                       </div>
                       <div className="text-xs text-neutral-500">
                         taxa resolução
@@ -373,33 +372,38 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
           </div>
           <div className="card-body">
             <div className="space-y-3">
-              {data.categories.slice(0, 5).map((category) => (
-                <div key={category.name} className="flex items-center">
-                  <div
-                    className="w-3 h-3 rounded-full mr-3"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                        {category.name}
-                      </span>
-                      <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {category.count}
-                      </span>
-                    </div>
-                    <div className="mt-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full"
-                        style={{
-                          backgroundColor: category.color,
-                          width: `${Math.min((category.count / Math.max(...data.categories.map(c => c.count))) * 100, 100)}%`
-                        }}
-                      />
+              {categories.length === 0 ? (
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhuma categoria encontrada</p>
+              ) : categories.slice(0, 5).map((category) => {
+                const maxCount = Math.max(...categories.map(c => c.count ?? 0), 1)
+                return (
+                  <div key={category.name} className="flex items-center">
+                    <div
+                      className="w-3 h-3 rounded-full mr-3"
+                      style={{ backgroundColor: category.color ?? '#6B7280' }}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {category.name ?? 'Sem nome'}
+                        </span>
+                        <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {category.count ?? 0}
+                        </span>
+                      </div>
+                      <div className="mt-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full"
+                          style={{
+                            backgroundColor: category.color ?? '#6B7280',
+                            width: `${Math.min(((category.count ?? 0) / maxCount) * 100, 100)}%`
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -413,35 +417,40 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
           </div>
           <div className="card-body">
             <div className="space-y-3">
-              {data.priorities
-                .sort((a, b) => b.level - a.level)
-                .map((priority) => (
-                  <div key={priority.name} className="flex items-center">
-                    <div
-                      className="w-3 h-3 rounded-full mr-3"
-                      style={{ backgroundColor: priority.color }}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                          {priority.name}
-                        </span>
-                        <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                          {priority.count}
-                        </span>
-                      </div>
-                      <div className="mt-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full"
-                          style={{
-                            backgroundColor: priority.color,
-                            width: `${Math.min((priority.count / Math.max(...data.priorities.map(p => p.count))) * 100, 100)}%`
-                          }}
-                        />
+              {priorities.length === 0 ? (
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhuma prioridade encontrada</p>
+              ) : [...priorities]
+                .sort((a, b) => (b.level ?? 0) - (a.level ?? 0))
+                .map((priority) => {
+                  const maxCount = Math.max(...priorities.map(p => p.count ?? 0), 1)
+                  return (
+                    <div key={priority.name} className="flex items-center">
+                      <div
+                        className="w-3 h-3 rounded-full mr-3"
+                        style={{ backgroundColor: priority.color ?? '#6B7280' }}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                            {priority.name ?? 'Sem nome'}
+                          </span>
+                          <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                            {priority.count ?? 0}
+                          </span>
+                        </div>
+                        <div className="mt-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
+                          <div
+                            className="h-2 rounded-full"
+                            style={{
+                              backgroundColor: priority.color ?? '#6B7280',
+                              width: `${Math.min(((priority.count ?? 0) / maxCount) * 100, 100)}%`
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
             </div>
           </div>
         </div>
@@ -464,7 +473,11 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         </div>
         <div className="card-body p-0">
           <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
-            {data.recent_activity.slice(0, 8).map((ticket) => (
+            {recentActivity.length === 0 ? (
+              <div className="p-4 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                Nenhuma atividade recente
+              </div>
+            ) : recentActivity.slice(0, 8).map((ticket) => (
               <div
                 key={ticket.id}
                 className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
@@ -474,31 +487,31 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                        #{ticket.id} {ticket.title}
+                        #{ticket.id} {ticket.title ?? 'Sem título'}
                       </h4>
                       <span
                         className="inline-flex px-2 py-1 text-xs font-medium rounded-full"
                         style={{
-                          backgroundColor: `${ticket.status_color}20`,
-                          color: ticket.status_color
+                          backgroundColor: `${ticket.status_color ?? '#6B7280'}20`,
+                          color: ticket.status_color ?? '#6B7280'
                         }}
                       >
-                        {ticket.status_name}
+                        {ticket.status_name ?? 'Desconhecido'}
                       </span>
                     </div>
                     <div className="mt-1 flex items-center space-x-4 text-xs text-neutral-600 dark:text-neutral-400">
-                      <span>{ticket.user_name}</span>
-                      <span>{ticket.category_name}</span>
+                      <span>{ticket.user_name ?? 'Anônimo'}</span>
+                      <span>{ticket.category_name ?? 'Sem categoria'}</span>
                       <span
-                        style={{ color: ticket.priority_color }}
+                        style={{ color: ticket.priority_color ?? '#6B7280' }}
                         className="font-medium"
                       >
-                        {ticket.priority_name}
+                        {ticket.priority_name ?? 'Normal'}
                       </span>
                     </div>
                   </div>
                   <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {new Date(ticket.updated_at).toLocaleDateString('pt-BR')}
+                    {ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('pt-BR') : '-'}
                   </div>
                 </div>
               </div>

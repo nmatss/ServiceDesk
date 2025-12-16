@@ -1,25 +1,59 @@
 import { workflowEngine } from './engine';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export class WorkflowScheduler {
   private intervals: Map<number, NodeJS.Timeout> = new Map();
+  private isRunningWorkflows = false;
+  private isRunningSLA = false;
 
   /**
    * Inicia scheduler para workflows time-based
    */
   start(): void {
-    // Verifica workflows time-based a cada minuto
-    setInterval(() => {
-      this.checkTimeBasedWorkflows();
-    }, 60 * 1000);
-
-    // Verifica SLA warnings a cada 5 minutos
-    setInterval(() => {
-      this.checkSLAWarnings();
-    }, 5 * 60 * 1000);
+    // Usar async loop em vez de setInterval
+    this.runWorkflowLoop();
+    this.runSLALoop();
 
     logger.info('Workflow scheduler started');
+  }
+
+  /**
+   * Loop assíncrono para verificar workflows
+   */
+  private async runWorkflowLoop(): Promise<void> {
+    while (true) {
+      if (!this.isRunningWorkflows) {
+        this.isRunningWorkflows = true;
+        try {
+          await this.checkTimeBasedWorkflows();
+        } catch (error) {
+          logger.error('Error in workflow loop', error);
+        } finally {
+          this.isRunningWorkflows = false;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 60 * 1000)); // 1 minuto
+    }
+  }
+
+  /**
+   * Loop assíncrono para verificar SLAs
+   */
+  private async runSLALoop(): Promise<void> {
+    while (true) {
+      if (!this.isRunningSLA) {
+        this.isRunningSLA = true;
+        try {
+          await this.checkSLAWarnings();
+        } catch (error) {
+          logger.error('Error in SLA loop', error);
+        } finally {
+          this.isRunningSLA = false;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000)); // 5 minutos
+    }
   }
 
   /**
@@ -215,7 +249,7 @@ export class WorkflowScheduler {
    * Para o scheduler
    */
   stop(): void {
-    for (const [id, interval] of this.intervals) {
+    for (const [, interval] of this.intervals) {
       clearInterval(interval);
     }
     this.intervals.clear();

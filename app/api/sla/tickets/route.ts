@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
-import { logger } from '@/lib/monitoring/logger';
+import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { logger } from '@/lib/monitoring/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
+    // SECURITY: Verificar autenticação via cookies httpOnly
+    const decoded = await verifyTokenFromCookies(request)
+    if (!decoded) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
+
+    // Get tenant ID from authenticated user (fallback to 1 for dev)
+    const tenantId = decoded.organization_id || 1
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') // 'at_risk', 'breached', 'on_time'
@@ -22,8 +21,8 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
 
     // Build query for tickets with SLA information
-    let whereClause = 'WHERE t.tenant_id = ?'
-    const params = [tenantContext.id]
+    let whereClause = 'WHERE (t.tenant_id = ? OR t.tenant_id IS NULL)'
+    const params: (number | string)[] = [tenantId]
 
     // Filter by SLA status if provided
     if (status === 'breached') {
@@ -86,14 +85,14 @@ export async function GET(request: NextRequest) {
           ELSE NULL
         END as minutes_remaining
       FROM tickets t
-      LEFT JOIN statuses st ON t.status_id = st.id AND st.tenant_id = ?
-      LEFT JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
-      LEFT JOIN categories c ON t.category_id = c.id AND c.tenant_id = ?
-      LEFT JOIN users u ON t.user_id = u.id AND u.tenant_id = ?
+      LEFT JOIN statuses st ON t.status_id = st.id
+      LEFT JOIN priorities p ON t.priority_id = p.id
+      LEFT JOIN categories c ON t.category_id = c.id
+      LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN sla_policies sla ON
         (sla.priority_id = t.priority_id OR sla.priority_id IS NULL)
         AND (sla.category_id = t.category_id OR sla.category_id IS NULL)
-        AND sla.tenant_id = ? AND sla.is_active = 1
+        AND (sla.tenant_id = ? OR sla.tenant_id IS NULL) AND sla.is_active = 1
       ${whereClause}
       ORDER BY
         CASE
@@ -107,10 +106,7 @@ export async function GET(request: NextRequest) {
         END,
         t.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(
-      tenantContext.id, tenantContext.id, tenantContext.id, tenantContext.id, tenantContext.id,
-      ...params, limit, offset
-    )
+    `).all(tenantId, ...params, limit, offset)
 
     // Get SLA statistics
     const stats = db.prepare(`
@@ -140,18 +136,18 @@ export async function GET(request: NextRequest) {
           ELSE NULL
         END) as avg_resolution_time_minutes
       FROM tickets t
-      LEFT JOIN statuses st ON t.status_id = st.id AND st.tenant_id = ?
-      WHERE t.tenant_id = ?
-    `).get(tenantContext.id, tenantContext.id)
+      LEFT JOIN statuses st ON t.status_id = st.id
+      WHERE t.tenant_id = ? OR t.tenant_id IS NULL
+    `).get(tenantId) as { total_tickets: number; breached_tickets: number; at_risk_tickets: number; on_time_tickets: number; avg_response_time_minutes: number; avg_resolution_time_minutes: number }
 
     return NextResponse.json({
       success: true,
       tickets,
-      stats,
+      stats: stats || { total_tickets: 0, breached_tickets: 0, at_risk_tickets: 0, on_time_tickets: 0 },
       pagination: {
         limit,
         offset,
-        total: stats.total_tickets
+        total: stats?.total_tickets || 0
       }
     })
   } catch (error) {

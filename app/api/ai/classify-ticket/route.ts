@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 import TicketClassifier from '@/lib/ai/ticket-classifier';
-import { db } from '@/lib/db/connection';
+import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
+import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { createRateLimitMiddleware } from '@/lib/rate-limit';
+
+// Rate limiting para classificação AI (proteger recursos computacionais)
+const classifyRateLimit = createRateLimitMiddleware('api')
 
 const classifyTicketSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -15,10 +18,26 @@ const classifyTicketSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await classifyRateLimit(request, '/api/ai/classify-ticket')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
+
   try {
     // Verificar autenticação
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -31,18 +50,17 @@ export async function POST(request: NextRequest) {
       classifyTicketSchema.parse(body);
 
     // Buscar categorias e prioridades disponíveis
-    const [categories, priorities] = await Promise.all([
-      db.all(`
-        SELECT id, name, description
-        FROM categories
-        ORDER BY name
-      `),
-      db.all(`
-        SELECT id, name, level
-        FROM priorities
-        ORDER BY level
-      `)
-    ]);
+    const categories = db.prepare(`
+      SELECT id, name, description, color, created_at, updated_at
+      FROM categories
+      ORDER BY name
+    `).all() as { id: number; name: string; description: string; color: string; created_at: string; updated_at: string }[];
+
+    const priorities = db.prepare(`
+      SELECT id, name, level, color, response_time, resolution_time, created_at, updated_at
+      FROM priorities
+      ORDER BY level
+    `).all() as { id: number; name: string; level: number; color: string; response_time: number; resolution_time: number; created_at: string; updated_at: string }[];
 
     if (categories.length === 0 || priorities.length === 0) {
       return NextResponse.json(
@@ -56,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (includeHistoricalData) {
       try {
         // Buscar tickets similares recentes
-        const similarTickets = await db.all(`
+        const similarTickets = db.prepare(`
           SELECT t.title, c.name as category, p.name as priority
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
@@ -65,12 +83,12 @@ export async function POST(request: NextRequest) {
             AND (LOWER(t.title) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
           ORDER BY t.created_at DESC
           LIMIT 5
-        `, [`%${title}%`, `%${description}%`]);
+        `).all(`%${title}%`, `%${description}%`) as any[];
 
         // Buscar histórico do usuário se fornecido
         let userHistory;
         if (userId) {
-          userHistory = await db.all(`
+          userHistory = db.prepare(`
             SELECT c.name as category, p.name as priority,
                    CAST((julianday(COALESCE(t.resolved_at, 'now')) - julianday(t.created_at)) * 24 AS INTEGER) as resolutionTime
             FROM tickets t
@@ -80,7 +98,7 @@ export async function POST(request: NextRequest) {
               AND t.created_at >= datetime('now', '-90 days')
             ORDER BY t.created_at DESC
             LIMIT 10
-          `, [userId]);
+          `).all(userId) as any[];
         }
 
         historicalData = {
@@ -94,8 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Classificar ticket
-    const startTime = Date.now();
-    const classification = await TicketClassifier.classifyTicket(
+        const classification = await TicketClassifier.classifyTicket(
       { title, description },
       categories,
       priorities,
@@ -103,14 +120,14 @@ export async function POST(request: NextRequest) {
     );
 
     // Salvar classificação no banco de dados
-    const classificationId = await db.run(`
+    const classificationId = db.prepare(`
       INSERT INTO ai_classifications (
         ticket_id, suggested_category_id, suggested_priority_id,
         suggested_category, confidence_score, reasoning,
         model_name, model_version, processing_time_ms,
         input_tokens, output_tokens
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
+    `).run(
       null, // ticket_id será preenchido quando o ticket for criado
       classification.categoryId,
       classification.priorityId,
@@ -122,15 +139,14 @@ export async function POST(request: NextRequest) {
       classification.processingTimeMs,
       classification.inputTokens,
       classification.outputTokens
-    ]);
+    );
 
     // Gerar embedding se solicitado
     let embeddingGenerated = false;
     if (generateEmbedding) {
       try {
-        const VectorDatabase = (await import('@/lib/ai/vector-database')).default;
-        const vectorDb = new VectorDatabase(db);
-
+        // Import and instantiate vector database to validate system is working
+        await import('@/lib/ai/vector-database');
         // Nota: o embedding será vinculado ao ticket quando ele for criado
         // Por enquanto, apenas validamos que o sistema está funcionando
         embeddingGenerated = true;
@@ -143,15 +159,15 @@ export async function POST(request: NextRequest) {
     logger.info(`AI Classification completed for "${title}" in ${classification.processingTimeMs}ms`);
 
     // Auditoria
-    await db.run(`
+    db.prepare(`
       INSERT INTO audit_logs (
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-      session.user.id,
+    `).run(
+      user.id,
       'ai_classification',
-      classificationId.lastID,
+      classificationId.lastInsertRowid,
       'classify',
       JSON.stringify({
         title,
@@ -160,12 +176,12 @@ export async function POST(request: NextRequest) {
         confidence: classification.confidenceScore
       }),
       request.headers.get('x-forwarded-for') || 'unknown'
-    ]);
+    );
 
     return NextResponse.json({
       success: true,
       classification: {
-        id: classificationId.lastID,
+        id: classificationId.lastInsertRowid,
         categoryId: classification.categoryId,
         categoryName: classification.categoryName,
         priorityId: classification.priorityId,
@@ -191,7 +207,7 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid input', details: error.errors },
+        { error: 'Invalid input', details: error.issues },
         { status: 400 }
       );
     }
@@ -204,9 +220,25 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await classifyRateLimit(request, '/api/ai/classify-ticket')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -218,12 +250,12 @@ export async function GET(request: NextRequest) {
 
     if (ticketId) {
       // Buscar classificação específica de um ticket
-      const classification = await db.get(`
+      const classification = db.prepare(`
         SELECT * FROM ai_classifications
         WHERE ticket_id = ?
         ORDER BY created_at DESC
         LIMIT 1
-      `, [ticketId]);
+      `).get(ticketId) as any;
 
       if (!classification) {
         return NextResponse.json(
@@ -235,7 +267,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ classification });
     } else {
       // Buscar estatísticas de classificação
-      const stats = await db.get(`
+      const stats = db.prepare(`
         SELECT
           COUNT(*) as total_classifications,
           AVG(confidence_score) as avg_confidence,
@@ -244,9 +276,9 @@ export async function GET(request: NextRequest) {
           AVG(processing_time_ms) as avg_processing_time
         FROM ai_classifications
         WHERE created_at >= datetime('now', '-30 days')
-      `);
+      `).get() as any;
 
-      const modelStats = await db.all(`
+      const modelStats = db.prepare(`
         SELECT
           model_name,
           COUNT(*) as count,
@@ -255,7 +287,7 @@ export async function GET(request: NextRequest) {
         WHERE created_at >= datetime('now', '-30 days')
         GROUP BY model_name
         ORDER BY count DESC
-      `);
+      `).all() as any[];
 
       return NextResponse.json({
         stats: {

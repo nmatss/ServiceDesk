@@ -170,14 +170,17 @@ export function getSecurityConfig(): SecurityConfig {
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          "'unsafe-eval'", // Required for Next.js development
-          ...(isDevelopment ? ["'unsafe-inline'"] : []),
+          // SECURITY FIX: Remove unsafe-eval in production, use nonces instead
+          ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
+          // Nonces will be added dynamically by the CSP middleware
           'https://cdn.socket.io',
           'https://js.stripe.com'
         ],
         styleSrc: [
           "'self'",
-          "'unsafe-inline'", // Required for Tailwind CSS
+          // SECURITY FIX: Use nonces for inline styles in production
+          ...(isDevelopment ? ["'unsafe-inline'"] : []),
+          // Nonces will be added dynamically
           'https://fonts.googleapis.com'
         ],
         imgSrc: [
@@ -196,8 +199,10 @@ export function getSecurityConfig(): SecurityConfig {
         connectSrc: [
           "'self'",
           'https://api.stripe.com',
-          'wss://servicedesk.com',
-          ...(isDevelopment ? ['ws://localhost:3000', 'http://localhost:3000'] : [])
+          'https://api.openai.com', // For AI features
+          ...(isDevelopment
+            ? ['ws://localhost:3000', 'http://localhost:3000', 'wss://localhost:3000']
+            : ['wss://*.servicedesk.com'])
         ],
         mediaSrc: ["'self'", 'data:', 'blob:'],
         objectSrc: ["'none'"],

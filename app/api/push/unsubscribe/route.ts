@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDB } from '@/lib/db/connection';
+import dbConnection from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = getDB();
+    const db = dbConnection;
 
     // Soft delete - mark as inactive
     const result = db.prepare(`

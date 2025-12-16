@@ -1,7 +1,7 @@
 import db from './connection';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Inicializa o banco de dados criando as tabelas se elas não existirem

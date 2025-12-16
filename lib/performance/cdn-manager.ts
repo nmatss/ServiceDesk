@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * CDN Management for Static Assets Optimization
@@ -72,7 +72,6 @@ export class CDNManager {
   private config: CDNConfig;
   private assetCache = new Map<string, AssetInfo>();
   private invalidationQueue: CacheInvalidation[] = [];
-  private performanceMetrics = new Map<string, number[]>();
 
   private constructor(config: CDNConfig) {
     this.config = config;
@@ -357,7 +356,7 @@ export class CDNManager {
   /**
    * Set up automatic asset optimization pipeline
    */
-  setupAutomaticOptimization(config: {
+  setupAutomaticOptimization(optimizationConfig: {
     watchDirectories: string[];
     optimizationRules: Array<{
       pattern: RegExp;
@@ -370,22 +369,25 @@ export class CDNManager {
     }>;
   }): void {
     // Implementation would set up file watchers and automatic optimization
-    logger.info('Automatic optimization pipeline configured');
+    logger.info('Automatic optimization pipeline configured', {
+      directories: optimizationConfig.watchDirectories,
+      rulesCount: optimizationConfig.optimizationRules.length
+    });
   }
 
   /**
    * Generate critical CSS for above-the-fold content
    */
   async generateCriticalCSS(
-    html: string,
-    cssFiles: string[]
+    _html: string,
+    _cssFiles: string[]
   ): Promise<string> {
     // Implementation would use tools like critical or puppeteer
     // to extract critical CSS for above-the-fold content
     return '/* Critical CSS would be generated here */';
   }
 
-  private async readAsset(path: string): Promise<Buffer> {
+  private async readAsset(_path: string): Promise<Buffer> {
     // Implementation would read file from local filesystem
     return Buffer.from('mock asset data');
   }
@@ -420,7 +422,7 @@ export class CDNManager {
     }
   }
 
-  private generateHash(data: Buffer): string {
+  private generateHash(_data: Buffer): string {
     // Implementation would use crypto to generate hash
     return `hash_${Date.now()}`;
   }
@@ -470,8 +472,8 @@ export class CDNManager {
 
   private async uploadToCDN(
     path: string,
-    data: Buffer,
-    options: {
+    _data: Buffer,
+    _options: {
       contentType: string;
       cacheControl: string;
       metadata: Record<string, string>;
@@ -497,7 +499,11 @@ export class CDNManager {
   }
 
   private getCacheControl(type: AssetInfo['type']): string {
-    const ttl = this.config.cacheTTL[type] || 3600;
+    const ttl = type === 'image' ? this.config.cacheTTL.images :
+                type === 'script' ? this.config.cacheTTL.scripts :
+                type === 'stylesheet' ? this.config.cacheTTL.stylesheets :
+                type === 'font' ? this.config.cacheTTL.fonts :
+                this.config.cacheTTL.documents;
     return `public, max-age=${ttl}, immutable`;
   }
 
@@ -579,7 +585,7 @@ export class CDNManager {
     this.invalidationQueue = [];
   }
 
-  private async preloadAsset(path: string, regions?: string[]): Promise<void> {
+  private async preloadAsset(_path: string, _regions?: string[]): Promise<void> {
     // Implementation would trigger CDN preloading
   }
 

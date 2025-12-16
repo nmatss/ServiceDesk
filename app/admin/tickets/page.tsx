@@ -11,20 +11,38 @@ export default function AdminTicketsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    const role = localStorage.getItem('user_role')
+    // SECURITY: Verify authentication via httpOnly cookies only
+    const verifyAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      router.push('/auth/login')
-      return
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        if (data.user.role !== 'admin') {
+          router.push('/dashboard')
+          return
+        }
+
+        setLoading(false)
+      } catch {
+        router.push('/auth/login')
+      }
     }
 
-    if (role !== 'admin') {
-      router.push('/dashboard')
-      return
-    }
-
-    setLoading(false)
+    verifyAuth()
   }, [router])
 
   if (loading) {

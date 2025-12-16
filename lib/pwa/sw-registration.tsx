@@ -179,23 +179,26 @@ class PWAManager {
     }
 
     // Register background sync events
-    this.on('offline-action', (action) => {
+    this.on('offline-action', (action: any) => {
       this.queueOfflineAction(action);
     });
   }
 
   private setupPeriodicSync() {
-    if (!this.state.registration || !('periodicSync' in window.ServiceWorkerRegistration.prototype)) {
+    if (!this.state.registration) {
       logger.warn('Periodic Background Sync not supported');
       return;
     }
 
-    // Register periodic sync for notifications
-    this.state.registration.periodicSync?.register('notification-sync', {
-      minInterval: 24 * 60 * 60 * 1000, // 24 hours
-    }).catch((error) => {
-      logger.warn('Periodic sync registration failed', error);
-    });
+    // Register periodic sync for notifications (experimental API)
+    const registration = this.state.registration as any;
+    if ('periodicSync' in registration) {
+      registration.periodicSync.register('notification-sync', {
+        minInterval: 24 * 60 * 60 * 1000, // 24 hours
+      }).catch((error: any) => {
+        logger.warn('Periodic sync registration failed', error);
+      });
+    }
   }
 
   private setupUpdateDetection() {
@@ -323,11 +326,12 @@ class PWAManager {
     }
 
     try {
+      const vapidKey = this.urlBase64ToUint8Array(
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+      );
       const subscription = await this.state.registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
-        ),
+        applicationServerKey: vapidKey as BufferSource,
       });
 
       logger.info('Push subscription created', subscription);
@@ -364,7 +368,7 @@ class PWAManager {
       });
     }
 
-    toast.info('Ação salva para sincronizar quando online', {
+    toast('Ação salva para sincronizar quando online', {
       icon: '💾',
       duration: 3000,
     });
@@ -374,8 +378,11 @@ class PWAManager {
     if (!this.state.registration) return;
 
     try {
-      await this.state.registration.sync.register('ticket-sync');
-      logger.info('Background sync registered');
+      const registration = this.state.registration as any;
+      if ('sync' in registration) {
+        await registration.sync.register('ticket-sync');
+        logger.info('Background sync registered');
+      }
     } catch (error) {
       logger.error('Background sync registration failed', error);
     }

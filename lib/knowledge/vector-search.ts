@@ -1,8 +1,8 @@
 // Vector embeddings para similarity search
-import { Configuration, OpenAIApi } from 'openai';
-import { db } from '../db/connection';
-import { VectorEmbedding } from '../types/database';
-import { logger } from '../monitoring/logger';
+import openAIClient from '../ai/openai-client';
+import db from '../db/connection';
+import type { VectorEmbedding } from '../types/database';
+import logger from '../monitoring/structured-logger';
 
 interface VectorSearchConfig {
   model: string;
@@ -11,14 +11,6 @@ interface VectorSearchConfig {
   maxResults: number;
 }
 
-interface SearchResult {
-  id: number;
-  entity_type: string;
-  entity_id: number;
-  similarity_score: number;
-  content?: string;
-  metadata?: any;
-}
 
 interface SimilarityMatch {
   entity_type: string;
@@ -31,15 +23,9 @@ interface SimilarityMatch {
 }
 
 export class VectorSearchEngine {
-  private openai: OpenAIApi;
   private config: VectorSearchConfig;
 
   constructor(config: Partial<VectorSearchConfig> = {}) {
-    const configuration = new Configuration({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    this.openai = new OpenAIApi(configuration);
-
     this.config = {
       model: 'text-embedding-3-small',
       dimension: 1536,
@@ -54,12 +40,17 @@ export class VectorSearchEngine {
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
-      const response = await this.openai.createEmbedding({
-        model: this.config.model,
-        input: text.replace(/\n/g, ' ').trim(),
-      });
+      const response = await openAIClient.createEmbedding(
+        text.replace(/\n/g, ' ').trim(),
+        this.config.model
+      );
 
-      return response.data.data[0].embedding;
+      const embedding = response.data[0]?.embedding;
+      if (!embedding) {
+        throw new Error('Embedding não retornado pela API');
+      }
+
+      return embedding;
     } catch (error) {
       logger.error('Erro ao gerar embedding', error);
       throw new Error('Falha ao gerar embedding vetorial');
@@ -73,31 +64,31 @@ export class VectorSearchEngine {
     entityType: string,
     entityId: number,
     text: string,
-    metadata?: any
+    _metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
       const embedding = await this.generateEmbedding(text);
 
       // Remove embedding existente se houver
-      await db.run(`
+      db.prepare(`
         DELETE FROM vector_embeddings
         WHERE entity_type = ? AND entity_id = ? AND model_name = ?
-      `, [entityType, entityId, this.config.model]);
+      `).run(entityType, entityId, this.config.model);
 
       // Insere novo embedding
-      await db.run(`
+      db.prepare(`
         INSERT INTO vector_embeddings (
           entity_type, entity_id, embedding_vector, model_name,
           model_version, vector_dimension
         ) VALUES (?, ?, ?, ?, ?, ?)
-      `, [
+      `).run(
         entityType,
         entityId,
         JSON.stringify(embedding),
         this.config.model,
         '1.0',
         this.config.dimension
-      ]);
+      );
 
       logger.info(`Embedding salvo para ${entityType}:${entityId}`);
     } catch (error) {
@@ -119,9 +110,9 @@ export class VectorSearchEngine {
     let normB = 0;
 
     for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
+      dotProduct += (a[i] ?? 0) * (b[i] ?? 0);
+      normA += (a[i] ?? 0) * (a[i] ?? 0);
+      normB += (b[i] ?? 0) * (b[i] ?? 0);
     }
 
     normA = Math.sqrt(normA);
@@ -177,35 +168,35 @@ export class VectorSearchEngine {
         WHERE model_name = ?
       `;
 
-      const params: any[] = [this.config.model];
+      const params: (string | number)[] = [this.config.model];
 
       if (entityTypes && entityTypes.length > 0) {
         sql += ` AND entity_type IN (${entityTypes.map(() => '?').join(',')})`;
         params.push(...entityTypes);
       }
 
-      const embeddings = await db.all(sql, params);
+      const embeddings = db.prepare(sql).all(...params) as Array<VectorEmbedding & { content_data?: string }>;
 
       // Calcula similaridade para cada embedding
       const similarities: SimilarityMatch[] = [];
 
       for (const embedding of embeddings) {
         try {
-          const embeddingVector = JSON.parse(embedding.embedding_vector);
+          const embeddingVector = JSON.parse(embedding.embedding_vector) as number[];
           const similarity = this.cosineSimilarity(queryEmbedding, embeddingVector);
 
           const threshold = options?.threshold ?? this.config.similarityThreshold;
           if (similarity >= threshold) {
-            const contentData = embedding.content_data ? JSON.parse(embedding.content_data) : {};
+            const contentData = embedding.content_data ? JSON.parse(embedding.content_data) as Record<string, unknown> : {};
 
             similarities.push({
               entity_type: embedding.entity_type,
               entity_id: embedding.entity_id,
               similarity,
               content: this.extractContent(contentData, embedding.entity_type),
-              title: contentData.title,
-              category: contentData.category,
-              tags: contentData.tags ? JSON.parse(contentData.tags) : []
+              title: typeof contentData.title === 'string' ? contentData.title : undefined,
+              category: typeof contentData.category === 'string' ? contentData.category : undefined,
+              tags: typeof contentData.tags === 'string' ? JSON.parse(contentData.tags) as string[] : []
             });
           }
         } catch (error) {
@@ -229,14 +220,15 @@ export class VectorSearchEngine {
   /**
    * Extrai conteúdo relevante baseado no tipo de entidade
    */
-  private extractContent(contentData: any, entityType: string): string {
+  private extractContent(contentData: Record<string, unknown>, entityType: string): string {
     switch (entityType) {
       case 'kb_article':
-        return contentData.summary || contentData.content?.substring(0, 500) || '';
+        return (typeof contentData.summary === 'string' ? contentData.summary : '') ||
+               (typeof contentData.content === 'string' ? contentData.content.substring(0, 500) : '') || '';
       case 'ticket':
-        return contentData.description?.substring(0, 300) || '';
+        return (typeof contentData.description === 'string' ? contentData.description.substring(0, 300) : '') || '';
       case 'comment':
-        return contentData.content?.substring(0, 200) || '';
+        return (typeof contentData.content === 'string' ? contentData.content.substring(0, 200) : '') || '';
       default:
         return '';
     }
@@ -247,12 +239,20 @@ export class VectorSearchEngine {
    */
   async indexKnowledgeArticle(articleId: number): Promise<void> {
     try {
-      const article = await db.get(`
+      const article = db.prepare(`
         SELECT ka.*, kc.name as category_name
         FROM kb_articles ka
         LEFT JOIN kb_categories kc ON ka.category_id = kc.id
         WHERE ka.id = ?
-      `, [articleId]);
+      `).get(articleId) as {
+        id: number;
+        title: string;
+        summary?: string;
+        content: string;
+        search_keywords?: string;
+        category_name?: string;
+        tags?: string;
+      } | undefined;
 
       if (!article) {
         throw new Error(`Artigo ${articleId} não encontrado`);
@@ -284,7 +284,7 @@ export class VectorSearchEngine {
    */
   async indexTicket(ticketId: number): Promise<void> {
     try {
-      const ticket = await db.get(`
+      const ticket = db.prepare(`
         SELECT t.*, c.name as category_name, p.name as priority_name,
                GROUP_CONCAT(com.content, ' ') as comments_content
         FROM tickets t
@@ -293,7 +293,14 @@ export class VectorSearchEngine {
         LEFT JOIN comments com ON t.id = com.ticket_id
         WHERE t.id = ? AND t.resolved_at IS NOT NULL
         GROUP BY t.id
-      `, [ticketId]);
+      `).get(ticketId) as {
+        id: number;
+        title: string;
+        description: string;
+        category_name?: string;
+        priority_name?: string;
+        comments_content?: string;
+      } | undefined;
 
       if (!ticket) {
         return; // Só indexa tickets resolvidos
@@ -328,19 +335,19 @@ export class VectorSearchEngine {
   ): Promise<SimilarityMatch[]> {
     try {
       // Busca o embedding do artigo atual
-      const currentEmbedding = await db.get(`
+      const currentEmbedding = db.prepare(`
         SELECT embedding_vector FROM vector_embeddings
         WHERE entity_type = 'kb_article' AND entity_id = ? AND model_name = ?
-      `, [articleId, this.config.model]);
+      `).get(articleId, this.config.model) as { embedding_vector: string } | undefined;
 
       if (!currentEmbedding) {
         return [];
       }
 
-      const currentVector = JSON.parse(currentEmbedding.embedding_vector);
+      const currentVector = JSON.parse(currentEmbedding.embedding_vector) as number[];
 
       // Busca outros embeddings de artigos
-      const otherEmbeddings = await db.all(`
+      const otherEmbeddings = db.prepare(`
         SELECT ve.*, ka.title, ka.summary, kc.name as category_name
         FROM vector_embeddings ve
         JOIN kb_articles ka ON ve.entity_id = ka.id
@@ -349,14 +356,18 @@ export class VectorSearchEngine {
           AND ve.entity_id != ?
           AND ve.model_name = ?
           AND ka.is_published = 1
-      `, [articleId, this.config.model]);
+      `).all(articleId, this.config.model) as Array<VectorEmbedding & {
+        title: string;
+        summary?: string;
+        category_name?: string;
+      }>;
 
       // Calcula similaridade
       const similarities: SimilarityMatch[] = [];
 
       for (const embedding of otherEmbeddings) {
         try {
-          const embeddingVector = JSON.parse(embedding.embedding_vector);
+          const embeddingVector = JSON.parse(embedding.embedding_vector) as number[];
           const similarity = this.cosineSimilarity(currentVector, embeddingVector);
 
           if (similarity >= 0.6) { // Threshold menor para artigos relacionados
@@ -392,9 +403,9 @@ export class VectorSearchEngine {
     try {
       logger.info('Iniciando reindexação de artigos...');
 
-      const articles = await db.all(`
+      const articles = db.prepare(`
         SELECT id FROM kb_articles WHERE status = 'published'
-      `);
+      `).all() as Array<{ id: number }>;
 
       for (const article of articles) {
         await this.indexKnowledgeArticle(article.id);
@@ -415,18 +426,18 @@ export class VectorSearchEngine {
   async cleanupEmbeddings(): Promise<void> {
     try {
       // Remove embeddings de artigos deletados
-      await db.run(`
+      db.prepare(`
         DELETE FROM vector_embeddings
         WHERE entity_type = 'kb_article'
           AND entity_id NOT IN (SELECT id FROM kb_articles)
-      `);
+      `).run();
 
       // Remove embeddings de tickets deletados
-      await db.run(`
+      db.prepare(`
         DELETE FROM vector_embeddings
         WHERE entity_type = 'ticket'
           AND entity_id NOT IN (SELECT id FROM tickets)
-      `);
+      `).run();
 
       logger.info('Limpeza de embeddings concluída');
     } catch (error) {
@@ -445,7 +456,7 @@ export class VectorSearchEngine {
     avg_vector_dimension: number;
   }> {
     try {
-      const stats = await db.all(`
+      const stats = db.prepare(`
         SELECT
           entity_type,
           COUNT(*) as count,
@@ -453,11 +464,15 @@ export class VectorSearchEngine {
         FROM vector_embeddings
         WHERE model_name = ?
         GROUP BY entity_type
-      `, [this.config.model]);
+      `).all(this.config.model) as Array<{
+        entity_type: string;
+        count: number;
+        avg_dimension: number | null;
+      }>;
 
-      const total = await db.get(`
+      const total = db.prepare(`
         SELECT COUNT(*) as total FROM vector_embeddings WHERE model_name = ?
-      `, [this.config.model]);
+      `).get(this.config.model) as { total: number } | undefined;
 
       const byEntityType: Record<string, number> = {};
       let avgDimension = 0;

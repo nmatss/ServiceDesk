@@ -5,7 +5,7 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface MigrationConfig {
   source: 'sqlite' | 'postgresql';
@@ -104,7 +104,8 @@ export class DatabaseMigrator {
    * Migrate a single table
    */
   private async migrateTable(tableName: string): Promise<number> {
-    const batchSize = this.config.batchSize || 1000;
+    // batchSize is configured but will be used in real implementation
+    // const batchSize = this.config.batchSize || 1000;
     let totalRecords = 0;
 
     // In a real implementation, you would:
@@ -327,7 +328,7 @@ export const MigrationUtils = {
     // Convert CHECK constraints
     converted = converted.replace(
       /CHECK \((.*?)\)/g,
-      (match, constraint) => {
+      (_match, constraint) => {
         // PostgreSQL has stricter CHECK constraint syntax
         return `CHECK (${constraint})`;
       }
@@ -351,7 +352,10 @@ export const MigrationUtils = {
     let match;
 
     while ((match = tableRegex.exec(schema)) !== null) {
-      tables[match[1]] = match[0];
+      const tableName = match[1];
+      if (tableName) {
+        tables[tableName] = match[0];
+      }
     }
 
     return tables;

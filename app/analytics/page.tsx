@@ -57,26 +57,43 @@ export default function AnalyticsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    const role = localStorage.getItem('user_role') as 'admin' | 'agent' | 'user'
+    // SECURITY: Verify authentication via httpOnly cookies only
+    const verifyAndLoad = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      router.push('/auth/login')
-      return
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUserRole(data.user.role || 'user')
+        loadAnalytics()
+      } catch {
+        router.push('/auth/login')
+      }
     }
 
-    setUserRole(role || 'user')
-    loadAnalytics()
+    verifyAndLoad()
   }, [router, period])
 
   const loadAnalytics = async () => {
     try {
       setLoading(true)
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/analytics/overview?period=${period}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       const result = await response.json()

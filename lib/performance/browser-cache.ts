@@ -531,7 +531,7 @@ export class BrowserCacheManager {
     return `${algorithm}_${input.length}_${Date.now().toString(36)}`;
   }
 
-  private addSecurityHeaders(headers: Record<string, string>, resourceType: string): void {
+  private addSecurityHeaders(headers: Record<string, string>, _resourceType: string): void {
     const security = this.config.securityHeaders;
 
     if (security.hsts.enabled) {
@@ -569,7 +569,7 @@ export class BrowserCacheManager {
     }
   }
 
-  private getResourceLastModified(url: string): Date | null {
+  private getResourceLastModified(_url: string): Date | null {
     // Implementation would retrieve last modified date from filesystem or database
     return new Date();
   }
@@ -591,7 +591,7 @@ export class BrowserCacheManager {
     };
   }
 
-  private calculateOverallImpact(recommendations: any[], analyticsData: any): {
+  private calculateOverallImpact(_recommendations: any[], _analyticsData: any): {
     bandwidthSaving: number;
     responseTimeImprovement: number;
     cacheHitRateIncrease: number;
@@ -628,7 +628,7 @@ export class BrowserCacheManager {
     `).join('\n');
   }
 
-  private async warmCacheEntry(url: string): Promise<void> {
+  private async warmCacheEntry(_url: string): Promise<void> {
     // Implementation would make request to warm cache
   }
 

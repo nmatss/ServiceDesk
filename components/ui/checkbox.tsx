@@ -106,7 +106,8 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
     ref
   ) => {
     const [internalChecked, setInternalChecked] = React.useState(checked || false);
-    const checkboxId = id || `checkbox-${React.useId()}`;
+    const generatedId = React.useId();
+    const checkboxId = id || `checkbox-${generatedId}`;
 
     const isControlled = checked !== undefined;
     const isChecked = isControlled ? checked : internalChecked;

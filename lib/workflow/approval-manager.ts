@@ -3,17 +3,18 @@
  * Multi-level approval logic with timeout handling, delegation, and no-login approval
  */
 
-import crypto from 'crypto';
-import nodemailer from 'nodemailer';
-import { logger } from '../monitoring/logger';
+import * as crypto from 'crypto';
+import * as nodemailer from 'nodemailer';
+import logger from '../monitoring/structured-logger';
+import { db } from '../db';
 import {
   WorkflowApproval,
   ApprovalNodeConfig,
   ApprovalTarget,
   EscalationConfig,
-  ApprovalStatus,
-  WorkflowExecution,
-} from '@/lib/types/workflow';
+  EscalationLevel,
+  ApprovalMetadata,
+} from '../types/workflow';
 
 export interface ApprovalRequest {
   executionId: number;
@@ -21,7 +22,7 @@ export interface ApprovalRequest {
   config: ApprovalNodeConfig;
   requestedBy: number;
   ticketId?: number;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
 }
 
 export interface ApprovalResponse {
@@ -36,6 +37,13 @@ export interface ApprovalLink {
   token: string;
   expiresAt: Date;
   approvalId: number;
+}
+
+interface User {
+  id: number;
+  email?: string;
+  phone?: string;
+  name?: string;
 }
 
 export class ApprovalManager {
@@ -246,17 +254,21 @@ export class ApprovalManager {
   /**
    * Generate WhatsApp approval message
    */
-  generateWhatsAppMessage(approval: WorkflowApproval, context: Record<string, any>): string {
+  generateWhatsAppMessage(approval: WorkflowApproval, context: Record<string, unknown>): string {
     const approveLink = this.generateApprovalLink(approval.id, 48);
     const rejectLink = this.generateApprovalLink(approval.id, 48);
+
+    const ticketTitle = typeof context.ticketTitle === 'string' ? context.ticketTitle : 'N/A';
+    const requesterName = typeof context.requesterName === 'string' ? context.requesterName : 'N/A';
+    const description = typeof context.description === 'string' ? context.description : 'Please review and approve this request.';
 
     return `
 *Approval Required*
 
-Ticket: ${context.ticketTitle || 'N/A'}
-Requester: ${context.requesterName || 'N/A'}
+Ticket: ${ticketTitle}
+Requester: ${requesterName}
 
-${context.description || 'Please review and approve this request.'}
+${description}
 
 To approve: ${approveLink}&action=approve
 To reject: ${rejectLink}&action=reject
@@ -272,8 +284,8 @@ This link expires in 48 hours.
     executionId: number,
     stepId: string,
     config: ApprovalNodeConfig,
-    requestedBy: number,
-    context: Record<string, any>
+    _requestedBy: number,
+    context: Record<string, unknown>
   ): Promise<WorkflowApproval[]> {
     const approvers = await this.resolveApprovers(config.approvers, context);
     const approvals: WorkflowApproval[] = [];
@@ -306,7 +318,7 @@ This link expires in 48 hours.
    */
   private async resolveApprovers(
     targets: ApprovalTarget[],
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): Promise<Array<{ userId: number; type: string; order?: number; isOptional?: boolean }>> {
     const approvers: Array<{
       userId: number;
@@ -355,9 +367,9 @@ This link expires in 48 hours.
         case 'dynamic':
           // Resolve from context variable
           const dynamicUserId = this.resolveDynamicValue(target.value as string, context);
-          if (dynamicUserId) {
+          if (dynamicUserId !== undefined && dynamicUserId !== null) {
             approvers.push({
-              userId: parseInt(dynamicUserId as string),
+              userId: typeof dynamicUserId === 'number' ? dynamicUserId : parseInt(String(dynamicUserId)),
               type: 'dynamic',
               order: target.order,
               isOptional: target.isOptional,
@@ -375,8 +387,8 @@ This link expires in 48 hours.
    */
   private async sendApprovalNotifications(
     approvals: WorkflowApproval[],
-    config: ApprovalNodeConfig,
-    context: Record<string, any>
+    _config: ApprovalNodeConfig,
+    context: Record<string, unknown>
   ): Promise<void> {
     for (const approval of approvals) {
       const approver = await this.getUser(approval.approverId);
@@ -406,12 +418,17 @@ This link expires in 48 hours.
    */
   private async sendApprovalEmail(
     email: string,
-    approval: WorkflowApproval,
+    _approval: WorkflowApproval,
     approvalLink: string,
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): Promise<void> {
     const approveLink = `${approvalLink}&action=approve`;
     const rejectLink = `${approvalLink}&action=reject`;
+
+    const ticketTitle = typeof context.ticketTitle === 'string' ? context.ticketTitle : 'N/A';
+    const requesterName = typeof context.requesterName === 'string' ? context.requesterName : 'N/A';
+    const priority = typeof context.priority === 'string' ? context.priority : 'Normal';
+    const description = typeof context.description === 'string' ? context.description : 'Please review and approve this request.';
 
     const html = `
       <!DOCTYPE html>
@@ -434,11 +451,11 @@ This link expires in 48 hours.
             <h1>Approval Required</h1>
           </div>
           <div class="content">
-            <h2>Ticket: ${context.ticketTitle || 'N/A'}</h2>
-            <p><strong>Requester:</strong> ${context.requesterName || 'N/A'}</p>
-            <p><strong>Priority:</strong> ${context.priority || 'Normal'}</p>
+            <h2>Ticket: ${ticketTitle}</h2>
+            <p><strong>Requester:</strong> ${requesterName}</p>
+            <p><strong>Priority:</strong> ${priority}</p>
             <p><strong>Description:</strong></p>
-            <p>${context.description || 'Please review and approve this request.'}</p>
+            <p>${description}</p>
 
             <div style="text-align: center; margin-top: 30px;">
               <a href="${approveLink}" class="button approve">Approve</a>
@@ -461,7 +478,7 @@ This link expires in 48 hours.
     await this.emailTransporter.sendMail({
       from: process.env.SMTP_FROM || 'noreply@servicedesk.com',
       to: email,
-      subject: `Approval Required: ${context.ticketTitle || 'Ticket'}`,
+      subject: `Approval Required: ${ticketTitle}`,
       html,
     });
   }
@@ -510,7 +527,7 @@ This link expires in 48 hours.
     executionId: number,
     escalationConfig: EscalationConfig,
     approvals: WorkflowApproval[],
-    context: Record<string, any>
+    context: Record<string, unknown>
   ): void {
     escalationConfig.levels.forEach((level, index) => {
       const timeoutMs = level.timeoutHours * 60 * 60 * 1000;
@@ -584,10 +601,10 @@ This link expires in 48 hours.
       case 'multiple':
         // Sequential approvals - check order
         const orderedApprovals = approvals.sort(
-          (a, b) => (a.metadata.order || 0) - (b.metadata.order || 0)
+          (a, b) => (a.metadata?.order ?? 0) - (b.metadata?.order ?? 0)
         );
         return orderedApprovals.every(
-          (a) => a.status === 'approved' || a.metadata.isOptional
+          (a) => a.status === 'approved' || (a.metadata?.isOptional ?? false)
         );
 
       case 'majority':
@@ -598,7 +615,7 @@ This link expires in 48 hours.
       case 'unanimous':
         // All must approve
         return approvals.every(
-          (a) => a.status === 'approved' || a.metadata.isOptional
+          (a) => a.status === 'approved' || (a.metadata?.isOptional ?? false)
         );
 
       default:
@@ -612,44 +629,251 @@ This link expires in 48 hours.
   }
 
   private async getApproval(id: number): Promise<WorkflowApproval | null> {
-    // TODO: Implement database query
-    return null;
+    try {
+      const stmt = db.prepare(`
+        SELECT
+          id,
+          execution_id as executionId,
+          step_id as stepId,
+          approver_id as approverId,
+          status,
+          comments,
+          approved_at as approvedAt,
+          metadata,
+          created_at as createdAt
+        FROM workflow_approvals
+        WHERE id = ?
+      `);
+
+      const row = stmt.get(id) as any;
+
+      if (!row) {
+        return null;
+      }
+
+      // Parse JSON fields
+      const metadata = row.metadata ? JSON.parse(row.metadata) : {};
+
+      return {
+        id: row.id,
+        executionId: row.executionId,
+        stepId: row.stepId,
+        approverId: row.approverId,
+        status: row.status,
+        comments: row.comments,
+        approvedAt: row.approvedAt ? new Date(row.approvedAt) : undefined,
+        metadata,
+        createdAt: new Date(row.createdAt),
+      };
+    } catch (error) {
+      logger.error('Error fetching approval:', { id, error });
+      return null;
+    }
   }
 
   private async saveApproval(approval: WorkflowApproval): Promise<void> {
-    // TODO: Implement database save
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO workflow_approvals (
+          id,
+          execution_id,
+          step_id,
+          approver_id,
+          status,
+          comments,
+          approved_at,
+          metadata,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      stmt.run(
+        approval.id,
+        approval.executionId,
+        approval.stepId,
+        approval.approverId,
+        approval.status,
+        approval.comments || null,
+        approval.approvedAt ? approval.approvedAt.toISOString() : null,
+        JSON.stringify(approval.metadata || {}),
+        approval.createdAt.toISOString()
+      );
+
+      logger.info('Approval saved successfully', { approvalId: approval.id });
+    } catch (error) {
+      logger.error('Error saving approval:', { approval, error });
+      throw new Error(`Failed to save approval: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async updateApproval(approval: WorkflowApproval): Promise<void> {
-    // TODO: Implement database update
+    try {
+      const stmt = db.prepare(`
+        UPDATE workflow_approvals
+        SET
+          execution_id = ?,
+          step_id = ?,
+          approver_id = ?,
+          status = ?,
+          comments = ?,
+          approved_at = ?,
+          metadata = ?
+        WHERE id = ?
+      `);
+
+      const result = stmt.run(
+        approval.executionId,
+        approval.stepId,
+        approval.approverId,
+        approval.status,
+        approval.comments || null,
+        approval.approvedAt ? approval.approvedAt.toISOString() : null,
+        JSON.stringify(approval.metadata || {}),
+        approval.id
+      );
+
+      if (result.changes === 0) {
+        logger.warn('No approval updated - approval not found', { approvalId: approval.id });
+      } else {
+        logger.info('Approval updated successfully', { approvalId: approval.id });
+      }
+    } catch (error) {
+      logger.error('Error updating approval:', { approval, error });
+      throw new Error(`Failed to update approval: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async getApprovalsByExecution(executionId: number): Promise<WorkflowApproval[]> {
-    // TODO: Implement database query
-    return [];
+    try {
+      const stmt = db.prepare(`
+        SELECT
+          id,
+          execution_id as executionId,
+          step_id as stepId,
+          approver_id as approverId,
+          status,
+          comments,
+          approved_at as approvedAt,
+          metadata,
+          created_at as createdAt
+        FROM workflow_approvals
+        WHERE execution_id = ?
+        ORDER BY created_at ASC
+      `);
+
+      const rows = stmt.all(executionId) as any[];
+
+      return rows.map(row => ({
+        id: row.id,
+        executionId: row.executionId,
+        stepId: row.stepId,
+        approverId: row.approverId,
+        status: row.status,
+        comments: row.comments,
+        approvedAt: row.approvedAt ? new Date(row.approvedAt) : undefined,
+        metadata: row.metadata ? JSON.parse(row.metadata) : {},
+        createdAt: new Date(row.createdAt),
+      }));
+    } catch (error) {
+      logger.error('Error fetching approvals by execution:', { executionId, error });
+      return [];
+    }
   }
 
-  private async getUser(userId: number): Promise<any> {
-    // TODO: Implement user lookup
-    return null;
+  private async getUser(userId: number): Promise<User | null> {
+    try {
+      const stmt = db.prepare(`
+        SELECT
+          u.id,
+          u.email,
+          u.name,
+          wc.phone_number as phone
+        FROM users u
+        LEFT JOIN whatsapp_contacts wc ON wc.user_id = u.id
+        WHERE u.id = ?
+        LIMIT 1
+      `);
+
+      const row = stmt.get(userId) as any;
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        id: row.id,
+        email: row.email,
+        phone: row.phone,
+        name: row.name,
+      };
+    } catch (error) {
+      logger.error('Error fetching user:', { userId, error });
+      return null;
+    }
   }
 
   private async getUsersByRole(role: string): Promise<number[]> {
-    // TODO: Implement role-based user query
-    return [];
+    try {
+      // First, try to get users by the basic role column
+      let stmt = db.prepare(`
+        SELECT id
+        FROM users
+        WHERE role = ? AND is_active = 1
+      `);
+
+      let rows = stmt.all(role) as any[];
+
+      // If no results and we have a roles table, try the role-based system
+      if (rows.length === 0) {
+        stmt = db.prepare(`
+          SELECT DISTINCT u.id
+          FROM users u
+          INNER JOIN user_roles ur ON ur.user_id = u.id
+          INNER JOIN roles r ON r.id = ur.role_id
+          WHERE r.name = ? AND u.is_active = 1 AND ur.is_active = 1
+        `);
+
+        rows = stmt.all(role) as any[];
+      }
+
+      return rows.map(row => row.id);
+    } catch (error) {
+      logger.error('Error fetching users by role:', { role, error });
+      return [];
+    }
   }
 
   private async getUsersByDepartment(departmentId: number): Promise<number[]> {
-    // TODO: Implement department-based user query
-    return [];
+    try {
+      const stmt = db.prepare(`
+        SELECT DISTINCT u.id
+        FROM users u
+        INNER JOIN user_departments ud ON ud.user_id = u.id
+        WHERE ud.department_id = ?
+          AND u.is_active = 1
+          AND ud.left_at IS NULL
+      `);
+
+      const rows = stmt.all(departmentId) as any[];
+
+      return rows.map(row => row.id);
+    } catch (error) {
+      logger.error('Error fetching users by department:', { departmentId, error });
+      return [];
+    }
   }
 
-  private resolveDynamicValue(expression: string, context: Record<string, any>): any {
+  private resolveDynamicValue(expression: string, context: Record<string, unknown>): unknown {
     // Simple variable resolution - can be enhanced with full expression parser
     const varMatch = expression.match(/\$\{(.+?)\}/);
-    if (varMatch) {
+    if (varMatch && varMatch[1]) {
       const path = varMatch[1].split('.');
-      return path.reduce((obj, key) => obj?.[key], context);
+      return path.reduce((obj: unknown, key: string) => {
+        if (obj && typeof obj === 'object' && key in obj) {
+          return (obj as Record<string, unknown>)[key];
+        }
+        return undefined;
+      }, context as unknown);
     }
     return expression;
   }
@@ -660,41 +884,41 @@ This link expires in 48 hours.
   }
 
   private async sendInAppNotification(
-    userId: number,
-    approval: WorkflowApproval,
-    context: Record<string, any>
+    _userId: number,
+    _approval: WorkflowApproval,
+    _context: Record<string, unknown>
   ): Promise<void> {
     // TODO: Implement in-app notification
   }
 
   private async sendDelegationNotification(
-    approval: WorkflowApproval,
-    toUserId: number,
-    fromUserId: number,
-    reason?: string
+    _approval: WorkflowApproval,
+    _toUserId: number,
+    _fromUserId: number,
+    _reason?: string
   ): Promise<void> {
     // TODO: Implement delegation notification
   }
 
   private async sendEscalationNotifications(
-    approvals: WorkflowApproval[],
-    level: any,
-    context: Record<string, any>
+    _approvals: WorkflowApproval[],
+    _level: EscalationLevel,
+    _context: Record<string, unknown>
   ): Promise<void> {
     // TODO: Implement escalation notifications
   }
 
   private async sendTimeoutNotification(
-    approvals: WorkflowApproval[],
-    context: Record<string, any>
+    _approvals: WorkflowApproval[],
+    _context: Record<string, unknown>
   ): Promise<void> {
     // TODO: Implement timeout notification
   }
 
   private async notifyWorkflowEngine(
-    executionId: number,
-    event: string,
-    data: Record<string, any>
+    _executionId: number,
+    _event: string,
+    _data: Record<string, unknown>
   ): Promise<void> {
     // TODO: Implement workflow engine notification
   }

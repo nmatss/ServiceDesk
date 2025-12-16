@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyTokenFromCookies, verifyToken } from '@/lib/auth/sqlite-auth';
+import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -7,21 +8,28 @@ import { logger } from '@/lib/monitoring/logger';
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
+    const user = await verifyTokenFromCookies(request);
     if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
     }
 
     // Apenas admins podem gerenciar automações
-    if (user.role !== 'admin') {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
+      return NextResponse.json({ error: 'Access denied', code: 'PERMISSION_DENIED' }, { status: 403 });
     }
+
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
+    }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const { searchParams } = new URL(request.url);
     const isActive = searchParams.get('is_active');
@@ -29,22 +37,23 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
+    // FILTRAR POR TENANT - automations criadas por usuários do tenant
+    let whereClause = 'WHERE u.organization_id = ?';
+    const params: any[] = [tenantId];
 
     // Filtrar por status ativo
     if (isActive !== null) {
-      whereClause += ' AND is_active = ?';
+      whereClause += ' AND a.is_active = ?';
       params.push(isActive === 'true' ? 1 : 0);
     }
 
     // Filtrar por tipo de trigger
     if (triggerType) {
-      whereClause += ' AND trigger_type = ?';
+      whereClause += ' AND a.trigger_type = ?';
       params.push(triggerType);
     }
 
-    // Buscar automações
+    // Buscar automações FILTRADAS POR TENANT
     const automations = db.prepare(`
       SELECT
         a.*,
@@ -57,21 +66,24 @@ export async function GET(request: NextRequest) {
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset);
 
-    // Contar total
+    // Contar total FILTRADO POR TENANT
     const { total } = db.prepare(`
       SELECT COUNT(*) as total
       FROM automations a
+      LEFT JOIN users u ON a.created_by = u.id
       ${whereClause}
     `).get(...params) as { total: number };
 
-    // Estatísticas de execução
+    // Estatísticas de execução FILTRADAS POR TENANT
     const stats = db.prepare(`
       SELECT
         COUNT(*) as total_automations,
-        COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_automations,
-        SUM(execution_count) as total_executions
-      FROM automations
-    `).get();
+        COUNT(CASE WHEN a.is_active = 1 THEN 1 END) as active_automations,
+        SUM(a.execution_count) as total_executions
+      FROM automations a
+      LEFT JOIN users u ON a.created_by = u.id
+      WHERE u.organization_id = ?
+    `).get(tenantId);
 
     return NextResponse.json({
       success: true,
@@ -94,6 +106,12 @@ export async function GET(request: NextRequest) {
 // POST - Criar automação
 export async function POST(request: NextRequest) {
   try {
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
+    }
+
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -107,9 +125,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Apenas admins podem criar automações
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const body = await request.json();
     const {
@@ -146,14 +171,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verificar se já existe automação com o mesmo nome
-    const existingAutomation = db.prepare(
-      'SELECT id FROM automations WHERE name = ?'
-    ).get(name);
+    // Verificar se já existe automação com o mesmo nome NO TENANT
+    const existingAutomation = db.prepare(`
+      SELECT a.id FROM automations a
+      LEFT JOIN users u ON a.created_by = u.id
+      WHERE a.name = ? AND u.organization_id = ?
+    `).get(name, tenantId);
 
     if (existingAutomation) {
       return NextResponse.json({
-        error: 'Já existe uma automação com este nome'
+        error: 'Já existe uma automação com este nome neste tenant'
       }, { status: 409 });
     }
 
@@ -199,6 +226,12 @@ export async function POST(request: NextRequest) {
 // PUT - Atualizar automação
 export async function PUT(request: NextRequest) {
   try {
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
+    }
+
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -212,9 +245,16 @@ export async function PUT(request: NextRequest) {
     }
 
     // Apenas admins podem atualizar automações
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const body = await request.json();
     const {
@@ -232,10 +272,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID da automação é obrigatório' }, { status: 400 });
     }
 
-    // Verificar se automação existe
-    const automation = db.prepare('SELECT * FROM automations WHERE id = ?').get(id);
+    // Verificar se automação existe E PERTENCE AO TENANT
+    const automation = db.prepare(`
+      SELECT a.* FROM automations a
+      LEFT JOIN users u ON a.created_by = u.id
+      WHERE a.id = ? AND u.organization_id = ?
+    `).get(id, tenantId);
     if (!automation) {
-      return NextResponse.json({ error: 'Automação não encontrada' }, { status: 404 });
+      return NextResponse.json({ error: 'Automação não encontrada neste tenant' }, { status: 404 });
     }
 
     // Validar formato JSON se fornecido
@@ -307,6 +351,12 @@ export async function PUT(request: NextRequest) {
 // DELETE - Excluir automação
 export async function DELETE(request: NextRequest) {
   try {
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
+    }
+
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -320,9 +370,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Apenas admins podem excluir automações
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -331,13 +388,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID da automação é obrigatório' }, { status: 400 });
     }
 
-    // Verificar se automação existe
-    const automation = db.prepare('SELECT * FROM automations WHERE id = ?').get(parseInt(id));
+    // Verificar se automação existe E PERTENCE AO TENANT
+    const automation = db.prepare(`
+      SELECT a.* FROM automations a
+      LEFT JOIN users u ON a.created_by = u.id
+      WHERE a.id = ? AND u.organization_id = ?
+    `).get(parseInt(id), tenantId);
     if (!automation) {
-      return NextResponse.json({ error: 'Automação não encontrada' }, { status: 404 });
+      return NextResponse.json({ error: 'Automação não encontrada neste tenant' }, { status: 404 });
     }
 
-    // Excluir automação
+    // Excluir automação (já validado que pertence ao tenant)
     db.prepare('DELETE FROM automations WHERE id = ?').run(parseInt(id));
 
     return NextResponse.json({

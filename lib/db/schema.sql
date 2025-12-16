@@ -256,6 +256,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     category_id INTEGER NOT NULL,
     priority_id INTEGER NOT NULL,
     status_id INTEGER NOT NULL,
+    organization_id INTEGER NOT NULL DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     resolved_at DATETIME,
@@ -387,15 +388,17 @@ CREATE TABLE IF NOT EXISTS ticket_templates (
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
-    entity_type TEXT NOT NULL, -- 'ticket', 'user', 'category', etc.
-    entity_id INTEGER NOT NULL,
-    action TEXT NOT NULL, -- 'create', 'update', 'delete', 'view'
+    organization_id INTEGER,
+    entity_type TEXT NOT NULL, -- 'ticket', 'user', 'category', 'config', 'pii', etc.
+    entity_id INTEGER,
+    action TEXT NOT NULL, -- 'create', 'update', 'delete', 'view', 'login_success', 'login_failed', 'access_denied', etc.
     old_values TEXT, -- JSON com valores antigos
     new_values TEXT, -- JSON com valores novos
     ip_address TEXT,
     user_agent TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 -- Tabela de configurações do sistema
@@ -1183,6 +1186,19 @@ CREATE TABLE IF NOT EXISTS approval_history (
     FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Tabela de tokens de aprovação (para link-based approval sem login)
+CREATE TABLE IF NOT EXISTS approval_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    approval_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (approval_id) REFERENCES approvals(id) ON DELETE CASCADE
+);
+
 -- ========================================
 -- SISTEMA DE INTEGRAÇÕES
 -- ========================================
@@ -1419,7 +1435,7 @@ CREATE TABLE IF NOT EXISTS api_usage_tracking (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     endpoint TEXT NOT NULL, -- '/api/tickets', '/api/users', etc.
     method TEXT NOT NULL, -- 'GET', 'POST', 'PUT', 'DELETE'
-    tenant_id INTEGER DEFAULT 1, -- ID do tenant/organização
+    organization_id INTEGER DEFAULT 1, -- ID do tenant/organização
     user_id INTEGER, -- Usuário que fez a chamada
     api_key_id INTEGER, -- Se foi feita via API key
     response_time_ms INTEGER NOT NULL, -- Tempo de resposta em milissegundos
@@ -1431,7 +1447,7 @@ CREATE TABLE IF NOT EXISTS api_usage_tracking (
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     date DATE DEFAULT (DATE('now')), -- Para aggregações por dia
     hour INTEGER DEFAULT (strftime('%H', 'now')), -- Para aggregações por hora
-    FOREIGN KEY (tenant_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
@@ -1736,6 +1752,10 @@ CREATE INDEX IF NOT EXISTS idx_approvals_due_date ON approvals(due_date);
 CREATE INDEX IF NOT EXISTS idx_approval_history_approval ON approval_history(approval_id);
 CREATE INDEX IF NOT EXISTS idx_approval_history_performed_by ON approval_history(performed_by);
 
+CREATE INDEX IF NOT EXISTS idx_approval_tokens_approval ON approval_tokens(approval_id);
+CREATE INDEX IF NOT EXISTS idx_approval_tokens_token ON approval_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_approval_tokens_expires ON approval_tokens(expires_at);
+
 -- Integrações
 CREATE INDEX IF NOT EXISTS idx_integrations_type ON integrations(type);
 CREATE INDEX IF NOT EXISTS idx_integrations_provider ON integrations(provider);
@@ -1832,7 +1852,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_advanced_created ON audit_advanced(created_
 CREATE INDEX IF NOT EXISTS idx_audit_advanced_action ON audit_advanced(action);
 
 CREATE INDEX IF NOT EXISTS idx_api_usage_endpoint ON api_usage_tracking(endpoint);
-CREATE INDEX IF NOT EXISTS idx_api_usage_tenant ON api_usage_tracking(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_api_usage_organization ON api_usage_tracking(organization_id);
 CREATE INDEX IF NOT EXISTS idx_api_usage_user ON api_usage_tracking(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_usage_timestamp ON api_usage_tracking(timestamp);
 CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage_tracking(date);
@@ -2056,3 +2076,251 @@ CREATE TRIGGER IF NOT EXISTS audit_approval_status_changes
             NEW.approved_by
         );
     END;
+
+-- ========================================
+-- ADVANCED PERFORMANCE INDEXES
+-- Covering indexes, partial indexes, and composite indexes for optimal query performance
+-- ========================================
+
+-- Covering index for dashboard metrics query (avoids table lookups)
+CREATE INDEX IF NOT EXISTS idx_tickets_dashboard_covering
+ON tickets(organization_id, status_id, priority_id, created_at DESC)
+WHERE status_id IN (1, 2, 3, 4);
+
+-- Partial index for active tickets (most commonly queried)
+CREATE INDEX IF NOT EXISTS idx_tickets_active_only
+ON tickets(organization_id, created_at DESC, assigned_to)
+WHERE status_id IN (1, 2);
+
+-- Partial index for SLA tracking on unresolved tickets
+CREATE INDEX IF NOT EXISTS idx_sla_tracking_active_violations
+ON sla_tracking(ticket_id, response_due_at, resolution_due_at)
+WHERE resolved_at IS NULL AND (response_met = 0 OR resolution_met = 0);
+
+-- Composite index for ticket filtering and sorting
+CREATE INDEX IF NOT EXISTS idx_tickets_filter_sort
+ON tickets(organization_id, status_id, priority_id, assigned_to, created_at DESC);
+
+-- Covering index for ticket list with counts
+CREATE INDEX IF NOT EXISTS idx_tickets_list_covering
+ON tickets(organization_id, status_id, id, title, created_at, user_id, assigned_to, category_id, priority_id);
+
+-- Partial index for unassigned tickets
+CREATE INDEX IF NOT EXISTS idx_tickets_unassigned
+ON tickets(organization_id, created_at DESC, priority_id)
+WHERE assigned_to IS NULL AND status_id IN (1, 2);
+
+-- Index for ticket search by title (case-insensitive support)
+CREATE INDEX IF NOT EXISTS idx_tickets_title_search
+ON tickets(organization_id, title COLLATE NOCASE);
+
+-- Composite index for comments with user join optimization
+CREATE INDEX IF NOT EXISTS idx_comments_ticket_user_time
+ON comments(ticket_id, user_id, created_at DESC);
+
+-- Partial index for internal comments only
+CREATE INDEX IF NOT EXISTS idx_comments_internal
+ON comments(ticket_id, created_at DESC)
+WHERE is_internal = 1;
+
+-- Index for SLA policy matching
+CREATE INDEX IF NOT EXISTS idx_sla_policies_matching
+ON sla_policies(is_active, priority_id, category_id);
+
+-- Composite index for notifications filtering
+CREATE INDEX IF NOT EXISTS idx_notifications_user_status
+ON notifications(user_id, is_read, type, created_at DESC);
+
+-- Partial index for unread notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_unread_only
+ON notifications(user_id, created_at DESC)
+WHERE is_read = 0;
+
+-- Index for audit log queries by date range
+CREATE INDEX IF NOT EXISTS idx_audit_logs_date_range
+ON audit_logs(organization_id, created_at DESC, entity_type);
+
+-- Composite index for knowledge base article search
+CREATE INDEX IF NOT EXISTS idx_kb_articles_published_search
+ON kb_articles(status, visibility, category_id, published_at DESC)
+WHERE status = 'published';
+
+-- Index for analytics date range queries
+CREATE INDEX IF NOT EXISTS idx_analytics_daily_org_date
+ON analytics_daily_metrics(organization_id, date DESC);
+
+-- Covering index for agent metrics
+CREATE INDEX IF NOT EXISTS idx_analytics_agent_covering
+ON analytics_agent_metrics(agent_id, date DESC, tickets_assigned, tickets_resolved);
+
+-- Partial index for active user sessions
+CREATE INDEX IF NOT EXISTS idx_user_sessions_active_only
+ON user_sessions(user_id, last_activity DESC)
+WHERE is_active = 1;
+
+-- Composite index for login attempts security queries
+CREATE INDEX IF NOT EXISTS idx_login_attempts_security
+ON login_attempts(email, ip_address, created_at DESC, success);
+
+-- Partial index for failed login attempts (security monitoring)
+CREATE INDEX IF NOT EXISTS idx_login_attempts_failed
+ON login_attempts(email, ip_address, created_at DESC)
+WHERE success = 0;
+
+-- Index for rate limiting lookups
+CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup
+ON rate_limits(identifier, identifier_type, endpoint, last_attempt_at DESC);
+
+-- Composite index for refresh token validation
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_validation
+ON refresh_tokens(token_hash, is_active, expires_at);
+
+-- Partial index for active refresh tokens only
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_active_only
+ON refresh_tokens(user_id, expires_at DESC)
+WHERE is_active = 1 AND revoked_at IS NULL;
+
+-- Index for verification codes lookup
+CREATE INDEX IF NOT EXISTS idx_verification_codes_lookup
+ON verification_codes(code_hash, type, expires_at);
+
+-- Partial index for unused verification codes
+CREATE INDEX IF NOT EXISTS idx_verification_codes_pending
+ON verification_codes(user_id, type, expires_at DESC)
+WHERE used_at IS NULL;
+
+-- Composite index for workflow execution queries
+CREATE INDEX IF NOT EXISTS idx_workflow_executions_status_time
+ON workflow_executions(workflow_id, status, started_at DESC);
+
+-- Index for webhook delivery monitoring
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_monitoring
+ON webhook_deliveries(webhook_id, success, delivered_at DESC);
+
+-- Partial index for failed webhook deliveries
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_failed
+ON webhook_deliveries(webhook_id, delivered_at DESC)
+WHERE success = 0;
+
+-- Composite index for AI suggestions relevance
+CREATE INDEX IF NOT EXISTS idx_ai_suggestions_relevance
+ON ai_suggestions(entity_type, entity_id, suggestion_type, confidence_score DESC);
+
+-- Index for vector similarity search preparation
+CREATE INDEX IF NOT EXISTS idx_vector_embeddings_lookup
+ON vector_embeddings(entity_type, entity_id, model_name, updated_at DESC);
+
+-- Composite index for organization statistics
+CREATE INDEX IF NOT EXISTS idx_tickets_org_stats
+ON tickets(organization_id, status_id, priority_id, DATE(created_at));
+
+-- Index for time-based analytics aggregation
+CREATE INDEX IF NOT EXISTS idx_tickets_analytics_time
+ON tickets(organization_id, DATE(created_at), status_id, priority_id);
+
+-- Partial index for recently created tickets (hot data)
+CREATE INDEX IF NOT EXISTS idx_tickets_recent
+ON tickets(organization_id, created_at DESC, status_id, priority_id)
+WHERE created_at >= DATE('now', '-7 days');
+
+-- Composite index for agent workload queries
+CREATE INDEX IF NOT EXISTS idx_tickets_agent_workload
+ON tickets(assigned_to, status_id, priority_id, created_at DESC)
+WHERE assigned_to IS NOT NULL;
+
+-- Index for category-based analytics
+CREATE INDEX IF NOT EXISTS idx_tickets_category_analytics
+ON tickets(organization_id, category_id, status_id, DATE(created_at));
+
+-- Covering index for SLA dashboard
+CREATE INDEX IF NOT EXISTS idx_sla_tracking_dashboard
+ON sla_tracking(ticket_id, sla_policy_id, response_met, resolution_met, response_due_at, resolution_due_at);
+
+-- Partial index for breached SLAs
+CREATE INDEX IF NOT EXISTS idx_sla_tracking_breached
+ON sla_tracking(ticket_id, sla_policy_id, created_at DESC)
+WHERE (response_met = 0 AND response_due_at < datetime('now'))
+   OR (resolution_met = 0 AND resolution_due_at < datetime('now'));
+
+-- Composite index for attachment queries
+CREATE INDEX IF NOT EXISTS idx_attachments_ticket_uploaded
+ON attachments(ticket_id, uploaded_by, created_at DESC);
+
+-- Index for user activity tracking
+CREATE INDEX IF NOT EXISTS idx_users_activity
+ON users(is_active, last_login_at DESC, role);
+
+-- Partial index for locked users (security)
+CREATE INDEX IF NOT EXISTS idx_users_locked
+ON users(locked_until, failed_login_attempts)
+WHERE locked_until IS NOT NULL AND locked_until > datetime('now');
+
+-- Composite index for department hierarchy queries
+CREATE INDEX IF NOT EXISTS idx_departments_hierarchy
+ON departments(organization_id, parent_id, is_active);
+
+-- Index for user-department relationships
+CREATE INDEX IF NOT EXISTS idx_user_departments_lookup
+ON user_departments(user_id, department_id, is_primary);
+
+-- Composite index for communication messages
+CREATE INDEX IF NOT EXISTS idx_communication_messages_channel_time
+ON communication_messages(channel_id, created_at DESC, status);
+
+-- Index for analytics events time-series
+CREATE INDEX IF NOT EXISTS idx_analytics_events_timeseries
+ON analytics_events(event_type, created_at DESC, organization_id);
+
+-- Partial index for API usage current period
+CREATE INDEX IF NOT EXISTS idx_api_usage_current
+ON api_usage_tracking(organization_id, endpoint, timestamp DESC)
+WHERE date >= DATE('now', '-30 days');
+
+-- Composite index for LGPD consent queries
+CREATE INDEX IF NOT EXISTS idx_lgpd_consents_user_type
+ON lgpd_consents(user_id, consent_type, is_given, granted_at DESC);
+
+-- Index for cache table cleanup
+CREATE INDEX IF NOT EXISTS idx_cache_cleanup
+ON cache(expires_at ASC)
+WHERE expires_at < datetime('now');
+
+-- PERFORMANCE NOTES:
+-- 1. Covering indexes include all columns needed by a query to avoid table lookups
+-- 2. Partial indexes use WHERE clauses to index only relevant subsets (smaller, faster)
+-- 3. Composite indexes optimize multi-column WHERE/ORDER BY clauses
+-- 4. DESC indexes optimize reverse sorting (e.g., latest first)
+-- 5. Indexes have write cost - only create for frequently used queries
+-- 6. SQLite automatically uses indexes for prefix matches in composite indexes
+-- 7. Monitor query plans with EXPLAIN QUERY PLAN to validate index usage
+
+-- ========================================
+-- SISTEMA DE RELATÓRIOS AGENDADOS
+-- ========================================
+
+-- Tabela de relatórios agendados
+CREATE TABLE IF NOT EXISTS scheduled_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    type TEXT NOT NULL, -- 'tickets', 'sla', 'agents', 'survey', 'custom'
+    filters TEXT, -- JSON com filtros aplicados
+    metrics TEXT, -- JSON com métricas selecionadas
+    recipients TEXT NOT NULL, -- JSON array de emails ou user IDs
+    schedule_expression TEXT NOT NULL, -- CRON expression or predefined string ('daily', 'weekly')
+    format TEXT DEFAULT 'json', -- 'json', 'csv', 'pdf'
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_run_at DATETIME,
+    next_run_at DATETIME,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TRIGGER IF NOT EXISTS update_scheduled_reports_updated_at
+    AFTER UPDATE ON scheduled_reports
+    BEGIN
+        UPDATE scheduled_reports SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+

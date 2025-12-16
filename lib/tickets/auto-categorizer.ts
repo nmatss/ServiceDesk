@@ -3,8 +3,8 @@
  * Uses ensemble learning, keyword analysis, and semantic understanding
  */
 
-import type { Category, CreateTicket, Ticket } from '../types/database';
-import { logger } from '../monitoring/logger';
+import type { Category, CreateTicket } from '../types/database';
+import logger from '../monitoring/structured-logger';
 
 export interface CategoryPrediction {
   category: Category;
@@ -183,7 +183,14 @@ class AutoCategorizer {
 
     if (predictions.length === 0) {
       // Fallback to default category
-      const defaultCategory = this.categories[0] || { id: 1, name: 'General', description: 'General inquiries', color: '#6B7280', created_at: '', updated_at: '' };
+      const defaultCategory: Category = this.categories[0] ?? {
+        id: 1,
+        name: 'General',
+        description: 'General inquiries',
+        color: '#6B7280',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
       predictions.push({
         category: defaultCategory,
         confidence: 0.3,
@@ -196,9 +203,9 @@ class AutoCategorizer {
     }
 
     return {
-      primaryPrediction: predictions[0],
+      primaryPrediction: predictions[0]!,
       alternatives: predictions.slice(1, 4),
-      confidence: predictions[0].confidence,
+      confidence: predictions[0]!.confidence,
       method: 'rule_based',
       processingTime: 0
     };
@@ -243,10 +250,27 @@ class AutoCategorizer {
       .filter(p => p !== null)
       .sort((a, b) => b!.confidence - a!.confidence) as CategoryPrediction[];
 
+    const defaultCategory: Category = this.categories[0] ?? {
+      id: 1,
+      name: 'General',
+      description: 'General inquiries',
+      color: '#6B7280',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     return {
-      primaryPrediction: predictions[0],
+      primaryPrediction: predictions[0] ?? {
+        category: defaultCategory,
+        confidence: 0.3,
+        reasoning: 'No semantic matches found',
+        keywords: [],
+        semanticScore: 0,
+        ruleScore: 0,
+        aiScore: 0
+      },
       alternatives: predictions.slice(1, 4),
-      confidence: predictions[0]?.confidence || 0,
+      confidence: predictions[0]?.confidence ?? 0.3,
       method: 'semantic',
       processingTime: 0
     };
@@ -282,7 +306,7 @@ class AutoCategorizer {
 
       // Generate alternatives
       const alternatives = (aiResult.alternatives || [])
-        .map((alt: any) => {
+        .map((alt) => {
           const altCategory = this.categories.find(c => c.id === alt.category_id);
           if (!altCategory) return null;
 
@@ -296,7 +320,7 @@ class AutoCategorizer {
             aiScore: alt.confidence
           };
         })
-        .filter((p: any) => p !== null);
+        .filter((p): p is CategoryPrediction => p !== null);
 
       return {
         primaryPrediction: prediction,
@@ -413,7 +437,7 @@ class AutoCategorizer {
 
     // Generate final predictions
     const predictions = Array.from(categoryScores.entries())
-      .map(([categoryId, data]) => ({
+      .map(([_categoryId, data]) => ({
         category: data.category,
         confidence: data.totalScore,
         reasoning: data.reasons.join('. '),
@@ -426,13 +450,13 @@ class AutoCategorizer {
 
     if (predictions.length === 0) {
       // Ultimate fallback
-      const defaultCategory = this.categories[0] || {
+      const defaultCategory: Category = this.categories[0] ?? {
         id: 1,
         name: 'General',
         description: 'General inquiries',
         color: '#6B7280',
-        created_at: '',
-        updated_at: ''
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       predictions.push({
@@ -447,9 +471,9 @@ class AutoCategorizer {
     }
 
     return {
-      primaryPrediction: predictions[0],
+      primaryPrediction: predictions[0]!,
       alternatives: predictions.slice(1, 4),
-      confidence: predictions[0].confidence,
+      confidence: predictions[0]!.confidence,
       method: 'ensemble',
       processingTime: 0
     };
@@ -462,7 +486,7 @@ class AutoCategorizer {
     ticketData: { title: string; description: string; },
     correctCategoryId: number,
     predictedCategoryId: number,
-    confidence: number
+    _confidence: number
   ): Promise<void> {
     const trainingEntry: TrainingData = {
       id: Date.now(),
@@ -642,7 +666,7 @@ class AutoCategorizer {
     return Array.from(new Set(keywords));
   }
 
-  private async generateEmbedding(text: string): Promise<number[]> {
+  private async generateEmbedding(_text: string): Promise<number[]> {
     // Placeholder for actual embedding generation
     // Would use OpenAI's text-embedding-3-small or similar
     return new Array(1536).fill(0).map(() => Math.random());
@@ -667,7 +691,7 @@ class AutoCategorizer {
   private calculateCosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) return 0;
 
-    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+    const dotProduct = a.reduce((sum, val, i) => sum + val * (b[i] ?? 0), 0);
     const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
 
@@ -675,7 +699,7 @@ class AutoCategorizer {
     return dotProduct / (magnitudeA * magnitudeB);
   }
 
-  private extractSemanticKeywords(text: string, category: Category): string[] {
+  private extractSemanticKeywords(text: string, _category: Category): string[] {
     // Extract keywords based on semantic relevance to category
     const words = text.toLowerCase().match(/\b\w+\b/g) || [];
     const relevantWords = words.filter(word =>
@@ -724,7 +748,13 @@ Prioritize precision over recall. Only suggest high-confidence categorizations.
 `;
   }
 
-  private async callAIModel(prompt: string): Promise<any> {
+  private async callAIModel(_prompt: string): Promise<{
+    choices: Array<{
+      message: {
+        content: string;
+      };
+    }>;
+  }> {
     // Placeholder for actual AI API call
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -747,9 +777,27 @@ Prioritize precision over recall. Only suggest high-confidence categorizations.
     });
   }
 
-  private parseAIResponse(response: any): any {
+  private parseAIResponse(response: {
+    choices: Array<{
+      message: {
+        content: string;
+      };
+    }>;
+  }): {
+    category_id: number;
+    confidence: number;
+    reasoning: string;
+    keywords?: string[];
+    alternatives?: Array<{
+      category_id: number;
+      confidence: number;
+      reasoning?: string;
+      keywords?: string[];
+    }>;
+  } {
     try {
-      const content = response.choices[0].message.content;
+      const content = response.choices[0]?.message.content;
+      if (!content) throw new Error('Empty AI response');
       return JSON.parse(content);
     } catch (error) {
       logger.error('Failed to parse AI response', error);
@@ -844,6 +892,5 @@ Prioritize precision over recall. Only suggest high-confidence categorizations.
 // Export singleton instance
 export const autoCategorizer = new AutoCategorizer();
 
-// Export types and classes
+// Export class
 export { AutoCategorizer };
-export type { CategoryRule, TrainingData };

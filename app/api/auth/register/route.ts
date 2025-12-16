@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hashPassword } from '@/lib/auth/sqlite-auth'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { validateJWTSecret } from '@/lib/config/env'
 import * as jose from 'jose'
 import { logger } from '@/lib/monitoring/logger';
+import { createRateLimitMiddleware } from '@/lib/rate-limit'
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
+// Rate limiting agressivo para registro (5/hora por IP)
+const registerRateLimit = createRateLimitMiddleware('auth-strict')
+
 export async function POST(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await registerRateLimit(request, '/api/auth/register')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
   try {
     const { name, email, password, tenant_slug, job_title, department, phone } = await request.json()
-    const db = getDb()
-
     // Validate required fields
     if (!name || !email || !password) {
       return NextResponse.json({
@@ -21,10 +28,24 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    if (password.length < 6) {
+    // Strong password validation - minimum 12 characters
+    if (password.length < 12) {
       return NextResponse.json({
         success: false,
-        error: 'A senha deve ter pelo menos 6 caracteres'
+        error: 'A senha deve ter pelo menos 12 caracteres'
+      }, { status: 400 })
+    }
+
+    // Password complexity requirements
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
+      return NextResponse.json({
+        success: false,
+        error: 'A senha deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial'
       }, { status: 400 })
     }
 
@@ -156,10 +177,12 @@ export async function POST(request: NextRequest) {
       created_at: user.created_at
     }
 
+    // SECURITY: Token is ONLY sent via httpOnly cookie - never exposed in JSON response
+    // This prevents XSS attacks from stealing the token
     const response = NextResponse.json({
       success: true,
       message: 'Usuário criado com sucesso',
-      token,
+      // Note: token is NOT included here - it's sent only via httpOnly cookie below
       user: userData,
       tenant: {
         id: tenantContext.id,
@@ -178,7 +201,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Set tenant context cookie for client-side access
-    response.cookies.set('tenant_context', JSON.stringify({
+    // IMPORTANT: Must use 'tenant-context' (hyphen) to match login, logout, middleware and edge-resolver
+    response.cookies.set('tenant-context', JSON.stringify({
       id: tenantContext.id,
       slug: tenantContext.slug,
       name: tenantContext.name

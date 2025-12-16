@@ -22,11 +22,11 @@ import {
   DocumentDuplicateIcon,
   CheckCircleIcon,
   XCircleIcon,
-  InformationCircleIcon,
   CpuChipIcon,
   EyeIcon,
   PencilIcon
 } from '@heroicons/react/24/outline';
+import SmartTicketDeflection from './SmartTicketDeflection';
 
 interface SmartTicketFormProps {
   categories: Category[];
@@ -106,10 +106,17 @@ export function SmartTicketForm({
   useEffect(() => {
     if (onDraftSave && (formState.title || formState.description)) {
       const timer = setTimeout(() => {
-        onDraftSave(formState);
+        const draft: Partial<CreateTicket> = {
+          ...formState,
+          category_id: formState.category_id || undefined,
+          priority_id: formState.priority_id || undefined,
+          assigned_to: formState.assigned_to || undefined
+        };
+        onDraftSave(draft);
       }, 3000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [formState, onDraftSave]);
 
   // Perform AI analysis
@@ -233,21 +240,23 @@ export function SmartTicketForm({
     // Solution suggestions
     if (aiAnalysis.solutions.suggestions.length > 0) {
       const topSuggestion = aiAnalysis.solutions.suggestions[0];
-      insights.push({
-        type: 'solution',
-        title: 'Solution Suggestion',
-        description: topSuggestion.content.substring(0, 100) + '...',
-        confidence: topSuggestion.confidence,
-        action: {
-          label: 'View Details',
-          onClick: () => {
-            // Could open a modal or expand the suggestion
-            logger.info('Show full suggestion', topSuggestion);
-          }
-        },
-        icon: LightBulbIcon,
-        variant: 'success'
-      });
+      if (topSuggestion) {
+        insights.push({
+          type: 'solution',
+          title: 'Solution Suggestion',
+          description: topSuggestion.content.substring(0, 100) + '...',
+          confidence: topSuggestion.confidence,
+          action: {
+            label: 'View Details',
+            onClick: () => {
+              // Could open a modal or expand the suggestion
+              logger.info('Show full suggestion', topSuggestion);
+            }
+          },
+          icon: LightBulbIcon,
+          variant: 'success'
+        });
+      }
     }
 
     return insights;
@@ -271,7 +280,9 @@ export function SmartTicketForm({
         user_id: userId,
         category_id: formState.category_id!,
         priority_id: formState.priority_id!,
-        assigned_to: formState.assigned_to || undefined
+        assigned_to: formState.assigned_to || undefined,
+        status_id: 1, // Default to Open
+        organization_id: 1 // Default organization
       };
 
       await onSubmit(ticketData);
@@ -338,11 +349,10 @@ export function SmartTicketForm({
           <button
             type="button"
             onClick={() => setAnalysisEnabled(!analysisEnabled)}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-              analysisEnabled
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-            }`}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${analysisEnabled
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+              }`}
           >
             {analysisEnabled ? 'AI Enabled' : 'AI Disabled'}
           </button>
@@ -369,9 +379,8 @@ export function SmartTicketForm({
                 id="title"
                 value={formState.title}
                 onChange={(e) => handleFieldChange('title', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  validationErrors.title ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${validationErrors.title ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Brief description of the issue..."
                 maxLength={200}
               />
@@ -381,6 +390,13 @@ export function SmartTicketForm({
               <p className="mt-1 text-sm text-gray-500">
                 {formState.title.length}/200 characters
               </p>
+
+              <SmartTicketDeflection
+                query={debouncedTitle}
+                onArticleClick={(article) => {
+                  window.open(`/knowledge/${article.slug}`, '_blank');
+                }}
+              />
             </div>
 
             {/* Description Field */}
@@ -393,9 +409,8 @@ export function SmartTicketForm({
                 value={formState.description}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
                 rows={6}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none ${
-                  validationErrors.description ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none ${validationErrors.description ? 'border-red-500' : 'border-gray-300'
+                  }`}
                 placeholder="Detailed description of the issue, steps to reproduce, expected vs actual behavior..."
                 maxLength={2000}
               />
@@ -422,9 +437,8 @@ export function SmartTicketForm({
                 id="category"
                 value={formState.category_id || ''}
                 onChange={(e) => handleFieldChange('category_id', parseInt(e.target.value) || null)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  validationErrors.category_id ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${validationErrors.category_id ? 'border-red-500' : 'border-gray-300'
+                  }`}
               >
                 <option value="">Select a category...</option>
                 {categories.map((category) => (
@@ -453,9 +467,8 @@ export function SmartTicketForm({
                 id="priority"
                 value={formState.priority_id || ''}
                 onChange={(e) => handleFieldChange('priority_id', parseInt(e.target.value) || null)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  validationErrors.priority_id ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${validationErrors.priority_id ? 'border-red-500' : 'border-gray-300'
+                  }`}
               >
                 <option value="">Select priority...</option>
                 {priorities.map((priority) => (
@@ -545,20 +558,18 @@ export function SmartTicketForm({
                 {aiInsights.map((insight, index) => (
                   <div
                     key={index}
-                    className={`p-3 rounded-lg border ${
-                      insight.variant === 'error' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' :
+                    className={`p-3 rounded-lg border ${insight.variant === 'error' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' :
                       insight.variant === 'warning' ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' :
-                      insight.variant === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
-                      'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
-                    }`}
+                        insight.variant === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
+                          'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                      }`}
                   >
                     <div className="flex items-start space-x-2">
-                      <insight.icon className={`h-5 w-5 mt-0.5 ${
-                        insight.variant === 'error' ? 'text-red-500' :
+                      <insight.icon className={`h-5 w-5 mt-0.5 ${insight.variant === 'error' ? 'text-red-500' :
                         insight.variant === 'warning' ? 'text-orange-500' :
-                        insight.variant === 'success' ? 'text-green-500' :
-                        'text-blue-500'
-                      }`} />
+                          insight.variant === 'success' ? 'text-green-500' :
+                            'text-blue-500'
+                        }`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-medium text-gray-900 dark:text-white">
@@ -618,12 +629,11 @@ export function SmartTicketForm({
                           {(match.similarityScore * 100).toFixed(1)}% similarity
                         </p>
                       </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        match.confidenceLevel === 'very_high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${match.confidenceLevel === 'very_high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
                         match.confidenceLevel === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                        match.confidenceLevel === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                      }`}>
+                          match.confidenceLevel === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                        }`}>
                         {match.confidenceLevel}
                       </span>
                     </div>
@@ -651,17 +661,15 @@ export function SmartTicketForm({
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 dark:text-gray-300">AI Analysis</span>
-                <span className={`flex items-center ${
-                  aiAnalysis ? 'text-green-600 dark:text-green-400' : 'text-gray-400'
-                }`}>
+                <span className={`flex items-center ${aiAnalysis ? 'text-green-600 dark:text-green-400' : 'text-gray-400'
+                  }`}>
                   {aiAnalysis ? <CheckCircleIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray-600 dark:text-gray-300">Duplicate Check</span>
-                <span className={`flex items-center ${
-                  duplicateAnalysis ? 'text-green-600 dark:text-green-400' : 'text-gray-400'
-                }`}>
+                <span className={`flex items-center ${duplicateAnalysis ? 'text-green-600 dark:text-green-400' : 'text-gray-400'
+                  }`}>
                   {duplicateAnalysis ? <CheckCircleIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
                 </span>
               </div>

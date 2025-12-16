@@ -4,7 +4,7 @@
  */
 
 import { getPWAOfflineSync } from './offline-sync';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface OfflineTicket {
   id: string;
@@ -293,8 +293,8 @@ class OfflineOperations {
       if ('getDisplayMedia' in navigator.mediaDevices) {
         try {
           const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { mediaSource: 'screen' }
-          });
+            video: true
+          } as DisplayMediaStreamOptions);
 
           const video = document.createElement('video');
           video.srcObject = stream;
@@ -489,7 +489,7 @@ class OfflineOperations {
     return `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private dispatchEvent(type: string, detail: any): void {
+  private dispatchEvent(type: string, detail: unknown): void {
     window.dispatchEvent(new CustomEvent(`offline:${type}`, { detail }));
   }
 

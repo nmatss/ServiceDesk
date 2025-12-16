@@ -7,11 +7,10 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
-  ChartBarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
   ClockIcon,
   UserGroupIcon,
   ExclamationTriangleIcon,
@@ -21,8 +20,6 @@ import {
   EyeIcon,
   DocumentChartBarIcon,
   CogIcon,
-  CalendarDaysIcon,
-  FunnelIcon,
   ArrowTopRightOnSquareIcon,
   CubeTransparentIcon,
   BoltIcon,
@@ -45,18 +42,74 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { PersonaType } from '../../../lib/design-system/tokens';
+import { PersonaType } from '@/lib/design-system/tokens';
 
 interface ManagerComponentProps {
   className?: string;
   persona?: PersonaType;
 }
 
-// Executive dashboard with key metrics
-export function ManagerExecutiveDashboard({ className = '', ...props }: ManagerComponentProps) {
-  const [timeRange, setTimeRange] = useState('7d');
+interface KPIData {
+  title: string;
+  value: string;
+  change: string;
+  trend: 'up' | 'down';
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  target: string;
+  period: string;
+}
 
-  const kpiData = [
+interface TicketVolumeData {
+  name: string;
+  tickets: number;
+  resolved: number;
+}
+
+interface ResolutionTimeData {
+  name: string;
+  avgTime: number;
+}
+
+interface CategoryDistribution {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface SatisfactionTrend {
+  name: string;
+  satisfaction: number;
+}
+
+interface TeamMember {
+  name: string;
+  role: string;
+  avatar: string;
+  ticketsResolved: number;
+  avgResolutionTime: string;
+  satisfactionScore: number;
+  slaCompliance: number;
+  status: 'online' | 'away' | 'offline';
+  trend: 'up' | 'down';
+}
+
+interface InsightData {
+  type: string;
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  impact: string;
+  action: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+}
+
+// Executive dashboard with key metrics
+export function ManagerExecutiveDashboard({ className = '' }: ManagerComponentProps) {
+  const [timeRange, setTimeRange] = useState<string>('7d');
+
+  const kpiData: KPIData[] = [
     {
       title: 'Total Tickets',
       value: '2,847',
@@ -203,8 +256,8 @@ export function ManagerExecutiveDashboard({ className = '', ...props }: ManagerC
 }
 
 // Performance analytics charts
-export function ManagerPerformanceCharts({ className = '', ...props }: ManagerComponentProps) {
-  const ticketVolumeData = [
+export function ManagerPerformanceCharts({ className = '' }: ManagerComponentProps) {
+  const ticketVolumeData: TicketVolumeData[] = [
     { name: 'Mon', tickets: 65, resolved: 58 },
     { name: 'Tue', tickets: 78, resolved: 72 },
     { name: 'Wed', tickets: 92, resolved: 85 },
@@ -214,14 +267,14 @@ export function ManagerPerformanceCharts({ className = '', ...props }: ManagerCo
     { name: 'Sun', tickets: 32, resolved: 38 }
   ];
 
-  const resolutionTimeData = [
+  const resolutionTimeData: ResolutionTimeData[] = [
     { name: 'Week 1', avgTime: 5.2 },
     { name: 'Week 2', avgTime: 4.8 },
     { name: 'Week 3', avgTime: 4.1 },
     { name: 'Week 4', avgTime: 4.2 }
   ];
 
-  const categoryDistribution = [
+  const categoryDistribution: CategoryDistribution[] = [
     { name: 'Software', value: 35, color: '#3B82F6' },
     { name: 'Hardware', value: 25, color: '#10B981' },
     { name: 'Account', value: 20, color: '#F59E0B' },
@@ -229,7 +282,7 @@ export function ManagerPerformanceCharts({ className = '', ...props }: ManagerCo
     { name: 'Other', value: 8, color: '#8B5CF6' }
   ];
 
-  const satisfactionTrend = [
+  const satisfactionTrend: SatisfactionTrend[] = [
     { name: 'Jan', satisfaction: 92.1 },
     { name: 'Feb', satisfaction: 93.2 },
     { name: 'Mar', satisfaction: 91.8 },
@@ -277,7 +330,7 @@ export function ManagerPerformanceCharts({ className = '', ...props }: ManagerCo
             Average Resolution Time
           </h3>
           <div className="text-sm text-green-600 font-medium">
-            <TrendingDownIcon className="h-4 w-4 inline mr-1" />
+            <ArrowTrendingDownIcon className="h-4 w-4 inline mr-1" />
             Improving 15.3%
           </div>
         </div>
@@ -322,7 +375,7 @@ export function ManagerPerformanceCharts({ className = '', ...props }: ManagerCo
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
-                  data={categoryDistribution}
+                  data={categoryDistribution as Array<{ name: string; value: number; color: string }>}
                   cx="50%"
                   cy="50%"
                   innerRadius={40}
@@ -365,7 +418,7 @@ export function ManagerPerformanceCharts({ className = '', ...props }: ManagerCo
             Customer Satisfaction
           </h3>
           <div className="text-sm text-green-600 font-medium">
-            <TrendingUpIcon className="h-4 w-4 inline mr-1" />
+            <ArrowTrendingUpIcon className="h-4 w-4 inline mr-1" />
             94.2% (+2.1%)
           </div>
         </div>
@@ -397,10 +450,10 @@ export function ManagerPerformanceCharts({ className = '', ...props }: ManagerCo
 }
 
 // Team performance overview
-export function ManagerTeamOverview({ className = '', ...props }: ManagerComponentProps) {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+export function ManagerTeamOverview({ className = '' }: ManagerComponentProps) {
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('month');
 
-  const teamMembers = [
+  const teamMembers: TeamMember[] = [
     {
       name: 'Sarah Johnson',
       role: 'Senior Agent',
@@ -551,9 +604,9 @@ export function ManagerTeamOverview({ className = '', ...props }: ManagerCompone
                   member.trend === 'up' ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {member.trend === 'up' ? (
-                    <TrendingUpIcon className="h-4 w-4" />
+                    <ArrowTrendingUpIcon className="h-4 w-4" />
                   ) : (
-                    <TrendingDownIcon className="h-4 w-4" />
+                    <ArrowTrendingDownIcon className="h-4 w-4" />
                   )}
                   Performance
                 </div>
@@ -571,8 +624,8 @@ export function ManagerTeamOverview({ className = '', ...props }: ManagerCompone
 }
 
 // Strategic insights and recommendations
-export function ManagerInsights({ className = '', ...props }: ManagerComponentProps) {
-  const insights = [
+export function ManagerInsights({ className = '' }: ManagerComponentProps) {
+  const insights: InsightData[] = [
     {
       type: 'optimization',
       priority: 'high',
@@ -702,11 +755,3 @@ export function ManagerInsights({ className = '', ...props }: ManagerComponentPr
     </div>
   );
 }
-
-// Export all components
-export {
-  ManagerExecutiveDashboard,
-  ManagerPerformanceCharts,
-  ManagerTeamOverview,
-  ManagerInsights
-};

@@ -1,10 +1,9 @@
-import { createHash, randomBytes } from 'crypto';
-import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import db from '../db/connection';
 import { User } from '../types/database';
 import { createUser, getUserByEmail } from './sqlite-auth';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SSOProvider {
   id: number;
@@ -266,7 +265,7 @@ class SSOManager {
       return {
         email,
         name,
-        role,
+        role: role || undefined,
         groups: Array.isArray(groups) ? groups : groups ? [groups] : [],
         externalId,
         provider: providerName,
@@ -312,7 +311,7 @@ class SSOManager {
   /**
    * Exchange OAuth code for user info
    */
-  async processOAuthCallback(providerName: string, code: string, state?: string): Promise<SSOUser | null> {
+  async processOAuthCallback(providerName: string, code: string, _state?: string): Promise<SSOUser | null> {
     try {
       const provider = this.getProvider(providerName);
       if (!provider || !['oauth2', 'oidc'].includes(provider.type)) return null;

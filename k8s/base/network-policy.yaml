@@ -1,0 +1,230 @@
+---
+# NetworkPolicy - Security rules for pod communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: servicedesk-app-network-policy
+  labels:
+    app: servicedesk
+    component: app
+  annotations:
+    description: "Network policy for ServiceDesk application pods"
+spec:
+  podSelector:
+    matchLabels:
+      app: servicedesk
+      component: app
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress rules - what can connect to the app
+  ingress:
+    # Allow traffic from Ingress Controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+
+    # Allow traffic from same namespace (other ServiceDesk pods)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: servicedesk
+      ports:
+        - protocol: TCP
+          port: 3000
+
+    # Allow monitoring scraping from Prometheus
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - protocol: TCP
+          port: 3000
+
+  # Egress rules - what the app can connect to
+  egress:
+    # Allow DNS queries
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        - podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Allow connection to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: servicedesk
+              component: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Allow connection to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app: servicedesk
+              component: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+
+    # Allow HTTPS to external services (API calls, webhooks, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Allow HTTP to external services (if needed)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+
+    # Allow connection to Datadog agent
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        - podSelector:
+            matchLabels:
+              app: datadog
+      ports:
+        - protocol: TCP
+          port: 8126
+        - protocol: UDP
+          port: 8125
+
+---
+# NetworkPolicy for PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: servicedesk-postgres-network-policy
+  labels:
+    app: servicedesk
+    component: postgres
+spec:
+  podSelector:
+    matchLabels:
+      app: servicedesk
+      component: postgres
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Only allow connections from ServiceDesk app pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: servicedesk
+              component: app
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Allow monitoring
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 5432
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# NetworkPolicy for Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: servicedesk-redis-network-policy
+  labels:
+    app: servicedesk
+    component: redis
+spec:
+  podSelector:
+    matchLabels:
+      app: servicedesk
+      component: redis
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    # Only allow connections from ServiceDesk app pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: servicedesk
+              component: app
+      ports:
+        - protocol: TCP
+          port: 6379
+
+    # Allow monitoring (Redis Exporter)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9121
+
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# Default Deny All NetworkPolicy (optional - very strict)
+# Uncomment if you want to deny all traffic by default
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: default-deny-all
+#   labels:
+#     app: servicedesk
+# spec:
+#   podSelector: {}
+#   policyTypes:
+#     - Ingress
+#     - Egress

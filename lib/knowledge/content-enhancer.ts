@@ -2,7 +2,7 @@
 import { Configuration, OpenAIApi } from 'openai';
 import { db } from '../db/connection';
 import { semanticIndexer } from './semantic-indexer';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface ContentAnalysis {
   readability_score: number;

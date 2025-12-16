@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSecurityConfig } from './config';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface CorsOptions {
   origin?: string | string[] | ((origin: string) => boolean);
@@ -265,7 +265,7 @@ export function logCorsViolation(origin: string, reason: string, request: NextRe
     origin,
     reason,
     userAgent: request.headers.get('user-agent'),
-    ip: request.ip || request.headers.get('x-forwarded-for'),
+    ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
     url: request.url,
     method: request.method
   };

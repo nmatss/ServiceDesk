@@ -1,0 +1,272 @@
+# ==============================================================================
+# ServiceDesk Development Docker Compose
+# Optimized for local development with hot reload and debugging tools
+# ==============================================================================
+version: '3.8'
+
+services:
+  # ==============================================================================
+  # PostgreSQL Database (Development)
+  # ==============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: servicedesk-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-servicedesk_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-servicedesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./lib/db/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-servicedesk} -d ${POSTGRES_DB:-servicedesk_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - servicedesk-dev-network
+
+  # ==============================================================================
+  # Redis Cache (Development)
+  # ==============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: servicedesk-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - servicedesk-dev-network
+
+  # ==============================================================================
+  # ServiceDesk Application (Development)
+  # ==============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: development
+      args:
+        NODE_ENV: development
+    image: servicedesk-app:dev
+    container_name: servicedesk-app-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Application
+      NODE_ENV: development
+      PORT: 3000
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-servicedesk}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-servicedesk_dev}?schema=public
+
+      # Redis
+      REDIS_URL: redis://redis:6379
+
+      # Authentication
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-not-for-production}
+
+      # Email (MailHog)
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: dev@servicedesk.local
+
+      # Storage
+      UPLOAD_MAX_SIZE: ${UPLOAD_MAX_SIZE:-10485760}
+      STORAGE_PATH: /app/data/uploads
+
+      # Development
+      NEXT_TELEMETRY_DISABLED: 1
+      CHOKIDAR_USEPOLLING: true
+      WATCHPACK_POLLING: true
+
+      # Debugging
+      DEBUG: ${DEBUG:-*}
+      LOG_LEVEL: debug
+
+      # Feature Flags (all enabled in dev)
+      ENABLE_AI_FEATURES: true
+      ENABLE_ANALYTICS: true
+
+    volumes:
+      # Hot reload - mount source code
+      - ./app:/app/app:delegated
+      - ./lib:/app/lib:delegated
+      - ./components:/app/components:delegated
+      - ./public:/app/public:delegated
+      - ./styles:/app/styles:delegated
+      - ./middleware.ts:/app/middleware.ts:delegated
+      - ./next.config.js:/app/next.config.js:delegated
+      - ./tailwind.config.ts:/app/tailwind.config.ts:delegated
+      - ./tsconfig.json:/app/tsconfig.json:delegated
+
+      # Persistent data
+      - app_dev_data:/app/data
+      - app_dev_uploads:/app/data/uploads
+
+      # Node modules cache (don't mount from host)
+      - /app/node_modules
+      - /app/.next
+
+    ports:
+      - "${APP_PORT:-3000}:3000"
+      # Node.js debugger
+      - "${DEBUG_PORT:-9229}:9229"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    networks:
+      - servicedesk-dev-network
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==============================================================================
+  # MailHog (Email Testing)
+  # ==============================================================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: servicedesk-mailhog
+    restart: unless-stopped
+    ports:
+      # SMTP server
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      # Web UI
+      - "${MAILHOG_UI_PORT:-8025}:8025"
+    networks:
+      - servicedesk-dev-network
+
+  # ==============================================================================
+  # Adminer (Database GUI)
+  # ==============================================================================
+  adminer:
+    image: adminer:latest
+    container_name: servicedesk-adminer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    networks:
+      - servicedesk-dev-network
+
+  # ==============================================================================
+  # Redis Commander (Redis GUI)
+  # ==============================================================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: servicedesk-redis-commander
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    networks:
+      - servicedesk-dev-network
+
+  # ==============================================================================
+  # Prometheus (Monitoring - Optional)
+  # ==============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: servicedesk-prometheus-dev
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_dev_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - servicedesk-dev-network
+    profiles:
+      - monitoring
+
+  # ==============================================================================
+  # Grafana (Visualization - Optional)
+  # ==============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: servicedesk-grafana-dev
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+      GF_SERVER_ROOT_URL: http://localhost:${GRAFANA_PORT:-3001}
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/servicedesk.json:ro
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    networks:
+      - servicedesk-dev-network
+    profiles:
+      - monitoring
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  servicedesk-dev-network:
+    driver: bridge
+    name: servicedesk-dev
+
+# ==============================================================================
+# Volumes
+# ==============================================================================
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  app_dev_data:
+    driver: local
+  app_dev_uploads:
+    driver: local
+  prometheus_dev_data:
+    driver: local
+  grafana_dev_data:
+    driver: local

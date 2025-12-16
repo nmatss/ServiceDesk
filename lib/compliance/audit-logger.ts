@@ -1,5 +1,5 @@
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface AuditLogEntry {
   entityType: string;
@@ -128,8 +128,8 @@ export const auditLogger = new AuditLogger();
 // Decorator para auto-logging
 export function AuditLog(entityType: string, action: string) {
   return function (
-    target: any,
-    propertyKey: string,
+    _target: any,
+    _propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;

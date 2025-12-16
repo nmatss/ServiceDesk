@@ -4,7 +4,7 @@
  */
 
 import { getSecurityConfig } from './config';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface PiiDetectionResult {
   hasPii: boolean;
@@ -35,7 +35,7 @@ export interface PiiMaskingOptions {
 export class PiiDetector {
   private config = getSecurityConfig();
   private patterns: Map<string, RegExp>;
-  private maskingStrategies: Map<string, PiiMaskingOptions>;
+  private maskingStrategies!: Map<string, PiiMaskingOptions>;
 
   constructor() {
     this.patterns = new Map(Object.entries(this.config.pii.detection.patterns));
@@ -46,7 +46,7 @@ export class PiiDetector {
    * Initialize masking strategies for different PII types
    */
   private initializeMaskingStrategies(): void {
-    this.maskingStrategies = new Map([
+    this.maskingStrategies = new Map<string, PiiMaskingOptions>([
       ['email', {
         strategy: 'partial',
         preserveFormat: true,
@@ -233,12 +233,11 @@ export class PiiDetector {
     // Preserve original formatting characters
     if (preserveFormat) {
       const formatChars = /[.\-\s()\/]/g;
-      const originalFormat = value.match(formatChars) || [];
-      let formatIndex = 0;
 
-      masked = masked.replace(/./g, (char, index) => {
-        if (formatChars.test(value[index])) {
-          return value[index];
+      masked = masked.replace(/./g, (char: string, index: number) => {
+        const originalChar = value[index];
+        if (index < value.length && originalChar && formatChars.test(originalChar)) {
+          return originalChar;
         }
         return char;
       });
@@ -257,13 +256,19 @@ export class PiiDetector {
    * Custom email masker
    */
   private maskEmail(email: string): string {
-    const [local, domain] = email.split('@');
+    const parts = email.split('@');
+    const local = parts[0];
+    const domain = parts[1];
 
-    if (local.length <= 2) {
-      return `${local[0]}***@${domain}`;
+    if (!local || !domain) {
+      return email; // Invalid email format
     }
 
-    const maskedLocal = local[0] + '*'.repeat(local.length - 2) + local.slice(-1);
+    if (local.length <= 2) {
+      return `${local[0] ?? ''}***@${domain}`;
+    }
+
+    const maskedLocal = (local[0] ?? '') + '*'.repeat(local.length - 2) + local.slice(-1);
     return `${maskedLocal}@${domain}`;
   }
 
@@ -310,7 +315,7 @@ export class PiiDetector {
 
     let sum = 0;
     for (let i = 0; i < 12; i++) {
-      sum += parseInt(cleaned.charAt(i)) * weights1[i];
+      sum += parseInt(cleaned.charAt(i)) * (weights1[i] ?? 0);
     }
 
     let digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
@@ -318,7 +323,7 @@ export class PiiDetector {
 
     sum = 0;
     for (let i = 0; i < 13; i++) {
-      sum += parseInt(cleaned.charAt(i)) * weights2[i];
+      sum += parseInt(cleaned.charAt(i)) * (weights2[i] ?? 0);
     }
 
     digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
@@ -331,7 +336,7 @@ export class PiiDetector {
     // Mobile: 11 digits, landline: 10 digits
     if (cleaned.length === 11) {
       // Mobile number should start with 9
-      return cleaned[2] === '9';
+      return (cleaned[2] ?? '') === '9';
     } else if (cleaned.length === 10) {
       // Landline number
       return true;
@@ -379,7 +384,7 @@ export class DatabasePiiScanner {
   /**
    * Scan database record for PII
    */
-  public scanRecord(record: any, tableName: string): {
+  public scanRecord(record: Record<string, unknown>, tableName: string): {
     hasPii: boolean;
     fields: Record<string, PiiDetectionResult>;
     recommendation: string;
@@ -456,7 +461,7 @@ export class ApiResponseMasker {
   /**
    * Mask PII in API response
    */
-  public maskResponse(data: any, options?: { deepScan: boolean }): any {
+  public maskResponse(data: unknown, options?: { deepScan: boolean }): unknown {
     if (typeof data === 'string') {
       const result = this.detector.detectPii(data);
       return result.maskedText || data;
@@ -467,7 +472,7 @@ export class ApiResponseMasker {
     }
 
     if (typeof data === 'object' && data !== null) {
-      const masked: any = {};
+      const masked: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(data)) {
         if (typeof value === 'string') {
@@ -491,19 +496,22 @@ export class ApiResponseMasker {
  * Compliance reporting for PII handling
  */
 export class PiiComplianceReporter {
-  private detector = new PiiDetector();
-
   /**
    * Generate PII compliance report
    */
-  public generateReport(data: any[]): {
+  public generateReport(data: Array<Record<string, unknown>>): {
     summary: {
       totalRecords: number;
       recordsWithPii: number;
       piiFields: string[];
       complianceScore: number;
     };
-    details: any[];
+    details: Array<{
+      recordId: number;
+      hasPii: boolean;
+      fields: Record<string, PiiDetectionResult>;
+      recommendation: string;
+    }>;
     recommendations: string[];
   } {
     const scanner = new DatabasePiiScanner();
@@ -536,7 +544,7 @@ export class PiiComplianceReporter {
   /**
    * Calculate compliance score (0-100)
    */
-  private calculateComplianceScore(details: any[]): number {
+  private calculateComplianceScore(details: Array<{ hasPii: boolean }>): number {
     if (details.length === 0) return 100;
 
     const recordsWithPii = details.filter(d => d.hasPii).length;

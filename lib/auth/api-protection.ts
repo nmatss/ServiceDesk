@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes } from 'crypto';
 import db from '../db/connection';
-import { rbacEngine } from './rbac-engine';
-import { dataRowSecurity } from './data-row-security';
-import { logger } from '../monitoring/logger';
+import { rbac as rbacEngine } from './rbac-engine';
+import logger from '../monitoring/structured-logger';
 
 export interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
@@ -566,27 +565,32 @@ class APIProtectionManager {
    */
   private async checkPermission(
     userId: number,
-    userRole: string,
+    _userRole: string,
     requiredPermission: string,
     request: NextRequest
   ): Promise<boolean> {
     try {
       const [resource, action] = requiredPermission.split(':');
 
+      // Get tenant ID from request headers (set by middleware)
+      // Fallback to '1' for development/backward compatibility - middleware should set this header
+      const tenantId = parseInt(request.headers.get('X-Tenant-ID') || '1');
+
       const context = {
-        userId,
-        userRole,
-        resourceType: resource,
-        action,
-        environment: {
-          ipAddress: this.getClientIP(request),
-          userAgent: request.headers.get('user-agent') || '',
-          timestamp: new Date().toISOString()
-        }
+        ipAddress: this.getClientIP(request),
+        userAgent: request.headers.get('user-agent') || '',
+        timestamp: new Date().toISOString()
       };
 
-      const result = await rbacEngine.checkPermission(context);
-      return result.granted;
+      const hasPermission = await rbacEngine.checkPermission(
+        userId,
+        resource || '',
+        action || '',
+        tenantId,
+        context
+      );
+
+      return hasPermission;
     } catch (error) {
       logger.error('Error checking permission', error);
       return false;
@@ -602,7 +606,7 @@ class APIProtectionManager {
     const remoteAddress = request.headers.get('remote-addr');
 
     if (forwarded) {
-      return forwarded.split(',')[0].trim();
+      return forwarded.split(',')[0]?.trim() || '127.0.0.1';
     }
 
     return realIP || remoteAddress || '127.0.0.1';
@@ -681,7 +685,7 @@ class APIProtectionManager {
   /**
    * Log API access
    */
-  private async logAPIAccess(request: NextRequest, options: APIProtectionOptions): Promise<void> {
+  private async logAPIAccess(request: NextRequest, _options: APIProtectionOptions): Promise<void> {
     try {
       const userId = parseInt(request.headers.get('X-User-ID') || '0');
       const endpoint = new URL(request.url).pathname;

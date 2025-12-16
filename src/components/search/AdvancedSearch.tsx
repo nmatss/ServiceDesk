@@ -9,14 +9,12 @@ import {
   XMarkIcon,
   CalendarIcon,
   UserIcon,
-  TagIcon,
-  FunnelIcon,
   SparklesIcon,
   ClockIcon,
   DocumentTextIcon
 } from '@heroicons/react/24/outline'
-import { Ticket } from '../tickets/TicketCard'
-import TicketCard from '../tickets/TicketCard'
+import { TicketData as Ticket } from '../../../components/ui/TicketCard'
+import TicketCard from '../../../components/ui/TicketCard'
 
 interface SearchFilters {
   query: string
@@ -99,11 +97,9 @@ export default function AdvancedSearch() {
 
   const fetchSuggestions = async (query: string) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/search/suggestions?q=${encodeURIComponent(query)}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {
@@ -121,9 +117,6 @@ export default function AdvancedSearch() {
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
       const params = new URLSearchParams({
         q: searchFilters.query,
         type: searchType,
@@ -143,8 +136,9 @@ export default function AdvancedSearch() {
       if (searchFilters.dateRange.from) params.append('date_from', searchFilters.dateRange.from)
       if (searchFilters.dateRange.to) params.append('date_to', searchFilters.dateRange.to)
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/search?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {
@@ -207,6 +201,8 @@ export default function AdvancedSearch() {
            filters.dateRange.to
   }
 
+  // getSearchIcon available if needed for future use
+  /*
   const getSearchIcon = (type: string) => {
     switch (type) {
       case 'tickets': return <DocumentTextIcon className="h-4 w-4" />
@@ -215,6 +211,7 @@ export default function AdvancedSearch() {
       default: return <MagnifyingGlassIcon className="h-4 w-4" />
     }
   }
+  */
 
   return (
     <div className="space-y-6">
@@ -481,7 +478,7 @@ export default function AdvancedSearch() {
                       <TicketCard
                         key={ticket.id}
                         ticket={ticket}
-                        variant="compact"
+                        compact={true}
                         showActions={true}
                       />
                     ))}

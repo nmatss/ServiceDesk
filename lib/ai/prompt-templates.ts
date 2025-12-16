@@ -363,7 +363,7 @@ Responda em JSON válido:
   };
 
   // Utility methods for template processing
-  static processTemplate(template: PromptTemplate, context: any): string {
+  static processTemplate(template: PromptTemplate, context: Record<string, any>): string {
     let processed = template.template;
 
     // Simple handlebars-like processing
@@ -373,7 +373,7 @@ Responda em JSON válido:
     }
 
     // Process each loops (basic implementation)
-    processed = processed.replace(/{{#each (\w+)}}([\s\S]*?){{\/each}}/g, (match, arrayName, content) => {
+    processed = processed.replace(/{{#each (\w+)}}([\s\S]*?){{\/each}}/g, (_match, arrayName, content) => {
       const array = context[arrayName];
       if (!Array.isArray(array)) return '';
 
@@ -388,7 +388,7 @@ Responda em JSON válido:
     });
 
     // Process if conditions (basic implementation)
-    processed = processed.replace(/{{#if ([\w.]+)}}([\s\S]*?){{\/if}}/g, (match, condition, content) => {
+    processed = processed.replace(/{{#if ([\w.]+)}}([\s\S]*?){{\/if}}/g, (_match, condition, content) => {
       const value = this.getNestedProperty(context, condition);
       return value ? content : '';
     });
@@ -401,7 +401,7 @@ Responda em JSON válido:
   }
 
   static validateTemplate(template: PromptTemplate): boolean {
-    return (
+    return !!(
       template.name &&
       template.template &&
       template.maxTokens > 0 &&
@@ -437,10 +437,4 @@ Responda em JSON válido:
 }
 
 // Export types and utilities
-export {
-  PromptTemplates as default,
-  ClassificationContext,
-  SuggestionContext,
-  ResponseContext,
-  SentimentContext
-};
+export { PromptTemplates as default };

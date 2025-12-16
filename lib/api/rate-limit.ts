@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { LRUCache } from 'lru-cache'
 import { ApiContext, RateLimitInfo } from './types'
 import { RateLimitError } from './errors'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // Rate Limit Store Interface
 interface RateLimitStore {

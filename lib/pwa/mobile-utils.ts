@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Mobile Optimization Utilities
@@ -71,13 +71,13 @@ class MobileUtils {
     let currentScale = 1;
 
     const handleTouchStart = (e: TouchEvent) => {
-      this.touchStartX = e.touches[0].clientX;
-      this.touchStartY = e.touches[0].clientY;
+      this.touchStartX = e.touches[0]?.clientX ?? 0;
+      this.touchStartY = e.touches[0]?.clientY ?? 0;
       this.touchStartTime = Date.now();
       this.isLongPressing = false;
 
       // Handle pinch gesture
-      if (e.touches.length === 2 && this.config.enablePinch) {
+      if (e.touches.length === 2 && this.config.enablePinch && e.touches[0] && e.touches[1]) {
         initialDistance = this.getDistance(e.touches[0], e.touches[1]);
       }
 
@@ -98,7 +98,7 @@ class MobileUtils {
       }
 
       // Handle pinch gesture
-      if (e.touches.length === 2 && this.config.enablePinch && callbacks?.onPinch) {
+      if (e.touches.length === 2 && this.config.enablePinch && callbacks?.onPinch && e.touches[0] && e.touches[1]) {
         const currentDistance = this.getDistance(e.touches[0], e.touches[1]);
         const scale = currentDistance / initialDistance;
 
@@ -119,8 +119,8 @@ class MobileUtils {
         return;
       }
 
-      const touchEndX = e.changedTouches[0].clientX;
-      const touchEndY = e.changedTouches[0].clientY;
+      const touchEndX = e.changedTouches[0]?.clientX ?? 0;
+      const touchEndY = e.changedTouches[0]?.clientY ?? 0;
       const deltaX = touchEndX - this.touchStartX;
       const deltaY = touchEndY - this.touchStartY;
       const deltaTime = Date.now() - this.touchStartTime;
@@ -213,7 +213,7 @@ class MobileUtils {
 
     const handleTouchStart = (e: TouchEvent) => {
       if (element.scrollTop === 0) {
-        startY = e.touches[0].clientY;
+        startY = e.touches[0]?.clientY ?? 0;
         isPulling = true;
       }
     };
@@ -221,7 +221,7 @@ class MobileUtils {
     const handleTouchMove = (e: TouchEvent) => {
       if (!isPulling || isRefreshing) return;
 
-      currentY = e.touches[0].clientY;
+      currentY = e.touches[0]?.clientY ?? 0;
       const diff = currentY - startY;
 
       if (diff > 0 && element.scrollTop === 0) {
@@ -238,8 +238,8 @@ class MobileUtils {
         const text = refreshIndicator.querySelector('span') as HTMLElement;
 
         if (distance >= threshold) {
-          text.textContent = 'Solte para atualizar';
-          icon.style.opacity = '1';
+          if (text) text.textContent = 'Solte para atualizar';
+          if (icon) icon.style.opacity = '1';
         } else {
           text.textContent = 'Puxe para atualizar';
           icon.style.opacity = '0';
@@ -527,10 +527,10 @@ class MobileUtils {
 
   // Device orientation handling
   public enableOrientationLock(orientation: 'portrait' | 'landscape'): Promise<void> {
-    if ('orientation' in screen && 'lock' in screen.orientation) {
-      return screen.orientation.lock(orientation);
+    if ('orientation' in screen && screen.orientation && 'lock' in screen.orientation) {
+      return (screen.orientation.lock as (orientation: string) => Promise<void>)(orientation);
     }
-    return Promise.reject('Orientation lock not supported');
+    return Promise.reject(new Error('Orientation lock not supported'));
   }
 
   // Private helper methods

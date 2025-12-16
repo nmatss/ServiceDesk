@@ -9,13 +9,17 @@ import {
   WorkflowNode,
   WorkflowEdge,
   ExecutionStatus,
-  StepExecutionStatus,
   WorkflowEvent,
   WorkflowEventType,
   ExecutionLogEntry,
   WorkflowStepExecution,
   RetryConfiguration,
-  MLPredictionResult,
+  ExecutionVariableValue,
+  StepDataValue,
+  LogEntryData,
+  EventPayloadValue,
+  FilterCondition,
+  FilterConditionValue,
 } from '@/lib/types/workflow';
 
 export class WorkflowEngine {
@@ -37,6 +41,9 @@ export class WorkflowEngine {
     this.eventEmitter = new WorkflowEventEmitter();
     this.nodeExecutors = this.initializeNodeExecutors();
     this.setupEventHandlers();
+
+    // Queue manager is initialized but not yet used - reserved for future queue-based execution
+    void this.queueManager;
   }
 
   /**
@@ -44,7 +51,7 @@ export class WorkflowEngine {
    */
   async executeWorkflow(
     workflowId: number,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, ExecutionVariableValue>,
     triggerUserId?: number,
     options: ExecutionOptions = {}
   ): Promise<WorkflowExecution> {
@@ -88,7 +95,8 @@ export class WorkflowEngine {
 
       return execution;
     } catch (error) {
-      this.metricsCollector.recordExecutionError(workflowId, error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.metricsCollector.recordExecutionError(workflowId, errorMessage);
       throw error;
     }
   }
@@ -98,7 +106,7 @@ export class WorkflowEngine {
    */
   async resumeExecution(
     executionId: number,
-    resumeData: Record<string, any> = {}
+    resumeData: Record<string, ExecutionVariableValue> = {}
   ): Promise<void> {
     const context = this.executionContext.get(executionId);
     if (!context) {
@@ -185,7 +193,8 @@ export class WorkflowEngine {
       // Execute start node
       await this.executeNode(context, startNode);
     } catch (error) {
-      await this.handleExecutionError(context, error);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      await this.handleExecutionError(context, errorObj);
     }
   }
 
@@ -194,7 +203,7 @@ export class WorkflowEngine {
    */
   private async continueExecution(
     context: ExecutionContext,
-    resumeData: Record<string, any>
+    resumeData: Record<string, ExecutionVariableValue>
   ): Promise<void> {
     try {
       // Merge resume data into variables
@@ -209,7 +218,8 @@ export class WorkflowEngine {
       // Continue from current node
       await this.proceedToNextNode(context, currentNode.id, {});
     } catch (error) {
-      await this.handleExecutionError(context, error);
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+      await this.handleExecutionError(context, errorObj);
     }
   }
 
@@ -272,15 +282,16 @@ export class WorkflowEngine {
       await this.handleNodeResult(context, node, result);
     } catch (error) {
       // Update step execution with error
+      const errorObj = error instanceof Error ? error : new Error(String(error));
       stepExecution.status = 'failed';
       stepExecution.completedAt = new Date();
-      stepExecution.errorMessage = error.message;
+      stepExecution.errorMessage = errorObj.message;
       stepExecution.executionTimeMs = Date.now() - stepExecution.startedAt.getTime();
 
       await this.persistenceAdapter.updateStepExecution(stepExecution);
 
       // Handle node error
-      await this.handleNodeError(context, node, error);
+      await this.handleNodeError(context, node, errorObj);
     }
   }
 
@@ -343,7 +354,7 @@ export class WorkflowEngine {
   private async proceedToNextNode(
     context: ExecutionContext,
     currentNodeId: string,
-    outputData: Record<string, any>
+    outputData: Record<string, StepDataValue>
   ): Promise<void> {
     // Find outgoing edges
     const outgoingEdges = context.workflow.edges.filter(e => e.source === currentNodeId);
@@ -373,6 +384,19 @@ export class WorkflowEngine {
    * Execute node by ID
    */
   private async executeNodeById(context: ExecutionContext, nodeId: string): Promise<void> {
+    // Verificar profundidade máxima
+    if (context.executionPath.size >= context['MAX_EXECUTION_DEPTH']) {
+      throw new WorkflowError('Maximum execution depth exceeded - possible infinite loop', 'INFINITE_LOOP_DETECTED');
+    }
+
+    // Verificar se já visitou este node no mesmo path
+    const pathKey = `${context.execution.id}_${nodeId}`;
+    if (context.executionPath.has(pathKey)) {
+      throw new WorkflowError(`Cycle detected at node ${nodeId}`, 'CYCLE_DETECTED');
+    }
+
+    context.executionPath.add(pathKey);
+
     const node = context.workflow.nodes.find(n => n.id === nodeId);
     if (!node) {
       throw new WorkflowError(`Node ${nodeId} not found`, 'NODE_NOT_FOUND');
@@ -413,7 +437,8 @@ export class WorkflowEngine {
 
       context.setVariables(mergedVariables);
     } catch (error) {
-      throw new WorkflowError(`Parallel execution error: ${error.message}`, 'PARALLEL_EXECUTION_ERROR');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new WorkflowError(`Parallel execution error: ${errorMessage}`, 'PARALLEL_EXECUTION_ERROR');
     }
   }
 
@@ -423,7 +448,7 @@ export class WorkflowEngine {
   private async evaluateEdgeConditions(
     context: ExecutionContext,
     edges: WorkflowEdge[],
-    outputData: Record<string, any>
+    outputData: Record<string, StepDataValue>
   ): Promise<WorkflowEdge | null> {
     // Sort edges by priority (higher priority first)
     const sortedEdges = edges.sort((a, b) => (b.priority || 0) - (a.priority || 0));
@@ -449,8 +474,8 @@ export class WorkflowEngine {
    */
   private async evaluateConditions(
     context: ExecutionContext,
-    conditions: any[],
-    data: Record<string, any>
+    conditions: FilterCondition[],
+    data: Record<string, StepDataValue>
   ): Promise<boolean> {
     // Simple condition evaluation - can be extended
     for (const condition of conditions) {
@@ -467,14 +492,19 @@ export class WorkflowEngine {
   /**
    * Get field value using dot notation
    */
-  private getFieldValue(obj: Record<string, any>, field: string): any {
-    return field.split('.').reduce((o, i) => o?.[i], obj);
+  private getFieldValue(obj: Record<string, StepDataValue>, field: string): StepDataValue | undefined {
+    return field.split('.').reduce<StepDataValue | undefined>((o, i) => {
+      if (o && typeof o === 'object' && !Array.isArray(o)) {
+        return (o as Record<string, StepDataValue>)[i];
+      }
+      return undefined;
+    }, obj as StepDataValue);
   }
 
   /**
    * Evaluate single condition
    */
-  private evaluateCondition(fieldValue: any, operator: string, expectedValue: any): boolean {
+  private evaluateCondition(fieldValue: StepDataValue | undefined, operator: string, expectedValue: FilterConditionValue): boolean {
     switch (operator) {
       case 'equals':
         return fieldValue === expectedValue;
@@ -508,7 +538,7 @@ export class WorkflowEngine {
    */
   private async completeExecution(
     context: ExecutionContext,
-    outputData?: Record<string, any>
+    outputData?: Record<string, ExecutionVariableValue>
   ): Promise<void> {
     context.execution.status = 'completed';
     context.execution.completedAt = new Date();
@@ -678,14 +708,24 @@ export class WorkflowEngine {
   private initializeNodeExecutors(): Map<string, NodeExecutor> {
     const executors = new Map<string, NodeExecutor>();
 
+    // Import real executors
+    const {
+      ConditionNodeExecutor: RealConditionExecutor,
+      NotificationNodeExecutor: RealNotificationExecutor,
+      WebhookNodeExecutor: RealWebhookExecutor,
+      ActionNodeExecutor: RealActionExecutor,
+      DelayNodeExecutor: RealDelayExecutor,
+      ApprovalNodeExecutor: RealApprovalExecutor,
+    } = require('./executors');
+
     executors.set('start', new StartNodeExecutor());
     executors.set('end', new EndNodeExecutor());
-    executors.set('action', new ActionNodeExecutor());
-    executors.set('condition', new ConditionNodeExecutor());
-    executors.set('approval', new ApprovalNodeExecutor());
-    executors.set('delay', new DelayNodeExecutor());
-    executors.set('notification', new NotificationNodeExecutor());
-    executors.set('webhook', new WebhookNodeExecutor());
+    executors.set('action', new RealActionExecutor());
+    executors.set('condition', new RealConditionExecutor());
+    executors.set('approval', new RealApprovalExecutor());
+    executors.set('delay', new RealDelayExecutor());
+    executors.set('notification', new RealNotificationExecutor());
+    executors.set('webhook', new RealWebhookExecutor());
     executors.set('script', new ScriptNodeExecutor());
     executors.set('ml_prediction', new MLPredictionNodeExecutor());
     executors.set('human_task', new HumanTaskNodeExecutor());
@@ -710,12 +750,12 @@ export class WorkflowEngine {
   /**
    * Event handlers
    */
-  private async handleWorkflowTriggered(event: WorkflowEvent): Promise<void> {
+  private async handleWorkflowTriggered(_event: WorkflowEvent): Promise<void> {
     // Handle workflow trigger events
   }
 
   private async handleApprovalReceived(event: WorkflowEvent): Promise<void> {
-    const { executionId, stepId, approved } = event.payload;
+    const { executionId, approved } = event.payload;
     if (approved) {
       await this.resumeExecution(executionId, { approvalResult: 'approved' });
     } else {
@@ -728,7 +768,7 @@ export class WorkflowEngine {
     await this.cancelExecution(executionId, 'Execution timed out');
   }
 
-  private async handleEscalationTriggered(event: WorkflowEvent): Promise<void> {
+  private async handleEscalationTriggered(_event: WorkflowEvent): Promise<void> {
     // Handle escalation events
   }
 
@@ -737,7 +777,7 @@ export class WorkflowEngine {
    */
   private async createExecution(
     workflow: WorkflowDefinition,
-    triggerData: Record<string, any>,
+    triggerData: Record<string, ExecutionVariableValue>,
     triggerUserId?: number,
     options: ExecutionOptions = {}
   ): Promise<WorkflowExecution> {
@@ -755,7 +795,7 @@ export class WorkflowEngine {
       variables: { ...triggerData },
       metadata: {
         triggeredBy: options.triggeredBy || 'manual',
-        environment: options.environment || 'production',
+        environment: (options.environment || 'production') as 'development' | 'staging' | 'production',
         version: workflow.version.toString(),
         correlationId: options.correlationId || this.generateCorrelationId(),
         parentExecution: options.parentExecutionId,
@@ -801,8 +841,8 @@ export class WorkflowEngine {
   }
 
   private validateTriggerConditions(
-    workflow: WorkflowDefinition,
-    triggerData: Record<string, any>
+    _workflow: WorkflowDefinition,
+    _triggerData: Record<string, ExecutionVariableValue>
   ): boolean {
     // Implement trigger condition validation
     return true;
@@ -812,7 +852,7 @@ export class WorkflowEngine {
     return `wf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async emitEvent(type: WorkflowEventType, payload: Record<string, any>): Promise<void> {
+  private async emitEvent(type: WorkflowEventType, payload: Record<string, EventPayloadValue>): Promise<void> {
     const event: WorkflowEvent = {
       id: this.generateCorrelationId(),
       type,
@@ -842,14 +882,14 @@ interface ExecutionStatusResponse {
   status: ExecutionStatus;
   progress: number;
   currentStep?: string;
-  variables: Record<string, any>;
+  variables: Record<string, ExecutionVariableValue>;
   logs: ExecutionLogEntry[];
   error?: string;
 }
 
 interface NodeExecutionResult {
   action: 'continue' | 'wait' | 'complete' | 'fail' | 'retry' | 'branch' | 'parallel';
-  outputData?: Record<string, any>;
+  outputData?: Record<string, StepDataValue>;
   errorMessage?: string;
   targetNodeId?: string;
   parallelNodeIds?: string[];
@@ -861,10 +901,12 @@ abstract class NodeExecutor {
 }
 
 class ExecutionContext {
-  private variables: Record<string, any> = {};
+  private variables: Record<string, ExecutionVariableValue> = {};
   private retryCounters: Map<string, number> = new Map();
   private cancelled = false;
   private cancellationReason?: string;
+  public executionPath: Set<string> = new Set();
+  private readonly MAX_EXECUTION_DEPTH = 100;
 
   constructor(
     public execution: WorkflowExecution,
@@ -874,19 +916,19 @@ class ExecutionContext {
     this.variables = { ...execution.variables };
   }
 
-  getVariables(): Record<string, any> {
+  getVariables(): Record<string, ExecutionVariableValue> {
     return { ...this.variables };
   }
 
-  setVariables(variables: Record<string, any>): void {
+  setVariables(variables: Record<string, ExecutionVariableValue>): void {
     this.variables = { ...this.variables, ...variables };
   }
 
-  getVariable(name: string): any {
+  getVariable(name: string): ExecutionVariableValue | undefined {
     return this.variables[name];
   }
 
-  setVariable(name: string, value: any): void {
+  setVariable(name: string, value: ExecutionVariableValue): void {
     this.variables[name] = value;
   }
 
@@ -906,7 +948,7 @@ class ExecutionContext {
     return this.workflow.nodes.find(n => n.id === this.execution.currentStepId);
   }
 
-  log(level: 'info' | 'warn' | 'error' | 'debug', message: string, data?: Record<string, any>): void {
+  log(level: 'info' | 'warn' | 'error' | 'debug', message: string, data?: Record<string, LogEntryData>): void {
     const logEntry: ExecutionLogEntry = {
       stepId: this.execution.currentStepId || 'system',
       timestamp: new Date(),
@@ -973,9 +1015,23 @@ interface WorkflowPersistenceAdapter {
   incrementWorkflowFailureCount(workflowId: number): Promise<void>;
 }
 
+interface QueueJob {
+  id: string;
+  type: string;
+  data: Record<string, ExecutionVariableValue>;
+  priority?: number;
+  retryCount?: number;
+}
+
 interface WorkflowQueueManager {
-  enqueue(job: any): Promise<void>;
-  process(handler: (job: any) => Promise<void>): void;
+  enqueue(job: QueueJob): Promise<void>;
+  process(type: string, handler: (job: QueueJob) => Promise<void>): void;
+  getStats?: () => {
+    queueSize: number;
+    processing: number;
+    handlers: number;
+  };
+  clear?: () => void;
 }
 
 interface WorkflowMetricsCollector {
@@ -987,114 +1043,104 @@ interface WorkflowMetricsCollector {
 
 // Example node executors (placeholder implementations)
 class StartNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     return { action: 'continue' };
   }
 }
 
 class EndNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     return { action: 'complete' };
   }
 }
 
-class ActionNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
-    // Implement action execution logic
-    return { action: 'continue' };
-  }
-}
-
-class ConditionNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
-    // Implement condition evaluation logic
-    return { action: 'continue' };
-  }
-}
-
-class ApprovalNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
-    // Implement approval logic
-    return { action: 'wait' };
-  }
-}
-
-class DelayNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
-    // Implement delay logic
-    return { action: 'continue' };
-  }
-}
-
-class NotificationNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
-    // Implement notification logic
-    return { action: 'continue' };
-  }
-}
-
-class WebhookNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
-    // Implement webhook logic
-    return { action: 'continue' };
-  }
-}
+// Placeholder executors are now imported from executors.ts
+// Keeping minimal implementations here for nodes not yet implemented
 
 class ScriptNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement script execution logic
     return { action: 'continue' };
   }
 }
 
 class MLPredictionNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement ML prediction logic
     return { action: 'continue' };
   }
 }
 
 class HumanTaskNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement human task logic
     return { action: 'wait' };
   }
 }
 
 class LoopNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement loop logic
     return { action: 'continue' };
   }
 }
 
 class SubworkflowNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement subworkflow logic
     return { action: 'continue' };
   }
 }
 
 class ParallelNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement parallel execution logic
     return { action: 'continue' };
   }
 }
 
 class IntegrationNodeExecutor extends NodeExecutor {
-  async execute(node: WorkflowNode, context: ExecutionContext): Promise<NodeExecutionResult> {
+  async execute(_node: WorkflowNode, _context: ExecutionContext): Promise<NodeExecutionResult> {
     // Implement integration logic
     return { action: 'continue' };
   }
 }
 
+export type {
+  ExecutionOptions,
+  ExecutionStatusResponse,
+  NodeExecutionResult,
+};
+
 export {
-  WorkflowEngine,
   WorkflowError,
   ExecutionContext,
   NodeExecutor,
-  type ExecutionOptions,
-  type ExecutionStatusResponse,
-  type NodeExecutionResult,
 };
+
+// Create and export singleton instance for use by scheduler and other components
+let workflowEngineInstance: WorkflowEngine | null = null;
+
+export function getWorkflowEngine(): WorkflowEngine {
+  if (!workflowEngineInstance) {
+    // Lazy load dependencies to avoid circular imports
+    const { WorkflowPersistenceAdapter } = require('./persistence-adapter');
+    const { WorkflowQueueManager } = require('./queue-manager');
+    const { WorkflowMetricsCollector } = require('./metrics-collector');
+
+    const persistenceAdapter = new WorkflowPersistenceAdapter();
+    const queueManager = new WorkflowQueueManager();
+    const metricsCollector = new WorkflowMetricsCollector();
+
+    workflowEngineInstance = new WorkflowEngine(
+      persistenceAdapter,
+      queueManager,
+      metricsCollector
+    );
+  }
+
+  return workflowEngineInstance;
+}
+
+// Export singleton instance for backward compatibility
+export const workflowEngine = getWorkflowEngine();

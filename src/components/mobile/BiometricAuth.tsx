@@ -41,7 +41,7 @@ export default function BiometricAuth({
   const [error, setError] = useState<string | null>(null);
   const [showPinInput, setShowPinInput] = useState(false);
   const [pin, setPin] = useState('');
-  const [biometricInfo, setBiometricInfo] = useState({
+  const [_biometricInfo, setBiometricInfo] = useState({
     isSupported: false,
     isPlatformAuthenticator: false,
     supportedMethods: [] as string[],

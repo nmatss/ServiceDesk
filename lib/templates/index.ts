@@ -1,6 +1,6 @@
 import db from '../db/connection';
 import { Template, CreateTemplate, TemplateWithDetails } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Busca templates por tipo e categoria

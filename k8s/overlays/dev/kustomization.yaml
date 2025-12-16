@@ -1,0 +1,111 @@
+---
+# Kustomization - Development overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: servicedesk-dev
+  annotations:
+    description: "Development environment overlay for ServiceDesk"
+
+# Base configuration
+bases:
+  - ../../base
+
+# Namespace
+namespace: servicedesk-dev
+
+# Common labels
+commonLabels:
+  environment: development
+
+# Common annotations
+commonAnnotations:
+  environment: development
+
+# Replicas override (smaller for dev)
+replicas:
+  - name: servicedesk-app
+    count: 1
+
+# Images
+images:
+  - name: servicedesk
+    newName: your-registry/servicedesk
+    newTag: dev
+
+# ConfigMap patches for dev environment
+configMapGenerator:
+  - name: servicedesk-config
+    behavior: merge
+    literals:
+      - NODE_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - ENABLE_MOCK_DATA=true
+      - SKIP_EMAIL_VERIFICATION=true
+      - SENTRY_ENVIRONMENT=development
+      - DD_ENV=development
+
+# Patches
+patches:
+  # Reduce resources for dev
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: servicedesk-app
+      spec:
+        template:
+          spec:
+            containers:
+              - name: app
+                resources:
+                  requests:
+                    cpu: "100m"
+                    memory: "256Mi"
+                  limits:
+                    cpu: "500m"
+                    memory: "512Mi"
+
+  # Disable HPA in dev
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: servicedesk-app-hpa
+      spec:
+        minReplicas: 1
+        maxReplicas: 2
+
+  # Use NodePort instead of LoadBalancer
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: servicedesk-app
+      spec:
+        type: NodePort
+
+  # Disable SSL redirect in dev
+  - patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: servicedesk-ingress
+        annotations:
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+          nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+      spec:
+        tls: []
+        rules:
+          - host: servicedesk-dev.local
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: servicedesk-app
+                      port:
+                        name: http

@@ -35,8 +35,9 @@ export function createVariants<T extends Record<string, Record<string, string>>>
     if (variants && props) {
       Object.entries(variants).forEach(([key, variantOptions]) => {
         const selectedVariant = props[key as keyof typeof props] || defaultVariants?.[key as keyof typeof defaultVariants];
-        if (selectedVariant && variantOptions[selectedVariant as string]) {
-          classes.push(variantOptions[selectedVariant as string]);
+        const variantClass = selectedVariant && variantOptions[selectedVariant as string];
+        if (variantClass) {
+          classes.push(variantClass);
         }
       });
     }

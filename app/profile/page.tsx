@@ -7,8 +7,7 @@ import {
   UserIcon,
   EnvelopeIcon,
   KeyIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon
+  CheckCircleIcon
 } from '@heroicons/react/24/outline'
 import { useNotificationHelpers } from '@/src/components/notifications/NotificationProvider'
 
@@ -47,16 +46,9 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
-
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch('/api/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {
@@ -83,19 +75,20 @@ export default function ProfilePage() {
     setSaving(true)
 
     try {
-      const token = localStorage.getItem('auth_token')
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch('/api/auth/profile', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify(profileForm)
       })
 
       if (response.ok) {
         const updatedProfile = await response.json()
         setProfile(updatedProfile)
+        // Store non-sensitive display data only
         localStorage.setItem('user_name', updatedProfile.name)
         success('Sucesso', 'Perfil atualizado com sucesso')
       } else {
@@ -126,13 +119,13 @@ export default function ProfilePage() {
     setSaving(true)
 
     try {
-      const token = localStorage.getItem('auth_token')
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch('/api/auth/change-password', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -20,10 +20,8 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       )
     }
-
-    const db = getDb()
-
-    // Buscar notificações não lidas do usuário (apenas do tenant)
+    // Buscar notificações não lidas do usuário
+    // Note: user_id already provides tenant isolation since users belong to specific organizations
     const notifications = db.prepare(`
       SELECT
         id,
@@ -50,18 +48,17 @@ export async function GET(request: NextRequest) {
           ELSE 'old'
         END as urgency
       FROM notifications
-      WHERE user_id = ? AND tenant_id = ?
-      AND is_read = 0
+      WHERE user_id = ? AND is_read = 0
       ORDER BY created_at DESC
       LIMIT 50
-    `).all(userContext.id, tenantContext.id)
+    `).all(userContext.id)
 
     // Contar total de não lidas
     const unreadCount = db.prepare(`
       SELECT COUNT(*) as count
       FROM notifications
-      WHERE user_id = ? AND tenant_id = ? AND is_read = 0
-    `).get(userContext.id, tenantContext.id)
+      WHERE user_id = ? AND is_read = 0
+    `).get(userContext.id)
 
     // Contar por tipo
     const countByType = db.prepare(`
@@ -69,9 +66,9 @@ export async function GET(request: NextRequest) {
         type,
         COUNT(*) as count
       FROM notifications
-      WHERE user_id = ? AND tenant_id = ? AND is_read = 0
+      WHERE user_id = ? AND is_read = 0
       GROUP BY type
-    `).all(userContext.id, tenantContext.id)
+    `).all(userContext.id)
 
     // Formatar notificações
     const formattedNotifications = notifications.map((notification: any) => {
@@ -101,9 +98,9 @@ export async function GET(request: NextRequest) {
 
     // Agrupar por urgência
     const groupedByUrgency = {
-      new: formattedNotifications.filter(n => n.urgency === 'new'),
-      recent: formattedNotifications.filter(n => n.urgency === 'recent'),
-      old: formattedNotifications.filter(n => n.urgency === 'old')
+      new: formattedNotifications.filter((n: any) => n.urgency === 'new'),
+      recent: formattedNotifications.filter((n: any) => n.urgency === 'recent'),
+      old: formattedNotifications.filter((n: any) => n.urgency === 'old')
     }
 
     return NextResponse.json({
@@ -117,9 +114,9 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>),
       summary: {
         total: formattedNotifications.length,
-        high: formattedNotifications.filter(n => n.severity === 'error').length,
-        medium: formattedNotifications.filter(n => n.severity === 'warning').length,
-        low: formattedNotifications.filter(n => n.severity === 'info').length
+        high: formattedNotifications.filter((n: any) => n.severity === 'error').length,
+        medium: formattedNotifications.filter((n: any) => n.severity === 'warning').length,
+        low: formattedNotifications.filter((n: any) => n.severity === 'info').length
       }
     })
 
@@ -151,16 +148,13 @@ export async function POST(request: NextRequest) {
     }
 
     const { notificationIds, markAll = false } = await request.json()
-
-    const db = getDb()
-
     if (markAll) {
-      // Marcar todas como lidas (apenas do tenant)
+      // Marcar todas como lidas
       const result = db.prepare(`
         UPDATE notifications
         SET is_read = 1, updated_at = datetime('now')
-        WHERE user_id = ? AND tenant_id = ? AND is_read = 0
-      `).run(userContext.id, tenantContext.id)
+        WHERE user_id = ? AND is_read = 0
+      `).run(userContext.id)
 
       return NextResponse.json({
         success: true,
@@ -168,13 +162,13 @@ export async function POST(request: NextRequest) {
         updatedCount: result.changes
       })
     } else if (notificationIds && Array.isArray(notificationIds)) {
-      // Marcar notificações específicas como lidas (verificando tenant)
+      // Marcar notificações específicas como lidas
       const placeholders = notificationIds.map(() => '?').join(',')
       const result = db.prepare(`
         UPDATE notifications
         SET is_read = 1, updated_at = datetime('now')
-        WHERE id IN (${placeholders}) AND user_id = ? AND tenant_id = ?
-      `).run(...notificationIds, userContext.id, tenantContext.id)
+        WHERE id IN (${placeholders}) AND user_id = ?
+      `).run(...notificationIds, userContext.id)
 
       return NextResponse.json({
         success: true,

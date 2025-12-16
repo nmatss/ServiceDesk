@@ -58,36 +58,38 @@ export class TracedStatement<T = any> {
     private queryType: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'OTHER'
   ) {}
 
-  get(...params: any[]): T | undefined {
-    return traceQuery(
+  async get(...params: any[]): Promise<T | undefined> {
+    return await traceQuery(
       this.queryText,
       () => this.statement.get(...params) as T | undefined,
       this.queryType
-    ) as T | undefined
+    )
   }
 
-  all(...params: any[]): T[] {
-    return traceQuery(
+  async all(...params: any[]): Promise<T[]> {
+    return await traceQuery(
       this.queryText,
       () => this.statement.all(...params) as T[],
       this.queryType
-    ) as T[]
+    )
   }
 
-  run(...params: any[]): Database.RunResult {
-    return traceQuery(
+  async run(...params: any[]): Promise<Database.RunResult> {
+    return await traceQuery(
       this.queryText,
       () => this.statement.run(...params),
       this.queryType
-    ) as Database.RunResult
+    )
   }
 
   iterate(...params: any[]): IterableIterator<T> {
-    return this.statement.iterate(...params)
+    return this.statement.iterate(...params) as IterableIterator<T>
   }
 
   finalize(): void {
-    this.statement.finalize()
+    if ('finalize' in this.statement && typeof this.statement.finalize === 'function') {
+      this.statement.finalize()
+    }
   }
 }
 

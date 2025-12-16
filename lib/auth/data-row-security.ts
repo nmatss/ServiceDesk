@@ -1,5 +1,5 @@
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface RowSecurityPolicy {
   id: string;
@@ -551,7 +551,7 @@ class DataRowSecurityManager {
    */
   private extractDepartmentField(condition: string): string | null {
     const match = condition.match(/(\w+)\s*=\s*\$USER_DEPARTMENT/);
-    return match ? match[1] : null;
+    return match && match[1] ? match[1] : null;
   }
 
   /**

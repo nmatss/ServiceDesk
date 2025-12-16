@@ -3,10 +3,10 @@
  * Sistema de conformidade com a Lei Geral de Proteção de Dados (LGPD)
  */
 
-import { getDb } from '@/lib/db/connection';
+import { getDb } from '@/lib/db';
 import { LGPDConsent, CreateLGPDConsent } from '@/lib/types/database';
 import { createAuditLog } from '@/lib/audit/logger';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface LGPDDataCategory {
   id: string;
@@ -48,7 +48,7 @@ export interface LGPDConsentRequest {
     userAgent?: string;
     timestamp: string;
     method: string;
-    details?: any;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -63,7 +63,7 @@ export interface LGPDDataSubjectRequest {
   response?: string;
   attachments?: string[];
   verificationMethod: 'email' | 'phone' | 'document' | 'govbr' | 'in_person';
-  verificationData?: any;
+  verificationData?: Record<string, unknown>;
   processingLog: Array<{
     timestamp: string;
     action: string;
@@ -95,7 +95,7 @@ export interface LGPDAuditEntry {
   dataCategory: string;
   purpose: string;
   legalBasis: LGPDLegalBasis;
-  details: any;
+  details: Record<string, unknown>;
   performedBy?: number;
   ipAddress?: string;
   userAgent?: string;
@@ -139,7 +139,7 @@ export class LGPDComplianceManager {
    * Data Categories Definition
    * Categorias de dados conforme LGPD
    */
-  private dataCategories: LGPDDataCategory[] = [
+  private readonly dataCategories: LGPDDataCategory[] = [
     {
       id: 'identification',
       name: 'Dados de Identificação',
@@ -205,7 +205,7 @@ export class LGPDComplianceManager {
   /**
    * Data Mapping for ServiceDesk Tables
    */
-  private dataMapping: LGPDDataMapping[] = [
+  private readonly dataMapping: LGPDDataMapping[] = [
     {
       tableName: 'users',
       columns: [
@@ -247,7 +247,7 @@ export class LGPDComplianceManager {
 
     try {
       // Verifica se já existe consentimento para este tipo
-      const existingConsent = this.getExistingConsent(request.userId, request.consentType);
+      const existingConsent = await this.getExistingConsent(request.userId, request.consentType);
 
       const consentData: CreateLGPDConsent = {
         user_id: request.userId,
@@ -286,7 +286,7 @@ export class LGPDComplianceManager {
         consentData.expires_at
       );
 
-      const consent = this.getConsentById(result.lastInsertRowid as number);
+      const consent = await this.getConsentById(result.lastInsertRowid as number);
 
       // Registra auditoria
       await this.auditDataActivity({
@@ -319,7 +319,7 @@ export class LGPDComplianceManager {
     const db = getDb();
 
     try {
-      const consent = this.getConsentById(consentId);
+      const consent = await this.getConsentById(consentId);
       if (!consent) {
         throw new Error('Consent not found');
       }
@@ -337,7 +337,7 @@ export class LGPDComplianceManager {
         userId: consent.user_id,
         dataCategory: consent.consent_type,
         purpose: consent.purpose,
-        legalBasis: consent.legal_basis,
+        legalBasis: consent.legal_basis as LGPDLegalBasis,
         details: {
           reason,
           performedBy,
@@ -363,7 +363,7 @@ export class LGPDComplianceManager {
     try {
       const requestId = crypto.randomUUID();
 
-      const result = db.prepare(`
+      db.prepare(`
         INSERT INTO lgpd_data_subject_requests (
           id, user_id, request_type, description, status, verification_method,
           verification_data, processing_log
@@ -417,11 +417,11 @@ export class LGPDComplianceManager {
     const db = getDb();
 
     try {
-      const request = this.getDataSubjectRequest(requestId);
+      const request = await this.getDataSubjectRequest(requestId);
       if (!request) return;
 
       // Coleta todos os dados do usuário
-      const userData = await this.collectUserData(request.userId);
+      const userData = await this.collectUserData(request.user_id as number);
 
       // Gera relatório
       const report = {
@@ -443,6 +443,10 @@ export class LGPDComplianceManager {
       };
 
       // Atualiza solicitação
+      const processingLog = typeof request.processing_log === 'string'
+        ? JSON.parse(request.processing_log)
+        : request.processing_log as Array<Record<string, unknown>>;
+
       db.prepare(`
         UPDATE lgpd_data_subject_requests
         SET status = 'completed', responded_at = CURRENT_TIMESTAMP,
@@ -451,7 +455,7 @@ export class LGPDComplianceManager {
       `).run(
         JSON.stringify(report),
         JSON.stringify([
-          ...JSON.parse(request.processing_log),
+          ...processingLog,
           {
             timestamp: new Date().toISOString(),
             action: 'access_data_compiled',
@@ -471,35 +475,27 @@ export class LGPDComplianceManager {
    * Coleta todos os dados de um usuário
    */
   async collectUserData(userId: number): Promise<{
-    user: any;
-    data: any;
+    user: Record<string, unknown>;
+    data: Record<string, unknown>;
     consents: LGPDConsent[];
     purposes: string[];
-    shares: any[];
-    retention: any[];
+    shares: Record<string, unknown>[];
+    retention: Record<string, unknown>[];
   }> {
     const db = getDb();
 
     try {
       // Dados do usuário
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<string, unknown>;
 
       // Dados relacionados em outras tabelas
-      const tickets = db.prepare('SELECT * FROM tickets WHERE user_id = ?').all(userId);
-      const comments = db.prepare('SELECT * FROM comments WHERE user_id = ?').all(userId);
-      const whatsappData = db.prepare('SELECT * FROM whatsapp_contacts WHERE user_id = ?').all(userId);
-      const govbrData = db.prepare('SELECT * FROM govbr_integrations WHERE user_id = ?').all(userId);
+      const tickets = db.prepare('SELECT * FROM tickets WHERE user_id = ?').all(userId) as Array<Record<string, unknown>>;
+      const comments = db.prepare('SELECT * FROM comments WHERE user_id = ?').all(userId) as Array<Record<string, unknown>>;
+      const whatsappData = db.prepare('SELECT * FROM whatsapp_contacts WHERE user_id = ?').all(userId) as Array<Record<string, unknown>>;
+      const govbrData = db.prepare('SELECT * FROM govbr_integrations WHERE user_id = ?').all(userId) as Array<Record<string, unknown>>;
 
       // Consentimentos
-      const consents = this.getUserConsents(userId);
-
-      // Auditoria de atividades
-      const auditLog = db.prepare(`
-        SELECT * FROM lgpd_audit_logs
-        WHERE user_id = ?
-        ORDER BY timestamp DESC
-        LIMIT 100
-      `).all(userId);
+      const consents = await this.getUserConsents(userId);
 
       return {
         user: this.anonymizeForReport(user),
@@ -510,7 +506,7 @@ export class LGPDComplianceManager {
           govbr: govbrData.map(g => this.anonymizeForReport(g))
         },
         consents,
-        purposes: [...new Set(consents.map(c => c.purpose))],
+        purposes: Array.from(new Set(consents.map(c => c.purpose))),
         shares: [], // TODO: Implementar compartilhamentos
         retention: this.getApplicableRetentionPolicies(userId)
       };
@@ -523,7 +519,7 @@ export class LGPDComplianceManager {
   /**
    * Anonimiza dados para relatório
    */
-  private anonymizeForReport(data: any): any {
+  private anonymizeForReport(data: Record<string, unknown>): Record<string, unknown> {
     const anonymized = { ...data };
 
     // Remove dados sensíveis que não devem aparecer no relatório
@@ -538,11 +534,9 @@ export class LGPDComplianceManager {
   /**
    * Aplica políticas de retenção de dados
    */
-  async applyDataRetentionPolicies(userId?: number, category?: string): Promise<void> {
-    const db = getDb();
-
+  async applyDataRetentionPolicies(userId?: number, _category?: string): Promise<void> {
     try {
-      const policies = this.getActiveRetentionPolicies(category);
+      const policies = this.getActiveRetentionPolicies(_category);
 
       for (const policy of policies) {
         const cutoffDate = this.calculateCutoffDate(policy);
@@ -595,7 +589,7 @@ export class LGPDComplianceManager {
     dataCategory: string;
     purpose: string;
     legalBasis: LGPDLegalBasis;
-    details: any;
+    details: Record<string, unknown>;
     performedBy?: number;
     ipAddress?: string;
     userAgent?: string;
@@ -674,24 +668,24 @@ export class LGPDComplianceManager {
 
     try {
       // Resumo geral
-      const totalDataSubjects = db.prepare(`
+      const totalDataSubjects = (db.prepare(`
         SELECT COUNT(DISTINCT user_id) as count
         FROM lgpd_consents
         WHERE created_at BETWEEN ? AND ?
-      `).get(period.start, period.end).count;
+      `).get(period.start, period.end) as { count: number }).count;
 
-      const activeConsents = db.prepare(`
+      const activeConsents = (db.prepare(`
         SELECT COUNT(*) as count
         FROM lgpd_consents
         WHERE is_given = 1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
         AND created_at BETWEEN ? AND ?
-      `).get(period.start, period.end).count;
+      `).get(period.start, period.end) as { count: number }).count;
 
-      const withdrawnConsents = db.prepare(`
+      const withdrawnConsents = (db.prepare(`
         SELECT COUNT(*) as count
         FROM lgpd_consents
         WHERE withdrawn_at BETWEEN ? AND ?
-      `).get(period.start, period.end).count;
+      `).get(period.start, period.end) as { count: number }).count;
 
       // Breakdown de consentimentos por tipo
       const consentBreakdown = db.prepare(`
@@ -699,7 +693,7 @@ export class LGPDComplianceManager {
         FROM lgpd_consents
         WHERE created_at BETWEEN ? AND ?
         GROUP BY consent_type
-      `).all(period.start, period.end);
+      `).all(period.start, period.end) as Array<{ consent_type: string; count: number }>;
 
       // Auditoria
       const auditSummary = db.prepare(`
@@ -712,7 +706,13 @@ export class LGPDComplianceManager {
         FROM lgpd_audit_logs
         WHERE timestamp BETWEEN ? AND ?
         GROUP BY action, legal_basis
-      `).all(period.start, period.end);
+      `).all(period.start, period.end) as Array<{
+        total_activities: number;
+        action: string;
+        legal_basis: string;
+        retention_actions: number;
+        breaches: number
+      }>;
 
       // Gera recomendações
       const recommendations = this.generateRecommendations({
@@ -756,7 +756,7 @@ export class LGPDComplianceManager {
    * Métodos auxiliares privados
    */
 
-  private getExistingConsent(userId: number, consentType: string): LGPDConsent | null {
+  private async getExistingConsent(userId: number, consentType: string): Promise<LGPDConsent | null> {
     const db = getDb();
 
     const consent = db.prepare(`
@@ -764,41 +764,41 @@ export class LGPDComplianceManager {
       WHERE user_id = ? AND consent_type = ? AND is_given = 1
       ORDER BY created_at DESC
       LIMIT 1
-    `).get(userId, consentType);
+    `).get(userId, consentType) as Record<string, unknown> | undefined;
 
     return consent ? this.convertDbConsentToConsent(consent) : null;
   }
 
-  private getConsentById(id: number): LGPDConsent {
+  private async getConsentById(id: number): Promise<LGPDConsent> {
     const db = getDb();
 
-    const consent = db.prepare('SELECT * FROM lgpd_consents WHERE id = ?').get(id);
+    const consent = db.prepare('SELECT * FROM lgpd_consents WHERE id = ?').get(id) as Record<string, unknown>;
     return this.convertDbConsentToConsent(consent);
   }
 
-  private getUserConsents(userId: number): LGPDConsent[] {
+  private async getUserConsents(userId: number): Promise<LGPDConsent[]> {
     const db = getDb();
 
     const consents = db.prepare(`
       SELECT * FROM lgpd_consents
       WHERE user_id = ?
       ORDER BY created_at DESC
-    `).all(userId);
+    `).all(userId) as Array<Record<string, unknown>>;
 
-    return consents.map(this.convertDbConsentToConsent);
+    return consents.map(c => this.convertDbConsentToConsent(c));
   }
 
-  private getDataSubjectRequest(id: string): any {
+  private async getDataSubjectRequest(id: string): Promise<Record<string, unknown> | undefined> {
     const db = getDb();
-    return db.prepare('SELECT * FROM lgpd_data_subject_requests WHERE id = ?').get(id);
+    return db.prepare('SELECT * FROM lgpd_data_subject_requests WHERE id = ?').get(id) as Record<string, unknown> | undefined;
   }
 
-  private getActiveRetentionPolicies(category?: string): LGPDDataRetentionPolicy[] {
+  private getActiveRetentionPolicies(_category?: string): LGPDDataRetentionPolicy[] {
     // TODO: Implementar busca de políticas ativas
     return [];
   }
 
-  private getApplicableRetentionPolicies(userId: number): any[] {
+  private getApplicableRetentionPolicies(_userId: number): Record<string, unknown>[] {
     // TODO: Implementar busca de políticas aplicáveis
     return [];
   }
@@ -821,19 +821,23 @@ export class LGPDComplianceManager {
     return now.toISOString();
   }
 
-  private async deleteExpiredBehavioralData(cutoffDate: string, userId?: number): Promise<void> {
+  private async deleteExpiredBehavioralData(_cutoffDate: string, _userId?: number): Promise<void> {
     // TODO: Implementar deleção de dados comportamentais
   }
 
-  private async anonymizeExpiredContactData(cutoffDate: string, userId?: number): Promise<void> {
+  private async anonymizeExpiredContactData(_cutoffDate: string, _userId?: number): Promise<void> {
     // TODO: Implementar anonimização de dados de contato
   }
 
-  private async deleteIdentificationData(userId?: number): Promise<void> {
+  private async deleteIdentificationData(_userId?: number): Promise<void> {
     // TODO: Implementar deleção de dados de identificação
   }
 
-  private generateRecommendations(data: any): string[] {
+  private generateRecommendations(data: {
+    activeConsents: number;
+    withdrawnConsents: number;
+    auditSummary: Array<{ total_activities: number; action: string; legal_basis: string }>;
+  }): string[] {
     const recommendations: string[] = [];
 
     if (data.withdrawnConsents > data.activeConsents * 0.1) {
@@ -850,22 +854,22 @@ export class LGPDComplianceManager {
     return recommendations;
   }
 
-  private convertDbConsentToConsent(dbConsent: any): LGPDConsent {
+  private convertDbConsentToConsent(dbConsent: Record<string, unknown>): LGPDConsent {
     return {
-      id: dbConsent.id,
-      user_id: dbConsent.user_id,
-      consent_type: dbConsent.consent_type,
-      purpose: dbConsent.purpose,
-      legal_basis: dbConsent.legal_basis,
+      id: dbConsent.id as number,
+      user_id: dbConsent.user_id as number,
+      consent_type: dbConsent.consent_type as string,
+      purpose: dbConsent.purpose as string,
+      legal_basis: dbConsent.legal_basis as string,
       is_given: Boolean(dbConsent.is_given),
-      consent_method: dbConsent.consent_method,
-      consent_evidence: dbConsent.consent_evidence,
-      ip_address: dbConsent.ip_address,
-      user_agent: dbConsent.user_agent,
-      expires_at: dbConsent.expires_at,
-      withdrawn_at: dbConsent.withdrawn_at,
-      withdrawal_reason: dbConsent.withdrawal_reason,
-      created_at: dbConsent.created_at
+      consent_method: (dbConsent.consent_method as string | null) ?? undefined,
+      consent_evidence: (dbConsent.consent_evidence as string | null) ?? undefined,
+      ip_address: (dbConsent.ip_address as string | null) ?? undefined,
+      user_agent: (dbConsent.user_agent as string | null) ?? undefined,
+      expires_at: (dbConsent.expires_at as string | null) ?? undefined,
+      withdrawn_at: (dbConsent.withdrawn_at as string | null) ?? undefined,
+      withdrawal_reason: (dbConsent.withdrawal_reason as string | null) ?? undefined,
+      created_at: dbConsent.created_at as string
     };
   }
 }

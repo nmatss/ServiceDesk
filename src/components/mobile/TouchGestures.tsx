@@ -11,7 +11,6 @@
  */
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { logger } from '@/lib/monitoring/logger';
 
 interface TouchPoint {
   x: number;
@@ -91,6 +90,8 @@ export default function TouchGestures({
       if (disabled) return;
 
       const touch = e.touches[0];
+      if (!touch) return;
+
       const now = Date.now();
 
       touchStartRef.current = {
@@ -101,9 +102,13 @@ export default function TouchGestures({
 
       // Handle pinch zoom (two fingers)
       if (e.touches.length === 2) {
-        isPinchingRef.current = true;
-        initialPinchDistanceRef.current = getDistance(e.touches[0], e.touches[1]);
-        currentPinchScaleRef.current = 1;
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          isPinchingRef.current = true;
+          initialPinchDistanceRef.current = getDistance(touch1, touch2);
+          currentPinchScaleRef.current = 1;
+        }
         return;
       }
 
@@ -165,12 +170,16 @@ export default function TouchGestures({
 
       // Handle pinch zoom
       if (isPinchingRef.current && e.touches.length === 2) {
-        const currentDistance = getDistance(e.touches[0], e.touches[1]);
-        const scale = currentDistance / initialPinchDistanceRef.current;
-        currentPinchScaleRef.current = scale;
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          const currentDistance = getDistance(touch1, touch2);
+          const scale = currentDistance / initialPinchDistanceRef.current;
+          currentPinchScaleRef.current = scale;
 
-        callbacks.onPinchZoom?.(scale * mergedConfig.pinchSensitivity);
-        e.preventDefault();
+          callbacks.onPinchZoom?.(scale * mergedConfig.pinchSensitivity);
+          e.preventDefault();
+        }
         return;
       }
 
@@ -182,11 +191,13 @@ export default function TouchGestures({
         window.scrollY === 0
       ) {
         const touch = e.touches[0];
-        const deltaY = touch.clientY - touchStartRef.current.y;
+        if (touch) {
+          const deltaY = touch.clientY - touchStartRef.current.y;
 
-        if (deltaY > 0 && deltaY < mergedConfig.pullToRefreshThreshold * 2) {
-          setPullDistance(deltaY);
-          e.preventDefault();
+          if (deltaY > 0 && deltaY < mergedConfig.pullToRefreshThreshold * 2) {
+            setPullDistance(deltaY);
+            e.preventDefault();
+          }
         }
       }
     },
@@ -227,8 +238,8 @@ export default function TouchGestures({
             setIsRefreshing(false);
             setPullDistance(0);
           })
-          .catch((error) => {
-            logger.error('Pull to refresh error', error);
+          .catch((error: Error) => {
+            console.error('Pull to refresh error:', error);
             setIsRefreshing(false);
             setPullDistance(0);
           });
@@ -240,6 +251,8 @@ export default function TouchGestures({
       if (!touchStartRef.current) return;
 
       const touch = e.changedTouches[0];
+      if (!touch) return;
+
       touchEndRef.current = {
         x: touch.clientX,
         y: touch.clientY,
@@ -307,16 +320,21 @@ export default function TouchGestures({
     const container = containerRef.current;
     if (!container) return;
 
-    container.addEventListener('touchstart', handleTouchStart, { passive: false });
-    container.addEventListener('touchmove', handleTouchMove, { passive: false });
-    container.addEventListener('touchend', handleTouchEnd);
-    container.addEventListener('touchcancel', handleTouchCancel);
+    const touchStartHandler = handleTouchStart as EventListener;
+    const touchMoveHandler = handleTouchMove as EventListener;
+    const touchEndHandler = handleTouchEnd as EventListener;
+    const touchCancelHandler = handleTouchCancel as EventListener;
+
+    container.addEventListener('touchstart', touchStartHandler, { passive: false });
+    container.addEventListener('touchmove', touchMoveHandler, { passive: false });
+    container.addEventListener('touchend', touchEndHandler);
+    container.addEventListener('touchcancel', touchCancelHandler);
 
     return () => {
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('touchcancel', handleTouchCancel);
+      container.removeEventListener('touchstart', touchStartHandler);
+      container.removeEventListener('touchmove', touchMoveHandler);
+      container.removeEventListener('touchend', touchEndHandler);
+      container.removeEventListener('touchcancel', touchCancelHandler);
 
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
@@ -408,6 +426,8 @@ export function useTouchGestures(callbacks: GestureCallbacks, config?: GestureCo
 
     const handleTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
+      if (!touch) return;
+
       const now = Date.now();
 
       touchStart = {
@@ -417,8 +437,12 @@ export function useTouchGestures(callbacks: GestureCallbacks, config?: GestureCo
       };
 
       if (e.touches.length === 2) {
-        isPinching = true;
-        initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          isPinching = true;
+          initialPinchDistance = getDistance(touch1, touch2);
+        }
         return;
       }
 
@@ -452,10 +476,14 @@ export function useTouchGestures(callbacks: GestureCallbacks, config?: GestureCo
       }
 
       if (isPinching && e.touches.length === 2) {
-        const currentDistance = getDistance(e.touches[0], e.touches[1]);
-        const scale = currentDistance / initialPinchDistance;
-        callbacks.onPinchZoom?.(scale * mergedConfig.pinchSensitivity);
-        e.preventDefault();
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          const currentDistance = getDistance(touch1, touch2);
+          const scale = currentDistance / initialPinchDistance;
+          callbacks.onPinchZoom?.(scale * mergedConfig.pinchSensitivity);
+          e.preventDefault();
+        }
       }
     };
 
@@ -474,6 +502,8 @@ export function useTouchGestures(callbacks: GestureCallbacks, config?: GestureCo
       if (!touchStart) return;
 
       const touch = e.changedTouches[0];
+      if (!touch) return;
+
       const deltaX = touch.clientX - touchStart.x;
       const deltaY = touch.clientY - touchStart.y;
       const absX = Math.abs(deltaX);
@@ -492,14 +522,18 @@ export function useTouchGestures(callbacks: GestureCallbacks, config?: GestureCo
       touchStart = null;
     };
 
-    element.addEventListener('touchstart', handleTouchStart, { passive: false });
-    element.addEventListener('touchmove', handleTouchMove, { passive: false });
-    element.addEventListener('touchend', handleTouchEnd);
+    const touchStartHandler = handleTouchStart as EventListener;
+    const touchMoveHandler = handleTouchMove as EventListener;
+    const touchEndHandler = handleTouchEnd as EventListener;
+
+    element.addEventListener('touchstart', touchStartHandler, { passive: false });
+    element.addEventListener('touchmove', touchMoveHandler, { passive: false });
+    element.addEventListener('touchend', touchEndHandler);
 
     return () => {
-      element.removeEventListener('touchstart', handleTouchStart);
-      element.removeEventListener('touchmove', handleTouchMove);
-      element.removeEventListener('touchend', handleTouchEnd);
+      element.removeEventListener('touchstart', touchStartHandler);
+      element.removeEventListener('touchmove', touchMoveHandler);
+      element.removeEventListener('touchend', touchEndHandler);
       if (longPressTimer) clearTimeout(longPressTimer);
     };
   }, [callbacks, config]);

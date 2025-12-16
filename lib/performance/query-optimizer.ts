@@ -4,7 +4,7 @@
  */
 
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface QueryAnalysis {
   query: string;
@@ -57,7 +57,7 @@ export class QueryOptimizer {
 
       // Execute the actual query to get real performance metrics
       const stmt = db.prepare(query);
-      const result = stmt.all(...params);
+      stmt.all(...params);
 
       const executionTime = performance.now() - startTime;
 
@@ -143,8 +143,6 @@ export class QueryOptimizer {
    * Create optimal indexes based on query patterns
    */
   suggestIndexes(): string[] {
-    const suggestions: string[] = [];
-
     // Common indexes for ServiceDesk schema
     const commonIndexSuggestions = [
       'CREATE INDEX IF NOT EXISTS idx_tickets_status_priority ON tickets(status_id, priority_id);',

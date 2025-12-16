@@ -1,6 +1,6 @@
 import { NotificationPayload } from './realtime-engine'
 import { getDb } from '@/lib/db'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface BatchConfig {
   maxBatchSize: number
@@ -17,7 +17,7 @@ export interface NotificationBatch {
   createdAt: Date
   scheduledAt: Date
   config: BatchConfig
-  metadata?: any
+  metadata?: Record<string, unknown>
 }
 
 export interface BatchedNotification {
@@ -32,6 +32,7 @@ export class NotificationBatchingEngine {
   private activeBatches = new Map<string, NotificationBatch>()
   private batchConfigs = new Map<string, BatchConfig>()
   private batchTimers = new Map<string, NodeJS.Timeout>()
+  private readonly MAX_ACTIVE_BATCHES = 10000
 
   // Default batch configurations
   private readonly DEFAULT_CONFIGS: Record<string, BatchConfig> = {
@@ -91,9 +92,17 @@ export class NotificationBatchingEngine {
 
   private loadCustomBatchConfigs() {
     try {
+      interface BatchConfigRow {
+        batch_key: string;
+        max_batch_size: number;
+        max_wait_time: number;
+        group_by: 'user' | 'ticket' | 'type' | 'priority' | 'custom';
+        custom_grouper?: string;
+      }
+
       const configs = this.db.prepare(`
         SELECT * FROM batch_configurations WHERE is_active = 1
-      `).all() as any[]
+      `).all() as BatchConfigRow[]
 
       for (const config of configs) {
         this.batchConfigs.set(config.batch_key, {
@@ -101,7 +110,7 @@ export class NotificationBatchingEngine {
           maxWaitTime: config.max_wait_time,
           batchKey: config.batch_key,
           groupBy: config.group_by,
-          customGrouper: config.custom_grouper ? eval(config.custom_grouper) : undefined
+          customGrouper: config.custom_grouper ? eval(config.custom_grouper) as (notification: NotificationPayload) => string : undefined
         })
       }
     } catch (error) {
@@ -123,20 +132,36 @@ export class NotificationBatchingEngine {
 
   private loadPersistedBatches() {
     try {
+      interface BatchRow {
+        id: string;
+        batch_key: string;
+        notifications: string;
+        target_users: string;
+        created_at: string;
+        scheduled_at: string;
+        metadata?: string;
+      }
+
       const batches = this.db.prepare(`
         SELECT * FROM notification_batches
         WHERE status = 'pending' AND scheduled_at > datetime('now')
-      `).all() as any[]
+      `).all() as BatchRow[]
 
       for (const batchData of batches) {
+        const config = this.batchConfigs.get(batchData.batch_key);
+        if (!config) {
+          logger.warn(`Batch config not found for ${batchData.batch_key}, skipping batch`);
+          continue;
+        }
+
         const batch: NotificationBatch = {
           id: batchData.id,
-          notifications: JSON.parse(batchData.notifications),
-          targetUsers: JSON.parse(batchData.target_users),
+          notifications: JSON.parse(batchData.notifications) as NotificationPayload[],
+          targetUsers: JSON.parse(batchData.target_users) as number[],
           createdAt: new Date(batchData.created_at),
           scheduledAt: new Date(batchData.scheduled_at),
-          config: this.batchConfigs.get(batchData.batch_key) || this.DEFAULT_CONFIGS.digest_email,
-          metadata: batchData.metadata ? JSON.parse(batchData.metadata) : undefined
+          config,
+          metadata: batchData.metadata ? JSON.parse(batchData.metadata) as Record<string, unknown> : undefined
         }
 
         this.activeBatches.set(batch.id, batch)
@@ -151,7 +176,11 @@ export class NotificationBatchingEngine {
 
   public addToBatch(notification: NotificationPayload, targetUsers: number[]): string {
     const batchKey = this.determineBatchKey(notification)
-    const config = this.batchConfigs.get(batchKey) || this.DEFAULT_CONFIGS.digest_email
+    const config = this.batchConfigs.get(batchKey);
+    if (!config) {
+      logger.warn(`Batch config not found for ${batchKey}, using default`);
+      return '';
+    }
 
     // Create group key for batching
     const groupKey = this.createGroupKey(notification, config)
@@ -171,6 +200,20 @@ export class NotificationBatchingEngine {
       logger.info(`Added notification to existing batch ${existingBatch.id} (${existingBatch.notifications.length}/${config.maxBatchSize})`)
       return existingBatch.id
     } else {
+      // Verificar limite máximo de batches ativos
+      if (this.activeBatches.size >= this.MAX_ACTIVE_BATCHES) {
+        // Remover batch mais antigo
+        const oldestKey = this.activeBatches.keys().next().value
+        if (oldestKey) {
+          this.activeBatches.delete(oldestKey)
+          const timer = this.batchTimers.get(oldestKey)
+          if (timer) {
+            clearTimeout(timer)
+            this.batchTimers.delete(oldestKey)
+          }
+        }
+      }
+
       // Create new batch
       const newBatch: NotificationBatch = {
         id: batchId,
@@ -196,7 +239,7 @@ export class NotificationBatchingEngine {
 
   private determineBatchKey(notification: NotificationPayload): string {
     // Check if notification specifies a batch key
-    if (notification.metadata?.batchKey) {
+    if (notification.metadata?.batchKey && typeof notification.metadata.batchKey === 'string') {
       return notification.metadata.batchKey
     }
 
@@ -259,13 +302,13 @@ export class NotificationBatchingEngine {
     }
   }
 
-  private findExistingBatch(batchKey: string, groupKey: string): NotificationBatch | null {
+  private findExistingBatch(batchKey: string, groupKey: string): NotificationBatch | undefined {
     for (const batch of this.activeBatches.values()) {
       if (batch.metadata?.batchKey === batchKey && batch.metadata?.groupKey === groupKey) {
         return batch
       }
     }
-    return null
+    return undefined
   }
 
   private scheduleBatchExecution(batch: NotificationBatch) {
@@ -285,11 +328,11 @@ export class NotificationBatchingEngine {
     this.batchTimers.set(batch.id, timer)
   }
 
-  private async executeBatch(batchId: string) {
+  private async executeBatch(batchId: string): Promise<NotificationPayload | undefined> {
     const batch = this.activeBatches.get(batchId)
     if (!batch) {
       logger.warn(`Batch ${batchId} not found for execution`)
-      return
+      return undefined
     }
 
     try {
@@ -299,7 +342,7 @@ export class NotificationBatchingEngine {
       const combinedNotification = this.createCombinedNotification(batch)
 
       // Mark batch as ready for delivery
-      batch.metadata = { ...batch.metadata, status: 'ready', executedAt: new Date() }
+      batch.metadata = { ...batch.metadata, status: 'ready', executedAt: new Date().toISOString() }
 
       // Update database
       this.updateBatchStatus(batchId, 'ready')
@@ -316,6 +359,7 @@ export class NotificationBatchingEngine {
     } catch (error) {
       logger.error(`Error executing batch ${batchId}:`, error)
       this.updateBatchStatus(batchId, 'failed')
+      return undefined
     }
   }
 
@@ -392,19 +436,20 @@ export class NotificationBatchingEngine {
     const totalCount = batch.notifications.length
     const typeCount = notificationsByType.size
 
-    if (totalCount === 1) {
+    if (totalCount === 1 && batch.notifications[0]) {
       return batch.notifications[0].title
     }
 
     const config = batch.config
+    const firstNotification = batch.notifications[0];
 
     switch (config.batchKey) {
       case 'digest_email':
         return `Resumo de Notificações - ${totalCount} atualizações`
 
       case 'ticket_updates':
-        const ticketId = batch.notifications[0].ticketId
-        return `Atualizações do Ticket #${ticketId} - ${totalCount} itens`
+        const ticketId = firstNotification?.ticketId
+        return `Atualizações do Ticket #${ticketId || 'N/A'} - ${totalCount} itens`
 
       case 'sla_warnings':
         return `Avisos de SLA - ${totalCount} tickets próximos do vencimento`
@@ -413,8 +458,8 @@ export class NotificationBatchingEngine {
         return `Alertas do Sistema - ${totalCount} notificações`
 
       case 'comment_notifications':
-        const commentTicketId = batch.notifications[0].ticketId
-        return `Novos Comentários - Ticket #${commentTicketId}`
+        const commentTicketId = firstNotification?.ticketId
+        return `Novos Comentários - Ticket #${commentTicketId || 'N/A'}`
 
       case 'status_updates':
         return `Atualizações de Status - ${totalCount} mudanças`
@@ -422,14 +467,13 @@ export class NotificationBatchingEngine {
       default:
         if (typeCount === 1) {
           const type = Array.from(notificationsByType.keys())[0]
-          return `${this.getTypeDisplayName(type)} - ${totalCount} notificações`
+          return `${this.getTypeDisplayName(type || 'unknown')} - ${totalCount} notificações`
         }
         return `${totalCount} Notificações - ${typeCount} tipos`
     }
   }
 
   private createBatchMessage(batch: NotificationBatch, notificationsByType: Map<string, NotificationPayload[]>): string {
-    const notifications = batch.notifications
     const config = batch.config
 
     let message = ''
@@ -455,7 +499,7 @@ export class NotificationBatchingEngine {
     return message.trim()
   }
 
-  private createTargetedBatchMessage(batch: NotificationBatch, notificationsByType: Map<string, NotificationPayload[]>): string {
+  private createTargetedBatchMessage(batch: NotificationBatch, _notificationsByType: Map<string, NotificationPayload[]>): string {
     const config = batch.config
     const notifications = batch.notifications
 
@@ -566,24 +610,34 @@ export class NotificationBatchingEngine {
   // Public methods for batch management
   public getReadyBatches(): Array<{ notification: NotificationPayload; targetUsers: number[] }> {
     try {
+      interface ReadyBatchRow {
+        id: string;
+        notifications: string;
+        target_users: string;
+        created_at: string;
+        scheduled_at: string;
+        config: string;
+        metadata?: string;
+      }
+
       const readyBatches = this.db.prepare(`
         SELECT * FROM notification_batches
         WHERE status = 'ready'
         ORDER BY created_at ASC
         LIMIT 50
-      `).all() as any[]
+      `).all() as ReadyBatchRow[]
 
       const results: Array<{ notification: NotificationPayload; targetUsers: number[] }> = []
 
       for (const batchData of readyBatches) {
         const batch: NotificationBatch = {
           id: batchData.id,
-          notifications: JSON.parse(batchData.notifications),
-          targetUsers: JSON.parse(batchData.target_users),
+          notifications: JSON.parse(batchData.notifications) as NotificationPayload[],
+          targetUsers: JSON.parse(batchData.target_users) as number[],
           createdAt: new Date(batchData.created_at),
           scheduledAt: new Date(batchData.scheduled_at),
-          config: JSON.parse(batchData.config),
-          metadata: batchData.metadata ? JSON.parse(batchData.metadata) : undefined
+          config: JSON.parse(batchData.config) as BatchConfig,
+          metadata: batchData.metadata ? JSON.parse(batchData.metadata) as Record<string, unknown> : undefined
         }
 
         const combinedNotification = this.createCombinedNotification(batch)
@@ -617,7 +671,15 @@ export class NotificationBatchingEngine {
     }
   }
 
-  public getBatchStatus(batchId: string): any {
+  public getBatchStatus(batchId: string): {
+    id: string;
+    status: string;
+    notificationCount: number;
+    targetUserCount: number;
+    scheduledAt: Date;
+    createdAt: Date;
+    updatedAt?: Date;
+  } | null {
     const activeBatch = this.activeBatches.get(batchId)
     if (activeBatch) {
       return {
@@ -632,16 +694,26 @@ export class NotificationBatchingEngine {
 
     // Check database for completed batches
     try {
+      interface BatchStatusRow {
+        id: string;
+        status: string;
+        notifications: string;
+        target_users: string;
+        scheduled_at: string;
+        created_at: string;
+        updated_at?: string;
+      }
+
       const batch = this.db.prepare(`
         SELECT * FROM notification_batches WHERE id = ?
-      `).get(batchId) as any
+      `).get(batchId) as BatchStatusRow | undefined
 
       if (batch) {
         return {
           id: batchId,
           status: batch.status,
-          notificationCount: JSON.parse(batch.notifications).length,
-          targetUserCount: JSON.parse(batch.target_users).length,
+          notificationCount: (JSON.parse(batch.notifications) as NotificationPayload[]).length,
+          targetUserCount: (JSON.parse(batch.target_users) as number[]).length,
           scheduledAt: new Date(batch.scheduled_at),
           createdAt: new Date(batch.created_at),
           updatedAt: batch.updated_at ? new Date(batch.updated_at) : undefined

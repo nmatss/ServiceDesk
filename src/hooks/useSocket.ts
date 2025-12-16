@@ -39,22 +39,20 @@ export function useSocket(): UseSocketReturn {
   const [isConnected, setIsConnected] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const activeNotificationsRef = useRef<Set<Notification>>(new Set())
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-
-    if (!token) {
-      logger.warn('No auth token found for socket connection')
-      return
-    }
+    // SECURITY: Socket.io connection uses withCredentials to pass httpOnly cookies
+    // Note: WebSocket connections don't automatically receive httpOnly cookies in the handshake,
+    // but Socket.io's polling fallback does, and the server can use session-based auth
 
     // Criar conexão socket
     const socket = io(process.env.NODE_ENV === 'production'
       ? process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin
       : 'http://localhost:3000', {
-      auth: {
-        token
-      },
+      // Use withCredentials to send cookies with the connection
+      withCredentials: true,
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
@@ -100,11 +98,20 @@ export function useSocket(): UseSocketReturn {
             requireInteraction: notification.priority === 'high'
           })
 
+          // Track active notification for cleanup
+          activeNotificationsRef.current.add(browserNotification as any)
+
           // Auto-fechar após 5 segundos (exceto prioridade alta)
           if (notification.priority !== 'high') {
             setTimeout(() => {
               browserNotification.close()
+              activeNotificationsRef.current.delete(browserNotification as any)
             }, 5000)
+          } else {
+            // Remove from tracking when closed by user
+            browserNotification.onclose = () => {
+              activeNotificationsRef.current.delete(browserNotification as any)
+            }
           }
         } else if (Notification.permission === 'default') {
           // Solicitar permissão
@@ -119,11 +126,25 @@ export function useSocket(): UseSocketReturn {
       // Tocar som de notificação
       if (typeof window !== 'undefined') {
         try {
+          // Stop and cleanup previous audio if exists
+          if (audioRef.current) {
+            audioRef.current.pause()
+            audioRef.current.currentTime = 0
+            audioRef.current = null
+          }
+
           const audio = new Audio('/sounds/notification.mp3')
           audio.volume = 0.3
+          audioRef.current = audio
+
           audio.play().catch(e => {
             logger.info('Could not play notification sound', e)
           })
+
+          // Cleanup audio after it finishes
+          audio.onended = () => {
+            audioRef.current = null
+          }
         } catch (e) {
           logger.info('Audio not available')
         }
@@ -157,6 +178,24 @@ export function useSocket(): UseSocketReturn {
     // Cleanup na desmontagem
     return () => {
       logger.info('🧹 Cleaning up socket connection')
+
+      // Close all active browser notifications
+      activeNotificationsRef.current.forEach(notification => {
+        try {
+          notification.close()
+        } catch (e) {
+          // Notification may already be closed
+        }
+      })
+      activeNotificationsRef.current.clear()
+
+      // Stop and cleanup audio
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+        audioRef.current = null
+      }
+
       socket.disconnect()
       socketRef.current = null
       setIsConnected(false)

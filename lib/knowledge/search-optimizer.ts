@@ -1,8 +1,6 @@
 // Search analytics e otimização de busca
-import { db } from '../db/connection';
-import { vectorSearchEngine } from './vector-search';
-import { elasticsearchIntegration } from './elasticsearch-integration';
-import { logger } from '../monitoring/logger';
+import db from '../db/connection';
+import logger from '../monitoring/structured-logger';
 
 interface SearchAnalytics {
   id: number;
@@ -122,7 +120,7 @@ export class SearchOptimizer {
         })
       ]);
 
-      return result.lastID!;
+      return result.lastInsertRowid as number;
     } catch (error) {
       logger.error('Erro ao registrar busca', error);
       throw error;

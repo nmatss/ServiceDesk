@@ -93,17 +93,17 @@ export class ConnectionPool extends EventEmitter {
   /**
    * Initialize the connection pool
    */
-  private async initialize(): Promise<void> {
+  private initialize(): void {
     try {
       // Create minimum connections
       for (let i = 0; i < this.config.minConnections; i++) {
-        await this.createConnection();
+        this.createConnection();
       }
 
       // Initialize read replicas if enabled
       if (this.config.enableReadReplicas && this.config.readReplicaUrls) {
         for (const replicaUrl of this.config.readReplicaUrls) {
-          await this.createReadConnection(replicaUrl);
+          this.createReadConnection(replicaUrl);
         }
       }
 
@@ -134,7 +134,7 @@ export class ConnectionPool extends EventEmitter {
 
       // Create new connection if under limit
       if (this.connections.size < this.config.maxConnections) {
-        const newConnection = await this.createConnection();
+        const newConnection = this.createConnection();
         this.markConnectionActive(newConnection);
         this.updateAcquireStats(startTime);
         return newConnection;
@@ -211,7 +211,7 @@ export class ConnectionPool extends EventEmitter {
 
     try {
       const transaction = connection.database.transaction(operations);
-      return transaction();
+      return transaction(connection.database);
     } finally {
       this.release(connection);
     }
@@ -359,7 +359,7 @@ export class ConnectionPool extends EventEmitter {
     }
   }
 
-  private async createConnection(): Promise<PooledConnection> {
+  private createConnection(): PooledConnection {
     const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     try {
@@ -400,7 +400,7 @@ export class ConnectionPool extends EventEmitter {
     }
   }
 
-  private async createReadConnection(url: string): Promise<PooledConnection> {
+  private createReadConnection(url: string): PooledConnection {
     const connectionId = `read_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     try {

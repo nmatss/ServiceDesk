@@ -20,7 +20,7 @@ export async function GET(
     // Get file info from database
     const fileRecord = db.prepare(
       'SELECT * FROM file_storage WHERE file_path = ?'
-    ).get(decodedPath)
+    ).get(decodedPath) as any
 
     if (!fileRecord) {
       return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 })
@@ -126,7 +126,7 @@ export async function DELETE(
     // Get file record
     const fileRecord = db.prepare(
       'SELECT * FROM file_storage WHERE file_path = ? AND tenant_id = ?'
-    ).get(decodedPath, tenantContext.id)
+    ).get(decodedPath, tenantContext.id) as any
 
     if (!fileRecord) {
       return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 })

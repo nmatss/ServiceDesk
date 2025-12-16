@@ -3,18 +3,16 @@
  * Orchestrates all AI-powered ticket operations with enterprise-grade features
  */
 
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import type {
   Ticket,
   CreateTicket,
   Category,
   Priority,
-  User,
-  AIClassification,
-  AISuggestion,
-  CreateAIClassification,
-  CreateAISuggestion
+  User
 } from '../types/database';
+// TODO: Import these types when database integration is ready
+// import type { CreateAIClassification, CreateAISuggestion } from '../types/database';
 
 export interface SmartTicketAnalysis {
   category: {
@@ -82,10 +80,49 @@ export interface SmartEngineConfig {
   };
 }
 
+// Internal type definitions
+interface AIModelResponse {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+}
+
+interface SentimentResult {
+  score: number;
+  label: 'negative' | 'neutral' | 'positive';
+  urgencyFactors: string[];
+}
+
+interface SolutionSuggestion {
+  type: 'knowledge_base' | 'similar_tickets' | 'ai_generated';
+  content: string;
+  confidence: number;
+  source?: string;
+}
+
+interface EscalationFeatures {
+  complexity: number;
+  urgencyKeywords: string[];
+  technicalDepth: number;
+}
+
+interface ResolutionFactors {
+  category: Category;
+  priority: Priority;
+  complexity: 'low' | 'medium' | 'high' | 'critical';
+  sentiment: SentimentResult;
+}
+
+interface AnalysisMetrics {
+  processingTime: number;
+  ticketId?: number;
+  features: string[];
+}
+
 class SmartTicketEngine {
   private config: SmartEngineConfig;
-  private models: Map<string, any> = new Map();
-  private cache: Map<string, any> = new Map();
 
   constructor(config?: Partial<SmartEngineConfig>) {
     this.config = {
@@ -169,7 +206,7 @@ class SmartTicketEngine {
       // Log performance metrics
       this.logAnalysisMetrics({
         processingTime: Date.now() - startTime,
-        ticketId: (ticketData as any).id,
+        ticketId: 'id' in ticketData ? (ticketData as { id: number }).id : undefined,
         features: Object.keys(this.config.features).filter(f => this.config.features[f as keyof typeof this.config.features])
       });
 
@@ -187,7 +224,12 @@ class SmartTicketEngine {
   private async analyzeCategory(
     ticketData: CreateTicket | { title: string; description: string; },
     availableCategories?: Category[]
-  ) {
+  ): Promise<{
+    suggested: Category;
+    confidence: number;
+    reasoning: string;
+    alternatives: Array<{ category: Category; confidence: number; }>;
+  }> {
     if (!this.config.features.autoClassification) {
       throw new Error('Auto-classification is disabled');
     }
@@ -199,11 +241,35 @@ class SmartTicketEngine {
       const response = await this.callAIModel('classification', prompt);
       const result = this.parseClassificationResponse(response);
 
+      // Find the category object from the ID
+      const category = availableCategories?.find(c => c.id === result.category_id) || {
+        id: result.category_id,
+        name: 'Unknown',
+        description: '',
+        icon: '',
+        color: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const alternatives = result.alternatives.map(alt => ({
+        category: availableCategories?.find(c => c.id === alt.category_id) || {
+          id: alt.category_id,
+          name: 'Unknown',
+          description: '',
+          icon: '',
+          color: '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        confidence: alt.confidence
+      }));
+
       return {
-        suggested: result.category,
+        suggested: category,
         confidence: result.confidence,
         reasoning: result.reasoning,
-        alternatives: result.alternatives || []
+        alternatives
       };
     } catch (error) {
       logger.error('Category analysis failed', error);
@@ -217,15 +283,30 @@ class SmartTicketEngine {
   private async analyzePriority(
     ticketData: CreateTicket | { title: string; description: string; },
     availablePriorities?: Priority[]
-  ) {
+  ): Promise<{
+    suggested: Priority;
+    confidence: number;
+    reasoning: string;
+    urgencyIndicators: string[];
+  }> {
     const prompt = this.buildPriorityPrompt(ticketData, availablePriorities);
 
     try {
       const response = await this.callAIModel('classification', prompt);
       const result = this.parsePriorityResponse(response);
 
+      // Find the priority object from the ID
+      const priority = availablePriorities?.find(p => p.id === result.priority_id) || {
+        id: result.priority_id,
+        name: 'Unknown',
+        level: 1,
+        color: '#gray',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
       return {
-        suggested: result.priority,
+        suggested: priority,
         confidence: result.confidence,
         reasoning: result.reasoning,
         urgencyIndicators: result.urgencyIndicators
@@ -423,50 +504,55 @@ class SmartTicketEngine {
     analysis: SmartTicketAnalysis
   ): Promise<void> {
     try {
+      // TODO: Store AI classifications when database integration is ready
       // Store AI classifications
-      const classification: CreateAIClassification = {
-        ticket_id: ticketId,
-        suggested_category_id: analysis.category.suggested.id,
-        suggested_priority_id: analysis.priority.suggested.id,
-        confidence_score: Math.min(
-          analysis.category.confidence,
-          analysis.priority.confidence
-        ),
-        reasoning: `Category: ${analysis.category.reasoning}. Priority: ${analysis.priority.reasoning}`,
-        model_name: this.config.models.classification,
-        model_version: '2024-08-06',
-        processing_time_ms: 0 // Will be set by database
-      };
+      // const classification: Partial<CreateAIClassification> = {
+      //   ticket_id: ticketId,
+      //   suggested_category_id: analysis.category.suggested.id,
+      //   suggested_priority_id: analysis.priority.suggested.id,
+      //   confidence_score: Math.min(
+      //     analysis.category.confidence,
+      //     analysis.priority.confidence
+      //   ),
+      //   reasoning: `Category: ${analysis.category.reasoning}. Priority: ${analysis.priority.reasoning}`,
+      //   model_name: this.config.models.classification,
+      //   model_version: '2024-08-06',
+      //   processing_time_ms: 0 // Will be set by database
+      // };
+      // await aiClassificationQueries.create(classification);
 
       // Store solution suggestions
       for (const suggestion of analysis.solutions.suggestions) {
-        const aiSuggestion: CreateAISuggestion = {
-          ticket_id: ticketId,
-          suggestion_type: 'solution',
-          content: suggestion.content,
-          confidence_score: suggestion.confidence,
-          model_name: this.config.models.suggestion,
-          source_type: suggestion.type,
-          reasoning: `Generated based on ${suggestion.type} analysis`
-        };
-
-        // Store in database (implementation depends on your ORM/query system)
+        // const aiSuggestion: Partial<CreateAISuggestion> = {
+        //   ticket_id: ticketId,
+        //   suggestion_type: 'solution',
+        //   content: suggestion.content,
+        //   suggested_content: suggestion.content,
+        //   confidence_score: suggestion.confidence,
+        //   model_name: this.config.models.suggestion,
+        //   reasoning: `Generated based on ${suggestion.type} analysis`
+        // };
         // await aiSuggestionQueries.create(aiSuggestion);
+        void suggestion; // Prevent unused variable error
       }
 
       // Store escalation prediction
       if (analysis.escalation.predicted) {
-        const escalationSuggestion: CreateAISuggestion = {
-          ticket_id: ticketId,
-          suggestion_type: 'escalation',
-          content: `Escalation recommended: ${analysis.escalation.reasons.join(', ')}`,
-          confidence_score: analysis.escalation.probability,
-          model_name: this.config.models.classification,
-          reasoning: `Escalation probability: ${analysis.escalation.probability}`
-        };
-
+        // const escalationSuggestion: Partial<CreateAISuggestion> = {
+        //   ticket_id: ticketId,
+        //   suggestion_type: 'escalation',
+        //   content: `Escalation recommended: ${analysis.escalation.reasons.join(', ')}`,
+        //   suggested_content: `Escalation recommended: ${analysis.escalation.reasons.join(', ')}`,
+        //   confidence_score: analysis.escalation.probability,
+        //   model_name: this.config.models.classification,
+        //   reasoning: `Escalation probability: ${analysis.escalation.probability}`
+        // };
         // await aiSuggestionQueries.create(escalationSuggestion);
       }
+
+      // Prevent unused parameter errors
+      void ticketId;
+      void analysis;
 
     } catch (error) {
       logger.error('Failed to store analysis results', error);
@@ -539,9 +625,7 @@ Provide a JSON response with:
 `;
   }
 
-  private async callAIModel(modelType: string, prompt: string): Promise<any> {
-    const modelName = this.config.models[modelType as keyof typeof this.config.models];
-
+  private async callAIModel(_modelType: string, _prompt: string): Promise<AIModelResponse> {
     // Implementation would depend on your AI service provider
     // This is a placeholder for the actual API call
     return new Promise((resolve) => {
@@ -563,34 +647,62 @@ Provide a JSON response with:
     });
   }
 
-  private parseClassificationResponse(response: any): any {
+  private parseClassificationResponse(response: AIModelResponse): {
+    category_id: number;
+    confidence: number;
+    reasoning: string;
+    alternatives: Array<{ category_id: number; confidence: number; }>;
+  } {
     try {
-      const content = response.choices[0].message.content;
-      return JSON.parse(content);
+      const content = response.choices[0]?.message.content;
+      if (!content) {
+        throw new Error('Invalid AI response: missing content');
+      }
+      const parsed = JSON.parse(content) as {
+        category_id: number;
+        confidence: number;
+        reasoning: string;
+        alternatives: Array<{ category_id: number; confidence: number; }>;
+      };
+      return parsed;
     } catch (error) {
       logger.error('Failed to parse classification response', error);
       throw new Error('Invalid AI response format');
     }
   }
 
-  private parsePriorityResponse(response: any): any {
+  private parsePriorityResponse(response: AIModelResponse): {
+    priority_id: number;
+    confidence: number;
+    reasoning: string;
+    urgencyIndicators: string[];
+  } {
     try {
-      const content = response.choices[0].message.content;
-      return JSON.parse(content);
+      const content = response.choices[0]?.message.content;
+      if (!content) {
+        throw new Error('Invalid AI response: missing content');
+      }
+      const parsed = JSON.parse(content) as {
+        priority_id: number;
+        confidence: number;
+        reasoning: string;
+        urgencyIndicators: string[];
+      };
+      return parsed;
     } catch (error) {
       logger.error('Failed to parse priority response', error);
       throw new Error('Invalid AI response format');
     }
   }
 
-  private async generateEmbedding(text: string): Promise<number[]> {
+  private async generateEmbedding(_text: string): Promise<number[]> {
     // Placeholder for embedding generation
     // Would use OpenAI's text-embedding-3-small or similar
     return new Array(1536).fill(0).map(() => Math.random());
   }
 
   private calculateCosineSimilarity(a: number[], b: number[]): number {
-    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+    const dotProduct = a.reduce((sum, val, i) => sum + val * (b[i] ?? 0), 0);
     const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
     return dotProduct / (magnitudeA * magnitudeB);
@@ -611,7 +723,9 @@ Provide a JSON response with:
     );
   }
 
-  private async generateAISolutions(ticketData: any): Promise<any[]> {
+  private async generateAISolutions(
+    _ticketData: { title: string; description: string }
+  ): Promise<SolutionSuggestion[]> {
     // Placeholder for AI solution generation
     return [
       {
@@ -622,17 +736,23 @@ Provide a JSON response with:
     ];
   }
 
-  private async findKnowledgeBaseSolutions(ticketData: any): Promise<any[]> {
+  private async findKnowledgeBaseSolutions(
+    _ticketData: { title: string; description: string }
+  ): Promise<SolutionSuggestion[]> {
     // Placeholder for knowledge base search
     return [];
   }
 
-  private async findSimilarTicketSolutions(ticketData: any): Promise<any[]> {
+  private async findSimilarTicketSolutions(
+    _ticketData: { title: string; description: string }
+  ): Promise<SolutionSuggestion[]> {
     // Placeholder for similar ticket analysis
     return [];
   }
 
-  private extractEscalationFeatures(ticketData: any): any {
+  private extractEscalationFeatures(
+    ticketData: { title: string; description: string }
+  ): EscalationFeatures {
     return {
       complexity: this.estimateComplexity(ticketData),
       urgencyKeywords: this.findUrgencyKeywords(ticketData),
@@ -640,33 +760,37 @@ Provide a JSON response with:
     };
   }
 
-  private async calculateEscalationProbability(features: any): Promise<number> {
+  private async calculateEscalationProbability(_features: EscalationFeatures): Promise<number> {
     // Machine learning model would go here
     return Math.random() * 0.4 + 0.3; // Placeholder
   }
 
-  private generateEscalationReasons(features: any): string[] {
-    const reasons = [];
+  private generateEscalationReasons(features: EscalationFeatures): string[] {
+    const reasons: string[] = [];
     if (features.complexity > 0.7) reasons.push('High technical complexity');
     if (features.urgencyKeywords.length > 0) reasons.push('Urgent language detected');
     return reasons;
   }
 
-  private async findBestAgent(ticketData: any, agents: User[]): Promise<User | undefined> {
+  private async findBestAgent(
+    _ticketData: { title: string; description: string },
+    agents: User[]
+  ): Promise<User | undefined> {
     // Agent matching algorithm would go here
     return agents.find(agent => agent.role === 'agent');
   }
 
-  private async callSentimentModel(text: string): Promise<any> {
+  private async callSentimentModel(_text: string): Promise<SentimentResult> {
     // Placeholder for sentiment analysis
+    const randomScore = Math.random() * 2 - 1;
     return {
-      score: Math.random() * 2 - 1,
-      label: Math.random() > 0.5 ? 'positive' : 'negative',
+      score: randomScore,
+      label: randomScore > 0.3 ? 'positive' : randomScore < -0.3 ? 'negative' : 'neutral',
       urgencyFactors: []
     };
   }
 
-  private calculateResolutionTime(factors: any): number {
+  private calculateResolutionTime(factors: ResolutionFactors): number {
     // Basic algorithm - would be more sophisticated in practice
     let baseTime = 4; // 4 hours base
 
@@ -680,8 +804,8 @@ Provide a JSON response with:
   }
 
   private determineComplexity(
-    ticketData: any,
-    sentiment: any
+    ticketData: { title: string; description: string },
+    sentiment: SentimentResult
   ): 'low' | 'medium' | 'high' | 'critical' {
     const textLength = (ticketData.title + ticketData.description).length;
     const technicalTerms = this.countTechnicalTerms(ticketData);
@@ -692,21 +816,21 @@ Provide a JSON response with:
     return 'low';
   }
 
-  private estimateComplexity(ticketData: any): number {
+  private estimateComplexity(_ticketData: { title: string; description: string }): number {
     return Math.random(); // Placeholder
   }
 
-  private findUrgencyKeywords(ticketData: any): string[] {
+  private findUrgencyKeywords(ticketData: { title: string; description: string }): string[] {
     const urgentWords = ['urgent', 'critical', 'emergency', 'asap', 'immediately'];
     const text = `${ticketData.title} ${ticketData.description}`.toLowerCase();
     return urgentWords.filter(word => text.includes(word));
   }
 
-  private analyzeTechnicalDepth(ticketData: any): number {
+  private analyzeTechnicalDepth(ticketData: { title: string; description: string }): number {
     return this.countTechnicalTerms(ticketData) / 10; // Normalize
   }
 
-  private countTechnicalTerms(ticketData: any): number {
+  private countTechnicalTerms(ticketData: { title: string; description: string }): number {
     const technicalTerms = [
       'server', 'database', 'api', 'error', 'exception', 'timeout',
       'connection', 'authentication', 'ssl', 'firewall', 'network',
@@ -717,7 +841,7 @@ Provide a JSON response with:
     return technicalTerms.filter(term => text.includes(term)).length;
   }
 
-  private logAnalysisMetrics(metrics: any): void {
+  private logAnalysisMetrics(metrics: AnalysisMetrics): void {
     logger.info('Smart Ticket Analysis Metrics', metrics);
     // Could send to analytics service
   }
@@ -726,6 +850,5 @@ Provide a JSON response with:
 // Export singleton instance
 export const smartTicketEngine = new SmartTicketEngine();
 
-// Export types and classes
+// Export class
 export { SmartTicketEngine };
-export type { SmartEngineConfig };

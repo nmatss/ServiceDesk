@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/db'
 import { NotificationPayload } from './realtime-engine'
 import { QuietHoursManager } from './quiet-hours'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface DigestConfig {
   userId: number
@@ -580,7 +580,9 @@ export class DigestEngine {
 
   private calculateNextDeliveryTime(config: DigestConfig, currentTime: Date): Date {
     const userTime = this.convertToUserTimezone(currentTime, config.timezone)
-    const [deliveryHour, deliveryMinute] = config.deliveryTime.split(':').map(Number)
+    const timeParts = config.deliveryTime.split(':').map(Number);
+    const deliveryHour = timeParts[0] ?? 9;
+    const deliveryMinute = timeParts[1] ?? 0;
 
     const nextDelivery = new Date(userTime)
     nextDelivery.setHours(deliveryHour, deliveryMinute, 0, 0)

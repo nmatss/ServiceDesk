@@ -156,7 +156,7 @@ export class VersionDetector {
     const pathMatch = req.nextUrl.pathname.match(/^\/api\/(v\d+(?:\.\d+)?)\//)
     if (pathMatch) {
       const pathVersion = pathMatch[1]
-      if (this.registry.isVersionSupported(pathVersion)) {
+      if (pathVersion && this.registry.isVersionSupported(pathVersion)) {
         return pathVersion
       }
     }
@@ -173,7 +173,7 @@ export class VersionDetector {
       const versionMatch = contentType.match(/application\/vnd\.servicedesk\.(v\d+(?:\.\d+)?)\+json/)
       if (versionMatch) {
         const ctVersion = versionMatch[1]
-        if (this.registry.isVersionSupported(ctVersion)) {
+        if (ctVersion && this.registry.isVersionSupported(ctVersion)) {
           return ctVersion
         }
       }

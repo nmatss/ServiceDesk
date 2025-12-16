@@ -114,7 +114,6 @@ export function useThemeAwareClasses() {
 
 // Hook for smooth theme transitions
 export function useThemeTransition() {
-  const { resolvedTheme } = useTheme()
   const [isTransitioning, setIsTransitioning] = useState(false)
 
   const triggerTransition = (callback?: () => void) => {
@@ -169,7 +168,6 @@ export function useDynamicColorScheme() {
   const generateColorVariants = (baseColor: string) => {
     // Simple color manipulation for demo
     // In production, you'd use a proper color library
-    const lighter = baseColor + '20'
     const darker = baseColor.replace('#', '#0')
 
     return {

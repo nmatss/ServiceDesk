@@ -1,0 +1,289 @@
+# Prometheus Alert Rules for ServiceDesk
+#
+# Configure Prometheus to load these rules:
+# prometheus.yml:
+#   rule_files:
+#     - "alerts/prometheus-rules.yaml"
+
+groups:
+  # ===========================
+  # APPLICATION HEALTH ALERTS
+  # ===========================
+  - name: application_health
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          rate(servicedesk_http_requests_total{status_code=~"5.."}[5m])
+          / rate(servicedesk_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/high-error-rate"
+
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            rate(servicedesk_http_request_duration_seconds_bucket[5m])
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "Slow API response time"
+          description: "p95 response time is {{ $value }}s (threshold: 0.5s)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/slow-response"
+
+      - alert: ApplicationDown
+        expr: up{job="servicedesk"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "ServiceDesk application is down"
+          description: "Application has been unreachable for 1 minute"
+          runbook_url: "https://docs.servicedesk.com/runbooks/app-down"
+
+  # ===========================
+  # DATABASE ALERTS
+  # ===========================
+  - name: database_health
+    interval: 30s
+    rules:
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            rate(servicedesk_db_query_duration_seconds_bucket[5m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "p95 query time is {{ $value }}s (threshold: 0.1s) for {{ $labels.operation }} on {{ $labels.table }}"
+          runbook_url: "https://docs.servicedesk.com/runbooks/slow-queries"
+
+      - alert: HighDatabaseErrorRate
+        expr: |
+          rate(servicedesk_db_queries_total{status="error"}[5m])
+          / rate(servicedesk_db_queries_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "High database error rate"
+          description: "Database error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/db-errors"
+
+      - alert: TooManySlowQueries
+        expr: rate(servicedesk_db_slow_queries_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Too many slow queries"
+          description: "{{ $value }} slow queries/sec on {{ $labels.operation }}"
+          runbook_url: "https://docs.servicedesk.com/runbooks/slow-queries"
+
+  # ===========================
+  # SLA ALERTS
+  # ===========================
+  - name: sla_monitoring
+    interval: 1m
+    rules:
+      - alert: SLAComplianceLow
+        expr: servicedesk_sla_compliance_rate < 0.95
+        for: 15m
+        labels:
+          severity: warning
+          component: sla
+        annotations:
+          summary: "SLA compliance below target"
+          description: "SLA compliance is {{ $value | humanizePercentage }} for {{ $labels.priority }} (threshold: 95%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/sla-compliance"
+
+      - alert: SLAComplianceCritical
+        expr: servicedesk_sla_compliance_rate < 0.85
+        for: 10m
+        labels:
+          severity: critical
+          component: sla
+        annotations:
+          summary: "SLA compliance critically low"
+          description: "SLA compliance is {{ $value | humanizePercentage }} for {{ $labels.priority }} (threshold: 85%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/sla-compliance"
+
+      - alert: HighSLABreachRate
+        expr: rate(servicedesk_sla_breaches_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: sla
+        annotations:
+          summary: "High SLA breach rate"
+          description: "{{ $value }} SLA breaches/hour for {{ $labels.priority }}"
+          runbook_url: "https://docs.servicedesk.com/runbooks/sla-breaches"
+
+  # ===========================
+  # INFRASTRUCTURE ALERTS
+  # ===========================
+  - name: infrastructure
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: |
+          (process_resident_memory_bytes / 1024 / 1024 / 1024) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}GB (threshold: 1.5GB)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: |
+          (process_resident_memory_bytes / 1024 / 1024 / 1024) > 2
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage is {{ $value }}GB (threshold: 2GB)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/high-memory"
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/high-cpu"
+
+  # ===========================
+  # AUTHENTICATION ALERTS
+  # ===========================
+  - name: authentication
+    interval: 1m
+    rules:
+      - alert: HighAuthenticationFailureRate
+        expr: |
+          rate(servicedesk_auth_attempts_total{status="failure"}[5m])
+          / rate(servicedesk_auth_attempts_total[5m]) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Auth failure rate is {{ $value | humanizePercentage }} (threshold: 20%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/auth-failures"
+
+      - alert: PossibleBruteForceAttack
+        expr: rate(servicedesk_auth_attempts_total{status="failure"}[1m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Possible brute force attack"
+          description: "{{ $value }} failed auth attempts/min"
+          runbook_url: "https://docs.servicedesk.com/runbooks/brute-force"
+
+  # ===========================
+  # RATE LIMITING ALERTS
+  # ===========================
+  - name: rate_limiting
+    interval: 1m
+    rules:
+      - alert: HighRateLimitHits
+        expr: rate(servicedesk_rate_limit_hits_total[5m]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High rate limit hits"
+          description: "{{ $value }} rate limit hits/sec on {{ $labels.endpoint }}"
+          runbook_url: "https://docs.servicedesk.com/runbooks/rate-limits"
+
+  # ===========================
+  # BUSINESS METRICS ALERTS
+  # ===========================
+  - name: business_metrics
+    interval: 5m
+    rules:
+      - alert: TicketBacklogGrowing
+        expr: |
+          rate(servicedesk_tickets_created_total[1h])
+          > rate(servicedesk_tickets_resolved_total[1h]) * 1.5
+        for: 2h
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Ticket backlog is growing"
+          description: "Tickets created ({{ $value }}) exceeds resolved by 50%"
+          runbook_url: "https://docs.servicedesk.com/runbooks/ticket-backlog"
+
+      - alert: NoTicketsResolved
+        expr: |
+          rate(servicedesk_tickets_resolved_total[2h]) == 0
+        for: 2h
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "No tickets resolved recently"
+          description: "No tickets have been resolved in the last 2 hours"
+          runbook_url: "https://docs.servicedesk.com/runbooks/no-resolutions"
+
+  # ===========================
+  # WEBSOCKET ALERTS
+  # ===========================
+  - name: websocket
+    interval: 1m
+    rules:
+      - alert: HighWebSocketDisconnections
+        expr: rate(servicedesk_websocket_connections_total{action="disconnected"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: websocket
+        annotations:
+          summary: "High WebSocket disconnection rate"
+          description: "{{ $value }} disconnections/sec"
+          runbook_url: "https://docs.servicedesk.com/runbooks/websocket-issues"
+
+  # ===========================
+  # CACHE ALERTS
+  # ===========================
+  - name: cache
+    interval: 1m
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          rate(servicedesk_cache_hits_total[5m])
+          / (rate(servicedesk_cache_hits_total[5m]) + rate(servicedesk_cache_misses_total[5m])) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} for {{ $labels.cache_type }} (threshold: 70%)"
+          runbook_url: "https://docs.servicedesk.com/runbooks/cache-performance"

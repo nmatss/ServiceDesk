@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
@@ -10,8 +10,6 @@ export async function GET(
   try {
     const tenantId = getCurrentTenantId()
     const ticketTypeId = parseInt(params.id)
-    const db = getDb()
-
     if (isNaN(ticketTypeId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid ticket type ID' },
@@ -52,8 +50,6 @@ export async function PUT(
     const tenantId = getCurrentTenantId()
     const ticketTypeId = parseInt(params.id)
     const data = await request.json()
-    const db = getDb()
-
     if (isNaN(ticketTypeId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid ticket type ID' },
@@ -149,8 +145,6 @@ export async function DELETE(
   try {
     const tenantId = getCurrentTenantId()
     const ticketTypeId = parseInt(params.id)
-    const db = getDb()
-
     if (isNaN(ticketTypeId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid ticket type ID' },

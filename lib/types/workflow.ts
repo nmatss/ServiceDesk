@@ -51,10 +51,12 @@ export interface TriggerConditions {
   customScript?: string;
 }
 
+export type FilterConditionValue = string | number | boolean | Date | string[] | number[] | null;
+
 export interface FilterCondition {
   field: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'greater_than' | 'less_than' | 'in' | 'not_in' | 'is_null' | 'is_not_null' | 'regex';
-  value: any;
+  value: FilterConditionValue;
   dataType: 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object';
 }
 
@@ -80,13 +82,15 @@ export interface UserConstraints {
   includeUsers?: number[];
 }
 
+export type CustomFieldValue = string | number | boolean | null;
+
 export interface EntityConstraints {
   categories?: number[];
   priorities?: number[];
   statuses?: number[];
   assignees?: number[];
   reporters?: number[];
-  customFields?: Record<string, any>;
+  customFields?: Record<string, CustomFieldValue>;
 }
 
 // Workflow Nodes
@@ -107,6 +111,8 @@ export type WorkflowNodeType =
   | 'loop'
   | 'subworkflow';
 
+export type NodeMetadataValue = string | number | boolean | null | NodeMetadataValue[] | { [key: string]: NodeMetadataValue };
+
 export interface WorkflowNode {
   id: string;
   type: WorkflowNodeType;
@@ -117,24 +123,28 @@ export interface WorkflowNode {
   timeout?: number; // minutes
   retryConfig?: RetryConfiguration;
   isOptional?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, NodeMetadataValue>;
 }
+
+export type NodeConfigurationValue = string | number | boolean | null | undefined | string[] | number[] | Record<string, unknown>;
 
 export interface NodeConfiguration {
   // Base configuration that all nodes have
-  [key: string]: any;
+  [key: string]: NodeConfigurationValue;
 }
 
 // Specific Node Configurations
 export interface StartNodeConfig extends NodeConfiguration {
   triggerType: WorkflowTriggerType;
   conditions: TriggerConditions;
-  inputSchema?: Record<string, any>;
+  inputSchema?: Record<string, unknown>;
 }
+
+export type ActionParameterValue = string | number | boolean | null | string[] | number[];
 
 export interface ActionNodeConfig extends NodeConfiguration {
   actionType: 'assign' | 'update_status' | 'add_comment' | 'send_notification' | 'update_priority' | 'add_tag' | 'remove_tag' | 'escalate' | 'close_ticket' | 'create_subtask' | 'custom_script';
-  parameters: Record<string, any>;
+  parameters: Record<string, ActionParameterValue>;
   outputMapping?: Record<string, string>;
 }
 
@@ -150,6 +160,14 @@ export interface ConditionNodeConfig extends NodeConfiguration {
   defaultPath?: string;
 }
 
+export interface ApprovalFormField {
+  type: 'text' | 'number' | 'boolean' | 'select' | 'textarea';
+  label: string;
+  required?: boolean;
+  options?: string[];
+  validation?: ValidationRule[];
+}
+
 export interface ApprovalNodeConfig extends NodeConfiguration {
   approvalType: 'single' | 'multiple' | 'majority' | 'unanimous';
   approvers: ApprovalTarget[];
@@ -157,7 +175,7 @@ export interface ApprovalNodeConfig extends NodeConfiguration {
   autoApproveAfter?: number; // hours
   allowDelegation?: boolean;
   requireComments?: boolean;
-  customApprovalForm?: Record<string, any>;
+  customApprovalForm?: Record<string, ApprovalFormField>;
 }
 
 export interface ApprovalTarget {
@@ -205,6 +223,8 @@ export interface DeliveryOptions {
   deliveryWindow?: TimeConstraints;
 }
 
+export type WebhookPayloadValue = string | number | boolean | null | WebhookPayloadValue[] | { [key: string]: WebhookPayloadValue };
+
 export interface WebhookNodeConfig extends NodeConfiguration {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -213,7 +233,7 @@ export interface WebhookNodeConfig extends NodeConfiguration {
     type: 'none' | 'basic' | 'bearer' | 'api_key' | 'oauth2';
     credentials: Record<string, string>;
   };
-  payload?: Record<string, any>;
+  payload?: Record<string, WebhookPayloadValue>;
   expectedResponseCodes: number[];
   responseMapping?: Record<string, string>;
 }
@@ -237,11 +257,21 @@ export interface MLPredictionNodeConfig extends NodeConfiguration {
   fallbackBehavior: 'continue' | 'skip' | 'fail' | 'default_value';
 }
 
+export interface FormFieldSchema {
+  type: 'text' | 'number' | 'boolean' | 'select' | 'textarea' | 'date' | 'file';
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  defaultValue?: string | number | boolean;
+  options?: Array<{ value: string; label: string }>;
+  validation?: ValidationRule[];
+}
+
 export interface HumanTaskNodeConfig extends NodeConfiguration {
   taskType: 'review' | 'data_entry' | 'verification' | 'decision' | 'custom';
   assignees: ApprovalTarget[];
   instructions: string;
-  formSchema?: Record<string, any>;
+  formSchema?: Record<string, FormFieldSchema>;
   timeoutHours?: number;
   escalationConfig?: EscalationConfig;
 }
@@ -274,14 +304,18 @@ export interface DelayNodeConfig extends NodeConfiguration {
   businessHoursOnly?: boolean;
 }
 
+export type EndNodeOutputValue = string | number | boolean | null | string[] | number[];
+
 export interface EndNodeConfig extends NodeConfiguration {
   endType: 'success' | 'failure' | 'cancelled';
-  outputData?: Record<string, any>;
+  outputData?: Record<string, EndNodeOutputValue>;
   cleanupActions?: string[];
   notifications?: NotificationNodeConfig[];
 }
 
 // Workflow Edges
+export type EdgeMetadataValue = string | number | boolean | null;
+
 export interface WorkflowEdge {
   id: string;
   source: string;
@@ -290,32 +324,38 @@ export interface WorkflowEdge {
   configuration: EdgeConfiguration;
   conditions?: FilterCondition[];
   priority?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, EdgeMetadataValue>;
 }
 
 export type EdgeType = 'default' | 'conditional' | 'error' | 'timeout' | 'loop' | 'parallel';
+
+export type EdgeStyleValue = string | number | boolean;
 
 export interface EdgeConfiguration {
   label?: string;
   color?: string;
   animated?: boolean;
-  style?: Record<string, any>;
+  style?: Record<string, EdgeStyleValue>;
   dataTransformation?: string; // JavaScript expression
   validationRules?: ValidationRule[];
 }
 
+export type ValidationRuleValue = string | number | RegExp;
+
 export interface ValidationRule {
   field: string;
   rule: 'required' | 'min_length' | 'max_length' | 'pattern' | 'type' | 'custom';
-  value?: any;
+  value?: ValidationRuleValue;
   message?: string;
 }
 
 // Workflow Variables
+export type WorkflowVariableValue = string | number | boolean | Date | null | unknown[] | Record<string, unknown>;
+
 export interface WorkflowVariable {
   name: string;
   type: 'string' | 'number' | 'boolean' | 'date' | 'object' | 'array';
-  defaultValue?: any;
+  defaultValue?: WorkflowVariableValue;
   description?: string;
   scope: 'global' | 'local' | 'output';
   isRequired?: boolean;
@@ -343,11 +383,13 @@ export interface ChangeLogEntry {
   breaking?: boolean;
 }
 
+export type TestCaseValue = string | number | boolean | null | TestCaseValue[] | { [key: string]: TestCaseValue };
+
 export interface TestCase {
   name: string;
   description: string;
-  input: Record<string, any>;
-  expectedOutput: Record<string, any>;
+  input: Record<string, TestCaseValue>;
+  expectedOutput: Record<string, TestCaseValue>;
   status: 'pending' | 'passed' | 'failed';
   lastRun?: Date;
 }
@@ -385,13 +427,15 @@ export interface RetryCondition {
 }
 
 // Workflow Execution
+export type ExecutionVariableValue = string | number | boolean | null | Date | unknown[] | Record<string, unknown>;
+
 export interface WorkflowExecution {
   id: number;
   workflowId: number;
   triggerEntityType: string;
   triggerEntityId?: number;
   triggerUserId?: number;
-  triggerData: Record<string, any>;
+  triggerData: Record<string, ExecutionVariableValue>;
   status: ExecutionStatus;
   currentStepId?: string;
   progressPercentage: number;
@@ -400,7 +444,7 @@ export interface WorkflowExecution {
   errorMessage?: string;
   executionLog: ExecutionLogEntry[];
   retryCount: number;
-  variables: Record<string, any>;
+  variables: Record<string, ExecutionVariableValue>;
   metadata: ExecutionMetadata;
 }
 
@@ -416,12 +460,14 @@ export type ExecutionStatus =
   | 'timeout'
   | 'escalated';
 
+export type LogEntryData = string | number | boolean | null | LogEntryData[] | { [key: string]: LogEntryData };
+
 export interface ExecutionLogEntry {
   stepId: string;
   timestamp: Date;
   level: 'info' | 'warn' | 'error' | 'debug';
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, LogEntryData>;
   duration?: number; // milliseconds
 }
 
@@ -433,16 +479,19 @@ export interface ExecutionMetadata {
   parentExecution?: number;
   childExecutions: number[];
   tags: string[];
+  abTestVariant?: string;
 }
 
 // Workflow Step Execution
+export type StepDataValue = string | number | boolean | null | StepDataValue[] | { [key: string]: StepDataValue };
+
 export interface WorkflowStepExecution {
   id: number;
   executionId: number;
   stepId: string;
   status: StepExecutionStatus;
-  inputData?: Record<string, any>;
-  outputData?: Record<string, any>;
+  inputData?: Record<string, StepDataValue>;
+  outputData?: Record<string, StepDataValue>;
   errorMessage?: string;
   startedAt: Date;
   completedAt?: Date;
@@ -462,10 +511,12 @@ export type StepExecutionStatus =
   | 'waiting_approval'
   | 'waiting_input';
 
+export type MetadataValue = string | number | boolean | null | MetadataValue[] | { [key: string]: MetadataValue };
+
 export interface StepExecutionMetadata {
   retryHistory: RetryAttempt[];
   resourceUsage: ResourceUsage;
-  additionalData: Record<string, any>;
+  additionalData: Record<string, MetadataValue>;
 }
 
 export interface RetryAttempt {
@@ -499,29 +550,42 @@ export interface ApprovalMetadata {
   userAgent?: string;
   deviceInfo?: string;
   attachments: string[];
+  approverType?: string;
+  order?: number;
+  isOptional?: boolean;
 }
 
 // AI/ML Integration
+export interface SchemaField {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  required?: boolean;
+  description?: string;
+  format?: string;
+}
+
 export interface MLModelConfiguration {
   name: string;
   version: string;
   type: 'classification' | 'regression' | 'clustering' | 'recommendation' | 'nlp';
   endpoint: string;
   authentication: Record<string, string>;
-  inputSchema: Record<string, any>;
-  outputSchema: Record<string, any>;
+  inputSchema: Record<string, SchemaField>;
+  outputSchema: Record<string, SchemaField>;
   preprocessingSteps: string[];
   postprocessingSteps: string[];
 }
 
+export type PredictionValue = string | number | boolean | null | string[] | number[];
+export type FeatureValue = string | number | boolean | null;
+
 export interface MLPredictionResult {
   modelName: string;
-  prediction: any;
+  prediction: PredictionValue;
   confidence: number;
-  features: Record<string, any>;
+  features: Record<string, FeatureValue>;
   reasoning?: string;
   alternativePredictions?: Array<{
-    prediction: any;
+    prediction: PredictionValue;
     confidence: number;
   }>;
 }
@@ -642,6 +706,9 @@ export interface QueueProcessingOptions {
 }
 
 // Event System
+export type EventPayloadValue = string | number | boolean | null | Date | EventPayloadValue[] | { [key: string]: EventPayloadValue };
+export type EventMetadataValue = string | number | boolean | null;
+
 export interface WorkflowEvent {
   id: string;
   type: WorkflowEventType;
@@ -649,10 +716,10 @@ export interface WorkflowEvent {
   executionId?: number;
   stepId?: string;
   timestamp: Date;
-  payload: Record<string, any>;
+  payload: Record<string, EventPayloadValue>;
   source: string;
   correlationId?: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, EventMetadataValue>;
 }
 
 export type WorkflowEventType =
@@ -704,19 +771,23 @@ export interface DataMapping {
   transformationRules: TransformationRule[];
 }
 
+export type TransformationParameter = string | number | boolean | RegExp;
+
 export interface TransformationRule {
   field: string;
   operation: 'format_date' | 'uppercase' | 'lowercase' | 'trim' | 'replace' | 'calculate' | 'custom';
-  parameters?: Record<string, any>;
+  parameters?: Record<string, TransformationParameter>;
   condition?: FilterCondition;
 }
+
+export type HealthCheckResponse = string | number | boolean | null | { [key: string]: unknown };
 
 export interface HealthCheckConfig {
   enabled: boolean;
   intervalMinutes: number;
   timeoutSeconds: number;
   healthCheckUrl?: string;
-  expectedResponse?: any;
+  expectedResponse?: HealthCheckResponse;
   failureThreshold: number;
   recoveryThreshold: number;
 }
@@ -750,15 +821,4 @@ export interface WorkflowTemplate {
   updatedAt: Date;
 }
 
-// Export all types
-export type {
-  WorkflowDefinition,
-  WorkflowNode,
-  WorkflowEdge,
-  WorkflowExecution,
-  WorkflowStepExecution,
-  WorkflowApproval,
-  WorkflowAnalytics,
-  WorkflowEvent,
-  WorkflowTemplate
-};
+// All types are already exported with 'export interface' statements above

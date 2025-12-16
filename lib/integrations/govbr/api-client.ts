@@ -5,7 +5,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { getSystemSetting } from '@/lib/db/queries';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
 
 interface ESicProtocol {
   protocolNumber: string;
@@ -159,11 +159,17 @@ export class GovBrApiClient {
     try {
       const response = await this.ibgeApi.get('/localidades/estados');
 
-      const states = response.data.map((state: any) => ({
+      interface StateData {
+        id: number;
+        sigla: string;
+        nome: string;
+      }
+
+      const states = (response.data as StateData[]).map((state: StateData) => ({
         id: state.id,
         sigla: state.sigla,
         nome: state.nome
-      })).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+      })).sort((a: StateData, b: StateData) => a.nome.localeCompare(b.nome));
 
       return {
         success: true,
@@ -317,7 +323,12 @@ export class GovBrApiClient {
     try {
       const response = await this.esicApi.get('/orgaos');
 
-      const organs = response.data.map((organ: any) => ({
+      interface OrganData {
+        codigo: string;
+        nome: string;
+      }
+
+      const organs = (response.data as OrganData[]).map((organ: OrganData) => ({
         code: organ.codigo,
         name: organ.nome
       }));
@@ -556,7 +567,7 @@ export class GovBrApiClient {
     let sum = 0;
 
     for (let i = 0; i < 10; i++) {
-      sum += parseInt(pis.charAt(i)) * weights[i];
+      sum += parseInt(pis.charAt(i)) * (weights[i] ?? 0);
     }
 
     const remainder = sum % 11;
@@ -601,15 +612,15 @@ export class GovBrApiClient {
   static async createFromSystemSettings(): Promise<GovBrApiClient> {
     const [
       esicApiKey,
-      environment = 'production'
+      environment
     ] = await Promise.all([
       getSystemSetting('govbr_esic_api_key'),
       getSystemSetting('govbr_environment')
     ]);
 
     return new GovBrApiClient({
-      esicApiKey,
-      environment: environment as 'sandbox' | 'production'
+      esicApiKey: esicApiKey || undefined,
+      environment: (environment || 'production') as 'sandbox' | 'production'
     });
   }
 }

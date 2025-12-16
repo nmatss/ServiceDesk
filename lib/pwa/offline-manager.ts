@@ -2,12 +2,12 @@
 
 // ServiceDesk PWA - Offline Data Management
 import { toast } from 'react-hot-toast';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface OfflineAction {
   id?: number;
   type: 'CREATE_TICKET' | 'UPDATE_TICKET' | 'ADD_COMMENT' | 'UPDATE_STATUS' | 'UPLOAD_ATTACHMENT';
-  data: any;
+  data: unknown;
   url: string;
   method: string;
   headers: Record<string, string>;
@@ -17,10 +17,36 @@ interface OfflineAction {
 }
 
 interface OfflineData {
-  tickets: Map<string, any>;
-  comments: Map<string, any[]>;
-  attachments: Map<string, any[]>;
+  tickets: Map<string, TicketData>;
+  comments: Map<string, CommentData[]>;
+  attachments: Map<string, AttachmentData[]>;
   lastSync: number;
+}
+
+interface TicketData {
+  id: string;
+  title?: string;
+  description?: string;
+  status?: string;
+  userId?: string;
+  lastModified: number;
+  isOffline?: boolean;
+  [key: string]: unknown;
+}
+
+interface CommentData {
+  id: string;
+  ticketId: string;
+  createdAt?: string;
+  isOffline?: boolean;
+  [key: string]: unknown;
+}
+
+interface AttachmentData {
+  id: string;
+  ticketId?: string;
+  commentId?: string;
+  [key: string]: unknown;
 }
 
 interface SyncStatus {
@@ -28,7 +54,12 @@ interface SyncStatus {
   isSyncing: boolean;
   pendingActions: number;
   lastSyncTime: Date | null;
-  syncErrors: any[];
+  syncErrors: SyncError[];
+}
+
+interface SyncError {
+  timestamp: number;
+  error: string;
 }
 
 class OfflineManager {
@@ -142,14 +173,16 @@ class OfflineManager {
       });
 
       // Load pending actions
-      this.syncQueue = await this.getAllFromStore('actions');
+      const actionsResult = await this.getAllFromStore('actions');
+      this.syncQueue = actionsResult as OfflineAction[];
       this.syncStatus.pendingActions = this.syncQueue.length;
 
       // Load metadata
       const metadata = await this.getFromStore('metadata', 'lastSync');
-      if (metadata) {
-        this.data.lastSync = metadata.value;
-        this.syncStatus.lastSyncTime = new Date(metadata.value);
+      if (metadata && typeof metadata === 'object' && 'value' in metadata) {
+        const metadataObj = metadata as { key: string; value: number };
+        this.data.lastSync = metadataObj.value;
+        this.syncStatus.lastSyncTime = new Date(metadataObj.value);
       }
 
       logger.info(`Loaded offline data: ${this.data.tickets.size} tickets, ${this.syncQueue.length} pending actions`);
@@ -326,7 +359,7 @@ class OfflineManager {
 
   // Public API for offline actions
 
-  async createTicketOffline(ticketData: any): Promise<string> {
+  async createTicketOffline(ticketData: Partial<TicketData>): Promise<string> {
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const ticket = {
@@ -365,7 +398,7 @@ class OfflineManager {
     return tempId;
   }
 
-  async updateTicketOffline(ticketId: string, updates: any): Promise<void> {
+  async updateTicketOffline(ticketId: string, updates: Partial<TicketData>): Promise<void> {
     const existingTicket = this.data.tickets.get(ticketId);
     if (!existingTicket) {
       throw new Error('Ticket not found in offline storage');
@@ -402,7 +435,7 @@ class OfflineManager {
     });
   }
 
-  async addCommentOffline(ticketId: string, commentData: any): Promise<string> {
+  async addCommentOffline(ticketId: string, commentData: Partial<CommentData>): Promise<string> {
     const tempId = `temp_comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const comment = {
@@ -446,11 +479,11 @@ class OfflineManager {
 
   // Data retrieval methods
 
-  getTicket(ticketId: string): any | null {
+  getTicket(ticketId: string): TicketData | null {
     return this.data.tickets.get(ticketId) || null;
   }
 
-  getTickets(filters?: any): any[] {
+  getTickets(filters?: { status?: string; userId?: string; search?: string }): TicketData[] {
     let tickets = Array.from(this.data.tickets.values());
 
     if (filters) {
@@ -472,11 +505,11 @@ class OfflineManager {
     return tickets.sort((a, b) => b.lastModified - a.lastModified);
   }
 
-  getComments(ticketId: string): any[] {
+  getComments(ticketId: string): CommentData[] {
     return this.data.comments.get(ticketId) || [];
   }
 
-  getAttachments(targetId: string): any[] {
+  getAttachments(targetId: string): AttachmentData[] {
     return this.data.attachments.get(targetId) || [];
   }
 
@@ -494,7 +527,7 @@ class OfflineManager {
     }
   }
 
-  private async handleServerTicketUpdate(serverTicket: any): Promise<void> {
+  private async handleServerTicketUpdate(serverTicket: TicketData): Promise<void> {
     const localTicket = this.data.tickets.get(serverTicket.id);
 
     if (!localTicket || serverTicket.lastModified > localTicket.lastModified) {
@@ -508,7 +541,7 @@ class OfflineManager {
     }
   }
 
-  private async handleServerCommentUpdate(serverComment: any): Promise<void> {
+  private async handleServerCommentUpdate(serverComment: CommentData): Promise<void> {
     const ticketComments = this.data.comments.get(serverComment.ticketId) || [];
     const existingIndex = ticketComments.findIndex(c => c.id === serverComment.id);
 
@@ -521,8 +554,10 @@ class OfflineManager {
     }
   }
 
-  private async handleServerAttachmentUpdate(serverAttachment: any): Promise<void> {
-    const key = serverAttachment.ticketId || serverAttachment.commentId;
+  private async handleServerAttachmentUpdate(serverAttachment: AttachmentData): Promise<void> {
+    const key = serverAttachment.ticketId || serverAttachment.commentId || '';
+    if (!key) return;
+
     const attachments = this.data.attachments.get(key) || [];
     const existingIndex = attachments.findIndex(a => a.id === serverAttachment.id);
 
@@ -535,12 +570,12 @@ class OfflineManager {
     }
   }
 
-  private async updateLocalTicket(ticket: any): Promise<void> {
+  private async updateLocalTicket(ticket: TicketData): Promise<void> {
     this.data.tickets.set(ticket.id, ticket);
     await this.saveToStore('tickets', ticket);
   }
 
-  private async updateLocalComment(comment: any): Promise<void> {
+  private async updateLocalComment(comment: CommentData): Promise<void> {
     if (!this.data.comments.has(comment.ticketId)) {
       this.data.comments.set(comment.ticketId, []);
     }
@@ -559,7 +594,7 @@ class OfflineManager {
 
   // IndexedDB helper methods
 
-  private async getAllFromStore(storeName: string): Promise<any[]> {
+  private async getAllFromStore(storeName: string): Promise<unknown[]> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
@@ -575,7 +610,7 @@ class OfflineManager {
     });
   }
 
-  private async getFromStore(storeName: string, key: any): Promise<any> {
+  private async getFromStore(storeName: string, key: string): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
@@ -591,7 +626,7 @@ class OfflineManager {
     });
   }
 
-  private async saveToStore(storeName: string, data: any): Promise<void> {
+  private async saveToStore(storeName: string, data: unknown): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
@@ -607,7 +642,7 @@ class OfflineManager {
     });
   }
 
-  private async removeFromStore(storeName: string, key: any): Promise<void> {
+  private async removeFromStore(storeName: string, key: string | number): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
@@ -623,7 +658,7 @@ class OfflineManager {
     });
   }
 
-  private async saveMetadata(key: string, value: any): Promise<void> {
+  private async saveMetadata(key: string, value: unknown): Promise<void> {
     await this.saveToStore('metadata', { key, value });
   }
 
@@ -642,7 +677,7 @@ class OfflineManager {
     }
   }
 
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const eventListeners = this.listeners.get(event);
     if (eventListeners) {
       eventListeners.forEach((callback) => callback(data));
@@ -669,7 +704,7 @@ class ConflictResolver {
     // Implement conflict resolution logic based on action type
     switch (localAction.type) {
       case 'UPDATE_TICKET':
-        await this.resolveTicketConflict(localAction.data, serverData);
+        await this.resolveTicketConflict(localAction.data as TicketData, serverData);
         break;
       case 'ADD_COMMENT':
         // Comments rarely conflict, but handle if needed
@@ -679,11 +714,11 @@ class ConflictResolver {
     }
   }
 
-  async resolveTicketConflict(localTicket: any, serverTicket: any): Promise<void> {
+  async resolveTicketConflict(localTicket: TicketData, serverTicket: TicketData): Promise<TicketData> {
     // Simple last-write-wins strategy for now
     // In production, you might want more sophisticated conflict resolution
 
-    const mergedTicket = {
+    const mergedTicket: TicketData = {
       ...serverTicket,
       ...localTicket,
       lastModified: Math.max(localTicket.lastModified, serverTicket.lastModified),
@@ -691,7 +726,7 @@ class ConflictResolver {
     };
 
     // Notify user about conflict resolution
-    toast.info('Conflito de dados resolvido automaticamente', {
+    toast('Conflito de dados resolvido automaticamente', {
       icon: '⚠️',
       duration: 4000,
     });

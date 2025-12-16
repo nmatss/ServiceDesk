@@ -1,7 +1,6 @@
 import { openAIClient } from './openai-client';
 import { PromptTemplates, SuggestionContext, ResponseContext, SentimentContext } from './prompt-templates';
-import { KnowledgeArticle, Ticket, Comment } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SolutionSuggestion {
   primarySolution: {
@@ -371,12 +370,12 @@ export class SolutionSuggester {
    */
   static async findRelatedArticles(
     query: string,
-    maxResults: number = 5
+    _maxResults: number = 5
   ): Promise<Array<{ id: number; title: string; relevanceScore: number }>> {
     try {
       // Generate embedding for the query
-      const embedding = await openAIClient.createEmbedding(query);
-      const queryVector = embedding.data[0].embedding;
+      await openAIClient.createEmbedding(query);
+      // const _queryVector = embedding.data[0]?.embedding;
 
       // This would ideally use a vector database like Pinecone or a local vector search
       // For now, we'll return a placeholder implementation
@@ -398,15 +397,36 @@ export class SolutionSuggester {
    * Fallback suggestion quando AI falha
    */
   private static fallbackSuggestion(
-    ticket: any,
-    knowledgeArticles: any[],
-    similarTickets: any[]
+    ticket: {
+      title: string;
+      description: string;
+      category: string;
+      priority: string;
+    },
+    knowledgeArticles: Array<{
+      id: number;
+      title: string;
+      summary?: string;
+      content: string;
+    }>,
+    _similarTickets: Array<{
+      id: number;
+      title: string;
+      description: string;
+      resolution?: string;
+    }>
   ): Omit<SolutionSuggestion, 'processingTimeMs' | 'inputTokens' | 'outputTokens' | 'modelName'> {
     const title = ticket.title.toLowerCase();
     const description = ticket.description.toLowerCase();
 
     // Simple keyword-based suggestions
-    let primarySolution = {
+    let primarySolution: {
+      title: string;
+      steps: string[];
+      estimatedTimeMinutes: number;
+      difficultyLevel: 'easy' | 'medium' | 'hard';
+      successProbability: number;
+    } = {
       title: 'Verificação inicial do problema',
       steps: [
         'Confirmar descrição detalhada do problema',
@@ -415,7 +435,7 @@ export class SolutionSuggester {
         'Consultar documentação relevante'
       ],
       estimatedTimeMinutes: 30,
-      difficultyLevel: 'medium' as const,
+      difficultyLevel: 'medium',
       successProbability: 0.7
     };
 
@@ -471,9 +491,14 @@ export class SolutionSuggester {
    * Fallback response quando AI falha
    */
   private static fallbackResponse(
-    ticket: any,
-    responseType: string,
-    tone: string
+    ticket: {
+      title: string;
+      description: string;
+      category: string;
+      priority: string;
+    },
+    responseType: 'initial_response' | 'follow_up' | 'resolution' | 'escalation',
+    tone: 'professional' | 'friendly' | 'technical' | 'formal'
   ): Omit<ResponseSuggestion, 'processingTimeMs' | 'inputTokens' | 'outputTokens'> {
     const templates = {
       initial_response: `Olá! Recebemos seu ticket "${ticket.title}" e nossa equipe está analisando o problema. Entraremos em contato em breve com mais informações sobre a resolução.`,
@@ -483,9 +508,9 @@ export class SolutionSuggester {
     };
 
     return {
-      responseText: templates[responseType as keyof typeof templates] || templates.initial_response,
-      responseType: responseType as any,
-      toneUsed: tone as any,
+      responseText: templates[responseType] || templates.initial_response,
+      responseType,
+      toneUsed: tone,
       nextActions: ['Aguardar resposta do usuário'],
       escalationNeeded: false,
       estimatedResolutionTime: '24 horas',
@@ -499,7 +524,12 @@ export class SolutionSuggester {
    */
   private static fallbackSentimentAnalysis(
     text: string,
-    ticketContext?: any
+    _ticketContext?: {
+      category: string;
+      priority: string;
+      daysOpen: number;
+      escalationLevel: number;
+    }
   ): Omit<SentimentAnalysis, 'processingTimeMs'> {
     const lowerText = text.toLowerCase();
 
@@ -532,8 +562,8 @@ export class SolutionSuggester {
       escalationIndicators: sentiment === 'negative' ? ['Linguagem negativa detectada'] : [],
       keyPhrases: [],
       recommendedResponseTone: sentiment === 'negative' ? 'empathetic' : 'professional',
-      priorityAdjustmentNeeded: frustrationLevel === 'high',
-      immediateAttentionRequired: frustrationLevel === 'critical',
+      priorityAdjustmentNeeded: ['high', 'critical'].includes(frustrationLevel),
+      immediateAttentionRequired: ['critical'].includes(frustrationLevel),
       confidenceScore: 0.6
     };
   }

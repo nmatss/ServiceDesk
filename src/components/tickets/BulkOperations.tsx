@@ -20,11 +20,9 @@ import {
   DocumentTextIcon,
   ArrowUpIcon,
   TrashIcon,
-  EyeIcon,
   Cog6ToothIcon,
   PlayIcon,
-  PauseIcon,
-  ArrowPathIcon
+  PauseIcon
 } from '@heroicons/react/24/outline';
 
 interface BulkOperationConfig {

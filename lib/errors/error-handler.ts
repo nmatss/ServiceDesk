@@ -5,7 +5,7 @@
 
 import type { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Application Error Types

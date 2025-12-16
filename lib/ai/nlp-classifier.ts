@@ -1,5 +1,5 @@
 import { OpenAI } from 'openai';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // AI Classification Service for ticket auto-categorization and priority prediction
 export class NLPClassifier {
@@ -80,7 +80,7 @@ Respond in JSON format:
       });
 
       const processingTime = Date.now() - startTime;
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.choices[0]?.message.content || '{}');
 
       // Validate result and ensure it meets our quality standards
       if (!result.categoryId || result.confidence < 0.7) {
@@ -179,7 +179,7 @@ Respond in JSON format:
       });
 
       const processingTime = Date.now() - startTime;
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.choices[0]?.message.content || '{}');
 
       return {
         ...result,
@@ -250,7 +250,7 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      return JSON.parse(response.choices[0]?.message.content || '{}');
 
     } catch (error) {
       logger.error('Sentiment Analysis Error', error);
@@ -325,7 +325,7 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      return JSON.parse(response.choices[0]?.message.content || '{}');
 
     } catch (error) {
       logger.error('Technical Info Extraction Error', error);
@@ -395,7 +395,7 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      return JSON.parse(response.choices[0]?.message.content || '{}');
 
     } catch (error) {
       logger.error('Tag Generation Error', error);

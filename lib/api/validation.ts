@@ -5,7 +5,35 @@
 
 import { z } from 'zod'
 import { NextRequest } from 'next/server'
-import { ApiContext, ValidationResult, ValidationError } from './types'
+
+// Import types from the types file
+export interface ValidationResult {
+  success: boolean
+  data?: any
+  errors?: ValidationError[]
+}
+
+export interface ValidationError {
+  field: string
+  message: string
+  code: string
+  value?: any
+}
+
+export interface ApiContext {
+  params?: Record<string, string>
+  user?: {
+    id: number
+    email: string
+    name: string
+    role: string
+    permissions?: string[]
+    sessionId?: string
+  }
+  requestId?: string
+  startTime?: number
+  version?: string
+}
 
 // Base validation schemas
 export const BaseSchemas = {
@@ -21,7 +49,7 @@ export const BaseSchemas = {
   Search: z.object({
     q: z.string().min(1).max(200).trim(),
     fields: z.string().optional(),
-    filters: z.record(z.any()).optional(),
+    filters: z.record(z.string(), z.any()).optional(),
   }),
 
   // ID parameter
@@ -49,7 +77,7 @@ export const BaseSchemas = {
   ),
 
   // Metadata object
-  Metadata: z.record(z.any()).optional(),
+  Metadata: z.record(z.string(), z.any()).optional(),
 }
 
 // User validation schemas
@@ -125,7 +153,7 @@ export const TicketSchemas = {
     categoryId: z.number().int().positive(),
     assignedTo: z.number().int().positive().optional(),
     tags: z.array(z.string().max(50)).max(10).optional(),
-    customFields: z.record(z.any()).optional(),
+    customFields: z.record(z.string(), z.any()).optional(),
   }),
 
   // Update ticket
@@ -137,7 +165,7 @@ export const TicketSchemas = {
     statusId: z.number().int().positive().optional(),
     assignedTo: z.number().int().positive().nullable().optional(),
     tags: z.array(z.string().max(50)).max(10).optional(),
-    customFields: z.record(z.any()).optional(),
+    customFields: z.record(z.string(), z.any()).optional(),
   }),
 
   // Ticket filters
@@ -280,7 +308,7 @@ export const AdminSchemas = {
     })),
     actions: z.array(z.object({
       type: z.enum(['assign', 'change_status', 'change_priority', 'add_comment', 'send_email', 'escalate']),
-      parameters: z.record(z.any()),
+      parameters: z.record(z.string(), z.any()),
     })),
     isActive: z.boolean().default(true),
   }),
@@ -293,7 +321,7 @@ export const WebhookSchemas = {
     url: z.string().url().max(2000),
     events: z.array(z.string()).min(1).max(50),
     secret: z.string().min(16).max(128).optional(),
-    headers: z.record(z.string()).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
     retryPolicy: z.object({
       maxRetries: z.number().int().min(0).max(10).default(3),
       retryDelay: z.number().int().min(1000).max(3600000).default(5000), // 1s to 1h
@@ -305,7 +333,7 @@ export const WebhookSchemas = {
     url: z.string().url().max(2000).optional(),
     events: z.array(z.string()).min(1).max(50).optional(),
     secret: z.string().min(16).max(128).optional(),
-    headers: z.record(z.string()).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
     active: z.boolean().optional(),
     retryPolicy: z.object({
       maxRetries: z.number().int().min(0).max(10),
@@ -342,7 +370,7 @@ export const IntegrationSchemas = {
   TestConnection: z.object({
     endpoint: z.string().url(),
     method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).default('GET'),
-    headers: z.record(z.string()).optional(),
+    headers: z.record(z.string(), z.string()).optional(),
     body: z.any().optional(),
   }),
 }

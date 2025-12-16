@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { getMessagesByContact, getMessagesByTicket } from '@/lib/integrations/whatsapp/storage';
 import { createAuditLog } from '@/lib/audit/logger';
-import { z } from 'zod';
 import { logger } from '@/lib/monitoring/logger';
 
 /**
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let messages;
+    let messages: any[] = [];
     if (contactId) {
       messages = await getMessagesByContact(parseInt(contactId), limit, offset);
     } else if (ticketId) {

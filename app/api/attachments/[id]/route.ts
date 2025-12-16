@@ -29,7 +29,7 @@ export async function GET(
       return NextResponse.json({ error: 'ID do anexo inválido' }, { status: 400 });
     }
 
-    const attachment = attachmentQueries.getById(attachmentId);
+    const attachment = attachmentQueries.getById(attachmentId, user.organization_id);
     if (!attachment) {
       return NextResponse.json({ error: 'Anexo não encontrado' }, { status: 404 });
     }
@@ -91,7 +91,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID do anexo inválido' }, { status: 400 });
     }
 
-    const attachment = attachmentQueries.getById(attachmentId);
+    const attachment = attachmentQueries.getById(attachmentId, user.organization_id);
     if (!attachment) {
       return NextResponse.json({ error: 'Anexo não encontrado' }, { status: 404 });
     }
@@ -101,7 +101,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const success = attachmentQueries.delete(attachmentId);
+    const success = attachmentQueries.delete(attachmentId, user.organization_id);
     if (!success) {
       return NextResponse.json({ error: 'Erro ao deletar anexo' }, { status: 500 });
     }

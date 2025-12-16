@@ -1,7 +1,7 @@
 // FAQ generator automático por categoria
 import { Configuration, OpenAIApi } from 'openai';
 import { db } from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface FAQEntry {
   question: string;
@@ -426,7 +426,7 @@ Diretrizes:
         faq.description.substring(0, 160)
       ]);
 
-      const articleId = result.lastID!;
+      const articleId = result.lastInsertRowid as number;
 
       // Adiciona tag FAQ
       await db.run(`INSERT OR IGNORE INTO kb_tags (name, slug) VALUES ('FAQ', 'faq')`);

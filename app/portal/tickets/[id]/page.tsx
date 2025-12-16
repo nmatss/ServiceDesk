@@ -7,13 +7,10 @@ import { logger } from '@/lib/monitoring/logger';
 import {
   ArrowLeftIcon,
   ChatBubbleBottomCenterTextIcon,
-  PaperClipIcon,
-  CalendarIcon,
   ClockIcon,
   UserIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  InformationCircleIcon,
   DocumentIcon,
   EyeIcon
 } from '@heroicons/react/24/outline'

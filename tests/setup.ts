@@ -176,7 +176,7 @@ async function seedTestData() {
   `)
 
   for (const status of statusData) {
-    insertStatus.run(status.id, status.name, status.color, status.is_final)
+    insertStatus.run(status.id, status.name, status.color, status.is_final ? 1 : 0)
   }
 
   // Inserir prioridades padrão
@@ -312,12 +312,23 @@ export function createMockRequest(data: {
   body?: any
   json?: () => Promise<any>
 } = {}) {
+  // Create a map with lowercase keys for case-insensitive header lookup
+  const headersMap = new Map(
+    Object.entries(data.headers || {}).map(([key, value]) => [key.toLowerCase(), value])
+  )
+
+  const { headers, ...restData } = data
+
   return {
     method: 'GET',
     url: '/test',
-    headers: new Map(Object.entries(data.headers || {})),
     json: async () => data.body || {},
-    ...data
+    ...restData,
+    headers: {
+      get: (key: string) => headersMap.get(key.toLowerCase()) || null,
+      has: (key: string) => headersMap.has(key.toLowerCase()),
+      forEach: (callback: (value: string, key: string) => void) => headersMap.forEach(callback),
+    },
   }
 }
 

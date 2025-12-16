@@ -1,6 +1,5 @@
 import { getDb } from '@/lib/db'
-import { getTenantManager } from '@/lib/tenant/manager'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface TicketData {
   id?: number
@@ -18,22 +17,82 @@ interface TicketData {
   location?: string
 }
 
+interface TicketType {
+  id: number
+  tenant_id: number
+  name: string
+  slug: string
+  description?: string
+  icon: string
+  color: string
+  workflow_type: 'incident' | 'request' | 'change' | 'problem'
+  sla_required: boolean
+  approval_required: boolean
+  escalation_enabled: boolean
+  auto_assignment_enabled: boolean
+  customer_visible: boolean
+  sort_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+interface Status {
+  id: number
+  tenant_id?: number
+  name?: string
+  status_type?: string
+  is_initial?: number
+  is_active?: number
+  sort_order?: number
+}
+
+interface Category {
+  id: number
+  tenant_id?: number
+  name?: string
+  default_team_id?: number
+  requires_approval?: number
+}
+
+interface Team {
+  id: number
+  tenant_id?: number
+  name?: string
+  slug?: string
+  team_type?: string
+  capabilities?: string
+}
+
+interface TeamMember {
+  user_id: number
+  team_id?: number
+  workload_percentage?: number
+  is_active?: number
+  availability_status?: string
+}
+
+interface EscalationRule {
+  condition: string
+  action: string
+  threshold_minutes: number
+}
+
 interface WorkflowResult {
   success: boolean
   ticket_id?: number
-  assigned_team_id?: number
-  assigned_to?: number
+  assigned_team_id?: number | null
+  assigned_to?: number | null
   initial_status_id?: number
   approval_required?: boolean
   sla_policy_id?: number
-  escalation_rules?: any[]
+  escalation_rules?: EscalationRule[]
   message?: string
   error?: string
 }
 
 export class WorkflowManager {
   private db = getDb()
-  private tenantManager = getTenantManager()
 
   /**
    * Process ticket creation based on workflow type
@@ -44,7 +103,7 @@ export class WorkflowManager {
       const ticketType = this.db.prepare(`
         SELECT * FROM ticket_types
         WHERE id = ? AND tenant_id = ? AND is_active = 1
-      `).get(ticketData.ticket_type_id, ticketData.tenant_id)
+      `).get(ticketData.ticket_type_id, ticketData.tenant_id) as TicketType | undefined
 
       if (!ticketType) {
         return { success: false, error: 'Invalid ticket type' }
@@ -72,9 +131,9 @@ export class WorkflowManager {
   /**
    * Incident workflow - Focus on rapid response and resolution
    */
-  private async processIncidentWorkflow(ticketData: TicketData, ticketType: any): Promise<WorkflowResult> {
+  private async processIncidentWorkflow(ticketData: TicketData, ticketType: TicketType): Promise<WorkflowResult> {
     // Calculate priority based on impact and urgency for incidents
-    const priority = this.calculateIncidentPriority(
+    this.calculateIncidentPriority(
       ticketData.impact || 3,
       ticketData.urgency || 3
     )
@@ -85,7 +144,7 @@ export class WorkflowManager {
       WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = 1
       ORDER BY is_initial DESC, sort_order
       LIMIT 1
-    `).get(ticketData.tenant_id)
+    `).get(ticketData.tenant_id) as Status | undefined
 
     // Auto-assign to appropriate team based on category
     const assignmentResult = await this.autoAssignIncident(ticketData)
@@ -99,7 +158,7 @@ export class WorkflowManager {
       assigned_to: assignmentResult.agent_id,
       initial_status_id: initialStatus?.id,
       approval_required: false, // Incidents typically don't require approval
-      escalation_rules,
+      escalation_rules: escalationRules,
       message: 'Incident workflow processed - prioritized for rapid response'
     }
   }
@@ -107,7 +166,7 @@ export class WorkflowManager {
   /**
    * Service Request workflow - Focus on fulfillment and approval
    */
-  private async processRequestWorkflow(ticketData: TicketData, ticketType: any): Promise<WorkflowResult> {
+  private async processRequestWorkflow(ticketData: TicketData, ticketType: TicketType): Promise<WorkflowResult> {
     // Check if approval is required
     const approvalRequired = ticketType.approval_required || await this.requiresApproval(ticketData)
 
@@ -118,10 +177,10 @@ export class WorkflowManager {
       WHERE tenant_id = ? AND status_type = ? AND is_active = 1
       ORDER BY sort_order
       LIMIT 1
-    `).get(ticketData.tenant_id, initialStatusType)
+    `).get(ticketData.tenant_id, initialStatusType) as Status | undefined
 
     // For requests, assignment might be delayed until approval
-    let assignmentResult = { team_id: null, agent_id: null }
+    let assignmentResult: { team_id: number | null; agent_id: number | null } = { team_id: null, agent_id: null }
     if (!approvalRequired || ticketType.auto_assignment_enabled) {
       assignmentResult = await this.autoAssignRequest(ticketData)
     }
@@ -142,7 +201,7 @@ export class WorkflowManager {
   /**
    * Change Request workflow - Focus on planning and approval
    */
-  private async processChangeWorkflow(ticketData: TicketData, ticketType: any): Promise<WorkflowResult> {
+  private async processChangeWorkflow(ticketData: TicketData, ticketType: TicketType): Promise<WorkflowResult> {
     // Changes always require approval unless specifically configured otherwise
     const approvalRequired = ticketType.approval_required !== false
 
@@ -152,14 +211,14 @@ export class WorkflowManager {
       WHERE tenant_id = ? AND (slug = 'change-management' OR team_type = 'management')
       ORDER BY slug = 'change-management' DESC
       LIMIT 1
-    `).get(ticketData.tenant_id)
+    `).get(ticketData.tenant_id) as Team | undefined
 
     const initialStatus = this.db.prepare(`
       SELECT id FROM statuses
       WHERE tenant_id = ? AND status_type = 'waiting' AND is_active = 1
       ORDER BY sort_order
       LIMIT 1
-    `).get(ticketData.tenant_id)
+    `).get(ticketData.tenant_id) as Status | undefined
 
     return {
       success: true,
@@ -175,7 +234,7 @@ export class WorkflowManager {
   /**
    * Problem workflow - Focus on investigation and root cause analysis
    */
-  private async processProblemWorkflow(ticketData: TicketData, ticketType: any): Promise<WorkflowResult> {
+  private async processProblemWorkflow(ticketData: TicketData, _ticketType: TicketType): Promise<WorkflowResult> {
     // Assign to senior technical team or problem management team
     const problemTeam = this.db.prepare(`
       SELECT id FROM teams
@@ -185,14 +244,14 @@ export class WorkflowManager {
       )
       ORDER BY JSON_EXTRACT(capabilities, '$') LIKE '%problem_analysis%' DESC
       LIMIT 1
-    `).get(ticketData.tenant_id)
+    `).get(ticketData.tenant_id) as Team | undefined
 
     const initialStatus = this.db.prepare(`
       SELECT id FROM statuses
       WHERE tenant_id = ? AND status_type = 'in_progress' AND is_active = 1
       ORDER BY sort_order
       LIMIT 1
-    `).get(ticketData.tenant_id)
+    `).get(ticketData.tenant_id) as Status | undefined
 
     return {
       success: true,
@@ -208,13 +267,13 @@ export class WorkflowManager {
   /**
    * Default workflow for unspecified types
    */
-  private async processDefaultWorkflow(ticketData: TicketData, ticketType: any): Promise<WorkflowResult> {
+  private async processDefaultWorkflow(ticketData: TicketData, _ticketType: TicketType): Promise<WorkflowResult> {
     const initialStatus = this.db.prepare(`
       SELECT id FROM statuses
       WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = 1
       ORDER BY is_initial DESC, sort_order
       LIMIT 1
-    `).get(ticketData.tenant_id)
+    `).get(ticketData.tenant_id) as Status | undefined
 
     return {
       success: true,
@@ -235,7 +294,7 @@ export class WorkflowManager {
     // Impact: 1=Critical, 2=High, 3=Medium, 4=Low, 5=Minimal
     // Urgency: 1=Critical, 2=High, 3=Medium, 4=Low, 5=Minimal
 
-    const priorityMatrix = [
+    const priorityMatrix: number[][] = [
       [1, 1, 2, 3, 4], // Critical Impact
       [1, 2, 2, 3, 4], // High Impact
       [2, 2, 3, 4, 4], // Medium Impact
@@ -246,7 +305,7 @@ export class WorkflowManager {
     const impactIndex = Math.min(Math.max(impact - 1, 0), 4)
     const urgencyIndex = Math.min(Math.max(urgency - 1, 0), 4)
 
-    return priorityMatrix[impactIndex][urgencyIndex]
+    return priorityMatrix[impactIndex]?.[urgencyIndex] ?? 3
   }
 
   /**
@@ -257,7 +316,7 @@ export class WorkflowManager {
     const category = this.db.prepare(`
       SELECT default_team_id FROM categories
       WHERE id = ? AND tenant_id = ?
-    `).get(ticketData.category_id, ticketData.tenant_id)
+    `).get(ticketData.category_id, ticketData.tenant_id) as Category | undefined
 
     if (!category?.default_team_id) {
       return { team_id: null, agent_id: null }
@@ -272,7 +331,7 @@ export class WorkflowManager {
       AND u.role IN ('agent', 'team_manager', 'tenant_admin')
       ORDER BY tm.workload_percentage ASC, RANDOM()
       LIMIT 1
-    `).get(category.default_team_id)
+    `).get(category.default_team_id) as TeamMember | undefined
 
     return {
       team_id: category.default_team_id,
@@ -296,7 +355,7 @@ export class WorkflowManager {
     const category = this.db.prepare(`
       SELECT requires_approval FROM categories
       WHERE id = ? AND tenant_id = ?
-    `).get(ticketData.category_id, ticketData.tenant_id)
+    `).get(ticketData.category_id, ticketData.tenant_id) as Category | undefined
 
     return category?.requires_approval === 1
   }
@@ -304,15 +363,15 @@ export class WorkflowManager {
   /**
    * Get escalation rules for ticket
    */
-  private getEscalationRules(ticketData: TicketData, ticketType: any): any[] {
+  private getEscalationRules(ticketData: TicketData, ticketType: TicketType): EscalationRule[] {
     if (!ticketType.escalation_enabled) {
       return []
     }
 
     // Define escalation rules based on impact/urgency
-    const rules = []
+    const rules: EscalationRule[] = []
 
-    if (ticketData.impact <= 2 || ticketData.urgency <= 2) {
+    if (ticketData.impact && ticketData.impact <= 2 || ticketData.urgency && ticketData.urgency <= 2) {
       rules.push({
         condition: 'sla_breach_warning',
         action: 'escalate_to_manager',

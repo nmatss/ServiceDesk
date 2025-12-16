@@ -3,11 +3,16 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import AppLayout from '@/src/components/layout/AppLayout'
 import { baseMetadata } from '@/lib/seo/metadata'
+import WebVitalsReporter from '@/components/WebVitalsReporter'
 
 // Initialize Sentry for client-side
 import '@/sentry.client.config'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap', // Optimize font loading
+  preload: true,
+})
 
 export const metadata: Metadata = {
   ...baseMetadata,
@@ -53,6 +58,7 @@ export default function RootLayout({
         >
           Pular para o conteúdo principal
         </a>
+        <WebVitalsReporter />
         <AppLayout>
           {children}
         </AppLayout>

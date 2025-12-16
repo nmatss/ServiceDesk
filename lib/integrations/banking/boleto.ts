@@ -4,9 +4,8 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import crypto from 'crypto';
 import { getSystemSetting } from '@/lib/db/queries';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
 
 interface BoletoConfig {
   bankCode: string;
@@ -564,6 +563,7 @@ export class BoletoClient {
   /**
    * Calcula dígito verificador do nosso número (varia por banco)
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private calculateDigitoVerificador(nossoNumero: string): string {
     // Implementação genérica - cada banco tem seu próprio algoritmo
     let sum = 0;
@@ -571,7 +571,7 @@ export class BoletoClient {
 
     for (let i = 0; i < nossoNumero.length; i++) {
       const digit = parseInt(nossoNumero.charAt(i));
-      const weight = weights[i % weights.length];
+      const weight = weights[i % weights.length] ?? 2;
       sum += digit * weight;
     }
 
@@ -629,7 +629,7 @@ export class BoletoClient {
       agencia,
       conta,
       carteira,
-      convenio,
+      convenio: convenio || undefined,
       clientId,
       clientSecret,
       environment: environment as 'sandbox' | 'production'

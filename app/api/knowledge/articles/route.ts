@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { verifyToken } from '@/lib/auth/sqlite-auth'
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -21,9 +22,6 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
-
-    const db = getDb()
-
     // Incluir tenant isolation na base da query
     let whereClause = 'WHERE a.tenant_id = ?'
     const params: any[] = [tenantContext.id]
@@ -156,9 +154,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const db = getDb()
-
     // Gerar slug único
     const baseSlug = slugify(title, { lower: true, strict: true })
     let slug = baseSlug

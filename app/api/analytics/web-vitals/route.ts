@@ -19,7 +19,7 @@ import { logger } from '@/lib/monitoring/logger';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { metric, url, userAgent, timestamp } = body;
+    const { metric, url, userAgent, timestamp: _timestamp } = body;
 
     // Validate metric data
     if (!metric || !metric.name || typeof metric.value === 'undefined') {

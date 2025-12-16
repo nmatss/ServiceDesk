@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
-import { logger } from '@/lib/monitoring/logger';
+import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { logger } from '@/lib/monitoring/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
+    // SECURITY: Verificar autenticação via cookies httpOnly
+    const decoded = await verifyTokenFromCookies(request)
+    if (!decoded) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
+
+    // Get tenant ID from authenticated user (fallback to 1 for dev)
+    const tenantId = decoded.organization_id || 1
 
     // Get SLA policies
     const slaList = db.prepare(`
@@ -34,11 +33,11 @@ export async function GET(request: NextRequest) {
         p.name as priority_name,
         c.name as category_name
       FROM sla_policies s
-      LEFT JOIN priorities p ON s.priority_id = p.id AND p.tenant_id = ?
-      LEFT JOIN categories c ON s.category_id = c.id AND c.tenant_id = ?
-      WHERE s.tenant_id = ?
+      LEFT JOIN priorities p ON s.priority_id = p.id
+      LEFT JOIN categories c ON s.category_id = c.id
+      WHERE s.tenant_id = ? OR s.tenant_id IS NULL
       ORDER BY s.name
-    `).all(tenantContext.id, tenantContext.id, tenantContext.id)
+    `).all(tenantId)
 
     return NextResponse.json({
       success: true,
@@ -52,18 +51,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
+    // SECURITY: Verificar autenticação via cookies httpOnly
+    const decoded = await verifyTokenFromCookies(request)
+    if (!decoded) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
 
+    // Get tenant ID from authenticated user (fallback to 1 for dev)
+    const tenantId = decoded.organization_id || 1
+
     // Only admin users can create SLA policies
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+    const adminRoles = ['admin', 'super_admin', 'tenant_admin', 'team_manager']
+    if (!adminRoles.includes(decoded.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
@@ -87,16 +86,16 @@ export async function POST(request: NextRequest) {
 
     // Validate priority and category if provided
     if (priority_id) {
-      const priority = db.prepare('SELECT id FROM priorities WHERE id = ? AND tenant_id = ?')
-        .get(priority_id, tenantContext.id)
+      const priority = db.prepare('SELECT id FROM priorities WHERE id = ?')
+        .get(priority_id)
       if (!priority) {
         return NextResponse.json({ error: 'Prioridade não encontrada' }, { status: 404 })
       }
     }
 
     if (category_id) {
-      const category = db.prepare('SELECT id FROM categories WHERE id = ? AND tenant_id = ?')
-        .get(category_id, tenantContext.id)
+      const category = db.prepare('SELECT id FROM categories WHERE id = ?')
+        .get(category_id)
       if (!category) {
         return NextResponse.json({ error: 'Categoria não encontrada' }, { status: 404 })
       }
@@ -119,7 +118,7 @@ export async function POST(request: NextRequest) {
       resolution_time_minutes,
       escalation_time_minutes || null,
       is_active !== false ? 1 : 0,
-      tenantContext.id
+      tenantId
     )
 
     // Get created SLA policy with related data
@@ -140,10 +139,10 @@ export async function POST(request: NextRequest) {
         p.name as priority_name,
         c.name as category_name
       FROM sla_policies s
-      LEFT JOIN priorities p ON s.priority_id = p.id AND p.tenant_id = ?
-      LEFT JOIN categories c ON s.category_id = c.id AND c.tenant_id = ?
+      LEFT JOIN priorities p ON s.priority_id = p.id
+      LEFT JOIN categories c ON s.category_id = c.id
       WHERE s.id = ?
-    `).get(tenantContext.id, tenantContext.id, result.lastInsertRowid)
+    `).get(result.lastInsertRowid)
 
     return NextResponse.json({
       success: true,

@@ -14,8 +14,7 @@ import {
   UserIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ClockIcon,
-  XMarkIcon
+  ClockIcon
 } from '@heroicons/react/24/outline'
 
 interface Ticket {
@@ -351,7 +350,7 @@ export default function MyTicketsPage() {
                     value={`${sortBy}-${sortOrder}`}
                     onChange={(e) => {
                       const [field, order] = e.target.value.split('-')
-                      setSortBy(field)
+                      if (field) setSortBy(field)
                       setSortOrder(order as 'asc' | 'desc')
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

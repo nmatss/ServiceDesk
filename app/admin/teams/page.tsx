@@ -6,15 +6,12 @@ import {
   UsersIcon,
   PlusIcon,
   PencilIcon,
-  TrashIcon,
   UserPlusIcon,
   ServerIcon,
-  CodeBracketIcon,
   UserGroupIcon,
   ShieldCheckIcon,
   ChevronRightIcon,
   ClockIcon,
-  MapPinIcon,
   PhoneIcon,
   EnvelopeIcon
 } from '@heroicons/react/24/outline'
@@ -62,13 +59,6 @@ const teamTypeIcons = {
   management: ShieldCheckIcon
 }
 
-const teamTypeColors = {
-  technical: '#3B82F6',
-  business: '#10B981',
-  support: '#F59E0B',
-  management: '#EF4444'
-}
-
 const availabilityColors = {
   available: 'bg-green-100 text-green-800',
   busy: 'bg-yellow-100 text-yellow-800',
@@ -81,8 +71,8 @@ export default function TeamsManagementPage() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
+  const [_showCreateModal, setShowCreateModal] = useState(false)
+  const [_showEditModal, setShowEditModal] = useState(false)
 
   useEffect(() => {
     fetchTeams()
@@ -90,10 +80,9 @@ export default function TeamsManagementPage() {
 
   const fetchTeams = async () => {
     try {
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch('/api/teams', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
       const data = await response.json()
       if (data.success) {
@@ -108,10 +97,9 @@ export default function TeamsManagementPage() {
 
   const fetchTeamMembers = async (teamId: number) => {
     try {
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/teams/${teamId}/members`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
       const data = await response.json()
       if (data.success) {
@@ -125,12 +113,6 @@ export default function TeamsManagementPage() {
   const selectTeam = (team: Team) => {
     setSelectedTeam(team)
     fetchTeamMembers(team.id)
-  }
-
-  const formatSpecializations = (specializations: string[]) => {
-    return specializations.map(spec =>
-      spec.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    ).join(', ')
   }
 
   const getTeamTypeIcon = (teamType: string) => {

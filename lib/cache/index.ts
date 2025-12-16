@@ -1,5 +1,5 @@
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // Interface para cache
 interface CacheEntry {

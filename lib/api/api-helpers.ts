@@ -13,6 +13,7 @@ import {
   handleAPIError,
   validateOrThrow,
 } from '../errors/error-handler'
+import { applyRateLimit, rateLimitConfigs } from '../rate-limit'
 
 /**
  * Extract and validate user from request headers
@@ -215,7 +216,7 @@ export function paginatedResponse<T>(
  * CORS headers helper (if needed)
  */
 export function addCORSHeaders(response: Response, allowedOrigins: string[]): Response {
-  const origin = allowedOrigins[0] // Simplification - in production, check request origin
+  const origin = allowedOrigins[0] ?? '*' // Simplification - in production, check request origin
 
   response.headers.set('Access-Control-Allow-Origin', origin)
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -268,13 +269,52 @@ export function getIdFromParams(
 /**
  * Rate limiting check helper
  * Returns true if rate limit exceeded
+ * @param request - Next.js request object
+ * @param endpoint - Endpoint identifier for rate limiting
+ * @param configType - Type of rate limit configuration to use (defaults to 'api')
+ * @returns true if rate limit exceeded, false if within limits
  */
-export function checkRateLimit(
-  identifier: string,
-  maxRequests: number,
-  windowMs: number
-): boolean {
-  // TODO: Implement with Redis or in-memory cache
-  // For now, return false (no rate limiting)
-  return false
+export async function checkRateLimit(
+  request: NextRequest,
+  endpoint: string,
+  configType: keyof typeof rateLimitConfigs = 'api'
+): Promise<boolean> {
+  try {
+    const config = rateLimitConfigs[configType]
+    const result = await applyRateLimit(request, config, endpoint)
+    return !result.allowed
+  } catch (error) {
+    // Log error but allow request through (fail-open for availability)
+    console.error('Rate limit check failed:', error)
+    return false
+  }
+}
+
+/**
+ * Apply rate limiting with automatic response handling
+ * Throws AppError with 429 status if rate limit exceeded
+ * @param request - Next.js request object
+ * @param endpoint - Endpoint identifier for rate limiting
+ * @param configType - Type of rate limit configuration to use
+ */
+export async function enforceRateLimit(
+  request: NextRequest,
+  endpoint: string,
+  configType: keyof typeof rateLimitConfigs = 'api'
+): Promise<void> {
+  const config = rateLimitConfigs[configType]
+  const result = await applyRateLimit(request, config, endpoint)
+
+  if (!result.allowed) {
+    const retryAfter = Math.ceil((result.resetTime.getTime() - Date.now()) / 1000)
+    const errorDetails = new Error(
+      `Rate limit exceeded. Retry after ${retryAfter} seconds. ` +
+      `Limit: ${result.total}, Remaining: ${result.remaining}, Reset: ${result.resetTime.toISOString()}`
+    )
+    throw new AppError(
+      config.message || 'Rate limit exceeded',
+      errorDetails,
+      429
+    )
+  }
 }

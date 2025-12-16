@@ -333,16 +333,19 @@ export class IndexManager {
     if (!sql) return [];
 
     const match = sql.match(/\(([^)]+)\)/);
-    if (!match) return [];
+    if (!match || !match[1]) return [];
 
-    return match[1].split(',').map(col => col.trim().split(' ')[0]);
+    return match[1].split(',').map(col => {
+      const parts = col.trim().split(' ');
+      return parts[0] || '';
+    }).filter(col => col !== '');
   }
 
   private getIndexSize(indexName: string): number {
     try {
       // SQLite doesn't provide direct index size, so we estimate
-      const info = db.pragma(`index_info(${indexName})`);
-      return info.length * 1024; // Rough estimate
+      const info = db.pragma(`index_info(${indexName})`) as unknown[];
+      return Array.isArray(info) ? info.length * 1024 : 0; // Rough estimate
     } catch {
       return 0;
     }
@@ -363,7 +366,7 @@ export class IndexManager {
 
     for (const query of queries) {
       const whereMatch = query.match(/FROM\s+(\w+).*WHERE\s+(.+?)(?:\s+ORDER|\s+GROUP|\s+LIMIT|$)/i);
-      if (whereMatch) {
+      if (whereMatch && whereMatch[1] && whereMatch[2]) {
         const table = whereMatch[1];
         const whereClause = whereMatch[2];
         const columns = this.extractColumnsFromWhere(whereClause);
@@ -380,10 +383,12 @@ export class IndexManager {
     for (const query of queries) {
       const joinMatches = query.matchAll(/JOIN\s+(\w+)\s+.*?ON\s+([^WHERE\s]+)/gi);
       for (const match of joinMatches) {
-        const rightTable = match[1];
-        const onClause = match[2];
-        const columns = this.extractColumnsFromJoin(onClause);
-        patterns.push({ leftTable: '', rightTable, columns });
+        if (match[1] && match[2]) {
+          const rightTable = match[1];
+          const onClause = match[2];
+          const columns = this.extractColumnsFromJoin(onClause);
+          patterns.push({ leftTable: '', rightTable, columns });
+        }
       }
     }
 
@@ -395,10 +400,15 @@ export class IndexManager {
 
     for (const query of queries) {
       const orderMatch = query.match(/FROM\s+(\w+).*ORDER\s+BY\s+([^LIMIT\s]+)/i);
-      if (orderMatch) {
+      if (orderMatch && orderMatch[1] && orderMatch[2]) {
         const table = orderMatch[1];
         const orderClause = orderMatch[2];
-        const columns = orderClause.split(',').map(col => col.trim().split(' ')[0]);
+        const columns = orderClause.split(',')
+          .map(col => {
+            const parts = col.trim().split(' ');
+            return parts[0] || '';
+          })
+          .filter(col => col !== '');
         patterns.push({ table, columns });
       }
     }
@@ -411,7 +421,9 @@ export class IndexManager {
     const columnMatches = whereClause.matchAll(/(\w+)\s*[=<>!]/g);
 
     for (const match of columnMatches) {
-      columns.push(match[1]);
+      if (match[1]) {
+        columns.push(match[1]);
+      }
     }
 
     return columns;
@@ -422,7 +434,9 @@ export class IndexManager {
     const columnMatches = onClause.matchAll(/(\w+)\.(\w+)/g);
 
     for (const match of columnMatches) {
-      columns.push(match[2]);
+      if (match[2]) {
+        columns.push(match[2]);
+      }
     }
 
     return columns;
@@ -496,7 +510,7 @@ export class IndexManager {
     }));
   }
 
-  private recommendCompositeIndexes(queries: string[]): IndexRecommendation[] {
+  private recommendCompositeIndexes(_queries: string[]): IndexRecommendation[] {
     const recommendations: IndexRecommendation[] = [];
 
     // Analyze common column combinations in ServiceDesk queries

@@ -1,31 +1,27 @@
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
-import crypto from 'crypto';
-import speakeasy from 'speakeasy';
-import qrcode from 'qrcode';
+import * as crypto from 'crypto';
+import * as speakeasy from 'speakeasy';
+import * as qrcode from 'qrcode';
 import db from '../db/connection';
 import { validateJWTSecret } from '@/lib/config/env';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import {
   User,
   RefreshToken,
-  LoginAttempt,
-  AuthAuditLog,
   VerificationCode,
   PasswordHistory,
   PasswordPolicy,
-  WebAuthnCredential,
   RateLimit,
   JWTPayload,
-  AuthSession,
   UserWithRoles,
   AuthEventType,
   CreateRefreshToken,
   CreateLoginAttempt,
   CreateAuthAuditLog,
   CreateVerificationCode,
-  CreatePasswordHistory,
-  CreateRateLimit
+  Role,
+  Permission
 } from '../types/database';
 
 // ========================================
@@ -34,7 +30,6 @@ import {
 
 const JWT_SECRET = validateJWTSecret();
 const JWT_ACCESS_EXPIRY = '15m'; // Access token expira em 15 minutos
-const JWT_REFRESH_EXPIRY = '7d'; // Refresh token expira em 7 dias
 const BCRYPT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutos em ms
@@ -119,7 +114,7 @@ export async function generateAccessToken(user: UserWithRoles, jti?: string): Pr
   const secret = new TextEncoder().encode(JWT_SECRET);
   const tokenId = jti || crypto.randomUUID();
 
-  const payload: JWTPayload = {
+  const payload = {
     id: user.id,
     email: user.email,
     role: user.role,
@@ -150,7 +145,7 @@ export async function generateRefreshToken(
     user_id: userId,
     token_hash: tokenHash,
     expires_at: expiresAt.toISOString(),
-    device_info: deviceInfo ? JSON.stringify(deviceInfo) : null,
+    device_info: deviceInfo ? JSON.stringify(deviceInfo) : undefined,
     ip_address: deviceInfo?.ip,
     user_agent: deviceInfo?.userAgent,
     is_active: true
@@ -187,7 +182,18 @@ export async function verifyAccessToken(token: string): Promise<JWTPayload | nul
       issuer: 'servicedesk-auth'
     });
 
-    return payload as JWTPayload;
+    return {
+      id: payload.id as number,
+      email: payload.email as string,
+      role: payload.role as string,
+      roles: payload.roles as string[] | undefined,
+      permissions: payload.permissions as string[] | undefined,
+      jti: payload.jti as string | undefined,
+      aud: payload.aud as string | undefined,
+      iss: payload.iss as string | undefined,
+      iat: payload.iat,
+      exp: payload.exp
+    };
   } catch (error) {
     logger.error('Token verification failed', error);
     return null;
@@ -202,7 +208,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       SELECT rt.*, u.* FROM refresh_tokens rt
       JOIN users u ON rt.user_id = u.id
       WHERE rt.token_hash = ? AND rt.is_active = 1 AND rt.expires_at > datetime('now')
-    `).get(tokenHash) as any;
+    `).get(tokenHash) as (RefreshToken & User) | undefined;
 
     if (!refreshTokenData) {
       return { success: false, error: 'Invalid or expired refresh token' };
@@ -246,7 +252,6 @@ export async function checkRateLimit(
 ): Promise<{ allowed: boolean; remainingAttempts: number; resetTime?: Date }> {
   try {
     const now = new Date();
-    const windowStart = new Date(now.getTime() - (windowMinutes * 60 * 1000));
 
     // Buscar tentativas existentes na janela de tempo
     const existing = db.prepare(`
@@ -256,13 +261,6 @@ export async function checkRateLimit(
 
     if (!existing) {
       // Primeira tentativa - criar registro
-      const rateLimitData: CreateRateLimit = {
-        identifier,
-        identifier_type: identifierType,
-        endpoint,
-        attempts: 1
-      };
-
       db.prepare(`
         INSERT INTO rate_limits (identifier, identifier_type, endpoint, attempts, first_attempt_at, last_attempt_at)
         VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
@@ -281,6 +279,7 @@ export async function checkRateLimit(
     }
 
     // Verificar se a janela de tempo expirou
+    const windowStart = new Date(now.getTime() - windowMinutes * 60 * 1000);
     const firstAttempt = new Date(existing.first_attempt_at);
     if (firstAttempt < windowStart) {
       // Reset do contador
@@ -328,7 +327,7 @@ export async function checkRateLimit(
 
 export async function setupTwoFactor(userId: number): Promise<TwoFactorSetup> {
   try {
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -368,7 +367,7 @@ export async function setupTwoFactor(userId: number): Promise<TwoFactorSetup> {
 
 export async function enableTwoFactor(userId: number, token: string): Promise<boolean> {
   try {
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user || !user.two_factor_secret) {
       return false;
     }
@@ -407,7 +406,7 @@ export async function enableTwoFactor(userId: number, token: string): Promise<bo
 
 export async function verifyTwoFactor(userId: number, token: string): Promise<boolean> {
   try {
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user || !user.two_factor_enabled || !user.two_factor_secret) {
       return false;
     }
@@ -447,9 +446,9 @@ export async function verifyTwoFactor(userId: number, token: string): Promise<bo
 // FUNÇÕES DE USUÁRIO E ROLES
 // ========================================
 
-export function getUserById(id: number): User | null {
+export async function getUserById(id: number): Promise<User | null> {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
     return user || null;
   } catch (error) {
     logger.error('Error getting user by ID', error);
@@ -459,7 +458,7 @@ export function getUserById(id: number): User | null {
 
 export function getUserByEmail(email: string): User | null {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
     return user || null;
   } catch (error) {
     logger.error('Error getting user by email', error);
@@ -469,7 +468,7 @@ export function getUserByEmail(email: string): User | null {
 
 export async function getUserWithRoles(userId: number): Promise<UserWithRoles | null> {
   try {
-    const user = getUserById(userId);
+    const user = await getUserById(userId);
     if (!user) return null;
 
     // Buscar roles do usuário
@@ -478,7 +477,7 @@ export async function getUserWithRoles(userId: number): Promise<UserWithRoles | 
       JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ? AND ur.is_active = 1
       AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
-    `).all(userId) as any[];
+    `).all(userId) as Role[];
 
     // Buscar permissões das roles
     const permissions = db.prepare(`
@@ -487,7 +486,7 @@ export async function getUserWithRoles(userId: number): Promise<UserWithRoles | 
       JOIN user_roles ur ON rp.role_id = ur.role_id
       WHERE ur.user_id = ? AND ur.is_active = 1
       AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
-    `).all(userId) as any[];
+    `).all(userId) as Permission[];
 
     return {
       ...user,
@@ -641,7 +640,7 @@ export async function authenticateUser(
 
     // Log de sucesso
     loginAttemptData.success = true;
-    loginAttemptData.failure_reason = null;
+    loginAttemptData.failure_reason = undefined;
     await logLoginAttempt(loginAttemptData);
 
     // Log de auditoria
@@ -1075,15 +1074,3 @@ export async function cleanupExpiredData(): Promise<void> {
     logger.error('Error during cleanup', error);
   }
 }
-
-// ========================================
-// EXPORT DAS INTERFACES PRINCIPAIS
-// ========================================
-
-export type {
-  LoginCredentials,
-  RegisterData,
-  AuthResult,
-  TwoFactorSetup,
-  DeviceInfo
-};

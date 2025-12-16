@@ -1,5 +1,5 @@
 import { createEmailTransporter, getFromAddress } from './config'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import {
   emailTemplates,
   compileTemplate,
@@ -187,14 +187,14 @@ class EmailService {
     }
   }
 
-  async sendTicketCreatedEmail(data: TicketEmailData): Promise<boolean> {
+  async sendTicketCreatedEmail(data: TicketEmailData, tenantId?: number): Promise<boolean> {
     const template = emailTemplates.ticketCreated
     const subject = compileTemplate(template.subject, data)
     const html = compileTemplate(template.html, data)
     const text = compileTemplate(template.text, data)
 
     const queueId = await this.queueEmail({
-      tenant_id: 1, // Should be dynamic based on tenant
+      tenant_id: tenantId || 1, // Use provided tenant_id or fallback for backward compatibility
       to_email: data.customer.email,
       subject,
       html_content: html,
@@ -213,14 +213,14 @@ class EmailService {
     return false
   }
 
-  async sendTicketUpdatedEmail(data: TicketEmailData): Promise<boolean> {
+  async sendTicketUpdatedEmail(data: TicketEmailData, tenantId?: number): Promise<boolean> {
     const template = emailTemplates.ticketUpdated
     const subject = compileTemplate(template.subject, data)
     const html = compileTemplate(template.html, data)
     const text = compileTemplate(template.text, data)
 
     const queueId = await this.queueEmail({
-      tenant_id: 1,
+      tenant_id: tenantId || 1, // Use provided tenant_id or fallback for backward compatibility
       to_email: data.customer.email,
       subject,
       html_content: html,
@@ -233,14 +233,14 @@ class EmailService {
     return !!queueId
   }
 
-  async sendTicketResolvedEmail(data: TicketEmailData): Promise<boolean> {
+  async sendTicketResolvedEmail(data: TicketEmailData, tenantId?: number): Promise<boolean> {
     const template = emailTemplates.ticketResolved
     const subject = compileTemplate(template.subject, data)
     const html = compileTemplate(template.html, data)
     const text = compileTemplate(template.text, data)
 
     const queueId = await this.queueEmail({
-      tenant_id: 1,
+      tenant_id: tenantId || 1, // Use provided tenant_id or fallback for backward compatibility
       to_email: data.customer.email,
       subject,
       html_content: html,
@@ -258,14 +258,14 @@ class EmailService {
     return false
   }
 
-  async sendWelcomeEmail(data: UserEmailData): Promise<boolean> {
+  async sendWelcomeEmail(data: UserEmailData, tenantId?: number): Promise<boolean> {
     const template = emailTemplates.welcomeUser
     const subject = compileTemplate(template.subject, data)
     const html = compileTemplate(template.html, data)
     const text = compileTemplate(template.text, data)
 
     const queueId = await this.queueEmail({
-      tenant_id: 1,
+      tenant_id: tenantId || 1, // Use provided tenant_id or fallback for backward compatibility
       to_email: data.email,
       subject,
       html_content: html,
@@ -278,14 +278,14 @@ class EmailService {
     return !!queueId
   }
 
-  async sendPasswordResetEmail(data: UserEmailData): Promise<boolean> {
+  async sendPasswordResetEmail(data: UserEmailData, tenantId?: number): Promise<boolean> {
     const template = emailTemplates.passwordReset
     const subject = compileTemplate(template.subject, data)
     const html = compileTemplate(template.html, data)
     const text = compileTemplate(template.text, data)
 
     const queueId = await this.queueEmail({
-      tenant_id: 1,
+      tenant_id: tenantId || 1, // Use provided tenant_id or fallback for backward compatibility
       to_email: data.email,
       subject,
       html_content: html,

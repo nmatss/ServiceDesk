@@ -6,7 +6,6 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/src/contexts/ThemeContext'
 import { NotificationProvider } from '@/src/components/notifications/NotificationProvider'
-import { logger } from '@/lib/monitoring/logger';
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -24,6 +23,9 @@ const publicRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot
 
 // Routes that don't need the full layout (auth pages and landing)
 const authRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password']
+
+// Routes that have their own layout (admin section)
+const customLayoutRoutes = ['/admin']
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
@@ -43,73 +45,54 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAuthPage, setIsAuthPage] = useState(false)
+  const [hasCustomLayout, setHasCustomLayout] = useState(false)
 
-  // Check if current route is an auth page
+  // Check if current route is an auth page or has custom layout
   useEffect(() => {
     setIsAuthPage(authRoutes.includes(pathname))
+    setHasCustomLayout(customLayoutRoutes.some(route => pathname.startsWith(route)))
   }, [pathname])
 
-  // Authentication check
+  // Authentication check using httpOnly cookies
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('auth_token')
-        const userId = localStorage.getItem('user_id')
-        const userRole = localStorage.getItem('user_role') as 'admin' | 'agent' | 'user'
-        const userName = localStorage.getItem('user_name')
+        // Verify auth using httpOnly cookies (sent automatically with credentials: 'include')
+        const response = await fetch('/api/auth/verify', {
+          credentials: 'include'
+        })
 
-        // If no token and not on public route, redirect to login
-        if (!token && !publicRoutes.includes(pathname)) {
-          router.push('/auth/login')
-          return
-        }
-
-        // If token exists, verify it
-        if (token && userId && userRole && userName) {
-          // Verify token with server
-          const response = await fetch('/api/auth/verify', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (response.ok) {
-            const userData = await response.json()
+        if (response.ok) {
+          const responseData = await response.json()
+          // API returns { success: true, user: {...} }
+          if (responseData.success && responseData.user) {
             setUser({
-              id: parseInt(userId),
-              name: userName,
-              email: userData.email || '',
-              role: userRole
+              id: responseData.user.id,
+              name: responseData.user.name,
+              email: responseData.user.email,
+              role: responseData.user.role as 'admin' | 'agent' | 'user'
             })
 
             // Redirect to appropriate dashboard based on role
             if (pathname === '/' || pathname === '/auth/login') {
-              if (userRole === 'admin') {
+              if (responseData.user.role === 'admin') {
                 router.push('/admin')
               } else {
                 router.push('/dashboard')
               }
             }
-          } else {
-            // Token is invalid, clear storage and redirect to login
-            localStorage.removeItem('auth_token')
-            localStorage.removeItem('user_id')
-            localStorage.removeItem('user_role')
-            localStorage.removeItem('user_name')
-
-            if (!publicRoutes.includes(pathname)) {
-              router.push('/auth/login')
-            }
+          } else if (!publicRoutes.includes(pathname)) {
+            // No valid session and not on public route
+            router.push('/auth/login')
+          }
+        } else {
+          // Not authenticated
+          if (!publicRoutes.includes(pathname)) {
+            router.push('/auth/login')
           }
         }
       } catch (error) {
-        logger.error('Auth check failed', error)
-
-        // Clear potentially corrupted auth data
-        localStorage.removeItem('auth_token')
-        localStorage.removeItem('user_id')
-        localStorage.removeItem('user_role')
-        localStorage.removeItem('user_name')
+        console.error('[AppLayout] Auth check failed:', error)
 
         if (!publicRoutes.includes(pathname)) {
           router.push('/auth/login')
@@ -170,9 +153,14 @@ function AppLayoutContent({ children }: AppLayoutProps) {
     )
   }
 
+  // Admin and other custom layout pages have their own layout
+  if (hasCustomLayout) {
+    return <>{children}</>
+  }
+
   // Main application layout
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+    <div className="min-h-screen bg-neutral-50 dark:bg-[#0a0a0c] bg-pattern">
       {/* Sidebar */}
       <Sidebar
         open={sidebarOpen}
@@ -181,7 +169,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       />
 
       {/* Main content area */}
-      <div className="flex flex-col min-h-screen lg:pl-0">
+      <div className={`flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
         {/* Header */}
         <Header
           sidebarOpen={sidebarOpen}
@@ -214,25 +202,18 @@ function AppLayoutContent({ children }: AppLayoutProps) {
               </div>
               <nav className="flex items-center space-x-4 mt-2 sm:mt-0" aria-label="Links do rodapé">
                 <a
-                  href="/docs"
+                  href="/knowledge"
                   className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                  aria-label="Ir para documentação"
+                  aria-label="Ir para base de conhecimento"
                 >
                   Documentação
                 </a>
                 <a
-                  href="/support"
+                  href="/portal/create"
                   className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                  aria-label="Ir para suporte"
+                  aria-label="Abrir novo ticket de suporte"
                 >
                   Suporte
-                </a>
-                <a
-                  href="/privacy"
-                  className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                  aria-label="Ir para política de privacidade"
-                >
-                  Privacidade
                 </a>
               </nav>
             </div>
@@ -265,11 +246,11 @@ export class AppLayoutErrorBoundary extends React.Component<
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
-    logger.error('Layout error', error, errorInfo)
+  override componentDidCatch(error: Error, errorInfo: any) {
+    console.error('[AppLayout] Layout error:', error, errorInfo)
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return (
         this.props.fallback || (
@@ -313,22 +294,38 @@ export function withAuth<P extends object>(
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-      const checkAuth = () => {
-        const token = localStorage.getItem('auth_token')
-        const userRole = localStorage.getItem('user_role') as 'admin' | 'agent' | 'user'
+      const checkAuth = async () => {
+        try {
+          // Verify auth using httpOnly cookies
+          const response = await fetch('/api/auth/verify', {
+            credentials: 'include'
+          })
 
-        if (!token) {
+          if (!response.ok) {
+            router.push('/auth/login')
+            return
+          }
+
+          const data = await response.json()
+          if (!data.success || !data.user) {
+            router.push('/auth/login')
+            return
+          }
+
+          const userRole = data.user.role as 'admin' | 'agent' | 'user'
+
+          if (allowedRoles && !allowedRoles.includes(userRole)) {
+            router.push('/unauthorized')
+            return
+          }
+
+          setIsAuthorized(true)
+        } catch (error) {
+          console.error('[withAuth] Auth check failed:', error)
           router.push('/auth/login')
-          return
+        } finally {
+          setLoading(false)
         }
-
-        if (allowedRoles && !allowedRoles.includes(userRole)) {
-          router.push('/unauthorized')
-          return
-        }
-
-        setIsAuthorized(true)
-        setLoading(false)
       }
 
       checkAuth()

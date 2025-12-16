@@ -4,7 +4,7 @@
  */
 
 import { getSecurityConfig } from './config';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SecurityEvent {
   id: string;
@@ -517,7 +517,7 @@ export class SecurityLogger {
     logger.info(`Persisting ${events.length} security events`);
   }
 
-  private async sendWebhookAlert(webhook: string, alert: any): Promise<void> {
+  private async sendWebhookAlert(webhook: string, _alert: any): Promise<void> {
     try {
       // TODO: Implement webhook sending
       logger.info(`Sending webhook alert to ${webhook}`);
@@ -526,7 +526,7 @@ export class SecurityLogger {
     }
   }
 
-  private async sendEmailAlert(email: string, alert: any): Promise<void> {
+  private async sendEmailAlert(email: string, _alert: any): Promise<void> {
     try {
       // TODO: Implement email sending
       logger.info(`Sending email alert to ${email}`);

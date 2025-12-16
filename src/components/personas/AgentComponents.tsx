@@ -7,26 +7,20 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  MagnifyingGlassIcon,
   FunnelIcon,
-  ArrowsUpDownIcon,
   ClockIcon,
   UserIcon,
-  TagIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon,
   XCircleIcon,
   InformationCircleIcon,
   ChatBubbleLeftRightIcon,
   DocumentTextIcon,
-  PaperClipIcon,
   EllipsisVerticalIcon,
   PlayIcon,
   PauseIcon,
   StopIcon,
-  ChevronDownIcon,
   BoltIcon,
   AdjustmentsHorizontalIcon,
   ViewColumnsIcon,
@@ -41,8 +35,8 @@ interface AgentComponentProps {
 }
 
 // Compact, efficient ticket list with filtering and sorting
-export function AgentTicketQueue({ className = '', ...props }: AgentComponentProps) {
-  const [tickets, setTickets] = useState([
+export function AgentTicketQueue({ className = '' }: AgentComponentProps) {
+  const [tickets] = useState([
     {
       id: 'REQ-001',
       title: 'Email sync issues with Outlook',
@@ -269,7 +263,7 @@ export function AgentTicketQueue({ className = '', ...props }: AgentComponentPro
 }
 
 // Productivity-focused quick actions bar
-export function AgentQuickActions({ className = '', ...props }: AgentComponentProps) {
+export function AgentQuickActions({ className = '' }: AgentComponentProps) {
   const [activeTimer, setActiveTimer] = useState<string | null>('REQ-002');
   const [timerDuration, setTimerDuration] = useState(1847); // seconds
 
@@ -295,6 +289,7 @@ export function AgentQuickActions({ className = '', ...props }: AgentComponentPr
       }, 1000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [activeTimer]);
 
   return (
@@ -369,7 +364,7 @@ export function AgentQuickActions({ className = '', ...props }: AgentComponentPr
 }
 
 // Compact notification center for agents
-export function AgentNotificationCenter({ className = '', ...props }: AgentComponentProps) {
+export function AgentNotificationCenter({ className = '' }: AgentComponentProps) {
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -490,7 +485,7 @@ export function AgentNotificationCenter({ className = '', ...props }: AgentCompo
 }
 
 // Multi-tab workspace for handling multiple tickets
-export function AgentWorkspace({ className = '', ...props }: AgentComponentProps) {
+export function AgentWorkspace({ className = '' }: AgentComponentProps) {
   const [tabs, setTabs] = useState([
     { id: 'REQ-001', title: 'Email sync issues', active: true, modified: false },
     { id: 'REQ-002', title: 'Password reset', active: false, modified: true },
@@ -507,8 +502,10 @@ export function AgentWorkspace({ className = '', ...props }: AgentComponentProps
     e.stopPropagation();
     setTabs(prev => {
       const newTabs = prev.filter(tab => tab.id !== tabId);
-      if (newTabs.length > 0 && prev.find(tab => tab.id === tabId)?.active) {
-        newTabs[0].active = true;
+      const closedTab = prev.find(tab => tab.id === tabId);
+      const firstTab = newTabs[0];
+      if (firstTab && closedTab?.active) {
+        firstTab.active = true;
       }
       return newTabs;
     });
@@ -634,11 +631,3 @@ export function AgentWorkspace({ className = '', ...props }: AgentComponentProps
     </div>
   );
 }
-
-// Export all components
-export {
-  AgentTicketQueue,
-  AgentQuickActions,
-  AgentNotificationCenter,
-  AgentWorkspace
-};

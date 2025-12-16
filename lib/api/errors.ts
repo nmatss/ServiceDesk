@@ -6,20 +6,33 @@
 import { NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { ApiError, ApiResponse, ErrorCode, HTTP_STATUS, HttpStatus } from './types'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+// Error detail types
+export type ErrorDetailValue = string | number | boolean | null | string[] | number[] | { [key: string]: unknown };
+
+export interface ErrorDetails {
+  field?: string;
+  value?: unknown;
+  constraint?: string;
+  code?: string;
+  retryAfter?: number;
+  service?: string;
+  [key: string]: ErrorDetailValue | undefined;
+}
 
 // Custom Error Classes
 export class ApiErrorBase extends Error {
   public readonly code: ErrorCode
   public readonly statusCode: HttpStatus
-  public readonly details?: Record<string, any>
+  public readonly details?: ErrorDetails
   public readonly requestId: string
 
   constructor(
     code: ErrorCode,
     message: string,
     statusCode: HttpStatus,
-    details?: Record<string, any>,
+    details?: ErrorDetails,
     requestId?: string
   ) {
     super(message)
@@ -49,37 +62,37 @@ export class ApiErrorBase extends Error {
 
 // Specific Error Types
 export class ValidationError extends ApiErrorBase {
-  constructor(message: string, details?: Record<string, any>, requestId?: string) {
+  constructor(message: string, details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.VALIDATION_ERROR, message, HTTP_STATUS.BAD_REQUEST, details, requestId)
   }
 }
 
 export class AuthenticationError extends ApiErrorBase {
-  constructor(message: string = 'Authentication required', details?: Record<string, any>, requestId?: string) {
+  constructor(message: string = 'Authentication required', details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.UNAUTHORIZED, message, HTTP_STATUS.UNAUTHORIZED, details, requestId)
   }
 }
 
 export class AuthorizationError extends ApiErrorBase {
-  constructor(message: string = 'Insufficient permissions', details?: Record<string, any>, requestId?: string) {
+  constructor(message: string = 'Insufficient permissions', details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.FORBIDDEN, message, HTTP_STATUS.FORBIDDEN, details, requestId)
   }
 }
 
 export class NotFoundError extends ApiErrorBase {
-  constructor(resource: string = 'Resource', details?: Record<string, any>, requestId?: string) {
+  constructor(resource: string = 'Resource', details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.RESOURCE_NOT_FOUND, `${resource} not found`, HTTP_STATUS.NOT_FOUND, details, requestId)
   }
 }
 
 export class ConflictError extends ApiErrorBase {
-  constructor(message: string, details?: Record<string, any>, requestId?: string) {
+  constructor(message: string, details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.RESOURCE_CONFLICT, message, HTTP_STATUS.CONFLICT, details, requestId)
   }
 }
 
 export class RateLimitError extends ApiErrorBase {
-  constructor(retryAfter?: number, details?: Record<string, any>, requestId?: string) {
+  constructor(retryAfter?: number, details?: ErrorDetails, requestId?: string) {
     const message = retryAfter
       ? `Rate limit exceeded. Retry after ${retryAfter} seconds.`
       : 'Rate limit exceeded'
@@ -92,13 +105,13 @@ export class RateLimitError extends ApiErrorBase {
 }
 
 export class BusinessRuleError extends ApiErrorBase {
-  constructor(message: string, details?: Record<string, any>, requestId?: string) {
+  constructor(message: string, details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.BUSINESS_RULE_VIOLATION, message, HTTP_STATUS.UNPROCESSABLE_ENTITY, details, requestId)
   }
 }
 
 export class ExternalServiceError extends ApiErrorBase {
-  constructor(service: string, message?: string, details?: Record<string, any>, requestId?: string) {
+  constructor(service: string, message?: string, details?: ErrorDetails, requestId?: string) {
     const errorMessage = message || `External service ${service} is unavailable`
     super(ErrorCode.EXTERNAL_SERVICE_ERROR, errorMessage, HTTP_STATUS.BAD_GATEWAY, {
       service,
@@ -108,7 +121,7 @@ export class ExternalServiceError extends ApiErrorBase {
 }
 
 export class DatabaseError extends ApiErrorBase {
-  constructor(operation: string, details?: Record<string, any>, requestId?: string) {
+  constructor(operation: string, details?: ErrorDetails, requestId?: string) {
     super(ErrorCode.DATABASE_ERROR, `Database operation failed: ${operation}`, HTTP_STATUS.INTERNAL_ERROR, details, requestId)
   }
 }
@@ -168,7 +181,7 @@ export class ErrorHandler {
       this.logError(error as Error, path, id)
 
       const validationError = new ValidationError('Validation failed', {
-        issues: (error as any).issues,
+        issues: (error as { issues: unknown }).issues as ErrorDetailValue,
       }, id)
 
       const response: ApiResponse = {

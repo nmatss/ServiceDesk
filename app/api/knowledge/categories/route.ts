@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const db = getDb()
-
     // Buscar todas as categorias ativas
     const categories = db.prepare(`
       SELECT
@@ -70,9 +68,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const db = getDb()
-
     // Gerar slug único
     const baseSlug = slugify(name, { lower: true, strict: true })
     let slug = baseSlug

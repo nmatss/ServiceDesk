@@ -336,7 +336,7 @@ export class ReadReplicaManager extends EventEmitter {
       }
     }
 
-    return healthyReplicas[0].id;
+    return healthyReplicas[0]?.id || 'default';
   }
 
   private async executeOnReplica<T>(

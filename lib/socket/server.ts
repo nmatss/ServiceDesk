@@ -1,12 +1,30 @@
-import { Server as SocketIOServer } from 'socket.io'
+import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
 import { getDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+// Extended Socket type with custom properties
+export interface ExtendedSocket extends Socket {
+  userId: number
+  userRole: string
+  userName: string
+}
+
+export interface SessionInfo {
+  socketId: string
+  userId: number
+  userName: string
+  userRole: string
+  connectedAt: Date
+  lastActivity: Date
+}
 
 export class SocketServer {
   private io: SocketIOServer
   private db = getDb()
+  private activeSessions = new Map<string, SessionInfo>()
+  private userSockets = new Map<number, Set<string>>()
 
   constructor(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
@@ -21,9 +39,52 @@ export class SocketServer {
     })
 
     this.setupEventHandlers()
+    this.setupCleanupTasks()
   }
 
-  private async authenticateSocket(socket: any, next: any) {
+  private setupCleanupTasks() {
+    // Limpar sessões inativas a cada 5 minutos
+    setInterval(() => {
+      this.cleanupInactiveSessions()
+    }, 5 * 60 * 1000)
+  }
+
+  private cleanupInactiveSessions(): void {
+    const MAX_INACTIVE = 30 * 60 * 1000 // 30 minutos
+    const now = Date.now()
+
+    for (const [socketId, session] of this.activeSessions) {
+      const lastActivity = session.lastActivity.getTime()
+      if (now - lastActivity > MAX_INACTIVE) {
+        // Remover sessão inativa
+        this.activeSessions.delete(socketId)
+
+        // Limpar de userSockets também
+        const userSockets = this.userSockets.get(session.userId)
+        if (userSockets) {
+          userSockets.delete(socketId)
+          if (userSockets.size === 0) {
+            this.userSockets.delete(session.userId)
+          }
+        }
+
+        // Atualizar banco de dados
+        try {
+          this.db.prepare(`
+            UPDATE user_sessions
+            SET is_active = 0
+            WHERE id = ?
+          `).run(socketId)
+        } catch (error) {
+          logger.error('Error updating inactive session in database', error)
+        }
+
+        logger.info(`Cleaned up inactive session: ${socketId} (User: ${session.userName})`)
+      }
+    }
+  }
+
+  private async authenticateSocket(socket: ExtendedSocket, next: (err?: Error) => void) {
     try {
       const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '')
 
@@ -51,8 +112,27 @@ export class SocketServer {
     }
   }
 
-  private saveUserSession(socket: any) {
+  private saveUserSession(socket: ExtendedSocket) {
     try {
+      const now = new Date()
+      const sessionInfo: SessionInfo = {
+        socketId: socket.id,
+        userId: socket.userId,
+        userName: socket.userName,
+        userRole: socket.userRole,
+        connectedAt: now,
+        lastActivity: now
+      }
+
+      // Armazenar sessão em memória
+      this.activeSessions.set(socket.id, sessionInfo)
+
+      // Mapear usuário para socket
+      if (!this.userSockets.has(socket.userId)) {
+        this.userSockets.set(socket.userId, new Set())
+      }
+      this.userSockets.get(socket.userId)!.add(socket.id)
+
       const sessionData = {
         sessionId: socket.id,
         userId: socket.userId,
@@ -61,7 +141,7 @@ export class SocketServer {
         isActive: true
       }
 
-      // Inserir ou atualizar sessão
+      // Inserir ou atualizar sessão no banco
       this.db.prepare(`
         INSERT OR REPLACE INTO user_sessions (id, user_id, socket_id, user_agent, ip_address, is_active, last_activity)
         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
@@ -80,8 +160,21 @@ export class SocketServer {
     }
   }
 
-  private removeUserSession(socket: any) {
+  private removeUserSession(socket: ExtendedSocket) {
     try {
+      // Remover da memória
+      this.activeSessions.delete(socket.id)
+
+      // Remover do mapeamento de usuário
+      const userSockets = this.userSockets.get(socket.userId)
+      if (userSockets) {
+        userSockets.delete(socket.id)
+        if (userSockets.size === 0) {
+          this.userSockets.delete(socket.userId)
+        }
+      }
+
+      // Atualizar banco
       this.db.prepare(`
         UPDATE user_sessions
         SET is_active = 0, last_activity = datetime('now')
@@ -96,90 +189,101 @@ export class SocketServer {
 
   private setupEventHandlers() {
     // Middleware de autenticação
-    this.io.use(this.authenticateSocket.bind(this))
+    this.io.use((socket, next) => {
+      this.authenticateSocket(socket as ExtendedSocket, next);
+    })
 
     this.io.on('connection', (socket) => {
-      logger.info(`✅ Socket connected: ${socket.id} (User: ${socket.userName})`)
+      const extSocket = socket as ExtendedSocket;
+      logger.info(`✅ Socket connected: ${extSocket.id} (User: ${extSocket.userName})`)
 
       // Entrar em sala baseada no role do usuário
-      const userRoom = `user_${socket.userId}`
-      const roleRoom = `role_${socket.userRole}`
+      const userRoom = `user_${extSocket.userId}`
+      const roleRoom = `role_${extSocket.userRole}`
 
-      socket.join(userRoom)
-      socket.join(roleRoom)
+      extSocket.join(userRoom)
+      extSocket.join(roleRoom)
 
       // Se for admin, entrar na sala de admins
-      if (socket.userRole === 'admin') {
-        socket.join('admins')
+      if (extSocket.userRole === 'admin') {
+        extSocket.join('admins')
       }
 
       // Se for agent ou admin, entrar na sala de agentes
-      if (socket.userRole === 'agent' || socket.userRole === 'admin') {
-        socket.join('agents')
+      if (extSocket.userRole === 'agent' || extSocket.userRole === 'admin') {
+        extSocket.join('agents')
       }
 
       // Eventos do socket
-      socket.on('join_ticket', (ticketId: number) => {
-        socket.join(`ticket_${ticketId}`)
-        logger.info(`👤 User ${socket.userName} joined ticket room: ${ticketId}`)
+      extSocket.on('join_ticket', (ticketId: number) => {
+        extSocket.join(`ticket_${ticketId}`)
+        logger.info(`👤 User ${extSocket.userName} joined ticket room: ${ticketId}`)
       })
 
-      socket.on('leave_ticket', (ticketId: number) => {
-        socket.leave(`ticket_${ticketId}`)
-        logger.info(`👤 User ${socket.userName} left ticket room: ${ticketId}`)
+      extSocket.on('leave_ticket', (ticketId: number) => {
+        extSocket.leave(`ticket_${ticketId}`)
+        logger.info(`👤 User ${extSocket.userName} left ticket room: ${ticketId}`)
       })
 
-      socket.on('typing_start', (data: { ticketId: number; userName: string }) => {
-        socket.to(`ticket_${data.ticketId}`).emit('user_typing', {
+      extSocket.on('typing_start', (data: { ticketId: number; userName: string }) => {
+        extSocket.to(`ticket_${data.ticketId}`).emit('user_typing', {
           userName: data.userName,
-          userId: socket.userId,
+          userId: extSocket.userId,
           isTyping: true
         })
       })
 
-      socket.on('typing_stop', (data: { ticketId: number }) => {
-        socket.to(`ticket_${data.ticketId}`).emit('user_typing', {
-          userName: socket.userName,
-          userId: socket.userId,
+      extSocket.on('typing_stop', (data: { ticketId: number }) => {
+        extSocket.to(`ticket_${data.ticketId}`).emit('user_typing', {
+          userName: extSocket.userName,
+          userId: extSocket.userId,
           isTyping: false
         })
       })
 
-      socket.on('request_online_users', () => {
-        this.sendOnlineUsers(socket)
+      extSocket.on('request_online_users', () => {
+        this.sendOnlineUsers(extSocket)
       })
 
       // Atualizar última atividade periodicamente
       const activityInterval = setInterval(() => {
         try {
+          // Atualizar sessão em memória
+          const session = this.activeSessions.get(extSocket.id)
+          if (session) {
+            session.lastActivity = new Date()
+            this.activeSessions.set(extSocket.id, session)
+          }
+
+          // Atualizar banco
           this.db.prepare(`
             UPDATE user_sessions
             SET last_activity = datetime('now')
             WHERE id = ?
-          `).run(socket.id)
+          `).run(extSocket.id)
         } catch (error) {
           logger.error('Error updating activity', error)
         }
       }, 30000) // A cada 30 segundos
 
-      socket.on('disconnect', (reason) => {
-        logger.info(`❌ Socket disconnected: ${socket.id} (Reason: ${reason})`)
+      extSocket.on('disconnect', (reason) => {
+        logger.info(`❌ Socket disconnected: ${extSocket.id} (Reason: ${reason})`)
         clearInterval(activityInterval)
-        this.removeUserSession(socket)
+        this.removeUserSession(extSocket)
 
         // Notificar outros usuários que este usuário saiu
-        this.broadcastUserStatus(socket.userId, false)
+        this.broadcastUserStatus(extSocket.userId, false)
       })
 
       // Enviar lista de usuários online quando conectar
-      this.sendOnlineUsers(socket)
+      this.sendOnlineUsers(extSocket)
 
       // Notificar outros usuários que este usuário está online
-      this.broadcastUserStatus(socket.userId, true)
+      this.broadcastUserStatus(extSocket.userId, true)
     })
   }
 
-  private sendOnlineUsers(socket: any) {
+  private sendOnlineUsers(socket: ExtendedSocket) {
     try {
       const onlineUsers = this.db.prepare(`
         SELECT DISTINCT u.id, u.name, u.role, s.last_activity
@@ -206,7 +310,7 @@ export class SocketServer {
 
   // Métodos públicos para enviar notificações
 
-  public notifyTicketAssigned(ticketId: number, assignedToUserId: number, ticketData: any) {
+  public notifyTicketAssigned(ticketId: number, assignedToUserId: number, ticketData: Record<string, unknown>) {
     const notification = {
       type: 'ticket_assigned',
       title: 'Novo ticket atribuído',
@@ -222,7 +326,7 @@ export class SocketServer {
     this.saveNotificationEvent('ticket_assigned', [assignedToUserId], notification)
   }
 
-  public notifyTicketUpdated(ticketId: number, ticketData: any, excludeUserId?: number) {
+  public notifyTicketUpdated(ticketId: number, ticketData: Record<string, unknown>, excludeUserId?: number) {
     const notification = {
       type: 'ticket_updated',
       title: 'Ticket atualizado',
@@ -239,7 +343,7 @@ export class SocketServer {
     }
   }
 
-  public notifyNewComment(ticketId: number, commentData: any, ticketData: any) {
+  public notifyNewComment(ticketId: number, commentData: Record<string, unknown>, ticketData: Record<string, unknown>) {
     const notification = {
       type: 'comment_added',
       title: 'Novo comentário',
@@ -252,7 +356,7 @@ export class SocketServer {
     this.io.to(`ticket_${ticketId}`).except(`user_${commentData.authorId}`).emit('notification', notification)
   }
 
-  public notifySLAWarning(ticketId: number, slaData: any) {
+  public notifySLAWarning(ticketId: number, slaData: Record<string, unknown>) {
     const notification = {
       type: 'sla_warning',
       title: 'Aviso de SLA',
@@ -279,7 +383,7 @@ export class SocketServer {
     this.io.to('admins').emit('notification', notification)
   }
 
-  private saveNotificationEvent(eventType: string, targetUsers: number[], payload: any) {
+  private saveNotificationEvent(eventType: string, targetUsers: number[], payload: Record<string, unknown>) {
     try {
       this.db.prepare(`
         INSERT INTO notification_events (event_type, target_users, payload)

@@ -1,0 +1,31 @@
+name: "ServiceDesk CodeQL Config"
+
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+paths-ignore:
+  - node_modules
+  - .next
+  - dist
+  - build
+  - coverage
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/*.spec.ts'
+  - '**/*.spec.tsx'
+  - tests/
+  - playwright-report/
+
+paths:
+  - app
+  - lib
+  - components
+  - middleware.ts
+
+# Disable specific queries that may cause false positives
+query-filters:
+  - exclude:
+      id: js/unused-local-variable
+  - exclude:
+      id: js/useless-assignment-to-local

@@ -1,6 +1,6 @@
 import db from '../db/connection';
 import { TicketWithDetails, KnowledgeArticleWithDetails, User } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SearchFilters {
   query?: string;

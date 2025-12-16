@@ -6,7 +6,7 @@
 import { z } from 'zod'
 import { SchemaRegistry } from './validation'
 import { ErrorCode } from './types'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // OpenAPI Schema Types
 interface OpenAPISchema {
@@ -64,8 +64,8 @@ interface OpenAPIParameter {
   in: 'query' | 'header' | 'path' | 'cookie'
   description?: string
   required?: boolean
-  schema: any
-  example?: any
+  schema: Record<string, unknown>
+  example?: unknown
 }
 
 interface OpenAPIRequestBody {
@@ -75,15 +75,15 @@ interface OpenAPIRequestBody {
 }
 
 interface OpenAPIMediaType {
-  schema: any
-  example?: any
+  schema: Record<string, unknown>
+  example?: unknown
   examples?: Record<string, OpenAPIExample>
 }
 
 interface OpenAPIExample {
   summary?: string
   description?: string
-  value: any
+  value: unknown
 }
 
 interface OpenAPIResponse {
@@ -94,11 +94,11 @@ interface OpenAPIResponse {
 
 interface OpenAPIHeader {
   description?: string
-  schema: any
+  schema: Record<string, unknown>
 }
 
 interface OpenAPIComponents {
-  schemas: Record<string, any>
+  schemas: Record<string, Record<string, unknown>>
   responses: Record<string, OpenAPIResponse>
   parameters: Record<string, OpenAPIParameter>
   examples: Record<string, OpenAPIExample>
@@ -113,7 +113,7 @@ interface OpenAPISecurityScheme {
   bearerFormat?: string
   in?: 'query' | 'header' | 'cookie'
   name?: string
-  flows?: any
+  flows?: Record<string, unknown>
   openIdConnectUrl?: string
 }
 
@@ -298,8 +298,8 @@ export class OpenAPIGenerator {
     ]
   }
 
-  private generateSchemas(): Record<string, any> {
-    const schemas: Record<string, any> = {}
+  private generateSchemas(): Record<string, Record<string, unknown>> {
+    const schemas: Record<string, Record<string, unknown>> = {}
 
     // Convert Zod schemas to OpenAPI schemas
     Object.entries(SchemaRegistry).forEach(([name, schema]) => {
@@ -509,20 +509,22 @@ export class OpenAPIGenerator {
     }
   }
 
-  private zodToOpenAPI(schema: z.ZodSchema): any {
+  private zodToOpenAPI(schema: z.ZodSchema): Record<string, unknown> {
     if (schema instanceof z.ZodString) {
-      const result: any = { type: 'string' }
+      const result: Record<string, unknown> = { type: 'string' }
 
       // Add constraints
-      if ('minLength' in schema._def && schema._def.minLength !== null) {
-        result.minLength = schema._def.minLength.value
+      const def = schema._def as { minLength?: { value: number } | null; maxLength?: { value: number } | null; checks?: Array<{ kind: string; regex?: RegExp }> }
+
+      if (def.minLength !== null && def.minLength !== undefined) {
+        result.minLength = def.minLength.value
       }
-      if ('maxLength' in schema._def && schema._def.maxLength !== null) {
-        result.maxLength = schema._def.maxLength.value
+      if (def.maxLength !== null && def.maxLength !== undefined) {
+        result.maxLength = def.maxLength.value
       }
 
       // Add format for email, datetime, etc.
-      const checks = (schema._def as any).checks || []
+      const checks = def.checks || []
       for (const check of checks) {
         if (check.kind === 'email') {
           result.format = 'email'
@@ -530,7 +532,7 @@ export class OpenAPIGenerator {
           result.format = 'date-time'
         } else if (check.kind === 'url') {
           result.format = 'uri'
-        } else if (check.kind === 'regex') {
+        } else if (check.kind === 'regex' && check.regex) {
           result.pattern = check.regex.source
         }
       }
@@ -539,14 +541,14 @@ export class OpenAPIGenerator {
     }
 
     if (schema instanceof z.ZodNumber) {
-      const result: any = { type: 'number' }
+      const result: Record<string, unknown> = { type: 'number' }
 
-      if ('checks' in schema._def) {
-        const checks = schema._def.checks as any[]
-        for (const check of checks) {
-          if (check.kind === 'min') {
+      const def = schema._def as { checks?: Array<{ kind: string; value?: number }> }
+      if (def.checks) {
+        for (const check of def.checks) {
+          if (check.kind === 'min' && check.value !== undefined) {
             result.minimum = check.value
-          } else if (check.kind === 'max') {
+          } else if (check.kind === 'max' && check.value !== undefined) {
             result.maximum = check.value
           } else if (check.kind === 'int') {
             result.type = 'integer'
@@ -562,21 +564,29 @@ export class OpenAPIGenerator {
     }
 
     if (schema instanceof z.ZodArray) {
-      return {
+      const def = schema._def as unknown as { type: z.ZodSchema; minLength?: { value: number } | null; maxLength?: { value: number } | null }
+      const result: Record<string, unknown> = {
         type: 'array',
-        items: this.zodToOpenAPI(schema.element),
-        minItems: schema._def.minLength?.value,
-        maxItems: schema._def.maxLength?.value,
+        items: this.zodToOpenAPI(def.type),
       }
+
+      if (def.minLength !== null && def.minLength !== undefined) {
+        result.minItems = def.minLength.value
+      }
+      if (def.maxLength !== null && def.maxLength !== undefined) {
+        result.maxItems = def.maxLength.value
+      }
+
+      return result
     }
 
     if (schema instanceof z.ZodObject) {
-      const properties: Record<string, any> = {}
+      const properties: Record<string, Record<string, unknown>> = {}
       const required: string[] = []
 
-      const shape = schema.shape
+      const shape = schema.shape as Record<string, z.ZodSchema>
       for (const [key, value] of Object.entries(shape)) {
-        properties[key] = this.zodToOpenAPI(value as z.ZodSchema)
+        properties[key] = this.zodToOpenAPI(value)
 
         // Check if field is required
         if (!(value instanceof z.ZodOptional) && !(value instanceof z.ZodDefault)) {
@@ -584,7 +594,7 @@ export class OpenAPIGenerator {
         }
       }
 
-      const result: any = {
+      const result: Record<string, unknown> = {
         type: 'object',
         properties,
       }
@@ -597,25 +607,29 @@ export class OpenAPIGenerator {
     }
 
     if (schema instanceof z.ZodEnum) {
+      const def = schema._def as unknown as { values: readonly string[] }
       return {
         type: 'string',
-        enum: schema.options,
+        enum: Array.from(def.values),
       }
     }
 
     if (schema instanceof z.ZodOptional) {
-      return this.zodToOpenAPI(schema.unwrap())
+      const unwrapped = schema.unwrap() as z.ZodSchema
+      return this.zodToOpenAPI(unwrapped)
     }
 
     if (schema instanceof z.ZodDefault) {
-      const innerSchema = this.zodToOpenAPI(schema._def.innerType)
-      innerSchema.default = schema._def.defaultValue()
+      const def = schema._def as unknown as { innerType: z.ZodSchema; defaultValue: () => unknown }
+      const innerSchema = this.zodToOpenAPI(def.innerType)
+      innerSchema.default = def.defaultValue()
       return innerSchema
     }
 
     if (schema instanceof z.ZodUnion) {
+      const def = schema._def as unknown as { options: readonly z.ZodSchema[] }
       return {
-        anyOf: schema.options.map((option: z.ZodSchema) => this.zodToOpenAPI(option)),
+        anyOf: Array.from(def.options).map((option) => this.zodToOpenAPI(option)),
       }
     }
 
@@ -695,7 +709,10 @@ export class OpenAPIGenerator {
         operation.deprecated = true
       }
 
-      this.schema.paths[route.path][route.method.toLowerCase()] = operation
+      const path = this.schema.paths[route.path];
+      if (path) {
+        path[route.method.toLowerCase()] = operation;
+      }
     }
 
     return this.schema
@@ -813,7 +830,7 @@ export const docHelpers = {
       ],
       requestBody: {
         description: `Updated ${entity} data`,
-        schema: schema.partial(),
+        schema,
       },
       responses: {
         '200': {

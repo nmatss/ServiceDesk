@@ -1,9 +1,8 @@
 // Enterprise Resource Optimization Engine
 // Provides intelligent recommendations for resource allocation, capacity planning, and cost optimization
 
-import { demandForecastingEngine, DemandForecast } from './demand-forecasting';
-import { riskScoringEngine, RiskScore } from './risk-scoring';
-import { logger } from '../monitoring/logger';
+import { demandForecastingEngine, DemandForecast, CapacityRecommendation } from './demand-forecasting';
+import logger from '../monitoring/structured-logger';
 
 export interface ResourceOptimization {
   optimization_id: string;
@@ -222,10 +221,9 @@ export interface ScheduleImpactMetrics {
 
 export class ResourceOptimizerEngine {
   private optimizationHistory: Map<string, ResourceOptimization[]> = new Map();
-  private configurationSettings: OptimizationSettings;
 
   constructor() {
-    this.configurationSettings = this.loadOptimizationSettings();
+    // Configuration settings are loaded on-demand
   }
 
   // ========================================
@@ -669,7 +667,7 @@ export class ResourceOptimizerEngine {
   private async performCostBenefitAnalysis(
     currentState: ResourceState,
     optimizedState: ResourceState,
-    implementationPlan: ImplementationPlan
+    _implementationPlan: ImplementationPlan
   ): Promise<CostBenefitAnalysis> {
     // Calculate implementation costs
     const implementationCosts: CostCategory[] = [
@@ -867,16 +865,6 @@ export class ResourceOptimizerEngine {
   }
 
   // Mock implementations for data access and calculations
-  private loadOptimizationSettings(): OptimizationSettings {
-    return {
-      default_service_level_target: 0.8,
-      max_agent_utilization: 0.9,
-      min_agent_utilization: 0.6,
-      optimization_frequency_hours: 24,
-      confidence_threshold: 0.7
-    };
-  }
-
   private async getCurrentResourceState(): Promise<ResourceState> {
     // Mock implementation
     return {
@@ -901,20 +889,20 @@ export class ResourceOptimizerEngine {
   }
 
   // Additional helper methods (simplified implementations)
-  private calculateStaffingGap(state: ResourceState, forecast: DemandForecast, target: number): number { return 2.5; }
-  private generateStaffingActionItems(gap: number): OptimizationAction[] { return []; }
+  private calculateStaffingGap(_state: ResourceState, _forecast: DemandForecast, _target: number): number { return 2.5; }
+  private generateStaffingActionItems(_gap: number): OptimizationAction[] { return []; }
   private generateScheduleActionItems(): OptimizationAction[] { return []; }
   private generateSkillRoutingActionItems(): OptimizationAction[] { return []; }
   private async analyzeSkillGaps(): Promise<SkillGap[]> { return []; }
   private async analyzeWorkloadBySkill(): Promise<WorkloadBySkill[]> { return []; }
-  private async generateSkillAllocationStrategies(gaps: any, workload: any, state: ResourceState): Promise<OptimizationStrategy[]> { return []; }
-  private async calculateSkillOptimizedState(current: ResourceState, strategies: OptimizationStrategy[]): Promise<ResourceState> { return current; }
-  private async analyzeCostStructure(): Promise<CostStructure> { return {} as any; }
+  private async generateSkillAllocationStrategies(_gaps: SkillGap[], _workload: WorkloadBySkill[], _state: ResourceState): Promise<OptimizationStrategy[]> { return []; }
+  private async calculateSkillOptimizedState(current: ResourceState, _strategies: OptimizationStrategy[]): Promise<ResourceState> { return current; }
+  private async analyzeCostStructure(): Promise<CostStructure> { return {} as CostStructure; }
   private async identifyEfficiencyOpportunities(): Promise<EfficiencyOpportunity[]> { return []; }
-  private async generateCostOptimizationStrategies(cost: any, efficiency: any, target: number): Promise<OptimizationStrategy[]> { return []; }
-  private async calculateCostOptimizedState(current: ResourceState, strategies: OptimizationStrategy[]): Promise<ResourceState> { return current; }
-  private async calculateOptimizedState(current: ResourceState, strategies: OptimizationStrategy[], forecast: DemandForecast): Promise<ResourceState> { return current; }
-  private async generateImplementationPlan(strategies: OptimizationStrategy[], type: string): Promise<ImplementationPlan> {
+  private async generateCostOptimizationStrategies(_cost: CostStructure, _efficiency: EfficiencyOpportunity[], _target: number): Promise<OptimizationStrategy[]> { return []; }
+  private async calculateCostOptimizedState(current: ResourceState, _strategies: OptimizationStrategy[]): Promise<ResourceState> { return current; }
+  private async calculateOptimizedState(current: ResourceState, _strategies: OptimizationStrategy[], _forecast: DemandForecast): Promise<ResourceState> { return current; }
+  private async generateImplementationPlan(_strategies: OptimizationStrategy[], _type: string): Promise<ImplementationPlan> {
     return {
       phases: [],
       total_duration: '4-6 weeks',
@@ -924,7 +912,7 @@ export class ResourceOptimizerEngine {
       rollback_plan: 'Revert to previous configuration'
     };
   }
-  private async assessOptimizationRisks(strategies: OptimizationStrategy[], current: ResourceState, optimized: ResourceState): Promise<OptimizationRiskAssessment> {
+  private async assessOptimizationRisks(_strategies: OptimizationStrategy[], _current: ResourceState, _optimized: ResourceState): Promise<OptimizationRiskAssessment> {
     return {
       overall_risk_level: 'medium',
       risk_factors: [],
@@ -935,12 +923,12 @@ export class ResourceOptimizerEngine {
 
   // Additional data access methods
   private async getAllActiveAgentIds(): Promise<string[]> { return ['agent1', 'agent2', 'agent3']; }
-  private async getAgentData(agentId: string): Promise<any> { return { name: 'Agent Name' }; }
-  private async getCurrentSchedule(agentId: string): Promise<ScheduleSlot[]> { return []; }
-  private async getAgentSkills(agentId: string): Promise<string[]> { return []; }
-  private analyzeAgentWorkloadPattern(agentId: string, predictions: any[]): WorkloadPattern { return {} as any; }
-  private async generateOptimizedSchedule(agentId: string, current: ScheduleSlot[], pattern: any, skills: string[], forecast: DemandForecast): Promise<ScheduleSlot[]> { return []; }
-  private async calculateScheduleImpact(current: ScheduleSlot[], optimized: ScheduleSlot[], pattern: any): Promise<ScheduleImpactMetrics> {
+  private async getAgentData(_agentId: string): Promise<{ name: string }> { return { name: 'Agent Name' }; }
+  private async getCurrentSchedule(_agentId: string): Promise<ScheduleSlot[]> { return []; }
+  private async getAgentSkills(_agentId: string): Promise<string[]> { return []; }
+  private analyzeAgentWorkloadPattern(_agentId: string, _predictions: DemandForecast['predictions']): WorkloadPattern { return {} as WorkloadPattern; }
+  private async generateOptimizedSchedule(_agentId: string, _current: ScheduleSlot[], _pattern: WorkloadPattern, _skills: string[], _forecast: DemandForecast): Promise<ScheduleSlot[]> { return []; }
+  private async calculateScheduleImpact(_current: ScheduleSlot[], _optimized: ScheduleSlot[], _pattern: WorkloadPattern): Promise<ScheduleImpactMetrics> {
     return {
       service_level_improvement: 0.05,
       cost_impact: -200,
@@ -949,15 +937,15 @@ export class ResourceOptimizerEngine {
       workload_balance_improvement: 0.12
     };
   }
-  private generateOptimizationReasons(current: ScheduleSlot[], optimized: ScheduleSlot[], pattern: any): string[] { return []; }
+  private generateOptimizationReasons(_current: ScheduleSlot[], _optimized: ScheduleSlot[], _pattern: WorkloadPattern): string[] { return []; }
 
   // Capacity planning methods
-  private async analyzeGrowthScenarios(forecast: DemandForecast, scenarios: GrowthScenario[], horizon: number): Promise<ScenarioAnalysis[]> { return []; }
-  private calculateCapacityRequirements(recommendations: any[], analysis: ScenarioAnalysis[]): CapacityRequirement[] { return []; }
-  private async generateHiringPlan(requirements: CapacityRequirement[]): Promise<HiringPlan> { return {} as any; }
-  private async generateTrainingPlan(requirements: CapacityRequirement[]): Promise<TrainingPlan> { return {} as any; }
-  private calculateInvestmentRequirements(hiring: HiringPlan, training: TrainingPlan): InvestmentRequirement[] { return []; }
-  private async assessCapacityPlanRisks(requirements: CapacityRequirement[], analysis: ScenarioAnalysis[]): Promise<OptimizationRiskAssessment> {
+  private async analyzeGrowthScenarios(_forecast: DemandForecast, _scenarios: GrowthScenario[], _horizon: number): Promise<ScenarioAnalysis[]> { return []; }
+  private calculateCapacityRequirements(_recommendations: CapacityRecommendation[], _analysis: ScenarioAnalysis[]): CapacityRequirement[] { return []; }
+  private async generateHiringPlan(_requirements: CapacityRequirement[]): Promise<HiringPlan> { return {} as HiringPlan; }
+  private async generateTrainingPlan(_requirements: CapacityRequirement[]): Promise<TrainingPlan> { return {} as TrainingPlan; }
+  private calculateInvestmentRequirements(_hiring: HiringPlan, _training: TrainingPlan): InvestmentRequirement[] { return []; }
+  private async assessCapacityPlanRisks(_requirements: CapacityRequirement[], _analysis: ScenarioAnalysis[]): Promise<OptimizationRiskAssessment> {
     return {
       overall_risk_level: 'medium',
       risk_factors: [],
@@ -970,14 +958,6 @@ export class ResourceOptimizerEngine {
 // ========================================
 // SUPPORTING INTERFACES
 // ========================================
-
-interface OptimizationSettings {
-  default_service_level_target: number;
-  max_agent_utilization: number;
-  min_agent_utilization: number;
-  optimization_frequency_hours: number;
-  confidence_threshold: number;
-}
 
 interface PerformanceGap {
   metric: string;

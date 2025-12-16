@@ -82,16 +82,10 @@ export default function TicketDetailsPage() {
   const fetchTicketDetails = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        router.push('/auth/login')
-        return
-      }
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/tickets/${ticketId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (!response.ok) {
@@ -123,14 +117,14 @@ export default function TicketDetailsPage() {
 
     try {
       setSubmittingComment(true)
-      const token = localStorage.getItem('auth_token')
-      
+
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/tickets/${ticketId}/comments`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use httpOnly cookies
         body: JSON.stringify({
           content: newComment.trim(),
           is_internal: isInternal

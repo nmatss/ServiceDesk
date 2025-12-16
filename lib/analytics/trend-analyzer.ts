@@ -1,8 +1,8 @@
 // Enterprise Trend Analysis Engine
 // Automatically analyzes trends across all ServiceDesk metrics and provides actionable insights
 
-import { mlPipeline } from './ml-pipeline';
-import { logger } from '../monitoring/logger';
+// Removed unused import: mlPipeline
+import logger from '../monitoring/structured-logger';
 
 export interface TrendAnalysis {
   analysis_id: string;
@@ -24,7 +24,7 @@ export interface TrendAnalysis {
   recommendations: TrendRecommendation[];
   created_at: Date;
   expires_at: Date;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export type TrendDirection =
@@ -220,7 +220,7 @@ export interface TrendAlerts {
 
 export class TrendAnalyzerEngine {
   private trendCache: Map<string, TrendAnalysis> = new Map();
-  private alertsHistory: Map<string, TrendAlerts[]> = new Map();
+  // Removed unused property: alertsHistory
   private analysisConfig: TrendAnalysisConfig;
 
   constructor() {
@@ -311,9 +311,14 @@ export class TrendAnalyzerEngine {
         insights
       );
 
+      const validEntityTypes = ['tickets', 'agents', 'customers', 'categories', 'system', 'business'];
+      const validatedEntityType = validEntityTypes.includes(entityType)
+        ? (entityType as TrendAnalysis['entity_type'])
+        : 'system';
+
       const trendAnalysis: TrendAnalysis = {
         analysis_id: `trend_${entityType}_${metricName}_${Date.now()}`,
-        entity_type: entityType as any,
+        entity_type: validatedEntityType,
         entity_id: entityId,
         metric_name: metricName,
         time_period: timePeriod,
@@ -440,13 +445,14 @@ export class TrendAnalyzerEngine {
 
       for (const entity of comparisonEntities) {
         const trend = await this.analyzeTrend(entityType, entity.entity_id, metricName, timePeriod);
-        metricValues[entity.entity_id] = entity.baseline_metrics[metricName];
+        const baselineValue = entity.baseline_metrics[metricName] ?? 0;
+        metricValues[entity.entity_id] = baselineValue;
         trendDirections[entity.entity_id] = trend.trend_direction;
 
         // Calculate changes (simplified)
-        const previousValue = entity.baseline_metrics[metricName] * 0.9; // Mock previous value
-        percentageChanges[entity.entity_id] = ((entity.baseline_metrics[metricName] - previousValue) / previousValue) * 100;
-        absoluteChanges[entity.entity_id] = entity.baseline_metrics[metricName] - previousValue;
+        const previousValue = baselineValue * 0.9; // Mock previous value
+        percentageChanges[entity.entity_id] = ((baselineValue - previousValue) / previousValue) * 100;
+        absoluteChanges[entity.entity_id] = baselineValue - previousValue;
         statisticalSignificance[entity.entity_id] = trend.statistical_significance;
       }
 
@@ -544,11 +550,15 @@ export class TrendAnalyzerEngine {
     return components;
   }
 
-  private calculateLinearTrend(timestamps: number[], values: number[]): any {
+  private calculateLinearTrend(timestamps: number[], values: number[]): {
+    slope: number;
+    intercept: number;
+    r_squared: number;
+  } {
     const n = timestamps.length;
     const sumX = timestamps.reduce((a, b) => a + b, 0);
     const sumY = values.reduce((a, b) => a + b, 0);
-    const sumXY = timestamps.reduce((sum, x, i) => sum + x * values[i], 0);
+    const sumXY = timestamps.reduce((sum, x, i) => sum + x * (values[i] ?? 0), 0);
     const sumXX = timestamps.reduce((sum, x) => sum + x * x, 0);
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
@@ -558,7 +568,7 @@ export class TrendAnalyzerEngine {
     const yMean = sumY / n;
     const totalSumSquares = values.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
     const residualSumSquares = values.reduce((sum, y, i) => {
-      const predicted = slope * timestamps[i] + intercept;
+      const predicted = slope * (timestamps[i] ?? 0) + intercept;
       return sum + Math.pow(y - predicted, 2);
     }, 0);
 
@@ -589,14 +599,17 @@ export class TrendAnalyzerEngine {
       const threshold = this.calculateChangePointThreshold(data, i);
 
       if (changeScore > threshold) {
+        const dataPoint = data[i];
+        if (!dataPoint) continue;
+
         const probableCauses = await this.identifyProbableCauses(
-          data[i].timestamp,
+          dataPoint.timestamp,
           metricName,
           changeScore
         );
 
         changePoints.push({
-          timestamp: data[i].timestamp,
+          timestamp: dataPoint.timestamp,
           change_type: 'level_shift',
           magnitude: changeScore,
           direction: afterMean > beforeMean ? 'increase' : 'decrease',
@@ -736,10 +749,10 @@ export class TrendAnalyzerEngine {
           insight_type: 'performance_change',
           title: `Significant change detected on ${changePoint.timestamp.toDateString()}`,
           description: `${metricName} experienced a ${changePoint.direction} of ${changePoint.magnitude.toFixed(2)} on ${changePoint.timestamp.toDateString()}`,
-          significance: changePoint.impact_assessment.business_significance as any,
+          significance: changePoint.impact_assessment.business_significance,
           confidence: changePoint.confidence,
           supporting_evidence: changePoint.probable_causes.map(cause => ({
-            evidence_type: 'timing' as any,
+            evidence_type: 'timing' as const,
             description: cause.description,
             strength: cause.likelihood,
             source: 'change_point_analysis'
@@ -944,7 +957,10 @@ export class TrendAnalyzerEngine {
     return Math.min(0.95, avgRSquared + sizeBonus);
   }
 
-  // Mock implementations for data access and calculations
+  // ========================================
+  // MOCK IMPLEMENTATIONS (to be implemented with real data)
+  // ========================================
+
   private loadAnalysisConfiguration(): TrendAnalysisConfig {
     return {
       min_data_points: {
@@ -998,30 +1014,168 @@ export class TrendAnalyzerEngine {
     return hours * 60 * 60 * 1000;
   }
 
-  // Additional helper methods (simplified implementations)
-  private async getHistoricalData(entityType: string, entityId: string | undefined, metricName: string, timeWindow: TimeWindow): Promise<TimeSeriesDataPoint[]> { return []; }
-  private async extractSeasonalComponent(data: TimeSeriesDataPoint[], timePeriod: string): Promise<TrendComponent> { return { component_type: 'seasonal', strength: 0.3, r_squared: 0.2, contribution_percentage: 20, description: 'Seasonal component' }; }
-  private async extractCyclicalComponent(data: TimeSeriesDataPoint[]): Promise<TrendComponent> { return { component_type: 'cyclical', strength: 0.1, r_squared: 0.05, contribution_percentage: 5, description: 'Cyclical component' }; }
-  private calculateNoiseLevel(data: TimeSeriesDataPoint[], components: TrendComponent[]): number { return 0.2; }
-  private calculateChangePointThreshold(data: TimeSeriesDataPoint[], index: number): number { return 10; }
-  private async identifyProbableCauses(timestamp: Date, metricName: string, magnitude: number): Promise<ProbableCause[]> { return []; }
-  private assessBusinessSignificance(changeScore: number, metricName: string): 'low' | 'medium' | 'high' | 'critical' { return changeScore > 50 ? 'high' : 'medium'; }
-  private detectWeeklyPattern(data: TimeSeriesDataPoint[]): SeasonalPattern { return { pattern_type: 'weekly', strength: 0.2, phase: 0, amplitude: 10, period_length: 7, reliability: 0.7, next_peak: new Date(), next_trough: new Date(), pattern_stability: 0.6 }; }
-  private detectMonthlyPattern(data: TimeSeriesDataPoint[]): SeasonalPattern { return { pattern_type: 'monthly', strength: 0.15, phase: 0, amplitude: 15, period_length: 30, reliability: 0.6, next_peak: new Date(), next_trough: new Date(), pattern_stability: 0.5 }; }
-  private calculateNextPeak(hour: number, type: string): Date { return new Date(); }
-  private calculateNextTrough(hour: number, type: string): Date { return new Date(); }
-  private async detectOutliers(data: TimeSeriesDataPoint[], components: TrendComponent[]): Promise<OutlierPoint[]> { return []; }
-  private async generateForecasts(data: TimeSeriesDataPoint[], components: TrendComponent[], patterns: SeasonalPattern[], periods: number): Promise<ForecastedPoint[]> { return []; }
-  private getBusinessContext(entityType: string, metricName: string): string { return 'Business context for trend analysis'; }
-  private getResponsibleTeam(entityType: string, metricName: string): string { return 'Operations Team'; }
-  private extractSlopeFromEquation(equation: string): number { const match = equation.match(/y = ([+-]?\d*\.?\d+)x/); return match ? parseFloat(match[1]) : 0; }
-  private async getEntityData(entityType: string, entityId: string): Promise<any> { return { name: `Entity ${entityId}` }; }
-  private calculateBaselineValue(trend: TrendAnalysis): number { return 100; }
-  private identifyKeyDifferences(metrics: ComparisonMetric[], entities: ComparisonEntity[]): KeyDifference[] { return []; }
-  private async performStatisticalTests(metrics: ComparisonMetric[], comparisonType: string): Promise<StatisticalTest[]> { return []; }
-  private async generateComparisonInsights(entities: ComparisonEntity[], metrics: ComparisonMetric[], differences: KeyDifference[]): Promise<TrendInsight[]> { return []; }
-  private async generateComparisonRecommendations(type: string, differences: KeyDifference[], insights: TrendInsight[]): Promise<TrendRecommendation[]> { return []; }
-  private async checkForTrendAlerts(analysis: TrendAnalysis): Promise<void> { }
+  private async getHistoricalData(
+    _entityType: string,
+    _entityId: string | undefined,
+    _metricName: string,
+    _timeWindow: TimeWindow
+  ): Promise<TimeSeriesDataPoint[]> {
+    // TODO: Implement actual data retrieval
+    return [];
+  }
+
+  private async extractSeasonalComponent(
+    _data: TimeSeriesDataPoint[],
+    _timePeriod: string
+  ): Promise<TrendComponent> {
+    return {
+      component_type: 'seasonal',
+      strength: 0.3,
+      r_squared: 0.2,
+      contribution_percentage: 20,
+      description: 'Seasonal component'
+    };
+  }
+
+  private async extractCyclicalComponent(_data: TimeSeriesDataPoint[]): Promise<TrendComponent> {
+    return {
+      component_type: 'cyclical',
+      strength: 0.1,
+      r_squared: 0.05,
+      contribution_percentage: 5,
+      description: 'Cyclical component'
+    };
+  }
+
+  private calculateNoiseLevel(_data: TimeSeriesDataPoint[], _components: TrendComponent[]): number {
+    return 0.2;
+  }
+
+  private calculateChangePointThreshold(_data: TimeSeriesDataPoint[], _index: number): number {
+    return 10;
+  }
+
+  private async identifyProbableCauses(
+    _timestamp: Date,
+    _metricName: string,
+    _magnitude: number
+  ): Promise<ProbableCause[]> {
+    return [];
+  }
+
+  private assessBusinessSignificance(
+    changeScore: number,
+    _metricName: string
+  ): 'low' | 'medium' | 'high' | 'critical' {
+    return changeScore > 50 ? 'high' : 'medium';
+  }
+
+  private detectWeeklyPattern(_data: TimeSeriesDataPoint[]): SeasonalPattern {
+    return {
+      pattern_type: 'weekly',
+      strength: 0.2,
+      phase: 0,
+      amplitude: 10,
+      period_length: 7,
+      reliability: 0.7,
+      next_peak: new Date(),
+      next_trough: new Date(),
+      pattern_stability: 0.6
+    };
+  }
+
+  private detectMonthlyPattern(_data: TimeSeriesDataPoint[]): SeasonalPattern {
+    return {
+      pattern_type: 'monthly',
+      strength: 0.15,
+      phase: 0,
+      amplitude: 15,
+      period_length: 30,
+      reliability: 0.6,
+      next_peak: new Date(),
+      next_trough: new Date(),
+      pattern_stability: 0.5
+    };
+  }
+
+  private calculateNextPeak(_hour: number, _type: string): Date {
+    return new Date();
+  }
+
+  private calculateNextTrough(_hour: number, _type: string): Date {
+    return new Date();
+  }
+
+  private async detectOutliers(
+    _data: TimeSeriesDataPoint[],
+    _components: TrendComponent[]
+  ): Promise<OutlierPoint[]> {
+    return [];
+  }
+
+  private async generateForecasts(
+    _data: TimeSeriesDataPoint[],
+    _components: TrendComponent[],
+    _patterns: SeasonalPattern[],
+    _periods: number
+  ): Promise<ForecastedPoint[]> {
+    return [];
+  }
+
+  private getBusinessContext(_entityType: string, _metricName: string): string {
+    return 'Business context for trend analysis';
+  }
+
+  private getResponsibleTeam(_entityType: string, _metricName: string): string {
+    return 'Operations Team';
+  }
+
+  private extractSlopeFromEquation(equation: string): number {
+    const match = equation.match(/y = ([+-]?\d*\.?\d+)x/);
+    return match && match[1] ? parseFloat(match[1]) : 0;
+  }
+
+  private async getEntityData(_entityType: string, entityId: string): Promise<{ name: string }> {
+    return { name: `Entity ${entityId}` };
+  }
+
+  private calculateBaselineValue(_trend: TrendAnalysis): number {
+    return 100;
+  }
+
+  private identifyKeyDifferences(
+    _metrics: ComparisonMetric[],
+    _entities: ComparisonEntity[]
+  ): KeyDifference[] {
+    return [];
+  }
+
+  private async performStatisticalTests(
+    _metrics: ComparisonMetric[],
+    _comparisonType: string
+  ): Promise<StatisticalTest[]> {
+    return [];
+  }
+
+  private async generateComparisonInsights(
+    _entities: ComparisonEntity[],
+    _metrics: ComparisonMetric[],
+    _differences: KeyDifference[]
+  ): Promise<TrendInsight[]> {
+    return [];
+  }
+
+  private async generateComparisonRecommendations(
+    _type: string,
+    _differences: KeyDifference[],
+    _insights: TrendInsight[]
+  ): Promise<TrendRecommendation[]> {
+    return [];
+  }
+
+  private async checkForTrendAlerts(_analysis: TrendAnalysis): Promise<void> {
+    // Alert checking logic would go here
+  }
 }
 
 // ========================================
@@ -1031,7 +1185,7 @@ export class TrendAnalyzerEngine {
 interface TimeSeriesDataPoint {
   timestamp: Date;
   value: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface TrendAnalysisConfig {

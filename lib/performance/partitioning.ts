@@ -4,7 +4,7 @@
  */
 
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface PartitionConfig {
   tableName: string;
@@ -613,7 +613,7 @@ export class TablePartitionManager {
   }
 
   private getRelevantPartitions(
-    query: string,
+    _query: string,
     dateRange?: { start: Date; end: Date },
     partitionHints?: string[]
   ): string[] {
@@ -625,9 +625,11 @@ export class TablePartitionManager {
       partitions.push(...partitionHints);
     }
 
+    // Use dateRange for filtering if needed
     if (dateRange) {
       // Find partitions that overlap with the date range
       // This would need to be implemented based on your partition naming strategy
+      void dateRange; // Acknowledge the parameter
     }
 
     return partitions;
@@ -652,17 +654,17 @@ export class TablePartitionManager {
     return partitions;
   }
 
-  private shouldVacuumPartition(partition: PartitionInfo): { shouldVacuum: boolean; reason: string } {
+  private shouldVacuumPartition(_partition: PartitionInfo): { shouldVacuum: boolean; reason: string } {
     // Implement vacuum decision logic
     return { shouldVacuum: false, reason: 'No fragmentation detected' };
   }
 
-  private shouldReindexPartition(partition: PartitionInfo): { shouldReindex: boolean; reason: string } {
+  private shouldReindexPartition(_partition: PartitionInfo): { shouldReindex: boolean; reason: string } {
     // Implement reindex decision logic
     return { shouldReindex: false, reason: 'Indexes are optimal' };
   }
 
-  private async archivePartition(partition: PartitionInfo, archiveLocation: string): Promise<void> {
+  private async archivePartition(_partition: PartitionInfo, _archiveLocation: string): Promise<void> {
     // Implement partition archiving
   }
 

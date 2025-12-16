@@ -13,22 +13,14 @@ import type { Ticket, Comment, User, Category, Priority, Status } from '../../..
 import {
   ChatBubbleLeftRightIcon,
   UserIcon,
-  PencilIcon,
   ClockIcon,
-  TagIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
   EyeIcon,
-  PaperClipIcon,
   BellIcon,
-  Cog6ToothIcon,
-  ShieldCheckIcon,
   DocumentTextIcon,
   UserGroupIcon,
-  CalendarIcon,
-  FlagIcon
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 
 interface TimelineEvent {
@@ -105,10 +97,10 @@ export function TicketTimeline({
     return users.find(u => u.id === id);
   };
 
-  // Helper function to get category by ID
-  const getCategoryById = (id: number): Category | undefined => {
-    return categories.find(c => c.id === id);
-  };
+  // Helper functions available if needed
+  // const getCategoryById = (id: number): Category | undefined => {
+  //   return categories.find(c => c.id === id);
+  // };
 
   // Helper function to get priority by ID
   const getPriorityById = (id: number): Priority | undefined => {
@@ -397,7 +389,7 @@ export function TicketTimeline({
   };
 
   // Render individual event
-  const renderEvent = (event: TimelineEvent, isFirst: boolean = false, isLast: boolean = false) => {
+  const renderEvent = (event: TimelineEvent, _isFirst: boolean = false, isLast: boolean = false) => {
     const isExpanded = expandedEvents.has(event.id);
     const EventIcon = event.icon;
 

@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useSocket } from '@/src/hooks/useSocket'
 
-interface OnlineUser {
+export interface OnlineUser {
   id: number
   name: string
   role: string

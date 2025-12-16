@@ -4,15 +4,22 @@
  * auto-complete, faceted search, and analytics tracking
  */
 
-import { openai } from '../ai/openai';
-import type { KBArticle, KBCategory } from '../types/database';
-import { logger } from '../monitoring/logger';
+import openAIClient from '../ai/openai-client';
+import logger from '../monitoring/structured-logger';
 
-// Vector database interface (can be swapped for Pinecone, Weaviate, etc.)
-interface VectorSearchResult {
+// Knowledge Base Article interface
+interface KBArticle {
   id: string;
-  score: number;
-  metadata: Record<string, any>;
+  title: string;
+  content: string;
+  category_id: string;
+  author_id: string;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+  helpful_votes: number;
+  view_count: number;
+  status: string;
 }
 
 interface SearchFilters {
@@ -72,12 +79,9 @@ export class SemanticSearchEngine {
     }
 
     try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: text,
-      });
+      const response = await openAIClient.createEmbedding(text, 'text-embedding-3-small');
 
-      const embedding = response.data[0].embedding;
+      const embedding = response.data[0]?.embedding ?? [];
 
       // Cache the embedding
       this.vectorCache.set(text, embedding);
@@ -102,9 +106,9 @@ export class SemanticSearchEngine {
     let normB = 0;
 
     for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
+      dotProduct += (a[i] ?? 0) * (b[i] ?? 0);
+      normA += (a[i] ?? 0) * (a[i] ?? 0);
+      normB += (b[i] ?? 0) * (b[i] ?? 0);
     }
 
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
@@ -125,7 +129,6 @@ export class SemanticSearchEngine {
       const titleText = article.title.toLowerCase();
       const contentText = article.content.toLowerCase();
       const tagsText = (article.tags || []).join(' ').toLowerCase();
-      const combinedText = `${titleText} ${contentText} ${tagsText}`;
 
       // Calculate BM25 score (simplified version)
       let score = 0;
@@ -151,7 +154,7 @@ export class SemanticSearchEngine {
         // Tag match
         if (tagsText.includes(term)) {
           score += 2;
-          highlights.tags = article.tags?.filter(tag =>
+          highlights.tags = article.tags?.filter((tag: string) =>
             tag.toLowerCase().includes(term)
           );
         }

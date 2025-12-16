@@ -10,13 +10,13 @@
 
 import db from './connection';
 import { trackDatabaseQuery } from '../monitoring/observability';
-import { Database } from 'better-sqlite3';
+import type { Database } from 'better-sqlite3';
 
 // ========================
 // TYPE DEFINITIONS
 // ========================
 
-type SQLiteStatement = ReturnType<Database['prepare']>;
+// type SQLiteStatement = ReturnType<Database['prepare']>;
 
 export interface QueryOptions {
   queryType: 'select' | 'insert' | 'update' | 'delete' | 'other';
@@ -319,7 +319,10 @@ export async function batchInsert(
 ): Promise<number[]> {
   if (records.length === 0) return [];
 
-  const columns = Object.keys(records[0]);
+  const firstRecord = records[0];
+  if (!firstRecord) return [];
+
+  const columns = Object.keys(firstRecord);
   const placeholders = columns.map(() => '?').join(', ');
 
   return observableQuery.transaction(

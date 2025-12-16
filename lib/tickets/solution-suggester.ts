@@ -4,7 +4,7 @@
  */
 
 import type { Ticket, Comment, KnowledgeArticle, CreateTicket } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface SolutionSuggestion {
   id: string;
@@ -72,7 +72,6 @@ class SolutionSuggester {
   private historicalTickets: Ticket[] = [];
   private solutionPatterns: Map<string, SolutionPattern> = new Map();
   private feedbackHistory: Map<string, FeedbackData[]> = new Map();
-  private embeddingCache: Map<string, number[]> = new Map();
 
   constructor() {
     this.initializeSolutionPatterns();
@@ -134,7 +133,7 @@ class SolutionSuggester {
       return rankedSuggestions.slice(0, finalConfig.maxSuggestions);
 
     } catch (error) {
-      logger.error('Failed to generate solution suggestions', error);
+      logger.error('Failed to generate solution suggestions', { error });
       return [];
     }
   }
@@ -189,7 +188,7 @@ class SolutionSuggester {
    */
   private async getSimilarTicketSuggestions(
     context: SuggestionContext,
-    config: SuggestionConfig
+    _config: SuggestionConfig
   ): Promise<SolutionSuggestion[]> {
     const suggestions: SolutionSuggestion[] = [];
     const ticketText = `${context.ticket.title} ${context.ticket.description}`;
@@ -236,7 +235,7 @@ class SolutionSuggester {
    */
   private async getAIGeneratedSuggestions(
     context: SuggestionContext,
-    config: SuggestionConfig
+    _config: SuggestionConfig
   ): Promise<SolutionSuggestion[]> {
     const suggestions: SolutionSuggestion[] = [];
 
@@ -267,7 +266,7 @@ class SolutionSuggester {
         }
       }
     } catch (error) {
-      logger.error('AI suggestion generation failed', error);
+      logger.error('AI suggestion generation failed', { error });
     }
 
     return suggestions;
@@ -278,7 +277,7 @@ class SolutionSuggester {
    */
   private async getTemplateSuggestions(
     context: SuggestionContext,
-    config: SuggestionConfig
+    _config: SuggestionConfig
   ): Promise<SolutionSuggestion[]> {
     const suggestions: SolutionSuggestion[] = [];
     const patterns = this.matchSolutionPatterns(context);
@@ -314,7 +313,7 @@ class SolutionSuggester {
    */
   private async getWorkflowSuggestions(
     context: SuggestionContext,
-    config: SuggestionConfig
+    _config: SuggestionConfig
   ): Promise<SolutionSuggestion[]> {
     const suggestions: SolutionSuggestion[] = [];
 
@@ -421,7 +420,7 @@ class SolutionSuggester {
    */
   private async applyFeedbackLearning(
     suggestions: SolutionSuggestion[],
-    context: SuggestionContext
+    _context: SuggestionContext
   ): Promise<void> {
     for (const suggestion of suggestions) {
       const feedback = this.feedbackHistory.get(suggestion.id);
@@ -476,8 +475,8 @@ class SolutionSuggester {
   // Helper methods
 
   private async searchKnowledgeBase(
-    query: string,
-    context: SuggestionContext
+    _query: string,
+    _context: SuggestionContext
   ): Promise<KnowledgeArticle[]> {
     // Mock implementation - would use actual search
     return this.knowledgeBase
@@ -487,8 +486,8 @@ class SolutionSuggester {
   }
 
   private async findSimilarTickets(
-    query: string,
-    context: SuggestionContext
+    _query: string,
+    _context: SuggestionContext
   ): Promise<Ticket[]> {
     // Mock implementation - would use semantic search
     return this.historicalTickets
@@ -531,6 +530,11 @@ class SolutionSuggester {
     return technicalTerms.filter(term => text.includes(term)).length;
   }
 
+  private determineComplexityFromTicket(ticket: Ticket): 'low' | 'medium' | 'high' {
+    const combinedText = `${ticket.title} ${ticket.description}`;
+    return this.determineComplexity(combinedText);
+  }
+
   private calculateRelevanceScore(article: KnowledgeArticle, context: SuggestionContext): number {
     let score = 0.5; // Base score
 
@@ -569,7 +573,7 @@ class SolutionSuggester {
     return totalVotes > 0 ? article.helpful_count / totalVotes : 0.5;
   }
 
-  private extractStepsFromKBArticle(article: KnowledgeArticle): Array<{
+  private extractStepsFromKBArticle(_article: KnowledgeArticle): Array<{
     order: number;
     description: string;
     isOptional?: boolean;
@@ -583,7 +587,7 @@ class SolutionSuggester {
     ];
   }
 
-  private async extractSolutionFromTicket(ticket: Ticket): Promise<{
+  private async extractSolutionFromTicket(_ticket: Ticket): Promise<{
     content: string;
     resolutionTime: number;
     steps: Array<{ order: number; description: string; estimatedDuration?: number; }>;
@@ -619,7 +623,7 @@ Format as JSON array with objects containing: title, content, confidence, releva
 `;
   }
 
-  private async callAIService(prompt: string): Promise<any> {
+  private async callAIService(_prompt: string): Promise<AIServiceResponse> {
     // Mock implementation - would call actual AI service
     return {
       suggestions: [
@@ -628,7 +632,7 @@ Format as JSON array with objects containing: title, content, confidence, releva
           content: 'Follow these standard troubleshooting procedures...',
           confidence: 0.8,
           relevance: 0.7,
-          complexity: 'medium',
+          complexity: 'medium' as const,
           estimatedTime: 30,
           keywords: ['troubleshooting', 'standard', 'procedure'],
           steps: [
@@ -667,7 +671,7 @@ Format as JSON array with objects containing: title, content, confidence, releva
     const ticketText = `${context.ticket.title} ${context.ticket.description}`.toLowerCase();
     const matches: SolutionPattern[] = [];
 
-    for (const pattern of this.solutionPatterns.values()) {
+    for (const pattern of Array.from(this.solutionPatterns.values())) {
       const keywordMatches = pattern.keywords.filter(keyword =>
         ticketText.includes(keyword.toLowerCase())
       );
@@ -685,14 +689,14 @@ Format as JSON array with objects containing: title, content, confidence, releva
     return matches.sort((a, b) => b.relevance - a.relevance);
   }
 
-  private findApplicableWorkflows(context: SuggestionContext): WorkflowSuggestion[] {
+  private findApplicableWorkflows(_context: SuggestionContext): WorkflowSuggestion[] {
     // Mock implementation
     return [];
   }
 
   private async updateSolutionPatterns(
-    suggestionId: string,
-    feedback: FeedbackData
+    _suggestionId: string,
+    _feedback: FeedbackData
   ): Promise<void> {
     // Update patterns based on feedback
     // This would update the machine learning models in a real implementation
@@ -744,9 +748,25 @@ interface WorkflowSuggestion {
   }>;
 }
 
+interface AIServiceResponse {
+  suggestions: Array<{
+    title: string;
+    content: string;
+    confidence: number;
+    relevance: number;
+    complexity: 'low' | 'medium' | 'high';
+    estimatedTime: number;
+    keywords: string[];
+    steps: Array<{
+      order: number;
+      description: string;
+      estimatedDuration?: number;
+    }>;
+  }>;
+}
+
 // Export singleton instance
 export const solutionSuggester = new SolutionSuggester();
 
-// Export types and classes
+// Export classes
 export { SolutionSuggester };
-export type { SuggestionContext, SuggestionConfig };

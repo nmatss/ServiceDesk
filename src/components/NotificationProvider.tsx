@@ -51,12 +51,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       )
     )
 
+    // SECURITY: Use httpOnly cookies for authentication - tenant is extracted server-side
     fetch('/api/notifications', {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': '1'
+        'Content-Type': 'application/json'
       },
+      credentials: 'include', // Use httpOnly cookies
       body: JSON.stringify({ notification_id: id })
     }).catch(err => logger.error('Error marking notification as read', err))
   }
@@ -66,12 +67,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       prev.map(notification => ({ ...notification, is_read: true }))
     )
 
+    // SECURITY: Use httpOnly cookies for authentication - tenant is extracted server-side
     fetch('/api/notifications', {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Tenant-ID': '1'
+        'Content-Type': 'application/json'
       },
+      credentials: 'include', // Use httpOnly cookies
       body: JSON.stringify({ mark_all_read: true })
     }).catch(err => logger.error('Error marking all notifications as read', err))
   }

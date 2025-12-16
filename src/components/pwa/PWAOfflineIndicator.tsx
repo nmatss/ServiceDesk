@@ -50,6 +50,7 @@ export default function PWAOfflineIndicator() {
       // Online and wasn't offline before
       setShowIndicator(false);
     }
+    return undefined;
 
     // Update queue status
     if (offlineSync) {

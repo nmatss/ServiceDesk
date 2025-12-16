@@ -6,12 +6,9 @@
 import {
   WorkflowDefinition,
   WorkflowExecution,
-  MLPredictionResult,
-  ABTestConfiguration,
-  WorkflowAnalytics,
-  WorkflowEvent,
-  FilterCondition,
-} from '@/lib/types/workflow';
+  WorkflowNode,
+  WorkflowEdge,
+} from '../types/workflow';
 
 export class AutomationEngine {
   private mlOptimizer: MLWorkflowOptimizer;
@@ -91,7 +88,8 @@ export class AutomationEngine {
         adaptiveModifications: await this.getAdaptiveModifications(finalWorkflow, contextFeatures),
       };
     } catch (error) {
-      throw new AutomationError(`Workflow selection failed: ${error.message}`, 'SELECTION_FAILED');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new AutomationError(`Workflow selection failed: ${errorMessage}`, 'SELECTION_FAILED');
     }
   }
 
@@ -203,9 +201,10 @@ export class AutomationEngine {
     await this.adaptiveRuleEngine.updateRules(learningData);
 
     // Update A/B test results
-    if (execution.metadata.abTestVariant) {
+    const abTestVariant = execution.metadata.abTestVariant;
+    if (abTestVariant) {
       await this.abTestManager.recordResult(
-        execution.metadata.abTestVariant,
+        abTestVariant,
         outcome,
         execution.id
       );
@@ -305,10 +304,33 @@ export class AutomationEngine {
         nodes: optimizedConfig.nodes,
         edges: optimizedConfig.edges,
         metadata: {
-          generated: true,
-          objective,
-          confidence: validation.confidence,
-          estimatedPerformance: validation.estimatedPerformance,
+          tags: ['auto-generated', objective.domain, objective.category],
+          documentation: this.generateWorkflowExplanation(optimizedConfig, objective),
+          version: '1.0.0',
+          author: 'AutomationEngine',
+          lastModifiedBy: 'AutomationEngine',
+          changeLog: [{
+            version: '1.0.0',
+            date: new Date(),
+            author: 'AutomationEngine',
+            changes: ['Initial auto-generated workflow'],
+            breaking: false,
+          }],
+          dependencies: [],
+          testCases: [],
+          performance: {
+            avgExecutionTime: validation.estimatedPerformance.averageExecutionTime,
+            maxExecutionTime: validation.estimatedPerformance.averageExecutionTime * 2,
+            minExecutionTime: validation.estimatedPerformance.averageExecutionTime * 0.5,
+            successRate: validation.estimatedPerformance.successRate,
+            errorRate: validation.estimatedPerformance.errorRate,
+            resourceUsage: {
+              memoryMB: 0,
+              cpuPercent: 0,
+              networkKB: 0,
+              storageKB: 0,
+            },
+          },
         },
       },
       validation,
@@ -332,19 +354,19 @@ export class AutomationEngine {
 
     switch (recoveryStrategy.type) {
       case 'retry_with_modifications':
-        return await this.retryWithModifications(execution, recoveryStrategy.modifications);
+        return await this.retryWithModifications(execution, recoveryStrategy.modifications ?? []);
 
       case 'alternative_path':
-        return await this.switchToAlternativePath(execution, recoveryStrategy.alternativePath);
+        return await this.switchToAlternativePath(execution, recoveryStrategy.alternativePath ?? '');
 
       case 'compensating_actions':
-        return await this.executeCompensatingActions(execution, recoveryStrategy.actions);
+        return await this.executeCompensatingActions(execution, recoveryStrategy.actions ?? []);
 
       case 'escalate_to_human':
         return await this.escalateToHuman(execution, errorAnalysis);
 
       case 'rollback_and_restart':
-        return await this.rollbackAndRestart(execution, recoveryStrategy.checkpointId);
+        return await this.rollbackAndRestart(execution, recoveryStrategy.checkpointId ?? '');
 
       default:
         throw new AutomationError(`Unknown recovery strategy: ${recoveryStrategy.type}`, 'UNKNOWN_RECOVERY_STRATEGY');
@@ -399,7 +421,14 @@ export class AutomationEngine {
     }));
 
     const bestPrediction = weightedScores.sort((a, b) => b.adjustedConfidence - a.adjustedConfidence)[0];
-    return workflows.find(w => w.id === bestPrediction.workflowId)!;
+    if (!bestPrediction) {
+      throw new Error('No workflow prediction available');
+    }
+    const workflow = workflows.find(w => w.id === bestPrediction.workflowId);
+    if (!workflow) {
+      throw new Error('Workflow not found');
+    }
+    return workflow;
   }
 
   private generateSelectionReasoning(
@@ -450,11 +479,11 @@ export class AutomationEngine {
     return `workflow_${workflowId}_${featureHash}`;
   }
 
-  private hashObject(obj: any): string {
+  private hashObject(obj: Record<string, unknown>): string {
     return Buffer.from(JSON.stringify(obj)).toString('base64').slice(0, 16);
   }
 
-  private async getWorkflowHistoricalData(workflowId: number): Promise<HistoricalData> {
+  private async getWorkflowHistoricalData(_workflowId: number): Promise<HistoricalData> {
     // Implementation would fetch historical execution data
     return {
       executionCount: 0,
@@ -490,9 +519,374 @@ export class AutomationEngine {
     return edges - nodes + 2 * connectedComponents;
   }
 
-  private calculateMaxDepth(workflow: WorkflowDefinition): number {
+  private calculateMaxDepth(_workflow: WorkflowDefinition): number {
     // Implementation would calculate the maximum depth of the workflow graph
     return 10; // Placeholder
+  }
+
+  private async logSelectionDecision(decision: {
+    triggerContext: TriggerContext;
+    selectedWorkflow: WorkflowDefinition;
+    predictions: WorkflowPrediction[];
+    abTestResult: ABTestResult;
+    contextFeatures: ContextFeatures;
+    selectionTime: number;
+  }): Promise<void> {
+    // Implementation would log the selection decision
+    console.log('Workflow selection decision:', {
+      workflowId: decision.selectedWorkflow.id,
+      selectionTime: decision.selectionTime,
+    });
+  }
+
+  private async optimizeExecutionPath(
+    _execution: WorkflowExecution,
+    _context: ExecutionContext
+  ): Promise<WorkflowOptimization | null> {
+    // Implementation would optimize the execution path
+    return null;
+  }
+
+  private async optimizeResourceAllocation(
+    _execution: WorkflowExecution,
+    _context: ExecutionContext
+  ): Promise<WorkflowOptimization | null> {
+    // Implementation would optimize resource allocation
+    return null;
+  }
+
+  private async optimizeTimeouts(
+    _execution: WorkflowExecution,
+    _context: ExecutionContext
+  ): Promise<WorkflowOptimization | null> {
+    // Implementation would optimize timeouts
+    return null;
+  }
+
+  private async optimizePriority(
+    _execution: WorkflowExecution,
+    _context: ExecutionContext
+  ): Promise<WorkflowOptimization | null> {
+    // Implementation would optimize priority
+    return null;
+  }
+
+  private async optimizeApprovalFlow(
+    _execution: WorkflowExecution,
+    _context: ExecutionContext
+  ): Promise<WorkflowOptimization | null> {
+    // Implementation would optimize approval flow
+    return null;
+  }
+
+  private calculateEstimatedImprovement(optimizations: WorkflowOptimization[]): number {
+    return optimizations.reduce((sum, opt) => sum + opt.estimatedImpact, 0);
+  }
+
+  private calculateOptimizationConfidence(optimizations: WorkflowOptimization[]): number {
+    if (optimizations.length === 0) return 0;
+    const avgConfidence = optimizations.reduce((sum, opt) => sum + opt.confidence, 0) / optimizations.length;
+    return avgConfidence;
+  }
+
+  private generateRecommendedActions(optimizations: WorkflowOptimization[]): string[] {
+    return optimizations.map(opt => opt.description);
+  }
+
+  private async calculatePerformanceMetrics(execution: WorkflowExecution): Promise<Record<string, number>> {
+    const endTime = execution.completedAt?.getTime() || Date.now();
+    const startTime = execution.startedAt.getTime();
+    return {
+      executionTime: endTime - startTime,
+      stepCount: execution.executionLog.length,
+      retryCount: execution.retryCount,
+    };
+  }
+
+  private async identifyBottlenecks(
+    _workflow: WorkflowDefinition,
+    _history: PerformanceHistory
+  ): Promise<Bottleneck[]> {
+    // Implementation would identify bottlenecks
+    return [];
+  }
+
+  private async generateBottleneckModification(
+    _bottleneck: Bottleneck,
+    _features: ContextFeatures
+  ): Promise<AdaptiveModification | null> {
+    // Implementation would generate modification for bottleneck
+    return null;
+  }
+
+  private async identifyFailurePatterns(
+    _workflow: WorkflowDefinition,
+    _history: PerformanceHistory
+  ): Promise<FailurePattern[]> {
+    // Implementation would identify failure patterns
+    return [];
+  }
+
+  private async generateFailurePreventionModification(
+    _pattern: FailurePattern,
+    _features: ContextFeatures
+  ): Promise<AdaptiveModification | null> {
+    // Implementation would generate failure prevention modification
+    return null;
+  }
+
+  private async analyzeUserBehavior(
+    _workflow: WorkflowDefinition,
+    _history: PerformanceHistory
+  ): Promise<UserBehaviorInsight[]> {
+    // Implementation would analyze user behavior
+    return [];
+  }
+
+  private async generateUserBehaviorModification(
+    _insight: UserBehaviorInsight,
+    _features: ContextFeatures
+  ): Promise<AdaptiveModification | null> {
+    // Implementation would generate user behavior modification
+    return null;
+  }
+
+  private async analyzeTimePatterns(
+    _workflow: WorkflowDefinition,
+    _history: PerformanceHistory
+  ): Promise<TimeBasedInsight[]> {
+    // Implementation would analyze time patterns
+    return [];
+  }
+
+  private async generateTimeBasedModification(
+    _insight: TimeBasedInsight,
+    _features: ContextFeatures
+  ): Promise<AdaptiveModification | null> {
+    // Implementation would generate time-based modification
+    return null;
+  }
+
+  private async loadDomainKnowledge(_domain: string): Promise<DomainKnowledge> {
+    // Implementation would load domain knowledge
+    return {
+      commonPatterns: [],
+      riskFactors: [],
+      optimizationTechniques: [],
+    };
+  }
+
+  private async loadBestPractices(_category: string): Promise<BestPractice[]> {
+    // Implementation would load best practices
+    return [];
+  }
+
+  private async generateOptimalNodes(
+    _structure: WorkflowStructure,
+    _context: GenerationContext
+  ): Promise<WorkflowNode[]> {
+    // Implementation would generate optimal nodes
+    return [];
+  }
+
+  private async generateOptimalEdges(
+    _nodes: WorkflowNode[],
+    _structure: WorkflowStructure,
+    _context: GenerationContext
+  ): Promise<WorkflowEdge[]> {
+    // Implementation would generate optimal edges
+    return [];
+  }
+
+  private async optimizeGeneratedWorkflow(
+    workflow: { nodes: WorkflowNode[]; edges: WorkflowEdge[] },
+    _context: GenerationContext
+  ): Promise<{ nodes: WorkflowNode[]; edges: WorkflowEdge[] }> {
+    // Implementation would optimize generated workflow
+    return workflow;
+  }
+
+  private async validateGeneratedWorkflow(
+    _workflow: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }
+  ): Promise<WorkflowValidation> {
+    // Implementation would validate generated workflow
+    return {
+      isValid: true,
+      confidence: 0.8,
+      estimatedPerformance: {
+        averageExecutionTime: 0,
+        successRate: 0,
+        errorRate: 0,
+        throughput: 0,
+        resourceUtilization: 0,
+      },
+      issues: [],
+      recommendations: [],
+    };
+  }
+
+  private generateWorkflowName(objective: WorkflowObjective): string {
+    return `${objective.domain}_${objective.category}_workflow`;
+  }
+
+  private generateWorkflowDescription(
+    objective: WorkflowObjective,
+    config: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }
+  ): string {
+    return `Auto-generated workflow for ${objective.primaryGoal} with ${config.nodes.length} nodes`;
+  }
+
+  private async generateAlternativeWorkflows(
+    _context: GenerationContext
+  ): Promise<GeneratedWorkflow[]> {
+    // Implementation would generate alternative workflows
+    return [];
+  }
+
+  private generateWorkflowExplanation(
+    config: { nodes: WorkflowNode[]; edges: WorkflowEdge[] },
+    objective: WorkflowObjective
+  ): string {
+    return `This workflow achieves ${objective.primaryGoal} through ${config.nodes.length} steps`;
+  }
+
+  private async analyzeError(
+    error: WorkflowExecutionError,
+    _execution: WorkflowExecution,
+    _context: ExecutionContext
+  ): Promise<ErrorAnalysisResult> {
+    // Implementation would analyze error
+    return {
+      errorType: error.type,
+      severity: 'medium',
+      isRecoverable: true,
+      suggestedStrategies: ['retry_with_modifications'],
+    };
+  }
+
+  private async selectRecoveryStrategy(
+    _analysis: ErrorAnalysisResult
+  ): Promise<RecoveryStrategy> {
+    // Implementation would select recovery strategy
+    return {
+      type: 'retry_with_modifications',
+      modifications: [],
+    };
+  }
+
+  private async retryWithModifications(
+    _execution: WorkflowExecution,
+    _modifications: WorkflowModification[]
+  ): Promise<ErrorRecoveryResult> {
+    // Implementation would retry with modifications
+    return {
+      success: false,
+      strategy: 'retry_with_modifications',
+      actions: [],
+      estimatedRecoveryTime: 0,
+      confidence: 0,
+    };
+  }
+
+  private async switchToAlternativePath(
+    _execution: WorkflowExecution,
+    _alternativePath: string
+  ): Promise<ErrorRecoveryResult> {
+    // Implementation would switch to alternative path
+    return {
+      success: false,
+      strategy: 'alternative_path',
+      actions: [],
+      estimatedRecoveryTime: 0,
+      confidence: 0,
+    };
+  }
+
+  private async executeCompensatingActions(
+    _execution: WorkflowExecution,
+    actions: RecoveryAction[]
+  ): Promise<ErrorRecoveryResult> {
+    // Implementation would execute compensating actions
+    return {
+      success: false,
+      strategy: 'compensating_actions',
+      actions,
+      estimatedRecoveryTime: 0,
+      confidence: 0,
+    };
+  }
+
+  private async escalateToHuman(
+    _execution: WorkflowExecution,
+    _analysis: ErrorAnalysisResult
+  ): Promise<ErrorRecoveryResult> {
+    // Implementation would escalate to human
+    return {
+      success: true,
+      strategy: 'escalate_to_human',
+      actions: [],
+      estimatedRecoveryTime: 0,
+      confidence: 1,
+    };
+  }
+
+  private async rollbackAndRestart(
+    _execution: WorkflowExecution,
+    _checkpointId: string
+  ): Promise<ErrorRecoveryResult> {
+    // Implementation would rollback and restart
+    return {
+      success: false,
+      strategy: 'rollback_and_restart',
+      actions: [],
+      estimatedRecoveryTime: 0,
+      confidence: 0,
+    };
+  }
+
+  private async collectPerformanceMetrics(): Promise<PerformanceMetrics> {
+    // Implementation would collect performance metrics
+    return {
+      averageExecutionTime: 0,
+      successRate: 0,
+      errorRate: 0,
+      throughput: 0,
+      resourceUtilization: 0,
+    };
+  }
+
+  private async detectAnomalies(_metrics: PerformanceMetrics): Promise<Anomaly[]> {
+    // Implementation would detect anomalies
+    return [];
+  }
+
+  private async analyzeTrends(_metrics: PerformanceMetrics): Promise<TrendAnalysis[]> {
+    // Implementation would analyze trends
+    return [];
+  }
+
+  private async generateRecommendations(
+    _metrics: PerformanceMetrics,
+    _anomalies: Anomaly[],
+    _trends: TrendAnalysis[]
+  ): Promise<OptimizationRecommendation[]> {
+    // Implementation would generate recommendations
+    return [];
+  }
+
+  private async applyOptimization(optimization: OptimizationRecommendation): Promise<void> {
+    // Implementation would apply optimization
+    console.log('Applying optimization:', optimization.type);
+  }
+
+  private generateAlert(anomaly: Anomaly): Alert {
+    return {
+      type: anomaly.type,
+      severity: anomaly.severity,
+      message: anomaly.description,
+      affectedWorkflows: [],
+      recommendedActions: [],
+    };
   }
 }
 
@@ -502,10 +896,10 @@ interface TriggerContext {
   entityType: string;
   entityId: number;
   triggerType: string;
-  triggerData: Record<string, any>;
+  triggerData: Record<string, unknown>;
   timestamp: Date;
   userId?: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 interface ContextFeatures {
@@ -518,6 +912,7 @@ interface ContextFeatures {
   workload: number;
   historicalSuccessRate: number;
   customFeatures: Record<string, number>;
+  [key: string]: string | number | Record<string, number>;
 }
 
 interface WorkflowPrediction {
@@ -549,7 +944,7 @@ interface AdaptiveModification {
   description: string;
   estimatedImpact: number;
   confidence: number;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 interface ABTestResult {
@@ -560,7 +955,7 @@ interface ABTestResult {
 }
 
 interface ExecutionContext {
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   currentStep: string;
   elapsedTime: number;
   resourceUsage: Record<string, number>;
@@ -570,7 +965,7 @@ interface ExecutionContext {
 interface UserAction {
   type: string;
   timestamp: Date;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 interface WorkflowOptimization {
@@ -578,7 +973,7 @@ interface WorkflowOptimization {
   description: string;
   estimatedImpact: number;
   confidence: number;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 interface OptimizationResult {
@@ -692,7 +1087,7 @@ interface WorkflowPattern {
   name: string;
   description: string;
   applicability: string[];
-  structure: any;
+  structure: Record<string, unknown>;
 }
 
 interface RiskFactor {
@@ -705,7 +1100,7 @@ interface OptimizationTechnique {
   name: string;
   description: string;
   applicability: string[];
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 interface BestPractice {
@@ -741,7 +1136,7 @@ interface WorkflowExecutionError {
   message: string;
   stepId: string;
   timestamp: Date;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   stackTrace?: string;
 }
 
@@ -756,7 +1151,7 @@ interface ErrorRecoveryResult {
 interface RecoveryAction {
   type: string;
   description: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 interface PerformanceReport {
@@ -790,7 +1185,7 @@ interface OptimizationRecommendation {
   estimatedImpact: number;
   confidence: number;
   isSafe: boolean;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 interface Alert {
@@ -817,11 +1212,67 @@ interface ComplexityMetrics {
   maxDepth: number;
 }
 
+interface Bottleneck {
+  stepId: string;
+  description: string;
+  impact: number;
+}
+
+interface FailurePattern {
+  pattern: string;
+  frequency: number;
+  impact: number;
+}
+
+interface UserBehaviorInsight {
+  behavior: string;
+  frequency: number;
+  impact: number;
+}
+
+interface TimeBasedInsight {
+  pattern: string;
+  timeRange: string;
+  impact: number;
+}
+
+interface WorkflowStructure {
+  type: string;
+  complexity: number;
+  recommendedNodes: string[];
+}
+
+interface ErrorAnalysisResult {
+  errorType: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  isRecoverable: boolean;
+  suggestedStrategies: string[];
+}
+
+interface RecoveryStrategy {
+  type: 'retry_with_modifications' | 'alternative_path' | 'compensating_actions' | 'escalate_to_human' | 'rollback_and_restart';
+  modifications?: WorkflowModification[];
+  alternativePath?: string;
+  actions?: RecoveryAction[];
+  checkpointId?: string;
+}
+
+interface WorkflowModification {
+  targetNode: string;
+  modificationType: string;
+  parameters: Record<string, unknown>;
+}
+
 // Abstract classes for dependencies
 abstract class MLWorkflowOptimizer {
-  abstract predictWorkflowPerformance(input: any): Promise<WorkflowPrediction>;
+  abstract predictWorkflowPerformance(input: {
+    workflowId: number;
+    contextFeatures: ContextFeatures;
+    historicalData: HistoricalData;
+    workflowComplexity: ComplexityMetrics;
+  }): Promise<WorkflowPrediction>;
   abstract updateModels(learningData: LearningData): Promise<void>;
-  abstract generateWorkflowStructure(context: GenerationContext): Promise<any>;
+  abstract generateWorkflowStructure(context: GenerationContext): Promise<WorkflowStructure>;
 }
 
 abstract class ABTestManager {
@@ -853,14 +1304,14 @@ class AutomationError extends Error {
   }
 }
 
-export {
-  AutomationEngine,
-  AutomationError,
-  type TriggerContext,
-  type ContextFeatures,
-  type WorkflowSelectionResult,
-  type OptimizationResult,
-  type ExecutionOutcome,
-  type GeneratedWorkflow,
-  type PerformanceReport,
+export { AutomationError };
+
+export type {
+  TriggerContext,
+  ContextFeatures,
+  WorkflowSelectionResult,
+  OptimizationResult,
+  ExecutionOutcome,
+  GeneratedWorkflow,
+  PerformanceReport,
 };

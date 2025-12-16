@@ -36,20 +36,23 @@ export default function RegisterPage() {
     }
 
     try {
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Enable cookies
         body: JSON.stringify({ name, email, password }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        localStorage.setItem('auth_token', data.token)
+        // SECURITY: Token is now stored in httpOnly cookies by the backend
+        // Only store non-sensitive display data in localStorage for UX
+        localStorage.setItem('user_name', data.user.name)
         localStorage.setItem('user_role', data.user.role)
-        localStorage.setItem('user_id', data.user.id)
         setStatusMessage('Conta criada com sucesso. Redirecionando...')
         setTimeout(() => {
           router.push('/dashboard')
@@ -74,13 +77,14 @@ export default function RegisterPage() {
     { text: 'Número', met: /\d/.test(password) },
   ]
 
-  const allRequirementsMet = passwordRequirements.every(req => req.met)
+  // Check if all requirements are met
+  // const allRequirementsMet = passwordRequirements.every(req => req.met)
 
   // Announce password strength to screen readers
   useEffect(() => {
     if (password) {
       const metCount = passwordRequirements.filter(req => req.met).length
-      const total = passwordRequirements.length
+      // const total = passwordRequirements.length
       if (metCount === 0) {
         setPasswordStrengthMessage('Senha muito fraca')
       } else if (metCount === 1) {

@@ -1,5 +1,5 @@
 import { getDb } from '@/lib/db'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface UserPresence {
   userId: number
@@ -409,8 +409,8 @@ export class PresenceManager {
     const currentMinutes = userTime.getHours() * 60 + userTime.getMinutes()
     const [startHour, startMinute] = daySchedule.start.split(':').map(Number)
     const [endHour, endMinute] = daySchedule.end.split(':').map(Number)
-    const startMinutes = startHour * 60 + startMinute
-    const endMinutes = endHour * 60 + endMinute
+    const startMinutes = (startHour ?? 0) * 60 + (startMinute ?? 0)
+    const endMinutes = (endHour ?? 0) * 60 + (endMinute ?? 0)
 
     return currentMinutes >= startMinutes && currentMinutes <= endMinutes
   }
@@ -787,16 +787,21 @@ export class PresenceManager {
   }
 
   public clearUserTimers(userId: number): void {
+    // Limpar timer de presença
     const timer = this.presenceTimers.get(userId)
     if (timer) {
       clearTimeout(timer)
       this.presenceTimers.delete(userId)
     }
 
+    // Limpar timer de atividade
     const activityTimer = this.activityTrackers.get(userId)
     if (activityTimer) {
       clearTimeout(activityTimer)
       this.activityTrackers.delete(userId)
     }
+
+    // Remover presença do usuário
+    this.userPresences.delete(userId)
   }
 }

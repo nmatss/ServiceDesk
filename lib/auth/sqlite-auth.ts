@@ -19,9 +19,11 @@ export interface RegisterData {
 
 export interface AuthUser {
   id: number;
+  /** @deprecated Use `id` instead. Alias for backward compatibility */
+  userId?: number;
   name: string;
   email: string;
-  role: 'admin' | 'agent' | 'user';
+  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin';
   organization_id: number;
   tenant_slug: string;
   created_at: string;
@@ -111,21 +113,21 @@ export async function createUser(userData: RegisterData): Promise<User | null> {
 
 /**
  * Autentica usuário com email e senha
+ * SECURITY: Uses constant-time comparison to prevent timing attacks
  */
 export async function authenticateUser(credentials: LoginCredentials): Promise<AuthUser | null> {
   try {
     const user = getUserByEmail(credentials.email);
-    if (!user) {
-      return null;
-    }
 
-    // Verificar se o usuário tem senha hash (usuários antigos podem não ter)
-    if (!user.password_hash) {
-      return null;
-    }
+    // SECURITY FIX: Always run bcrypt.compare to prevent timing attacks
+    // Use a dummy hash when user doesn't exist to ensure constant-time execution
+    const dummyHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.S0FqYLmE6y9Mz.';
+    const hashToCompare = user?.password_hash || dummyHash;
 
-    const isValidPassword = await verifyPassword(credentials.password, user.password_hash);
-    if (!isValidPassword) {
+    const isValidPassword = await verifyPassword(credentials.password, hashToCompare);
+
+    // Return null if user doesn't exist OR password is invalid
+    if (!user || !user.password_hash || !isValidPassword) {
       return null;
     }
 
@@ -203,36 +205,36 @@ export function getAllUsers(): User[] {
  * Atualiza dados do usuário
  */
 export function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 'email' | 'role'>>): boolean {
+  const fields: string[] = [];
+  const values: any[] = [];
+
   try {
-    const fields = [];
-    const values = [];
-    
     if (updates.name !== undefined) {
       fields.push('name = ?');
       values.push(updates.name);
     }
-    
+
     if (updates.email !== undefined) {
       fields.push('email = ?');
       values.push(updates.email);
     }
-    
+
     if (updates.role !== undefined) {
       fields.push('role = ?');
       values.push(updates.role);
     }
-    
+
     if (fields.length === 0) {
       return false;
     }
-    
+
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(userId);
-    
+
     const updateUser = db.prepare(`
       UPDATE users SET ${fields.join(', ')} WHERE id = ?
     `);
-    
+
     const result = updateUser.run(...values);
     return result.changes > 0;
   } catch (error) {
@@ -256,7 +258,8 @@ export function deleteUser(userId: number): boolean {
 }
 
 /**
- * Gera token JWT
+ * Gera token JWT (DEPRECATED - Use token-manager.ts instead)
+ * @deprecated Use generateAccessToken from token-manager.ts for new implementations
  */
 export async function generateToken(user: AuthUser): Promise<string> {
   const secret = new TextEncoder().encode(validateJWTSecret());
@@ -269,6 +272,8 @@ export async function generateToken(user: AuthUser): Promise<string> {
     tenant_slug: user.tenant_slug
   })
     .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer('servicedesk')
+    .setAudience('servicedesk-users')
     .setIssuedAt()
     .setExpirationTime('24h')
     .setSubject(user.id.toString())
@@ -336,6 +341,67 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
     };
   } catch (error) {
     captureAuthError(error, { method: 'jwt' });
+    return null;
+  }
+}
+
+/**
+ * Verify authentication from NextRequest
+ * Used in API routes for authentication
+ */
+export async function verifyAuth(request: any): Promise<{ authenticated: boolean; user?: AuthUser }> {
+  try {
+    // Get JWT token from cookie or Authorization header
+    const tokenFromCookie = request.cookies?.get?.('auth_token')?.value;
+    const authHeader = request.headers?.get?.('authorization');
+    const tokenFromHeader = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const token = tokenFromCookie || tokenFromHeader;
+
+    if (!token) {
+      return { authenticated: false };
+    }
+
+    // Verify token
+    const user = await verifyToken(token);
+
+    if (!user) {
+      return { authenticated: false };
+    }
+
+    return { authenticated: true, user };
+  } catch (error) {
+    captureAuthError(error, { method: 'jwt' });
+    return { authenticated: false };
+  }
+}
+
+/**
+ * Verify authentication token (alias for backward compatibility)
+ */
+export async function verifyAuthToken(request: any): Promise<{ authenticated: boolean; user?: AuthUser }> {
+  return verifyAuth(request);
+}
+
+/**
+ * Verify token from cookies (RECOMMENDED for API routes)
+ * This is the preferred authentication method for cookie-based auth
+ * @param request - NextRequest object
+ * @returns AuthUser if valid, null otherwise
+ */
+export async function verifyTokenFromCookies(request: any): Promise<AuthUser | null> {
+  try {
+    // Priority: Cookie first (more secure with httpOnly flag)
+    const tokenFromCookie = request.cookies?.get?.('auth_token')?.value;
+
+    if (!tokenFromCookie) {
+      return null;
+    }
+
+    // Verify the token
+    const user = await verifyToken(tokenFromCookie);
+    return user;
+  } catch (error) {
+    captureAuthError(error, { method: 'cookie-auth' });
     return null;
   }
 }

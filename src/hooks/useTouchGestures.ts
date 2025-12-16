@@ -86,7 +86,7 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
     touchStartRef.current = touches
     touchStartTimeRef.current = Date.now()
 
-    if (touches.length === 2) {
+    if (touches.length === 2 && touches[0] && touches[1]) {
       lastPinchDistanceRef.current = getDistance(touches[0], touches[1])
       stateRef.current.isPinching = true
     } else {
@@ -115,7 +115,7 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
     }))
 
     // Handle pinch gesture
-    if (currentTouches.length === 2 && touchStartRef.current.length === 2) {
+    if (currentTouches.length === 2 && touchStartRef.current.length === 2 && currentTouches[0] && currentTouches[1]) {
       const currentDistance = getDistance(currentTouches[0], currentTouches[1])
       const scale = currentDistance / lastPinchDistanceRef.current
 
@@ -139,6 +139,8 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
     if (currentTouches.length === 1 && touchStartRef.current.length === 1) {
       const startTouch = touchStartRef.current[0]
       const currentTouch = currentTouches[0]
+
+      if (!startTouch || !currentTouch) return
 
       const deltaX = currentTouch.x - startTouch.x
       const deltaY = currentTouch.y - startTouch.y
@@ -171,9 +173,13 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
     // Handle swipe gesture completion
     if (touchStartRef.current.length === 1 && event.changedTouches.length === 1) {
       const startTouch = touchStartRef.current[0]
+      const changedTouch = event.changedTouches[0]
+
+      if (!startTouch || !changedTouch) return
+
       const endTouch = {
-        x: event.changedTouches[0].clientX,
-        y: event.changedTouches[0].clientY
+        x: changedTouch.clientX,
+        y: changedTouch.clientY
       }
 
       const deltaX = endTouch.x - startTouch.x
@@ -215,11 +221,11 @@ export const useTouchGestures = (options: TouchGestureOptions = {}) => {
     const element = elementRef.current
     if (!element) return
 
-    const options = { passive: !preventScroll }
+    const eventOptions = { passive: !preventScroll }
 
-    element.addEventListener('touchstart', handleTouchStart, options)
-    element.addEventListener('touchmove', handleTouchMove, options)
-    element.addEventListener('touchend', handleTouchEnd, options)
+    element.addEventListener('touchstart', handleTouchStart, eventOptions)
+    element.addEventListener('touchmove', handleTouchMove, eventOptions)
+    element.addEventListener('touchend', handleTouchEnd, eventOptions)
 
     return () => {
       element.removeEventListener('touchstart', handleTouchStart)
@@ -248,7 +254,7 @@ export const usePullToRefresh = (onRefresh: () => void | Promise<void>, threshol
     const element = elementRef.current
     if (!element || element.scrollTop > 0) return
 
-    startYRef.current = event.touches[0].clientY
+    startYRef.current = event.touches[0]?.clientY ?? 0
   }, [])
 
   const handleTouchMove = useCallback((event: TouchEvent) => {
@@ -257,7 +263,7 @@ export const usePullToRefresh = (onRefresh: () => void | Promise<void>, threshol
     const element = elementRef.current
     if (!element || element.scrollTop > 0) return
 
-    currentYRef.current = event.touches[0].clientY
+    currentYRef.current = event.touches[0]?.clientY ?? 0
     const pullDistance = currentYRef.current - startYRef.current
 
     if (pullDistance > 0) {
@@ -277,7 +283,7 @@ export const usePullToRefresh = (onRefresh: () => void | Promise<void>, threshol
     }
   }, [threshold])
 
-  const handleTouchEnd = useCallback(async (event: TouchEvent) => {
+  const handleTouchEnd = useCallback(async (_event: TouchEvent) => {
     if (isRefreshingRef.current || startYRef.current === 0) return
 
     const element = elementRef.current

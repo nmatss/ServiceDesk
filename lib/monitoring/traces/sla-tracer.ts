@@ -2,8 +2,13 @@
  * Traces customizados para operações de SLA
  */
 
-import { ddTracer, SpanAttributes } from '../datadog-tracer';
+import { ddTracer } from '../datadog-tracer';
 import { logger } from '../logger';
+
+// Span type from OpenTelemetry
+type Span = {
+  setAttribute(key: string, value: string | number | boolean): void;
+};
 
 /**
  * Trace de criação de SLA tracking
@@ -16,7 +21,7 @@ export async function traceCreateSLATracking(
 ): Promise<any> {
   return await ddTracer.trace(
     'sla.create_tracking',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'create_tracking');
       span.setAttribute('sla.ticket_id', ticketId);
       span.setAttribute('sla.policy_id', slaPolicy.id);
@@ -74,7 +79,7 @@ export async function traceCheckSLACompliance(
 ): Promise<any> {
   return await ddTracer.trace(
     'sla.check_compliance',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'check_compliance');
       span.setAttribute('sla.ticket_id', ticketId);
       span.setAttribute('sla.tracking_id', slaTrackingId);
@@ -141,7 +146,7 @@ export async function traceUpdateSLAResponse(
 ): Promise<any> {
   return await ddTracer.trace(
     'sla.update_response',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'update_response');
       span.setAttribute('sla.ticket_id', ticketId);
       span.setAttribute('sla.tracking_id', slaTrackingId);
@@ -197,7 +202,7 @@ export async function traceUpdateSLAResolution(
 ): Promise<any> {
   return await ddTracer.trace(
     'sla.update_resolution',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'update_resolution');
       span.setAttribute('sla.ticket_id', ticketId);
       span.setAttribute('sla.tracking_id', slaTrackingId);
@@ -251,7 +256,7 @@ export async function traceGetSLABreaches(
 ): Promise<any[]> {
   return await ddTracer.trace(
     'sla.get_breaches',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'get_breaches');
       span.setAttribute('sla.organization_id', organizationId);
       span.setAttribute('resource.name', 'GET /api/sla/breaches');
@@ -299,7 +304,7 @@ export async function traceGetUpcomingSLABreaches(
 ): Promise<any[]> {
   return await ddTracer.trace(
     'sla.get_upcoming_breaches',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'get_upcoming_breaches');
       span.setAttribute('sla.organization_id', organizationId);
       span.setAttribute('sla.threshold_minutes', thresholdMinutes);
@@ -354,7 +359,7 @@ export async function traceCalculateSLAMetrics(
 ): Promise<any> {
   return await ddTracer.trace(
     'sla.calculate_metrics',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'calculate_metrics');
       span.setAttribute('sla.organization_id', organizationId);
       span.setAttribute('sla.period', period);
@@ -412,7 +417,7 @@ export async function traceSLAEscalation(
 ): Promise<any> {
   return await ddTracer.trace(
     'sla.escalation',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'escalation');
       span.setAttribute('sla.ticket_id', ticketId);
       span.setAttribute('sla.tracking_id', slaTrackingId);
@@ -468,7 +473,7 @@ export async function traceSLATrendAnalysis(
 ): Promise<any[]> {
   return await ddTracer.trace(
     'sla.trend_analysis',
-    async (span) => {
+    async (span: Span) => {
       span.setAttribute('sla.operation', 'trend_analysis');
       span.setAttribute('sla.organization_id', organizationId);
       span.setAttribute('sla.period', period);

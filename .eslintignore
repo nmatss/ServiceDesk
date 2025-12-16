@@ -1,0 +1,28 @@
+# Build directories
+.next/
+dist/
+build/
+node_modules/
+
+# Test files
+tests/
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Configuration files
+sentry.*.config.ts
+
+# Problematic files
+lib/performance/
+lib/monitoring/traces/
+lib/monitoring/datadog-usage-examples.ts
+lib/ai/database-integration.ts
+lib/config/secrets.ts
+lib/dashboard/template-engine.ts
+lib/charts/
+
+# Migration files
+scripts/

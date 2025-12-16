@@ -135,7 +135,7 @@ export class ConsentManager {
 
       const totalGiven = consents.filter(c => c.granted).length;
       const totalWithdrawn = consents.filter(c => c.withdrawnAt).length;
-      const lastUpdate = consents.length > 0 ? new Date(consents[0].timestamp) : new Date();
+      const lastUpdate = consents.length > 0 ? new Date(consents[0]?.timestamp || Date.now()) : new Date();
 
       return {
         userId,

@@ -1,18 +1,10 @@
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
-import {
+import logger from '../monitoring/structured-logger';
+import type {
   Permission,
   Role,
-  RolePermission,
-  UserRole,
-  User,
-  UserWithRoles,
   CreatePermission,
-  CreateRole,
-  CreateRolePermission,
-  CreateUserRole,
-  PermissionResource,
-  PermissionAction
+  CreateRole
 } from '../types/database';
 
 // ========================================
@@ -367,11 +359,24 @@ export function setUserRoles(userId: number, roleIds: number[], grantedBy?: numb
 // FUNÇÕES DE VERIFICAÇÃO DE PERMISSÕES
 // ========================================
 
+/**
+ * Context object for permission evaluation
+ */
+export interface PermissionContext {
+  userId?: number;
+  ownerId?: number;
+  userDepartment?: string;
+  resourceDepartment?: string;
+  value?: number;
+  userRoleLevel?: number;
+  [key: string]: unknown;
+}
+
 export function hasPermission(
   userId: number,
   resource: string,
   action: string,
-  context?: any
+  context?: PermissionContext
 ): boolean {
   try {
     const permissions = getUserPermissions(userId);
@@ -449,9 +454,21 @@ export function hasAllRoles(userId: number, roleNames: string[]): boolean {
 // FUNÇÕES DE CONDIÇÕES CONTEXTUAIS
 // ========================================
 
-function evaluatePermissionConditions(conditions: string, context: any): boolean {
+/**
+ * Conditions object structure for permission evaluation
+ */
+interface ConditionsObject {
+  owner_only?: boolean;
+  department_only?: boolean;
+  business_hours?: boolean;
+  max_value?: number;
+  min_role_level?: number;
+  [key: string]: unknown;
+}
+
+function evaluatePermissionConditions(conditions: string, context: PermissionContext): boolean {
   try {
-    const conditionsObj = JSON.parse(conditions);
+    const conditionsObj: ConditionsObject = JSON.parse(conditions);
 
     // Implementar lógica de avaliação de condições
     // Exemplos de condições:
@@ -481,13 +498,13 @@ function evaluatePermissionConditions(conditions: string, context: any): boolean
           break;
 
         case 'max_value':
-          if (context.value && context.value > value) {
+          if (context.value && typeof value === 'number' && context.value > value) {
             return false;
           }
           break;
 
         case 'min_role_level':
-          if (context.userRoleLevel < value) {
+          if (typeof value === 'number' && context.userRoleLevel !== undefined && context.userRoleLevel < value) {
             return false;
           }
           break;
@@ -733,7 +750,20 @@ function assignPermissionsToRole(roleId: number, permissionNames: string[]): voi
 // FUNÇÕES DE EXPORTAÇÃO E UTILIDADES
 // ========================================
 
-export function exportRolePermissions(roleId: number): any {
+/**
+ * Export format for role permissions
+ */
+export interface RolePermissionsExport {
+  role: Role;
+  permissions: Array<{
+    name: string;
+    resource: string;
+    action: string;
+    conditions?: string;
+  }>;
+}
+
+export function exportRolePermissions(roleId: number): RolePermissionsExport | null {
   try {
     const role = getRoleById(roleId);
     if (!role) return null;
@@ -755,7 +785,7 @@ export function exportRolePermissions(roleId: number): any {
   }
 }
 
-export function importRolePermissions(roleId: number, data: any): boolean {
+export function importRolePermissions(roleId: number, data: RolePermissionsExport): boolean {
   try {
     const { permissions } = data;
     const permissionIds: number[] = [];
@@ -805,19 +835,47 @@ export function cloneRole(sourceRoleId: number, newRoleName: string, newDisplayN
 // MIDDLEWARE E DECORATORS PARA EXPRESS
 // ========================================
 
+/**
+ * Extended request interface for authenticated requests
+ */
+export interface AuthenticatedRequest {
+  user?: {
+    id: number;
+    [key: string]: unknown;
+  };
+  context?: PermissionContext;
+  [key: string]: unknown;
+}
+
+/**
+ * Response interface for middleware
+ */
+export interface MiddlewareResponse {
+  status: (code: number) => MiddlewareResponse;
+  json: (data: Record<string, unknown>) => unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Next function type
+ */
+export type NextFunction = () => void;
+
 export function requirePermission(resource: string, action: string) {
-  return (req: any, res: any, next: any) => {
+  return (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): void => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
 
     if (!hasPermission(userId, resource, action, req.context)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Insufficient permissions',
         required: `${resource}:${action}`
       });
+      return;
     }
 
     next();
@@ -825,18 +883,20 @@ export function requirePermission(resource: string, action: string) {
 }
 
 export function requireRole(roleName: string) {
-  return (req: any, res: any, next: any) => {
+  return (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): void => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
 
     if (!hasRole(userId, roleName)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Insufficient role',
         required: roleName
       });
+      return;
     }
 
     next();
@@ -844,18 +904,20 @@ export function requireRole(roleName: string) {
 }
 
 export function requireAnyRole(roleNames: string[]) {
-  return (req: any, res: any, next: any) => {
+  return (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): void => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ error: 'Authentication required' });
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
 
     if (!hasAnyRole(userId, roleNames)) {
-      return res.status(403).json({
+      res.status(403).json({
         error: 'Insufficient roles',
         required_any: roleNames
       });
+      return;
     }
 
     next();
@@ -866,14 +928,5 @@ export function requireAnyRole(roleNames: string[]) {
 // EXPORTS
 // ========================================
 
-export {
-  hasPermission,
-  hasRole,
-  hasAnyRole,
-  hasAllRoles,
-  getUserRoles,
-  getUserPermissions,
-  createRole,
-  createPermission,
-  initializeDefaultRolesAndPermissions
-};
+// All functions are already exported with 'export function' declarations above
+// No need to re-export them here

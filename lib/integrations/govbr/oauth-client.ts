@@ -11,8 +11,8 @@
  * - Brazilian document validation
  */
 
-import crypto from 'crypto';
-import { logger } from '@/lib/monitoring/logger';
+import * as crypto from 'crypto';
+import logger from '@/lib/monitoring/structured-logger';
 
 // Gov.br Configuration
 interface GovBrConfig {
@@ -486,7 +486,7 @@ export function getGovBrClient(): GovBrOAuthClient {
 // Helper function to sync Gov.br profile with local user
 export async function syncGovBrProfile(
   profile: GovBrUserProfile,
-  tokens: GovBrTokens
+  _tokens: GovBrTokens
 ): Promise<{
   success: boolean;
   userId?: number;

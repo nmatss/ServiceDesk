@@ -7,14 +7,13 @@ import {
   UsersIcon,
   TicketIcon,
   ChartPieIcon,
-  ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   PlusIcon
 } from '@heroicons/react/24/outline'
-import { Button } from '@/components/ui/button'
+// Button import removed - using direct Link elements with button styling
 
 export default function AdminPage() {
   const [stats, setStats] = useState({
@@ -31,26 +30,31 @@ export default function AdminPage() {
 
   const fetchStats = async () => {
     try {
+      // Cookies are automatically sent with fetch, no need for localStorage
       const response = await fetch('/api/analytics?type=overview', {
         headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': '1'
-        }
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // Ensure cookies are sent
       })
 
       if (response.ok) {
         const data = await response.json()
-        if (data.success && data.analytics.overview) {
-          setStats({
-            totalUsers: 125,
-            totalTickets: data.analytics.overview.totalTickets || 0,
-            openTickets: data.analytics.overview.openTickets || 0,
-            resolvedTickets: data.analytics.overview.closedTickets || 0
-          })
-        }
+        // Safe access with nullish coalescing
+        const overview = data?.analytics?.overview ?? {}
+        setStats({
+          totalUsers: overview.totalUsers ?? 125,
+          totalTickets: overview.totalTickets ?? 0,
+          openTickets: overview.openTickets ?? 0,
+          resolvedTickets: overview.closedTickets ?? 0
+        })
+      } else {
+        // Handle non-OK responses gracefully
+        logger.warn('Failed to fetch stats', { status: response.status })
       }
     } catch (error) {
       logger.error('Erro ao buscar estatísticas', error)
+      // Keep default stats on error
     } finally {
       setLoading(false)
     }
@@ -60,11 +64,14 @@ export default function AdminPage() {
     ? ((stats.resolvedTickets / stats.totalTickets) * 100).toFixed(1)
     : '0.0'
 
+  // Only show change indicators when we have real data
+  const hasRealData = stats.totalTickets > 0 || stats.totalUsers > 0
+
   const statsData = [
     {
       name: 'Total de Usuários',
       value: loading ? '...' : stats.totalUsers.toString(),
-      change: '+12%',
+      change: hasRealData && stats.totalUsers > 0 ? '+12%' : null,
       changeType: 'positive' as const,
       icon: UsersIcon,
       description: 'Usuários ativos no sistema'
@@ -72,7 +79,7 @@ export default function AdminPage() {
     {
       name: 'Tickets Ativos',
       value: loading ? '...' : stats.openTickets.toString(),
-      change: '+5%',
+      change: hasRealData && stats.openTickets > 0 ? '+5%' : null,
       changeType: 'positive' as const,
       icon: TicketIcon,
       description: 'Tickets aguardando resolução'
@@ -80,7 +87,7 @@ export default function AdminPage() {
     {
       name: 'Tickets Resolvidos',
       value: loading ? '...' : stats.resolvedTickets.toString(),
-      change: '+18%',
+      change: hasRealData && stats.resolvedTickets > 0 ? '+18%' : null,
       changeType: 'positive' as const,
       icon: CheckCircleIcon,
       description: 'Tickets finalizados com sucesso'
@@ -88,7 +95,7 @@ export default function AdminPage() {
     {
       name: 'Taxa de Resolução',
       value: loading ? '...' : `${resolutionRate}%`,
-      change: '+2%',
+      change: hasRealData && stats.totalTickets > 0 ? '+2%' : null,
       changeType: 'positive' as const,
       icon: ChartPieIcon,
       description: 'Percentual de tickets resolvidos'
@@ -133,12 +140,13 @@ export default function AdminPage() {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <Button asChild className="bg-blue-600 hover:bg-blue-700">
-            <Link href="/tickets/new">
-              <PlusIcon className="w-4 h-4 mr-2" />
-              Novo Ticket
-            </Link>
-          </Button>
+          <Link
+            href="/tickets/new"
+            className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Novo Ticket
+          </Link>
         </div>
       </div>
 
@@ -159,19 +167,21 @@ export default function AdminPage() {
                 <stat.icon className="h-6 w-6 text-blue-600" />
               </div>
             </div>
-            <div className="mt-4 flex items-center">
-              {stat.changeType === 'positive' ? (
-                <ArrowTrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
-              ) : (
-                <ArrowTrendingDownIcon className="h-4 w-4 text-red-500 mr-1" />
-              )}
-              <span className={`text-sm font-medium ${
-                stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {stat.change}
-              </span>
-              <span className="text-sm text-gray-500 ml-1">vs mês anterior</span>
-            </div>
+            {stat.change && (
+              <div className="mt-4 flex items-center">
+                {stat.changeType === 'positive' ? (
+                  <ArrowTrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
+                ) : (
+                  <ArrowTrendingDownIcon className="h-4 w-4 text-red-500 mr-1" />
+                )}
+                <span className={`text-sm font-medium ${
+                  stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {stat.change}
+                </span>
+                <span className="text-sm text-gray-500 ml-1">vs mês anterior</span>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -182,9 +192,12 @@ export default function AdminPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Tickets Recentes</h3>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/admin/tickets">Ver Todos</Link>
-              </Button>
+              <Link
+                href="/admin/tickets"
+                className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+              >
+                Ver Todos
+              </Link>
             </div>
             <div className="p-6">
               <div className="space-y-4">
@@ -232,24 +245,27 @@ export default function AdminPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
             <div className="space-y-3">
-              <Button className="w-full justify-start" asChild>
-                <Link href="/tickets/new">
-                  <PlusIcon className="w-4 h-4 mr-2" />
-                  Criar Novo Ticket
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link href="/admin/reports">
-                  <ChartPieIcon className="w-4 h-4 mr-2" />
-                  Ver Relatórios
-                </Link>
-              </Button>
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link href="/admin/users">
-                  <UsersIcon className="w-4 h-4 mr-2" />
-                  Gerenciar Usuários
-                </Link>
-              </Button>
+              <Link
+                href="/tickets/new"
+                className="inline-flex items-center justify-start w-full h-10 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Criar Novo Ticket
+              </Link>
+              <Link
+                href="/admin/reports"
+                className="inline-flex items-center justify-start w-full h-10 px-4 py-2 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+              >
+                <ChartPieIcon className="w-4 h-4 mr-2" />
+                Ver Relatórios
+              </Link>
+              <Link
+                href="/admin/users"
+                className="inline-flex items-center justify-start w-full h-10 px-4 py-2 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+              >
+                <UsersIcon className="w-4 h-4 mr-2" />
+                Gerenciar Usuários
+              </Link>
             </div>
           </div>
 

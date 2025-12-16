@@ -15,7 +15,7 @@ import { getObservabilityHealth } from '@/lib/monitoring/observability';
 import { performanceMonitor } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/monitoring/logger';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get observability health
     const observabilityHealth = getObservabilityHealth();

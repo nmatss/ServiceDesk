@@ -8,9 +8,9 @@
 -- TICKETS TABLE INDEXES
 -- ============================================
 
--- Index for tenant isolation and status filtering (most common query pattern)
-CREATE INDEX IF NOT EXISTS idx_tickets_tenant_status
-  ON tickets(tenant_id, status_id, created_at DESC);
+-- Index for organization isolation and status filtering (most common query pattern)
+CREATE INDEX IF NOT EXISTS idx_tickets_organization_status
+  ON tickets(organization_id, status_id, created_at DESC);
 
 -- Index for user's tickets lookup
 CREATE INDEX IF NOT EXISTS idx_tickets_user
@@ -27,11 +27,11 @@ CREATE INDEX IF NOT EXISTS idx_tickets_sla
 
 -- Index for priority-based filtering
 CREATE INDEX IF NOT EXISTS idx_tickets_priority
-  ON tickets(tenant_id, priority_id, created_at DESC);
+  ON tickets(organization_id, priority_id, created_at DESC);
 
 -- Index for category-based filtering
 CREATE INDEX IF NOT EXISTS idx_tickets_category
-  ON tickets(tenant_id, category_id, created_at DESC);
+  ON tickets(organization_id, category_id, created_at DESC);
 
 -- Full-text search index on title and description
 CREATE INDEX IF NOT EXISTS idx_tickets_title_fts
@@ -45,13 +45,13 @@ CREATE INDEX IF NOT EXISTS idx_tickets_title_fts
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
   ON users(email);
 
--- Index for tenant user lookups
-CREATE INDEX IF NOT EXISTS idx_users_tenant
-  ON users(tenant_id, is_active);
+-- Index for organization user lookups
+CREATE INDEX IF NOT EXISTS idx_users_organization
+  ON users(organization_id, is_active);
 
 -- Index for role-based queries
 CREATE INDEX IF NOT EXISTS idx_users_role
-  ON users(tenant_id, role, is_active);
+  ON users(organization_id, role, is_active);
 
 -- Index for session management
 CREATE INDEX IF NOT EXISTS idx_users_last_login
@@ -139,20 +139,20 @@ CREATE INDEX IF NOT EXISTS idx_kb_articles_title
 -- ============================================
 
 -- Index for daily metrics queries
-CREATE INDEX IF NOT EXISTS idx_analytics_daily_tenant
-  ON analytics_daily_metrics(tenant_id, metric_date DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_daily_organization
+  ON analytics_daily_metrics(organization_id, metric_date DESC);
 
 -- Index for agent performance
 CREATE INDEX IF NOT EXISTS idx_analytics_agent
-  ON analytics_agent_metrics(tenant_id, agent_id, metric_date DESC);
+  ON analytics_agent_metrics(organization_id, agent_id, metric_date DESC);
 
 -- ============================================
 -- AUDIT LOGS INDEXES
 -- ============================================
 
--- Index for tenant audit log queries
-CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant
-  ON audit_logs(tenant_id, created_at DESC);
+-- Index for organization audit log queries
+CREATE INDEX IF NOT EXISTS idx_audit_logs_organization
+  ON audit_logs(organization_id, created_at DESC);
 
 -- Index for user audit trail
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user
@@ -164,7 +164,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity
 
 -- Index for action-based queries
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action
-  ON audit_logs(tenant_id, action, created_at DESC);
+  ON audit_logs(organization_id, action, created_at DESC);
 
 -- ============================================
 -- AUTHENTICATION INDEXES
@@ -209,7 +209,7 @@ CREATE INDEX IF NOT EXISTS idx_role_permissions_role
 
 -- Index for active automations
 CREATE INDEX IF NOT EXISTS idx_automations_active
-  ON automations(tenant_id, is_active, trigger_event);
+  ON automations(organization_id, is_active, trigger_event);
 
 -- Index for workflow execution history
 CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow
@@ -254,9 +254,9 @@ CREATE INDEX IF NOT EXISTS idx_password_history_user
 -- COMPOSITE INDEXES FOR COMPLEX QUERIES
 -- ============================================
 
--- Composite index for tenant + organization queries
-CREATE INDEX IF NOT EXISTS idx_tickets_tenant_org
-  ON tickets(tenant_id, organization_id, created_at DESC);
+-- Composite index for organization + department queries
+CREATE INDEX IF NOT EXISTS idx_tickets_organization_dept
+  ON tickets(organization_id, created_at DESC);
 
 -- Composite index for status + priority filtering
 CREATE INDEX IF NOT EXISTS idx_tickets_status_priority
@@ -268,19 +268,19 @@ CREATE INDEX IF NOT EXISTS idx_tickets_status_priority
 
 -- Index only active users
 CREATE INDEX IF NOT EXISTS idx_users_active
-  ON users(tenant_id, created_at DESC)
+  ON users(organization_id, created_at DESC)
   WHERE is_active = 1;
 
 -- Index only unresolved tickets
 CREATE INDEX IF NOT EXISTS idx_tickets_unresolved
-  ON tickets(tenant_id, created_at DESC, priority_id)
+  ON tickets(organization_id, created_at DESC, priority_id)
   WHERE status_id IN (
     SELECT id FROM statuses WHERE name IN ('Novo', 'Em Andamento', 'Aguardando Cliente', 'New', 'In Progress', 'Pending')
   );
 
 -- Index only verified users
 CREATE INDEX IF NOT EXISTS idx_users_verified
-  ON users(tenant_id)
+  ON users(organization_id)
   WHERE is_email_verified = 1;
 
 -- ============================================
@@ -289,7 +289,7 @@ CREATE INDEX IF NOT EXISTS idx_users_verified
 
 -- Covering index for ticket list view
 CREATE INDEX IF NOT EXISTS idx_tickets_list_covering
-  ON tickets(tenant_id, status_id, priority_id, created_at DESC, id, title);
+  ON tickets(organization_id, status_id, priority_id, created_at DESC, id, title);
 
 -- ============================================
 -- CLEANUP OLD INDEXES (if any conflicting ones exist)

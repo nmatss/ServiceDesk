@@ -75,7 +75,6 @@ export default function SLAComplianceHeatmap({
   colorScale = 'default',
   showValues = false,
   showTooltip = true,
-  height = 500,
   onCellClick,
 }: SLAComplianceHeatmapProps) {
   const [hoveredCell, setHoveredCell] = useState<{ hour: number; day: number } | null>(null);
@@ -94,7 +93,10 @@ export default function SLAComplianceHeatmap({
     // Fill matrix with data
     data.forEach(item => {
       if (item.day >= 0 && item.day < 7 && item.hour >= 0 && item.hour < 24) {
-        matrix[item.day][item.hour] = item;
+        const row = matrix[item.day];
+        if (row) {
+          row[item.hour] = item;
+        }
       }
     });
 
@@ -265,7 +267,7 @@ export default function SLAComplianceHeatmap({
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs text-gray-500">Overall Compliance</p>
           <p className="text-xl font-semibold text-gray-900">
-            {statistics.overallCompliance.toFixed(1)}%
+            {(statistics.overallCompliance ?? 0).toFixed(1)}%
           </p>
         </div>
         <div className="bg-gray-50 rounded-lg p-3">
@@ -327,7 +329,7 @@ export default function SLAComplianceHeatmap({
               {/* Hour Cells */}
               <div className="flex">
                 {HOURS.map(hour => {
-                  const cellData = heatmapMatrix[dayIndex][hour];
+                  const cellData = heatmapMatrix[dayIndex]?.[hour];
                   const hasData = cellData && cellData.total_tickets > 0;
 
                   return (
@@ -345,7 +347,7 @@ export default function SLAComplianceHeatmap({
                           hasData ? 'cursor-pointer hover:ring-2 hover:ring-blue-500' : ''
                         }`}
                         style={{
-                          backgroundColor: getCellColor(cellData),
+                          backgroundColor: getCellColor(cellData ?? null),
                         }}
                         onMouseEnter={() =>
                           hasData && setHoveredCell({ hour, day: dayIndex })
@@ -361,7 +363,7 @@ export default function SLAComplianceHeatmap({
                       </div>
 
                       {/* Tooltip */}
-                      {hasData && renderTooltip(cellData, hour, dayIndex)}
+                      {hasData && cellData && renderTooltip(cellData, hour, dayIndex)}
                     </div>
                   );
                 })}

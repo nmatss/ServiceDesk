@@ -14,6 +14,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getWhatsAppClient } from '@/lib/integrations/whatsapp/business-api';
 import type { WebhookMessage, WebhookStatus } from '@/lib/integrations/whatsapp/business-api';
 import { logger } from '@/lib/monitoring/logger';
+import crypto from 'crypto';
+
+/**
+ * Verifies HMAC signature for webhook security
+ * Uses timing-safe comparison to prevent timing attacks
+ */
+function verifyWebhookSignature(
+  payload: string,
+  signature: string,
+  secret: string
+): boolean {
+  try {
+    // Handle null/undefined inputs
+    if (!payload || !signature || !secret) {
+      return false;
+    }
+
+    const expectedSignature = 'sha256=' + crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
+
+    // Ensure both signatures have the same length before comparison
+    // This prevents timing attack and RangeError
+    if (signature.length !== expectedSignature.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch (error) {
+    logger.error('Error verifying webhook signature', error);
+    return false;
+  }
+}
 
 /**
  * GET handler - Webhook verification
@@ -48,7 +85,40 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Verify webhook signature for security
+    const signature = request.headers.get('x-hub-signature-256');
+    const webhookSecret = process.env.WHATSAPP_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      logger.error('WHATSAPP_WEBHOOK_SECRET not configured');
+      return NextResponse.json(
+        { error: 'Webhook security not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Get raw body for signature verification
+    const rawBody = await request.text();
+
+    // Validate signature if provided
+    if (signature) {
+      if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+        logger.error('Invalid webhook signature', {
+          receivedSignature: signature
+        });
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 401 }
+        );
+      }
+      logger.info('Webhook signature verified successfully');
+    } else {
+      // Log warning if signature is missing but continue processing
+      // Some webhook events might not include signature during testing
+      logger.warn('Webhook received without signature - security risk!');
+    }
+
+    const body = JSON.parse(rawBody);
 
     // Validate webhook structure
     if (!body.object || body.object !== 'whatsapp_business_account') {
@@ -213,7 +283,7 @@ async function handleMediaMessage(
 async function handleLocationMessage(
   client: any,
   message: WebhookMessage,
-  profileName?: string
+  _profileName?: string
 ): Promise<void> {
   // For now, just acknowledge location messages
   await client.sendTextMessage(
@@ -228,7 +298,7 @@ async function handleLocationMessage(
 async function handleContactsMessage(
   client: any,
   message: WebhookMessage,
-  profileName?: string
+  _profileName?: string
 ): Promise<void> {
   // For now, just acknowledge contact messages
   await client.sendTextMessage(
@@ -244,7 +314,7 @@ async function handleCommand(
   client: any,
   message: WebhookMessage,
   command: string,
-  profileName?: string
+  _profileName?: string
 ): Promise<void> {
   const cmd = command.toLowerCase().trim();
 

@@ -5,7 +5,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { getSystemSetting } from '@/lib/db/queries';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
 
 interface TotvsConfig {
   baseUrl: string;
@@ -17,6 +17,7 @@ interface TotvsConfig {
   product: 'protheus' | 'rm' | 'datasul';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface TotvsAuthResponse {
   access_token: string;
   token_type: string;
@@ -727,9 +728,9 @@ export class TotvsClient {
       username,
       password,
       tenant,
-      environment = 'production',
-      apiVersion = 'v1',
-      product = 'protheus'
+      environment,
+      apiVersion,
+      product
     ] = await Promise.all([
       getSystemSetting('totvs_base_url'),
       getSystemSetting('totvs_username'),
@@ -749,9 +750,9 @@ export class TotvsClient {
       username,
       password,
       tenant,
-      environment: environment as 'development' | 'production',
-      apiVersion,
-      product: product as 'protheus' | 'rm' | 'datasul'
+      environment: (environment || 'production') as 'development' | 'production',
+      apiVersion: apiVersion || 'v1',
+      product: (product || 'protheus') as 'protheus' | 'rm' | 'datasul'
     });
   }
 }

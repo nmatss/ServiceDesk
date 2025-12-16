@@ -1,7 +1,7 @@
 // Guide builder para step-by-step guides interativos
 import { Configuration, OpenAIApi } from 'openai';
 import { db } from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface GuideStep {
   id: string;
@@ -863,7 +863,7 @@ Diretrizes:
         guide.description.substring(0, 160)
       ]);
 
-      const articleId = result.lastID!;
+      const articleId = result.lastInsertRowid as number;
 
       // Adiciona tags
       for (const tag of guide.tags) {

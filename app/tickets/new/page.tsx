@@ -12,16 +12,34 @@ export default function NewTicketPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    const role = localStorage.getItem('user_role') as 'admin' | 'agent' | 'user'
+    // SECURITY: Verify authentication via httpOnly cookies only
+    const verifyAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      router.push('/auth/login')
-      return
+        if (!response.ok) {
+          router.push('/auth/login')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.user) {
+          router.push('/auth/login')
+          return
+        }
+
+        setUserRole(data.user.role || 'user')
+        setLoading(false)
+      } catch {
+        router.push('/auth/login')
+      }
     }
 
-    setUserRole(role || 'user')
-    setLoading(false)
+    verifyAuth()
   }, [router])
 
   const handleFormSubmit = (ticket: any) => {

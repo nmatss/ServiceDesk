@@ -1,8 +1,8 @@
 // Enterprise Anomaly Detection System
 // Detects patterns, outliers, and statistical anomalies in ServiceDesk operations using advanced ML techniques
 
-import { mlPipeline, MLModel } from './ml-pipeline';
-import { logger } from '../monitoring/logger';
+import { mlPipeline } from './ml-pipeline';
+import logger from '../monitoring/structured-logger';
 
 export interface AnomalyDetection {
   anomaly_id: string;
@@ -129,10 +129,8 @@ export interface AnomalyPattern {
 
 export class AnomalyDetectionEngine {
   private detectionModels: Map<string, DetectionModel> = new Map();
-  private anomalyHistory: Map<string, AnomalyDetection[]> = new Map();
   private knownPatterns: Map<string, AnomalyPattern> = new Map();
   private alertThresholds: Map<string, number> = new Map();
-  private lastDetectionRun: Date = new Date();
 
   constructor() {
     this.initializeDetectionModels();
@@ -179,8 +177,6 @@ export class AnomalyDetectionEngine {
       for (const anomaly of filteredAnomalies) {
         this.storeAnomalyInHistory(anomaly);
       }
-
-      this.lastDetectionRun = new Date();
 
       logger.info(`[Anomaly Detection] Completed detection in ${Date.now() - startTime}ms. Found ${filteredAnomalies.length} anomalies.`);
 
@@ -241,7 +237,7 @@ export class AnomalyDetectionEngine {
   private async runDetectionModel(
     model: DetectionModel,
     lookbackHours: number,
-    realTimeMode: boolean
+    _realTimeMode: boolean
   ): Promise<AnomalyDetection[]> {
     const detectedAnomalies: AnomalyDetection[] = [];
 
@@ -294,6 +290,8 @@ export class AnomalyDetectionEngine {
         for (const [featureName, value] of Object.entries(features)) {
           if (typeof value === 'number') {
             const baseline = historicalBaseline[featureName];
+            if (!baseline) continue;
+
             const threshold = this.calculateDynamicThreshold(baseline, model.threshold_config);
 
             if (Math.abs(value - baseline.mean) > threshold) {
@@ -310,7 +308,7 @@ export class AnomalyDetectionEngine {
               anomaly.contributing_factors = [{
                 factor_name: featureName,
                 contribution_score: 1.0,
-                factor_type: 'statistical',
+                factor_type: 'systemic',
                 description: `${featureName} exceeded statistical threshold`,
                 current_value: value,
                 expected_range: [baseline.mean - threshold, baseline.mean + threshold]
@@ -393,7 +391,9 @@ export class AnomalyDetectionEngine {
         });
 
         // Reconstruction error indicates anomaly
-        const reconstructionError = prediction.prediction as number;
+        const reconstructionError = typeof prediction.prediction === 'number'
+          ? prediction.prediction
+          : 0;
         const threshold = await this.getReconstructionErrorThreshold(modelId);
 
         if (reconstructionError > threshold) {
@@ -431,6 +431,8 @@ export class AnomalyDetectionEngine {
         for (const [featureName, value] of Object.entries(features)) {
           if (typeof value === 'number') {
             const stats = historicalStats[featureName];
+            if (!stats) continue;
+
             const zScore = Math.abs((value - stats.mean) / stats.std);
 
             if (zScore > model.threshold_config.z_score_threshold) {
@@ -447,7 +449,7 @@ export class AnomalyDetectionEngine {
               anomaly.contributing_factors = [{
                 factor_name: featureName,
                 contribution_score: zScore / model.threshold_config.z_score_threshold,
-                factor_type: 'statistical',
+                factor_type: 'systemic',
                 description: `Z-score of ${zScore.toFixed(2)} exceeds threshold`,
                 current_value: value,
                 expected_range: [stats.mean - 2 * stats.std, stats.mean + 2 * stats.std]
@@ -788,34 +790,40 @@ export class AnomalyDetectionEngine {
   }
 
   // Additional helper methods (simplified implementations)
-  private async getEntitiesForDetection(entityType: string, lookbackHours: number): Promise<any[]> { return []; }
-  private async extractAnomalyFeatures(entity: any, config: AnomalyFeatureConfig): Promise<Record<string, any>> { return {}; }
-  private async getHistoricalBaseline(entityId: string, entityType: string): Promise<any> { return { mean: 100, std: 20 }; }
-  private calculateDynamicThreshold(baseline: any, config: ThresholdConfig): number { return baseline.std * 2; }
-  private async getOrCreateMLModel(type: string, model: DetectionModel): Promise<string> { return 'model_id'; }
-  private convertFeatureImportanceToFactors(importance: Record<string, number>, features: Record<string, any>): AnomalyFactor[] { return []; }
-  private async getSequenceData(entityId: string, entityType: string, config: AnomalyFeatureConfig): Promise<number[]> { return []; }
-  private async getReconstructionErrorThreshold(modelId: string): Promise<number> { return 0.5; }
-  private async getHistoricalStatistics(entityId: string, entityType: string): Promise<any> { return {}; }
-  private async checkSingleEntityAnomaly(model: DetectionModel, entityType: string, entityId: string, data: Record<string, any>): Promise<AnomalyDetection | null> { return null; }
-  private storeAnomalyInHistory(anomaly: AnomalyDetection): void { }
-  private async calculateBusinessImpact(anomaly: AnomalyDetection): Promise<any> { return { score: 0.5, financial_estimate: 1000 }; }
-  private async calculateOperationalImpact(anomaly: AnomalyDetection): Promise<any> { return { score: 0.3, affected_services: [] }; }
-  private async calculateCustomerImpact(anomaly: AnomalyDetection): Promise<any> { return { score: 0.2, affected_users: 10 }; }
-  private async calculateSLABreachRisk(anomaly: AnomalyDetection): Promise<number> { return 0.3; }
+  private async getEntitiesForDetection(_entityType: string, _lookbackHours: number): Promise<any[]> { return []; }
+  private async extractAnomalyFeatures(_entity: any, _config: AnomalyFeatureConfig): Promise<Record<string, any>> { return {}; }
+  private async getHistoricalBaseline(_entityId: string, _entityType: string): Promise<Record<string, { mean: number; std: number }>> {
+    return {};
+  }
+  private calculateDynamicThreshold(baseline: { mean: number; std: number }, _config: ThresholdConfig): number {
+    return baseline.std * 2;
+  }
+  private async getOrCreateMLModel(_type: string, _model: DetectionModel): Promise<string> { return 'model_id'; }
+  private convertFeatureImportanceToFactors(_importance: Record<string, number>, _features: Record<string, any>): AnomalyFactor[] { return []; }
+  private async getSequenceData(_entityId: string, _entityType: string, _config: AnomalyFeatureConfig): Promise<number[]> { return []; }
+  private async getReconstructionErrorThreshold(_modelId: string): Promise<number> { return 0.5; }
+  private async getHistoricalStatistics(_entityId: string, _entityType: string): Promise<Record<string, { mean: number; std: number }>> {
+    return {};
+  }
+  private async checkSingleEntityAnomaly(_model: DetectionModel, _entityType: string, _entityId: string, _data: Record<string, any>): Promise<AnomalyDetection | null> { return null; }
+  private storeAnomalyInHistory(_anomaly: AnomalyDetection): void { }
+  private async calculateBusinessImpact(_anomaly: AnomalyDetection): Promise<any> { return { score: 0.5, financial_estimate: 1000 }; }
+  private async calculateOperationalImpact(_anomaly: AnomalyDetection): Promise<any> { return { score: 0.3, affected_services: [] }; }
+  private async calculateCustomerImpact(_anomaly: AnomalyDetection): Promise<any> { return { score: 0.2, affected_users: 10 }; }
+  private async calculateSLABreachRisk(_anomaly: AnomalyDetection): Promise<number> { return 0.3; }
   private shouldEscalate(anomaly: AnomalyDetection): boolean { return anomaly.severity === 'critical'; }
-  private async findKnownPattern(anomaly: AnomalyDetection): Promise<AnomalyPattern | null> { return null; }
-  private async gatherAnomalyContext(anomaly: AnomalyDetection): Promise<Record<string, any>> { return {}; }
-  private getStartTimeForRange(range: string, endTime: Date): Date { return new Date(endTime.getTime() - 24 * 60 * 60 * 1000); }
-  private async getAnomaliesInTimeRange(start: Date, end: Date, entityType?: string): Promise<AnomalyDetection[]> { return []; }
-  private groupAnomaliesByType(anomalies: AnomalyDetection[]): Record<string, number> { return {}; }
-  private groupAnomaliesBySeverity(anomalies: AnomalyDetection[]): Record<string, number> { return {}; }
-  private calculateTrendDirection(anomalies: AnomalyDetection[]): string { return 'stable'; }
-  private findPeakAnomalyHours(anomalies: AnomalyDetection[]): number[] { return []; }
-  private findMostAffectedEntities(anomalies: AnomalyDetection[]): string[] { return []; }
-  private async calculateDetectionAccuracy(anomalies: AnomalyDetection[]): Promise<number> { return 0.85; }
-  private generateTrendRecommendations(anomalies: AnomalyDetection[]): string[] { return []; }
-  private async getRecentAnomalies(days: number): Promise<AnomalyDetection[]> { return []; }
+  private async findKnownPattern(_anomaly: AnomalyDetection): Promise<AnomalyPattern | null> { return null; }
+  private async gatherAnomalyContext(_anomaly: AnomalyDetection): Promise<Record<string, any>> { return {}; }
+  private getStartTimeForRange(_range: string, endTime: Date): Date { return new Date(endTime.getTime() - 24 * 60 * 60 * 1000); }
+  private async getAnomaliesInTimeRange(_start: Date, _end: Date, _entityType?: string): Promise<AnomalyDetection[]> { return []; }
+  private groupAnomaliesByType(_anomalies: AnomalyDetection[]): Record<string, number> { return {}; }
+  private groupAnomaliesBySeverity(_anomalies: AnomalyDetection[]): Record<string, number> { return {}; }
+  private calculateTrendDirection(_anomalies: AnomalyDetection[]): string { return 'stable'; }
+  private findPeakAnomalyHours(_anomalies: AnomalyDetection[]): number[] { return []; }
+  private findMostAffectedEntities(_anomalies: AnomalyDetection[]): string[] { return []; }
+  private async calculateDetectionAccuracy(_anomalies: AnomalyDetection[]): Promise<number> { return 0.85; }
+  private generateTrendRecommendations(_anomalies: AnomalyDetection[]): string[] { return []; }
+  private async getRecentAnomalies(_days: number): Promise<AnomalyDetection[]> { return []; }
   private extractPatternFromCluster(cluster: AnomalyDetection[]): AnomalyPattern {
     return {
       pattern_id: 'pattern_' + Date.now(),
@@ -827,16 +835,16 @@ export class AnomalyDetectionEngine {
       prediction_confidence: 0.8
     };
   }
-  private calculateTimePatternSimilarity(date1: Date, date2: Date): number { return 0.5; }
-  private calculateFactorSimilarity(factors1: AnomalyFactor[], factors2: AnomalyFactor[]): number { return 0.5; }
-  private isKnownFalsePositive(anomaly: AnomalyDetection): boolean { return false; }
+  private calculateTimePatternSimilarity(_date1: Date, _date2: Date): number { return 0.5; }
+  private calculateFactorSimilarity(_factors1: AnomalyFactor[], _factors2: AnomalyFactor[]): number { return 0.5; }
+  private isKnownFalsePositive(_anomaly: AnomalyDetection): boolean { return false; }
 
   // Additional detection method implementations (simplified)
-  private async runModifiedZScoreDetection(model: DetectionModel, lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
-  private async runIQRDetection(model: DetectionModel, lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
-  private async runDBSCANDetection(model: DetectionModel, lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
-  private async runOneClassSVMDetection(model: DetectionModel, lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
-  private async runEnsembleDetection(model: DetectionModel, lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
+  private async runModifiedZScoreDetection(_model: DetectionModel, _lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
+  private async runIQRDetection(_model: DetectionModel, _lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
+  private async runDBSCANDetection(_model: DetectionModel, _lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
+  private async runOneClassSVMDetection(_model: DetectionModel, _lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
+  private async runEnsembleDetection(_model: DetectionModel, _lookbackHours: number): Promise<AnomalyDetection[]> { return []; }
 }
 
 // ========================================

@@ -4,13 +4,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db/connection';
+import db from '@/lib/db/connection';
 import AITrainingSystem from '@/lib/ai/training-system';
-import AIModelManager from '@/lib/ai/model-manager';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { createRateLimitMiddleware } from '@/lib/rate-limit';
+
+// Rate limiting muito restritivo para treinamento de AI (máximo 3 requests por hora)
+const trainRateLimit = createRateLimitMiddleware('auth-strict')
 
 export async function POST(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await trainRateLimit(request, '/api/ai/train')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
   try {
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -26,7 +34,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, operationType, organizationId, config } = body;
 
-    const db = await getDb();
     const trainingSystem = new AITrainingSystem(db, config);
 
     switch (action) {
@@ -80,6 +87,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await trainRateLimit(request, '/api/ai/train')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
+
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     if (!token) {
@@ -95,7 +108,6 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action');
     const organizationId = searchParams.get('organizationId');
 
-    const db = await getDb();
     const trainingSystem = new AITrainingSystem(db);
 
     switch (action) {

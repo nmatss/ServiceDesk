@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -16,11 +16,8 @@ export async function POST(
         { status: 400 }
       )
     }
-
-    const db = getDb()
-
     // Buscar artigo
-    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ? AND status = ?').get(params.slug, 'published')
+    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ? AND status = ?').get(params.slug, 'published') as { id: number } | undefined
     if (!article) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -52,11 +49,11 @@ export async function POST(
     }
 
     // Verificar se já existe feedback deste usuário/sessão para este artigo
-    let existingFeedback
+    let existingFeedback: { id: number } | undefined
     if (userId) {
-      existingFeedback = db.prepare('SELECT id FROM kb_article_feedback WHERE article_id = ? AND user_id = ?').get(article.id, userId)
+      existingFeedback = db.prepare('SELECT id FROM kb_article_feedback WHERE article_id = ? AND user_id = ?').get(article.id, userId) as { id: number } | undefined
     } else {
-      existingFeedback = db.prepare('SELECT id FROM kb_article_feedback WHERE article_id = ? AND session_id = ?').get(article.id, sessionId)
+      existingFeedback = db.prepare('SELECT id FROM kb_article_feedback WHERE article_id = ? AND session_id = ?').get(article.id, sessionId) as { id: number } | undefined
     }
 
     if (existingFeedback) {
@@ -119,10 +116,8 @@ export async function GET(
   { params }: { params: { slug: string } }
 ) {
   try {
-    const db = getDb()
-
     // Buscar artigo
-    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug)
+    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number } | undefined
     if (!article) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -149,7 +144,7 @@ export async function GET(
     const authHeader = request.headers.get('authorization')
     const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
 
-    let comments = []
+    let comments: unknown[] = []
     if (token) {
       try {
         const user = await verifyToken(token)

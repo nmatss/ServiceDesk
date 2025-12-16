@@ -1,16 +1,9 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Biometric Authentication Manager
  * WebAuthn implementation for fingerprint, face ID, and other biometric methods
  */
-
-interface BiometricCredential {
-  id: string;
-  type: 'public-key';
-  rawId: ArrayBuffer;
-  response: AuthenticatorAssertionResponse;
-}
 
 interface BiometricRegistrationOptions {
   username: string;
@@ -43,8 +36,8 @@ class BiometricAuthManager {
     this.isSupported = !!(
       window.PublicKeyCredential &&
       navigator.credentials &&
-      navigator.credentials.create &&
-      navigator.credentials.get
+      typeof navigator.credentials.create === 'function' &&
+      typeof navigator.credentials.get === 'function'
     );
 
     if (this.isSupported) {
@@ -75,7 +68,8 @@ class BiometricAuthManager {
     try {
       // Generate challenge
       const challenge = this.generateChallenge();
-      const userHandle = options.userHandle || this.stringToArrayBuffer(options.username);
+      const userHandleString = options.userHandle || options.username;
+      const userHandle = this.stringToArrayBuffer(userHandleString);
 
       const credentialCreationOptions: CredentialCreationOptions = {
         publicKey: {
@@ -85,7 +79,7 @@ class BiometricAuthManager {
             id: window.location.hostname
           },
           user: {
-            id: userHandle,
+            id: new Uint8Array(userHandle),
             name: options.username,
             displayName: options.displayName
           },
@@ -286,7 +280,7 @@ class BiometricAuthManager {
     localStorage.setItem('biometric-settings', JSON.stringify(settings));
   }
 
-  private getBiometricSettings(): any {
+  private getBiometricSettings(): { enabled: boolean; timeout: number; enableFallback: boolean } {
     const settings = localStorage.getItem('biometric-settings');
     return settings ? JSON.parse(settings) : {
       enabled: false,
@@ -316,7 +310,8 @@ class BiometricAuthManager {
   }
 
   public recordBiometricUsage(): void {
-    localStorage.setItem('biometric-last-used', Date.now().toString());
+    const now = Date.now();
+    localStorage.setItem('biometric-last-used', now.toString());
   }
 
   // Private helper methods
@@ -334,8 +329,9 @@ class BiometricAuthManager {
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
     let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i] || 0);
     }
     return btoa(binary);
   }
@@ -349,7 +345,15 @@ class BiometricAuthManager {
     return bytes.buffer;
   }
 
-  private formatCredentialForServer(credential: PublicKeyCredential): any {
+  private formatCredentialForServer(credential: PublicKeyCredential): {
+    id: string;
+    rawId: string;
+    type: string;
+    response: {
+      clientDataJSON: string;
+      attestationObject: string;
+    };
+  } {
     const response = credential.response as AuthenticatorAttestationResponse;
 
     return {
@@ -400,7 +404,11 @@ class BiometricAuthManager {
     }
   }
 
-  private async verifyWithServer(authData: any): Promise<boolean> {
+  private async verifyWithServer(authData: {
+    credentialId: string;
+    signature: string;
+    userHandle?: string;
+  }): Promise<boolean> {
     try {
       const response = await fetch('/api/auth/biometric/verify', {
         method: 'POST',
@@ -418,13 +426,14 @@ class BiometricAuthManager {
     }
   }
 
-  private async removeCredentialFromServer(credentialId: string): Promise<void> {
+  private async removeCredentialFromServer(credentialId: BufferSource): Promise<void> {
+    const credIdString = typeof credentialId === 'string' ? credentialId : this.arrayBufferToBase64(credentialId as ArrayBuffer);
     await fetch('/api/auth/biometric/remove', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ credentialId })
+      body: JSON.stringify({ credentialId: credIdString })
     });
   }
 
@@ -432,7 +441,7 @@ class BiometricAuthManager {
     const credentials = this.getStoredCredentials();
 
     credentials.push({
-      id: this.base64ToArrayBuffer(credentialId),
+      id: new Uint8Array(this.base64ToArrayBuffer(credentialId)),
       type: 'public-key' as const,
       transports: ['internal'] as AuthenticatorTransport[]
     });

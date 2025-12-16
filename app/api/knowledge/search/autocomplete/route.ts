@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import db from '@/lib/db/connection';
 import { semanticSearchEngine } from '@/lib/knowledge/semantic-search';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -19,8 +19,6 @@ export async function GET(request: NextRequest) {
         suggestions: [],
       });
     }
-
-    const db = getDb();
 
     // Fetch published articles for suggestions
     const articles = db.prepare(`
@@ -60,7 +58,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Format suggestions with type information
-    const formattedSuggestions = suggestions.map(text => {
+    const formattedSuggestions = suggestions.map((text: any) => {
       // Determine suggestion type
       let type: 'article' | 'tag' | 'category' | 'query' = 'query';
 

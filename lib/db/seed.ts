@@ -1,6 +1,6 @@
 import db from './connection';
 import { hashPassword } from '../auth/sqlite-auth';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Insere dados iniciais no banco de dados
@@ -16,13 +16,32 @@ export async function seedDatabase() {
 
     logger.info('🌱 Seeding database with initial data...');
 
+    // Criar organização padrão primeiro
+    const insertOrganization = db.prepare(`
+      INSERT INTO organizations (name, slug, domain, subscription_plan, subscription_status, max_users, max_tickets_per_month, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertOrganization.run(
+      'ServiceDesk Demo',
+      'demo',
+      'localhost',
+      'professional',
+      'active',
+      100,
+      10000,
+      1
+    );
+
+    logger.info('✅ Default organization created (ID: 1, slug: demo)');
+
     // Hash da senha padrão 123456
     const defaultPasswordHash = await hashPassword('123456');
 
-    // Inserir usuários
+    // Inserir usuários com organization_id
     const insertUser = db.prepare(`
-      INSERT INTO users (name, email, password_hash, role) 
-      VALUES (?, ?, ?, ?)
+      INSERT INTO users (name, email, password_hash, role, organization_id)
+      VALUES (?, ?, ?, ?, 1)
     `);
 
     const users = [

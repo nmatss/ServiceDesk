@@ -247,8 +247,8 @@ export class WhatsAppBusinessClient {
    */
   async uploadMedia(file: Buffer, type: string, filename?: string): Promise<MediaUploadResponse> {
     const formData = new FormData();
-    const blob = new Blob([file], { type });
-    formData.append('file', blob, filename || 'file');
+    const fileBlob = new Blob([Buffer.from(file)], { type });
+    formData.append('file', fileBlob, filename || 'file');
     formData.append('type', type);
     formData.append('messaging_product', 'whatsapp');
 
@@ -360,8 +360,8 @@ export class WhatsAppBusinessClient {
       phoneNumberId,
       businessAccountId,
       webhookVerifyToken,
-      apiVersion = 'v18.0',
-      baseUrl = 'https://graph.facebook.com'
+      apiVersion,
+      baseUrl
     ] = await Promise.all([
       getSystemSetting('whatsapp_access_token'),
       getSystemSetting('whatsapp_phone_number_id'),
@@ -379,9 +379,9 @@ export class WhatsAppBusinessClient {
       accessToken,
       phoneNumberId,
       businessAccountId,
-      webhookVerifyToken,
-      apiVersion,
-      baseUrl
+      webhookVerifyToken: webhookVerifyToken || '',
+      apiVersion: apiVersion || 'v18.0',
+      baseUrl: baseUrl || 'https://graph.facebook.com'
     });
   }
 }

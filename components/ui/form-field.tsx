@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid'
 import { Spinner } from './spinner'

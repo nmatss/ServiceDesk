@@ -116,12 +116,24 @@ export interface LeaderboardEntry {
   optedIn: boolean;
 }
 
+export interface PointsTransactionMetadata {
+  ticketId?: string;
+  teamId?: string;
+  csat?: number;
+  fcr?: boolean;
+  slaPercentage?: number;
+  resolutionTimeMinutes?: number;
+  currentStreak?: number;
+  teamMetGoal?: boolean;
+  [key: string]: string | number | boolean | undefined;
+}
+
 export interface PointsTransaction {
   id: string;
   userId: string;
   points: number;
   action: string;
-  metadata: Record<string, any>;
+  metadata: PointsTransactionMetadata;
   multipliers: {
     csat?: number;
     fcr?: number;
@@ -465,6 +477,11 @@ export class TeamCompetitionManager {
   } | null {
     if (teamMembers.length === 0) return null;
 
+    const firstMember = teamMembers[0];
+    if (!firstMember || !firstMember.teamId || !firstMember.teamName) {
+      return null;
+    }
+
     const totalPoints = teamMembers.reduce((sum, m) => sum + m.points, 0);
     const avgPoints = Math.round(totalPoints / teamMembers.length);
     const topPerformer = teamMembers.reduce((top, current) =>
@@ -472,8 +489,8 @@ export class TeamCompetitionManager {
     );
 
     return {
-      teamId: teamMembers[0].teamId!,
-      teamName: teamMembers[0].teamName!,
+      teamId: firstMember.teamId,
+      teamName: firstMember.teamName,
       totalPoints,
       avgPoints,
       memberCount: teamMembers.length,
@@ -505,10 +522,9 @@ export class TeamCompetitionManager {
     });
 
     // Calculate team stats
-    const teamStats = Array.from(teamMap.entries()).map(([teamId, members]) => {
-      const stats = this.calculateTeamPoints(members);
-      return stats!;
-    });
+    const teamStats = Array.from(teamMap.entries())
+      .map(([teamId, members]) => this.calculateTeamPoints(members))
+      .filter((stats): stats is NonNullable<typeof stats> => stats !== null);
 
     // Sort by total points and rank
     return teamStats

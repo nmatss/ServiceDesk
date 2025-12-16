@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { logger } from '@/lib/monitoring/logger';
 import {
   HomeIcon,
   UsersIcon,
@@ -17,7 +16,6 @@ import {
   XMarkIcon,
   BellIcon,
   UserCircleIcon,
-  ArrowRightOnRectangleIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 import { Toaster } from 'react-hot-toast'
@@ -70,11 +68,6 @@ export default function AdminLayout({
       return pathname === '/admin'
     }
     return pathname.startsWith(href)
-  }
-
-  const handleLogout = () => {
-    // Implement logout logic
-    logger.info('Logout')
   }
 
   return (

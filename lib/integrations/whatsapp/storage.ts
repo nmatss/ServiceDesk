@@ -3,8 +3,8 @@
  * Camada de persistência para dados do WhatsApp
  */
 
-import { getDb } from '@/lib/db/connection';
-import {
+import { getDb } from '@/lib/db';
+import type {
   WhatsAppContact,
   WhatsAppMessage,
   WhatsAppSession,
@@ -12,6 +12,49 @@ import {
   CreateWhatsAppMessage,
   CreateWhatsAppSession
 } from '@/lib/types/database';
+
+/**
+ * Database row interfaces
+ */
+interface DbContact {
+  id: number;
+  user_id: number | null;
+  phone_number: string;
+  display_name: string | null;
+  profile_picture_url: string | null;
+  is_business: number;
+  is_verified: number;
+  last_seen: string | null;
+  status_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DbMessage {
+  id: number;
+  contact_id: number;
+  ticket_id: number | null;
+  message_id: string;
+  direction: string;
+  message_type: string;
+  content: string | null;
+  media_url: string | null;
+  media_mime_type: string | null;
+  media_caption: string | null;
+  status: string;
+  timestamp: string;
+  created_at: string;
+}
+
+interface DbSession {
+  id: number;
+  phone_number: string;
+  session_data: string | null;
+  last_activity: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string;
+}
 
 /**
  * WhatsApp Contacts
@@ -35,7 +78,11 @@ export async function createWhatsAppContact(data: CreateWhatsAppContact): Promis
     data.status_message || null
   );
 
-  return getWhatsAppContactById(result.lastInsertRowid as number)!;
+  const contact = await getWhatsAppContactById(result.lastInsertRowid as number);
+  if (!contact) {
+    throw new Error('Failed to create WhatsApp contact');
+  }
+  return contact;
 }
 
 export async function getWhatsAppContact(phoneNumber: string): Promise<WhatsAppContact | null> {
@@ -44,7 +91,7 @@ export async function getWhatsAppContact(phoneNumber: string): Promise<WhatsAppC
   const contact = db.prepare(`
     SELECT * FROM whatsapp_contacts
     WHERE phone_number = ?
-  `).get(phoneNumber);
+  `).get(phoneNumber) as DbContact | undefined;
 
   return contact ? convertDbContactToContact(contact) : null;
 }
@@ -55,7 +102,7 @@ export async function getWhatsAppContactById(id: number): Promise<WhatsAppContac
   const contact = db.prepare(`
     SELECT * FROM whatsapp_contacts
     WHERE id = ?
-  `).get(id);
+  `).get(id) as DbContact | undefined;
 
   return contact ? convertDbContactToContact(contact) : null;
 }
@@ -90,7 +137,7 @@ export async function getUserByPhone(phoneNumber: string): Promise<{ id: number 
     WHERE JSON_EXTRACT(metadata, '$.phone') = ?
        OR JSON_EXTRACT(metadata, '$.whatsapp') = ?
     LIMIT 1
-  `).get(phoneNumber, phoneNumber);
+  `).get(phoneNumber, phoneNumber) as { id: number } | undefined;
 
   return user || null;
 }
@@ -120,7 +167,11 @@ export async function createWhatsAppMessage(data: CreateWhatsAppMessage): Promis
     data.timestamp
   );
 
-  return getWhatsAppMessageById(result.lastInsertRowid as number)!;
+  const message = await getWhatsAppMessageById(result.lastInsertRowid as number);
+  if (!message) {
+    throw new Error('Failed to create WhatsApp message');
+  }
+  return message;
 }
 
 export async function getWhatsAppMessageById(id: number): Promise<WhatsAppMessage | null> {
@@ -129,7 +180,7 @@ export async function getWhatsAppMessageById(id: number): Promise<WhatsAppMessag
   const message = db.prepare(`
     SELECT * FROM whatsapp_messages
     WHERE id = ?
-  `).get(id);
+  `).get(id) as DbMessage | undefined;
 
   return message ? convertDbMessageToMessage(message) : null;
 }
@@ -140,7 +191,7 @@ export async function getWhatsAppMessageByMessageId(messageId: string): Promise<
   const message = db.prepare(`
     SELECT * FROM whatsapp_messages
     WHERE message_id = ?
-  `).get(messageId);
+  `).get(messageId) as DbMessage | undefined;
 
   return message ? convertDbMessageToMessage(message) : null;
 }
@@ -181,7 +232,7 @@ export async function getMessagesByContact(
     WHERE contact_id = ?
     ORDER BY timestamp DESC
     LIMIT ? OFFSET ?
-  `).all(contactId, limit, offset);
+  `).all(contactId, limit, offset) as DbMessage[];
 
   return messages.map(convertDbMessageToMessage);
 }
@@ -193,7 +244,7 @@ export async function getMessagesByTicket(ticketId: number): Promise<WhatsAppMes
     SELECT * FROM whatsapp_messages
     WHERE ticket_id = ?
     ORDER BY timestamp ASC
-  `).all(ticketId);
+  `).all(ticketId) as DbMessage[];
 
   return messages.map(convertDbMessageToMessage);
 }
@@ -215,7 +266,11 @@ export async function createWhatsAppSession(data: CreateWhatsAppSession): Promis
     data.is_active ? 1 : 0
   );
 
-  return getWhatsAppSessionById(result.lastInsertRowid as number)!;
+  const session = await getWhatsAppSessionById(result.lastInsertRowid as number);
+  if (!session) {
+    throw new Error('Failed to create WhatsApp session');
+  }
+  return session;
 }
 
 export async function getWhatsAppSessionById(id: number): Promise<WhatsAppSession | null> {
@@ -224,7 +279,7 @@ export async function getWhatsAppSessionById(id: number): Promise<WhatsAppSessio
   const session = db.prepare(`
     SELECT * FROM whatsapp_sessions
     WHERE id = ?
-  `).get(id);
+  `).get(id) as DbSession | undefined;
 
   return session ? convertDbSessionToSession(session) : null;
 }
@@ -237,7 +292,7 @@ export async function getActiveSessionByPhone(phoneNumber: string): Promise<What
     WHERE phone_number = ? AND is_active = 1
     ORDER BY last_activity DESC
     LIMIT 1
-  `).get(phoneNumber);
+  `).get(phoneNumber) as DbSession | undefined;
 
   return session ? convertDbSessionToSession(session) : null;
 }
@@ -285,6 +340,14 @@ export async function getWhatsAppStats(days = 30): Promise<{
 }> {
   const db = getDb();
 
+  interface StatsResult {
+    total_messages: number;
+    inbound_messages: number;
+    outbound_messages: number;
+    unique_contacts: number;
+    tickets_created: number;
+  }
+
   const stats = db.prepare(`
     SELECT
       COUNT(*) as total_messages,
@@ -294,14 +357,14 @@ export async function getWhatsAppStats(days = 30): Promise<{
       COUNT(DISTINCT ticket_id) as tickets_created
     FROM whatsapp_messages
     WHERE datetime(timestamp) >= datetime('now', '-${days} days')
-  `).get();
+  `).get() as StatsResult | undefined;
 
   return {
-    totalMessages: stats.total_messages || 0,
-    inboundMessages: stats.inbound_messages || 0,
-    outboundMessages: stats.outbound_messages || 0,
-    uniqueContacts: stats.unique_contacts || 0,
-    ticketsCreated: stats.tickets_created || 0,
+    totalMessages: stats?.total_messages || 0,
+    inboundMessages: stats?.inbound_messages || 0,
+    outboundMessages: stats?.outbound_messages || 0,
+    uniqueContacts: stats?.unique_contacts || 0,
+    ticketsCreated: stats?.tickets_created || 0,
     avgResponseTime: 0 // TODO: Calcular tempo médio de resposta
   };
 }
@@ -313,6 +376,22 @@ export async function getContactsWithTickets(): Promise<Array<{
 }>> {
   const db = getDb();
 
+  interface ContactWithTicketData {
+    id: number;
+    user_id: number | null;
+    phone_number: string;
+    display_name: string | null;
+    profile_picture_url: string | null;
+    is_business: number;
+    is_verified: number;
+    last_seen: string | null;
+    status_message: string | null;
+    created_at: string;
+    updated_at: string;
+    ticket_count: number;
+    last_message_at: string;
+  }
+
   const results = db.prepare(`
     SELECT
       c.*,
@@ -323,9 +402,9 @@ export async function getContactsWithTickets(): Promise<Array<{
     LEFT JOIN tickets t ON m.ticket_id = t.id
     GROUP BY c.id
     ORDER BY last_message_at DESC
-  `).all();
+  `).all() as ContactWithTicketData[];
 
-  return results.map(row => ({
+  return results.map((row: ContactWithTicketData) => ({
     contact: convertDbContactToContact(row),
     ticketCount: row.ticket_count || 0,
     lastMessageAt: row.last_message_at || ''
@@ -335,7 +414,7 @@ export async function getContactsWithTickets(): Promise<Array<{
 /**
  * Utility Functions
  */
-function convertDbContactToContact(dbContact: any): WhatsAppContact {
+function convertDbContactToContact(dbContact: DbContact): WhatsAppContact {
   return {
     id: dbContact.id,
     user_id: dbContact.user_id || undefined,
@@ -351,13 +430,13 @@ function convertDbContactToContact(dbContact: any): WhatsAppContact {
   };
 }
 
-function convertDbMessageToMessage(dbMessage: any): WhatsAppMessage {
+function convertDbMessageToMessage(dbMessage: DbMessage): WhatsAppMessage {
   return {
     id: dbMessage.id,
     contact_id: dbMessage.contact_id,
     ticket_id: dbMessage.ticket_id || undefined,
     message_id: dbMessage.message_id,
-    direction: dbMessage.direction,
+    direction: dbMessage.direction as 'inbound' | 'outbound',
     message_type: dbMessage.message_type,
     content: dbMessage.content || undefined,
     media_url: dbMessage.media_url || undefined,
@@ -369,7 +448,7 @@ function convertDbMessageToMessage(dbMessage: any): WhatsAppMessage {
   };
 }
 
-function convertDbSessionToSession(dbSession: any): WhatsAppSession {
+function convertDbSessionToSession(dbSession: DbSession): WhatsAppSession {
   return {
     id: dbSession.id,
     phone_number: dbSession.phone_number,

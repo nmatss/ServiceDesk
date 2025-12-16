@@ -1,0 +1,64 @@
+---
+# Kustomization - Base configuration
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: servicedesk-base
+  annotations:
+    description: "Base Kubernetes manifests for ServiceDesk application"
+
+# Namespace
+namespace: servicedesk
+
+# Common labels applied to all resources
+commonLabels:
+  app: servicedesk
+  managed-by: kustomize
+
+# Common annotations applied to all resources
+commonAnnotations:
+  app.kubernetes.io/name: servicedesk
+  app.kubernetes.io/version: "1.0.0"
+  app.kubernetes.io/managed-by: kustomize
+
+# Resources to include
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - hpa.yaml
+  - network-policy.yaml
+
+# ConfigMap generator (alternative to configmap.yaml)
+# configMapGenerator:
+#   - name: servicedesk-config
+#     literals:
+#       - NODE_ENV=production
+#       - ENABLE_REDIS_CACHE=true
+
+# Secret generator (alternative to secrets.yaml)
+# secretGenerator:
+#   - name: servicedesk-secrets
+#     literals:
+#       - JWT_SECRET=REPLACE_WITH_ACTUAL_SECRET
+
+# Images to use
+images:
+  - name: servicedesk
+    newName: your-registry/servicedesk
+    newTag: latest
+
+# Replicas (can be overridden in overlays)
+replicas:
+  - name: servicedesk-app
+    count: 3
+
+# Resource patches (optional)
+# patches:
+#   - path: patches/increase-memory.yaml
+#     target:
+#       kind: Deployment
+#       name: servicedesk-app

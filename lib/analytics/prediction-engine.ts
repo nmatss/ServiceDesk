@@ -1,8 +1,8 @@
 // Enterprise SLA Violation Prediction Engine
 // Predicts SLA violations 2 hours in advance using ML models and real-time analytics
 
-import { mlPipeline, MLModel, PredictionResult } from './ml-pipeline';
-import { logger } from '../monitoring/logger';
+import { mlPipeline, PredictionResult } from './ml-pipeline';
+import logger from '../monitoring/structured-logger';
 
 export interface SLAViolationPrediction {
   ticket_id: number;
@@ -22,8 +22,8 @@ export interface ContributingFactor {
   factor: string;
   impact_score: number;
   description: string;
-  current_value: any;
-  threshold_value?: any;
+  current_value: string | number | boolean | null;
+  threshold_value?: string | number | boolean | null;
 }
 
 export interface RecommendedAction {
@@ -76,13 +76,19 @@ export interface SystemLoadMetrics {
   peak_hours_indicator: boolean;
 }
 
+export interface SLAPolicy {
+  id: number;
+  response_time_minutes: number;
+  resolution_time_minutes: number;
+  priority?: string;
+  category?: string;
+}
+
 export class SLAPredictionEngine {
-  private readonly PREDICTION_HORIZON_HOURS = 2;
   private readonly CONFIDENCE_THRESHOLD = 0.7;
   private readonly HIGH_RISK_THRESHOLD = 0.8;
 
   private slaModels: Map<string, string> = new Map(); // SLA type -> Model ID mapping
-  private lastPredictionRun: Date = new Date();
   private predictionCache: Map<number, SLAViolationPrediction> = new Map();
 
   constructor() {
@@ -121,14 +127,13 @@ export class SLAPredictionEngine {
         this.predictionCache.set(prediction.ticket_id, prediction);
       }
 
-      this.lastPredictionRun = new Date();
-
       logger.info(`[SLA Prediction] Completed prediction run in ${Date.now() - startTime}ms. Found ${highConfidencePredictions.length} high-confidence predictions.`);
 
       return highConfidencePredictions;
 
     } catch (error) {
-      logger.error('[SLA Prediction] Error during prediction run', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[SLA Prediction] Error during prediction run', errorMessage);
       throw error;
     }
   }
@@ -190,7 +195,7 @@ export class SLAPredictionEngine {
 
   private async predictResponseViolation(
     ticket: TicketAnalytics,
-    slaPolicy: any
+    slaPolicy: SLAPolicy
   ): Promise<SLAViolationPrediction | null> {
     const features = await this.extractResponseFeatures(ticket, slaPolicy);
     const modelId = this.slaModels.get('response_time');
@@ -238,7 +243,7 @@ export class SLAPredictionEngine {
 
   private async predictResolutionViolation(
     ticket: TicketAnalytics,
-    slaPolicy: any
+    slaPolicy: SLAPolicy
   ): Promise<SLAViolationPrediction | null> {
     const features = await this.extractResolutionFeatures(ticket, slaPolicy);
     const modelId = this.slaModels.get('resolution_time');
@@ -286,7 +291,7 @@ export class SLAPredictionEngine {
 
   private async predictEscalationNeed(
     ticket: TicketAnalytics,
-    slaPolicy: any
+    slaPolicy: SLAPolicy
   ): Promise<SLAViolationPrediction | null> {
     const features = await this.extractEscalationFeatures(ticket, slaPolicy);
     const modelId = this.slaModels.get('escalation_need');
@@ -332,8 +337,8 @@ export class SLAPredictionEngine {
 
   private async extractResponseFeatures(
     ticket: TicketAnalytics,
-    slaPolicy: any
-  ): Promise<Record<string, any>> {
+    slaPolicy: SLAPolicy
+  ): Promise<Record<string, number | string | boolean>> {
     const agentMetrics = ticket.assigned_agent_id
       ? await this.getAgentPerformanceMetrics(ticket.assigned_agent_id)
       : null;
@@ -386,8 +391,8 @@ export class SLAPredictionEngine {
 
   private async extractResolutionFeatures(
     ticket: TicketAnalytics,
-    slaPolicy: any
-  ): Promise<Record<string, any>> {
+    slaPolicy: SLAPolicy
+  ): Promise<Record<string, number | string | boolean>> {
     const responseFeatures = await this.extractResponseFeatures(ticket, slaPolicy);
 
     return {
@@ -414,8 +419,8 @@ export class SLAPredictionEngine {
 
   private async extractEscalationFeatures(
     ticket: TicketAnalytics,
-    slaPolicy: any
-  ): Promise<Record<string, any>> {
+    slaPolicy: SLAPolicy
+  ): Promise<Record<string, number | string | boolean>> {
     const resolutionFeatures = await this.extractResolutionFeatures(ticket, slaPolicy);
 
     return {
@@ -442,7 +447,7 @@ export class SLAPredictionEngine {
   private async generateRecommendedActions(
     ticket: TicketAnalytics,
     violationType: 'response' | 'resolution' | 'escalation',
-    features: Record<string, any>
+    features: Record<string, number | string | boolean>
   ): Promise<RecommendedAction[]> {
     const actions: RecommendedAction[] = [];
 
@@ -468,8 +473,8 @@ export class SLAPredictionEngine {
   }
 
   private async generateResponseActions(
-    ticket: TicketAnalytics,
-    features: Record<string, any>
+    _ticket: TicketAnalytics,
+    features: Record<string, number | string | boolean>
   ): Promise<RecommendedAction[]> {
     const actions: RecommendedAction[] = [];
 
@@ -483,7 +488,7 @@ export class SLAPredictionEngine {
         description: 'Assign an available agent to provide immediate attention',
         automation_available: true
       });
-    } else if (features.agent_workload > 10) {
+    } else if (typeof features.agent_workload === 'number' && features.agent_workload > 10) {
       actions.push({
         action: 'reassign_agent',
         priority: 'medium',
@@ -495,7 +500,10 @@ export class SLAPredictionEngine {
     }
 
     // Priority escalation
-    if (features.priority_level < 3 && features.response_time_progress_ratio > 0.7) {
+    if (typeof features.priority_level === 'number' &&
+        typeof features.response_time_progress_ratio === 'number' &&
+        features.priority_level < 3 &&
+        features.response_time_progress_ratio > 0.7) {
       actions.push({
         action: 'increase_priority',
         priority: 'medium',
@@ -507,7 +515,8 @@ export class SLAPredictionEngine {
     }
 
     // Knowledge base suggestions
-    if (features.knowledge_base_articles_suggested < 3) {
+    if (typeof features.knowledge_base_articles_suggested === 'number' &&
+        features.knowledge_base_articles_suggested < 3) {
       actions.push({
         action: 'suggest_kb_articles',
         priority: 'low',
@@ -522,13 +531,13 @@ export class SLAPredictionEngine {
   }
 
   private async generateResolutionActions(
-    ticket: TicketAnalytics,
-    features: Record<string, any>
+    _ticket: TicketAnalytics,
+    features: Record<string, number | string | boolean>
   ): Promise<RecommendedAction[]> {
     const actions: RecommendedAction[] = [];
 
     // Expert consultation
-    if (features.complexity_score > 0.7) {
+    if (typeof features.complexity_score === 'number' && features.complexity_score > 0.7) {
       actions.push({
         action: 'consult_expert',
         priority: 'high',
@@ -540,7 +549,8 @@ export class SLAPredictionEngine {
     }
 
     // Team escalation
-    if (features.time_without_progress_minutes > 120) {
+    if (typeof features.time_without_progress_minutes === 'number' &&
+        features.time_without_progress_minutes > 120) {
       actions.push({
         action: 'escalate_to_team',
         priority: 'high',
@@ -552,7 +562,8 @@ export class SLAPredictionEngine {
     }
 
     // Additional resources
-    if (features.similar_tickets_resolved < 5) {
+    if (typeof features.similar_tickets_resolved === 'number' &&
+        features.similar_tickets_resolved < 5) {
       actions.push({
         action: 'research_similar_tickets',
         priority: 'medium',
@@ -567,13 +578,14 @@ export class SLAPredictionEngine {
   }
 
   private async generateEscalationActions(
-    ticket: TicketAnalytics,
-    features: Record<string, any>
+    _ticket: TicketAnalytics,
+    features: Record<string, number | string | boolean>
   ): Promise<RecommendedAction[]> {
     const actions: RecommendedAction[] = [];
 
     // Management escalation
-    if (features.customer_vip_status || features.business_impact_score > 0.8) {
+    if (features.customer_vip_status ||
+        (typeof features.business_impact_score === 'number' && features.business_impact_score > 0.8)) {
       actions.push({
         action: 'escalate_to_management',
         priority: 'critical',
@@ -585,7 +597,8 @@ export class SLAPredictionEngine {
     }
 
     // Customer communication
-    if (features.customer_frustration_score > 0.7) {
+    if (typeof features.customer_frustration_score === 'number' &&
+        features.customer_frustration_score > 0.7) {
       actions.push({
         action: 'proactive_customer_communication',
         priority: 'high',
@@ -650,7 +663,8 @@ export class SLAPredictionEngine {
 
       logger.info('[SLA Prediction] Models initialized successfully');
     } catch (error) {
-      logger.error('[SLA Prediction] Error initializing models', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[SLA Prediction] Error initializing models', errorMessage);
     }
   }
 
@@ -665,7 +679,7 @@ export class SLAPredictionEngine {
   }
 
   private analyzeContributingFactors(
-    features: Record<string, any>,
+    features: Record<string, number | string | boolean>,
     featureImportance: Record<string, number>
   ): ContributingFactor[] {
     const factors: ContributingFactor[] = [];
@@ -680,7 +694,7 @@ export class SLAPredictionEngine {
         factor: this.humanizeFeatureName(feature),
         impact_score: importance,
         description: this.getFeatureDescription(feature),
-        current_value: features[feature]
+        current_value: features[feature] ?? null
       });
     }
 
@@ -715,16 +729,16 @@ export class SLAPredictionEngine {
     return descriptions[feature] || 'Contributing factor to SLA violation risk';
   }
 
-  private encodePerformanceTrend(trend?: string): number {
+  private encodePerformanceTrend(trend?: 'improving' | 'stable' | 'declining'): number {
     const trendMap: Record<string, number> = {
       'improving': 1,
       'stable': 0,
       'declining': -1
     };
-    return trendMap[trend || 'stable'];
+    return trendMap[trend || 'stable'] ?? 0;
   }
 
-  private calculateDeadlineProximityScore(ticket: TicketAnalytics, slaPolicy: any): number {
+  private calculateDeadlineProximityScore(ticket: TicketAnalytics, slaPolicy: SLAPolicy): number {
     const timeRemaining = slaPolicy.resolution_time_minutes - ticket.resolution_time_elapsed_minutes;
     const totalTime = slaPolicy.resolution_time_minutes;
     return Math.max(0, 1 - (timeRemaining / totalTime));
@@ -739,7 +753,7 @@ export class SLAPredictionEngine {
     return [];
   }
 
-  private async getTicketsByIds(ticketIds: number[]): Promise<TicketAnalytics[]> {
+  private async getTicketsByIds(_ticketIds: number[]): Promise<TicketAnalytics[]> {
     // Mock implementation - replace with actual database query
     return [];
   }
@@ -766,7 +780,7 @@ export class SLAPredictionEngine {
     };
   }
 
-  private async getSLAPoliciesForTicket(ticketId: number): Promise<any[]> {
+  private async getSLAPoliciesForTicket(_ticketId: number): Promise<SLAPolicy[]> {
     // Mock implementation
     return [{
       id: 1,
@@ -803,21 +817,21 @@ export class SLAPredictionEngine {
   }
 
   // Additional helper methods (mock implementations)
-  private async hasFirstResponse(ticketId: number): Promise<boolean> { return false; }
-  private async isTicketResolved(ticketId: number): Promise<boolean> { return false; }
-  private async getTimeSinceFirstResponse(ticketId: number): Promise<number> { return 0; }
-  private async getKBArticlesSuggested(ticketId: number): Promise<number> { return 0; }
-  private async getExternalEscalations(ticketId: number): Promise<number> { return 0; }
-  private async getUniqueParticipants(ticketId: number): Promise<number> { return 2; }
-  private async getStatusChangesCount(ticketId: number): Promise<number> { return 1; }
-  private async getAssignmentChangesCount(ticketId: number): Promise<number> { return 0; }
-  private async getCustomerResponsesCount(ticketId: number): Promise<number> { return 1; }
-  private async getTimeWithoutProgress(ticketId: number): Promise<number> { return 60; }
-  private async getCustomerFrustrationScore(ticketId: number): Promise<number> { return 0.3; }
-  private async getAgentStuckIndicators(ticketId: number): Promise<number> { return 0; }
-  private async getSimilarEscalatedTickets(ticketId: number): Promise<number> { return 2; }
-  private async getCustomerVIPStatus(ticketId: number): Promise<boolean> { return false; }
-  private async getBusinessImpactScore(ticketId: number): Promise<number> { return 0.4; }
+  private async hasFirstResponse(_ticketId: number): Promise<boolean> { return false; }
+  private async isTicketResolved(_ticketId: number): Promise<boolean> { return false; }
+  private async getTimeSinceFirstResponse(_ticketId: number): Promise<number> { return 0; }
+  private async getKBArticlesSuggested(_ticketId: number): Promise<number> { return 0; }
+  private async getExternalEscalations(_ticketId: number): Promise<number> { return 0; }
+  private async getUniqueParticipants(_ticketId: number): Promise<number> { return 2; }
+  private async getStatusChangesCount(_ticketId: number): Promise<number> { return 1; }
+  private async getAssignmentChangesCount(_ticketId: number): Promise<number> { return 0; }
+  private async getCustomerResponsesCount(_ticketId: number): Promise<number> { return 1; }
+  private async getTimeWithoutProgress(_ticketId: number): Promise<number> { return 60; }
+  private async getCustomerFrustrationScore(_ticketId: number): Promise<number> { return 0.3; }
+  private async getAgentStuckIndicators(_ticketId: number): Promise<number> { return 0; }
+  private async getSimilarEscalatedTickets(_ticketId: number): Promise<number> { return 2; }
+  private async getCustomerVIPStatus(_ticketId: number): Promise<boolean> { return false; }
+  private async getBusinessImpactScore(_ticketId: number): Promise<number> { return 0.4; }
 }
 
 // Export singleton instance

@@ -42,7 +42,7 @@ export const ContextualMenu: React.FC<ContextualMenuProps> = ({
 
   const triggerRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isLongPressRef = useRef(false)
 
   // Calculate menu position
@@ -64,7 +64,6 @@ export const ContextualMenu: React.FC<ContextualMenuProps> = ({
       const spaceBelow = viewport.height - triggerRect.bottom
       const spaceAbove = triggerRect.top
       const spaceRight = viewport.width - triggerRect.right
-      const spaceLeft = triggerRect.left
 
       if (spaceBelow > 200) {
         // Position below
@@ -132,7 +131,7 @@ export const ContextualMenu: React.FC<ContextualMenuProps> = ({
   }, [position])
 
   // Touch gestures for long press
-  const { ref: touchRef } = useTouchGestures({
+  const touchGestures = useTouchGestures({
     onTouchStart: () => {
       if (trigger === 'long-press' && !disabled) {
         isLongPressRef.current = false
@@ -202,7 +201,7 @@ export const ContextualMenu: React.FC<ContextualMenuProps> = ({
 
   // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (
         menuRef.current &&
         !menuRef.current.contains(event.target as Node) &&
@@ -214,13 +213,13 @@ export const ContextualMenu: React.FC<ContextualMenuProps> = ({
     }
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('touchstart', handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside as EventListener)
+      document.addEventListener('touchstart', handleClickOutside as EventListener)
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('touchstart', handleClickOutside)
+      document.removeEventListener('mousedown', handleClickOutside as EventListener)
+      document.removeEventListener('touchstart', handleClickOutside as EventListener)
     }
   }, [isOpen, closeMenu])
 
@@ -291,12 +290,8 @@ export const ContextualMenu: React.FC<ContextualMenuProps> = ({
     <>
       <div
         ref={(el) => {
-          if (triggerRef.current !== el) {
-            triggerRef.current = el
-            if (touchRef.current !== el) {
-              touchRef.current = el
-            }
-          }
+          (triggerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          (touchGestures.ref as React.MutableRefObject<HTMLElement | null>).current = el
         }}
         onClick={handleClick}
         className={`${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${className}`}
@@ -451,37 +446,24 @@ export const SwipeActions: React.FC<SwipeActionsProps> = ({
   className = ''
 }) => {
   const [swipeOffset, setSwipeOffset] = useState(0)
-  const [isRevealed, setIsRevealed] = useState<'left' | 'right' | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { ref: gestureRef } = useTouchGestures({
+  const swipeGestures = useTouchGestures({
     onSwipe: (gesture) => {
       if (Math.abs(gesture.distance) > threshold) {
         if (gesture.direction === 'left' && rightActions.length > 0) {
-          setIsRevealed('right')
           setSwipeOffset(-80)
         } else if (gesture.direction === 'right' && leftActions.length > 0) {
-          setIsRevealed('left')
           setSwipeOffset(80)
         }
       } else {
-        setIsRevealed(null)
         setSwipeOffset(0)
-      }
-    },
-    onTouchMove: (event) => {
-      if (event.touches.length === 1) {
-        const touch = event.touches[0]
-        const startX = touch.clientX
-        // Calculate offset during swipe for visual feedback
-        // This would need more sophisticated tracking
       }
     },
     onTouchEnd: () => {
       // Snap to position or reset
       if (Math.abs(swipeOffset) < threshold / 2) {
         setSwipeOffset(0)
-        setIsRevealed(null)
       }
     }
   })
@@ -489,7 +471,6 @@ export const SwipeActions: React.FC<SwipeActionsProps> = ({
   const handleActionClick = (action: ContextMenuAction) => {
     action.onClick()
     setSwipeOffset(0)
-    setIsRevealed(null)
   }
 
   const renderActions = (actions: ContextMenuAction[], side: 'left' | 'right') => {
@@ -534,12 +515,8 @@ export const SwipeActions: React.FC<SwipeActionsProps> = ({
       {/* Main content */}
       <div
         ref={(el) => {
-          if (containerRef.current !== el) {
-            containerRef.current = el
-            if (gestureRef.current !== el) {
-              gestureRef.current = el
-            }
-          }
+          (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          (swipeGestures.ref as React.MutableRefObject<HTMLElement | null>).current = el
         }}
         className="relative z-10 bg-white dark:bg-neutral-900 transition-transform duration-200"
         style={{ transform: `translateX(${swipeOffset}px)` }}

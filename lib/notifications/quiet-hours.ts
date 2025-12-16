@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db'
 import { NotificationPayload } from './realtime-engine'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface QuietHoursConfig {
   userId: number
@@ -25,7 +25,7 @@ export interface QuietHoursException {
   startDate: Date
   endDate: Date
   type: 'allow_all' | 'block_all' | 'custom'
-  customRules?: any[]
+  customRules?: unknown[]
   reason?: string
 }
 
@@ -36,6 +36,47 @@ export interface QuietHoursSchedule {
   nextQuietHoursEnd?: Date
   timezone: string
   activeExceptions: QuietHoursException[]
+  calculatedAt?: number
+}
+
+interface DbQuietHoursRow {
+  user_id: number
+  quiet_hours_config: string
+}
+
+interface RawQuietHoursException {
+  id: string
+  name: string
+  startDate: string | Date
+  endDate: string | Date
+  type: 'allow_all' | 'block_all' | 'custom'
+  customRules?: unknown[]
+  reason?: string
+}
+
+interface QuietHoursReportChannelSettings {
+  totalUsers: number
+  respectQuietHours: number
+  allowedPriorities: Record<string, number>
+}
+
+interface QuietHoursReport {
+  totalUsers: number
+  usersWithQuietHours: number
+  currentlyInQuietHours: number
+  averageQuietHoursDuration: number
+  timezoneDistribution: Record<string, number>
+  channelSettings: Record<string, QuietHoursReportChannelSettings>
+  upcomingQuietHours: Array<{
+    userId: number
+    startTime: Date
+    endTime?: Date
+    timezone: string
+  }>
+  exceptions: {
+    active: number
+    total: number
+  }
 }
 
 export class QuietHoursManager {
@@ -73,11 +114,11 @@ export class QuietHoursManager {
       const configs = this.db.prepare(`
         SELECT user_id, quiet_hours_config FROM users
         WHERE quiet_hours_config IS NOT NULL
-      `).all() as any[]
+      `).all() as DbQuietHoursRow[]
 
       for (const config of configs) {
         try {
-          const quietHoursConfig = JSON.parse(config.quiet_hours_config)
+          const quietHoursConfig = JSON.parse(config.quiet_hours_config) as Partial<QuietHoursConfig>
           this.userConfigs.set(config.user_id, this.normalizeConfig(quietHoursConfig, config.user_id))
         } catch (error) {
           logger.error(`Error parsing quiet hours config for user ${config.user_id}:`, error)
@@ -90,7 +131,7 @@ export class QuietHoursManager {
     }
   }
 
-  private normalizeConfig(config: any, userId: number): QuietHoursConfig {
+  private normalizeConfig(config: Partial<QuietHoursConfig>, userId: number): QuietHoursConfig {
     return {
       userId,
       enabled: config.enabled ?? this.DEFAULT_CONFIG.enabled,
@@ -98,7 +139,7 @@ export class QuietHoursManager {
       endTime: config.endTime ?? this.DEFAULT_CONFIG.endTime,
       timezone: config.timezone ?? this.DEFAULT_CONFIG.timezone,
       days: config.days ?? this.DEFAULT_CONFIG.days,
-      exceptions: (config.exceptions || []).map((exc: any) => ({
+      exceptions: (config.exceptions || []).map((exc: RawQuietHoursException): QuietHoursException => ({
         id: exc.id,
         name: exc.name,
         startDate: new Date(exc.startDate),
@@ -119,12 +160,11 @@ export class QuietHoursManager {
 
   public getQuietHoursSchedule(userId: number, currentTime?: Date): QuietHoursSchedule {
     const now = currentTime || new Date()
-    const cacheKey = `${userId}_${Math.floor(now.getTime() / (5 * 60 * 1000))}` // Cache for 5 minutes
 
     if (this.scheduleCache.has(userId)) {
       const cached = this.scheduleCache.get(userId)!
       // Use cache if it's recent (within 5 minutes)
-      if (Math.abs(now.getTime() - (cached as any).calculatedAt) < 5 * 60 * 1000) {
+      if (cached.calculatedAt && Math.abs(now.getTime() - cached.calculatedAt) < 5 * 60 * 1000) {
         return cached
       }
     }
@@ -133,7 +173,7 @@ export class QuietHoursManager {
     const schedule = this.calculateSchedule(config, now)
 
     // Add calculation timestamp for cache validation
-    ;(schedule as any).calculatedAt = now.getTime()
+    schedule.calculatedAt = now.getTime()
     this.scheduleCache.set(userId, schedule)
 
     return schedule
@@ -165,8 +205,12 @@ export class QuietHoursManager {
     }
 
     // Parse start and end times
-    const [startHour, startMinute] = config.startTime.split(':').map(Number)
-    const [endHour, endMinute] = config.endTime.split(':').map(Number)
+    const startTimeParts = config.startTime.split(':').map(Number)
+    const endTimeParts = config.endTime.split(':').map(Number)
+    const startHour = startTimeParts[0] ?? 0
+    const startMinute = startTimeParts[1] ?? 0
+    const endHour = endTimeParts[0] ?? 0
+    const endMinute = endTimeParts[1] ?? 0
     const startTimeMinutes = startHour * 60 + startMinute
     const endTimeMinutes = endHour * 60 + endMinute
 
@@ -228,8 +272,12 @@ export class QuietHoursManager {
   }
 
   private calculateNextQuietHoursTimes(config: QuietHoursConfig, userTime: Date): { nextStart: Date; nextEnd: Date } {
-    const [startHour, startMinute] = config.startTime.split(':').map(Number)
-    const [endHour, endMinute] = config.endTime.split(':').map(Number)
+    const startTimeParts = config.startTime.split(':').map(Number)
+    const endTimeParts = config.endTime.split(':').map(Number)
+    const startHour = startTimeParts[0] ?? 0
+    const startMinute = startTimeParts[1] ?? 0
+    const endHour = endTimeParts[0] ?? 0
+    const endMinute = endTimeParts[1] ?? 0
 
     const today = new Date(userTime)
     today.setHours(startHour, startMinute, 0, 0)
@@ -370,7 +418,7 @@ export class QuietHoursManager {
     exception: Omit<QuietHoursException, 'id'>
   ): string {
     const config = this.getUserConfig(userId)
-    const exceptionId = `exc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const exceptionId = `exc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 
     const newException: QuietHoursException = {
       ...exception,
@@ -406,25 +454,29 @@ export class QuietHoursManager {
     }
   }
 
-  public getQuietHoursReport(userIds?: number[]): any {
+  public getQuietHoursReport(userIds?: number[]): QuietHoursReport {
     const targetUsers = userIds || Array.from(this.userConfigs.keys())
     const now = new Date()
 
-    const report = {
+    const report: QuietHoursReport = {
       totalUsers: targetUsers.length,
       usersWithQuietHours: 0,
       currentlyInQuietHours: 0,
       averageQuietHoursDuration: 0,
       timezoneDistribution: {} as Record<string, number>,
-      channelSettings: {} as Record<string, any>,
-      upcomingQuietHours: [] as any[],
+      channelSettings: {} as Record<string, QuietHoursReportChannelSettings>,
+      upcomingQuietHours: [] as Array<{
+        userId: number
+        startTime: Date
+        endTime?: Date
+        timezone: string
+      }>,
       exceptions: {
         active: 0,
         total: 0
       }
     }
 
-    let totalDuration = 0
     const quietHoursDurations: number[] = []
 
     for (const userId of targetUsers) {
@@ -439,8 +491,12 @@ export class QuietHoursManager {
         }
 
         // Calculate duration
-        const [startHour, startMinute] = config.startTime.split(':').map(Number)
-        const [endHour, endMinute] = config.endTime.split(':').map(Number)
+        const startTimeParts = config.startTime.split(':').map(Number)
+        const endTimeParts = config.endTime.split(':').map(Number)
+        const startHour = startTimeParts[0] ?? 0
+        const startMinute = startTimeParts[1] ?? 0
+        const endHour = endTimeParts[0] ?? 0
+        const endMinute = endTimeParts[1] ?? 0
         let duration: number
 
         if (startHour <= endHour) {
@@ -549,7 +605,7 @@ export class QuietHoursManager {
     const now = new Date()
     let cleaned = 0
 
-    for (const [userId, config] of this.userConfigs.entries()) {
+    for (const [userId, config] of Array.from(this.userConfigs.entries())) {
       const initialLength = config.exceptions.length
       config.exceptions = config.exceptions.filter(exc => exc.endDate > now)
 

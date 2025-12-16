@@ -1,6 +1,6 @@
 import db from '../db/connection';
 import { CreateNotification, Notification, NotificationWithDetails } from '../types/database';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * Cria uma notificação

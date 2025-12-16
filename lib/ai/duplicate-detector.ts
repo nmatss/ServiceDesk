@@ -1,7 +1,67 @@
 import db from '../db/connection';
 import { OpenAI } from 'openai';
-import type { TicketWithDetails } from '../types/database';
-import { logger } from '../monitoring/logger';
+import type { Ticket } from '../types/database';
+import logger from '../monitoring/structured-logger';
+
+// Extended ticket type with flattened join fields for duplicate detection
+interface TicketWithDetailsFlat extends Ticket {
+  user_name?: string;
+  user_email?: string;
+  user_role?: string;
+  assigned_agent_name?: string;
+  assigned_agent_email?: string;
+  assigned_agent_role?: string;
+  category_name?: string;
+  category_description?: string;
+  category_color?: string;
+  priority_name?: string;
+  priority_level?: number;
+  priority_color?: string;
+  status_name?: string;
+  status_description?: string;
+  status_color?: string;
+  status_is_final?: number;
+  comments_count?: number;
+  attachments_count?: number;
+}
+
+// AI Analysis Result Type
+interface AIAnalysisResult {
+  isDuplicate: boolean;
+  confidence: number;
+  duplicateTickets: Array<{
+    ticketId: number;
+    similarity: number;
+    duplicateType: 'exact' | 'semantic' | 'user_pattern' | 'system_pattern';
+    reasoning: string;
+    recommendedAction: 'merge' | 'link' | 'flag_for_review' | 'auto_close';
+    keyMatchingElements?: string[];
+    differenceNotes?: string;
+  }>;
+  overallReasoning: string;
+  recommendedAction: string;
+  confidenceFactors?: string[];
+}
+
+// Rule-Based Detection Result Type
+interface RuleBasedResult {
+  isDuplicate: boolean;
+  confidence: number;
+  duplicateTickets: DuplicateTicketResult[];
+  overallReasoning: string;
+  recommendedAction: string;
+}
+
+// Duplicate Ticket Result Type
+interface DuplicateTicketResult {
+  ticketId: number;
+  similarity: number;
+  duplicateType: 'exact' | 'semantic' | 'user_pattern' | 'system_pattern';
+  reasoning: string;
+  recommendedAction: 'merge' | 'link' | 'flag_for_review' | 'auto_close';
+  keyMatchingElements?: string[];
+  differenceNotes?: string;
+}
 
 // Automatic Duplicate Detection System
 export class DuplicateDetector {
@@ -23,7 +83,7 @@ export class DuplicateDetector {
     isDuplicate: boolean;
     confidence: number;
     duplicateTickets: Array<{
-      ticket: TicketWithDetails;
+      ticket: TicketWithDetailsFlat;
       similarity: number;
       duplicateType: 'exact' | 'semantic' | 'user_pattern' | 'system_pattern';
       reasoning: string;
@@ -70,8 +130,8 @@ export class DuplicateDetector {
   private async performSemanticAnalysis(
     title: string,
     description: string,
-    candidateTickets: TicketWithDetails[]
-  ): Promise<any> {
+    candidateTickets: TicketWithDetailsFlat[]
+  ): Promise<AIAnalysisResult> {
     const ticketsForAnalysis = candidateTickets.map(ticket => ({
       id: ticket.id,
       title: ticket.title,
@@ -149,7 +209,8 @@ Respond in JSON format:
         response_format: { type: 'json_object' }
       });
 
-      return JSON.parse(response.choices[0].message.content || '{}');
+      const content = response.choices[0]?.message?.content;
+      return JSON.parse(content || '{}');
 
     } catch (error) {
       logger.error('Semantic Duplicate Detection Error', error);
@@ -170,10 +231,10 @@ Respond in JSON format:
   private performRuleBasedDetection(
     title: string,
     description: string,
-    candidateTickets: TicketWithDetails[],
+    candidateTickets: TicketWithDetailsFlat[],
     userId?: number
-  ): any {
-    const duplicates: any[] = [];
+  ): RuleBasedResult {
+    const duplicates: DuplicateTicketResult[] = [];
     const titleWords = this.normalizeText(title);
     const descWords = this.normalizeText(description);
 
@@ -185,10 +246,10 @@ Respond in JSON format:
       const titleSimilarity = this.calculateTextSimilarity(titleWords, ticketTitleWords);
       const descSimilarity = this.calculateTextSimilarity(descWords, ticketDescWords);
 
-      let duplicateType = null;
+      let duplicateType: 'exact' | 'semantic' | 'user_pattern' | 'system_pattern' | null = null;
       let similarity = 0;
       let reasoning = '';
-      let recommendedAction = 'flag_for_review';
+      let recommendedAction: 'merge' | 'link' | 'flag_for_review' | 'auto_close' = 'flag_for_review';
 
       // Exact duplicate detection
       if (titleSimilarity > 0.9 && descSimilarity > 0.8) {
@@ -239,7 +300,7 @@ Respond in JSON format:
   /**
    * Get recent tickets for comparison
    */
-  private getRecentTickets(hours: number, userId?: number): TicketWithDetails[] {
+  private getRecentTickets(hours: number, userId?: number): TicketWithDetailsFlat[] {
     let query = `
       SELECT
         t.*,
@@ -259,7 +320,7 @@ Respond in JSON format:
       WHERE t.created_at >= datetime('now', '-${hours} hours')
     `;
 
-    const params: any[] = [];
+    const params: (number | string)[] = [];
 
     // If userId provided, prioritize tickets from same user but include others
     if (userId) {
@@ -272,7 +333,7 @@ Respond in JSON format:
     query += ` LIMIT 50`; // Reasonable limit for performance
 
     try {
-      return db.prepare(query).all(...params) as TicketWithDetails[];
+      return db.prepare(query).all(...params) as TicketWithDetailsFlat[];
     } catch (error) {
       logger.error('Error fetching recent tickets', error);
       return [];
@@ -341,7 +402,6 @@ Respond in JSON format:
 
     // Find matching phrases (3+ words)
     const words1 = text1.toLowerCase().split(/\s+/);
-    const words2 = text2.toLowerCase().split(/\s+/);
 
     for (let i = 0; i < words1.length - 2; i++) {
       const phrase = words1.slice(i, i + 3).join(' ');
@@ -373,24 +433,30 @@ Respond in JSON format:
    * Merge results from AI and rule-based detection
    */
   private mergeDetectionResults(aiResults: any, ruleResults: any): any {
-    const allDuplicates = [...(aiResults.duplicateTickets || []), ...(ruleResults.duplicateTickets || [])];
+    interface DuplicateResult {
+      ticketId: number;
+      similarity: number;
+      [key: string]: any;
+    }
+
+    const allDuplicates = [...(aiResults.duplicateTickets || []), ...(ruleResults.duplicateTickets || [])] as DuplicateResult[];
 
     // Remove duplicates and keep highest confidence
-    const mergedDuplicates = allDuplicates.reduce((acc, current) => {
-      const existing = acc.find(d => d.ticketId === current.ticketId);
+    const mergedDuplicates = allDuplicates.reduce((acc: DuplicateResult[], current: DuplicateResult) => {
+      const existing = acc.find((d: DuplicateResult) => d.ticketId === current.ticketId);
       if (!existing || current.similarity > existing.similarity) {
-        return [...acc.filter(d => d.ticketId !== current.ticketId), current];
+        return [...acc.filter((d: DuplicateResult) => d.ticketId !== current.ticketId), current];
       }
       return acc;
-    }, [] as any[]);
+    }, [] as DuplicateResult[]);
 
-    const isDuplicate = mergedDuplicates.length > 0 && mergedDuplicates.some(d => d.similarity > 0.7);
+    const isDuplicate = mergedDuplicates.length > 0 && mergedDuplicates.some((d: DuplicateResult) => d.similarity > 0.7);
     const confidence = Math.max(aiResults.confidence || 0, ruleResults.confidence || 0);
 
     return {
       isDuplicate,
       confidence,
-      duplicateTickets: mergedDuplicates.map(d => ({
+      duplicateTickets: mergedDuplicates.map((d: DuplicateResult) => ({
         ...d,
         ticket: d.ticketId // Will be mapped to full ticket object in the calling function
       })),
@@ -481,7 +547,7 @@ Respond in JSON format:
   /**
    * Link tickets for review
    */
-  private linkTickets(originalId: number, duplicateId: number, linkType: string, userId: number) {
+  private linkTickets(originalId: number, duplicateId: number, _linkType: string, userId: number) {
     // This would typically involve a ticket_relationships table
     // For now, we'll add a comment to both tickets
     const commentStmt = db.prepare(`

@@ -18,8 +18,7 @@ interface CustomMetricsWidgetProps {
 
 export function CustomMetricsWidget({
   data = {},
-  config,
-  onUpdate
+  config
 }: CustomMetricsWidgetProps) {
   const metrics = config.selectedMetrics
     .filter(key => data[key])
@@ -33,7 +32,8 @@ export function CustomMetricsWidget({
     }
   };
 
-  const formatValue = (value: number, unit?: string) => {
+  const formatValue = (value: number | undefined, unit?: string): string => {
+    if (value === undefined) return 'N/A';
     if (unit === 'percentage') return `${value.toFixed(1)}%`;
     if (unit === 'currency') return `$${value.toLocaleString()}`;
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;

@@ -3,8 +3,8 @@
  * Camada de persistência para dados do Gov.br
  */
 
-import { getDb } from '@/lib/db/connection';
-import {
+import { getDb } from '@/lib/db';
+import type {
   GovBrIntegration,
   CreateGovBrIntegration
 } from '@/lib/types/database';
@@ -18,8 +18,8 @@ export async function createGovBrIntegration(data: CreateGovBrIntegration): Prom
   const result = db.prepare(`
     INSERT INTO govbr_integrations (
       user_id, cpf, cnpj, access_token, refresh_token, token_expires_at,
-      profile_data, verification_level, last_sync_at, is_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      profile_data, verification_level, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     data.user_id || null,
     data.cpf || null,
@@ -29,11 +29,14 @@ export async function createGovBrIntegration(data: CreateGovBrIntegration): Prom
     data.token_expires_at || null,
     data.profile_data || null,
     data.verification_level,
-    data.last_sync_at || null,
     data.is_active ? 1 : 0
   );
 
-  return getGovBrIntegrationById(result.lastInsertRowid as number)!;
+  const integration = await getGovBrIntegrationById(result.lastInsertRowid as number);
+  if (!integration) {
+    throw new Error('Failed to create Gov.br integration');
+  }
+  return integration;
 }
 
 export async function getGovBrIntegrationById(id: number): Promise<GovBrIntegration | null> {
@@ -135,7 +138,7 @@ export async function getUserByGovBrCpf(cpf: string): Promise<{ id: number; emai
     JOIN govbr_integrations g ON u.id = g.user_id
     WHERE g.cpf = ? AND g.is_active = 1 AND u.is_active = 1
     LIMIT 1
-  `).get(cleanCpf);
+  `).get(cleanCpf) as { id: number; email: string; name: string } | undefined;
 
   return result || null;
 }
@@ -159,7 +162,7 @@ export async function getGovBrStats(days = 30): Promise<{
       SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_integrations,
       COUNT(CASE WHEN datetime(last_sync_at) >= datetime('now', '-${days} days') THEN 1 END) as recent_logins
     FROM govbr_integrations
-  `).get();
+  `).get() as { total_integrations: number; active_integrations: number; recent_logins: number };
 
   // Busca níveis de verificação
   const verificationStats = db.prepare(`
@@ -167,10 +170,10 @@ export async function getGovBrStats(days = 30): Promise<{
     FROM govbr_integrations
     WHERE is_active = 1
     GROUP BY verification_level
-  `).all();
+  `).all() as Array<{ verification_level: string; count: number }>;
 
   const verificationLevels: Record<string, number> = {};
-  verificationStats.forEach((stat: any) => {
+  verificationStats.forEach((stat: { verification_level: string; count: number }) => {
     verificationLevels[stat.verification_level || 'unknown'] = stat.count;
   });
 
@@ -195,12 +198,12 @@ export async function getGovBrIntegrationsByVerificationLevel(
     JOIN users u ON g.user_id = u.id
     WHERE g.verification_level LIKE ? AND g.is_active = 1
     ORDER BY g.last_sync_at DESC
-  `).all(`%${level}%`);
+  `).all(`%${level}%`) as Array<any>;
 
-  return results.map(row => ({
+  return results.map((row: any) => ({
     ...convertDbIntegrationToIntegration(row),
-    user_name: row.user_name,
-    user_email: row.user_email
+    user_name: row.user_name as string,
+    user_email: row.user_email as string
   }));
 }
 
@@ -265,12 +268,12 @@ export async function searchGovBrIntegrations(params: {
     ${whereClause}
     ORDER BY g.last_sync_at DESC
     LIMIT ? OFFSET ?
-  `).all(...queryParams);
+  `).all(...queryParams) as Array<any>;
 
-  return results.map(row => ({
+  return results.map((row: any) => ({
     ...convertDbIntegrationToIntegration(row),
-    user_name: row.user_name,
-    user_email: row.user_email
+    user_name: row.user_name as string,
+    user_email: row.user_email as string
   }));
 }
 
@@ -322,9 +325,16 @@ export async function getDocumentValidationHistory(
     WHERE document = ?
     ORDER BY created_at DESC
     LIMIT ?
-  `).all(document, limit);
+  `).all(document, limit) as Array<{
+    id: number;
+    document: string;
+    document_type: string;
+    validation_result: number;
+    validation_data?: string;
+    created_at: string;
+  }>;
 
-  return results.map(row => ({
+  return results.map((row) => ({
     id: row.id,
     document: row.document,
     document_type: row.document_type,

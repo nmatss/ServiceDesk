@@ -3,14 +3,10 @@
  * Manages continuous learning, model retraining, and performance tracking
  */
 
-import { openAIClient } from './openai-client';
-import { Database } from '../db/connection';
-import { logger } from '../monitoring/logger';
+import Database from 'better-sqlite3';
+import logger from '../monitoring/structured-logger';
 import type {
   AITrainingDataEntry,
-  AIFeedbackEntry,
-  AIPerformanceMetrics,
-  AIModelConfig,
 } from './types';
 
 export interface TrainingConfig {
@@ -46,10 +42,10 @@ export interface ModelPerformanceMetrics {
 }
 
 export class AITrainingSystem {
-  private db: Database;
+  private db: Database.Database;
   private config: TrainingConfig;
 
-  constructor(db: Database, config?: Partial<TrainingConfig>) {
+  constructor(db: Database.Database, config?: Partial<TrainingConfig>) {
     this.db = db;
     this.config = {
       minDataPoints: config?.minDataPoints || 1000,
@@ -91,8 +87,8 @@ export class AITrainingSystem {
       ? [operationType, organizationId]
       : [operationType];
 
-    const rows = await this.db.all(query, params);
-    return rows as AITrainingDataEntry[];
+    const rows = this.db.prepare(query).all(...params) as AITrainingDataEntry[];
+    return rows;
   }
 
   /**
@@ -115,7 +111,7 @@ export class AITrainingSystem {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    const result = await this.db.run(query, [
+    const result = this.db.prepare(query).run(
       input,
       JSON.stringify(expectedOutput),
       JSON.stringify(actualOutput),
@@ -123,10 +119,10 @@ export class AITrainingSystem {
       qualityScore,
       validated ? 1 : 0,
       validationSource || null,
-      organizationId || null,
-    ]);
+      organizationId || null
+    );
 
-    return result.lastID;
+    return result.lastInsertRowid as number;
   }
 
   /**
@@ -140,36 +136,32 @@ export class AITrainingSystem {
     userId?: number
   ): Promise<void> {
     // Get original classification
-    const classification = await this.db.get(
-      'SELECT * FROM ai_classifications WHERE id = ?',
-      [classificationId]
-    );
+    const classification = this.db.prepare(
+      'SELECT * FROM ai_classifications WHERE id = ?'
+    ).get(classificationId) as any;
 
     if (!classification) {
       throw new Error('Classification not found');
     }
 
     // Record feedback
-    await this.db.run(
+    this.db.prepare(
       `INSERT INTO ai_feedback (
         classification_id, feedback_type, corrected_category,
         corrected_priority, user_id
-      ) VALUES (?, ?, ?, ?, ?)`,
-      [classificationId, feedback, correctedCategory, correctedPriority, userId]
-    );
+      ) VALUES (?, ?, ?, ?, ?)`
+    ).run(classificationId, feedback, correctedCategory, correctedPriority, userId);
 
     // Update classification with feedback
-    await this.db.run(
-      'UPDATE ai_classifications SET feedback_received = 1 WHERE id = ?',
-      [classificationId]
-    );
+    this.db.prepare(
+      'UPDATE ai_classifications SET feedback_received = 1 WHERE id = ?'
+    ).run(classificationId);
 
     // If negative feedback with correction, add to training data
     if (feedback === 'negative' && (correctedCategory || correctedPriority)) {
-      const ticket = await this.db.get(
-        'SELECT title, description FROM tickets WHERE id = ?',
-        [classification.ticket_id]
-      );
+      const ticket = this.db.prepare(
+        'SELECT title, description FROM tickets WHERE id = ?'
+      ).get(classification.ticket_id) as any;
 
       if (ticket) {
         const inputText = `${ticket.title}\n${ticket.description}`;
@@ -212,8 +204,8 @@ export class AITrainingSystem {
     const totalQuery = `
       SELECT COUNT(*) as total FROM ai_classifications ${whereClause}
     `;
-    const totalResult = await this.db.get(totalQuery, params);
-    const totalPredictions = totalResult.total || 0;
+    const totalResult = this.db.prepare(totalQuery).get(...params) as any;
+    const totalPredictions = totalResult?.total || 0;
 
     // Get feedback stats
     const feedbackQuery = `
@@ -224,10 +216,10 @@ export class AITrainingSystem {
       JOIN ai_classifications ac ON af.classification_id = ac.id
       ${whereClause}
     `;
-    const feedbackResult = await this.db.get(feedbackQuery, params);
+    const feedbackResult = this.db.prepare(feedbackQuery).get(...params) as any;
 
     // Calculate accuracy (positive feedback / total feedback)
-    const totalFeedback = (feedbackResult.positive || 0) + (feedbackResult.negative || 0);
+    const totalFeedback = (feedbackResult?.positive || 0) + (feedbackResult?.negative || 0);
     const accuracy = totalFeedback > 0
       ? feedbackResult.positive / totalFeedback
       : 0;
@@ -237,7 +229,7 @@ export class AITrainingSystem {
       SELECT AVG(confidence_score) as avg_confidence
       FROM ai_classifications ${whereClause}
     `;
-    const confidenceResult = await this.db.get(confidenceQuery, params);
+    const confidenceResult = this.db.prepare(confidenceQuery).get(...params) as any;
 
     return {
       modelVersion,
@@ -275,9 +267,9 @@ export class AITrainingSystem {
         ${organizationId ? 'AND organization_id = ?' : ''}
     `;
     const params = organizationId ? [organizationId] : [];
-    const newDataResult = await this.db.get(newDataQuery, params);
+    const newDataResult = this.db.prepare(newDataQuery).get(...params) as any;
 
-    if (newDataResult.count >= this.config.minDataPoints) {
+    if (newDataResult && newDataResult.count >= this.config.minDataPoints) {
       return true;
     }
 
@@ -341,7 +333,7 @@ export class AITrainingSystem {
    */
   private async validateModel(
     validationSet: AITrainingDataEntry[],
-    operationType: string
+    _operationType: string
   ): Promise<{
     accuracy: number;
     precision: number;
@@ -356,7 +348,7 @@ export class AITrainingSystem {
     // Test each validation example
     for (const example of validationSet) {
       const expected = JSON.parse(example.expected_output);
-      const actual = JSON.parse(example.actual_output);
+      const actual = example.actual_output ? JSON.parse(example.actual_output) : null;
 
       // Simple comparison (in production, use more sophisticated metrics)
       const isCorrect = JSON.stringify(expected) === JSON.stringify(actual);
@@ -415,24 +407,23 @@ export class AITrainingSystem {
     result: TrainingResult,
     organizationId?: number
   ): Promise<void> {
-    await this.db.run(
+    this.db.prepare(
       `INSERT INTO ai_model_versions (
         version, accuracy, precision, recall, f1_score,
         training_size, validation_size, training_time_ms,
         improvements, organization_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        result.modelVersion,
-        result.accuracy,
-        result.precision,
-        result.recall,
-        result.f1Score,
-        result.trainingDataSize,
-        result.validationDataSize,
-        result.trainingTime,
-        JSON.stringify(result.improvements),
-        organizationId || null,
-      ]
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      result.modelVersion,
+      result.accuracy,
+      result.precision,
+      result.recall,
+      result.f1Score,
+      result.trainingDataSize,
+      result.validationDataSize,
+      result.trainingTime,
+      JSON.stringify(result.improvements),
+      organizationId || null
     );
   }
 
@@ -440,14 +431,13 @@ export class AITrainingSystem {
    * Get model training history
    */
   async getTrainingHistory(limit: number = 10): Promise<TrainingResult[]> {
-    const rows = await this.db.all(
+    const rows = this.db.prepare(
       `SELECT * FROM ai_model_versions
        ORDER BY created_at DESC
-       LIMIT ?`,
-      [limit]
-    );
+       LIMIT ?`
+    ).all(limit) as any[];
 
-    return rows.map(row => ({
+    return rows.map((row: any) => ({
       modelVersion: row.version,
       accuracy: row.accuracy,
       precision: row.precision,
@@ -496,7 +486,7 @@ export class AITrainingSystem {
           row.id,
           `"${row.input_text.replace(/"/g, '""')}"`,
           `"${row.expected_output.replace(/"/g, '""')}"`,
-          `"${row.actual_output.replace(/"/g, '""')}"`,
+          `"${(row.actual_output ?? '').replace(/"/g, '""')}"`,
           row.quality_score,
         ].join(',')
       ),
@@ -515,23 +505,23 @@ export class AITrainingSystem {
     avgQualityScore: number;
     byType: Record<string, number>;
   }> {
-    const stats = await this.db.get(`
+    const stats = this.db.prepare(`
       SELECT
         COUNT(*) as total,
         COUNT(CASE WHEN validated = 1 THEN 1 END) as validated,
         COUNT(CASE WHEN quality_score >= 0.8 THEN 1 END) as high_quality,
         AVG(quality_score) as avg_quality
       FROM ai_training_data
-    `);
+    `).get() as any;
 
-    const byType = await this.db.all(`
+    const byType = this.db.prepare(`
       SELECT data_type, COUNT(*) as count
       FROM ai_training_data
       GROUP BY data_type
-    `);
+    `).all() as any[];
 
     const byTypeMap: Record<string, number> = {};
-    byType.forEach(row => {
+    byType.forEach((row: any) => {
       byTypeMap[row.data_type] = row.count;
     });
 

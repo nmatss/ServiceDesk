@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { logger } from '@/lib/monitoring/logger';
 import {
   ClockIcon,
@@ -75,18 +74,13 @@ export default function SLAPage() {
 
   const fetchSLAData = async () => {
     try {
+      // SECURITY: Use httpOnly cookies for authentication - tenant is extracted server-side
       const [policiesResponse, ticketsResponse] = await Promise.all([
         fetch('/api/sla', {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Tenant-ID': '1'
-          }
+          credentials: 'include' // Use httpOnly cookies
         }),
         fetch('/api/sla/tickets', {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Tenant-ID': '1'
-          }
+          credentials: 'include' // Use httpOnly cookies
         })
       ])
 
@@ -114,11 +108,9 @@ export default function SLAPage() {
         params.append('status', ticketFilter)
       }
 
+      // SECURITY: Use httpOnly cookies for authentication - tenant is extracted server-side
       const response = await fetch(`/api/sla/tickets?${params}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': '1'
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {
@@ -175,8 +167,7 @@ export default function SLAPage() {
     : '0.0'
 
   return (
-    <AdminDashboard>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
@@ -496,6 +487,5 @@ export default function SLAPage() {
           </>
         )}
       </div>
-    </AdminDashboard>
   )
 }

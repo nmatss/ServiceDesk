@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * PWA Install Prompt Manager
@@ -280,7 +280,7 @@ class PWAInstallPrompt {
     }
   }
 
-  private dispatchEvent(eventType: string, detail: any) {
+  private dispatchEvent(eventType: string, detail: unknown) {
     window.dispatchEvent(new CustomEvent(`pwa:${eventType}`, { detail }));
   }
 

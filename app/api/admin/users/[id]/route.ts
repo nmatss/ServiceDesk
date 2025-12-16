@@ -32,7 +32,7 @@ export async function GET(
       return NextResponse.json({ error: 'ID do usuário inválido' }, { status: 400 });
     }
 
-    const targetUser = userQueries.getById(userId);
+    const targetUser = userQueries.getById(userId, user.organization_id || 1);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
@@ -73,7 +73,7 @@ export async function PUT(
       return NextResponse.json({ error: 'ID do usuário inválido' }, { status: 400 });
     }
 
-    const targetUser = userQueries.getById(userId);
+    const targetUser = userQueries.getById(userId, user.organization_id || 1);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
@@ -96,7 +96,7 @@ export async function PUT(
 
     // Verificar se email já existe (se estiver sendo alterado)
     if (email && email !== targetUser.email) {
-      const existingUser = userQueries.getByEmail(email);
+      const existingUser = userQueries.getByEmail(email, user.organization_id || 1);
       if (existingUser) {
         return NextResponse.json({ error: 'Email já está em uso' }, { status: 400 });
       }
@@ -107,7 +107,7 @@ export async function PUT(
       name: name?.trim(),
       email: email?.trim(),
       role
-    });
+    }, user.organization_id || 1);
 
     return NextResponse.json({ user: updatedUser });
   } catch (error) {
@@ -150,12 +150,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não é possível deletar seu próprio usuário' }, { status: 400 });
     }
 
-    const targetUser = userQueries.getById(userId);
+    const targetUser = userQueries.getById(userId, user.organization_id || 1);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
-    const success = userQueries.delete(userId);
+    const success = userQueries.delete(userId, user.organization_id || 1);
     if (!success) {
       return NextResponse.json({ error: 'Erro ao deletar usuário' }, { status: 500 });
     }

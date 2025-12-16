@@ -261,10 +261,11 @@ export default function TicketTrendChart({
       };
 
       if (chartType === 'line') {
-        return <Line {...props} activeDot={{ r: 6 }} />;
+        return <Line key={metric} {...props} activeDot={{ r: 6 }} />;
       } else if (chartType === 'area') {
         return (
           <Area
+            key={metric}
             {...props}
             fill={config.color}
             fillOpacity={0.2}

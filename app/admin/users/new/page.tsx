@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
@@ -72,8 +71,7 @@ export default function NewUserPage() {
 
     try {
       setLoading(true)
-      const token = localStorage.getItem('auth_token')
-      
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -107,8 +105,7 @@ export default function NewUserPage() {
   }
 
   return (
-    <AdminDashboard currentPage="usuários">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
@@ -264,6 +261,5 @@ export default function NewUserPage() {
           </form>
         </AdminCard>
       </div>
-    </AdminDashboard>
   )
 }

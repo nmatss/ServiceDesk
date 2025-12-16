@@ -16,12 +16,12 @@ const COOKIE_NAME = 'servicedesk_token';
  * Logout from SSO provider
  */
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { provider: string } }
 ) {
   try {
     const { provider } = params;
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
 
     // Clear local authentication cookie
     cookieStore.delete(COOKIE_NAME);
@@ -72,9 +72,9 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params: { provider: _provider } }: { params: { provider: string } }
 ) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   // Clear cookies
   cookieStore.delete(COOKIE_NAME);

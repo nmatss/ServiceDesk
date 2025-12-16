@@ -1,10 +1,68 @@
-// Tipos para o banco de dados do ServiceDesk
+/**
+ * ServiceDesk Database Type Definitions
+ *
+ * Comprehensive TypeScript interfaces for all database entities in the ServiceDesk application.
+ * This file serves as the single source of truth for data structures across the application.
+ *
+ * ORGANIZATION:
+ * - Core entities (User, Ticket, Category, Priority, Status, Comment, Attachment)
+ * - SLA management (SLAPolicy, SLATracking, SLAEscalation)
+ * - Knowledge base (KnowledgeArticle)
+ * - Notifications and templates
+ * - Audit logging
+ * - Authentication and RBAC (Role, Permission, UserRole)
+ * - Workflows and approvals
+ * - Integrations and webhooks
+ * - AI features (classification, suggestions, embeddings)
+ * - Multi-tenant (Organization, Department)
+ * - Analytics and metrics
+ * - Communication channels (Email, WhatsApp, Teams, Slack)
+ * - Brazil-specific features (Gov.br, LGPD, WhatsApp)
+ *
+ * TYPE PATTERNS:
+ * - Base interfaces: Full entity with all fields
+ * - Create types: Omit<Entity, 'id' | 'created_at' | 'updated_at'>
+ * - Update types: Partial<Omit<Entity, 'id' | 'created_at'>> & { id: number }
+ * - WithDetails types: Include related entities via JOINs
+ *
+ * FIELD CONVENTIONS:
+ * - id: number (auto-increment primary key)
+ * - *_id: number (foreign key references)
+ * - created_at: string (ISO timestamp)
+ * - updated_at: string (ISO timestamp)
+ * - *_at: string (ISO timestamp for events)
+ * - is_*: boolean (boolean flags)
+ * - JSON fields: string (JSON.parse/stringify required)
+ *
+ * @module lib/types/database
+ */
 
+/**
+ * User entity
+ *
+ * Represents a user in the system with role-based access control.
+ * Supports multi-factor authentication, SSO, and enterprise security features.
+ *
+ * SECURITY FEATURES:
+ * - Password hashing (bcrypt)
+ * - Two-factor authentication (TOTP)
+ * - Failed login tracking and account locking
+ * - SSO integration (SAML, OAuth, OIDC)
+ * - Session management
+ *
+ * ROLES:
+ * - admin: Full system access
+ * - agent: Support agent with ticket assignment
+ * - user: End user creating tickets
+ * - manager: Team management capabilities
+ * - read_only: View-only access
+ * - api_client: API access for integrations
+ */
 export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client';
+  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin';
   password_hash?: string;
   organization_id: number;
   is_active: boolean;
@@ -64,6 +122,14 @@ export interface Ticket {
   category_id: number;
   priority_id: number;
   status_id: number;
+  organization_id: number;
+  sla_policy_id?: number;
+  sla_deadline?: string;
+  sla_status?: 'on_track' | 'at_risk' | 'breached';
+  sla_first_response_at?: string;
+  sla_resolution_at?: string;
+  escalation_level?: number;
+  escalated_at?: string;
   created_at: string;
   updated_at: string;
   resolved_at?: string;
@@ -129,6 +195,7 @@ export interface SLAPolicy {
   description?: string;
   priority_id?: number;
   category_id?: number;
+  organization_id: number;
   response_time_hours: number;
   resolution_time_hours: number;
   business_hours_only: boolean;
@@ -141,6 +208,7 @@ export interface SLATracking {
   id: number;
   ticket_id: number;
   policy_id: number;
+  organization_id: number;
   response_due_at: string;
   resolution_due_at: string;
   first_response_at?: string;
@@ -189,6 +257,7 @@ export interface Template {
   description?: string;
   type: 'ticket' | 'comment' | 'email' | 'knowledge' | 'response';
   category_id?: number;
+  organization_id: number;
   title_template?: string;
   content_template: string;
   variables?: string; // JSON string
@@ -216,35 +285,13 @@ export interface TemplateUsage {
   used_at: string;
 }
 
-// Tipos Knowledge Base
-export interface KnowledgeArticle {
-  id: number;
-  title: string;
-  content: string;
-  summary?: string;
-  category_id?: number;
-  tags?: string; // JSON string
-  is_published: boolean;
-  views_count: number;
-  helpful_count: number;
-  not_helpful_count: number;
-  created_by: number;
-  updated_by?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface KnowledgeArticleWithDetails extends KnowledgeArticle {
-  category_name?: string;
-  category_color?: string;
-  created_by_name: string;
-  updated_by_name?: string;
-}
+// Tipos Knowledge Base - see complete definition below at line 365
 
 // Tipos Auditoria
 export interface AuditLog {
   id: number;
   user_id?: number;
+  organization_id?: number;
   action: string;
   resource_type: string;
   resource_id?: number;
@@ -280,6 +327,7 @@ export interface Automation {
   id: number;
   name: string;
   description?: string;
+  organization_id: number;
   trigger_type: 'ticket_created' | 'ticket_updated' | 'sla_warning' | 'time_based';
   conditions: string; // JSON
   actions: string; // JSON
@@ -296,7 +344,9 @@ export interface KnowledgeArticle {
   title: string;
   content: string;
   summary?: string;
+  slug?: string;
   category_id?: number;
+  organization_id: number;
   tags?: string; // JSON array
   is_published: boolean;
   view_count: number;
@@ -309,10 +359,30 @@ export interface KnowledgeArticle {
   updated_at: string;
 }
 
+/**
+ * Alias for KnowledgeArticle - for backward compatibility
+ */
+export type KBArticle = KnowledgeArticle;
+
+/**
+ * Team entity - Represents a team of agents for ticket assignment
+ */
+export interface Team {
+  id: number;
+  name: string;
+  description?: string;
+  organization_id: number;
+  lead_id?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SatisfactionSurvey {
   id: number;
   ticket_id: number;
   user_id: number;
+  organization_id: number;
   rating: number; // 1-5
   feedback?: string;
   agent_rating?: number; // 1-5
@@ -611,7 +681,8 @@ export const UserRole = {
   USER: 'user',
   MANAGER: 'manager',
   READ_ONLY: 'read_only',
-  API_CLIENT: 'api_client'
+  API_CLIENT: 'api_client',
+  TENANT_ADMIN: 'tenant_admin'
 } as const;
 
 export const AuthEventType = {
@@ -658,6 +729,7 @@ export interface Workflow {
   id: number;
   name: string;
   description?: string;
+  organization_id: number;
   trigger_type: 'ticket_created' | 'ticket_updated' | 'status_changed' | 'sla_warning' | 'time_based' | 'manual' | 'comment_added' | 'assignment_changed';
   trigger_conditions?: string; // JSON
   version: number;
@@ -695,6 +767,7 @@ export interface WorkflowStep {
 export interface WorkflowExecution {
   id: number;
   workflow_id: number;
+  organization_id: number;
   trigger_entity_type: string;
   trigger_entity_id?: number;
   trigger_user_id?: number;
@@ -713,6 +786,7 @@ export interface WorkflowStepExecution {
   id: number;
   execution_id: number;
   step_id: number;
+  organization_id: number;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'timeout';
   input_data?: string; // JSON
   output_data?: string; // JSON
@@ -727,6 +801,7 @@ export interface WorkflowDefinition {
   id: number;
   name: string;
   description?: string;
+  organization_id: number;
   trigger_conditions: string; // JSON
   steps_json: string; // JSON
   is_active: boolean;
@@ -904,45 +979,18 @@ export interface AISuggestion {
   created_at: string;
 }
 
-export interface AIClassification {
-  id: number;
+// Ticket-specific AI types (use generic AIClassification and AISuggestion above)
+export interface AITicketClassification extends AIClassification {
   ticket_id: number;
   suggested_category_id?: number;
   suggested_priority_id?: number;
   suggested_category?: string;
-  confidence_score?: number;
-  reasoning?: string;
-  model_name: string;
-  model_version?: string;
-  probability_distribution?: string; // JSON
-  input_tokens?: number;
-  output_tokens?: number;
-  processing_time_ms?: number;
   was_accepted?: boolean;
   corrected_category_id?: number;
-  feedback_by?: number;
-  feedback_at?: string;
-  created_at: string;
 }
 
-export interface AISuggestion {
-  id: number;
+export interface AITicketSuggestion extends AISuggestion {
   ticket_id: number;
-  suggestion_type: string;
-  content: string;
-  confidence_score?: number;
-  model_name?: string;
-  source_type?: string;
-  source_references?: string; // JSON
-  reasoning?: string;
-  was_used: boolean;
-  was_helpful?: boolean;
-  feedback_comment?: string;
-  used_by?: number;
-  used_at?: string;
-  feedback_by?: number;
-  feedback_at?: string;
-  created_at: string;
 }
 
 export interface AITrainingData {
@@ -1077,6 +1125,7 @@ export interface UserDepartment {
 
 export interface AnalyticsRealtimeMetric {
   id: number;
+  organization_id: number;
   metric_name: string;
   metric_value: number;
   dimension_filters?: string; // JSON
@@ -1086,6 +1135,7 @@ export interface AnalyticsRealtimeMetric {
 
 export interface AnalyticsEvent {
   id: number;
+  organization_id: number;
   event_type: string;
   user_id?: number;
   session_id?: string;
@@ -1101,6 +1151,7 @@ export interface AnalyticsEvent {
 export interface AnalyticsAgentPerformance {
   id: number;
   agent_id: number;
+  organization_id: number;
   period_start: string;
   period_end: string;
   period_type: 'daily' | 'weekly' | 'monthly' | 'quarterly';
@@ -1318,19 +1369,13 @@ export type CreateWhatsAppMessage = Omit<WhatsAppMessage, 'id' | 'created_at'>;
 export type CreateGovBrIntegration = Omit<GovBrIntegration, 'id' | 'last_sync_at' | 'created_at' | 'updated_at'>;
 export type CreateLGPDConsent = Omit<LGPDConsent, 'id' | 'created_at'>;
 
-// New Enterprise Types
-export type CreateAIClassification = Omit<AIClassification, 'id' | 'was_accepted' | 'feedback_by' | 'feedback_at' | 'created_at'>;
-export type CreateAISuggestion = Omit<AISuggestion, 'id' | 'was_used' | 'was_helpful' | 'used_by' | 'used_at' | 'feedback_by' | 'feedback_at' | 'created_at'>;
-export type CreateAITrainingData = Omit<AITrainingData, 'id' | 'reviewed_by' | 'reviewed_at' | 'is_validated' | 'created_at'>;
+// Additional Enterprise Types (AI types defined earlier in file)
 export type CreateVectorEmbedding = Omit<VectorEmbedding, 'id' | 'created_at' | 'updated_at'>;
-
 export type CreateWorkflowDefinition = Omit<WorkflowDefinition, 'id' | 'version' | 'created_at' | 'updated_at'>;
 export type CreateWorkflowApproval = Omit<WorkflowApproval, 'id' | 'approved_at' | 'created_at'>;
-
 export type CreateTenantConfiguration = Omit<TenantConfiguration, 'id' | 'created_at' | 'updated_at'>;
 export type CreateAuditAdvanced = Omit<AuditAdvanced, 'id' | 'created_at'>;
 export type CreateApiUsageTracking = Omit<ApiUsageTracking, 'id' | 'timestamp' | 'date' | 'hour'>;
-
 export type CreateWhatsAppSession = Omit<WhatsAppSession, 'id' | 'created_at' | 'updated_at'>;
 
 // ========================================
@@ -1431,5 +1476,691 @@ export const LGPDLegalBasis = {
   CONTRACT: 'contract',
   LEGAL_OBLIGATION: 'legal_obligation',
   LEGITIMATE_INTEREST: 'legitimate_interest'
+} as const;
+
+// ========================================
+// CMDB (Configuration Management Database) Types
+// ========================================
+
+/**
+ * CI Type - Classification of Configuration Items
+ * (e.g., Server, Network Device, Application, Database)
+ */
+export interface CIType {
+  id: number;
+  name: string;
+  description?: string;
+  icon: string;
+  color: string;
+  parent_type_id?: number;
+  attributes_schema?: string; // JSON schema for custom attributes
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * CI Status - Lifecycle status of Configuration Items
+ * (e.g., Active, Inactive, Under Maintenance, Retired)
+ */
+export interface CIStatus {
+  id: number;
+  name: string;
+  description?: string;
+  color: string;
+  is_operational: boolean;
+  created_at: string;
+}
+
+/**
+ * Configuration Item (CI) - Core CMDB entity
+ * Represents any hardware, software, or service that needs to be managed
+ */
+export interface ConfigurationItem {
+  id: number;
+  ci_number: string;
+  name: string;
+  description?: string;
+  ci_type_id: number;
+  status_id: number;
+  organization_id: number;
+
+  // Ownership
+  owner_id?: number;
+  managed_by_team_id?: number;
+  vendor?: string;
+  manufacturer?: string;
+
+  // Location
+  location?: string;
+  environment?: 'production' | 'staging' | 'development' | 'test' | 'dr';
+  data_center?: string;
+  rack_position?: string;
+
+  // Lifecycle
+  purchase_date?: string;
+  installation_date?: string;
+  warranty_expiry?: string;
+  end_of_life_date?: string;
+  retirement_date?: string;
+
+  // Technical
+  serial_number?: string;
+  asset_tag?: string;
+  ip_address?: string;
+  mac_address?: string;
+  hostname?: string;
+  os_version?: string;
+
+  // Business
+  business_service?: string;
+  criticality?: 'critical' | 'high' | 'medium' | 'low';
+  business_impact?: string;
+  recovery_time_objective?: number;
+  recovery_point_objective?: number;
+
+  custom_attributes?: string; // JSON
+
+  created_by?: number;
+  updated_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * CI Relationship Type - Types of relationships between CIs
+ * (e.g., depends_on, hosts, connects_to)
+ */
+export interface CIRelationshipType {
+  id: number;
+  name: string;
+  description?: string;
+  inverse_name?: string;
+  color: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+/**
+ * CI Relationship - Links between Configuration Items
+ */
+export interface CIRelationship {
+  id: number;
+  source_ci_id: number;
+  target_ci_id: number;
+  relationship_type_id: number;
+  description?: string;
+  is_active: boolean;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * CI History - Audit trail for Configuration Items
+ */
+export interface CIHistory {
+  id: number;
+  ci_id: number;
+  action: 'created' | 'updated' | 'deleted' | 'status_changed' | 'relationship_added' | 'relationship_removed';
+  field_name?: string;
+  old_value?: string;
+  new_value?: string;
+  changed_by?: number;
+  change_reason?: string;
+  related_ticket_id?: number;
+  related_change_id?: number;
+  created_at: string;
+}
+
+/**
+ * CI-Ticket Link - Associates CIs with tickets
+ */
+export interface CITicketLink {
+  id: number;
+  ci_id: number;
+  ticket_id: number;
+  link_type: 'affected' | 'caused_by' | 'related' | 'changed';
+  notes?: string;
+  created_by?: number;
+  created_at: string;
+}
+
+// With Details Types
+export interface ConfigurationItemWithDetails extends ConfigurationItem {
+  ci_type?: CIType;
+  status?: CIStatus;
+  owner?: User;
+  managed_by_team?: Team;
+  relationships?: CIRelationshipWithDetails[];
+  linked_tickets?: Ticket[];
+}
+
+export interface CIRelationshipWithDetails extends CIRelationship {
+  source_ci?: ConfigurationItem;
+  target_ci?: ConfigurationItem;
+  relationship_type?: CIRelationshipType;
+}
+
+// ========================================
+// SERVICE CATALOG Types
+// ========================================
+
+/**
+ * Service Category - Grouping for catalog items
+ * (e.g., IT Services, HR Services, Facilities)
+ */
+export interface ServiceCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  icon: string;
+  color: string;
+  parent_category_id?: number;
+  display_order: number;
+  is_public: boolean;
+  is_active: boolean;
+  organization_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Service Catalog Item - Service offering in the catalog
+ */
+export interface ServiceCatalogItem {
+  id: number;
+  name: string;
+  slug: string;
+  short_description?: string;
+  description?: string;
+  category_id: number;
+  organization_id: number;
+
+  // Display
+  icon: string;
+  image_url?: string;
+  display_order: number;
+
+  // Request configuration
+  form_schema?: string; // JSON schema
+  default_priority_id?: number;
+  default_category_id?: number;
+
+  // SLA and fulfillment
+  sla_policy_id?: number;
+  estimated_fulfillment_time?: number;
+  fulfillment_team_id?: number;
+
+  // Approval
+  requires_approval: boolean;
+  approval_workflow_id?: number;
+  auto_approve_roles?: string; // JSON array
+
+  // Cost
+  cost_type: 'free' | 'fixed' | 'variable' | 'quote';
+  base_cost: number;
+  cost_currency: string;
+
+  // Visibility
+  is_public: boolean;
+  is_featured: boolean;
+  is_active: boolean;
+  available_from?: string;
+  available_until?: string;
+
+  // Usage
+  request_count: number;
+  avg_fulfillment_time: number;
+  satisfaction_rating: number;
+
+  tags?: string; // JSON array
+  keywords?: string;
+  created_by?: number;
+  updated_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Service Request - Instance of a catalog item request
+ */
+export interface ServiceRequest {
+  id: number;
+  request_number: string;
+  catalog_item_id: number;
+  ticket_id?: number;
+
+  // Requester
+  requester_id: number;
+  requester_name?: string;
+  requester_email?: string;
+  requester_department?: string;
+  on_behalf_of_id?: number;
+
+  // Request details
+  form_data: string; // JSON
+  justification?: string;
+  requested_date?: string;
+
+  // Status
+  status: 'draft' | 'submitted' | 'pending_approval' | 'approved' | 'rejected' | 'in_progress' | 'fulfilled' | 'cancelled' | 'failed';
+  approval_status?: 'pending' | 'approved' | 'rejected' | 'not_required';
+  approved_by?: number;
+  approved_at?: string;
+  rejection_reason?: string;
+
+  // Fulfillment
+  fulfilled_by?: number;
+  fulfilled_at?: string;
+  fulfillment_notes?: string;
+
+  // Cost
+  estimated_cost?: number;
+  actual_cost?: number;
+
+  // Satisfaction
+  satisfaction_rating?: number;
+  satisfaction_comment?: string;
+
+  organization_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Service Request Approval - Multi-level approval tracking
+ */
+export interface ServiceRequestApproval {
+  id: number;
+  service_request_id: number;
+  approval_level: number;
+  approver_id?: number;
+  approver_role?: string;
+
+  status: 'pending' | 'approved' | 'rejected' | 'delegated' | 'expired';
+  decision_at?: string;
+  comments?: string;
+  delegated_to?: number;
+
+  due_date?: string;
+  reminded_at?: string;
+  reminder_count: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Service Request Task - Fulfillment tasks
+ */
+export interface ServiceRequestTask {
+  id: number;
+  service_request_id: number;
+  task_order: number;
+  title: string;
+  description?: string;
+
+  assigned_to?: number;
+  assigned_team_id?: number;
+
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked' | 'cancelled';
+  started_at?: string;
+  completed_at?: string;
+  completion_notes?: string;
+
+  estimated_minutes?: number;
+  actual_minutes?: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+// With Details Types
+export interface ServiceCatalogItemWithDetails extends ServiceCatalogItem {
+  category?: ServiceCategory;
+  sla_policy?: SLAPolicy;
+  fulfillment_team?: Team;
+}
+
+export interface ServiceRequestWithDetails extends ServiceRequest {
+  catalog_item?: ServiceCatalogItem;
+  requester?: User;
+  approved_by_user?: User;
+  fulfilled_by_user?: User;
+  ticket?: Ticket;
+  approvals?: ServiceRequestApproval[];
+  tasks?: ServiceRequestTask[];
+}
+
+// ========================================
+// CHANGE MANAGEMENT ENHANCEMENTS (CAB)
+// ========================================
+
+/**
+ * Change Type - Classification of change requests
+ * (e.g., Standard, Normal, Emergency, Major)
+ */
+export interface ChangeType {
+  id: number;
+  name: string;
+  description?: string;
+  requires_cab_approval: boolean;
+  default_risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  lead_time_days: number;
+  created_at: string;
+}
+
+/**
+ * CAB Configuration - Change Advisory Board setup
+ */
+export interface CABConfiguration {
+  id: number;
+  name: string;
+  description?: string;
+  organization_id: number;
+
+  // Schedule
+  meeting_day?: string;
+  meeting_time?: string;
+  meeting_duration: number;
+  meeting_location?: string;
+  meeting_url?: string;
+
+  // Members
+  chair_user_id?: number;
+  secretary_user_id?: number;
+
+  // Quorum
+  minimum_members: number;
+  quorum_percentage: number;
+
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * CAB Member - Member of a Change Advisory Board
+ */
+export interface CABMember {
+  id: number;
+  cab_id: number;
+  user_id: number;
+  role: 'chair' | 'secretary' | 'member' | 'advisor';
+  is_voting_member: boolean;
+  expertise_areas?: string; // JSON array
+  is_active: boolean;
+  joined_at: string;
+}
+
+/**
+ * CAB Meeting - Change Advisory Board meeting instance
+ */
+export interface CABMeeting {
+  id: number;
+  cab_id: number;
+  meeting_date: string;
+  meeting_type: 'regular' | 'emergency' | 'virtual';
+
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+
+  attendees?: string; // JSON array
+  actual_start?: string;
+  actual_end?: string;
+
+  agenda?: string;
+  minutes?: string;
+  decisions?: string; // JSON array
+  action_items?: string; // JSON array
+
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Change Request (RFC) - Request for Change
+ */
+export interface ChangeRequest {
+  id: number;
+  change_number: string;
+  title: string;
+  description: string;
+
+  // Classification
+  change_type_id?: number;
+  category: 'standard' | 'normal' | 'emergency';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+
+  // Risk
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  risk_assessment?: string;
+  impact_assessment?: string;
+
+  // Planning
+  reason_for_change?: string;
+  business_justification?: string;
+  implementation_plan?: string;
+  backout_plan?: string;
+  test_plan?: string;
+  communication_plan?: string;
+
+  // Schedule
+  requested_start_date?: string;
+  requested_end_date?: string;
+  actual_start_date?: string;
+  actual_end_date?: string;
+
+  // Stakeholders
+  requester_id: number;
+  owner_id?: number;
+  implementer_id?: number;
+
+  // Approval
+  cab_meeting_id?: number;
+  approval_status: 'pending' | 'approved' | 'rejected' | 'deferred' | 'withdrawn';
+  approved_by?: number;
+  approved_at?: string;
+  approval_notes?: string;
+
+  // Status
+  status: 'draft' | 'submitted' | 'under_review' | 'scheduled' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'rolled_back';
+
+  // PIR
+  pir_required: boolean;
+  pir_completed: boolean;
+  pir_notes?: string;
+  pir_success_rating?: number;
+
+  affected_cis?: string; // JSON array
+
+  organization_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Change Request Approval - CAB voting record
+ */
+export interface ChangeRequestApproval {
+  id: number;
+  change_request_id: number;
+  cab_member_id: number;
+
+  vote?: 'approve' | 'reject' | 'defer' | 'abstain';
+  voted_at?: string;
+  comments?: string;
+  conditions?: string;
+
+  created_at: string;
+}
+
+/**
+ * Change Calendar - Blackout/freeze periods
+ */
+export interface ChangeCalendar {
+  id: number;
+  name: string;
+  description?: string;
+  start_date: string;
+  end_date: string;
+
+  type: 'blackout' | 'freeze' | 'preferred' | 'maintenance';
+  severity: 'soft' | 'hard';
+
+  affected_environments?: string; // JSON array
+  affected_change_types?: string; // JSON array
+
+  is_recurring: boolean;
+  recurrence_pattern?: string; // JSON
+
+  organization_id: number;
+  created_by?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// With Details Types
+export interface ChangeRequestWithDetails extends ChangeRequest {
+  change_type?: ChangeType;
+  requester?: User;
+  owner?: User;
+  implementer?: User;
+  cab_meeting?: CABMeeting;
+  approvals?: ChangeRequestApprovalWithDetails[];
+  affected_configuration_items?: ConfigurationItem[];
+}
+
+export interface ChangeRequestApprovalWithDetails extends ChangeRequestApproval {
+  cab_member?: CABMemberWithDetails;
+}
+
+export interface CABMemberWithDetails extends CABMember {
+  user?: User;
+}
+
+export interface CABMeetingWithDetails extends CABMeeting {
+  cab_configuration?: CABConfiguration;
+  change_requests?: ChangeRequest[];
+  attendee_details?: User[];
+}
+
+// ========================================
+// CMDB Create Types
+// ========================================
+
+export type CreateCIType = Omit<CIType, 'id' | 'created_at' | 'updated_at'>;
+export type CreateCIStatus = Omit<CIStatus, 'id' | 'created_at'>;
+export type CreateConfigurationItem = Omit<ConfigurationItem, 'id' | 'ci_number' | 'created_at' | 'updated_at'>;
+export type CreateCIRelationshipType = Omit<CIRelationshipType, 'id' | 'created_at'>;
+export type CreateCIRelationship = Omit<CIRelationship, 'id' | 'created_at' | 'updated_at'>;
+export type CreateCIHistory = Omit<CIHistory, 'id' | 'created_at'>;
+export type CreateCITicketLink = Omit<CITicketLink, 'id' | 'created_at'>;
+
+// ========================================
+// Service Catalog Create Types
+// ========================================
+
+export type CreateServiceCategory = Omit<ServiceCategory, 'id' | 'created_at' | 'updated_at'>;
+export type CreateServiceCatalogItem = Omit<ServiceCatalogItem, 'id' | 'request_count' | 'avg_fulfillment_time' | 'satisfaction_rating' | 'created_at' | 'updated_at'>;
+export type CreateServiceRequest = Omit<ServiceRequest, 'id' | 'request_number' | 'approved_by' | 'approved_at' | 'fulfilled_by' | 'fulfilled_at' | 'satisfaction_rating' | 'satisfaction_comment' | 'created_at' | 'updated_at'>;
+export type CreateServiceRequestApproval = Omit<ServiceRequestApproval, 'id' | 'decision_at' | 'reminded_at' | 'reminder_count' | 'created_at' | 'updated_at'>;
+export type CreateServiceRequestTask = Omit<ServiceRequestTask, 'id' | 'started_at' | 'completed_at' | 'actual_minutes' | 'created_at' | 'updated_at'>;
+
+// ========================================
+// Change Management Create Types
+// ========================================
+
+export type CreateChangeType = Omit<ChangeType, 'id' | 'created_at'>;
+export type CreateCABConfiguration = Omit<CABConfiguration, 'id' | 'created_at' | 'updated_at'>;
+export type CreateCABMember = Omit<CABMember, 'id' | 'joined_at'>;
+export type CreateCABMeeting = Omit<CABMeeting, 'id' | 'actual_start' | 'actual_end' | 'created_at' | 'updated_at'>;
+export type CreateChangeRequest = Omit<ChangeRequest, 'id' | 'change_number' | 'cab_meeting_id' | 'approved_by' | 'approved_at' | 'actual_start_date' | 'actual_end_date' | 'pir_completed' | 'pir_notes' | 'pir_success_rating' | 'created_at' | 'updated_at'>;
+export type CreateChangeRequestApproval = Omit<ChangeRequestApproval, 'id' | 'vote' | 'voted_at' | 'created_at'>;
+export type CreateChangeCalendar = Omit<ChangeCalendar, 'id' | 'created_at' | 'updated_at'>;
+
+// ========================================
+// CMDB Update Types
+// ========================================
+
+export type UpdateCIType = Partial<Omit<CIType, 'id' | 'created_at'>> & { id: number };
+export type UpdateConfigurationItem = Partial<Omit<ConfigurationItem, 'id' | 'ci_number' | 'created_at'>> & { id: number };
+export type UpdateCIRelationship = Partial<Omit<CIRelationship, 'id' | 'created_at'>> & { id: number };
+
+// ========================================
+// Service Catalog Update Types
+// ========================================
+
+export type UpdateServiceCategory = Partial<Omit<ServiceCategory, 'id' | 'created_at'>> & { id: number };
+export type UpdateServiceCatalogItem = Partial<Omit<ServiceCatalogItem, 'id' | 'created_at'>> & { id: number };
+export type UpdateServiceRequest = Partial<Omit<ServiceRequest, 'id' | 'request_number' | 'created_at'>> & { id: number };
+export type UpdateServiceRequestTask = Partial<Omit<ServiceRequestTask, 'id' | 'created_at'>> & { id: number };
+
+// ========================================
+// Change Management Update Types
+// ========================================
+
+export type UpdateCABConfiguration = Partial<Omit<CABConfiguration, 'id' | 'created_at'>> & { id: number };
+export type UpdateCABMember = Partial<Omit<CABMember, 'id' | 'joined_at'>> & { id: number };
+export type UpdateCABMeeting = Partial<Omit<CABMeeting, 'id' | 'created_at'>> & { id: number };
+export type UpdateChangeRequest = Partial<Omit<ChangeRequest, 'id' | 'change_number' | 'created_at'>> & { id: number };
+export type UpdateChangeCalendar = Partial<Omit<ChangeCalendar, 'id' | 'created_at'>> & { id: number };
+
+// ========================================
+// CMDB/Change Management Enums
+// ========================================
+
+export const CICriticality = {
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low'
+} as const;
+
+export const CIEnvironment = {
+  PRODUCTION: 'production',
+  STAGING: 'staging',
+  DEVELOPMENT: 'development',
+  TEST: 'test',
+  DR: 'dr'
+} as const;
+
+export const ChangeCategory = {
+  STANDARD: 'standard',
+  NORMAL: 'normal',
+  EMERGENCY: 'emergency'
+} as const;
+
+export const ChangeRequestStatus = {
+  DRAFT: 'draft',
+  SUBMITTED: 'submitted',
+  UNDER_REVIEW: 'under_review',
+  SCHEDULED: 'scheduled',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+  ROLLED_BACK: 'rolled_back'
+} as const;
+
+export const CABVote = {
+  APPROVE: 'approve',
+  REJECT: 'reject',
+  DEFER: 'defer',
+  ABSTAIN: 'abstain'
+} as const;
+
+export const ServiceRequestStatus = {
+  DRAFT: 'draft',
+  SUBMITTED: 'submitted',
+  PENDING_APPROVAL: 'pending_approval',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  IN_PROGRESS: 'in_progress',
+  FULFILLED: 'fulfilled',
+  CANCELLED: 'cancelled',
+  FAILED: 'failed'
 } as const;
 

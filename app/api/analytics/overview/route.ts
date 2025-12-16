@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -26,9 +26,6 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30d' // 7d, 30d, 90d, 1y
-
-    const db = getDb()
-
     // Calcular data de início baseada no período
     let dateFilter = ''
     switch (period) {
@@ -147,7 +144,7 @@ export async function GET(request: NextRequest) {
     `).all()
 
     // Performance dos agentes (apenas para admins)
-    let agentPerformance = []
+    let agentPerformance: any[] = []
     if (user.role === 'admin') {
       agentPerformance = db.prepare(`
         SELECT
@@ -176,7 +173,7 @@ export async function GET(request: NextRequest) {
         AVG(resolution_time_minutes) as avg_resolution_time
       FROM sla_tracking
       WHERE created_at >= ${dateFilter}
-    `).get()
+    `).get() as any
 
     const responseCompliance = slaPerformance.total_tickets > 0
       ? Math.round((slaPerformance.response_met / slaPerformance.total_tickets) * 100)
@@ -217,7 +214,7 @@ export async function GET(request: NextRequest) {
           byPriority: ticketsByPriority
         },
         trends: {
-          ticketTrend: ticketTrend.map(item => ({
+          ticketTrend: ticketTrend.map((item: any) => ({
             date: item.date,
             created: item.created,
             resolved: item.resolved

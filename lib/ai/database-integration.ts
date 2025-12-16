@@ -11,11 +11,7 @@ import {
   CreateVectorEmbedding
 } from '../types/database';
 import {
-  AIOperationContext,
-  AITrainingDataEntry,
-  AIFeedbackEntry,
-  AIPerformanceMetrics,
-  EmbeddingGenerationJob
+  AIOperationContext
 } from './types';
 
 export class AIDatabaseService {
@@ -67,12 +63,13 @@ export class AIDatabaseService {
   }
 
   async getClassificationByTicket(ticketId: number): Promise<AIClassification | null> {
-    return await this.db.get(`
+    const result = await this.db.get(`
       SELECT * FROM ai_classifications
       WHERE ticket_id = ?
       ORDER BY created_at DESC
       LIMIT 1
     `, [ticketId]);
+    return result ?? null;
   }
 
   async updateClassificationFeedback(
@@ -183,7 +180,7 @@ export class AIDatabaseService {
 
     const updateData: any = { was_used: wasUsed };
     let updateQuery = `UPDATE ai_suggestions SET was_used = ?`;
-    const params = [wasUsed];
+    const params: (boolean | number | string)[] = [wasUsed];
 
     if (wasUsed && usedBy) {
       updateQuery += `, used_by = ?, used_at = CURRENT_TIMESTAMP`;
@@ -396,7 +393,8 @@ export class AIDatabaseService {
 
     query += ` ORDER BY updated_at DESC LIMIT 1`;
 
-    return await this.db.get(query, params);
+    const result = await this.db.get(query, params);
+    return result ?? null;
   }
 
   async deleteEmbedding(entityType: string, entityId: number): Promise<void> {

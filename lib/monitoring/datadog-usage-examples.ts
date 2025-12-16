@@ -12,8 +12,54 @@ import {
   knowledgeBaseMetrics,
   systemMetrics,
 } from './datadog-metrics'
-import { traceQuery, TracedDatabase, createTracedDatabase } from './datadog-database'
-import db from '@/lib/db/connection'
+import { traceQuery, createTracedDatabase } from './datadog-database'
+import db from '../db/connection'
+import type Database from 'better-sqlite3'
+
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+interface TicketData {
+  priority: string
+  category: string
+  organizationId: number
+  userId: number
+  title?: string
+  description?: string
+  agentId?: number
+  status?: string
+}
+
+interface Ticket extends TicketData {
+  id: number
+  createdAt: Date
+  slaId?: number
+}
+
+interface SLAPolicy {
+  id: number
+  name: string
+  responseTimeHours: number
+  resolutionTimeHours: number
+}
+
+interface User {
+  id: number
+  email: string
+  organizationId: number
+  twoFactorEnabled: boolean
+}
+
+interface KnowledgeArticle {
+  id: number
+  title: string
+  content: string
+}
+
+interface DatabaseRow {
+  [key: string]: unknown
+}
 
 // ============================================================================
 // EXAMPLE 1: Tracing API Routes
@@ -22,11 +68,11 @@ import db from '@/lib/db/connection'
 /**
  * Example: Trace a ticket creation API route
  */
-export async function exampleCreateTicketAPI(request: Request) {
+export async function exampleCreateTicketAPI(request: Request): Promise<Response> {
   return traceApiRoute(
     'tickets.create',
     async () => {
-      const body = await request.json()
+      const body = await request.json() as TicketData
 
       // Add custom tags to the current span
       addSpanTags({
@@ -57,12 +103,13 @@ export async function exampleCreateTicketAPI(request: Request) {
 /**
  * Example: Trace individual database queries
  */
-export async function exampleDatabaseQuery() {
+export async function exampleDatabaseQuery(): Promise<DatabaseRow[]> {
   // Method 1: Manual tracing
-  const users = await traceQuery(
+  const users = await traceQuery<DatabaseRow[]>(
     'SELECT * FROM users WHERE role = ?',
     () => {
-      return db.prepare('SELECT * FROM users WHERE role = ?').all('admin')
+      const result = db.prepare('SELECT * FROM users WHERE role = ?').all('admin')
+      return result as DatabaseRow[]
     },
     'SELECT'
   )
@@ -73,16 +120,16 @@ export async function exampleDatabaseQuery() {
 /**
  * Example: Use TracedDatabase wrapper (recommended)
  */
-export function exampleTracedDatabase() {
+export function exampleTracedDatabase(): { user: DatabaseRow | undefined; tickets: DatabaseRow[]; result: Database.RunResult } {
   // Create a traced database instance
   const tracedDb = createTracedDatabase(db)
 
   // All queries are now automatically traced
-  const user = tracedDb.prepare('SELECT * FROM users WHERE id = ?').get(1)
+  const user = tracedDb.prepare('SELECT * FROM users WHERE id = ?').get(1) as DatabaseRow | undefined
 
-  const tickets = tracedDb.prepare('SELECT * FROM tickets WHERE status = ?').all('open')
+  const tickets = tracedDb.prepare('SELECT * FROM tickets WHERE status = ?').all('open') as DatabaseRow[]
 
-  const result = tracedDb.prepare('INSERT INTO tickets (...) VALUES (...)').run(/* params */)
+  const result = tracedDb.prepare('INSERT INTO tickets (title, description) VALUES (?, ?)').run('Example', 'Description') as Database.RunResult
 
   return { user, tickets, result }
 }
@@ -90,17 +137,26 @@ export function exampleTracedDatabase() {
 /**
  * Example: Trace transactions
  */
-export function exampleDatabaseTransaction() {
+export function exampleDatabaseTransaction(): { ticketId: number | bigint; commentId: number | bigint } {
   const tracedDb = createTracedDatabase(db)
 
-  const insertTicketWithComment = tracedDb.transaction((ticketData, commentData) => {
+  interface TicketTransactionData {
+    title: string
+    description: string
+  }
+
+  interface CommentTransactionData {
+    content: string
+  }
+
+  const insertTicketWithComment = tracedDb.transaction((ticketData: TicketTransactionData, commentData: CommentTransactionData) => {
     const ticketResult = tracedDb
-      .prepare('INSERT INTO tickets (...) VALUES (...)')
-      .run(/* ticket params */)
+      .prepare('INSERT INTO tickets (title, description) VALUES (?, ?)')
+      .run(ticketData.title, ticketData.description) as Database.RunResult
 
     const commentResult = tracedDb
-      .prepare('INSERT INTO comments (...) VALUES (...)')
-      .run(/* comment params */)
+      .prepare('INSERT INTO comments (content, ticket_id) VALUES (?, ?)')
+      .run(commentData.content, ticketResult.lastInsertRowid) as Database.RunResult
 
     return { ticketId: ticketResult.lastInsertRowid, commentId: commentResult.lastInsertRowid }
   })
@@ -121,19 +177,19 @@ export function exampleDatabaseTransaction() {
 /**
  * Example: Trace a custom business operation
  */
-export async function exampleCustomOperation() {
+export async function exampleCustomOperation(): Promise<{ checked: number; duration: number }> {
   return traceOperation(
     'ticket.sla.check',
     async () => {
       const startTime = Date.now()
 
       // Check SLA for all open tickets
-      const openTickets = db.prepare('SELECT * FROM tickets WHERE status = ?').all('open')
+      const openTickets = db.prepare('SELECT * FROM tickets WHERE status = ?').all('open') as Ticket[]
 
       for (const ticket of openTickets) {
-        const slaPolicy = db.prepare('SELECT * FROM sla_policies WHERE id = ?').get(ticket.slaId)
+        const slaPolicy = db.prepare('SELECT * FROM sla_policies WHERE id = ?').get(ticket.slaId) as SLAPolicy | undefined
 
-        if (isSLABreached(ticket, slaPolicy)) {
+        if (slaPolicy && isSLABreached(ticket, slaPolicy)) {
           // Record SLA breach metric
           ticketMetrics.slaBreached(ticket.priority, ticket.organizationId)
         }
@@ -163,7 +219,7 @@ export async function exampleCustomOperation() {
 /**
  * Example: Track authentication events
  */
-export async function exampleAuthMetrics(email: string, password: string) {
+export async function exampleAuthMetrics(email: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     const user = await authenticateUser(email, password)
 
@@ -190,7 +246,7 @@ export async function exampleAuthMetrics(email: string, password: string) {
 /**
  * Example: Track ticket lifecycle metrics
  */
-export async function exampleTicketMetrics(ticketData: any) {
+export async function exampleTicketMetrics(ticketData: TicketData): Promise<void> {
   const createdAt = new Date()
 
   // Create ticket
@@ -198,8 +254,10 @@ export async function exampleTicketMetrics(ticketData: any) {
   ticketMetrics.created(ticket.priority, ticket.category, ticket.organizationId)
 
   // Assign ticket
-  await assignTicket(ticket.id, ticketData.agentId)
-  ticketMetrics.assigned(ticket.priority, ticketData.agentId)
+  if (ticketData.agentId) {
+    await assignTicket(ticket.id, ticketData.agentId)
+    ticketMetrics.assigned(ticket.priority, ticketData.agentId)
+  }
 
   // Update ticket
   await updateTicket(ticket.id, { status: 'in_progress' })
@@ -214,18 +272,21 @@ export async function exampleTicketMetrics(ticketData: any) {
 /**
  * Example: Track knowledge base usage
  */
-export async function exampleKnowledgeBaseMetrics(query: string, userId?: number) {
+export async function exampleKnowledgeBaseMetrics(query: string, userId?: number): Promise<KnowledgeArticle[]> {
   const results = await searchKnowledgeBase(query)
 
   // Record search
   knowledgeBaseMetrics.search(query, results.length)
 
-  if (results.length > 0 && userId) {
-    // Record article view
-    knowledgeBaseMetrics.articleViewed(results[0].id, userId)
+  if (results.length > 0 && userId !== undefined) {
+    const firstArticle = results[0]
+    if (firstArticle) {
+      // Record article view
+      knowledgeBaseMetrics.articleViewed(firstArticle.id, userId)
 
-    // Record helpful vote
-    knowledgeBaseMetrics.articleHelpful(results[0].id, true)
+      // Record helpful vote
+      knowledgeBaseMetrics.articleHelpful(firstArticle.id, true)
+    }
   }
 
   return results
@@ -234,7 +295,7 @@ export async function exampleKnowledgeBaseMetrics(query: string, userId?: number
 /**
  * Example: Track system health metrics
  */
-export async function exampleSystemMetrics() {
+export async function exampleSystemMetrics(): Promise<void> {
   // Track cache usage
   const cacheKey = 'user:123'
   const cached = await getFromCache(cacheKey)
@@ -270,7 +331,7 @@ export async function exampleSystemMetrics() {
 /**
  * Example: Track API performance in middleware
  */
-export async function exampleAPITracking(request: Request) {
+export async function exampleAPITracking(request: Request): Promise<Response> {
   const startTime = Date.now()
   const method = request.method
   const url = new URL(request.url)
@@ -299,7 +360,7 @@ export async function exampleAPITracking(request: Request) {
 /**
  * Example: Track rate limiting
  */
-export async function exampleRateLimiting(request: Request, userId?: number) {
+export async function exampleRateLimiting(request: Request, userId?: number): Promise<Response> {
   const url = new URL(request.url)
   const isRateLimited = await checkRateLimit(userId)
 
@@ -318,7 +379,7 @@ export async function exampleRateLimiting(request: Request, userId?: number) {
 /**
  * Example: Track database pool usage
  */
-export function exampleDatabasePoolMonitoring() {
+export function exampleDatabasePoolMonitoring(): void {
   // These would come from your actual connection pool
   const activeConnections = 5
   const idleConnections = 3
@@ -331,23 +392,23 @@ export function exampleDatabasePoolMonitoring() {
 // Helper Functions (Stubs for Examples)
 // ============================================================================
 
-async function createTicket(data: any) {
+async function createTicket(data: TicketData): Promise<Ticket> {
   return { id: 1, ...data, createdAt: new Date() }
 }
 
-async function assignTicket(ticketId: number, agentId: number) {
+async function assignTicket(_ticketId: number, _agentId: number): Promise<{ success: boolean }> {
   return { success: true }
 }
 
-async function updateTicket(ticketId: number, updates: any) {
+async function updateTicket(_ticketId: number, _updates: Partial<TicketData>): Promise<{ success: boolean }> {
   return { success: true }
 }
 
-async function resolveTicket(ticketId: number) {
+async function resolveTicket(_ticketId: number): Promise<{ success: boolean }> {
   return { success: true }
 }
 
-async function authenticateUser(email: string, password: string) {
+async function authenticateUser(email: string, _password: string): Promise<User | null> {
   return {
     id: 1,
     email,
@@ -356,34 +417,34 @@ async function authenticateUser(email: string, password: string) {
   }
 }
 
-async function searchKnowledgeBase(query: string) {
+async function searchKnowledgeBase(_query: string): Promise<KnowledgeArticle[]> {
   return [{ id: 1, title: 'Sample Article', content: '...' }]
 }
 
-async function getFromCache(key: string) {
+async function getFromCache(_key: string): Promise<{ data: string } | null> {
   return null
 }
 
-async function setCache(key: string, value: any) {
+async function setCache(_key: string, _value: unknown): Promise<boolean> {
   return true
 }
 
-async function fetchFromDatabase() {
+async function fetchFromDatabase(): Promise<{ data: string }> {
   return { data: 'sample' }
 }
 
-async function processBackgroundJob() {
+async function processBackgroundJob(): Promise<boolean> {
   return true
 }
 
-async function handleRequest(request: Request) {
+async function handleRequest(_request: Request): Promise<Response> {
   return new Response('OK', { status: 200 })
 }
 
-async function checkRateLimit(userId?: number) {
+async function checkRateLimit(_userId?: number): Promise<boolean> {
   return false
 }
 
-function isSLABreached(ticket: any, slaPolicy: any) {
+function isSLABreached(_ticket: Ticket, _slaPolicy: SLAPolicy): boolean {
   return false
 }

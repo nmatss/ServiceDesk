@@ -15,8 +15,7 @@ interface CompanyLogoWidgetProps {
 }
 
 export function CompanyLogoWidget({
-  config,
-  onUpdate
+  config
 }: CompanyLogoWidgetProps) {
   const sizeClasses = {
     small: 'h-12 w-12',

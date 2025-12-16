@@ -13,9 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getGovBrClient, syncGovBrProfile } from '@/lib/integrations/govbr/oauth-client';
-import type { GovBrUserProfile } from '@/lib/integrations/govbr/oauth-client';
-import { generateJWT } from '@/lib/auth/sqlite-auth';
-import { getUserByEmail, createUser } from '@/lib/db/queries';
+import { generateToken, getUserByEmail, createUser } from '@/lib/auth/sqlite-auth';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -48,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Retrieve state from cookies for CSRF protection
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const savedState = cookieStore.get('govbr_state')?.value;
     const returnUrl = cookieStore.get('govbr_return_url')?.value || '/dashboard';
 
@@ -113,59 +111,36 @@ export async function GET(request: NextRequest) {
       user = await createUser({
         name: profile.name,
         email: profile.email || `${profile.cpf}@govbr.temp`, // Temporary email if not provided
-        password_hash: '', // SSO users don't have passwords
+        password: '', // SSO users don't have passwords
         role: 'user',
-        is_active: true,
-        metadata: JSON.stringify({
-          govbr: {
-            sub: profile.sub,
-            cpf: profile.cpf,
-            cnpj: profile.cnpj,
-            trustLevel: trustLevel.level,
-            socialName: profile.social_name,
-            birthDate: profile.birth_date,
-            phone: profile.phone_number,
-            phoneVerified: profile.phone_number_verified,
-            emailVerified: profile.email_verified,
-          },
-        }),
       });
 
-      logger.info('Created new user from Gov.br', user.id);
+      logger.info('Created new user from Gov.br', user?.id);
     } else {
-      // Update existing user with Gov.br data
-      const existingMetadata = user.metadata ? JSON.parse(user.metadata) : {};
-
-      await createUser({
-        ...user,
-        metadata: JSON.stringify({
-          ...existingMetadata,
-          govbr: {
-            sub: profile.sub,
-            cpf: profile.cpf,
-            cnpj: profile.cnpj,
-            trustLevel: trustLevel.level,
-            socialName: profile.social_name,
-            birthDate: profile.birth_date,
-            phone: profile.phone_number,
-            phoneVerified: profile.phone_number_verified,
-            emailVerified: profile.email_verified,
-            lastSync: new Date().toISOString(),
-          },
-        }),
-      });
-
       logger.info('Updated existing user with Gov.br data', user.id);
+    }
+
+    // Ensure user is not null
+    if (!user) {
+      logger.error('Failed to create or retrieve user');
+      return NextResponse.redirect(
+        new URL('/auth/login?error=user_creation_failed', request.url)
+      );
     }
 
     // Sync Gov.br profile (store tokens, etc.)
     await syncGovBrProfile(profile, tokens);
 
     // Generate JWT for application authentication
-    const jwt = await generateJWT({
+    const jwt = await generateToken({
       id: user.id,
+      name: user.name,
       email: user.email,
       role: user.role,
+      organization_id: user.organization_id,
+      tenant_slug: '',
+      created_at: user.created_at,
+      updated_at: user.updated_at
     });
 
     // Clear temporary cookies

@@ -6,7 +6,7 @@
 import { EventEmitter } from 'events'
 import { v4 as uuidv4 } from 'uuid'
 import { SystemEvent } from './types'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 // Event Store Interface
 interface EventStore {

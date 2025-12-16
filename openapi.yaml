@@ -1,0 +1,2652 @@
+openapi: 3.0.0
+info:
+  title: ServiceDesk API
+  version: 1.0.0
+  description: |
+    Enterprise Service Desk platform with multi-tenant support, comprehensive ticket management,
+    knowledge base, analytics, and AI-powered features.
+
+    ## Authentication
+    This API uses JWT-based authentication with bearer tokens or secure HTTP-only cookies.
+    All authenticated endpoints require a valid token obtained through the login endpoint.
+
+    ## Multi-tenancy
+    The API supports multi-tenant architecture. Tenant context is resolved via:
+    - Subdomain (tenant.servicedesk.com)
+    - HTTP headers (x-tenant-id, x-tenant-slug)
+    - Cookie (tenant-context)
+
+    ## Rate Limiting
+    API endpoints are rate-limited to prevent abuse. Rate limits vary by endpoint type:
+    - Auth endpoints: More restrictive
+    - General API endpoints: Standard limits
+
+    Rate limit information is included in response headers:
+    - X-RateLimit-Limit
+    - X-RateLimit-Remaining
+    - X-RateLimit-Reset
+  contact:
+    name: ServiceDesk API Support
+    email: support@servicedesk.com
+  license:
+    name: Proprietary
+    url: https://servicedesk.com/license
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://{tenant}.servicedesk.com/api
+    description: Production server (multi-tenant)
+    variables:
+      tenant:
+        default: demo
+        description: Tenant subdomain slug
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Tickets
+    description: Ticket creation, retrieval, and management
+  - name: Comments
+    description: Ticket comments and communications
+  - name: Attachments
+    description: File attachments for tickets
+  - name: Users
+    description: User management and profiles
+  - name: Admin
+    description: Administrative operations (admin-only)
+  - name: Analytics
+    description: Analytics and reporting endpoints
+  - name: Knowledge Base
+    description: Knowledge base articles and categories
+  - name: Notifications
+    description: Real-time notifications
+  - name: Teams
+    description: Team management
+  - name: SLA
+    description: Service Level Agreement management
+  - name: Workflows
+    description: Workflow automation
+  - name: AI
+    description: AI-powered features
+  - name: Integrations
+    description: Third-party integrations (WhatsApp, Gov.br, etc.)
+  - name: System
+    description: System health and status
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login endpoint
+
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: HTTP-only secure cookie containing JWT token
+
+  parameters:
+    tenantId:
+      name: x-tenant-id
+      in: header
+      description: Tenant ID for multi-tenant operations
+      required: false
+      schema:
+        type: integer
+        example: 1
+
+    tenantSlug:
+      name: x-tenant-slug
+      in: header
+      description: Tenant slug identifier
+      required: false
+      schema:
+        type: string
+        example: acme-corp
+
+    page:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    limit:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+    search:
+      name: search
+      in: query
+      description: Search query string
+      schema:
+        type: string
+        maxLength: 255
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Error message description"
+        code:
+          type: string
+          example: "ERROR_CODE"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "john.doe@example.com"
+        role:
+          type: string
+          enum: [super_admin, tenant_admin, team_manager, admin, agent, user, manager, read_only, api_client]
+          example: "agent"
+        tenant_id:
+          type: integer
+          example: 1
+        is_active:
+          type: boolean
+          example: true
+        is_email_verified:
+          type: boolean
+          example: true
+        avatar_url:
+          type: string
+          nullable: true
+          example: "https://example.com/avatar.jpg"
+        timezone:
+          type: string
+          example: "America/Sao_Paulo"
+        language:
+          type: string
+          example: "pt-BR"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Cannot access dashboard"
+        description:
+          type: string
+          example: "I'm unable to access the dashboard after logging in"
+        user_id:
+          type: integer
+          example: 5
+        assigned_to:
+          type: integer
+          nullable: true
+          example: 3
+        category_id:
+          type: integer
+          example: 2
+        priority_id:
+          type: integer
+          example: 3
+        status_id:
+          type: integer
+          example: 1
+        tenant_id:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:20:00Z"
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+
+    TicketWithDetails:
+      allOf:
+        - $ref: '#/components/schemas/Ticket'
+        - type: object
+          properties:
+            user_name:
+              type: string
+              example: "Jane Smith"
+            assigned_agent_name:
+              type: string
+              nullable: true
+              example: "John Agent"
+            category:
+              type: string
+              example: "Technical Support"
+            priority:
+              type: string
+              example: "High"
+            status:
+              type: string
+              example: "In Progress"
+            comments_count:
+              type: integer
+              example: 5
+            attachments_count:
+              type: integer
+              example: 2
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        ticket_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 3
+        content:
+          type: string
+          example: "I've investigated this issue and found the root cause"
+        is_internal:
+          type: boolean
+          example: false
+          description: Internal comments are only visible to agents
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T11:00:00Z"
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        ticket_id:
+          type: integer
+          example: 1
+        filename:
+          type: string
+          example: "error-screenshot.png"
+        original_name:
+          type: string
+          example: "Screenshot 2024-01-15.png"
+        mime_type:
+          type: string
+          example: "image/png"
+        size:
+          type: integer
+          example: 245678
+          description: File size in bytes
+        uploaded_by:
+          type: integer
+          example: 5
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:35:00Z"
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Technical Support"
+        description:
+          type: string
+          nullable: true
+          example: "Technical issues and bug reports"
+        color:
+          type: string
+          example: "#3B82F6"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Priority:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "High"
+        level:
+          type: integer
+          minimum: 1
+          maximum: 10
+          example: 3
+          description: "Priority level (1=lowest, 10=highest)"
+        color:
+          type: string
+          example: "#F59E0B"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Status:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "In Progress"
+        description:
+          type: string
+          nullable: true
+          example: "Ticket is being actively worked on"
+        color:
+          type: string
+          example: "#F59E0B"
+        is_final:
+          type: boolean
+          example: false
+          description: "Indicates if this is a terminal status (resolved/closed)"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    KnowledgeArticle:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "How to reset your password"
+        content:
+          type: string
+          example: "Step-by-step guide to reset your password..."
+        excerpt:
+          type: string
+          nullable: true
+          example: "Quick guide for password reset"
+        category:
+          type: string
+          example: "Getting Started"
+        tags:
+          type: string
+          nullable: true
+          example: '["password","security","authentication"]'
+        status:
+          type: string
+          enum: [draft, published, archived]
+          example: "published"
+        view_count:
+          type: integer
+          example: 152
+        helpful_count:
+          type: integer
+          example: 48
+        not_helpful_count:
+          type: integer
+          example: 3
+        author_id:
+          type: integer
+          example: 2
+        author_name:
+          type: string
+          example: "Admin User"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 5
+        ticket_id:
+          type: integer
+          nullable: true
+          example: 10
+        type:
+          type: string
+          example: "ticket_assigned"
+        title:
+          type: string
+          example: "New ticket assigned to you"
+        message:
+          type: string
+          example: "Ticket #10 has been assigned to you"
+        is_read:
+          type: boolean
+          example: false
+        sent_via_email:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+
+    SLAPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Critical Priority SLA"
+        description:
+          type: string
+          nullable: true
+          example: "SLA for critical priority tickets"
+        priority_id:
+          type: integer
+          nullable: true
+          example: 4
+        category_id:
+          type: integer
+          nullable: true
+          example: null
+        response_time_hours:
+          type: integer
+          example: 1
+        resolution_time_hours:
+          type: integer
+          example: 4
+        business_hours_only:
+          type: boolean
+          example: false
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 150
+        pages:
+          type: integer
+          example: 15
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Authentication required"
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Acesso negado - permissão insuficiente"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Resource not found"
+
+    ValidationError:
+      description: Invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Validation failed"
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error: "Erro interno do servidor"
+
+paths:
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check API health status
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  # ==========================================
+  # AUTHENTICATION ENDPOINTS
+  # ==========================================
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: |
+        Authenticate user with email and password. Returns JWT token in cookie and response body.
+        Implements rate limiting to prevent brute force attacks.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "SecureP@ss123"
+                tenant_slug:
+                  type: string
+                  example: "acme-corp"
+                  description: Optional tenant identifier (can also be resolved from subdomain)
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: Authentication token cookie
+              schema:
+                type: string
+                example: "auth_token=eyJhbGc...; HttpOnly; Secure; SameSite=Lax"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Login realizado com sucesso"
+                  user:
+                    $ref: '#/components/schemas/User'
+                  tenant:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      slug:
+                        type: string
+                        example: "acme-corp"
+                      name:
+                        type: string
+                        example: "Acme Corporation"
+                  token_config:
+                    type: object
+                    properties:
+                      access_token_expiry:
+                        type: string
+                        example: "15m"
+                      refresh_token_expiry:
+                        type: string
+                        example: "7d"
+                      should_auto_refresh:
+                        type: boolean
+                        example: true
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Too many login attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current session and clear authentication cookies
+      operationId: logout
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Logout realizado com sucesso"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - tenant_slug
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "SecureP@ss123"
+                  description: Must contain uppercase, lowercase, and number
+                tenant_slug:
+                  type: string
+                  example: "acme-corp"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Usuário registrado com sucesso"
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      description: Retrieve authenticated user's profile information
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      tags:
+        - Authentication
+      summary: Update user profile
+      description: Update authenticated user's profile information
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "John Doe Updated"
+                avatar_url:
+                  type: string
+                  nullable: true
+                  example: "https://example.com/new-avatar.jpg"
+                timezone:
+                  type: string
+                  example: "America/Sao_Paulo"
+                language:
+                  type: string
+                  example: "pt-BR"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Perfil atualizado com sucesso"
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change password
+      description: Change authenticated user's password
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_password
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                  example: "OldP@ss123"
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "NewSecureP@ss123"
+                  description: Must contain uppercase, lowercase, and number
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Senha alterada com sucesso"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /auth/verify:
+    get:
+      tags:
+        - Authentication
+      summary: Verify token
+      description: Verify if the current authentication token is valid
+      operationId: verifyToken
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  valid:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # ==========================================
+  # TICKET ENDPOINTS
+  # ==========================================
+
+  /tickets:
+    get:
+      tags:
+        - Tickets
+      summary: List tickets
+      description: |
+        Retrieve paginated list of tickets. Non-admin users only see their own tickets.
+        Agents and admins see all tickets within their tenant.
+      operationId: listTickets
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/search'
+        - name: status_id
+          in: query
+          description: Filter by status ID
+          schema:
+            type: integer
+        - name: priority_id
+          in: query
+          description: Filter by priority ID
+          schema:
+            type: integer
+        - name: category_id
+          in: query
+          description: Filter by category ID
+          schema:
+            type: integer
+        - name: assigned_to
+          in: query
+          description: Filter by assigned agent ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tickets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tickets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TicketWithDetails'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Tickets
+      summary: Create ticket
+      description: Create a new support ticket
+      operationId: createTicket
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - category_id
+                - priority_id
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  example: "Cannot access dashboard"
+                description:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                  example: "Detailed description of the issue..."
+                category_id:
+                  type: integer
+                  example: 2
+                priority_id:
+                  type: integer
+                  example: 3
+      responses:
+        '200':
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  ticket:
+                    $ref: '#/components/schemas/TicketWithDetails'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /tickets/{id}:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket details
+      description: Retrieve detailed information about a specific ticket
+      operationId: getTicket
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Ticket retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  ticket:
+                    $ref: '#/components/schemas/TicketWithDetails'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      tags:
+        - Tickets
+      summary: Update ticket
+      description: Update ticket information (status, priority, assignment, etc.)
+      operationId: updateTicket
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  example: "Updated ticket title"
+                description:
+                  type: string
+                  example: "Updated description"
+                status_id:
+                  type: integer
+                  example: 2
+                priority_id:
+                  type: integer
+                  example: 3
+                assigned_to:
+                  type: integer
+                  nullable: true
+                  example: 5
+      responses:
+        '200':
+          description: Ticket updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  ticket:
+                    $ref: '#/components/schemas/TicketWithDetails'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags:
+        - Tickets
+      summary: Delete ticket
+      description: Delete a ticket (admin only)
+      operationId: deleteTicket
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Ticket deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Ticket deletado com sucesso"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /tickets/{id}/comments:
+    get:
+      tags:
+        - Comments
+      summary: List ticket comments
+      description: Retrieve all comments for a specific ticket
+      operationId: listTicketComments
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Comments
+      summary: Add ticket comment
+      description: Add a new comment to a ticket
+      operationId: createTicketComment
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 10000
+                  example: "I've investigated the issue and found a solution"
+                is_internal:
+                  type: boolean
+                  default: false
+                  example: false
+                  description: Internal comments are only visible to agents
+      responses:
+        '201':
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /tickets/{id}/attachments:
+    get:
+      tags:
+        - Attachments
+      summary: List ticket attachments
+      description: Retrieve all attachments for a specific ticket
+      operationId: listTicketAttachments
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Attachments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  attachments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Attachment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Attachments
+      summary: Upload attachment
+      description: Upload a file attachment to a ticket
+      operationId: uploadAttachment
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Ticket ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload (max 50MB)
+      responses:
+        '201':
+          description: Attachment uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  attachment:
+                    $ref: '#/components/schemas/Attachment'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================
+  # KNOWLEDGE BASE ENDPOINTS
+  # ==========================================
+
+  /knowledge:
+    get:
+      tags:
+        - Knowledge Base
+      summary: List knowledge articles
+      description: Retrieve paginated list of knowledge base articles
+      operationId: listKnowledgeArticles
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/search'
+        - name: category
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status (admin only)
+          schema:
+            type: string
+            enum: [draft, published, archived]
+      responses:
+        '200':
+          description: Articles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  articles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/KnowledgeArticle'
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category:
+                          type: string
+                        count:
+                          type: integer
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      hasMore:
+                        type: boolean
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Knowledge Base
+      summary: Create knowledge article
+      description: Create a new knowledge base article (admin only)
+      operationId: createKnowledgeArticle
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                  example: "How to reset your password"
+                content:
+                  type: string
+                  example: "Step-by-step guide..."
+                excerpt:
+                  type: string
+                  nullable: true
+                  example: "Quick password reset guide"
+                category:
+                  type: string
+                  default: "Geral"
+                  example: "Getting Started"
+                tags:
+                  type: string
+                  nullable: true
+                  example: '["password","security"]'
+                status:
+                  type: string
+                  enum: [draft, published]
+                  default: draft
+                  example: "published"
+      responses:
+        '201':
+          description: Article created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  article:
+                    $ref: '#/components/schemas/KnowledgeArticle'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================
+  # ANALYTICS ENDPOINTS
+  # ==========================================
+
+  /analytics:
+    get:
+      tags:
+        - Analytics
+      summary: Get analytics data
+      description: Retrieve analytics and metrics data (admin only)
+      operationId: getAnalytics
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: period
+          in: query
+          description: Time period for analytics
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+            default: 30d
+        - name: type
+          in: query
+          description: Type of analytics data
+          schema:
+            type: string
+            enum: [overview, tickets, trends, users, performance, all]
+            default: overview
+      responses:
+        '200':
+          description: Analytics data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  period:
+                    type: string
+                    example: "30d"
+                  analytics:
+                    type: object
+                    properties:
+                      overview:
+                        type: object
+                        properties:
+                          totalTickets:
+                            type: integer
+                            example: 450
+                          openTickets:
+                            type: integer
+                            example: 125
+                          closedTickets:
+                            type: integer
+                            example: 325
+                          avgResolutionTime:
+                            type: number
+                            example: 24.5
+                            description: Average resolution time in hours
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================
+  # NOTIFICATION ENDPOINTS
+  # ==========================================
+
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: List user notifications
+      description: Retrieve notifications for the authenticated user
+      operationId: listNotifications
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: is_read
+          in: query
+          description: Filter by read status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /notifications/unread:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread notification count
+      description: Get count of unread notifications for the authenticated user
+      operationId: getUnreadCount
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Unread count retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  count:
+                    type: integer
+                    example: 5
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================
+  # ADMIN ENDPOINTS
+  # ==========================================
+
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: List all users
+      description: Retrieve list of all users in the tenant (admin only)
+      operationId: listUsers
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  users:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            tickets_count:
+                              type: integer
+                              example: 15
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /admin/sla:
+    get:
+      tags:
+        - Admin
+        - SLA
+      summary: List SLA policies
+      description: Retrieve all SLA policies for the tenant (admin only)
+      operationId: listSLAPolicies
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: SLA policies retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  policies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SLAPolicy'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Admin
+        - SLA
+      summary: Create SLA policy
+      description: Create a new SLA policy (admin only)
+      operationId: createSLAPolicy
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - priority_id
+                - response_time_hours
+                - resolution_time_hours
+              properties:
+                name:
+                  type: string
+                  example: "Critical SLA"
+                description:
+                  type: string
+                  nullable: true
+                  example: "SLA for critical tickets"
+                priority_id:
+                  type: integer
+                  example: 4
+                category_id:
+                  type: integer
+                  nullable: true
+                  example: null
+                response_time_hours:
+                  type: integer
+                  minimum: 1
+                  example: 1
+                resolution_time_hours:
+                  type: integer
+                  minimum: 1
+                  example: 4
+                business_hours_only:
+                  type: boolean
+                  default: false
+                  example: false
+                is_active:
+                  type: boolean
+                  default: true
+                  example: true
+      responses:
+        '201':
+          description: SLA policy created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  policy:
+                    $ref: '#/components/schemas/SLAPolicy'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ==========================================
+  # REFERENCE DATA ENDPOINTS
+  # ==========================================
+
+  /categories:
+    get:
+      tags:
+        - Tickets
+      summary: List ticket categories
+      description: Retrieve all ticket categories for the tenant
+      operationId: listCategories
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /priorities:
+    get:
+      tags:
+        - Tickets
+      summary: List ticket priorities
+      description: Retrieve all ticket priorities for the tenant
+      operationId: listPriorities
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Priorities retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  priorities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Priority'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /statuses:
+    get:
+      tags:
+        - Tickets
+      summary: List ticket statuses
+      description: Retrieve all ticket statuses for the tenant
+      operationId: listStatuses
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Statuses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  statuses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Status'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ========================================
+  # Tags API
+  # ========================================
+  /tags:
+    get:
+      tags:
+        - Tags
+      summary: List all tags
+      description: Retrieve all tags for the organization
+      operationId: listTags
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/search'
+        - name: organizationId
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Tags retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    color:
+                      type: string
+                    description:
+                      type: string
+                    ticket_count:
+                      type: integer
+                    usage_count:
+                      type: integer
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags:
+        - Tags
+      summary: Create a new tag
+      operationId: createTag
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                  default: "#6B7280"
+                description:
+                  type: string
+                organizationId:
+                  type: integer
+                  default: 1
+      responses:
+        '201':
+          description: Tag created successfully
+        '409':
+          description: Tag with this name already exists
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /tags/{id}:
+    get:
+      tags:
+        - Tags
+      summary: Get tag by ID
+      operationId: getTag
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tag retrieved successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags:
+        - Tags
+      summary: Update tag
+      operationId: updateTag
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                color:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Tag updated successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Tags
+      summary: Delete tag
+      operationId: deleteTag
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tag deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ========================================
+  # Macros API
+  # ========================================
+  /macros:
+    get:
+      tags:
+        - Macros
+      summary: List all macros
+      description: Retrieve available macros/quick replies
+      operationId: listMacros
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: Macros retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    content:
+                      type: string
+                    actions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          type:
+                            type: string
+                            enum: [set_status, set_priority, assign, add_tag, remove_tag, add_comment]
+                          value:
+                            type: string
+                    is_shared:
+                      type: boolean
+                    usage_count:
+                      type: integer
+    post:
+      tags:
+        - Macros
+      summary: Create a new macro
+      operationId: createMacro
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - content
+                - createdBy
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                content:
+                  type: string
+                actions:
+                  type: array
+                  items:
+                    type: object
+                isShared:
+                  type: boolean
+                  default: true
+                createdBy:
+                  type: integer
+      responses:
+        '201':
+          description: Macro created successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /macros/{id}:
+    get:
+      tags:
+        - Macros
+      summary: Get macro by ID
+      operationId: getMacro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Macro retrieved
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      tags:
+        - Macros
+      summary: Update macro
+      operationId: updateMacro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Macro updated
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Macros
+      summary: Delete macro (soft delete)
+      operationId: deleteMacro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Macro deleted
+
+  /macros/{id}/apply:
+    post:
+      tags:
+        - Macros
+      summary: Apply macro to a ticket
+      description: Executes macro actions on a ticket
+      operationId: applyMacro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticketId
+                - userId
+              properties:
+                ticketId:
+                  type: integer
+                userId:
+                  type: integer
+      responses:
+        '200':
+          description: Macro applied successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  executedActions:
+                    type: array
+                    items:
+                      type: string
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ========================================
+  # Ticket Relationships API
+  # ========================================
+  /tickets/{id}/relationships:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket relationships
+      description: Get all relationships for a ticket (parent, child, related, duplicate, blocks)
+      operationId: getTicketRelationships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Relationships retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticketId:
+                    type: integer
+                  relationships:
+                    type: object
+                    properties:
+                      parent:
+                        type: array
+                        items:
+                          type: object
+                      child:
+                        type: array
+                        items:
+                          type: object
+                      related:
+                        type: array
+                        items:
+                          type: object
+                      duplicate:
+                        type: array
+                        items:
+                          type: object
+                      blocks:
+                        type: array
+                        items:
+                          type: object
+                      blocked_by:
+                        type: array
+                        items:
+                          type: object
+                  counts:
+                    type: object
+    post:
+      tags:
+        - Tickets
+      summary: Create ticket relationship
+      operationId: createTicketRelationship
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetTicketId
+                - relationshipType
+                - userId
+              properties:
+                targetTicketId:
+                  type: integer
+                relationshipType:
+                  type: string
+                  enum: [parent, child, related, duplicate, blocks, blocked_by]
+                userId:
+                  type: integer
+      responses:
+        '201':
+          description: Relationship created
+        '409':
+          description: Relationship already exists
+    delete:
+      tags:
+        - Tickets
+      summary: Remove ticket relationship
+      operationId: deleteTicketRelationship
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: relationshipId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Relationship removed
+
+  # ========================================
+  # Ticket Tags API
+  # ========================================
+  /tickets/{id}/tags:
+    get:
+      tags:
+        - Tickets
+      summary: Get tags for a ticket
+      operationId: getTicketTags
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tags retrieved
+    post:
+      tags:
+        - Tickets
+      summary: Add tags to a ticket
+      operationId: addTicketTags
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tagIds:
+                  type: array
+                  items:
+                    type: integer
+                tagNames:
+                  type: array
+                  items:
+                    type: string
+                userId:
+                  type: integer
+      responses:
+        '201':
+          description: Tags added
+    delete:
+      tags:
+        - Tickets
+      summary: Remove tag from ticket
+      operationId: removeTicketTag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tagId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tag removed
+
+  # ========================================
+  # Ticket Activities API
+  # ========================================
+  /tickets/{id}/activities:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket activity history
+      operationId: getTicketActivities
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/limit'
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: types
+          in: query
+          description: Filter by activity types (comma-separated)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activities retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activities:
+                    type: array
+                    items:
+                      type: object
+                  pagination:
+                    type: object
+
+  # ========================================
+  # Ticket Followers API
+  # ========================================
+  /tickets/{id}/followers:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket followers
+      operationId: getTicketFollowers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Followers retrieved
+    post:
+      tags:
+        - Tickets
+      summary: Follow a ticket
+      operationId: followTicket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: integer
+      responses:
+        '201':
+          description: Now following ticket
+    delete:
+      tags:
+        - Tickets
+      summary: Unfollow a ticket
+      operationId: unfollowTicket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Unfollowed ticket
+
+  # ========================================
+  # Detailed Analytics API
+  # ========================================
+  /analytics/detailed:
+    get:
+      tags:
+        - Analytics
+      summary: Get detailed analytics
+      description: Comprehensive analytics with multiple metrics and time ranges
+      operationId: getDetailedAnalytics
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: organizationId
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: period
+          in: query
+          description: Time period for analytics
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+            default: 30d
+        - name: metrics
+          in: query
+          description: Comma-separated list of metrics to include
+          schema:
+            type: string
+            example: "tickets,sla,agents,satisfaction"
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                  startDate:
+                    type: string
+                  endDate:
+                    type: string
+                  tickets:
+                    type: object
+                    properties:
+                      overview:
+                        type: object
+                      byPriority:
+                        type: array
+                        items:
+                          type: object
+                      byCategory:
+                        type: array
+                        items:
+                          type: object
+                      trend:
+                        type: array
+                        items:
+                          type: object
+                  sla:
+                    type: object
+                    properties:
+                      compliance:
+                        type: object
+                      byPriority:
+                        type: array
+                        items:
+                          type: object
+                      averageTimes:
+                        type: object
+                  agents:
+                    type: object
+                    properties:
+                      performance:
+                        type: array
+                        items:
+                          type: object
+                      workloadDistribution:
+                        type: array
+                        items:
+                          type: object
+                  satisfaction:
+                    type: object
+                  knowledgeBase:
+                    type: object
+                  distribution:
+                    type: object
+                    properties:
+                      hourly:
+                        type: array
+                        items:
+                          type: object
+                      dayOfWeek:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'

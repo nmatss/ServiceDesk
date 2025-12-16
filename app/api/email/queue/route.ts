@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let whereClause = 'WHERE tenant_id = ?'
-    const queryParams = [tenantContext.id]
+    const queryParams: (string | number)[] = [tenantContext.id]
 
     if (status) {
       whereClause += ' AND status = ?'
@@ -55,11 +55,11 @@ export async function GET(request: NextRequest) {
     `).all(...queryParams, limit, offset)
 
     // Get total count
-    const total = db.prepare(`
+    const total = (db.prepare(`
       SELECT COUNT(*) as count
       FROM email_queue
       ${whereClause}
-    `).get(...queryParams)?.count || 0
+    `).get(...queryParams) as any)?.count || 0
 
     // Get statistics
     const stats = db.prepare(`

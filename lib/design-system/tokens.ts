@@ -92,13 +92,106 @@ export const colors = {
     critical: '#ef4444', // Red
   },
 
-  // Status colors
+  // Status colors (simple)
   status: {
     open: '#3b82f6',      // Blue
     'in-progress': '#f59e0b', // Amber
     resolved: '#22c55e',   // Green
     closed: '#6b7280',     // Gray
     cancelled: '#ef4444',  // Red
+  },
+
+  // Status colors (detailed with bg/text/border)
+  statusDetailed: {
+    open: {
+      bg: '#dbeafe',
+      text: '#1e40af',
+      border: '#93c5fd',
+      icon: '#3b82f6',
+    },
+    inProgress: {
+      bg: '#fef3c7',
+      text: '#92400e',
+      border: '#fcd34d',
+      icon: '#f59e0b',
+    },
+    pending: {
+      bg: '#fce7f3',
+      text: '#9d174d',
+      border: '#f9a8d4',
+      icon: '#ec4899',
+    },
+    resolved: {
+      bg: '#d1fae5',
+      text: '#065f46',
+      border: '#6ee7b7',
+      icon: '#10b981',
+    },
+    closed: {
+      bg: '#f3f4f6',
+      text: '#374151',
+      border: '#d1d5db',
+      icon: '#6b7280',
+    },
+    cancelled: {
+      bg: '#fee2e2',
+      text: '#991b1b',
+      border: '#fca5a5',
+      icon: '#ef4444',
+    },
+  },
+
+  // Priority colors (detailed)
+  priorityDetailed: {
+    low: {
+      bg: '#d1fae5',
+      text: '#065f46',
+      border: '#6ee7b7',
+      icon: '#10b981',
+    },
+    medium: {
+      bg: '#fef3c7',
+      text: '#92400e',
+      border: '#fcd34d',
+      icon: '#f59e0b',
+    },
+    high: {
+      bg: '#ffedd5',
+      text: '#9a3412',
+      border: '#fdba74',
+      icon: '#f97316',
+    },
+    critical: {
+      bg: '#fee2e2',
+      text: '#991b1b',
+      border: '#fca5a5',
+      icon: '#ef4444',
+    },
+    urgent: {
+      bg: '#fce7f3',
+      text: '#9d174d',
+      border: '#f9a8d4',
+      icon: '#ec4899',
+    },
+  },
+
+  // SLA colors
+  sla: {
+    onTrack: {
+      bg: '#d1fae5',
+      text: '#065f46',
+      progress: '#10b981',
+    },
+    warning: {
+      bg: '#fef3c7',
+      text: '#92400e',
+      progress: '#f59e0b',
+    },
+    breached: {
+      bg: '#fee2e2',
+      text: '#991b1b',
+      progress: '#ef4444',
+    },
   },
 } as const;
 

@@ -1,7 +1,37 @@
-import db from '../db/connection';
-import { Permission, Role, UserRole } from '../types/database';
-import { logger } from '../monitoring/logger';
+/**
+ * Role-Based Access Control (RBAC) Engine
+ *
+ * Provides enterprise-grade access control with:
+ * - Dynamic permission checking
+ * - Role-based authorization
+ * - Conditional permissions (attribute-based access control)
+ * - Organization-level isolation
+ * - Permission inheritance
+ * - Comprehensive audit logging
+ *
+ * ARCHITECTURE:
+ * - Users are assigned Roles
+ * - Roles contain Permissions
+ * - Permissions define access to Resources with Actions
+ * - Conditions enable fine-grained attribute-based control
+ *
+ * SECURITY:
+ * - All checks are organization-scoped (multi-tenant isolation)
+ * - Permission evaluation is fail-closed (deny by default)
+ * - All access checks are logged for audit trails
+ *
+ * @module lib/auth/rbac-engine
+ */
 
+import db from '../db/connection';
+import { Permission, Role } from '../types/database';
+import logger from '../monitoring/structured-logger';
+
+/**
+ * Permission check request structure
+ *
+ * Used to verify if a user has permission to perform an action on a resource.
+ */
 export interface PermissionCheck {
   resource: string;
   action: string;

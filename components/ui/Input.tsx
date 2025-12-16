@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn, focusClasses } from '@/lib/design-system/utils';
+import { cn } from '@/lib/design-system/utils';
 import { Eye, EyeOff, AlertCircle, CheckCircle, Search } from 'lucide-react';
 
 const inputVariants = cva(
@@ -116,7 +116,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const [showPassword, setShowPassword] = React.useState(false);
     const [internalValue, setInternalValue] = React.useState(value || '');
-    const inputId = id || `input-${React.useId()}`;
+    const generatedId = React.useId();
+    const inputId = id || `input-${generatedId}`;
 
     const isPassword = type === 'password';
     const hasError = !!error;
@@ -318,7 +319,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     },
     ref
   ) => {
-    const textareaId = id || `textarea-${React.useId()}`;
+    const generatedId = React.useId();
+    const textareaId = id || `textarea-${generatedId}`;
     const hasError = !!error;
     const hasSuccess = !!success && !hasError;
     const actualVariant = hasError ? 'error' : hasSuccess ? 'success' : variant;

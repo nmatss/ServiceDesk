@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
 import { ChartBarIcon, CogIcon, DocumentChartBarIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/outline';
-import { useRealtimeEngine } from '@/lib/analytics/realtime-engine';
+import { useRealtimeEngine } from '@/lib/hooks/useRealtimeEngine';
 import { WidgetLibrary } from './WidgetLibrary';
 import { DashboardBuilder } from './DashboardBuilder';
 import { exportToPDF, exportToExcel } from '@/lib/dashboard/export-engine';

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { Buffer } from 'buffer';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface CompressionConfig {
   algorithms: CompressionAlgorithm[];
@@ -169,12 +169,12 @@ export class ResponseCompressionManager {
           // Get response body
           const responseBody = await response.text();
 
-          // Attempt compression
-          const compressionResult = await this.compressResponse(responseBody, clonedRequest);
+          // Attempt compression - use clonedRequest as NextRequest
+          const compressionResult = await this.compressResponse(responseBody, clonedRequest as unknown as NextRequest);
 
           if (compressionResult) {
             // Create new response with compressed data
-            const compressedResponse = new NextResponse(compressionResult.compressed, {
+            const compressedResponse = new NextResponse(compressionResult.compressed as unknown as BodyInit, {
               status: response.status,
               statusText: response.statusText,
               headers: response.headers
@@ -213,10 +213,11 @@ export class ResponseCompressionManager {
       return null;
     }
 
+    const self = this;
     return new ReadableStream({
       start(controller) {
         const reader = readable.getReader();
-        const compressor = this.createStreamCompressor(algorithm);
+        const compressor = self.createStreamCompressor(algorithm);
 
         const pump = async () => {
           try {
@@ -410,8 +411,8 @@ export class ResponseCompressionManager {
     const recommendations: string[] = [];
     const optimizedConfig: Partial<CompressionConfig> = {};
 
-    // Analyze content types
-    const topContentTypes = Array.from(usageData.contentTypes.entries())
+    // Analyze content types (stored for potential future use)
+    Array.from(usageData.contentTypes.entries())
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([type]) => type);
@@ -504,11 +505,13 @@ export class ResponseCompressionManager {
 
     // For small buffers, prefer speed over compression ratio
     if (buffer.length < 10240) { // 10KB
-      return availableAlgorithms.sort((a, b) => b.speed - a.speed)[0].name;
+      const speedSorted = availableAlgorithms.sort((a, b) => b.speed - a.speed);
+      return speedSorted[0]?.name || null;
     }
 
     // For larger buffers, prefer compression ratio
-    return availableAlgorithms.sort((a, b) => b.quality - a.quality)[0].name;
+    const qualitySorted = availableAlgorithms.sort((a, b) => b.quality - a.quality);
+    return qualitySorted[0]?.name || null;
   }
 
   private selectAlgorithmFromHeaders(request: NextRequest): string | null {
@@ -517,7 +520,7 @@ export class ResponseCompressionManager {
       .filter(alg => alg.enabled && acceptEncoding.includes(this.getAlgorithmName(alg.name)))
       .sort((a, b) => b.priority - a.priority);
 
-    return availableAlgorithms.length > 0 ? availableAlgorithms[0].name : null;
+    return availableAlgorithms.length > 0 ? (availableAlgorithms[0]?.name || null) : null;
   }
 
   private getAlgorithmName(algorithm: string): string {
@@ -586,7 +589,7 @@ export class ResponseCompressionManager {
     return Buffer.from(`DEFLATE_COMPRESSED:${buffer.toString('base64')}`);
   }
 
-  private createStreamCompressor(algorithm: string): {
+  private createStreamCompressor(_algorithm: string): {
     process: (chunk: Uint8Array) => Buffer;
     finish: () => Buffer;
   } {
@@ -621,7 +624,10 @@ export class ResponseCompressionManager {
     // Simple hash function
     let hash = 0;
     for (let i = 0; i < Math.min(buffer.length, 1024); i++) {
-      hash = ((hash << 5) - hash + buffer[i]) & 0xffffffff;
+      const byte = buffer[i];
+      if (byte !== undefined) {
+        hash = ((hash << 5) - hash + byte) & 0xffffffff;
+      }
     }
     return Math.abs(hash).toString(36);
   }
@@ -642,8 +648,10 @@ export class ResponseCompressionManager {
   private cacheResult(key: string, data: Buffer, algorithm: string): void {
     if (this.cache.size >= this.config.cache.maxEntries) {
       // Remove oldest entry
-      const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      const oldestKey = this.cache.keys().next().value as string | undefined;
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
     }
 
     this.cache.set(key, {

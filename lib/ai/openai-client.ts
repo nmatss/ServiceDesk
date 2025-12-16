@@ -1,6 +1,10 @@
 import OpenAI from 'openai';
 import { createHash } from 'crypto';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+// Check if we're in build time (Next.js sets this during `next build`)
+const IS_BUILD_TIME = process.env.NEXT_PHASE === 'phase-production-build' ||
+  process.env.npm_lifecycle_event === 'build';
 
 // Rate limiting configuration
 interface RateLimitConfig {
@@ -16,11 +20,12 @@ interface RequestTracker {
 }
 
 // Default rate limits (can be configured via environment variables)
-const DEFAULT_RATE_LIMITS: RateLimitConfig = {
-  maxRequestsPerMinute: 60,
-  maxTokensPerMinute: 150000,
-  maxConcurrentRequests: 10
-};
+// Unused but kept for reference and potential future use
+// const _DEFAULT_RATE_LIMITS: RateLimitConfig = {
+//   maxRequestsPerMinute: 60,
+//   maxTokensPerMinute: 150000,
+//   maxConcurrentRequests: 10
+// };
 
 class OpenAIClientManager {
   private client: OpenAI;
@@ -29,12 +34,15 @@ class OpenAIClientManager {
   private readonly WINDOW_SIZE_MS = 60000; // 1 minute
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
+    // During build time, use a placeholder to allow compilation
+    const apiKey = process.env.OPENAI_API_KEY || (IS_BUILD_TIME ? 'sk-build-placeholder' : '');
+
+    if (!apiKey && !IS_BUILD_TIME) {
       throw new Error('OPENAI_API_KEY environment variable is required');
     }
 
     this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey: apiKey || 'sk-build-placeholder',
       timeout: 30000, // 30 seconds timeout
       maxRetries: 3,
     });
@@ -75,6 +83,9 @@ class OpenAIClientManager {
     // Check requests per minute
     if (this.requestTracker.requests.length >= this.rateLimits.maxRequestsPerMinute) {
       const oldestRequest = this.requestTracker.requests[0];
+      if (!oldestRequest) {
+        throw new Error('Rate limit tracking error');
+      }
       const waitTime = this.WINDOW_SIZE_MS - (now - oldestRequest);
       if (waitTime > 0) {
         throw new Error(`Rate limit exceeded: Wait ${Math.ceil(waitTime / 1000)} seconds`);
@@ -88,7 +99,7 @@ class OpenAIClientManager {
     }
   }
 
-  private trackRequest(tokensUsed: number = 1000) {
+  private trackRequest(_tokensUsed: number = 1000) {
     const now = Date.now();
     this.requestTracker.requests.push(now);
     this.requestTracker.tokens.push(now);
@@ -107,7 +118,7 @@ class OpenAIClientManager {
       maxTokens?: number;
       stream?: boolean;
       functions?: OpenAI.Chat.Completions.ChatCompletionCreateParams.Function[];
-      functionCall?: OpenAI.Chat.Completions.ChatCompletionCreateParams.FunctionCall;
+      functionCall?: string | { name: string };
     } = {}
   ): Promise<OpenAI.Chat.Completions.ChatCompletion> {
     const {
@@ -136,11 +147,15 @@ class OpenAIClientManager {
       }
 
       if (functionCall) {
-        params.function_call = functionCall;
+        if (typeof functionCall === 'string') {
+          params.function_call = functionCall as 'none' | 'auto';
+        } else {
+          params.function_call = functionCall as { name: string };
+        }
       }
 
       const completion = await this.client.chat.completions.create(params);
-      return completion;
+      return completion as OpenAI.Chat.Completions.ChatCompletion;
     } catch (error) {
       logger.error('OpenAI API error', error);
       throw error;

@@ -1,6 +1,6 @@
 import db from '../db/connection';
-import type { TicketWithDetails, User } from '../types/database';
-import { logger } from '../monitoring/logger';
+import type { User } from '../types/database';
+import logger from '../monitoring/structured-logger';
 
 // Automatic Time Tracking System
 export class TimeTracker {

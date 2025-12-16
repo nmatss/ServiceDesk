@@ -37,7 +37,7 @@ class AnalyticsOptimizer {
    * Pre-compute daily metrics for all organizations
    */
   async computeDailyMetrics(date?: string): Promise<void> {
-    const targetDate = date || new Date().toISOString().split('T')[0]
+    const targetDate = date ?? new Date().toISOString().split('T')[0]
 
     try {
       logger.info('Computing daily metrics', { date: targetDate })
@@ -46,8 +46,10 @@ class AnalyticsOptimizer {
       const organizations = db.prepare('SELECT DISTINCT organization_id FROM tickets').all() as { organization_id: number }[]
 
       for (const org of organizations) {
-        const metrics = this.calculateDailyMetrics(org.organization_id, targetDate)
-        this.storeDailyMetrics(metrics)
+        const metrics = this.calculateDailyMetrics(org.organization_id, targetDate!)
+        if (metrics) {
+          this.storeDailyMetrics(metrics)
+        }
       }
 
       logger.info('Daily metrics computed successfully', {
@@ -63,7 +65,7 @@ class AnalyticsOptimizer {
   /**
    * Calculate daily metrics for a specific organization and date
    */
-  private calculateDailyMetrics(organizationId: number, date: string): DailyMetrics {
+  private calculateDailyMetrics(organizationId: number, date: string): DailyMetrics | undefined {
     const metrics = db.prepare(`
       SELECT
         ? as date,
@@ -116,7 +118,7 @@ class AnalyticsOptimizer {
       organizationId, date,
       organizationId, date,
       organizationId, date
-    ) as DailyMetrics
+    ) as DailyMetrics | undefined
 
     return metrics
   }
@@ -162,7 +164,7 @@ class AnalyticsOptimizer {
    * Pre-compute agent performance metrics
    */
   async computeAgentMetrics(date?: string): Promise<void> {
-    const targetDate = date || new Date().toISOString().split('T')[0]
+    const targetDate = date ?? new Date().toISOString().split('T')[0]
 
     try {
       logger.info('Computing agent metrics', { date: targetDate })
@@ -174,8 +176,10 @@ class AnalyticsOptimizer {
       `).all() as { agent_id: number }[]
 
       for (const agent of agents) {
-        const metrics = this.calculateAgentMetrics(agent.agent_id, targetDate)
-        this.storeAgentMetrics(metrics)
+        const metrics = this.calculateAgentMetrics(agent.agent_id, targetDate!)
+        if (metrics) {
+          this.storeAgentMetrics(metrics)
+        }
       }
 
       logger.info('Agent metrics computed successfully', {
@@ -191,7 +195,7 @@ class AnalyticsOptimizer {
   /**
    * Calculate agent performance for a specific date
    */
-  private calculateAgentMetrics(agentId: number, date: string): AgentMetrics {
+  private calculateAgentMetrics(agentId: number, date: string): AgentMetrics | undefined {
     const metrics = db.prepare(`
       SELECT
         ? as agent_id,
@@ -234,7 +238,7 @@ class AnalyticsOptimizer {
       agentId, date,
       agentId, date,
       agentId, date
-    ) as AgentMetrics
+    ) as AgentMetrics | undefined
 
     return metrics
   }
@@ -326,7 +330,7 @@ class AnalyticsOptimizer {
     const todayMetrics = db.prepare(`
       SELECT * FROM analytics_daily_metrics
       WHERE date = ?
-    `).get(today)
+    `).get(today) as { tickets_created?: number } | undefined
 
     // Get week and month aggregates
     const periodMetrics = db.prepare(`
@@ -338,7 +342,13 @@ class AnalyticsOptimizer {
         AVG(satisfaction_score) as csat_score
       FROM analytics_daily_metrics
       WHERE date >= date('now', '-30 days')
-    `).get()
+    `).get() as {
+      tickets_this_week?: number
+      tickets_this_month?: number
+      avg_response_time?: number
+      avg_resolution_time?: number
+      csat_score?: number
+    } | undefined
 
     // Get current open tickets (still needs real-time query)
     const openTickets = db.prepare(`
@@ -390,7 +400,10 @@ class AnalyticsOptimizer {
     const dates: string[] = []
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().split('T')[0])
+      const dateStr = d.toISOString().split('T')[0]
+      if (dateStr) {
+        dates.push(dateStr)
+      }
     }
 
     for (const date of dates) {

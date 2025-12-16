@@ -9,21 +9,39 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    const role = localStorage.getItem('user_role')
+    // SECURITY: Verify authentication via httpOnly cookies only
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/verify', {
+          method: 'GET',
+          credentials: 'include' // Use httpOnly cookies
+        })
 
-    if (!token) {
-      // Se não autenticado, redirecionar para landing
-      router.push('/landing')
-      return
+        if (!response.ok) {
+          // Se não autenticado, redirecionar para landing
+          router.push('/landing')
+          return
+        }
+
+        const data = await response.json()
+
+        if (!data.success || !data.user) {
+          router.push('/landing')
+          return
+        }
+
+        // Se autenticado, redirecionar para dashboard apropriado
+        if (data.user.role === 'admin') {
+          router.push('/admin')
+        } else {
+          router.push('/dashboard')
+        }
+      } catch {
+        router.push('/landing')
+      }
     }
 
-    // Se autenticado, redirecionar para dashboard apropriado
-    if (role === 'admin') {
-      router.push('/admin')
-    } else {
-      router.push('/dashboard')
-    }
+    checkAuth()
   }, [router])
 
   // Loading screen enquanto redireciona

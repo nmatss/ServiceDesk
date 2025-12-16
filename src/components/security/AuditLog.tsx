@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@stackframe/stack';
+// import { useUser } from '@stackframe/stack'; // TODO: Install @stackframe/stack if needed
 import { logger } from '@/lib/monitoring/logger';
+
+// Temporary user hook replacement
+const useUser = () => ({ id: '' });
 
 interface AuditEntry {
   id: string;
@@ -15,14 +18,14 @@ interface AuditEntry {
 }
 
 export default function AuditLog() {
-  const user = useUser({ or: "redirect" });
+  const user = useUser();
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     // Verificar se é admin - simplificado para demo
-    const isAdmin = (user as any)?.serverMetadata?.isAdmin || user?.id === 'admin';
+    const isAdmin = (user as any)?.serverMetadata?.isAdmin || user.id === 'admin';
     if (isAdmin) {
       fetchAuditLogs();
     }
@@ -41,7 +44,7 @@ export default function AuditLog() {
     }
   };
 
-  const isAdmin = (user as any)?.serverMetadata?.isAdmin || user?.id === 'admin';
+  const isAdmin = (user as any)?.serverMetadata?.isAdmin || user.id === 'admin';
   if (!isAdmin) {
     return <div>Acesso negado</div>;
   }

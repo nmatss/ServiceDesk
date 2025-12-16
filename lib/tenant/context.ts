@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { NextRequest } from 'next/server'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface TenantContext {
   id: number
@@ -19,9 +19,9 @@ export interface UserContext {
 /**
  * Get tenant context from middleware headers (for App Router)
  */
-export function getTenantContext(): TenantContext | null {
+export async function getTenantContext(): Promise<TenantContext | null> {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     const tenantId = headersList.get('x-tenant-id')
     const tenantSlug = headersList.get('x-tenant-slug')
     const tenantName = headersList.get('x-tenant-name')
@@ -44,9 +44,9 @@ export function getTenantContext(): TenantContext | null {
 /**
  * Get user context from middleware headers (for App Router)
  */
-export function getUserContext(): UserContext | null {
+export async function getUserContext(): Promise<UserContext | null> {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     const userId = headersList.get('x-user-id')
     const userRole = headersList.get('x-user-role')
     const tenantId = headersList.get('x-tenant-id')
@@ -159,18 +159,26 @@ export function hasAnyRole(userContext: UserContext | null, roles: string[]): bo
 }
 
 /**
- * Get tenant ID for database queries (fallback to default for development)
+ * Get tenant ID for database queries
+ * SECURITY: No fallback - throws error if tenant context is missing
+ * This ensures tenant isolation is always enforced
  */
-export function getCurrentTenantId(): number {
-  const tenantContext = getTenantContext()
-  return tenantContext?.id || 1 // Default to tenant 1 for development
+export async function getCurrentTenantId(): Promise<number> {
+  const tenantContext = await getTenantContext()
+
+  if (!tenantContext) {
+    logger.error('SECURITY: Attempted to access tenant ID without tenant context')
+    throw new Error('Tenant context required - ensure middleware is properly configured')
+  }
+
+  return tenantContext.id
 }
 
 /**
  * Get user ID for database queries
  */
-export function getCurrentUserId(): number | null {
-  const userContext = getUserContext()
+export async function getCurrentUserId(): Promise<number | null> {
+  const userContext = await getUserContext()
   return userContext?.id || null
 }
 

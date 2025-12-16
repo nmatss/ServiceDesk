@@ -7,9 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  withSentry,
   captureException,
-  captureDatabaseError,
+  trackDatabaseQuery,
   addBreadcrumb,
   setUser,
 } from '@/lib/monitoring/sentry-helpers'
@@ -20,51 +19,44 @@ import db from '@/lib/db/connection'
 // ========================
 // This automatically tracks performance and captures errors
 
-export const GET = withSentry(
-  async (request: NextRequest) => {
-    try {
-      // Add custom breadcrumb for debugging
-      addBreadcrumb('Fetching example data', 'database', 'info')
+export async function GET(request: NextRequest) {
+  try {
+    // Add custom breadcrumb for debugging
+    addBreadcrumb('Fetching example data', 'database', 'info')
 
-      // Set user context (if authenticated)
-      // This will be attached to all error reports
-      const userId = request.headers.get('x-user-id')
-      if (userId) {
-        setUser({
-          id: userId,
-          // email: 'user@example.com', // Don't include PII unless necessary
-        })
-      }
-
-      // Simulate database query
-      const data = db.prepare('SELECT * FROM tickets LIMIT 10').all()
-
-      return NextResponse.json({
-        success: true,
-        data,
+    // Set user context (if authenticated)
+    // This will be attached to all error reports
+    const userId = request.headers.get('x-user-id')
+    if (userId) {
+      setUser({
+        id: userId,
+        // email: 'user@example.com', // Don't include PII unless necessary
       })
-    } catch (error) {
-      // Database errors are automatically captured by withSentry
-      // But you can add more context if needed
-      captureDatabaseError(
-        error,
-        'SELECT * FROM tickets LIMIT 10'
-      )
-
-      return NextResponse.json(
-        { error: 'Failed to fetch data' },
-        { status: 500 }
-      )
     }
-  },
-  {
-    routeName: 'GET /api/example-with-sentry',
-    tags: {
-      feature: 'example',
-      version: 'v1',
-    },
+
+    // Simulate database query with tracking
+    const data = await trackDatabaseQuery(
+      'SELECT * FROM tickets LIMIT 10',
+      async () => db.prepare('SELECT * FROM tickets LIMIT 10').all()
+    )
+
+    return NextResponse.json({
+      success: true,
+      data,
+    })
+  } catch (error) {
+    // Capture database errors with context
+    captureException(error, {
+      tags: { type: 'database', query: 'SELECT * FROM tickets', route: '/api/example-with-sentry' },
+      level: 'error',
+    })
+
+    return NextResponse.json(
+      { error: 'Failed to fetch data' },
+      { status: 500 }
+    )
   }
-)
+}
 
 // ========================
 // APPROACH 2: Manual error tracking (Alternative)
@@ -105,11 +97,11 @@ export async function POST(request: NextRequest) {
       })
     } catch (dbError) {
       // Capture database error with context
-      captureDatabaseError(
-        dbError,
-        'INSERT INTO tickets',
-        [body.name, body.description]
-      )
+      captureException(dbError, {
+        tags: { type: 'database', query: 'INSERT INTO tickets' },
+        extra: { params: [body.name, body.description] },
+        level: 'error',
+      })
 
       throw dbError
     }
@@ -166,7 +158,10 @@ export async function PUT(request: NextRequest) {
       try {
         db.prepare('SELECT * FROM non_existent_table').all()
       } catch (error) {
-        captureDatabaseError(error, 'SELECT * FROM non_existent_table')
+        captureException(error, {
+          tags: { type: 'database', query: 'SELECT * FROM non_existent_table' },
+          level: 'error',
+        })
         throw error
       }
       break

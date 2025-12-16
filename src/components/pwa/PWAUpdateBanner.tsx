@@ -41,7 +41,7 @@ export default function PWAUpdateBanner() {
         if (!info?.isForced) {
           const timer = setTimeout(() => {
             setShowBanner(false);
-          }, 30000);
+          }, 30000) as unknown as number;
           setDismissTimer(timer);
         }
       }

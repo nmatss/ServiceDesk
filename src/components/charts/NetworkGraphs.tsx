@@ -50,7 +50,6 @@ export function AgentCollaborationNetwork({
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<NetworkNode | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<NetworkNode | null>(null);
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -105,7 +104,7 @@ export function AgentCollaborationNetwork({
       .data(data.links)
       .enter()
       .append('line')
-      .attr('stroke', d => linkColorScale(d.type || 'collaboration'))
+      .attr('stroke', d => linkColorScale(d.type || 'collaboration') as string)
       .attr('stroke-width', d => linkWidthScale(d.value))
       .attr('stroke-opacity', 0.6)
       .style('cursor', 'pointer')
@@ -144,14 +143,14 @@ export function AgentCollaborationNetwork({
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY - 10) + 'px');
       })
-      .on('mouseout', function(event, d) {
+      .on('mouseout', function(_event, d) {
         d3.select(this)
           .attr('stroke-opacity', 0.6)
           .attr('stroke-width', linkWidthScale(d.value));
 
         d3.selectAll('.network-link-tooltip').remove();
       })
-      .on('click', function(event, d) {
+      .on('click', function(_event, d) {
         if (onLinkClick) {
           onLinkClick(d);
         }
@@ -166,7 +165,7 @@ export function AgentCollaborationNetwork({
       .enter()
       .append('circle')
       .attr('r', d => nodeSizeScale(d.value || 0))
-      .attr('fill', d => nodeColorScale(d.type))
+      .attr('fill', d => nodeColorScale(d.type) as string)
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
@@ -186,8 +185,6 @@ export function AgentCollaborationNetwork({
           d.fy = null;
         }))
       .on('mouseover', function(event, d) {
-        setHoveredNode(d);
-
         d3.select(this)
           .attr('stroke-width', 4)
           .attr('r', nodeSizeScale(d.value || 0) + 3);
@@ -249,24 +246,22 @@ export function AgentCollaborationNetwork({
           .style('left', (event.pageX + 10) + 'px')
           .style('top', (event.pageY - 10) + 'px');
       })
-      .on('mouseout', function() {
-        setHoveredNode(null);
-
+      .on('mouseout', function(_event, d) {
         d3.select(this)
           .attr('stroke-width', 2)
-          .attr('r', d => nodeSizeScale(d.value || 0));
+          .attr('r', nodeSizeScale(d.value || 0));
 
         // Reset link styling
         links
           .attr('stroke-opacity', 0.6)
-          .attr('stroke-width', d => linkWidthScale(d.value));
+          .attr('stroke-width', (d: NetworkLink) => linkWidthScale(d.value));
 
         // Reset node styling
         nodes.attr('fill-opacity', 1);
 
         d3.selectAll('.network-node-tooltip').remove();
       })
-      .on('click', function(event, d) {
+      .on('click', function(_event, d) {
         setSelectedNode(d);
         if (onNodeClick) {
           onNodeClick(d);

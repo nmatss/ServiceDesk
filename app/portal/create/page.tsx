@@ -7,11 +7,7 @@ import {
   ExclamationTriangleIcon,
   PlusCircleIcon,
   ArrowPathIcon,
-  MagnifyingGlassIcon,
   ArrowLeftIcon,
-  UserIcon,
-  BuildingOfficeIcon,
-  MapPinIcon,
   ExclamationCircleIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline'

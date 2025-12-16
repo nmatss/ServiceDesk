@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogPanel,
@@ -49,6 +49,7 @@ const userNavigation = [
 
 interface AdminDashboardProps {
   children?: React.ReactNode
+  currentPage?: string
 }
 
 export default function AdminDashboard({ children }: AdminDashboardProps) {
@@ -350,7 +351,7 @@ export default function AdminDashboard({ children }: AdminDashboardProps) {
                     leaveFrom="transform opacity-100 scale-100"
                     leaveTo="transform opacity-0 scale-95"
                   >
-                    <MenuItems className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none" role="menu" aria-label="Menu de opções do usuário">
+                    <MenuItems className="absolute right-0 z-10 mt-2.5 w-32 origin-top-right rounded-md bg-white py-2 shadow-lg ring-1 ring-gray-900/5 focus:outline-none">
                       {userNavigation.map((item) => (
                         <MenuItem key={item.name}>
                           {({ focus }) => (

@@ -80,7 +80,7 @@ export const useBiometricAuth = () => {
     const bytes = new Uint8Array(buffer)
     let binary = ''
     for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i])
+      binary += String.fromCharCode(bytes[i] ?? 0)
     }
     return btoa(binary)
   }, [])
@@ -139,10 +139,12 @@ export const useBiometricAuth = () => {
       const response = credential.response as AuthenticatorAttestationResponse
       const credentialId = arrayBufferToBase64(credential.rawId)
 
-      // Store credential ID locally
-      const updatedCredentials = [...availableCredentials, credentialId]
-      setAvailableCredentials(updatedCredentials)
-      localStorage.setItem('biometric_credentials', JSON.stringify(updatedCredentials))
+      // Store credential ID locally using functional setState to avoid stale closure
+      setAvailableCredentials(prev => {
+        const updatedCredentials = [...prev, credentialId]
+        localStorage.setItem('biometric_credentials', JSON.stringify(updatedCredentials))
+        return updatedCredentials
+      })
 
       // Store credential data securely (in a real app, send to server)
       const credentialData = {
@@ -181,17 +183,20 @@ export const useBiometricAuth = () => {
     } finally {
       setIsEnrolling(false)
     }
-  }, [isSupported, generateChallenge, arrayBufferToBase64, availableCredentials])
+  }, [isSupported, generateChallenge, arrayBufferToBase64])
 
   const authenticateWithBiometric = useCallback(async (
-    userName?: string,
+    _userName?: string,
     credentialIds?: string[]
   ): Promise<BiometricAuthResult> => {
     if (!isSupported) {
       return { success: false, error: 'WebAuthn não é suportado neste dispositivo' }
     }
 
-    if (availableCredentials.length === 0 && !credentialIds) {
+    // Get current credentials to avoid stale closure
+    const currentCredentials = credentialIds || availableCredentials
+
+    if (currentCredentials.length === 0) {
       return { success: false, error: 'Nenhuma credencial biométrica configurada' }
     }
 
@@ -199,8 +204,8 @@ export const useBiometricAuth = () => {
 
     try {
       const challenge = generateChallenge()
-      const allowCredentials = (credentialIds || availableCredentials).map(id => ({
-        id: base64ToArrayBuffer(id),
+      const allowCredentials = currentCredentials.map(id => ({
+        id: base64ToArrayBuffer(id) as ArrayBuffer,
         type: 'public-key' as const
       }))
 
@@ -253,15 +258,18 @@ export const useBiometricAuth = () => {
   }, [isSupported, availableCredentials, generateChallenge, base64ToArrayBuffer, arrayBufferToBase64])
 
   const removeBiometricCredential = useCallback((credentialId: string) => {
-    const updatedCredentials = availableCredentials.filter(id => id !== credentialId)
-    setAvailableCredentials(updatedCredentials)
-    localStorage.setItem('biometric_credentials', JSON.stringify(updatedCredentials))
+    // Use functional setState to avoid stale closure
+    setAvailableCredentials(prev => {
+      const updatedCredentials = prev.filter(id => id !== credentialId)
+      localStorage.setItem('biometric_credentials', JSON.stringify(updatedCredentials))
+      return updatedCredentials
+    })
 
     // Remove credential data
     const storedCredentials = JSON.parse(localStorage.getItem('biometric_credential_data') || '{}')
     delete storedCredentials[credentialId]
     localStorage.setItem('biometric_credential_data', JSON.stringify(storedCredentials))
-  }, [availableCredentials])
+  }, [])
 
   const clearAllBiometricCredentials = useCallback(() => {
     setAvailableCredentials([])

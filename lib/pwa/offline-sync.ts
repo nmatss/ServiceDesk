@@ -1,4 +1,4 @@
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 /**
  * PWA Offline Sync Manager
@@ -9,7 +9,7 @@ interface OfflineAction {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   entity: string;
-  data: any;
+  data: unknown;
   url: string;
   method: string;
   headers: Record<string, string>;
@@ -31,7 +31,7 @@ interface SyncConfig {
 interface SyncResult {
   success: boolean;
   action: OfflineAction;
-  response?: any;
+  response?: unknown;
   error?: Error;
 }
 
@@ -239,12 +239,15 @@ class PWAOfflineSync {
       const batchResults = await Promise.allSettled(batchPromises);
 
       batchResults.forEach((result, index) => {
+        const action = batch[index];
+        if (!action) return;
+
         if (result.status === 'fulfilled') {
           results.push(result.value);
         } else {
           results.push({
             success: false,
-            action: batch[index],
+            action,
             error: new Error(result.reason)
           });
         }
@@ -295,7 +298,10 @@ class PWAOfflineSync {
         const responseData = await response.json().catch(() => null);
 
         // Remove from queue and database
-        await this.removeActionFromQueue(action.id);
+        const actionToRemove = this.syncQueue.find(a => a.id === action.id);
+        if (actionToRemove) {
+          await this.removeActionFromQueue(action.id);
+        }
 
         logger.info(`[Offline Sync] Successfully synced: ${action.type} ${action.entity}`);
 
@@ -366,10 +372,12 @@ class PWAOfflineSync {
   }
 
   private async registerBackgroundSync(): Promise<void> {
-    if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+    if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('servicedesk-offline-sync');
+        if ('sync' in registration) {
+          await (registration as any).sync.register('servicedesk-offline-sync');
+        }
       } catch (error) {
         logger.warn('[Offline Sync] Background sync registration failed', error);
       }
@@ -420,7 +428,7 @@ class PWAOfflineSync {
     });
   }
 
-  private dispatchEvent(eventType: string, detail: any) {
+  private dispatchEvent(eventType: string, detail: unknown) {
     window.dispatchEvent(new CustomEvent(`pwa:${eventType}`, { detail }));
   }
 

@@ -10,12 +10,11 @@ import ReactFlow, {
   useEdgesState,
   addEdge,
   Connection,
-  EdgeChange,
-  NodeChange,
   ReactFlowProvider,
   ReactFlowInstance,
   Panel,
   MiniMap,
+  BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -42,7 +41,6 @@ import WorkflowToolbar from './WorkflowToolbar';
 import WorkflowSidebar from './WorkflowSidebar';
 import WorkflowProperties from './WorkflowProperties';
 import WorkflowValidation from './WorkflowValidation';
-import WorkflowMinimap from './WorkflowMinimap';
 
 interface WorkflowBuilderProps {
   workflow?: WorkflowDefinition;
@@ -210,14 +208,14 @@ export default function WorkflowBuilder({
     [setEdges, readOnly]
   );
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     if (readOnly) return;
     setSelectedNode(node);
     setSelectedEdge(null);
     setPropertiesOpen(true);
   }, [readOnly]);
 
-  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+  const onEdgeClick = useCallback((_event: React.MouseEvent, edge: Edge) => {
     if (readOnly) return;
     setSelectedEdge(edge);
     setSelectedNode(null);
@@ -466,7 +464,7 @@ export default function WorkflowBuilder({
               />
 
               <Background
-                variant="dots"
+                variant={BackgroundVariant.Dots}
                 gap={20}
                 size={1}
                 color="#e2e8f0"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { ReportFilters } from '@/lib/reports';
 import {
   getTicketMetrics,
   getAgentPerformance,
@@ -13,21 +14,21 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    // SECURITY: Verificar autenticação via cookies httpOnly
+    const decoded = await verifyTokenFromCookies(request);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
     }
 
     // Apenas admins e agentes podem acessar relatórios
-    if (!['admin', 'agent'].includes(user.role)) {
+    if (!['admin', 'agent'].includes(decoded.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    }
+
+    // SECURITY: Get tenant ID from authenticated user
+    const tenantId = decoded.organization_id;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant não identificado' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -40,12 +41,12 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('category_id');
     const priorityId = searchParams.get('priority_id');
 
-    // Configurar filtros
-    const filters: any = {
-      period: parseInt(period),
+    // SECURITY: Configurar filtros com tenantId OBRIGATÓRIO
+    const filters: ReportFilters = {
+      tenantId: tenantId, // MANDATORY for multi-tenant security
       startDate: startDate || undefined,
       endDate: endDate || undefined,
-      agentId: agentId ? parseInt(agentId) : undefined,
+      assignedTo: agentId ? parseInt(agentId) : undefined,
       categoryId: categoryId ? parseInt(categoryId) : undefined,
       priorityId: priorityId ? parseInt(priorityId) : undefined
     };
@@ -79,8 +80,9 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'custom':
-        const metrics = searchParams.get('metrics')?.split(',') || [];
-        const groupBy = searchParams.get('group_by') || 'date';
+        // TODO: Implement custom metrics and groupBy when needed
+        // const metrics = searchParams.get('metrics')?.split(',') || [];
+        // const groupBy = searchParams.get('group_by') || 'date';
         reportData = getTicketMetrics(filters);
         break;
 
@@ -119,21 +121,21 @@ export async function GET(request: NextRequest) {
 // POST - Gerar relatório customizado ou agendar relatório
 export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    // SECURITY: Verificar autenticação via cookies httpOnly
+    const decoded = await verifyTokenFromCookies(request);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
     }
 
     // Apenas admins podem criar relatórios customizados
-    if (user.role !== 'admin') {
+    if (decoded.role !== 'admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    }
+
+    // SECURITY: Get tenant ID from authenticated user
+    const tenantId = decoded.organization_id;
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant não identificado' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -141,12 +143,12 @@ export async function POST(request: NextRequest) {
       name,
       description,
       type,
-      filters = {},
-      metrics = [],
-      groupBy = 'date',
+      filters: userFilters = {},
+      metrics: _metrics = [],
+      groupBy: _groupBy = 'date',
       format = 'json',
       schedule = null,
-      recipients = []
+      recipients: _recipients = []
     } = body;
 
     // Validar dados obrigatórios
@@ -155,6 +157,12 @@ export async function POST(request: NextRequest) {
         error: 'Nome e tipo do relatório são obrigatórios'
       }, { status: 400 });
     }
+
+    // SECURITY: Merge user filters with mandatory tenantId
+    const filters: ReportFilters = {
+      ...userFilters,
+      tenantId: tenantId // MANDATORY - overwrite any user-provided tenantId
+    };
 
     // Gerar relatório
     let reportData: any;
@@ -209,7 +217,7 @@ export async function POST(request: NextRequest) {
         description,
         type,
         generatedAt: new Date().toISOString(),
-        generatedBy: user.name,
+        generatedBy: decoded.name,
         filters,
         data: reportData
       }

@@ -4,10 +4,9 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import { getSystemSetting } from '@/lib/db/queries';
-import { GovBrIntegration } from '@/lib/types/database';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
 
 interface GovBrConfig {
   clientId: string;
@@ -41,6 +40,7 @@ interface GovBrUserInfo {
   amr?: string[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface GovBrAuthState {
   state: string;
   codeVerifier: string;
@@ -116,7 +116,7 @@ export class GovBrAuthClient {
   async exchangeCodeForTokens(
     code: string,
     codeVerifier: string,
-    state: string
+    _state: string
   ): Promise<GovBrTokenResponse> {
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -193,7 +193,7 @@ export class GovBrAuthClient {
   /**
    * Valida CPF na Receita Federal
    */
-  private async validateCPF(cpf: string, accessToken: string): Promise<{
+  private async validateCPF(cpf: string, _accessToken: string): Promise<{
     valid: boolean;
     data?: any;
     status: string;
@@ -229,7 +229,7 @@ export class GovBrAuthClient {
   /**
    * Valida CNPJ na Receita Federal
    */
-  private async validateCNPJ(cnpj: string, accessToken: string): Promise<{
+  private async validateCNPJ(cnpj: string, _accessToken: string): Promise<{
     valid: boolean;
     data?: any;
     status: string;
@@ -409,8 +409,8 @@ export class GovBrAuthClient {
       clientId,
       clientSecret,
       redirectUri,
-      scope = 'openid profile email phone cpf',
-      environment = 'sandbox'
+      scope,
+      environment
     ] = await Promise.all([
       getSystemSetting('govbr_client_id'),
       getSystemSetting('govbr_client_secret'),
@@ -427,8 +427,8 @@ export class GovBrAuthClient {
       clientId,
       clientSecret,
       redirectUri,
-      scope,
-      environment: environment as 'sandbox' | 'production'
+      scope: scope || 'openid profile email phone cpf',
+      environment: (environment || 'sandbox') as 'sandbox' | 'production'
     });
   }
 }

@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db/connection';
-import { slaPredictor, demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
+import db from '@/lib/db/connection';
+import { demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
 import { logger } from '@/lib/monitoring/logger';
 
 // ============================================================================
@@ -307,7 +307,7 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
     ORDER BY date
   `).all() as any[];
 
-  const result = data.map(row => ({
+  const result = data.map((row: any) => ({
     date: row.date,
     total_tickets: row.total_tickets,
     response_met: row.response_met,
@@ -348,7 +348,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
     ORDER BY resolved_tickets DESC
   `).all() as any[];
 
-  const result = data.map(row => {
+  const result = data.map((row: any) => {
     const resolution_rate = row.assigned_tickets > 0
       ? (row.resolved_tickets / row.assigned_tickets) * 100
       : 0;
@@ -502,7 +502,7 @@ export async function GET(request: NextRequest) {
     if (params.enableForecasting) {
       const forecasts = await demandForecaster.forecastDemand(7);
       metrics.forecasting = {
-        daily_forecast: forecasts.map(f => ({
+        daily_forecast: forecasts.map((f: any) => ({
           date: f.date,
           predicted_tickets: f.predicted_tickets,
           confidence_interval: [f.confidence_interval.lower, f.confidence_interval.upper],
@@ -516,7 +516,7 @@ export async function GET(request: NextRequest) {
     // Add anomaly detection if enabled
     if (params.enableAnomalyDetection) {
       const anomalies = await anomalyDetector.detectAnomalies();
-      metrics.anomalies = anomalies.map(a => ({
+      metrics.anomalies = anomalies.map((a: any) => ({
         date: a.timestamp.toISOString().split('T')[0],
         ticket_count: a.actual_value,
         high_priority_count: 0,

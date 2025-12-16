@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stackServerApp } from "@/src/lib/auth";
+import { verifyAuth } from "@/lib/auth/sqlite-auth";
 import { z } from "zod";
-import { logUserAction } from "@/src/lib/audit";
-import { logger } from '@/lib/monitoring/logger';
+import { logger } from '@/lib/monitoring/structured-logger';
 
 // Schema de validação
 const requestSchema = z.object({
@@ -17,43 +16,45 @@ const requestSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
-    if (!stackServerApp) {
-      return NextResponse.json({ error: "Stack Auth not configured" }, { status: 500 });
-    }
-    
-    const user = await stackServerApp.getUser({ or: "return-null" });
-    if (!user) {
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    
+
+    const user = authResult.user;
+
     // Validar entrada
     const body = await request.json();
     const validatedData = requestSchema.parse(body);
-    
+
     // Verificar permissões específicas
-    if (validatedData.action === "delete" && !user.serverMetadata?.isAdmin) {
+    if (validatedData.action === "delete" && user.role !== 'admin') {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    
+
     // Log de auditoria
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    await logUserAction(user.id, validatedData.action, validatedData.data, ip);
-    
+    logger.info('User action', {
+      userId: user.id,
+      action: validatedData.action,
+      data: validatedData.data,
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    });
+
     // Processar requisição
     const result = await processRequest(validatedData);
-    
+
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data", details: error.issues }, { status: 400 });
     }
-    
+
     logger.error("API Error", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-async function processRequest(data: any) {
+async function processRequest(data: z.infer<typeof requestSchema>) {
   // Implementar lógica de negócio aqui
   return { processed: true, timestamp: new Date().toISOString() };
 }

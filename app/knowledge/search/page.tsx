@@ -8,11 +8,12 @@ import {
   DocumentTextIcon,
   EyeIcon,
   HandThumbUpIcon,
-  TagIcon,
+
   ArrowLeftIcon,
   FunnelIcon
 } from '@heroicons/react/24/outline'
 import { useDebounce } from '@/src/hooks/useDebounce'
+import { sanitizeHTML } from '@/lib/security/sanitize'
 
 interface SearchResult {
   id: number
@@ -90,10 +91,9 @@ export default function KnowledgeSearchPage() {
         params.append('category', category)
       }
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/knowledge/search?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       const data = await response.json()
@@ -320,14 +320,14 @@ export default function KnowledgeSearchPage() {
                         <h3
                           className="text-lg font-semibold text-gray-900 mb-2"
                           dangerouslySetInnerHTML={{
-                            __html: highlightMatches(result.title, result.matches?.filter(m => m.key === 'title'))
+                            __html: sanitizeHTML(highlightMatches(result.title, result.matches?.filter(m => m.key === 'title')))
                           }}
                         />
 
                         <p
                           className="text-gray-600 mb-3"
                           dangerouslySetInnerHTML={{
-                            __html: highlightMatches(result.summary, result.matches?.filter(m => m.key === 'summary'))
+                            __html: sanitizeHTML(highlightMatches(result.summary, result.matches?.filter(m => m.key === 'summary')))
                           }}
                         />
 
@@ -377,12 +377,12 @@ export default function KnowledgeSearchPage() {
                               </span>{' '}
                               <span
                                 dangerouslySetInnerHTML={{
-                                  __html: highlightMatches(
+                                  __html: sanitizeHTML(highlightMatches(
                                     match.value.length > 100
                                       ? match.value.substring(0, 100) + '...'
                                       : match.value,
                                     [match]
-                                  )
+                                  ))
                                 }}
                               />
                             </div>

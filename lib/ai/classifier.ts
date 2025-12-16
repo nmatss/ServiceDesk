@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+import { aiCache } from './cache';
+import { cosineSimilarity } from './utils';
 
 export class AIClassifier {
   private openai: OpenAI;
@@ -78,11 +80,11 @@ Retorne um JSON com:
       });
 
       const processingTime = Date.now() - startTime;
-      const result = JSON.parse(completion.choices[0].message.content || '{}');
+      const result = JSON.parse(completion.choices[0]?.message.content || '{}');
 
       // Mapear nomes para IDs
       const category = categories.find(c =>
-        c.name.toLowerCase() === result.category_name.toLowerCase()
+        c.name.toLowerCase() === result.category_name?.toLowerCase()
       );
 
       const priority = priorities.find(p =>
@@ -131,8 +133,8 @@ Retorne um JSON com:
    * Salva classificação no banco
    */
   private async saveClassification(
-    title: string,
-    description: string,
+    _title: string,
+    _description: string,
     categoryId: number,
     priorityId: number,
     confidence: number,
@@ -165,14 +167,30 @@ Retorne um JSON com:
    * Gera embedding vetorial para busca semântica
    */
   async generateEmbedding(text: string): Promise<number[]> {
+    const modelName = 'text-embedding-3-small';
+
+    // Check cache first
+    const cached = aiCache.getEmbedding(text, modelName);
+    if (cached) {
+      logger.debug('Using cached embedding');
+      return cached;
+    }
+
     try {
       const response = await this.openai.embeddings.create({
-        model: 'text-embedding-3-small',
+        model: modelName,
         input: text,
         dimensions: 1536
       });
 
-      return response.data[0].embedding;
+      const embedding = response.data[0]?.embedding || [];
+
+      // Cache the result
+      if (embedding.length > 0) {
+        aiCache.setEmbedding(text, modelName, embedding);
+      }
+
+      return embedding;
     } catch (error) {
       logger.error('Embedding generation error', error);
       return [];
@@ -227,7 +245,7 @@ Retorne um JSON com:
     // Calcular similaridade
     const similarities = embeddings.map(emb => {
       const storedEmbedding = JSON.parse(emb.embedding_vector);
-      const similarity = this.cosineSimilarity(queryEmbedding, storedEmbedding);
+      const similarity = cosineSimilarity(queryEmbedding, storedEmbedding);
 
       return {
         entity_id: emb.entity_id,
@@ -241,16 +259,6 @@ Retorne um JSON com:
       .slice(0, limit);
   }
 
-  /**
-   * Calcula cosine similarity
-   */
-  private cosineSimilarity(a: number[], b: number[]): number {
-    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-
-    return dotProduct / (magnitudeA * magnitudeB);
-  }
 
   /**
    * Fornece feedback sobre classificação

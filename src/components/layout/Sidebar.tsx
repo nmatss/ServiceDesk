@@ -12,14 +12,20 @@ import {
   Cog6ToothIcon,
   DocumentTextIcon,
   MagnifyingGlassIcon,
-  BellIcon,
   ShieldCheckIcon,
-  ClipboardDocumentListIcon,
   ClockIcon,
   CpuChipIcon,
   UserIcon,
   PlusIcon,
-  FunnelIcon
+  ServerStackIcon,
+  ExclamationTriangleIcon,
+  ArrowPathIcon,
+  BookOpenIcon,
+  CalendarDaysIcon,
+  RectangleGroupIcon,
+  ClipboardDocumentListIcon,
+  PresentationChartLineIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -67,22 +73,21 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
   const fetchTicketCounts = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) return
-
-      // This would typically be a summary endpoint
+      // Use credentials: 'include' to send cookies automatically
+      // No need for localStorage token
       const response = await fetch('/api/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include'
       })
 
       if (response.ok) {
         const data = await response.json()
+        // Safe access with nullish coalescing
+        const overview = data?.data?.overview ?? {}
+        const tickets = overview.tickets ?? {}
         setTicketCounts({
-          total: data.data?.overview?.tickets?.total || 0,
-          open: data.data?.overview?.tickets?.open || 0,
-          assigned: data.data?.my_assignments?.length || 0
+          total: tickets.total ?? 0,
+          open: tickets.open ?? 0,
+          assigned: data?.data?.my_assignments?.length ?? 0
         })
       }
     } catch (error) {
@@ -136,6 +141,45 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
           ]
         },
         {
+          name: 'Problemas',
+          href: '/admin/problems',
+          icon: ExclamationTriangleIcon,
+          iconSolid: ExclamationTriangleIcon,
+          submenu: [
+            { name: 'Todos os Problemas', href: '/admin/problems', icon: ExclamationTriangleIcon },
+            { name: 'KEDB', href: '/admin/problems/kedb', icon: BookOpenIcon },
+            { name: 'Novo Problema', href: '/admin/problems/new', icon: PlusIcon }
+          ]
+        },
+        {
+          name: 'Mudanças',
+          href: '/admin/changes',
+          icon: ArrowPathIcon,
+          iconSolid: ArrowPathIcon,
+          submenu: [
+            { name: 'Todas as RFCs', href: '/admin/changes', icon: ArrowPathIcon },
+            { name: 'CAB', href: '/admin/cab', icon: UserGroupIcon },
+            { name: 'Calendário', href: '/admin/changes/calendar', icon: CalendarDaysIcon },
+            { name: 'Nova RFC', href: '/admin/changes/new', icon: PlusIcon }
+          ]
+        },
+        {
+          name: 'CMDB',
+          href: '/admin/cmdb',
+          icon: ServerStackIcon,
+          iconSolid: ServerStackIcon,
+          submenu: [
+            { name: 'Itens de Configuração', href: '/admin/cmdb', icon: ServerStackIcon },
+            { name: 'Novo CI', href: '/admin/cmdb/new', icon: PlusIcon }
+          ]
+        },
+        {
+          name: 'Catálogo',
+          href: '/portal/catalog',
+          icon: RectangleGroupIcon,
+          iconSolid: RectangleGroupIcon
+        },
+        {
           name: 'Usuários',
           href: '/admin/users',
           icon: UserGroupIcon,
@@ -153,10 +197,21 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
           icon: ChartBarIcon,
           iconSolid: ChartBarIconSolid,
           submenu: [
+            { name: 'Dashboard ITIL', href: '/admin/dashboard/itil', icon: PresentationChartLineIcon },
             { name: 'Dashboard Executivo', href: '/admin/reports?type=executive', icon: ChartBarIcon },
             { name: 'Performance Agentes', href: '/admin/reports?type=agents', icon: UserIcon },
-            { name: 'Relatórios SLA', href: '/admin/reports?type=sla', icon: ClockIcon },
-            { name: 'Análise de Tendências', href: '/admin/reports?type=trends', icon: ChartBarIcon }
+            { name: 'Relatórios SLA', href: '/admin/reports?type=sla', icon: ClockIcon }
+          ]
+        },
+        {
+          name: 'Governança',
+          href: '/admin/governance',
+          icon: ShieldCheckIcon,
+          iconSolid: ShieldCheckIcon,
+          submenu: [
+            { name: 'Visão Geral', href: '/admin/governance', icon: ShieldCheckIcon },
+            { name: 'Auditoria', href: '/admin/governance?tab=audit', icon: ClipboardDocumentListIcon },
+            { name: 'Compliance', href: '/admin/governance?tab=compliance', icon: DocumentTextIcon }
           ]
         },
         {
@@ -168,15 +223,19 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
             { name: 'Gerais', href: '/admin/settings', icon: Cog6ToothIcon },
             { name: 'SLA', href: '/admin/settings/sla', icon: ClockIcon },
             { name: 'Templates', href: '/admin/settings/templates', icon: DocumentTextIcon },
-            { name: 'Automações', href: '/admin/settings/automations', icon: CpuChipIcon },
-            { name: 'Auditoria', href: '/admin/settings/audit', icon: ShieldCheckIcon },
-            { name: 'Cache', href: '/admin/settings/cache', icon: CpuChipIcon }
+            { name: 'Automações', href: '/admin/settings/automations', icon: CpuChipIcon }
           ]
         }
       ]
     } else if (userRole === 'agent') {
       return [
         ...baseItems,
+        {
+          name: 'Workspace',
+          href: '/agent/workspace',
+          icon: WrenchScrewdriverIcon,
+          iconSolid: WrenchScrewdriverIcon
+        },
         {
           name: 'Meus Tickets',
           href: '/tickets',
@@ -188,6 +247,16 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
             { name: 'Novo Ticket', href: '/tickets/new', icon: PlusIcon },
             { name: 'Todos os Tickets', href: '/tickets', icon: TicketIcon },
             { name: 'Buscar', href: '/search', icon: MagnifyingGlassIcon }
+          ]
+        },
+        {
+          name: 'Problemas',
+          href: '/admin/problems',
+          icon: ExclamationTriangleIcon,
+          iconSolid: ExclamationTriangleIcon,
+          submenu: [
+            { name: 'Todos os Problemas', href: '/admin/problems', icon: ExclamationTriangleIcon },
+            { name: 'KEDB', href: '/admin/problems/kedb', icon: BookOpenIcon }
           ]
         },
         {
@@ -251,14 +320,14 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 px-6 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="flex items-center justify-center h-16 px-6 border-b border-white/10">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gradient-brand rounded-lg flex items-center justify-center">
             <TicketIcon className="h-5 w-5 text-white" />
           </div>
           {open && (
             <span className="text-xl font-bold text-gradient">
-              ServiceDesk
+              ServiceDesk Pro
             </span>
           )}
         </div>
@@ -282,17 +351,15 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
             <div key={item.name}>
               {/* Main menu item */}
               <div
-                className={`relative group ${
-                  item.submenu ? 'cursor-pointer' : ''
-                }`}
+                className={`relative group ${item.submenu ? 'cursor-pointer' : ''
+                  }`}
               >
                 {item.submenu ? (
                   <button
                     onClick={() => toggleSubmenu(item.name)}
                     onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
-                    className={`sidebar-item w-full ${
-                      isItemActive || hasActiveChild ? 'sidebar-item-active' : ''
-                    }`}
+                    className={`sidebar-item w-full ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''
+                      }`}
                     aria-expanded={shouldExpand}
                     aria-controls={`submenu-${item.name}`}
                     aria-current={isItemActive ? 'page' : undefined}
@@ -308,9 +375,8 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                           </span>
                         )}
                         <svg
-                          className={`ml-2 h-4 w-4 transition-transform duration-200 ${
-                            shouldExpand ? 'rotate-90' : ''
-                          }`}
+                          className={`ml-2 h-4 w-4 transition-transform duration-200 ${shouldExpand ? 'rotate-90' : ''
+                            }`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -372,11 +438,10 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                       <Link
                         key={subItem.href}
                         href={subItem.href}
-                        className={`flex items-center px-4 py-2 text-sm rounded-lg transition-colors duration-150 ${
-                          isSubItemActive
-                            ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
-                        }`}
+                        className={`flex items-center px-4 py-2 text-sm rounded-lg transition-colors duration-150 ${isSubItemActive
+                          ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                          }`}
                         aria-current={isSubItemActive ? 'page' : undefined}
                         aria-label={`${subItem.name}${subItem.badge ? `, ${subItem.badge} itens` : ''}`}
                       >
@@ -423,22 +488,20 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
       {/* Sidebar */}
       <aside
         id="main-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700 transform transition-all duration-300 ease-in-out ${
-          open
-            ? 'w-64 translate-x-0'
-            : 'w-20 -translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 glass-panel transform transition-all duration-300 ease-in-out ${open
+          ? 'w-64 translate-x-0'
+          : 'w-20 -translate-x-full lg:translate-x-0'
+          }`}
         aria-label="Barra lateral de navegação"
-        aria-hidden={!open && typeof window !== 'undefined' && window.innerWidth < 1024}
+        aria-hidden={!open}
       >
         <SidebarContent />
       </aside>
 
       {/* Spacer for desktop */}
       <div
-        className={`hidden lg:block transition-all duration-300 ease-in-out ${
-          open ? 'w-64' : 'w-20'
-        }`}
+        className={`hidden lg:block transition-all duration-300 ease-in-out ${open ? 'w-64' : 'w-20'
+          }`}
       />
     </>
   )

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(
@@ -54,8 +54,6 @@ export async function PUT(
     const tenantId = getCurrentTenantId()
     const teamId = parseInt(params.id)
     const data = await request.json()
-    const db = getDb()
-
     if (isNaN(teamId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid team ID' },
@@ -142,8 +140,6 @@ export async function DELETE(
   try {
     const tenantId = getCurrentTenantId()
     const teamId = parseInt(params.id)
-    const db = getDb()
-
     if (isNaN(teamId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid team ID' },

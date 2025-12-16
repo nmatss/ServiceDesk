@@ -45,7 +45,8 @@ export default function NotificationDropdown() {
 
   return (
     <Menu as="div" className="relative">
-      {({ open }) => (
+      {({ open }: { open: boolean }) => (
+        <>
         <Menu.Button
           className="relative -m-2.5 p-2.5 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           aria-label={`Notificações${unreadCount > 0 ? `, ${unreadCount} não lidas` : ''}`}
@@ -66,7 +67,6 @@ export default function NotificationDropdown() {
           <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-green-500" aria-label="Conectado"></span>
         )}
         </Menu.Button>
-      )}
 
       <Transition
         as={Fragment}
@@ -79,8 +79,6 @@ export default function NotificationDropdown() {
       >
         <Menu.Items
           className="absolute right-0 z-10 mt-2 w-80 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
-          role="region"
-          aria-label="Painel de notificações"
         >
           <div className="px-4 py-2 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -171,6 +169,8 @@ export default function NotificationDropdown() {
           )}
         </Menu.Items>
       </Transition>
+      </>
+      )}
     </Menu>
   )
 }

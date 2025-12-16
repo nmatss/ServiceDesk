@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import db from '@/lib/db/connection'
 import { semanticSearchEngine } from '@/lib/knowledge/semantic-search'
 import Fuse from 'fuse.js'
 import type { KBArticle } from '@/lib/types/database'
@@ -31,9 +31,6 @@ export async function GET(request: NextRequest) {
         suggestions: []
       })
     }
-
-    const db = getDb()
-
     // Registrar busca para analytics
     db.prepare(`
       INSERT INTO analytics_daily_metrics (date, kb_searches_performed)
@@ -116,7 +113,7 @@ export async function GET(request: NextRequest) {
           boostRecent: true,
         })
 
-        results = searchResults.slice(offset, offset + limit).map(result => ({
+        results = searchResults.slice(offset, offset + limit).map((result: any) => ({
           id: result.article.id,
           title: result.article.title,
           slug: result.article.slug,
@@ -162,7 +159,7 @@ export async function GET(request: NextRequest) {
 
       const fuseResults = fuse.search(query.trim(), { limit: limit + offset })
 
-      results = fuseResults.slice(offset, offset + limit).map(result => {
+      results = fuseResults.slice(offset, offset + limit).map((result: any) => {
         const article = result.item
         const score = result.score || 0
         const popularityScore = (article.view_count * 0.1) + (article.helpful_votes * 0.5)
@@ -180,7 +177,7 @@ export async function GET(request: NextRequest) {
           },
           score: finalScore,
           matchType: 'keyword',
-          matches: result.matches?.map(match => ({
+          matches: result.matches?.map((match: any) => ({
             key: match.key,
             value: match.value,
             indices: match.indices
@@ -212,11 +209,11 @@ export async function GET(request: NextRequest) {
     `).all(`%${query}%`)
 
     const suggestions = popularTerms
-      .map(term => term.search_keywords)
-      .filter(keywords => keywords)
+      .map((term: any) => term.search_keywords)
+      .filter((keywords: any) => keywords)
       .flatMap(keywords => keywords.split(','))
-      .map(term => term.trim())
-      .filter(term => term.toLowerCase().includes(query.toLowerCase()) && term.toLowerCase() !== query.toLowerCase())
+      .map((term: any) => term.trim())
+      .filter((term: any) => term.toLowerCase().includes(query.toLowerCase()) && term.toLowerCase() !== query.toLowerCase())
       .slice(0, 5)
 
     return NextResponse.json({
@@ -274,7 +271,6 @@ export async function POST(request: NextRequest) {
     })
 
     // Save to database for persistent analytics
-    const db = getDb()
     db.prepare(`
       INSERT INTO analytics_daily_metrics (
         date,

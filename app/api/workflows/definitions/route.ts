@@ -4,7 +4,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getConnection } from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
@@ -62,7 +61,7 @@ const CreateWorkflowSchema = z.object({
       statuses: z.array(z.number()).optional(),
       assignees: z.array(z.number()).optional(),
       reporters: z.array(z.number()).optional(),
-      customFields: z.record(z.any()).optional()
+      customFields: z.record(z.string(), z.any()).optional()
     }).optional(),
     customScript: z.string().optional()
   }),
@@ -91,7 +90,7 @@ const CreateWorkflowSchema = z.object({
       x: z.number(),
       y: z.number()
     }),
-    configuration: z.record(z.any()),
+    configuration: z.record(z.string(), z.any()),
     timeout: z.number().optional(),
     retryConfig: z.object({
       maxAttempts: z.number(),
@@ -106,7 +105,7 @@ const CreateWorkflowSchema = z.object({
       }))
     }).optional(),
     isOptional: z.boolean().optional(),
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.string(), z.any()).optional()
   })),
   edges: z.array(z.object({
     id: z.string(),
@@ -117,7 +116,7 @@ const CreateWorkflowSchema = z.object({
       label: z.string().optional(),
       color: z.string().optional(),
       animated: z.boolean().optional(),
-      style: z.record(z.any()).optional(),
+      style: z.record(z.string(), z.any()).optional(),
       dataTransformation: z.string().optional(),
       validationRules: z.array(z.object({
         field: z.string(),
@@ -133,7 +132,7 @@ const CreateWorkflowSchema = z.object({
       dataType: z.enum(['string', 'number', 'boolean', 'date', 'array', 'object'])
     })).optional(),
     priority: z.number().optional(),
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.string(), z.any()).optional()
   })),
   variables: z.array(z.object({
     name: z.string(),
@@ -170,8 +169,8 @@ const CreateWorkflowSchema = z.object({
     testCases: z.array(z.object({
       name: z.string(),
       description: z.string(),
-      input: z.record(z.any()),
-      expectedOutput: z.record(z.any()),
+      input: z.record(z.string(), z.any()),
+      expectedOutput: z.record(z.string(), z.any()),
       status: z.enum(['pending', 'passed', 'failed']),
       lastRun: z.date().optional()
     })),

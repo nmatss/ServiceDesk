@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import { spawn } from 'child_process'
 import { createGzip } from 'zlib'
 import { pipeline } from 'stream/promises'
 import db from '../db/connection'
@@ -212,12 +211,13 @@ class BackupManager {
       return result
     } catch (error) {
       logger.error('Database backup failed', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
       return {
         success: false,
         filename: '',
         size: 0,
         duration: Date.now() - startTime,
-        error: error.message
+        error: errorMessage
       }
     } finally {
       this.isRunning = false
@@ -233,11 +233,21 @@ class BackupManager {
         // Usar o método backup do SQLite para criar uma cópia consistente
         const backup = db.backup(destinationPath)
 
-        backup.step(-1) // Fazer backup de todas as páginas
-        backup.finish()
-
-        logger.debug('Database backup file created', { destinationPath })
-        resolve()
+        // Wait for the backup promise to complete
+        backup.then(() => {
+          logger.debug('Database backup file created', { destinationPath })
+          resolve()
+        }).catch(() => {
+          // Fallback: copiar arquivo diretamente
+          try {
+            const dbPath = path.join(process.cwd(), 'data/servicedesk.db')
+            fs.copyFileSync(dbPath, destinationPath)
+            logger.debug('Database backup created via file copy', { destinationPath })
+            resolve()
+          } catch (copyError) {
+            reject(copyError)
+          }
+        })
       } catch (error) {
         // Fallback: copiar arquivo diretamente
         try {
@@ -302,9 +312,10 @@ class BackupManager {
             break
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
         logger.error('Failed to upload backup to destination', {
           destination: destination.type,
-          error: error.message
+          error: errorMessage
         })
       }
     }
@@ -313,7 +324,7 @@ class BackupManager {
   /**
    * Upload para S3 (placeholder - requer AWS SDK)
    */
-  private async uploadToS3(filePath: string, config: any, result: BackupResult): Promise<void> {
+  private async uploadToS3(filePath: string, config: any, _result: BackupResult): Promise<void> {
     logger.info('S3 upload not implemented', { filePath, config })
     // Implementar com AWS SDK se necessário
   }
@@ -321,7 +332,7 @@ class BackupManager {
   /**
    * Upload para FTP (placeholder)
    */
-  private async uploadToFTP(filePath: string, config: any, result: BackupResult): Promise<void> {
+  private async uploadToFTP(filePath: string, config: any, _result: BackupResult): Promise<void> {
     logger.info('FTP upload not implemented', { filePath, config })
     // Implementar com biblioteca FTP se necessário
   }
@@ -397,8 +408,9 @@ class BackupManager {
 
       return { success: true }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('Database restore failed', error)
-      return { success: false, error: error.message }
+      return { success: false, error: errorMessage }
     }
   }
 
@@ -503,8 +515,9 @@ class BackupManager {
       logger.info('Backup verification successful', { backupPath })
       return { valid: true }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('Backup verification failed', { backupPath, error })
-      return { valid: false, error: error.message }
+      return { valid: false, error: errorMessage }
     }
   }
 }

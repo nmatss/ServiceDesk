@@ -2,6 +2,8 @@ const { colors, typography, spacing, borderRadius, boxShadow, breakpoints, zInde
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // JIT mode enabled by default in Tailwind CSS 3+
+  // Optimized content paths for faster builds
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -10,6 +12,16 @@ module.exports = {
     './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   darkMode: 'class',
+
+  // Performance optimizations
+  future: {
+    hoverOnlyWhenSupported: true, // Only enable hover on devices that support it
+  },
+
+  // Mobile-first optimizations
+  experimental: {
+    optimizeUniversalDefaults: true
+  },
   theme: {
     extend: {
       // Import design tokens as extended colors (preserving Tailwind defaults)
@@ -47,6 +59,12 @@ module.exports = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // Glassmorphism Colors
+        glass: {
+          border: "rgba(var(--glass-border), var(--glass-opacity-heavy))",
+          surface: "rgba(var(--glass-surface), var(--glass-opacity))",
+          highlight: "rgba(255, 255, 255, 0.1)",
         },
       },
       fontFamily: typography.fontFamily,
@@ -239,6 +257,27 @@ module.exports = {
         'xs': '475px',
         '3xl': '1600px',
       },
+
+      // Safe area insets for notched devices
+      padding: {
+        'safe': 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)',
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-right': 'env(safe-area-inset-right)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+      },
+
+      // Touch target sizes (WCAG 2.5.5)
+      minHeight: {
+        'touch': '44px',
+        'touch-sm': '36px',
+        'touch-lg': '48px',
+      },
+      minWidth: {
+        'touch': '44px',
+        'touch-sm': '36px',
+        'touch-lg': '48px',
+      },
     },
   },
   plugins: [
@@ -247,7 +286,7 @@ module.exports = {
     require('@tailwindcss/aspect-ratio'),
 
     // Custom plugin for persona-specific utilities
-    function({ addUtilities, addComponents, theme }) {
+    function ({ addUtilities, addComponents, theme }) {
       // Persona component classes
       addComponents({
         '.btn-persona-enduser': {
@@ -371,6 +410,61 @@ module.exports = {
         '.motion-safe:transition-none': {
           '@media (prefers-reduced-motion: reduce)': {
             transition: 'none !important',
+          },
+        },
+
+        // Mobile-specific utilities
+        '.safe-area-bottom': {
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        },
+        '.safe-area-top': {
+          paddingTop: 'env(safe-area-inset-top)',
+        },
+
+        // Remove 300ms tap delay on mobile
+        '.tap-highlight-transparent': {
+          '-webkit-tap-highlight-color': 'transparent',
+        },
+
+        // Smooth scrolling for mobile
+        '.scroll-smooth-mobile': {
+          '-webkit-overflow-scrolling': 'touch',
+          scrollBehavior: 'smooth',
+        },
+
+        // Touch-friendly scrollbars
+        '.scrollbar-thin': {
+          scrollbarWidth: 'thin',
+          '&::-webkit-scrollbar': {
+            width: '6px',
+            height: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: 'rgba(0, 0, 0, 0.2)',
+            borderRadius: '3px',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: 'rgba(0, 0, 0, 0.3)',
+          },
+        },
+
+        // Prevent text selection on touch
+        '.select-none-touch': {
+          '@media (hover: none)': {
+            userSelect: 'none',
+            '-webkit-user-select': 'none',
+          },
+        },
+
+        // Active state for mobile
+        '.active-scale': {
+          '@media (hover: none)': {
+            '&:active': {
+              transform: 'scale(0.98)',
+            },
           },
         },
       });

@@ -1,0 +1,122 @@
+{
+  "Rules": [
+    {
+      "Id": "backup-retention-policy",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/database/full/"
+      },
+      "Transitions": [
+        {
+          "Days": 30,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 90,
+          "StorageClass": "GLACIER_IR"
+        },
+        {
+          "Days": 365,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 730
+      },
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30
+      }
+    },
+    {
+      "Id": "incremental-backup-cleanup",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/database/incremental/"
+      },
+      "Expiration": {
+        "Days": 7
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 1
+      }
+    },
+    {
+      "Id": "monthly-backup-long-term-retention",
+      "Status": "Enabled",
+      "Filter": {
+        "And": {
+          "Prefix": "backups/database/monthly/",
+          "Tags": [
+            {
+              "Key": "backup-type",
+              "Value": "monthly"
+            }
+          ]
+        }
+      },
+      "Transitions": [
+        {
+          "Days": 0,
+          "StorageClass": "GLACIER_IR"
+        },
+        {
+          "Days": 90,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 2555
+      }
+    },
+    {
+      "Id": "app-state-backup-cleanup",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/app-state/"
+      },
+      "Transitions": [
+        {
+          "Days": 7,
+          "StorageClass": "STANDARD_IA"
+        }
+      ],
+      "Expiration": {
+        "Days": 90
+      }
+    },
+    {
+      "Id": "logs-backup-cleanup",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/logs/"
+      },
+      "Expiration": {
+        "Days": 30
+      }
+    },
+    {
+      "Id": "yearly-compliance-backups",
+      "Status": "Enabled",
+      "Filter": {
+        "And": {
+          "Prefix": "backups/compliance/",
+          "Tags": [
+            {
+              "Key": "retention-type",
+              "Value": "compliance"
+            }
+          ]
+        }
+      },
+      "Transitions": [
+        {
+          "Days": 0,
+          "StorageClass": "DEEP_ARCHIVE"
+        }
+      ],
+      "Expiration": {
+        "Days": 2555
+      }
+    }
+  ]
+}

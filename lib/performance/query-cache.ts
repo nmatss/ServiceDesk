@@ -4,8 +4,7 @@
  */
 
 import { queryOptimizer } from './query-optimizer';
-import { applicationCache } from './application-cache';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface QueryCacheConfig {
   defaultTTL: number;

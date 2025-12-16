@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateJWTSecret } from '@/lib/config/env';
 import OpenAI from 'openai';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';

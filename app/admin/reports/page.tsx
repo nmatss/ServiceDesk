@@ -1,6 +1,5 @@
 'use client'
 
-import AdminDashboard from '@/src/components/admin/AdminDashboard'
 import { AdminCard } from '@/src/components/admin/AdminCard'
 import { AdminButton } from '@/src/components/admin/AdminButton'
 import { useState, useEffect } from 'react'
@@ -24,7 +23,7 @@ interface ReportData {
 }
 
 export default function AdminReportsPage() {
-  const [loading, setLoading] = useState(false)
+  const [_loading, setLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('30')
   const [reportData, setReportData] = useState<ReportData | null>(null)
@@ -38,17 +37,10 @@ export default function AdminReportsPage() {
     try {
       setDataLoading(true)
       setError(null)
-      
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        setError('Token de acesso não encontrado')
-        return
-      }
 
+      // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch(`/api/admin/reports?period=${selectedPeriod}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (!response.ok) {
@@ -72,7 +64,7 @@ export default function AdminReportsPage() {
     }
   }
 
-  const handleExport = async (format: string) => {
+  const handleExport = async (_format: string) => {
     setLoading(true)
     // Simular exportação
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -94,8 +86,7 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <AdminDashboard currentPage="relatórios">
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="md:flex md:items-center md:justify-between">
           <div className="min-w-0 flex-1">
@@ -389,7 +380,5 @@ export default function AdminReportsPage() {
           </div>
         </AdminCard>
       </div>
-    </AdminDashboard>
   )
 }
-

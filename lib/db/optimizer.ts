@@ -32,8 +32,33 @@ interface QueryCacheStats {
   hitRate: number
 }
 
+interface CachedQueryResult {
+  data: unknown
+  timestamp: number
+  ttl: number
+}
+
+interface ExplainPlanRow {
+  id: number
+  parent: number
+  notused: number
+  detail: string
+}
+
+interface IndexRow {
+  name: string
+  tbl_name: string
+  sql: string | null
+}
+
+interface IndexUsageResult {
+  name: string
+  table: string
+  definition: string | null
+}
+
 class DatabaseOptimizer {
-  private queryCache = new Map<string, any>()
+  private queryCache = new Map<string, CachedQueryResult>()
   private slowQueries: QueryStats[] = []
   private readonly SLOW_QUERY_THRESHOLD = 100 // ms
   private cacheHits = 0
@@ -50,7 +75,7 @@ class DatabaseOptimizer {
    */
   async executeWithStats<T>(
     query: string,
-    params: any[] = [],
+    params: unknown[] = [],
     cacheOptions?: CacheOptions
   ): Promise<T> {
     const startTime = Date.now()
@@ -119,7 +144,7 @@ class DatabaseOptimizer {
         this.releaseConnection()
       }
     } catch (error) {
-      logger.error('Query execution failed', { query, error })
+      logger.error('Query execution failed', error as Error, { details: { query } })
       throw error
     }
   }
@@ -247,7 +272,7 @@ class DatabaseOptimizer {
   /**
    * Gerar chave de cache
    */
-  private generateCacheKey(query: string, params: any[]): string {
+  private generateCacheKey(query: string, params: unknown[]): string {
     return Buffer.from(query + JSON.stringify(params)).toString('base64')
   }
 
@@ -262,11 +287,11 @@ class DatabaseOptimizer {
   /**
    * Analisar query lenta
    */
-  private async analyzeSlowQuery(query: string, params: any[], executionTime: number, result: any) {
+  private async analyzeSlowQuery(query: string, params: unknown[], executionTime: number, result: unknown): Promise<void> {
     try {
       // Obter plano de execução
       const explainQuery = `EXPLAIN QUERY PLAN ${query}`
-      const plan = db.prepare(explainQuery).all(...params) as any[]
+      const plan = db.prepare(explainQuery).all(...params) as ExplainPlanRow[]
 
       const stats: QueryStats = {
         query,
@@ -283,27 +308,34 @@ class DatabaseOptimizer {
       }
 
       logger.warn('Slow query detected', {
-        query: query.substring(0, 200),
-        executionTime,
-        planSteps: plan.length,
-        plan: plan.map(p => p.detail).join(' | ')
+        details: {
+          query: query.substring(0, 200),
+          executionTime,
+          planSteps: plan.length,
+          plan: plan.map(p => p.detail).join(' | ')
+        }
       })
 
       // Sugerir otimizações
       const suggestions = this.generateOptimizationSuggestions(query, plan)
       if (suggestions.length > 0) {
-        logger.info('Query optimization suggestions', { query: query.substring(0, 100), suggestions })
+        logger.info('Query optimization suggestions', {
+          details: {
+            query: query.substring(0, 100),
+            suggestions
+          }
+        })
       }
 
     } catch (error) {
-      logger.error('Error analyzing slow query', { query, error })
+      logger.error('Error analyzing slow query', error as Error, { details: { query } })
     }
   }
 
   /**
    * Gerar sugestões de otimização
    */
-  private generateOptimizationSuggestions(query: string, plan: any[]): IndexSuggestion[] {
+  private generateOptimizationSuggestions(query: string, plan: ExplainPlanRow[]): IndexSuggestion[] {
     const suggestions: IndexSuggestion[] = []
 
     // Analisar plano de execução
@@ -313,7 +345,7 @@ class DatabaseOptimizer {
       // Detectar scans em tabelas grandes
       if (detail.includes('scan table')) {
         const tableMatch = detail.match(/scan table (\w+)/)
-        if (tableMatch) {
+        if (tableMatch && tableMatch[1]) {
           const table = tableMatch[1]
           suggestions.push({
             table,
@@ -327,8 +359,8 @@ class DatabaseOptimizer {
       // Detectar ordenação sem índice
       if (detail.includes('use temp b-tree for order by')) {
         const orderByMatch = query.match(/order by\s+([\w\s,]+)/i)
-        if (orderByMatch) {
-          const columns = orderByMatch[1].split(',').map(c => c.trim().split(' ')[0])
+        if (orderByMatch && orderByMatch[1]) {
+          const columns = orderByMatch[1].split(',').map(c => c.trim().split(' ')[0] ?? '')
           suggestions.push({
             table: this.extractTableFromQuery(query),
             columns,
@@ -341,7 +373,7 @@ class DatabaseOptimizer {
       // Detectar GROUP BY sem índice
       if (detail.includes('use temp b-tree for group by')) {
         const groupByMatch = query.match(/group by\s+([\w\s,]+)/i)
-        if (groupByMatch) {
+        if (groupByMatch && groupByMatch[1]) {
           const columns = groupByMatch[1].split(',').map(c => c.trim())
           suggestions.push({
             table: this.extractTableFromQuery(query),
@@ -359,7 +391,7 @@ class DatabaseOptimizer {
   /**
    * Extrair colunas da cláusula WHERE
    */
-  private extractColumnsFromWhere(query: string, table: string): string[] {
+  private extractColumnsFromWhere(query: string, _table: string): string[] {
     const whereMatch = query.match(/where\s+(.+?)(?:\s+order\s+by|\s+group\s+by|\s+limit|$)/i)
     if (!whereMatch) return []
 
@@ -367,7 +399,7 @@ class DatabaseOptimizer {
     const columns: string[] = []
 
     // Extrair colunas da condição WHERE
-    const columnMatches = whereClause.match(/(\w+)\s*[=<>!]/g)
+    const columnMatches = whereClause?.match(/(\w+)\s*[=<>!]/g)
     if (columnMatches) {
       columns.push(...columnMatches.map(m => m.replace(/\s*[=<>!].*/, '')))
     }
@@ -380,7 +412,7 @@ class DatabaseOptimizer {
    */
   private extractTableFromQuery(query: string): string {
     const fromMatch = query.match(/from\s+(\w+)/i)
-    return fromMatch ? fromMatch[1] : 'unknown'
+    return fromMatch?.[1] ?? 'unknown'
   }
 
   /**
@@ -394,9 +426,17 @@ class DatabaseOptimizer {
           const createIndexQuery = `CREATE INDEX IF NOT EXISTS ${indexName} ON ${suggestion.table}(${suggestion.columns.join(', ')})`
 
           db.exec(createIndexQuery)
-          logger.info('Index created', { indexName, table: suggestion.table, columns: suggestion.columns })
+          logger.info('Index created', {
+            details: {
+              indexName,
+              table: suggestion.table,
+              columns: suggestion.columns
+            }
+          })
         } catch (error) {
-          logger.error('Failed to create index', { suggestion, error })
+          logger.error('Failed to create index', error as Error, {
+            details: { suggestion }
+          })
         }
       }
     }
@@ -405,14 +445,14 @@ class DatabaseOptimizer {
   /**
    * Analisar uso de índices existentes
    */
-  analyzeIndexUsage(): any[] {
+  analyzeIndexUsage(): IndexUsageResult[] {
     try {
       // Obter estatísticas de índices do SQLite
       const indexes = db.prepare(`
         SELECT name, tbl_name, sql
         FROM sqlite_master
         WHERE type = 'index' AND name NOT LIKE 'sqlite_%'
-      `).all()
+      `).all() as IndexRow[]
 
       return indexes.map(index => ({
         name: index.name,
@@ -422,7 +462,7 @@ class DatabaseOptimizer {
         // Seria necessário usar PRAGMA ou análise de planos de execução
       }))
     } catch (error) {
-      logger.error('Error analyzing index usage', error)
+      logger.error('Error analyzing index usage', error as Error)
       return []
     }
   }
@@ -455,7 +495,7 @@ class DatabaseOptimizer {
 
       logger.info('Database optimization completed', { tablesAnalyzed: tables.length })
     } catch (error) {
-      logger.error('Database optimization failed', error)
+      logger.error('Database optimization failed', error as Error)
     }
   }
 
@@ -480,10 +520,10 @@ class DatabaseOptimizer {
         errors
       }
     } catch (error) {
-      logger.error('Database integrity check failed', error)
+      logger.error('Database integrity check failed', error as Error)
       return {
         ok: false,
-        errors: [error.message]
+        errors: [(error as Error).message]
       }
     }
   }
@@ -535,7 +575,7 @@ class DatabaseOptimizer {
         sizeMB
       }
     } catch (error) {
-      logger.error('Error getting database size', error)
+      logger.error('Error getting database size', error as Error)
       return { pageCount: 0, pageSize: 0, sizeBytes: 0, sizeMB: 0 }
     }
   }

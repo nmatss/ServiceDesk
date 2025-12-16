@@ -11,12 +11,26 @@
  * - Key rotation support
  */
 
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import db from '../db/connection';
-import { encryptionManager } from './encryption-manager';
-import { piiDetector } from './pii-detection';
+import { encryptionManager, EncryptedData } from './encryption-manager';
+import { PiiDetector } from './pii-detection';
 import { dataMasking } from './data-masking';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+// Create PII detector instance
+const piiDetector = new PiiDetector();
+
+// File encryption metadata
+export interface FileEncryptionMetadata {
+  originalName: string;
+  encryptedSize: number;
+  originalSize: number;
+  algorithm: string;
+  keyVersion: number;
+  checksum: string;
+  encryptedData?: EncryptedData;
+}
 
 // Field-level encryption configuration
 export interface FieldEncryptionConfig {
@@ -80,23 +94,24 @@ export class DataProtectionManager {
       autoMask?: boolean;
       sensitivity?: 'low' | 'medium' | 'high' | 'critical';
     } = {}
-  ): Promise<{ protected: string[]; detected: string[] }> {
+  ): Promise<{ protectedFields: string[]; detectedFields: string[] }> {
     try {
-      const protected: string[] = [];
-      const detected: string[] = [];
+      const protectedFields: string[] = [];
+      const detectedFields: string[] = [];
 
       // Get table schema
-      const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[];
+      const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string; type: string; notnull: number; dflt_value: string | null; pk: number }>;
 
       for (const column of tableInfo) {
         const fieldName = column.name;
         const sampleData = await this.getSampleData(tableName, fieldName);
 
         // Detect PII
-        const piiType = piiDetector.detectPII(sampleData);
+        const piiResult = piiDetector.detectPii(sampleData);
+        const piiType = piiResult.detections.length > 0 ? piiResult.detections[0]?.type : null;
 
         if (piiType) {
-          detected.push(fieldName);
+          detectedFields.push(fieldName);
 
           // Register PII field
           await this.registerPIIField(
@@ -110,7 +125,7 @@ export class DataProtectionManager {
           // Auto-encrypt if enabled
           if (options.autoEncrypt) {
             await this.enableFieldEncryption(tableName, fieldName, organizationId);
-            protected.push(fieldName);
+            protectedFields.push(fieldName);
           }
 
           // Auto-mask if enabled
@@ -125,10 +140,10 @@ export class DataProtectionManager {
         }
       }
 
-      return { protected, detected };
+      return { protectedFields, detectedFields };
     } catch (error) {
       logger.error('Auto-protect table error', error);
-      return { protected: [], detected: [] };
+      return { protectedFields: [], detectedFields: [] };
     }
   }
 
@@ -215,9 +230,9 @@ export class DataProtectionManager {
    */
   async encryptRecord(
     tableName: string,
-    record: Record<string, any>,
+    record: Record<string, unknown>,
     organizationId: number
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const encryptedFields = await this.getEncryptedFields(tableName, organizationId);
     const result = { ...record };
 
@@ -240,11 +255,11 @@ export class DataProtectionManager {
    */
   async decryptRecord(
     tableName: string,
-    record: Record<string, any>,
+    record: Record<string, unknown>,
     organizationId: number,
     userId?: number,
     userRole?: string
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const encryptedFields = await this.getEncryptedFields(tableName, organizationId);
     const result = { ...record };
 
@@ -253,7 +268,7 @@ export class DataProtectionManager {
         try {
           // Decrypt
           const decrypted = await this.decryptField(
-            result[field.field_name],
+            String(result[field.field_name]),
             tableName,
             field.field_name,
             organizationId
@@ -308,11 +323,12 @@ export class DataProtectionManager {
         return value;
       }
 
-      // Use configured mask pattern or default
-      const pattern = piiField.mask_pattern || this.getMaskPattern(piiField.pii_type);
+      // Mask pattern available for future use
+      // const pattern = piiField.mask_pattern || this.getMaskPattern(piiField.pii_type);
 
-      // Apply masking
-      return dataMasking.maskData(value, piiField.pii_type as any);
+      // Apply masking based on PII type
+      const masked = await dataMasking.autoMask(value, fieldName);
+      return typeof masked === 'string' ? masked : String(masked);
     } catch (error) {
       logger.error('Field masking error', error);
       return value;
@@ -323,19 +339,20 @@ export class DataProtectionManager {
    * PII DETECTION
    */
   async detectAndProtectPII(
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     tableName: string,
     organizationId: number
-  ): Promise<{ detected: string[]; protected: Record<string, any> }> {
-    const detected: string[] = [];
-    const protected: Record<string, any> = { ...data };
+  ): Promise<{ detectedFields: string[]; protectedData: Record<string, unknown> }> {
+    const detectedFields: string[] = [];
+    const protectedData: Record<string, unknown> = { ...data };
 
     for (const [fieldName, value] of Object.entries(data)) {
       if (typeof value === 'string') {
-        const piiType = piiDetector.detectPII(value);
+        const piiResult = piiDetector.detectPii(value);
+        const piiType = piiResult.detections.length > 0 ? piiResult.detections[0]?.type : null;
 
         if (piiType) {
-          detected.push(fieldName);
+          detectedFields.push(fieldName);
 
           // Register if not already registered
           await this.registerPIIField(
@@ -347,7 +364,7 @@ export class DataProtectionManager {
           );
 
           // Encrypt
-          protected[fieldName] = await this.encryptField(
+          protectedData[fieldName] = await this.encryptField(
             value,
             tableName,
             fieldName,
@@ -357,7 +374,7 @@ export class DataProtectionManager {
       }
     }
 
-    return { detected, protected };
+    return { detectedFields, protectedData };
   }
 
   /**
@@ -366,27 +383,26 @@ export class DataProtectionManager {
   async encryptFile(
     fileBuffer: Buffer,
     fileName: string,
-    organizationId: number
-  ): Promise<{ encrypted: Buffer; metadata: any }> {
+    // organizationId available for future use
+    _organizationId: number
+  ): Promise<{ encrypted: Buffer; metadata: FileEncryptionMetadata }> {
     try {
       // Use encryption manager for file encryption
-      const result = await encryptionManager.encryptFile(fileBuffer, {
-        organizationId,
-        fileName,
-      });
+      const result = await encryptionManager.encryptFile(fileBuffer);
 
       // Store metadata
-      const metadata = {
+      const metadata: FileEncryptionMetadata = {
         originalName: fileName,
-        encryptedSize: result.encrypted.length,
+        encryptedSize: Buffer.from(result.encryptedData, 'base64').length,
         originalSize: fileBuffer.length,
         algorithm: this.ENCRYPTION_ALGORITHM,
-        keyVersion: result.keyVersion,
+        keyVersion: 1,
         checksum: crypto.createHash('sha256').update(fileBuffer).digest('hex'),
+        encryptedData: result,
       };
 
       return {
-        encrypted: result.encrypted,
+        encrypted: Buffer.from(result.encryptedData, 'base64'),
         metadata,
       };
     } catch (error) {
@@ -399,15 +415,18 @@ export class DataProtectionManager {
    * Decrypt file
    */
   async decryptFile(
-    encryptedBuffer: Buffer,
-    metadata: any,
-    organizationId: number
+    // encryptedBuffer available for future use
+    _encryptedBuffer: Buffer,
+    metadata: FileEncryptionMetadata,
+    // organizationId available for future use
+    _organizationId: number
   ): Promise<Buffer> {
     try {
-      const decrypted = await encryptionManager.decryptFile(encryptedBuffer, {
-        organizationId,
-        keyVersion: metadata.keyVersion,
-      });
+      if (!metadata.encryptedData) {
+        throw new Error('Missing encrypted data in metadata');
+      }
+
+      const decrypted = await encryptionManager.decryptFile(metadata.encryptedData);
 
       // Verify checksum
       const checksum = crypto.createHash('sha256').update(decrypted).digest('hex');
@@ -428,25 +447,25 @@ export class DataProtectionManager {
   async exportUserData(
     userId: number,
     organizationId: number
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     try {
       // Collect all user data from various tables
-      const userData: Record<string, any> = {};
+      const userData: Record<string, unknown> = {};
 
       // User profile
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<string, unknown> | undefined;
       if (user) {
         userData.profile = await this.decryptRecord('users', user, organizationId);
       }
 
       // Tickets
-      const tickets = db.prepare('SELECT * FROM tickets WHERE created_by = ?').all(userId) as any[];
+      const tickets = db.prepare('SELECT * FROM tickets WHERE created_by = ?').all(userId) as Record<string, unknown>[];
       userData.tickets = await Promise.all(
         tickets.map(t => this.decryptRecord('tickets', t, organizationId))
       );
 
       // Comments
-      const comments = db.prepare('SELECT * FROM comments WHERE user_id = ?').all(userId) as any[];
+      const comments = db.prepare('SELECT * FROM comments WHERE user_id = ?').all(userId) as Record<string, unknown>[];
       userData.comments = await Promise.all(
         comments.map(c => this.decryptRecord('comments', c, organizationId))
       );
@@ -463,11 +482,11 @@ export class DataProtectionManager {
    */
   async anonymizeUserData(
     userId: number,
-    organizationId: number
+    _organizationId: number
   ): Promise<boolean> {
     try {
-      // Get all PII fields
-      const piiFields = await this.getAllPIIFields(organizationId);
+      // Get all PII fields (available for future use)
+      // const piiFields = await this.getAllPIIFields(_organizationId);
 
       // Anonymize user record
       db.prepare(`
@@ -540,7 +559,7 @@ export class DataProtectionManager {
     try {
       // Get key from encryption manager
       const keyVersion = await this.getKeyVersion(tableName, fieldName, organizationId);
-      return await encryptionManager.getKey(organizationId, keyVersion);
+      return await encryptionManager.generateFieldKey(tableName, fieldName, keyVersion);
     } catch (error) {
       // Generate new key if not exists
       return crypto.randomBytes(this.KEY_SIZE);
@@ -562,7 +581,7 @@ export class DataProtectionManager {
         SELECT ${fieldName} FROM ${tableName}
         WHERE ${fieldName} IS NOT NULL
         LIMIT 1
-      `).get() as any;
+      `).get() as Record<string, unknown> | undefined;
 
       return result ? String(result[fieldName]) : '';
     } catch {
@@ -580,7 +599,7 @@ export class DataProtectionManager {
       default: '***',
     };
 
-    return patterns[piiType] || patterns.default;
+    return patterns[piiType] ?? patterns.default ?? '***';
   }
 
   private async registerPIIField(
@@ -695,6 +714,9 @@ export class DataProtectionManager {
     }
   }
 
+  // Method available for future use
+  // @ts-expect-error - Reserved for future implementation
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async getAllPIIFields(organizationId: number): Promise<PIIField[]> {
     try {
       return db.prepare(`

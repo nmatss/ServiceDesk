@@ -15,7 +15,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import ssoManager from '@/lib/auth/sso-manager';
-import db from '@/lib/db/connection';
 import { sign } from 'jsonwebtoken';
 import { validateJWTSecret } from '@/lib/config/env';
 import { logger } from '@/lib/monitoring/logger';
@@ -48,7 +47,7 @@ export async function GET(
     const state = generateState();
 
     // Store state in session
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('sso_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -138,7 +137,7 @@ async function handleOAuthCallback(
 ): Promise<NextResponse> {
   try {
     // Verify state parameter
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const savedState = cookieStore.get('sso_state')?.value;
 
     if (!savedState || savedState !== state) {
@@ -226,7 +225,7 @@ async function handleSAMLCallback(
   try {
     // Verify relay state if present
     if (relayState) {
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       const savedState = cookieStore.get('sso_state')?.value;
 
       if (savedState && savedState !== relayState) {
@@ -258,7 +257,7 @@ async function handleSAMLCallback(
     }
 
     // Generate JWT token
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const token = sign(
       {
         userId: user.id,

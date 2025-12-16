@@ -3,7 +3,7 @@
  * Tracer customizado para monitorar operações críticas
  */
 
-import { tracer, trace, context, SpanStatusCode } from '@opentelemetry/api';
+import { trace, context, SpanStatusCode } from '@opentelemetry/api';
 
 // Nome do serviço
 const SERVICE_NAME = process.env.DD_SERVICE || 'servicedesk';
@@ -37,11 +37,12 @@ export interface TraceContext {
  * Classe para gerenciar traces do Datadog
  */
 export class DatadogTracer {
-  private tracer = tracer;
+  private tracer;
   private serviceName: string;
 
   constructor(serviceName: string = SERVICE_NAME) {
     this.serviceName = serviceName;
+    this.tracer = trace.getTracer(serviceName);
   }
 
   /**

@@ -138,9 +138,10 @@ export const Modal: React.FC<ModalProps> = ({
                         type="button"
                         className="ml-4 rounded-md bg-white text-neutral-400 hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-neutral-800 dark:hover:text-neutral-300"
                         onClick={onClose}
+                        aria-label="Fechar modal"
                       >
-                        <span className="sr-only">Close</span>
-                        <X className="h-5 w-5" />
+                        <span className="sr-only">Fechar</span>
+                        <X className="h-5 w-5" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -199,10 +200,10 @@ export const AlertModal: React.FC<AlertModalProps> = ({
   ...modalProps
 }) => {
   const icons = {
-    info: <Info className="h-6 w-6 text-blue-600" />,
-    success: <CheckCircle className="h-6 w-6 text-success-600" />,
-    warning: <AlertTriangle className="h-6 w-6 text-warning-600" />,
-    error: <AlertCircle className="h-6 w-6 text-error-600" />,
+    info: <Info className="h-6 w-6 text-blue-600" aria-hidden="true" />,
+    success: <CheckCircle className="h-6 w-6 text-success-600" aria-hidden="true" />,
+    warning: <AlertTriangle className="h-6 w-6 text-warning-600" aria-hidden="true" />,
+    error: <AlertCircle className="h-6 w-6 text-error-600" aria-hidden="true" />,
   };
 
   const handleConfirm = () => {
@@ -223,7 +224,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
       onClose={showCancel ? handleCancel : onClose}
       size="sm"
     >
-      <div className="flex items-start space-x-4">
+      <div className="flex items-start space-x-4" role="alert" aria-live="polite">
         <div className="flex-shrink-0">
           {icons[type]}
         </div>
@@ -445,9 +446,10 @@ export const Drawer: React.FC<DrawerProps> = ({
                           type="button"
                           className="ml-4 rounded-md bg-white text-neutral-400 hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-neutral-800 dark:hover:text-neutral-300"
                           onClick={onClose}
+                          aria-label="Fechar drawer"
                         >
-                          <span className="sr-only">Close</span>
-                          <X className="h-5 w-5" />
+                          <span className="sr-only">Fechar</span>
+                          <X className="h-5 w-5" aria-hidden="true" />
                         </button>
                       )}
                     </div>

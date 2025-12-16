@@ -8,11 +8,79 @@
  * - Resource optimization recommendations
  */
 
-import { db } from '@/lib/db/connection';
+import db from '@/lib/db/connection';
 
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
+
+interface TicketRecord {
+  id: number;
+  category_id: number;
+  priority_id: number;
+  status_id: number;
+  assigned_to: number | null;
+  created_at: string;
+  updated_at: string;
+  category_name: string;
+  priority_name: string;
+  status_name: string;
+  agent_name: string | null;
+  response_time_target: number;
+  resolution_time_target: number;
+  is_violated: number;
+  age_hours: number;
+}
+
+interface HistoricalPerformance {
+  avg_resolution_hours: number;
+  total_tickets: number;
+  violated_count: number;
+}
+
+interface AgentWorkload {
+  active_tickets: number;
+}
+
+interface HistoricalDataRecord {
+  date: string;
+  count: number;
+  priority: string;
+  category: string;
+}
+
+interface VolumeDataRecord {
+  date: string;
+  count: number;
+}
+
+interface ResolutionTimeData {
+  avg_hours: number;
+}
+
+interface SLATrackingData {
+  total: number;
+  violated: number;
+}
+
+interface WorkloadData {
+  total_active: number;
+  agent_count: number;
+}
+
+interface AgentPerformanceRecord {
+  id: number;
+  name: string;
+  resolved_tickets: number;
+  avg_resolution_time: number;
+  sla_violations: number;
+}
+
+interface WorkloadDistribution {
+  id: number;
+  name: string;
+  active_tickets: number;
+}
 
 export interface SLAPrediction {
   ticket_id: number;
@@ -94,7 +162,7 @@ export class SLAViolationPredictor {
   /**
    * Predict violation for a single ticket
    */
-  private async predictTicketViolation(ticket: any): Promise<SLAPrediction> {
+  private async predictTicketViolation(ticket: TicketRecord): Promise<SLAPrediction> {
     const features = await this.extractFeatures(ticket);
     const probability = this.calculateViolationProbability(features);
     const riskLevel = this.getRiskLevel(probability);
@@ -115,7 +183,7 @@ export class SLAViolationPredictor {
   /**
    * Get active tickets from database
    */
-  private async getActiveTickets(ticketIds?: number[]): Promise<any[]> {
+  private async getActiveTickets(ticketIds?: number[]): Promise<TicketRecord[]> {
     let query = `
       SELECT
         t.*,
@@ -141,13 +209,13 @@ export class SLAViolationPredictor {
       query += ` AND t.id IN (${ticketIds.join(',')})`;
     }
 
-    return db.prepare(query).all() as any[];
+    return db.prepare(query).all() as TicketRecord[];
   }
 
   /**
    * Extract features for ML model
    */
-  private async extractFeatures(ticket: any): Promise<Record<string, number>> {
+  private async extractFeatures(ticket: TicketRecord): Promise<Record<string, number>> {
     // Calculate historical performance for this category/priority combination
     const historicalPerformance = db.prepare(`
       SELECT
@@ -159,7 +227,7 @@ export class SLAViolationPredictor {
       WHERE t.category_id = ?
         AND t.priority_id = ?
         AND t.status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-    `).get(ticket.category_id, ticket.priority_id) as any;
+    `).get(ticket.category_id, ticket.priority_id) as HistoricalPerformance | undefined;
 
     // Agent workload
     const agentWorkload = ticket.assigned_to ? db.prepare(`
@@ -167,7 +235,7 @@ export class SLAViolationPredictor {
       FROM tickets
       WHERE assigned_to = ?
         AND status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
-    `).get(ticket.assigned_to) as any : { active_tickets: 0 };
+    `).get(ticket.assigned_to) as AgentWorkload : { active_tickets: 0 };
 
     // Time-based features
     const currentHour = new Date().getHours();
@@ -199,18 +267,19 @@ export class SLAViolationPredictor {
     let score = 0;
 
     // Age factor (exponential growth)
-    const ageRatio = features.age_hours / features.resolution_time_target;
+    const ageRatio = (features.age_hours ?? 0) / (features.resolution_time_target ?? 24);
     score += Math.min(ageRatio * 0.3, 0.4);
 
     // Priority factor
-    score += features.priority_level * 0.15;
+    score += (features.priority_level ?? 0.5) * 0.15;
 
     // Agent workload factor
-    if (features.agent_workload > 10) score += 0.15;
-    else if (features.agent_workload > 5) score += 0.08;
+    const agentWorkload = features.agent_workload ?? 0;
+    if (agentWorkload > 10) score += 0.15;
+    else if (agentWorkload > 5) score += 0.08;
 
     // Historical violation rate
-    score += features.historical_violation_rate * 0.2;
+    score += (features.historical_violation_rate ?? 0) * 0.2;
 
     // Business hours (lower risk during business hours)
     if (!features.is_business_hours) score += 0.1;
@@ -222,7 +291,7 @@ export class SLAViolationPredictor {
     if (features.is_already_violated) score += 0.3;
 
     // Category complexity
-    score += features.category_complexity * 0.1;
+    score += (features.category_complexity ?? 0.5) * 0.1;
 
     return Math.min(Math.max(score, 0), 1);
   }
@@ -241,10 +310,10 @@ export class SLAViolationPredictor {
    * Estimate resolution time
    */
   private estimateResolutionTime(features: Record<string, number>): number {
-    let baseTime = features.historical_avg_resolution;
+    let baseTime = features.historical_avg_resolution ?? 24;
 
     // Adjust for current workload
-    const workloadFactor = 1 + (features.agent_workload * 0.05);
+    const workloadFactor = 1 + ((features.agent_workload ?? 0) * 0.05);
     baseTime *= workloadFactor;
 
     // Adjust for business hours
@@ -261,15 +330,18 @@ export class SLAViolationPredictor {
   private identifyContributingFactors(features: Record<string, number>): { factor: string; impact: number }[] {
     const factors: { factor: string; impact: number }[] = [];
 
-    if (features.age_hours > features.resolution_time_target * 0.7) {
+    const ageHours = features.age_hours ?? 0;
+    const resolutionTarget = features.resolution_time_target ?? 24;
+
+    if (ageHours > resolutionTarget * 0.7) {
       factors.push({ factor: 'Approaching deadline', impact: 0.3 });
     }
 
-    if (features.agent_workload > 8) {
+    if ((features.agent_workload ?? 0) > 8) {
       factors.push({ factor: 'High agent workload', impact: 0.25 });
     }
 
-    if (features.historical_violation_rate > 0.3) {
+    if ((features.historical_violation_rate ?? 0) > 0.3) {
       factors.push({ factor: 'Category has high violation rate', impact: 0.2 });
     }
 
@@ -281,7 +353,7 @@ export class SLAViolationPredictor {
       factors.push({ factor: 'Outside business hours', impact: 0.15 });
     }
 
-    if (features.category_complexity > 0.6) {
+    if ((features.category_complexity ?? 0) > 0.6) {
       factors.push({ factor: 'Complex category', impact: 0.2 });
     }
 
@@ -374,7 +446,7 @@ export class DemandForecaster {
   /**
    * Get historical ticket data
    */
-  private async getHistoricalData(): Promise<any[]> {
+  private async getHistoricalData(): Promise<HistoricalDataRecord[]> {
     const data = db.prepare(`
       SELECT
         date(created_at) as date,
@@ -389,15 +461,14 @@ export class DemandForecaster {
       ORDER BY date(created_at)
     `).all();
 
-    return data as any[];
+    return data as HistoricalDataRecord[];
   }
 
   /**
    * Generate forecast for a specific date
    */
-  private generateForecast(date: Date, historicalData: any[]): DemandForecast {
+  private generateForecast(date: Date, historicalData: HistoricalDataRecord[]): DemandForecast {
     const dayOfWeek = date.getDay();
-    const weekOfMonth = Math.floor(date.getDate() / 7);
 
     // Calculate base trend
     const recentAvg = this.calculateMovingAverage(historicalData, 7);
@@ -428,7 +499,7 @@ export class DemandForecaster {
     });
 
     return {
-      date: date.toISOString().split('T')[0],
+      date: date.toISOString().split('T')[0] || '',
       predicted_tickets: predictedTickets,
       confidence_interval,
       predicted_by_priority,
@@ -441,7 +512,7 @@ export class DemandForecaster {
   /**
    * Calculate moving average
    */
-  private calculateMovingAverage(data: any[], window: number): number {
+  private calculateMovingAverage(data: HistoricalDataRecord[], window: number): number {
     const dailyTotals = data.reduce((acc: Record<string, number>, item) => {
       acc[item.date] = (acc[item.date] || 0) + item.count;
       return acc;
@@ -464,7 +535,7 @@ export class DemandForecaster {
   /**
    * Calculate trend factor
    */
-  private getTrendFactor(data: any[]): number {
+  private getTrendFactor(data: HistoricalDataRecord[]): number {
     const dailyTotals = data.reduce((acc: Record<string, number>, item) => {
       acc[item.date] = (acc[item.date] || 0) + item.count;
       return acc;
@@ -482,7 +553,7 @@ export class DemandForecaster {
   /**
    * Get category distribution
    */
-  private getCategoryDistribution(data: any[]): Record<string, number> {
+  private getCategoryDistribution(data: HistoricalDataRecord[]): Record<string, number> {
     const categoryTotals = data.reduce((acc: Record<string, number>, item) => {
       acc[item.category] = (acc[item.category] || 0) + item.count;
       return acc;
@@ -537,7 +608,7 @@ export class AnomalyDetector {
       WHERE created_at >= date('now', '-30 days')
       GROUP BY date(created_at)
       ORDER BY date
-    `).all() as any[];
+    `).all() as VolumeDataRecord[];
 
     const values = data.map(d => d.count);
     const stats = this.calculateStatistics(values);
@@ -579,7 +650,7 @@ export class AnomalyDetector {
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
         AND date(updated_at) >= date('now', '-7 days')
-    `).get() as any;
+    `).get() as ResolutionTimeData | undefined;
 
     const historical = db.prepare(`
       SELECT
@@ -588,11 +659,11 @@ export class AnomalyDetector {
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
         AND date(updated_at) >= date('now', '-30 days')
         AND date(updated_at) < date('now', '-7 days')
-    `).get() as any;
+    `).get() as ResolutionTimeData | undefined;
 
     const anomalies: AnomalyDetection[] = [];
 
-    if (data.avg_hours && historical.avg_hours) {
+    if (data && data.avg_hours && historical && historical.avg_hours) {
       const change = ((data.avg_hours - historical.avg_hours) / historical.avg_hours) * 100;
 
       if (Math.abs(change) > 30) {
@@ -627,7 +698,7 @@ export class AnomalyDetector {
         SUM(CASE WHEN is_violated = 1 THEN 1 ELSE 0 END) as violated
       FROM sla_tracking
       WHERE created_at >= date('now', '-7 days')
-    `).get() as any;
+    `).get() as SLATrackingData | undefined;
 
     const historical = db.prepare(`
       SELECT
@@ -636,11 +707,11 @@ export class AnomalyDetector {
       FROM sla_tracking
       WHERE created_at >= date('now', '-30 days')
         AND created_at < date('now', '-7 days')
-    `).get() as any;
+    `).get() as SLATrackingData | undefined;
 
     const anomalies: AnomalyDetection[] = [];
 
-    if (data.total > 0 && historical.total > 0) {
+    if (data && data.total > 0 && historical && historical.total > 0) {
       const currentRate = (data.violated / data.total) * 100;
       const historicalRate = (historical.violated / historical.total) * 100;
       const change = currentRate - historicalRate;
@@ -720,7 +791,11 @@ export class ResourceOptimizer {
         (SELECT COUNT(*) FROM users WHERE role IN ('admin', 'agent')) as agent_count
       FROM tickets
       WHERE status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
-    `).get() as any;
+    `).get() as WorkloadData | undefined;
+
+    if (!workload || workload.agent_count === 0) {
+      return recommendations;
+    }
 
     const ticketsPerAgent = workload.total_active / workload.agent_count;
 
@@ -762,7 +837,7 @@ export class ResourceOptimizer {
         AND t.created_at >= date('now', '-30 days')
       GROUP BY u.id, u.name
       HAVING COUNT(t.id) > 5
-    `).all() as any[];
+    `).all() as AgentPerformanceRecord[];
 
     const avgResolutionTime = agentPerformance.reduce((sum, a) => sum + a.avg_resolution_time, 0) / agentPerformance.length;
 
@@ -805,7 +880,7 @@ export class ResourceOptimizer {
         AND t.status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
       WHERE u.role IN ('admin', 'agent')
       GROUP BY u.id, u.name
-    `).all() as any[];
+    `).all() as WorkloadDistribution[];
 
     const maxWorkload = Math.max(...distribution.map(d => d.active_tickets));
     const minWorkload = Math.min(...distribution.map(d => d.active_tickets));

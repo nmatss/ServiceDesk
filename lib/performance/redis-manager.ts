@@ -4,7 +4,7 @@
  */
 
 import { Redis, Cluster } from 'ioredis';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface CacheConfig {
   redis: {
@@ -64,7 +64,7 @@ export interface CacheEntry<T = any> {
 
 export class RedisManager {
   private static instance: RedisManager;
-  private redis: Redis | Cluster;
+  private redis!: Redis | Cluster;
   private config: CacheConfig;
   private stats: CacheStats;
   private layerConfigs = new Map<string, CacheLayerConfig>();
@@ -246,7 +246,10 @@ export class RedisManager {
 
     // Process results
     for (let i = 0; i < keyLayers.length; i++) {
-      const { key, layer } = keyLayers[i];
+      const keyLayerInfo = keyLayers[i];
+      if (!keyLayerInfo) continue;
+
+      const { key, layer } = keyLayerInfo;
       const value = values[i];
 
       if (value && !results.has(key)) {
@@ -371,13 +374,13 @@ export class RedisManager {
       let layerMemory = 0;
       if (keys.length > 0) {
         const pipeline = this.redis.pipeline();
-        keys.forEach(key => pipeline.memory('usage', key));
+        keys.forEach(key => pipeline.memory('USAGE', key));
         const results = await pipeline.exec();
 
         if (results) {
-          for (const [error, result] of results) {
-            if (!error && typeof result === 'number') {
-              layerMemory += result;
+          for (const result of results) {
+            if (result && !result[0] && typeof result[1] === 'number') {
+              layerMemory += result[1];
             }
           }
         }
@@ -483,7 +486,10 @@ export class RedisManager {
         port: this.config.redis.port,
         password: this.config.redis.password,
         db: this.config.redis.db || 0,
-        retryDelayOnFailover: 100,
+        retryStrategy: (times: number) => {
+          const delay = Math.min(times * 100, 3000);
+          return delay;
+        },
         maxRetriesPerRequest: 3
       });
     }
@@ -648,7 +654,7 @@ export class RedisManager {
     await pipeline.exec();
   }
 
-  private async cleanupTags(keys: string[]): Promise<void> {
+  private async cleanupTags(_keys: string[]): Promise<void> {
     // Implementation would scan and remove keys from tag sets
   }
 
@@ -705,7 +711,9 @@ export class RedisManager {
 
       if (inSection && line.includes(':')) {
         const [key, value] = line.split(':');
-        result[key] = value;
+        if (key && value !== undefined) {
+          result[key] = value;
+        }
       }
     }
 

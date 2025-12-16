@@ -11,9 +11,10 @@
  * - Status updates
  */
 
-import { createTicket, updateTicket, addComment } from '@/lib/db/queries';
-import type { Ticket, Comment } from '@/lib/types/database';
-import { logger } from '@/lib/monitoring/logger';
+import { ticketQueries, commentQueries } from '@/lib/db/queries';
+const createTicket = ticketQueries.create;
+const addComment = commentQueries.create;
+import logger from '@/lib/monitoring/structured-logger';
 
 // WhatsApp Cloud API Configuration
 interface WhatsAppConfig {
@@ -244,7 +245,8 @@ class WhatsAppBusinessAPI {
     try {
       const formData = new FormData();
       formData.append('messaging_product', 'whatsapp');
-      formData.append('file', new Blob([file], { type: mimeType }), filename);
+      const blob = file instanceof Blob ? file : new Blob([new Uint8Array(file)], { type: mimeType });
+      formData.append('file', blob, filename);
 
       const response = await fetch(
         `${this.baseUrl}/${this.config.phoneNumberId}/media`,
@@ -453,13 +455,7 @@ class WhatsAppBusinessAPI {
           user_id: session.userId || 1, // Default to system user if no user
           content: messageBody,
           is_internal: false,
-          metadata: JSON.stringify({
-            source: 'whatsapp',
-            phoneNumber,
-            messageId: message.id,
-            attachments,
-          }),
-        });
+        }, 1);
 
         // Update session
         this.updateSession(phoneNumber, {});
@@ -473,19 +469,12 @@ class WhatsAppBusinessAPI {
         const ticket = await createTicket({
           title: `WhatsApp: ${profileName || phoneNumber}`,
           description: messageBody,
-          requester_id: 1, // Default system user, can be updated later
+          user_id: 1, // Default system user, can be updated later
+          organization_id: 1,
           category_id: 1, // Default category
           priority_id: 2, // Medium priority
           status_id: 1, // Open
-          channel: 'whatsapp',
-          metadata: JSON.stringify({
-            source: 'whatsapp',
-            phoneNumber,
-            profileName,
-            messageId: message.id,
-            attachments,
-          }),
-        });
+        }, 1);
 
         if (!ticket) {
           throw new Error('Failed to create ticket');
@@ -533,7 +522,7 @@ class WhatsAppBusinessAPI {
   /**
    * Verify webhook signature (security)
    */
-  verifyWebhookSignature(signature: string, payload: string): boolean {
+  verifyWebhookSignature(_signature: string, _payload: string): boolean {
     // WhatsApp uses SHA256 HMAC for webhook verification
     // Implementation depends on your setup
     // For now, just verify the token
@@ -546,7 +535,7 @@ class WhatsAppBusinessAPI {
   async notifyTicketUpdate(
     phoneNumber: string,
     ticketId: number,
-    updateType: 'comment' | 'status' | 'assignment',
+    _updateType: 'comment' | 'status' | 'assignment',
     message: string
   ): Promise<{ success: boolean }> {
     const formattedMessage = `📋 Chamado #${ticketId}\n\n${message}`;

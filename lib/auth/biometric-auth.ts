@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from 'crypto';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface WebAuthnCredential {
   id: string;
@@ -96,7 +96,7 @@ class BiometricAuthManager {
   /**
    * Generate registration options for WebAuthn
    */
-  async generateRegistrationOptions(userId: number, deviceName?: string): Promise<RegistrationOptions | null> {
+  async generateRegistrationOptions(userId: number, _deviceName?: string): Promise<RegistrationOptions | null> {
     try {
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
       if (!user) return null;
@@ -602,10 +602,10 @@ class BiometricAuthManager {
    * Verify signature (simplified)
    */
   private verifySignature(
-    publicKey: string,
-    signature: string,
-    authenticatorData: string,
-    clientDataJSON: string
+    _publicKey: string,
+    _signature: string,
+    _authenticatorData: string,
+    _clientDataJSON: string
   ): boolean {
     try {
       // This is a simplified implementation

@@ -7,12 +7,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ssoManager from '@/lib/auth/sso-manager';
 import { logger } from '@/lib/monitoring/logger';
+import { verifyToken } from '@/lib/auth/sqlite-auth';
 
 /**
  * GET /api/auth/sso/providers
  * Get list of available SSO providers
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Get all active providers
     const providers = ssoManager.getActiveProviders();
@@ -46,8 +47,36 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Add authentication and authorization check
-    // Only admins should be able to configure SSO providers
+    // Authentication and authorization check - only admins can configure SSO
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Access token required' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.substring(7);
+    const user = await verifyToken(token);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
+
+    // Check for admin role
+    if (user.role !== 'admin') {
+      logger.warn('Unauthorized SSO configuration attempt', {
+        userId: user.id,
+        email: user.email,
+        role: user.role
+      });
+      return NextResponse.json(
+        { error: 'Forbidden. Admin access required to configure SSO providers.' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const { name, displayName, type, configuration } = body;
@@ -79,6 +108,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (success) {
+      // Log successful SSO configuration for audit trail
+      logger.info('SSO provider configured', {
+        providerId: name,
+        providerType: type,
+        configuredBy: user.id,
+        email: user.email,
+        organizationId: user.organization_id
+      });
+
       return NextResponse.json({
         success: true,
         message: 'SSO provider configured successfully',

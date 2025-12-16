@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
+import { createRateLimitMiddleware } from '@/lib/rate-limit'
+
+// Rate limiting para operações admin
+const adminRateLimit = createRateLimitMiddleware('api')
 
 export async function GET(request: NextRequest) {
+  // Aplicar rate limiting
+  const rateLimitResult = await adminRateLimit(request, '/api/admin/users')
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult // Rate limit exceeded
+  }
   try {
     const tenantContext = getTenantContextFromRequest(request)
     if (!tenantContext) {

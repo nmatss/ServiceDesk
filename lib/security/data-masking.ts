@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface MaskingRule {
   id: string;
@@ -49,22 +49,23 @@ export interface MaskingConfiguration {
 export interface MaskingContext {
   userId: number;
   userRole: string;
-  purpose: 'export' | 'display' | 'report' | 'api' | 'log';
+  purpose: 'export' | 'display' | 'report' | 'api' | 'log' | 'audit';
   environment: 'production' | 'staging' | 'development' | 'test';
   dataClassification?: 'public' | 'internal' | 'confidential' | 'restricted';
 }
 
 export interface MaskingResult {
-  originalValue: any;
-  maskedValue: any;
+  originalValue: unknown;
+  maskedValue: unknown;
   appliedRules: string[];
   maskingType: string;
 }
 
 class DataMaskingManager {
   private maskingRules = new Map<string, MaskingRule[]>();
-  private cacheExpiry = 10 * 60 * 1000; // 10 minutes
-  private lastCacheUpdate = 0;
+  // Reserved for future caching implementation
+  // private cacheExpiry = 10 * 60 * 1000; // 10 minutes
+  // private lastCacheUpdate = 0;
 
   private readonly EMAIL_DOMAINS = [
     'example.com', 'sample.org', 'test.net', 'demo.co', 'masked.io'
@@ -85,7 +86,7 @@ class DataMaskingManager {
   async maskValue(
     tableName: string,
     fieldName: string,
-    value: any,
+    value: unknown,
     context: MaskingContext
   ): Promise<MaskingResult> {
     try {
@@ -102,6 +103,15 @@ class DataMaskingManager {
 
       // Apply the highest priority rule
       const rule = rules[0];
+      if (!rule) {
+        return {
+          originalValue: value,
+          maskedValue: value,
+          appliedRules: [],
+          maskingType: 'none'
+        };
+      }
+
       const maskedValue = await this.applyMaskingRule(value, rule, context);
 
       return {
@@ -111,7 +121,7 @@ class DataMaskingManager {
         maskingType: rule.maskingType
       };
     } catch (error) {
-      logger.error('Error applying data masking', error);
+      logger.error('Error applying data masking', error as Error);
       return {
         originalValue: value,
         maskedValue: value,
@@ -126,18 +136,23 @@ class DataMaskingManager {
    */
   async maskDataset(
     tableName: string,
-    dataset: any[],
+    dataset: Record<string, unknown>[],
     context: MaskingContext
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     if (!Array.isArray(dataset) || dataset.length === 0) {
       return dataset;
     }
 
-    const fieldNames = Object.keys(dataset[0]);
-    const maskedDataset = [];
+    const firstRow = dataset[0];
+    if (!firstRow) {
+      return dataset;
+    }
+
+    const fieldNames = Object.keys(firstRow);
+    const maskedDataset: Record<string, unknown>[] = [];
 
     for (const row of dataset) {
-      const maskedRow = { ...row };
+      const maskedRow: Record<string, unknown> = { ...row };
 
       for (const fieldName of fieldNames) {
         const result = await this.maskValue(tableName, fieldName, row[fieldName], context);
@@ -182,7 +197,7 @@ class DataMaskingManager {
 
       return ruleId;
     } catch (error) {
-      logger.error('Error creating masking rule', error);
+      logger.error('Error creating masking rule', error as Error);
       return null;
     }
   }
@@ -190,7 +205,7 @@ class DataMaskingManager {
   /**
    * Apply automatic masking based on field patterns
    */
-  async autoMask(value: any, fieldName: string): Promise<any> {
+  async autoMask(value: unknown, fieldName: string): Promise<unknown> {
     if (value === null || value === undefined) {
       return value;
     }
@@ -244,8 +259,8 @@ class DataMaskingManager {
    * Create masked copy of database for testing/development
    */
   async createMaskedDatabase(
-    sourceConfig: any,
-    targetConfig: any,
+    sourceConfig: Record<string, unknown>,
+    targetConfig: Record<string, unknown>,
     tables: string[]
   ): Promise<boolean> {
     // This would implement full database masking
@@ -269,12 +284,12 @@ class DataMaskingManager {
    * Unmask data for authorized users
    */
   async unmaskValue(
-    tableName: string,
-    fieldName: string,
-    maskedValue: any,
-    originalValue: any,
+    _tableName: string,
+    _fieldName: string,
+    maskedValue: unknown,
+    originalValue: unknown,
     context: MaskingContext
-  ): Promise<any> {
+  ): Promise<unknown> {
     // Check if user has permission to view unmasked data
     if (context.userRole === 'admin' || context.purpose === 'audit') {
       return originalValue;
@@ -319,10 +334,10 @@ class DataMaskingManager {
    * Apply a specific masking rule to a value
    */
   private async applyMaskingRule(
-    value: any,
+    value: unknown,
     rule: MaskingRule,
     context: MaskingContext
-  ): Promise<any> {
+  ): Promise<unknown> {
     const config = rule.configuration;
     const stringValue = String(value);
 
@@ -379,12 +394,17 @@ class DataMaskingManager {
     const chars = value.split('');
 
     // Simple shuffle using deterministic seed for consistency
-    const seed = config.shuffleKey ? this.hashString(config.shuffleKey + value) : Math.random();
-    const random = this.seededRandom(seed);
+    const seedValue = config.shuffleKey ? this.hashString(config.shuffleKey + value) : Math.random();
+    const random = this.seededRandom(seedValue);
 
     for (let i = chars.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));
-      [chars[i], chars[j]] = [chars[j], chars[i]];
+      const charI = chars[i];
+      const charJ = chars[j];
+      if (charI !== undefined && charJ !== undefined) {
+        chars[i] = charJ;
+        chars[j] = charI;
+      }
     }
 
     return chars.join('');
@@ -428,7 +448,7 @@ class DataMaskingManager {
   private applyCustomMasking(
     value: string,
     config: MaskingConfiguration,
-    context: MaskingContext
+    _context: MaskingContext
   ): string {
     // In a real implementation, this would safely execute custom functions
     // For security, we'll use predefined functions only
@@ -523,7 +543,8 @@ class DataMaskingManager {
   }
 
   private maskEmail(email: string): string {
-    const [localPart, domain] = email.split('@');
+    const parts = email.split('@');
+    const localPart = parts[0] || '';
     const maskedLocal = localPart.length > 2
       ? localPart.slice(0, 2) + '*'.repeat(localPart.length - 2)
       : '*'.repeat(localPart.length);
@@ -533,7 +554,8 @@ class DataMaskingManager {
   }
 
   private maskEmailDomain(email: string): string {
-    const [localPart] = email.split('@');
+    const parts = email.split('@');
+    const localPart = parts[0] || '';
     const randomDomain = this.EMAIL_DOMAINS[Math.floor(Math.random() * this.EMAIL_DOMAINS.length)];
     return `${localPart}@${randomDomain}`;
   }
@@ -561,21 +583,25 @@ class DataMaskingManager {
     return cleaned.replace(/\d(?=\d{4})/g, '*');
   }
 
-  private maskName(name: string): string {
+  private maskName(_name: string): string {
     return this.getRandomName();
   }
 
-  private maskAddress(address: string): string {
+  private maskAddress(_address: string): string {
     // Simple address masking - replace with generic address
     return 'Rua das Flores, 123 - Centro';
   }
 
   private getRandomName(): string {
-    return this.COMMON_NAMES[Math.floor(Math.random() * this.COMMON_NAMES.length)];
+    const name = this.COMMON_NAMES[Math.floor(Math.random() * this.COMMON_NAMES.length)];
+    return name || 'João Silva';
   }
 
   private getRandomPhone(): string {
     const pattern = this.PHONE_PATTERNS[Math.floor(Math.random() * this.PHONE_PATTERNS.length)];
+    if (!pattern) {
+      return '(11) 9****-****';
+    }
     return pattern.replace(/#/g, () => Math.floor(Math.random() * 10).toString());
   }
 
@@ -589,15 +615,16 @@ class DataMaskingManager {
     return Math.abs(hash);
   }
 
-  private seededRandom(seed: number): () => number {
-    return function() {
+  private seededRandom(initialSeed: number): () => number {
+    let seed = initialSeed;
+    return function(): number {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };
   }
 
   private generateRuleId(): string {
-    return `mask_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `mask_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private sortRulesByPriority(key: string): void {

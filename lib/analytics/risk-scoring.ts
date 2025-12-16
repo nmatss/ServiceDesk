@@ -1,8 +1,7 @@
 // Enterprise Risk Scoring Engine
 // Calculates comprehensive risk scores for tickets, agents, customers, and business operations
 
-import { mlPipeline, MLModel } from './ml-pipeline';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface RiskScore {
   entity_id: string;
@@ -17,7 +16,7 @@ export interface RiskScore {
   last_calculated: Date;
   expires_at: Date;
   escalation_required: boolean;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface RiskComponent {
@@ -55,7 +54,7 @@ export interface RiskFactor {
 export interface Evidence {
   evidence_type: 'metric' | 'event' | 'pattern' | 'correlation';
   source: string;
-  value: any;
+  value: unknown;
   timestamp: Date;
   reliability_score: number; // 0-1
   weight: number; // 0-1
@@ -114,7 +113,7 @@ export interface ChangePoint {
 export interface HistoricalDataPoint {
   timestamp: Date;
   value: number;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface RiskMatrix {
@@ -177,7 +176,6 @@ export interface ValidationRule {
 }
 
 export class RiskScoringEngine {
-  private riskModels: Map<string, string> = new Map(); // Entity type -> Model ID
   private riskMatrices: Map<string, RiskMatrix> = new Map();
   private riskCache: Map<string, RiskScore> = new Map();
   private historicalRisks: Map<string, RiskScore[]> = new Map();
@@ -269,7 +267,7 @@ export class RiskScoringEngine {
       logger.info(`[Risk Scoring] Risk score calculated: ${overallScore} (${riskLevel})`);
       return riskScore;
 
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`[Risk Scoring] Error calculating risk score for ${entityType}:${entityId}:`, error);
       throw error;
     }
@@ -323,7 +321,8 @@ export class RiskScoringEngine {
     const startTime = this.getStartTimeForRange(timeRange);
     const trends: EntityRiskTrend[] = [];
 
-    for (const [entityId, history] of this.historicalRisks.entries()) {
+    const entries = Array.from(this.historicalRisks.entries());
+    for (const [entityId, history] of entries) {
       if (!entityId.startsWith(entityType)) continue;
 
       const recentHistory = history.filter(r => r.last_calculated >= startTime);
@@ -375,8 +374,9 @@ export class RiskScoringEngine {
     }
 
     // Agent Workload Risk
+    let workloadRisk: RiskFactor | null = null;
     if (agentData) {
-      const workloadRisk = this.calculateAgentWorkloadRisk(agentData);
+      workloadRisk = this.calculateAgentWorkloadRisk(agentData);
       if (workloadRisk.impact_magnitude > 20) {
         riskFactors.push(workloadRisk);
       }
@@ -430,7 +430,7 @@ export class RiskScoringEngine {
         component_name: 'Resource Availability Risk',
         component_type: 'operational',
         weight: 0.1,
-        score: agentData ? workloadRisk.impact_magnitude : 50,
+        score: agentData ? (workloadRisk ? workloadRisk.impact_magnitude : 50) : 50,
         confidence: agentData ? 0.8 : 0.5,
         description: 'Risk related to agent availability and workload',
         sub_factors: []
@@ -620,7 +620,7 @@ export class RiskScoringEngine {
   // UTILITY METHODS
   // ========================================
 
-  private calculateOverallScore(components: RiskComponent[], matrix: RiskMatrix): number {
+  private calculateOverallScore(components: RiskComponent[], _matrix: RiskMatrix): number {
     let totalScore = 0;
     let totalWeight = 0;
 
@@ -641,7 +641,7 @@ export class RiskScoringEngine {
     return 'very_low';
   }
 
-  private calculateConfidence(components: RiskComponent[], rawData: any): number {
+  private calculateConfidence(components: RiskComponent[], rawData: Record<string, unknown>): number {
     const avgComponentConfidence = components.reduce((sum, comp) => sum + comp.confidence, 0) / components.length;
     const dataQualityScore = this.assessDataQuality(rawData);
 
@@ -656,7 +656,7 @@ export class RiskScoringEngine {
   }
 
   private getCacheExpirationTime(entityType: string): number {
-    const expirationTimes = {
+    const expirationTimes: Record<string, number> = {
       'ticket': 30 * 60 * 1000,      // 30 minutes
       'agent': 4 * 60 * 60 * 1000,   // 4 hours
       'customer': 24 * 60 * 60 * 1000, // 24 hours
@@ -694,32 +694,42 @@ export class RiskScoringEngine {
     logger.info('[Risk Scoring] Risk matrices loaded');
   }
 
-  private async collectRiskData(entityType: string, entityId: string, matrix: RiskMatrix): Promise<any> {
+  private async collectRiskData(
+    _entityType: string,
+    _entityId: string,
+    _matrix: RiskMatrix
+  ): Promise<Record<string, unknown>> {
     // Mock implementation - collect raw data for risk calculation
     return {};
   }
 
-  private async calculateRiskComponents(rawData: any, matrix: RiskMatrix): Promise<RiskComponent[]> {
+  private async calculateRiskComponents(
+    _rawData: Record<string, unknown>,
+    _matrix: RiskMatrix
+  ): Promise<RiskComponent[]> {
     // Mock implementation - calculate risk components based on matrix
     return [];
   }
 
-  private async identifyRiskFactors(rawData: any, components: RiskComponent[]): Promise<RiskFactor[]> {
+  private async identifyRiskFactors(
+    _rawData: Record<string, unknown>,
+    _components: RiskComponent[]
+  ): Promise<RiskFactor[]> {
     // Mock implementation - identify contributing risk factors
     return [];
   }
 
   private async generateMitigationStrategies(
-    entityType: string,
-    entityId: string,
-    components: RiskComponent[],
-    factors: RiskFactor[]
+    _entityType: string,
+    _entityId: string,
+    _components: RiskComponent[],
+    _factors: RiskFactor[]
   ): Promise<MitigationStrategy[]> {
     // Mock implementation - generate mitigation strategies
     return [];
   }
 
-  private async analyzeRiskTrend(entityType: string, entityId: string, currentScore: number): Promise<RiskTrend> {
+  private async analyzeRiskTrend(_entityType: string, _entityId: string, _currentScore: number): Promise<RiskTrend> {
     // Mock implementation - analyze risk trend
     return {
       trend_direction: 'stable',
@@ -731,16 +741,26 @@ export class RiskScoringEngine {
     };
   }
 
-  private async gatherRiskMetadata(entityType: string, entityId: string): Promise<Record<string, any>> {
+  private async gatherRiskMetadata(_entityType: string, _entityId: string): Promise<Record<string, unknown>> {
     return {};
   }
 
   // Additional helper methods with mock implementations
-  private calculateSLARisk(slaData: any): RiskFactor { return this.createMockRiskFactor('SLA Risk'); }
-  private calculateEscalationRisk(ticketData: any): RiskFactor { return this.createMockRiskFactor('Escalation Risk'); }
-  private calculateCustomerRisk(customerData: any, ticketData: any): RiskFactor { return this.createMockRiskFactor('Customer Risk'); }
-  private calculateAgentWorkloadRisk(agentData: any): RiskFactor { return this.createMockRiskFactor('Workload Risk'); }
-  private async calculateComplexityRisk(ticketData: any): Promise<RiskFactor> { return this.createMockRiskFactor('Complexity Risk'); }
+  private calculateSLARisk(_slaData: Record<string, unknown>): RiskFactor {
+    return this.createMockRiskFactor('SLA Risk');
+  }
+  private calculateEscalationRisk(_ticketData: TicketData | Record<string, unknown>): RiskFactor {
+    return this.createMockRiskFactor('Escalation Risk');
+  }
+  private calculateCustomerRisk(_customerData: CustomerData | Record<string, unknown>, _ticketData: TicketData | Record<string, unknown>): RiskFactor {
+    return this.createMockRiskFactor('Customer Risk');
+  }
+  private calculateAgentWorkloadRisk(_agentData: AgentData | Record<string, unknown>): RiskFactor {
+    return this.createMockRiskFactor('Workload Risk');
+  }
+  private async calculateComplexityRisk(_ticketData: TicketData | Record<string, unknown>): Promise<RiskFactor> {
+    return this.createMockRiskFactor('Complexity Risk');
+  }
 
   private createMockRiskFactor(name: string): RiskFactor {
     return {
@@ -758,42 +778,77 @@ export class RiskScoringEngine {
   }
 
   // Data access methods (mock implementations)
-  private async getTicketData(ticketId: string): Promise<any> { return {}; }
-  private async getSLAData(ticketId: string): Promise<any> { return {}; }
-  private async getCustomerData(customerId: string): Promise<any> { return { tier: 'standard' }; }
-  private async getAgentData(agentId: string): Promise<any> { return { level: 'senior', team: 'support' }; }
-  private async getAgentPerformanceData(agentId: string): Promise<any> { return {}; }
-  private async getAgentWorkloadData(agentId: string): Promise<any> { return {}; }
-  private async getAgentWellnessData(agentId: string): Promise<any> { return {}; }
-  private async getSystemMetrics(): Promise<any> { return { version: '1.0', environment: 'production' }; }
-  private async getSystemPerformanceData(): Promise<any> { return {}; }
-  private async getSystemCapacityData(): Promise<any> { return {}; }
-  private async getSystemSecurityData(): Promise<any> { return {}; }
+  private async getTicketData(ticketId: string): Promise<TicketData> {
+    return {
+      id: ticketId,
+      user_id: '',
+      assigned_to: null,
+      priority_id: 0,
+      category_id: 0
+    };
+  }
+  private async getSLAData(_ticketId: string): Promise<Record<string, unknown>> { return {}; }
+  private async getCustomerData(_customerId: string): Promise<CustomerData> { return { tier: 'standard' }; }
+  private async getAgentData(agentId: string): Promise<AgentData> {
+    return {
+      id: agentId,
+      level: 'senior',
+      team: 'support',
+      hire_date: new Date().toISOString(),
+      experience_level: 'senior'
+    };
+  }
+  private async getAgentPerformanceData(_agentId: string): Promise<Record<string, unknown>> { return {}; }
+  private async getAgentWorkloadData(_agentId: string): Promise<Record<string, unknown>> { return {}; }
+  private async getAgentWellnessData(_agentId: string): Promise<Record<string, unknown>> { return {}; }
+  private async getSystemMetrics(): Promise<SystemMetrics> { return { version: '1.0', environment: 'production' }; }
+  private async getSystemPerformanceData(): Promise<Record<string, unknown>> { return {}; }
+  private async getSystemCapacityData(): Promise<Record<string, unknown>> { return {}; }
+  private async getSystemSecurityData(): Promise<Record<string, unknown>> { return {}; }
 
   // Additional calculation methods (mock implementations)
-  private calculatePerformanceRiskScore(data: any): number { return 50; }
-  private calculateWorkloadRiskScore(data: any): number { return 30; }
-  private calculateWellnessRiskScore(data: any): number { return 20; }
-  private async calculateSkillGapRiskScore(agentId: string): Promise<number> { return 25; }
-  private async calculateAttritionRiskScore(agentData: any, performanceData: any, wellnessData: any): Promise<number> { return 15; }
+  private calculatePerformanceRiskScore(_data: Record<string, unknown>): number { return 50; }
+  private calculateWorkloadRiskScore(_data: Record<string, unknown>): number { return 30; }
+  private calculateWellnessRiskScore(_data: Record<string, unknown>): number { return 20; }
+  private async calculateSkillGapRiskScore(_agentId: string): Promise<number> { return 25; }
+  private async calculateAttritionRiskScore(
+    _agentData: AgentData | Record<string, unknown>,
+    _performanceData: Record<string, unknown>,
+    _wellnessData: Record<string, unknown>
+  ): Promise<number> { return 15; }
 
-  private getPerformanceSubFactors(data: any): SubRiskFactor[] { return []; }
-  private getWorkloadSubFactors(data: any): SubRiskFactor[] { return []; }
-  private getWellnessSubFactors(data: any): SubRiskFactor[] { return []; }
+  private getPerformanceSubFactors(_data: Record<string, unknown>): SubRiskFactor[] { return []; }
+  private getWorkloadSubFactors(_data: Record<string, unknown>): SubRiskFactor[] { return []; }
+  private getWellnessSubFactors(_data: Record<string, unknown>): SubRiskFactor[] { return []; }
 
-  private calculateSystemPerformanceRisk(data: any): number { return 25; }
-  private calculateSystemCapacityRisk(data: any): number { return 35; }
-  private calculateSystemSecurityRisk(data: any): number { return 20; }
-  private calculateSystemAvailabilityRisk(data: any): number { return 15; }
+  private calculateSystemPerformanceRisk(_data: Record<string, unknown>): number { return 25; }
+  private calculateSystemCapacityRisk(_data: Record<string, unknown>): number { return 35; }
+  private calculateSystemSecurityRisk(_data: Record<string, unknown>): number { return 20; }
+  private calculateSystemAvailabilityRisk(_data: SystemMetrics | Record<string, unknown>): number { return 15; }
 
-  private async generateTicketMitigationStrategies(ticketData: any, factors: RiskFactor[]): Promise<MitigationStrategy[]> { return []; }
-  private async generateAgentMitigationStrategies(agentId: string, components: RiskComponent[]): Promise<MitigationStrategy[]> { return []; }
-  private async generateSystemMitigationStrategies(components: RiskComponent[]): Promise<MitigationStrategy[]> { return []; }
+  private async generateTicketMitigationStrategies(
+    _ticketData: TicketData | Record<string, unknown>,
+    _factors: RiskFactor[]
+  ): Promise<MitigationStrategy[]> { return []; }
+  private async generateAgentMitigationStrategies(
+    _agentId: string,
+    _components: RiskComponent[]
+  ): Promise<MitigationStrategy[]> { return []; }
+  private async generateSystemMitigationStrategies(
+    _components: RiskComponent[]
+  ): Promise<MitigationStrategy[]> { return []; }
 
-  private async identifyAgentRiskFactors(agentData: any, performanceData: any, workloadData: any): Promise<RiskFactor[]> { return []; }
-  private async identifySystemRiskFactors(systemMetrics: any, performanceData: any): Promise<RiskFactor[]> { return []; }
+  private async identifyAgentRiskFactors(
+    _agentData: AgentData | Record<string, unknown>,
+    _performanceData: Record<string, unknown>,
+    _workloadData: Record<string, unknown>
+  ): Promise<RiskFactor[]> { return []; }
+  private async identifySystemRiskFactors(
+    _systemMetrics: SystemMetrics | Record<string, unknown>,
+    _performanceData: Record<string, unknown>
+  ): Promise<RiskFactor[]> { return []; }
 
-  private assessDataQuality(rawData: any): number { return 0.85; }
+  private assessDataQuality(_rawData: Record<string, unknown>): number { return 0.85; }
 
   private getStartTimeForRange(range: string): Date {
     const now = new Date();
@@ -807,15 +862,15 @@ export class RiskScoringEngine {
 
   private calculateEntityTrend(entityId: string, history: RiskScore[]): EntityRiskTrend {
     const scores = history.map(h => h.overall_score);
-    const latest = scores[scores.length - 1];
-    const earliest = scores[0];
+    const latest = scores[scores.length - 1] ?? 0;
+    const earliest = scores[0] ?? 0;
 
     return {
       entity_id: entityId,
       current_score: latest,
       previous_score: earliest,
       score_change: latest - earliest,
-      risk_velocity: (latest - earliest) / history.length,
+      risk_velocity: (latest - earliest) / (history.length || 1),
       trend_direction: latest > earliest ? 'increasing' : latest < earliest ? 'decreasing' : 'stable',
       confidence: 0.8
     };
@@ -841,7 +896,9 @@ export class RiskScoringEngine {
 
     for (const trend of trends) {
       const level = this.determineRiskLevel(trend.current_score);
-      distribution[level]++;
+      if (distribution[level] !== undefined) {
+        distribution[level]++;
+      }
     }
 
     return distribution;
@@ -880,7 +937,7 @@ export class RiskScoringEngine {
   private calculateMedian(numbers: number[]): number {
     const sorted = [...numbers].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    return sorted.length % 2 === 0 ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2 : (sorted[mid] ?? 0);
   }
 
   private calculateStandardDeviation(numbers: number[]): number {
@@ -930,6 +987,31 @@ interface EmergingRisk {
   current_score: number;
   projected_score: number;
   confidence: number;
+}
+
+interface TicketData {
+  id: string;
+  user_id: string;
+  assigned_to: string | null;
+  priority_id: number;
+  category_id: number;
+}
+
+interface CustomerData {
+  tier: string;
+}
+
+interface AgentData {
+  id: string;
+  level: string;
+  team: string;
+  hire_date: string;
+  experience_level: string;
+}
+
+interface SystemMetrics {
+  version: string;
+  environment: string;
 }
 
 // Export singleton instance

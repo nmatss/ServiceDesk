@@ -1,6 +1,13 @@
 import { NotificationPayload } from './realtime-engine'
 import { getDb } from '@/lib/db'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
+
+export interface FilterActionParams {
+  delayMinutes?: number
+  newPriority?: string
+  setBatchable?: boolean
+  [key: string]: unknown
+}
 
 export interface FilterRule {
   id: string
@@ -8,7 +15,7 @@ export interface FilterRule {
   description: string
   conditions: FilterCondition[]
   action: 'block' | 'allow' | 'delay' | 'modify' | 'priority_change'
-  actionParams?: any
+  actionParams?: FilterActionParams
   priority: number
   isActive: boolean
   userId?: number // User-specific rule, null for global
@@ -19,8 +26,8 @@ export interface FilterRule {
 export interface FilterCondition {
   field: string // 'type', 'priority', 'ticketId', 'authorId', 'content', 'time', 'channel'
   operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with' | 'in' | 'not_in' | 'greater_than' | 'less_than' | 'between' | 'regex'
-  value: any
-  metadata?: any
+  value: unknown
+  metadata?: Record<string, unknown>
 }
 
 export interface UserPreferences {
@@ -64,13 +71,21 @@ export interface UserPreferences {
   }
 }
 
+export interface UserInfo {
+  id: number
+  name?: string
+  email?: string
+  role: string
+  timezone?: string
+}
+
 export interface FilterContext {
   notification: NotificationPayload
-  user: any
+  user: UserInfo
   preferences: UserPreferences
   currentTime: Date
   recentNotifications: NotificationPayload[]
-  ticketContext?: any
+  ticketContext?: Record<string, unknown>
 }
 
 export class SmartFilteringEngine {
@@ -80,9 +95,9 @@ export class SmartFilteringEngine {
   private userPreferences = new Map<number, UserPreferences>()
   private notificationHistory = new Map<number, NotificationPayload[]>()
 
-  // Machine learning features
-  private userBehaviorPatterns = new Map<number, any>()
-  private notificationScores = new Map<string, number>()
+  // Machine learning features (reserved for future use)
+  // private userBehaviorPatterns = new Map<number, Record<string, unknown>>()
+  // private notificationScores = new Map<string, number>()
 
   constructor() {
     this.loadFilterRules()
@@ -93,11 +108,25 @@ export class SmartFilteringEngine {
   private loadFilterRules() {
     try {
       // Load global rules
+      interface DbFilterRule {
+        id: string
+        name: string
+        description: string
+        conditions: string
+        action: string
+        action_params: string | null
+        priority: number
+        is_active: number
+        user_id: number | null
+        created_at: string
+        updated_at: string
+      }
+
       const globalRules = this.db.prepare(`
         SELECT * FROM filter_rules
         WHERE user_id IS NULL AND is_active = 1
         ORDER BY priority DESC
-      `).all() as any[]
+      `).all() as DbFilterRule[]
 
       this.globalRules = globalRules.map(this.mapDatabaseRuleToFilterRule)
 
@@ -106,16 +135,18 @@ export class SmartFilteringEngine {
         SELECT * FROM filter_rules
         WHERE user_id IS NOT NULL AND is_active = 1
         ORDER BY user_id, priority DESC
-      `).all() as any[]
+      `).all() as DbFilterRule[]
 
       for (const rule of userRules) {
         const filterRule = this.mapDatabaseRuleToFilterRule(rule)
         const userId = rule.user_id
 
-        if (!this.userRules.has(userId)) {
-          this.userRules.set(userId, [])
+        if (userId !== null) {
+          if (!this.userRules.has(userId)) {
+            this.userRules.set(userId, [])
+          }
+          this.userRules.get(userId)!.push(filterRule)
         }
-        this.userRules.get(userId)!.push(filterRule)
       }
 
       logger.info(`Loaded ${this.globalRules.length} global filter rules and ${userRules.length} user-specific rules`)
@@ -125,17 +156,29 @@ export class SmartFilteringEngine {
     }
   }
 
-  private mapDatabaseRuleToFilterRule(rule: any): FilterRule {
+  private mapDatabaseRuleToFilterRule(rule: {
+    id: string
+    name: string
+    description: string
+    conditions: string
+    action: string
+    action_params: string | null
+    priority: number
+    is_active: number
+    user_id: number | null
+    created_at: string
+    updated_at: string
+  }): FilterRule {
     return {
       id: rule.id,
       name: rule.name,
       description: rule.description,
-      conditions: JSON.parse(rule.conditions),
-      action: rule.action,
-      actionParams: rule.action_params ? JSON.parse(rule.action_params) : undefined,
+      conditions: JSON.parse(rule.conditions) as FilterCondition[],
+      action: rule.action as FilterRule['action'],
+      actionParams: rule.action_params ? JSON.parse(rule.action_params) as FilterActionParams : undefined,
       priority: rule.priority,
-      isActive: rule.is_active,
-      userId: rule.user_id,
+      isActive: Boolean(rule.is_active),
+      userId: rule.user_id ?? undefined,
       createdAt: new Date(rule.created_at),
       updatedAt: new Date(rule.updated_at)
     }
@@ -195,13 +238,18 @@ export class SmartFilteringEngine {
 
   private loadUserPreferences() {
     try {
+      interface DbUserPreference {
+        user_id: number
+        notification_preferences: string
+      }
+
       const preferences = this.db.prepare(`
         SELECT user_id, notification_preferences FROM users
         WHERE notification_preferences IS NOT NULL
-      `).all() as any[]
+      `).all() as DbUserPreference[]
 
       for (const pref of preferences) {
-        const userPrefs = JSON.parse(pref.notification_preferences)
+        const userPrefs = JSON.parse(pref.notification_preferences) as Partial<UserPreferences>
         this.userPreferences.set(pref.user_id, this.normalizeUserPreferences(userPrefs))
       }
 
@@ -211,7 +259,7 @@ export class SmartFilteringEngine {
     }
   }
 
-  private normalizeUserPreferences(prefs: any): UserPreferences {
+  private normalizeUserPreferences(prefs: Partial<UserPreferences>): UserPreferences {
     return {
       userId: prefs.userId || 0,
       quietHoursEnabled: prefs.quietHoursEnabled || false,
@@ -308,7 +356,7 @@ export class SmartFilteringEngine {
     reason?: string;
     modifications?: Partial<NotificationPayload>;
   }> {
-    const { notification, user, preferences, currentTime } = context
+    const { user } = context
 
     // 1. Check basic user preferences
     const basicCheck = this.checkBasicPreferences(context)
@@ -367,7 +415,11 @@ export class SmartFilteringEngine {
     }
   }
 
-  private checkBasicPreferences(context: FilterContext): any {
+  private checkBasicPreferences(context: FilterContext): {
+    allowed: boolean
+    reason?: string
+    modifications?: Partial<NotificationPayload>
+  } {
     const { notification, preferences } = context
 
     // Check if category is enabled
@@ -405,7 +457,11 @@ export class SmartFilteringEngine {
     }
   }
 
-  private checkQuietHours(context: FilterContext): any {
+  private checkQuietHours(context: FilterContext): {
+    allowed: boolean
+    reason?: string
+    modifications?: Partial<NotificationPayload>
+  } {
     const { preferences, currentTime } = context
 
     if (!preferences.quietHoursEnabled) {
@@ -417,8 +473,8 @@ export class SmartFilteringEngine {
     const currentMinute = userTime.getMinutes()
     const currentTimeMinutes = currentHour * 60 + currentMinute
 
-    const [startHour, startMinute] = preferences.quietHoursStart.split(':').map(Number)
-    const [endHour, endMinute] = preferences.quietHoursEnd.split(':').map(Number)
+    const [startHour = 0, startMinute = 0] = preferences.quietHoursStart.split(':').map(Number)
+    const [endHour = 0, endMinute = 0] = preferences.quietHoursEnd.split(':').map(Number)
     const startTimeMinutes = startHour * 60 + startMinute
     const endTimeMinutes = endHour * 60 + endMinute
 
@@ -454,7 +510,11 @@ export class SmartFilteringEngine {
     return { allowed: true }
   }
 
-  private checkWorkingHours(context: FilterContext): any {
+  private checkWorkingHours(context: FilterContext): {
+    allowed: boolean
+    reason?: string
+    modifications?: Partial<NotificationPayload>
+  } {
     const { preferences, currentTime } = context
 
     if (!preferences.workingHours.enabled) {
@@ -472,8 +532,8 @@ export class SmartFilteringEngine {
       return { allowed: false, reason: 'Outside working days' }
     }
 
-    const [startHour, startMinute] = preferences.workingHours.start.split(':').map(Number)
-    const [endHour, endMinute] = preferences.workingHours.end.split(':').map(Number)
+    const [startHour = 0, startMinute = 0] = preferences.workingHours.start.split(':').map(Number)
+    const [endHour = 0, endMinute = 0] = preferences.workingHours.end.split(':').map(Number)
     const startTimeMinutes = startHour * 60 + startMinute
     const endTimeMinutes = endHour * 60 + endMinute
 
@@ -484,7 +544,11 @@ export class SmartFilteringEngine {
     return { allowed: true }
   }
 
-  private checkFrequencyLimits(context: FilterContext): any {
+  private checkFrequencyLimits(context: FilterContext): {
+    allowed: boolean
+    reason?: string
+    modifications?: Partial<NotificationPayload>
+  } {
     const { preferences, user, currentTime } = context
     const recentNotifications = this.getRecentNotifications(user.id)
 
@@ -510,7 +574,11 @@ export class SmartFilteringEngine {
     return { allowed: true }
   }
 
-  private applyFilterRules(rules: FilterRule[], context: FilterContext): any {
+  private applyFilterRules(rules: FilterRule[], context: FilterContext): {
+    allowed: boolean
+    reason?: string
+    modifications?: Partial<NotificationPayload>
+  } {
     for (const rule of rules) {
       if (!rule.isActive) continue
 
@@ -528,21 +596,32 @@ export class SmartFilteringEngine {
             const delayedTime = new Date(Date.now() + delayMinutes * 60 * 1000)
             return {
               allowed: true,
-              modifications: { scheduledAt: delayedTime },
+              modifications: { metadata: { ...context.notification.metadata, scheduledAt: delayedTime.toISOString() } },
               reason: `Delayed by rule: ${rule.name}`
             }
 
           case 'modify':
+            // Convert action params to notification payload modifications
+            const mods: Partial<NotificationPayload> = {}
+            if (rule.actionParams?.setBatchable !== undefined) {
+              mods.batchable = rule.actionParams.setBatchable
+            }
             return {
               allowed: true,
-              modifications: rule.actionParams || {},
+              modifications: mods,
               reason: `Modified by rule: ${rule.name}`
             }
 
           case 'priority_change':
+            const newPriority = rule.actionParams?.newPriority
+            const validPriorities: Array<'low' | 'medium' | 'high' | 'critical'> = ['low', 'medium', 'high', 'critical']
             return {
               allowed: true,
-              modifications: { priority: rule.actionParams?.newPriority },
+              modifications: {
+                priority: validPriorities.includes(newPriority as 'low' | 'medium' | 'high' | 'critical')
+                  ? (newPriority as 'low' | 'medium' | 'high' | 'critical')
+                  : context.notification.priority
+              },
               reason: `Priority changed by rule: ${rule.name}`
             }
         }
@@ -566,7 +645,7 @@ export class SmartFilteringEngine {
   }
 
   private evaluateCondition(condition: FilterCondition, notification: NotificationPayload, context: FilterContext): boolean {
-    let fieldValue: any
+    let fieldValue: unknown
 
     // Get field value
     switch (condition.field) {
@@ -599,7 +678,7 @@ export class SmartFilteringEngine {
     return this.applyOperator(condition.operator, fieldValue, condition.value)
   }
 
-  private applyOperator(operator: string, fieldValue: any, conditionValue: any): boolean {
+  private applyOperator(operator: string, fieldValue: unknown, conditionValue: unknown): boolean {
     switch (operator) {
       case 'equals':
         return fieldValue === conditionValue
@@ -608,16 +687,16 @@ export class SmartFilteringEngine {
         return fieldValue !== conditionValue
 
       case 'contains':
-        return typeof fieldValue === 'string' && fieldValue.includes(conditionValue)
+        return typeof fieldValue === 'string' && typeof conditionValue === 'string' && fieldValue.includes(conditionValue)
 
       case 'not_contains':
-        return typeof fieldValue === 'string' && !fieldValue.includes(conditionValue)
+        return typeof fieldValue === 'string' && typeof conditionValue === 'string' && !fieldValue.includes(conditionValue)
 
       case 'starts_with':
-        return typeof fieldValue === 'string' && fieldValue.startsWith(conditionValue)
+        return typeof fieldValue === 'string' && typeof conditionValue === 'string' && fieldValue.startsWith(conditionValue)
 
       case 'ends_with':
-        return typeof fieldValue === 'string' && fieldValue.endsWith(conditionValue)
+        return typeof fieldValue === 'string' && typeof conditionValue === 'string' && fieldValue.endsWith(conditionValue)
 
       case 'in':
         return Array.isArray(conditionValue) && conditionValue.includes(fieldValue)
@@ -626,18 +705,25 @@ export class SmartFilteringEngine {
         return Array.isArray(conditionValue) && !conditionValue.includes(fieldValue)
 
       case 'greater_than':
-        return fieldValue > conditionValue
+        return typeof fieldValue === 'number' && typeof conditionValue === 'number' && fieldValue > conditionValue
 
       case 'less_than':
-        return fieldValue < conditionValue
+        return typeof fieldValue === 'number' && typeof conditionValue === 'number' && fieldValue < conditionValue
 
       case 'between':
         return Array.isArray(conditionValue) &&
+               conditionValue.length >= 2 &&
+               typeof fieldValue === 'number' &&
+               typeof conditionValue[0] === 'number' &&
+               typeof conditionValue[1] === 'number' &&
                fieldValue >= conditionValue[0] &&
                fieldValue <= conditionValue[1]
 
       case 'regex':
         try {
+          if (typeof conditionValue !== 'string') {
+            return false
+          }
           const regex = new RegExp(conditionValue)
           return regex.test(String(fieldValue))
         } catch {
@@ -649,7 +735,11 @@ export class SmartFilteringEngine {
     }
   }
 
-  private applyMLFiltering(context: FilterContext): any {
+  private applyMLFiltering(context: FilterContext): {
+    allowed: boolean
+    reason?: string
+    modifications?: Partial<NotificationPayload>
+  } {
     // Placeholder for machine learning-based filtering
     // This would integrate with ML models for predicting user engagement
     const { notification, user } = context
@@ -664,7 +754,7 @@ export class SmartFilteringEngine {
     return { allowed: true }
   }
 
-  private calculateNotificationScore(notification: NotificationPayload, user: any): number {
+  private calculateNotificationScore(notification: NotificationPayload, user: UserInfo): number {
     let score = 0.5 // Base score
 
     // Priority boost
@@ -710,11 +800,13 @@ export class SmartFilteringEngine {
     return prefs
   }
 
-  private async getUserInfo(userId: number): Promise<any> {
+  private async getUserInfo(userId: number): Promise<UserInfo> {
     try {
-      return this.db.prepare(`
+      const user = this.db.prepare(`
         SELECT id, name, email, role, timezone FROM users WHERE id = ?
-      `).get(userId)
+      `).get(userId) as UserInfo | undefined
+
+      return user || { id: userId, role: 'user' }
     } catch (error) {
       logger.error('Error getting user info', error)
       return { id: userId, role: 'user' }
@@ -870,7 +962,12 @@ export class SmartFilteringEngine {
     }
   }
 
-  public getFilteringStats(): any {
+  public getFilteringStats(): {
+    globalRules: number
+    userRules: number
+    cachedPreferences: number
+    notificationHistory: number
+  } {
     return {
       globalRules: this.globalRules.length,
       userRules: Array.from(this.userRules.values()).reduce((sum, rules) => sum + rules.length, 0),

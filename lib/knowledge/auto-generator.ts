@@ -5,10 +5,10 @@
  * and scores content quality
  */
 
-import { openai } from '../ai/openai';
-import { db } from '../db/connection';
+import { openAIClient } from '../ai/openai-client';
+import db from '../db/connection';
 import { semanticIndexer } from './semantic-indexer';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 interface ArticleGenerationRequest {
   ticket_ids?: number[];
@@ -247,7 +247,7 @@ Tempo máximo: 10 minutos`,
         title: processedContent.title,
         summary: processedContent.summary,
         content: processedContent.content,
-        category_id: request.category_id || tickets[0]?.category_id,
+        category_id: request.category_id,
         tags: metadata.tags,
         search_keywords: metadata.search_keywords,
         meta_title: metadata.meta_title,
@@ -329,7 +329,7 @@ Tempo máximo: 10 minutos`,
       LIMIT 10
     `;
 
-    const tickets = await db.all(sql, params);
+    const tickets = db.prepare(sql).all(...params) as any[];
 
     return tickets.map(ticket => ({
       ...ticket,
@@ -479,15 +479,17 @@ Tempo máximo: 10 minutos`,
         userPrompt = userPrompt.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
       });
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
+      const response = await openAIClient.chatCompletion(
+        [
           { role: 'system', content: template.system_prompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 3000
-      });
+        {
+          model: 'gpt-4o-mini',
+          temperature: 0.7,
+          maxTokens: 3000
+        }
+      );
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
@@ -520,7 +522,7 @@ Tempo máximo: 10 minutos`,
     const title = titleMatch ? titleMatch[1].trim() : 'Artigo Gerado Automaticamente';
 
     // Extrai resumo (segundo parágrafo ou primeiras 200 chars)
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split('\n').filter((line: string) => line.trim());
     let summary = '';
 
     for (let i = 1; i < lines.length; i++) {
@@ -702,13 +704,13 @@ Tempo máximo: 10 minutos`,
    */
   async saveGeneratedArticle(article: GeneratedArticle, authorId: number): Promise<number> {
     try {
-      const result = await db.run(`
+      const result = db.prepare(`
         INSERT INTO kb_articles (
           title, summary, content, category_id, author_id,
           status, visibility, search_keywords, meta_title, meta_description,
           created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-      `, [
+      `).run(
         article.title,
         article.summary,
         article.content,
@@ -719,36 +721,36 @@ Tempo máximo: 10 minutos`,
         article.search_keywords,
         article.meta_title,
         article.meta_description
-      ]);
+      );
 
-      const articleId = result.lastID!;
+      const articleId = result.lastInsertRowid as number;
 
       // Salva tags
       if (article.tags.length > 0) {
         for (const tag of article.tags) {
           // Cria tag se não existe
-          await db.run(`
+          db.prepare(`
             INSERT OR IGNORE INTO kb_tags (name, slug) VALUES (?, ?)
-          `, [tag, tag.toLowerCase().replace(/\s+/g, '-')]);
+          `).run(tag, tag.toLowerCase().replace(/\s+/g, '-'));
 
           // Vincula tag ao artigo
-          const tagResult = await db.get(`SELECT id FROM kb_tags WHERE name = ?`, [tag]);
+          const tagResult = db.prepare(`SELECT id FROM kb_tags WHERE name = ?`).get(tag) as any;
           if (tagResult) {
-            await db.run(`
+            db.prepare(`
               INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)
-            `, [articleId, tagResult.id]);
+            `).run(articleId, tagResult.id);
           }
         }
       }
 
       // Registra metadados de geração
-      await db.run(`
+      db.prepare(`
         INSERT INTO ai_suggestions (
           entity_type, entity_id, suggestion_type, suggested_content,
           reasoning, source_type, source_references, confidence_score,
           model_name, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      `, [
+      `).run(
         'kb_article',
         articleId,
         'auto_generated_article',
@@ -758,7 +760,7 @@ Tempo máximo: 10 minutos`,
         JSON.stringify(article.source_tickets),
         article.generation_metadata.confidence_score,
         article.generation_metadata.model_used
-      ]);
+      );
 
       // Agenda indexação
       await semanticIndexer.queueIndexing('kb_article', articleId, 'index', 1);
@@ -783,7 +785,7 @@ Tempo máximo: 10 minutos`,
     suggested_templates: string[];
   }>> {
     try {
-      const candidates = await db.all(`
+      const candidates = db.prepare(`
         SELECT
           cat.id as category_id,
           cat.name as category_name,
@@ -798,7 +800,7 @@ Tempo máximo: 10 minutos`,
         GROUP BY cat.id, cat.name
         HAVING ticket_count >= 5 AND unique_problems >= 3
         ORDER BY ticket_count DESC, avg_satisfaction DESC
-      `);
+      `).all() as any[];
 
       return candidates.map(candidate => ({
         ...candidate,

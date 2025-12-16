@@ -1,6 +1,5 @@
 import { getDb } from '@/lib/db'
-import { NotificationPayload } from './realtime-engine'
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 
 export interface DeliveryAttempt {
   id: string
@@ -45,7 +44,6 @@ export interface DeliveryMetrics {
 export class DeliveryTracker {
   private db = getDb()
   private deliveryAttempts = new Map<string, DeliveryAttempt>()
-  private readReceipts = new Map<string, DeliveryReceipt[]>()
 
   // Real-time tracking
   private deliveryCallbacks = new Map<string, Function[]>()
@@ -711,7 +709,7 @@ export class DeliveryTracker {
       const now = new Date()
       const retryAttempts: DeliveryAttempt[] = []
 
-      for (const [key, attempt] of this.deliveryAttempts.entries()) {
+      for (const attempt of this.deliveryAttempts.values()) {
         if (attempt.status === 'pending' &&
             attempt.retryAfter &&
             attempt.retryAfter <= now) {

@@ -1,3 +1,27 @@
+/**
+ * Next.js Middleware for Multi-Tenant ServiceDesk
+ *
+ * This middleware provides comprehensive request processing including:
+ * - Multi-tenant resolution (subdomain, headers, path)
+ * - JWT-based authentication and session validation
+ * - Role-based access control (RBAC)
+ * - CSRF protection for state-changing requests
+ * - Security headers (CSP, HSTS, XSS protection)
+ * - Performance optimization (caching, compression, ETags)
+ * - Request logging and monitoring
+ *
+ * EXECUTION ORDER:
+ * 1. Public route bypass
+ * 2. CSRF validation (POST/PUT/PATCH/DELETE)
+ * 3. Tenant resolution (headers > subdomain > path > dev default)
+ * 4. Authentication check (JWT verification)
+ * 5. Authorization check (role-based access)
+ * 6. Performance optimizations (caching, compression)
+ * 7. Security headers application
+ *
+ * @module middleware
+ */
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import * as jose from 'jose'
@@ -5,9 +29,18 @@ import { getJWTSecret, isProduction } from './lib/config/env'
 import { applySecurityHeaders, sanitizeHeaderValue } from './lib/security/headers'
 import { validateCSRFToken, setCSRFToken } from './lib/security/csrf'
 import { captureAuthError, captureException } from './lib/monitoring/sentry-helpers'
-import crypto from 'crypto'
+// Use Edge-compatible tenant resolver (no database access)
+import { resolveEdgeTenant, toOrganization } from './lib/tenant/edge-resolver'
+import type { EdgeTenantInfo } from './lib/tenant/edge-resolver'
+// Static import for helmet (Edge Runtime compatible)
+import { applyHelmetHeaders } from './lib/security/helmet'
 
-// Get JWT secret securely
+/**
+ * JWT secret for token verification
+ *
+ * SECURITY: This secret must be at least 32 characters and stored securely
+ * in environment variables. Never commit secrets to version control.
+ */
 const JWT_SECRET = new TextEncoder().encode(getJWTSecret())
 
 // ========================
@@ -15,16 +48,39 @@ const JWT_SECRET = new TextEncoder().encode(getJWTSecret())
 // ========================
 
 /**
- * Generate ETag for response caching
+ * Generate ETag for response caching (Edge Runtime compatible)
+ *
+ * Creates a hash of the response body to enable conditional requests.
+ * Uses a simple hash function that works in Edge Runtime without Node.js crypto.
+ * Clients can send If-None-Match header to receive 304 Not Modified responses.
+ *
+ * @param body - Response body (string)
+ * @returns ETag header value (quoted hash)
+ *
+ * @example
+ * ```typescript
+ * const etag = generateETag('{"data": "value"}');
+ * response.headers.set('ETag', etag);
+ * ```
  */
-function generateETag(body: string | Buffer): string {
-  const hash = crypto.createHash('md5')
-  hash.update(typeof body === 'string' ? body : body.toString())
-  return `"${hash.digest('hex')}"`
+function generateETag(body: string): string {
+  // Simple FNV-1a hash (Edge Runtime compatible, no Node.js crypto)
+  let hash = 2166136261;
+  for (let i = 0; i < body.length; i++) {
+    hash ^= body.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  return `"${hash.toString(16)}"`
 }
 
 /**
  * Check if request supports Brotli compression
+ *
+ * Checks the Accept-Encoding header to determine if the client
+ * supports Brotli (br) compression for optimized response size.
+ *
+ * @param request - Next.js request object
+ * @returns True if Brotli is supported, false otherwise
  */
 function supportsBrotli(request: NextRequest): boolean {
   const acceptEncoding = request.headers.get('accept-encoding') || ''
@@ -32,7 +88,25 @@ function supportsBrotli(request: NextRequest): boolean {
 }
 
 /**
- * Get cache control header based on route
+ * Get appropriate cache control header based on route pattern
+ *
+ * Implements different caching strategies for different route types:
+ * - Static assets: 1 year immutable cache
+ * - API routes: No cache (dynamic data)
+ * - Public pages: 5 minutes with stale-while-revalidate
+ * - Protected pages: 60 seconds private cache
+ *
+ * @param pathname - Request pathname
+ * @returns Cache-Control header value
+ *
+ * @example
+ * ```typescript
+ * const cacheControl = getCacheControl('/_next/static/chunk.js');
+ * // Returns: 'public, max-age=31536000, immutable'
+ *
+ * const apiCache = getCacheControl('/api/tickets');
+ * // Returns: 'no-store, must-revalidate'
+ * ```
  */
 function getCacheControl(pathname: string): string {
   // Static assets - cache for 1 year
@@ -63,6 +137,7 @@ const PUBLIC_ROUTES = [
   '/api/health',
   '/api/status',
   '/api/auth',
+  '/api/docs', // API documentation (Swagger UI and OpenAPI spec)
   '/_next',
   '/favicon.ico',
   '/robots.txt',
@@ -88,10 +163,15 @@ const PROTECTED_ROUTES = [
   '/',
   '/dashboard',
   '/tickets',
+  '/problems', // Problem Management
+  '/known-errors', // Known Error Database
   '/profile',
   '/analytics',
   '/knowledge/admin',
+  '/admin', // Admin routes require authentication
   '/api/tickets',
+  '/api/problems', // Problem Management API
+  '/api/known-errors', // KEDB API
   '/api/analytics',
   '/api/notifications',
 ]
@@ -136,12 +216,13 @@ export async function middleware(request: NextRequest) {
   // CSRF Protection - validate token for state-changing requests
   // This happens early to reject invalid requests before expensive operations
   const needsCSRFValidation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method.toUpperCase())
-  const isPublicCSRFPath = pathname.startsWith('/api/auth/login') ||
-                           pathname.startsWith('/api/auth/register') ||
-                           pathname.startsWith('/api/auth/sso/')
+
+  // SECURITY FIX: Remove auth endpoints from CSRF exemption
+  // Only SSO callbacks are exempt (they use their own state validation)
+  const isPublicCSRFPath = pathname.startsWith('/api/auth/sso/') && pathname.includes('/callback')
 
   if (needsCSRFValidation && !isPublicCSRFPath) {
-    const isValidCSRF = validateCSRFToken(request)
+    const isValidCSRF = await validateCSRFToken(request)
 
     if (!isValidCSRF) {
       // Return CSRF error response
@@ -159,10 +240,32 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Extract tenant information from request
-  const tenantInfo = extractTenantInfo(hostname, pathname, request)
+  // Extract cookies for tenant resolution
+  const cookies: Record<string, string> = {}
+  request.cookies.getAll().forEach(cookie => {
+    cookies[cookie.name] = cookie.value
+  })
 
-  if (!tenantInfo.tenant) {
+  // Extract tenant information using Edge-compatible resolver (no database access)
+  const tenantResolutionResult = resolveEdgeTenant({
+    hostname,
+    pathname,
+    headers: Object.fromEntries(request.headers.entries()),
+    cookies,
+    allowDevDefault: !pathname.startsWith('/api/'), // Only allow dev default for frontend routes
+  })
+
+  // Log tenant resolution for debugging (simplified for Edge Runtime)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Edge Tenant Resolution]', {
+      method: tenantResolutionResult.method,
+      tenant: tenantResolutionResult.tenant?.slug,
+      needsValidation: tenantResolutionResult.needsValidation,
+    })
+  }
+
+  // Handle tenant not found
+  if (!tenantResolutionResult.tenant) {
     // If no tenant found and route requires tenant, redirect to error page
     if (requiresTenant(pathname)) {
       return NextResponse.redirect(new URL('/tenant-not-found', request.url))
@@ -171,11 +274,18 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(response)
   }
 
-  // Validate tenant data before setting headers
-  if (!isValidTenant(tenantInfo.tenant)) {
-    captureException(new Error('Invalid tenant data detected'), {
+  const tenant = tenantResolutionResult.tenant
+
+  // Validate tenant data structure
+  if (!isValidTenant(tenant)) {
+    captureException(new Error('Invalid tenant data structure'), {
       tags: { errorType: 'tenant_validation' },
-      extra: { hostname, pathname },
+      extra: {
+        hostname,
+        pathname,
+        tenantId: tenant.id,
+        resolutionMethod: tenantResolutionResult.method,
+      },
       level: 'warning'
     })
     return NextResponse.redirect(new URL('/tenant-not-found', request.url))
@@ -184,20 +294,20 @@ export async function middleware(request: NextRequest) {
   // Set tenant information in headers (sanitized)
   response.headers.set(
     'x-tenant-id',
-    sanitizeHeaderValue(tenantInfo.tenant.id.toString())
+    sanitizeHeaderValue(tenant.id.toString())
   )
   response.headers.set(
     'x-tenant-slug',
-    sanitizeHeaderValue(tenantInfo.tenant.slug)
+    sanitizeHeaderValue(tenant.slug)
   )
   response.headers.set(
     'x-tenant-name',
-    sanitizeHeaderValue(tenantInfo.tenant.name)
+    sanitizeHeaderValue(tenant.name)
   )
 
   // Handle authentication for protected routes
   if (requiresAuth(pathname)) {
-    const authResult = await checkAuthentication(request, tenantInfo.tenant)
+    const authResult = await checkAuthentication(request, tenant)
 
     if (!authResult.authenticated) {
       if (pathname.startsWith('/api/')) {
@@ -207,7 +317,7 @@ export async function middleware(request: NextRequest) {
         )
       }
       return NextResponse.redirect(
-        new URL(`/landing?tenant=${tenantInfo.tenant.slug}`, request.url)
+        new URL(`/landing?tenant=${tenant.slug}`, request.url)
       )
     }
 
@@ -222,7 +332,7 @@ export async function middleware(request: NextRequest) {
 
     // Check tenant-specific permissions
     if (requiresAdminAccess(pathname)) {
-      const hasAdminAccess = checkAdminAccess(authResult.user, tenantInfo.tenant)
+      const hasAdminAccess = checkAdminAccess(authResult.user, tenant)
       if (!hasAdminAccess) {
         if (pathname.startsWith('/api/')) {
           return NextResponse.json(
@@ -249,9 +359,9 @@ export async function middleware(request: NextRequest) {
   // Set tenant context cookie for client-side access
   // Note: Limiting cookie size to prevent abuse
   const tenantContext = {
-    id: tenantInfo.tenant.id,
-    slug: tenantInfo.tenant.slug,
-    name: tenantInfo.tenant.name.substring(0, 100), // Limit name length
+    id: tenant.id,
+    slug: tenant.slug,
+    name: tenant.name.substring(0, 100), // Limit name length
   }
 
   response.cookies.set('tenant-context', JSON.stringify(tenantContext), {
@@ -308,98 +418,40 @@ export async function middleware(request: NextRequest) {
     response.headers.set('X-Response-Time', `${processingTime}ms`)
   }
 
-  // Apply security headers
+  // Apply basic security headers
   response = applySecurityHeaders(response)
+
+  // Apply comprehensive Helmet-style security headers (static import for Edge Runtime)
+  response = applyHelmetHeaders(response)
 
   // Set CSRF token in response for all requests (token rotation)
   // This ensures clients always have a valid token for the next request
-  response = setCSRFToken(response)
+  // Now includes session binding for enhanced security
+  response = await setCSRFToken(response, request)
 
   return response
 }
 
 /**
- * Extract tenant information from hostname and pathname
+ * Convert Organization to TenantInfo (legacy compatibility)
+ * @deprecated Use Organization type directly
+ * This function is kept for reference but is no longer used
  */
-function extractTenantInfo(
-  hostname: string,
-  pathname: string,
-  request: NextRequest
-): { tenant: TenantInfo | null; method: string } {
-  // Method 0: Explicit headers (for API calls with authentication)
-  const explicitTenantId = request.headers.get('x-tenant-id')
-  const explicitTenantSlug = request.headers.get('x-tenant-slug')
-  const explicitTenantName = request.headers.get('x-tenant-name')
-
-  if (explicitTenantId && explicitTenantSlug && explicitTenantName) {
-    const id = parseInt(explicitTenantId, 10)
-    if (!isNaN(id) && id > 0) {
-      return {
-        tenant: {
-          id,
-          slug: sanitizeHeaderValue(explicitTenantSlug),
-          name: sanitizeHeaderValue(explicitTenantName),
-        },
-        method: 'explicit-headers',
-      }
-    }
+/*
+function convertToTenantInfo(org: Organization): TenantInfo {
+  return {
+    id: org.id,
+    slug: org.slug,
+    name: org.name,
+    subdomain: org.domain,
   }
-
-  // Method 1: Subdomain-based tenant resolution
-  const subdomainMatch = hostname.match(/^([a-z0-9-]+)\./)
-  if (subdomainMatch && subdomainMatch[1] !== 'www') {
-    const subdomain = subdomainMatch[1]
-    // TODO: Query database for tenant by subdomain
-    // For now, return default tenant for demo/localhost
-    if (subdomain === 'demo' || subdomain === 'localhost') {
-      return {
-        tenant: {
-          id: 1,
-          slug: 'empresa-demo',
-          name: 'Empresa Demo',
-          subdomain: subdomain,
-        },
-        method: 'subdomain',
-      }
-    }
-  }
-
-  // Method 2: Path-based tenant resolution (fallback)
-  const pathMatch = pathname.match(/^\/t\/([a-z0-9-]+)/)
-  if (pathMatch) {
-    const slug = pathMatch[1]
-    // TODO: Query database for tenant by slug
-    if (slug === 'empresa-demo') {
-      return {
-        tenant: {
-          id: 1,
-          slug: 'empresa-demo',
-          name: 'Empresa Demo',
-        },
-        method: 'path',
-      }
-    }
-  }
-
-  // Method 3: Default tenant for development (only for frontend routes)
-  if (!isProduction() && hostname.includes('localhost') && !pathname.startsWith('/api/')) {
-    return {
-      tenant: {
-        id: 1,
-        slug: 'empresa-demo',
-        name: 'Empresa Demo',
-      },
-      method: 'default-dev',
-    }
-  }
-
-  return { tenant: null, method: 'none' }
 }
+*/
 
 /**
  * Validate tenant data structure
  */
-function isValidTenant(tenant: TenantInfo): boolean {
+function isValidTenant(tenant: EdgeTenantInfo | TenantInfo): boolean {
   return (
     tenant &&
     typeof tenant.id === 'number' &&
@@ -470,11 +522,37 @@ function requiresAdminAccess(pathname: string): boolean {
 }
 
 /**
- * Check user authentication
+ * Verify user authentication via JWT token
+ *
+ * Performs comprehensive authentication check including:
+ * 1. Extract JWT from cookie or Authorization header
+ * 2. Verify JWT signature and expiration
+ * 3. Validate JWT claims (issuer, audience)
+ * 4. Verify tenant matches JWT organization_id (critical security check)
+ * 5. Validate payload structure
+ *
+ * SECURITY CONSIDERATIONS:
+ * - Uses HS256 algorithm for HMAC-based signatures
+ * - Enforces tenant isolation (JWT must match current tenant)
+ * - Validates all required claims to prevent token manipulation
+ * - Logs all authentication failures for security monitoring
+ *
+ * @param request - Next.js request object
+ * @param tenant - Current tenant/organization
+ * @returns Authentication result with user info if successful
+ *
+ * @example
+ * ```typescript
+ * const authResult = await checkAuthentication(request, tenant);
+ * if (authResult.authenticated) {
+ *   console.log(`User ${authResult.user.name} authenticated`);
+ *   console.log(`Role: ${authResult.user.role}`);
+ * }
+ * ```
  */
 async function checkAuthentication(
   request: NextRequest,
-  tenant: TenantInfo
+  tenant: EdgeTenantInfo | TenantInfo
 ): Promise<{ authenticated: boolean; user?: UserInfo }> {
   try {
     // Get JWT token from cookie or Authorization header
@@ -495,6 +573,15 @@ async function checkAuthentication(
       issuer: 'servicedesk',
       audience: 'servicedesk-users',
     })
+
+    // CRITICAL: Validate token type is 'access' (not 'refresh')
+    if (payload.type !== 'access') {
+      captureAuthError(new Error('Invalid token type - expected access token'), {
+        method: 'jwt',
+        tokenType: payload.type as string
+      })
+      return { authenticated: false }
+    }
 
     // CRITICAL: Validate tenant matches JWT
     if (payload.organization_id !== tenant.id) {
@@ -535,7 +622,7 @@ async function checkAuthentication(
 /**
  * Check if user has admin access for the tenant
  */
-function checkAdminAccess(user: UserInfo, tenant: TenantInfo): boolean {
+function checkAdminAccess(user: UserInfo, tenant: EdgeTenantInfo | TenantInfo): boolean {
   if (!user || user.organization_id !== tenant.id) {
     return false
   }

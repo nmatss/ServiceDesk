@@ -1,15 +1,18 @@
 import { openAIClient } from './openai-client';
-import { VectorEmbedding } from '../types/database';
-import sqlite3 from 'sqlite3';
-import { Database } from 'sqlite';
-import { logger } from '../monitoring/logger';
+import type { Database } from 'sqlite';
+import type * as sqlite3 from 'sqlite3';
+import logger from '../monitoring/structured-logger';
+import { aiCache } from './cache';
+import { cosineSimilarity } from './utils';
+import { createHash } from 'crypto';
 
 export interface SearchResult {
   entityType: string;
   entityId: number;
   similarityScore: number;
   content?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
+  distance?: number;
 }
 
 export interface EmbeddingGenerationResult {
@@ -18,6 +21,7 @@ export interface EmbeddingGenerationResult {
   processingTimeMs: number;
   modelName: string;
   modelVersion: string;
+  cached?: boolean;
 }
 
 export interface SimilaritySearchOptions {
@@ -25,12 +29,30 @@ export interface SimilaritySearchOptions {
   maxResults?: number;
   entityTypes?: string[];
   excludeEntityIds?: number[];
+  includeMetadata?: boolean;
+  useCache?: boolean;
+}
+
+export interface BatchEmbeddingJob {
+  entityType: string;
+  entityId: number;
+  content: string;
+  priority?: number;
+}
+
+export interface BatchProcessingResult {
+  total: number;
+  successful: number;
+  failed: number;
+  skipped: number;
+  errors: Array<{ entityId: number; error: string }>;
+  processingTimeMs: number;
 }
 
 export class VectorDatabase {
   private static readonly DEFAULT_MODEL = 'text-embedding-3-small';
-  private static readonly DEFAULT_DIMENSION = 1536;
   private static readonly SIMILARITY_THRESHOLD = 0.75;
+  private static readonly BATCH_SIZE = 20;
 
   private db: Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -39,26 +61,54 @@ export class VectorDatabase {
   }
 
   /**
-   * Gera embedding para um texto e armazena no banco
+   * Gera embedding para um texto e armazena no banco (com cache)
    */
   async generateAndStoreEmbedding(
     entityType: string,
     entityId: number,
     content: string,
-    modelName: string = VectorDatabase.DEFAULT_MODEL
+    modelName: string = VectorDatabase.DEFAULT_MODEL,
+    useCache: boolean = true
   ): Promise<EmbeddingGenerationResult> {
     const startTime = Date.now();
 
     try {
-      // Gerar embedding usando OpenAI
-      const embeddingResponse = await openAIClient.createEmbedding(content, modelName);
-      const embedding = embeddingResponse.data[0].embedding;
+      let embedding: number[] | undefined;
+      let cached = false;
+
+      // Check cache first if enabled
+      if (useCache) {
+        const cachedEmbedding = aiCache.getEmbedding(content, modelName);
+        if (cachedEmbedding) {
+          embedding = cachedEmbedding;
+          cached = true;
+          logger.debug('Using cached embedding', { entityType, entityId });
+        }
+      }
+
+      // Generate embedding if not cached
+      if (!embedding) {
+        const embeddingResponse = await openAIClient.createEmbedding(content, modelName);
+        const embeddingData = embeddingResponse.data[0]?.embedding;
+
+        if (!embeddingData) {
+          throw new Error('Failed to generate embedding: no data returned');
+        }
+
+        embedding = embeddingData;
+        cached = false;
+
+        // Store in cache for future use
+        if (useCache) {
+          aiCache.setEmbedding(content, modelName, embedding);
+        }
+      }
 
       // Converter para JSON string para armazenar no SQLite
       const embeddingVector = JSON.stringify(embedding);
 
       // Verificar se já existe embedding para esta entidade
-      const existingEmbedding = await this.db.get(`
+      const existingEmbedding = await this.db.get<{ id: number }>(`
         SELECT id FROM vector_embeddings
         WHERE entity_type = ? AND entity_id = ? AND model_name = ?
       `, [entityType, entityId, modelName]);
@@ -98,7 +148,8 @@ export class VectorDatabase {
         vectorDimension: embedding.length,
         processingTimeMs: Date.now() - startTime,
         modelName,
-        modelVersion: '1.0'
+        modelVersion: '1.0',
+        cached
       };
 
     } catch (error) {
@@ -108,7 +159,87 @@ export class VectorDatabase {
   }
 
   /**
-   * Busca similaridade usando cosine similarity (implementação simples em SQLite)
+   * Batch process embeddings for multiple entities
+   */
+  async batchGenerateEmbeddings(
+    jobs: BatchEmbeddingJob[],
+    modelName: string = VectorDatabase.DEFAULT_MODEL
+  ): Promise<BatchProcessingResult> {
+    const startTime = Date.now();
+    const results: BatchProcessingResult = {
+      total: jobs.length,
+      successful: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [],
+      processingTimeMs: 0
+    };
+
+    try {
+      // Sort by priority (higher priority first)
+      const sortedJobs = jobs.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+      // Process in batches to respect rate limits
+      for (let i = 0; i < sortedJobs.length; i += VectorDatabase.BATCH_SIZE) {
+        const batch = sortedJobs.slice(i, i + VectorDatabase.BATCH_SIZE);
+
+        // Process batch concurrently (but limited)
+        const batchPromises = batch.map(async (job) => {
+          try {
+            // Check if embedding already exists and is recent
+            const existing = await this.db.get<{ id: number; updated_at: string }>(`
+              SELECT id, updated_at FROM vector_embeddings
+              WHERE entity_type = ? AND entity_id = ? AND model_name = ?
+            `, [job.entityType, job.entityId, modelName]);
+
+            // Skip if updated recently (within 24 hours)
+            if (existing) {
+              const updatedAt = new Date(existing.updated_at);
+              const now = new Date();
+              const hoursSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60);
+
+              if (hoursSinceUpdate < 24) {
+                results.skipped++;
+                return;
+              }
+            }
+
+            await this.generateAndStoreEmbedding(
+              job.entityType,
+              job.entityId,
+              job.content,
+              modelName
+            );
+            results.successful++;
+          } catch (error) {
+            results.failed++;
+            results.errors.push({
+              entityId: job.entityId,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            logger.error(`Failed to generate embedding for ${job.entityType} ${job.entityId}`, error);
+          }
+        });
+
+        await Promise.all(batchPromises);
+
+        // Rate limiting pause between batches
+        if (i + VectorDatabase.BATCH_SIZE < sortedJobs.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+    } catch (error) {
+      logger.error('Error in batch embedding generation', error);
+      throw error;
+    }
+
+    results.processingTimeMs = Date.now() - startTime;
+    return results;
+  }
+
+  /**
+   * Busca similaridade usando cosine similarity (com cache)
    */
   async searchSimilar(
     queryText: string,
@@ -118,17 +249,41 @@ export class VectorDatabase {
       threshold = VectorDatabase.SIMILARITY_THRESHOLD,
       maxResults = 10,
       entityTypes,
-      excludeEntityIds = []
+      excludeEntityIds = [],
+      useCache = true
     } = options;
 
     try {
-      // Gerar embedding para a consulta
-      const queryEmbedding = await openAIClient.createEmbedding(queryText);
-      const queryVector = queryEmbedding.data[0].embedding;
+      // Check search cache
+      if (useCache) {
+        const cached = aiCache.getSearchResults(queryText, options);
+        if (cached) {
+          logger.debug('Search cache hit', { queryText });
+          return cached;
+        }
+      }
+
+      // Gerar embedding para a consulta (use cache for embeddings)
+      let queryVector: number[];
+      const cachedEmbedding = aiCache.getEmbedding(queryText, VectorDatabase.DEFAULT_MODEL);
+
+      if (cachedEmbedding) {
+        queryVector = cachedEmbedding;
+      } else {
+        const queryEmbedding = await openAIClient.createEmbedding(queryText);
+        const embeddingData = queryEmbedding.data[0]?.embedding;
+
+        if (!embeddingData) {
+          throw new Error('Failed to generate query embedding: no data returned');
+        }
+
+        queryVector = embeddingData;
+        aiCache.setEmbedding(queryText, VectorDatabase.DEFAULT_MODEL, queryVector);
+      }
 
       // Buscar embeddings existentes
       let whereClause = '';
-      const params: any[] = [];
+      const params: (string | number)[] = [];
 
       if (entityTypes && entityTypes.length > 0) {
         whereClause += ` AND entity_type IN (${entityTypes.map(() => '?').join(',')})`;
@@ -140,7 +295,7 @@ export class VectorDatabase {
         params.push(...excludeEntityIds);
       }
 
-      const embeddings = await this.db.all(`
+      const embeddings = await this.db.all<Array<{ entity_type: string; entity_id: number; embedding_vector: string }>>(`
         SELECT entity_type, entity_id, embedding_vector
         FROM vector_embeddings
         WHERE model_name = ?${whereClause}
@@ -152,7 +307,7 @@ export class VectorDatabase {
       for (const embedding of embeddings) {
         try {
           const storedVector = JSON.parse(embedding.embedding_vector);
-          const similarity = this.cosineSimilarity(queryVector, storedVector);
+          const similarity = cosineSimilarity(queryVector, storedVector);
 
           if (similarity >= threshold) {
             results.push({
@@ -167,14 +322,46 @@ export class VectorDatabase {
       }
 
       // Ordenar por similaridade (maior primeiro) e limitar resultados
-      return results
+      const sortedResults = results
         .sort((a, b) => b.similarityScore - a.similarityScore)
         .slice(0, maxResults);
+
+      // Cache search results
+      if (useCache && sortedResults.length > 0) {
+        aiCache.setSearchResults(queryText, sortedResults, options);
+      }
+
+      return sortedResults;
 
     } catch (error) {
       logger.error('Error searching similar embeddings', error);
       return [];
     }
+  }
+
+  /**
+   * Clear all caches
+   */
+  clearCaches(): { embeddingsClearedCount: number; searchesClearedCount: number } {
+    const result = aiCache.clearAll();
+    logger.info('Caches cleared', result);
+    return {
+      embeddingsClearedCount: result.embeddings,
+      searchesClearedCount: result.searches
+    };
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): {
+    embeddings: { size: number; max: number };
+    searches: { size: number; max: number };
+  } {
+    return {
+      embeddings: aiCache.getEmbeddingStats(),
+      searches: aiCache.getSearchStats()
+    };
   }
 
   /**
@@ -208,7 +395,7 @@ export class VectorDatabase {
     // Enriquecer resultados com dados dos artigos
     for (const result of results) {
       try {
-        const article = await this.db.get(`
+        const article = await this.db.get<{ title: string; summary?: string; content?: string }>(`
           SELECT title, summary, content
           FROM kb_articles
           WHERE id = ? AND is_published = 1
@@ -251,7 +438,14 @@ export class VectorDatabase {
     // Enriquecer resultados com dados dos tickets
     for (const result of results) {
       try {
-        const ticket = await this.db.get(`
+        const ticket = await this.db.get<{
+          title: string;
+          description?: string;
+          category_name: string;
+          priority_name: string;
+          status_name: string;
+          created_at: string;
+        }>(`
           SELECT t.title, t.description, c.name as category_name, p.name as priority_name,
                  s.name as status_name, t.created_at
           FROM tickets t
@@ -291,18 +485,18 @@ export class VectorDatabase {
 
     try {
       // Buscar entidades que precisam de embeddings
-      let entities: any[] = [];
+      let entities: Array<{ id: number; content: string }> = [];
 
       switch (entityType) {
         case 'ticket':
-          entities = await this.db.all(`
+          entities = await this.db.all<Array<{ id: number; content: string }>>(`
             SELECT id, title || ' ' || description as content
             FROM tickets
           `);
           break;
 
         case 'kb_article':
-          entities = await this.db.all(`
+          entities = await this.db.all<Array<{ id: number; content: string }>>(`
             SELECT id, title || ' ' || COALESCE(summary, '') || ' ' || content as content
             FROM kb_articles
             WHERE is_published = 1
@@ -310,7 +504,7 @@ export class VectorDatabase {
           break;
 
         case 'comment':
-          entities = await this.db.all(`
+          entities = await this.db.all<Array<{ id: number; content: string }>>(`
             SELECT id, content
             FROM comments
           `);
@@ -371,34 +565,6 @@ export class VectorDatabase {
   }
 
   /**
-   * Calcula similaridade cosine entre dois vetores
-   */
-  private cosineSimilarity(vectorA: number[], vectorB: number[]): number {
-    if (vectorA.length !== vectorB.length) {
-      return 0;
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < vectorA.length; i++) {
-      dotProduct += vectorA[i] * vectorB[i];
-      normA += vectorA[i] * vectorA[i];
-      normB += vectorB[i] * vectorB[i];
-    }
-
-    normA = Math.sqrt(normA);
-    normB = Math.sqrt(normB);
-
-    if (normA === 0 || normB === 0) {
-      return 0;
-    }
-
-    return dotProduct / (normA * normB);
-  }
-
-  /**
    * Obtém estatísticas do banco de embeddings
    */
   async getStats(): Promise<{
@@ -409,22 +575,22 @@ export class VectorDatabase {
     newestEmbedding?: string;
   }> {
     try {
-      const totalResult = await this.db.get(`
+      const totalResult = await this.db.get<{ total: number }>(`
         SELECT COUNT(*) as total FROM vector_embeddings
       `);
 
-      const byTypeResults = await this.db.all(`
+      const byTypeResults = await this.db.all<Array<{ entity_type: string; count: number }>>(`
         SELECT entity_type, COUNT(*) as count
         FROM vector_embeddings
         GROUP BY entity_type
       `);
 
-      const avgDimensionResult = await this.db.get(`
+      const avgDimensionResult = await this.db.get<{ avg_dimension: number | null }>(`
         SELECT AVG(vector_dimension) as avg_dimension
         FROM vector_embeddings
       `);
 
-      const dateRangeResult = await this.db.get(`
+      const dateRangeResult = await this.db.get<{ oldest?: string; newest?: string }>(`
         SELECT
           MIN(created_at) as oldest,
           MAX(updated_at) as newest
@@ -437,9 +603,9 @@ export class VectorDatabase {
       });
 
       return {
-        totalEmbeddings: totalResult.total,
+        totalEmbeddings: totalResult?.total ?? 0,
         embeddingsByType,
-        averageVectorDimension: Math.round(avgDimensionResult.avg_dimension || 0),
+        averageVectorDimension: Math.round(avgDimensionResult?.avg_dimension ?? 0),
         oldestEmbedding: dateRangeResult?.oldest,
         newestEmbedding: dateRangeResult?.newest
       };
@@ -541,7 +707,7 @@ export class VectorDatabase {
 
     try {
       let searchQuery = '';
-      let params: any[] = [];
+      let params: string[] = [];
 
       switch (entityType) {
         case 'ticket':
@@ -583,7 +749,7 @@ export class VectorDatabase {
           return [];
       }
 
-      const results = await this.db.all(searchQuery, params);
+      const results = await this.db.all<Array<{ id: number; score: number; title?: string; content?: string; description?: string }>>(searchQuery, params);
 
       return results.map(row => ({
         entityType,

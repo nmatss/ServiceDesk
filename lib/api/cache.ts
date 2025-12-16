@@ -6,8 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LRUCache } from 'lru-cache'
 import { ApiContext, CacheOptions, CacheMeta } from './types'
-import crypto from 'crypto'
-import { logger } from '../monitoring/logger';
+import * as crypto from 'crypto'
+import { logger } from '../monitoring/logger'
+import type { Redis, Cluster } from 'ioredis'
 
 // Cache Store Interface
 interface CacheStore {
@@ -23,7 +24,7 @@ interface CacheStore {
 
 // Cached Response Structure
 interface CachedResponse {
-  data: any
+  data: unknown
   headers: Record<string, string>
   status: number
   timestamp: number
@@ -59,16 +60,15 @@ interface CacheConfig {
 // In-Memory Cache Store
 class MemoryCacheStore implements CacheStore {
   private cache: LRUCache<string, CachedResponse>
-  private stats: CacheStats
+  private cacheStats: CacheStats
 
   constructor(config: Partial<CacheConfig> = {}) {
-    this.cache = new LRUCache({
+    this.cache = new LRUCache<string, CachedResponse>({
       max: config.maxSize || 1000,
       ttl: config.defaultTTL || 300000, // 5 minutes
-      maxAge: config.maxAge || 3600000, // 1 hour
     })
 
-    this.stats = {
+    this.cacheStats = {
       hits: 0,
       misses: 0,
       sets: 0,
@@ -82,20 +82,20 @@ class MemoryCacheStore implements CacheStore {
     const cached = this.cache.get(key)
 
     if (cached) {
-      this.stats.hits++
+      this.cacheStats.hits++
       this.updateHitRate()
 
       // Check if TTL expired
       if (Date.now() - cached.timestamp > cached.ttl) {
         this.cache.delete(key)
-        this.stats.misses++
+        this.cacheStats.misses++
         return null
       }
 
       return cached
     }
 
-    this.stats.misses++
+    this.cacheStats.misses++
     this.updateHitRate()
     return null
   }
@@ -106,30 +106,31 @@ class MemoryCacheStore implements CacheStore {
     }
 
     this.cache.set(key, value)
-    this.stats.sets++
-    this.stats.size = this.cache.size
+    this.cacheStats.sets++
+    this.cacheStats.size = this.cache.size
   }
 
   async delete(key: string): Promise<void> {
     this.cache.delete(key)
-    this.stats.deletes++
-    this.stats.size = this.cache.size
+    this.cacheStats.deletes++
+    this.cacheStats.size = this.cache.size
   }
 
   async clear(pattern?: string): Promise<void> {
     if (pattern) {
       const regex = new RegExp(pattern)
-      for (const key of this.cache.keys()) {
+      const keys = Array.from(this.cache.keys())
+      for (const key of keys) {
         if (regex.test(key)) {
           this.cache.delete(key)
-          this.stats.deletes++
+          this.cacheStats.deletes++
         }
       }
     } else {
       this.cache.clear()
-      this.stats.deletes += this.stats.size
+      this.cacheStats.deletes += this.cacheStats.size
     }
-    this.stats.size = this.cache.size
+    this.cacheStats.size = this.cache.size
   }
 
   async has(key: string): Promise<boolean> {
@@ -152,21 +153,21 @@ class MemoryCacheStore implements CacheStore {
   }
 
   async stats(): Promise<CacheStats> {
-    return { ...this.stats, size: this.cache.size }
+    return { ...this.cacheStats, size: this.cache.size }
   }
 
   private updateHitRate(): void {
-    const total = this.stats.hits + this.stats.misses
-    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0
+    const total = this.cacheStats.hits + this.cacheStats.misses
+    this.cacheStats.hitRate = total > 0 ? this.cacheStats.hits / total : 0
   }
 }
 
 // Redis Cache Store (for production)
 class RedisCacheStore implements CacheStore {
-  private redis: any
+  private redis: Redis | Cluster
   private stats: CacheStats
 
-  constructor(redisClient: any) {
+  constructor(redisClient: Redis | Cluster) {
     this.redis = redisClient
     this.stats = {
       hits: 0,
@@ -324,7 +325,7 @@ export class CacheManager {
   }
 
   // Generate ETag
-  private generateETag(data: any): string {
+  private generateETag(data: unknown): string {
     const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex')
     return `"${hash}"`
   }
@@ -395,7 +396,7 @@ export class CacheManager {
   async set(
     req: NextRequest,
     response: NextResponse,
-    data: any,
+    data: unknown,
     context?: ApiContext,
     options?: CacheOptions
   ): Promise<void> {
@@ -459,11 +460,24 @@ export class CacheManager {
 
 // Cache middleware
 export function withCache(options?: CacheOptions) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value
+  return function <T extends Record<string, unknown>>(
+    target: T,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ): PropertyDescriptor {
+    const originalMethod = descriptor.value as (
+      req: NextRequest,
+      context?: ApiContext
+    ) => Promise<NextResponse>
 
-    descriptor.value = async function (req: NextRequest, context?: ApiContext) {
-      const cacheManager = (global as any).cacheManager || new CacheManager()
+    descriptor.value = async function (
+      this: T,
+      req: NextRequest,
+      context?: ApiContext
+    ): Promise<NextResponse> {
+      const cacheManager =
+        (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+        new CacheManager()
 
       // Try to get cached response
       const cachedResponse = await cacheManager.get(req, context)
@@ -531,12 +545,14 @@ export const cacheStrategies = {
 export const defaultCacheManager = new CacheManager()
 
 // Configure cache store
-export function configureCacheStore(redisClient?: any): void {
+export function configureCacheStore(redisClient?: Redis | Cluster): void {
   if (redisClient && process.env.NODE_ENV === 'production') {
     const redisStore = new RedisCacheStore(redisClient)
-    ;(global as any).cacheManager = new CacheManager(redisStore)
+    ;(global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager =
+      new CacheManager(redisStore)
   } else {
-    ;(global as any).cacheManager = defaultCacheManager
+    ;(global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager =
+      defaultCacheManager
   }
 }
 
@@ -544,31 +560,41 @@ export function configureCacheStore(redisClient?: any): void {
 export const cacheInvalidation = {
   // Invalidate user-specific cache
   async user(userId: number): Promise<void> {
-    const manager = (global as any).cacheManager || defaultCacheManager
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
     await manager.invalidateByPattern(`*userId":${userId}*`)
   },
 
   // Invalidate ticket-related cache
   async ticket(ticketId: number): Promise<void> {
-    const manager = (global as any).cacheManager || defaultCacheManager
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
     await manager.invalidateByTags(['tickets', `ticket-${ticketId}`])
   },
 
   // Invalidate category-related cache
   async category(categoryId: number): Promise<void> {
-    const manager = (global as any).cacheManager || defaultCacheManager
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
     await manager.invalidateByTags(['categories', `category-${categoryId}`])
   },
 
   // Invalidate knowledge base cache
   async knowledgeBase(): Promise<void> {
-    const manager = (global as any).cacheManager || defaultCacheManager
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
     await manager.invalidateByTags(['knowledge-base'])
   },
 
   // Invalidate all cache
   async all(): Promise<void> {
-    const manager = (global as any).cacheManager || defaultCacheManager
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
     await manager.clear()
   },
 }

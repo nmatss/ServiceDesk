@@ -26,18 +26,28 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+        credentials: 'include' // SECURITY: Enable cookies
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        localStorage.setItem('auth_token', data.token)
+        // SECURITY: Token is now stored in httpOnly cookies by the backend
+        // Only store non-sensitive display data in localStorage for UX
+        localStorage.setItem('user_name', data.user.name)
         localStorage.setItem('user_role', data.user.role)
-        localStorage.setItem('user_id', data.user.id)
 
         setStatusMessage('Login realizado com sucesso. Redirecionando...')
         setTimeout(() => {
-          router.push('/')
+          // Redirect based on user role
+          const role = data.user.role
+          if (role === 'admin' || role === 'super_admin' || role === 'tenant_admin') {
+            router.push('/admin')
+          } else if (role === 'agent' || role === 'team_manager') {
+            router.push('/dashboard')
+          } else {
+            router.push('/portal/tickets')
+          }
         }, 500)
       } else {
         const errorMsg = data.error || 'Erro ao fazer login'
@@ -214,8 +224,12 @@ export default function LoginPage() {
 
           {/* Test Credentials */}
           <div className="text-center bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <p className="text-xs text-gray-600 mb-2">
+              <strong className="text-gray-900">Admin:</strong> admin@servicedesk.com<br/>
+              <strong className="text-gray-900">Senha:</strong> 123456
+            </p>
             <p className="text-xs text-gray-600">
-              <strong className="text-gray-900">Teste:</strong> teste@servicedesk.com<br/>
+              <strong className="text-gray-900">Usuário:</strong> teste@servicedesk.com<br/>
               <strong className="text-gray-900">Senha:</strong> 123456
             </p>
           </div>

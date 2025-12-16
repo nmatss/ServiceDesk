@@ -13,9 +13,9 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs/promises';
-import { createReadStream, createWriteStream, existsSync } from 'fs';
+import { createReadStream, existsSync } from 'fs';
 import { createHash } from 'crypto';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import pool from './connection-pool';
 
 export interface BackupMetadata {
@@ -406,7 +406,7 @@ export class DatabaseBackupManager {
   /**
    * Upload backup to cloud storage
    */
-  private async uploadToCloud(backupPath: string, metadata: BackupMetadata): Promise<void> {
+  private async uploadToCloud(_backupPath: string, _metadata: BackupMetadata): Promise<void> {
     // TODO: Implement cloud upload based on provider
     // For now, just log
     logger.info(`Cloud backup not implemented yet for ${this.config.cloudProvider}`);

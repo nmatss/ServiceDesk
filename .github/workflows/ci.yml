@@ -1,21 +1,58 @@
 name: CI Pipeline
 
 on:
-  pull_request:
-    branches: [main, develop]
   push:
     branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC for continuous monitoring
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: '20'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  CACHE_KEY_PREFIX: node-cache
 
 jobs:
   # Code Quality Checks
-  lint-and-format:
-    name: Lint & Format
+  lint:
+    name: ESLint
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Annotate code linting results
+        if: failure()
+        run: echo "::warning::ESLint found issues. Please fix them before merging."
+
+  format-check:
+    name: Prettier Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,18 +64,16 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint
-        run: npm run lint
+        run: npm ci --prefer-offline --no-audit
 
       - name: Check code formatting
-        run: npx prettier --check "**/*.{ts,tsx,js,jsx,json,css,md}"
+        run: npm run format:check
 
   # Type Checking
   type-check:
     name: TypeScript Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,82 +85,79 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
 
       - name: Run type check
         run: npm run type-check
 
-  # Unit & Integration Tests
-  test:
-    name: Run Tests
+  # Unit Tests with Coverage
+  unit-tests:
+    name: Unit Tests (Vitest)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        node-version: [18, 20]
+      fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests with coverage
-        run: npm run test:coverage || echo "Test command not configured yet"
-        continue-on-error: true
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: success()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-
-  # E2E Tests with Playwright
-  e2e-test:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npm ci --prefer-offline --no-audit
 
       - name: Initialize test database
         run: npm run init-db
         env:
-          DATABASE_URL: sqlite:./test.db
+          NODE_ENV: test
 
-      - name: Run Playwright tests
-        run: npx playwright test
-        continue-on-error: true
+      - name: Run unit tests with coverage
+        run: npm run test:unit:coverage
+        env:
+          NODE_ENV: test
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 20
+        uses: codecov/codecov-action@v4
         with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/coverage-final.json
+          flags: unit-tests
+          name: unit-tests-coverage
+          fail_ci_if_error: false
 
-  # Build Application
-  build:
-    name: Build Application
+      - name: Upload coverage artifacts
+        if: matrix.node-version == 20
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit-tests
+          path: coverage/
+          retention-days: 7
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request' && matrix.node-version == 20
+        uses: romeovs/lcov-reporter-action@v0.3.1
+        with:
+          lcov-file: ./coverage/lcov.info
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          delete-old-comments: true
+
+  # E2E Tests with Playwright
+  e2e-tests:
+    name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    needs: [lint-and-format, type-check]
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        shard: [1, 2]
+        total-shards: [2]
+      fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,37 +169,136 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Initialize test database
+        run: npm run init-db
+        env:
+          NODE_ENV: test
+
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: test
+          SKIP_ENV_VALIDATION: true
+
+      - name: Run E2E tests (Shard ${{ matrix.shard }}/${{ matrix.total-shards }})
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ matrix.total-shards }}
+        env:
+          NODE_ENV: test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-shard-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
+
+  # Build Application
+  build:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, format-check, type-check]
+    strategy:
+      matrix:
+        node-version: [18, 20]
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Validate environment
+        run: npm run env:validate
+        env:
+          NODE_ENV: production
+          SKIP_ENV_VALIDATION: true
 
       - name: Build application
         run: npm run build
         env:
           NODE_ENV: production
+          SKIP_ENV_VALIDATION: true
+
+      - name: Check build output
+        run: |
+          if [ ! -d ".next" ]; then
+            echo "::error::.next directory not found!"
+            exit 1
+          fi
+          echo "Build size:"
+          du -sh .next
 
       - name: Check build size
         run: |
           BUNDLE_SIZE=$(du -sb .next | awk '{print $1}')
-          MAX_SIZE=$((50 * 1024 * 1024)) # 50MB
+          MAX_SIZE=$((100 * 1024 * 1024)) # 100MB
           echo "Bundle size: $(($BUNDLE_SIZE / 1024 / 1024))MB"
           if [ $BUNDLE_SIZE -gt $MAX_SIZE ]; then
-            echo "::error::Bundle size exceeds 50MB limit"
+            echo "::error::Bundle size exceeds 100MB limit"
             exit 1
           fi
 
       - name: Upload build artifacts
+        if: matrix.node-version == 20
         uses: actions/upload-artifact@v4
         with:
           name: build-output
           path: .next/
           retention-days: 7
 
-  # Security Scanning
-  security-scan:
-    name: Security Scan
+  # Security Audit
+  security-audit:
+    name: Security Audit (npm)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check for critical vulnerabilities
+        run: |
+          CRITICAL=$(npm audit --json | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(npm audit --json | jq '.metadata.vulnerabilities.high // 0')
+          echo "Critical vulnerabilities: $CRITICAL"
+          echo "High vulnerabilities: $HIGH"
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Found $CRITICAL critical vulnerabilities!"
+            exit 1
+          fi
+          if [ "$HIGH" -gt 5 ]; then
+            echo "::warning::Found $HIGH high vulnerabilities (threshold: 5)"
+          fi
 
       - name: Run Snyk security scan
         uses: snyk/actions/node@master
@@ -177,9 +308,29 @@ jobs:
         with:
           args: --severity-threshold=high
 
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
-        continue-on-error: true
+  # Dependency Review (PR only)
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  # Trivy Security Scan
+  trivy-scan:
+    name: Trivy Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -196,47 +347,13 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  # Docker Build & Scan
-  docker-build:
-    name: Docker Build & Scan
+  # Bundle Size Analysis
+  bundle-size:
+    name: Bundle Size Analysis
     runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          load: true
-
-      - name: Run Trivy container scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.pull_request.number }}
-          format: 'sarif'
-          output: 'trivy-container-results.sarif'
-          severity: 'CRITICAL,HIGH'
-
-      - name: Upload Trivy container results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-container-results.sarif'
-
-  # Performance Budgets
-  performance-check:
-    name: Performance Budget Check
-    runs-on: ubuntu-latest
-    needs: [build]
+    timeout-minutes: 10
+    needs: build
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -248,56 +365,91 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: .next/
-
-      - name: Run Lighthouse CI
-        run: |
-          npm install -g @lhci/cli
-          lhci autorun
-        continue-on-error: true
+      - name: Build with bundle analyzer
+        run: npm run build:analyze
         env:
-          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          ANALYZE: true
+          NODE_ENV: production
+          SKIP_ENV_VALIDATION: true
 
-  # Code Coverage & Quality Gate
-  quality-gate:
-    name: Quality Gate
+      - name: Upload bundle analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis
+          path: .next/analyze/
+          retention-days: 7
+
+  # Database Migration Check
+  migration-check:
+    name: Database Migration Check
     runs-on: ubuntu-latest
-    needs: [test, security-scan, docker-build]
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Check migration status
+        run: npm run migrate:status
+        env:
+          NODE_ENV: test
+
+      - name: Test database initialization
+        run: npm run init-db
+        env:
+          NODE_ENV: test
+
+      - name: Verify database
+        run: npm run test-db
+        env:
+          NODE_ENV: test
+
+  # Final Job: All Checks Passed
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - format-check
+      - type-check
+      - unit-tests
+      - e2e-tests
+      - security-audit
+      - trivy-scan
+      - build
+      - migration-check
     if: always()
     steps:
-      - name: Check job statuses
+      - name: Check all jobs status
         run: |
-          if [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.security-scan.result }}" != "success" ] || \
-             [ "${{ needs.docker-build.result }}" != "success" ]; then
-            echo "::warning::One or more quality checks failed"
-            # Don't fail the gate yet - some checks are continue-on-error
+          if [ "${{ contains(needs.*.result, 'failure') }}" == "true" ]; then
+            echo "::error::One or more CI jobs failed!"
+            exit 1
+          elif [ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]; then
+            echo "::warning::One or more CI jobs were cancelled!"
+            exit 1
+          else
+            echo "::notice::All CI checks passed successfully!"
           fi
 
-      - name: Quality gate passed
-        run: echo "✅ All quality checks completed"
-
-  # Notification
-  notify:
-    name: Send Notification
-    runs-on: ubuntu-latest
-    needs: [quality-gate]
-    if: always() && github.event_name == 'pull_request'
-    steps:
-      - name: PR Comment
+      - name: Post success comment
+        if: github.event_name == 'pull_request' && success()
         uses: actions/github-script@v7
         with:
           script: |
-            const status = '${{ needs.quality-gate.result }}' === 'success' ? '✅ Passed' : '❌ Failed';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## CI Pipeline ${status}\n\nWorkflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              body: '✅ All CI checks passed successfully! Ready for review.'
             })

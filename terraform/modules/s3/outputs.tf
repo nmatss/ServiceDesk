@@ -1,0 +1,9 @@
+output "uploads_bucket_id" { value = aws_s3_bucket.uploads.id }
+output "uploads_bucket_arn" { value = aws_s3_bucket.uploads.arn }
+output "backups_bucket_id" { value = aws_s3_bucket.backups.id }
+output "backups_bucket_arn" { value = aws_s3_bucket.backups.arn }
+output "static_bucket_id" { value = aws_s3_bucket.static.id }
+output "static_bucket_arn" { value = aws_s3_bucket.static.arn }
+output "static_bucket_regional_domain_name" { value = aws_s3_bucket.static.bucket_regional_domain_name }
+output "kms_key_id" { value = aws_kms_key.s3.id }
+output "kms_key_arn" { value = aws_kms_key.s3.arn }

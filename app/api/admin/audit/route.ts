@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
 // GET - Buscar logs de auditoria
 export async function GET(request: NextRequest) {
   try {
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
+    }
+
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -19,9 +26,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Apenas admins podem acessar logs de auditoria
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
@@ -33,8 +47,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
+    // FILTRAR POR TENANT - apenas logs de usuários do tenant
+    let whereClause = 'WHERE u.organization_id = ?';
+    const params: any[] = [tenantId];
 
     // Filtrar por usuário
     if (userId) {
@@ -72,7 +87,7 @@ export async function GET(request: NextRequest) {
       params.push(endDate);
     }
 
-    // Buscar logs de auditoria
+    // Buscar logs de auditoria FILTRADOS POR TENANT
     const auditLogs = db.prepare(`
       SELECT
         al.*,
@@ -85,36 +100,39 @@ export async function GET(request: NextRequest) {
       LIMIT ? OFFSET ?
     `).all(...params, limit, offset);
 
-    // Contar total
+    // Contar total FILTRADO POR TENANT
     const { total } = db.prepare(`
       SELECT COUNT(*) as total
       FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
       ${whereClause}
     `).get(...params) as { total: number };
 
-    // Estatísticas por ação
+    // Estatísticas por ação FILTRADAS POR TENANT
     const actionStats = db.prepare(`
       SELECT
-        action,
+        al.action,
         COUNT(*) as count
       FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
       ${whereClause}
-      GROUP BY action
+      GROUP BY al.action
       ORDER BY count DESC
     `).all(...params);
 
-    // Estatísticas por tipo de recurso
+    // Estatísticas por tipo de recurso FILTRADAS POR TENANT
     const resourceStats = db.prepare(`
       SELECT
-        resource_type,
+        al.resource_type,
         COUNT(*) as count
       FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
       ${whereClause}
-      GROUP BY resource_type
+      GROUP BY al.resource_type
       ORDER BY count DESC
     `).all(...params);
 
-    // Usuários mais ativos
+    // Usuários mais ativos FILTRADOS POR TENANT
     const activeUsers = db.prepare(`
       SELECT
         u.name,
@@ -153,6 +171,12 @@ export async function GET(request: NextRequest) {
 // POST - Criar log de auditoria manual
 export async function POST(request: NextRequest) {
   try {
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
+    }
+
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -166,8 +190,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Apenas admins podem criar logs manuais
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -177,7 +206,7 @@ export async function POST(request: NextRequest) {
       resource_id,
       old_values,
       new_values,
-      notes
+      notes: _notes
     } = body;
 
     // Validar dados obrigatórios
@@ -238,6 +267,12 @@ export async function POST(request: NextRequest) {
 // DELETE - Limpar logs antigos
 export async function DELETE(request: NextRequest) {
   try {
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
+    }
+
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -251,9 +286,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Apenas admins podem limpar logs
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
+
+    // Verificar se usuário pertence ao tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
+    }
+
+    const tenantId = tenantContext.id;
 
     const { searchParams } = new URL(request.url);
     const daysOld = parseInt(searchParams.get('days_old') || '90');
@@ -269,18 +311,23 @@ export async function DELETE(request: NextRequest) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    // Contar logs que serão excluídos
-    const { count } = db.prepare(`
+    // Contar logs que serão excluídos DO TENANT
+    const { count: _count } = db.prepare(`
       SELECT COUNT(*) as count
-      FROM audit_logs
-      WHERE created_at < ?
-    `).get(cutoffDate.toISOString()) as { count: number };
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
+      WHERE al.created_at < ? AND u.organization_id = ?
+    `).get(cutoffDate.toISOString(), tenantId) as { count: number };
 
-    // Excluir logs antigos
+    // Excluir logs antigos APENAS DO TENANT
     const deleteResult = db.prepare(`
       DELETE FROM audit_logs
-      WHERE created_at < ?
-    `).run(cutoffDate.toISOString());
+      WHERE id IN (
+        SELECT al.id FROM audit_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        WHERE al.created_at < ? AND u.organization_id = ?
+      )
+    `).run(cutoffDate.toISOString(), tenantId);
 
     // Registrar a limpeza
     db.prepare(`

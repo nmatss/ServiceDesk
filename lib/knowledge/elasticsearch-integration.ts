@@ -1,8 +1,23 @@
 // Elasticsearch integration com AI rankings
-import { Client } from '@elastic/elasticsearch';
+// Note: @elastic/elasticsearch is an optional dependency - this module gracefully degrades
+// when elasticsearch is not configured
 import { vectorSearchEngine } from './vector-search';
-import { db } from '../db/connection';
-import { logger } from '../monitoring/logger';
+
+// Define Client type locally to avoid import issues when elasticsearch is not installed
+interface ElasticsearchClient {
+  search: (params: unknown) => Promise<unknown>;
+  index: (params: unknown) => Promise<unknown>;
+  bulk: (params: unknown) => Promise<unknown>;
+  delete: (params: unknown) => Promise<unknown>;
+  indices: {
+    create: (params: unknown) => Promise<unknown>;
+    exists: (params: unknown) => Promise<{ body: boolean }>;
+    putMapping: (params: unknown) => Promise<unknown>;
+    delete: (params: unknown) => Promise<unknown>;
+  };
+}
+import db from '../db/connection';
+import logger from '../monitoring/structured-logger';
 
 interface ElasticsearchConfig {
   node: string;
@@ -75,39 +90,68 @@ interface HybridSearchResult {
 }
 
 export class ElasticsearchIntegration {
-  private client: Client;
+  private client: ElasticsearchClient | null = null;
   private config: ElasticsearchConfig;
   private indexName: string;
 
   constructor(config: ElasticsearchConfig) {
     this.config = {
-      maxResults: 20,
-      ...config
+      ...config,
+      maxResults: 20
     };
 
     this.indexName = config.index;
 
-    // Configuração do cliente Elasticsearch
-    const clientConfig: any = {
-      node: config.node,
-    };
+    // Note: Elasticsearch client initialization is deferred to initClient()
+    // This avoids build-time issues with optional dependencies
+  }
 
-    if (config.apiKey) {
-      clientConfig.auth = { apiKey: config.apiKey };
-    } else if (config.username && config.password) {
-      clientConfig.auth = {
-        username: config.username,
-        password: config.password
+  /**
+   * Initialize Elasticsearch client lazily
+   * This method should be called before using the client
+   */
+  private async initClient(): Promise<void> {
+    if (this.client) return;
+
+    try {
+      // Dynamic import to avoid build-time resolution issues
+      const esModule = await import('@elastic/elasticsearch').catch(() => null);
+      if (!esModule) {
+        logger.warn('Elasticsearch module not available. Install @elastic/elasticsearch to use this feature.');
+        return;
+      }
+
+      const { Client: ESClient } = esModule;
+
+      const clientConfig: any = {
+        node: this.config.node,
       };
-    }
 
-    this.client = new Client(clientConfig);
+      if (this.config.apiKey) {
+        clientConfig.auth = { apiKey: this.config.apiKey };
+      } else if (this.config.username && this.config.password) {
+        clientConfig.auth = {
+          username: this.config.username,
+          password: this.config.password
+        };
+      }
+
+      this.client = new ESClient(clientConfig);
+    } catch (error) {
+      logger.warn('Elasticsearch client not available. Install @elastic/elasticsearch to use this feature.');
+    }
   }
 
   /**
    * Cria o índice com mapping otimizado
    */
   async createIndex(): Promise<void> {
+    await this.initClient();
+    if (!this.client) {
+      logger.warn('Elasticsearch not available - skipping index creation');
+      return;
+    }
+
     try {
       const indexExists = await this.client.indices.exists({
         index: this.indexName
@@ -236,6 +280,12 @@ export class ElasticsearchIntegration {
    * Indexa um documento
    */
   async indexDocument(document: SearchDocument): Promise<void> {
+    await this.initClient();
+    if (!this.client) {
+      logger.warn('Elasticsearch not available - skipping document indexing');
+      return;
+    }
+
     try {
       // Calcula scores de qualidade e popularidade
       const enhancedDocument = {
@@ -320,6 +370,11 @@ export class ElasticsearchIntegration {
     total: number;
     aggregations?: Record<string, any>;
   }> {
+    await this.initClient();
+    if (!this.client) {
+      return { results: [], total: 0 };
+    }
+
     const query = this.buildElasticsearchQuery(options);
 
     const searchParams: any = {
@@ -664,7 +719,7 @@ export class ElasticsearchIntegration {
    */
   async indexKnowledgeArticle(articleId: number): Promise<void> {
     try {
-      const article = await db.get(`
+      const article = db.prepare(`
         SELECT ka.*, kc.name as category_name, u.name as author_name,
                ka.view_count, ka.helpful_votes as helpful_count,
                ka.not_helpful_votes as not_helpful_count
@@ -672,7 +727,7 @@ export class ElasticsearchIntegration {
         LEFT JOIN kb_categories kc ON ka.category_id = kc.id
         LEFT JOIN users u ON ka.author_id = u.id
         WHERE ka.id = ?
-      `, [articleId]);
+      `).get(articleId) as any;
 
       if (!article) {
         throw new Error(`Artigo ${articleId} não encontrado`);
@@ -709,6 +764,11 @@ export class ElasticsearchIntegration {
    * Remove documento do índice
    */
   async removeDocument(entityType: string, entityId: number): Promise<void> {
+    await this.initClient();
+    if (!this.client) {
+      return;
+    }
+
     try {
       await this.client.delete({
         index: this.indexName,
@@ -716,8 +776,9 @@ export class ElasticsearchIntegration {
       });
 
       logger.info(`Documento ${entityType}:${entityId} removido do índice`);
-    } catch (error) {
-      if (error.meta?.statusCode === 404) {
+    } catch (error: unknown) {
+      const esError = error as { meta?: { statusCode?: number } };
+      if (esError.meta?.statusCode === 404) {
         logger.info(`Documento ${entityType}:${entityId} não existe no índice`);
         return;
       }
@@ -730,6 +791,12 @@ export class ElasticsearchIntegration {
    * Reindexação completa
    */
   async reindexAll(): Promise<void> {
+    await this.initClient();
+    if (!this.client) {
+      logger.warn('Elasticsearch not available - skipping reindex');
+      return;
+    }
+
     try {
       logger.info('Iniciando reindexação completa...');
 
@@ -744,9 +811,9 @@ export class ElasticsearchIntegration {
       await this.createIndex();
 
       // Indexa todos os artigos publicados
-      const articles = await db.all(`
+      const articles = db.prepare(`
         SELECT id FROM kb_articles WHERE status = 'published'
-      `);
+      `).all() as Array<{ id: number }>;
 
       for (const article of articles) {
         await this.indexKnowledgeArticle(article.id);
@@ -765,6 +832,11 @@ export class ElasticsearchIntegration {
    * Sugestões de autocompletar
    */
   async suggest(text: string, size: number = 5): Promise<string[]> {
+    await this.initClient();
+    if (!this.client) {
+      return [];
+    }
+
     try {
       const response = await this.client.search({
         index: this.indexName,
@@ -794,6 +866,11 @@ export class ElasticsearchIntegration {
    * Estatísticas do índice
    */
   async getIndexStats(): Promise<any> {
+    await this.initClient();
+    if (!this.client) {
+      return { documentCount: 0, sizeInBytes: 0, available: false };
+    }
+
     try {
       const stats = await this.client.indices.stats({ index: this.indexName });
       const count = await this.client.count({ index: this.indexName });

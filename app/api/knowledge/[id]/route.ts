@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
@@ -23,7 +22,7 @@ export async function GET(
     const articleId = parseInt(id)
 
     let whereClause = 'WHERE k.id = ? AND k.tenant_id = ?'
-    const queryParams = [articleId, tenantContext.id]
+    const queryParams: (string | number)[] = [articleId, tenantContext.id]
 
     // Only published articles for non-admin users
     if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {

@@ -1,12 +1,10 @@
 import { Redis } from 'ioredis';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 import db from '../db/connection';
-import { logger } from '../monitoring/logger';
+import logger from '../monitoring/structured-logger';
 import {
   User,
-  AuthSession,
-  UserWithRoles,
-  CreateAuthAuditLog
+  UserWithRoles
 } from '../types/database';
 import { logAuthEvent } from './enterprise-auth';
 
@@ -34,7 +32,6 @@ export function initializeSessionManager(): void {
   try {
     if (process.env.REDIS_URL) {
       redisClient = new Redis(process.env.REDIS_URL, {
-        retryDelayOnFailover: 100,
         enableReadyCheck: false,
         lazyConnect: true,
         maxRetriesPerRequest: 3,
@@ -114,8 +111,8 @@ export interface SessionData {
 
 export interface ActiveSession {
   sessionId: string;
-  deviceInfo: any;
-  location: any;
+  deviceInfo: SessionData['deviceInfo'];
+  location: SessionData['location'];
   lastActivity: string;
   isCurrent: boolean;
   riskScore: number;
@@ -138,9 +135,9 @@ export interface SessionAnalytics {
 
 export async function createSession(
   user: UserWithRoles,
-  deviceInfo: any,
-  location: any,
-  loginMethod: string = 'password'
+  deviceInfo: { userAgent: string; platform?: string },
+  location: { ip: string; country?: string; city?: string; timezone?: string },
+  loginMethod: 'password' | 'sso' | 'api_key' | 'two_factor' = 'password'
 ): Promise<SessionData> {
   try {
     const sessionId = crypto.randomUUID();
@@ -161,7 +158,7 @@ export async function createSession(
       deviceInfo: parsedDeviceInfo,
       location,
       security: {
-        loginMethod: loginMethod as any,
+        loginMethod,
         riskScore,
         isTrusted: riskScore < 30,
         requiresMFA: riskScore > 70 || user.two_factor_enabled
@@ -221,14 +218,35 @@ export async function getSession(sessionId: string): Promise<SessionData | null>
     // Fallback para database
     const session = db.prepare(`
       SELECT * FROM user_sessions WHERE id = ? AND is_active = 1
-    `).get(sessionId) as any;
+    `).get(sessionId) as {
+      id: string;
+      user_id: number;
+      user_agent?: string;
+      ip_address: string;
+      created_at: string;
+      last_activity: string;
+      is_active: number;
+    } | undefined;
 
     if (!session) return null;
+
+    const parsedDeviceInfo: SessionData['deviceInfo'] = session.user_agent
+      ? JSON.parse(session.user_agent)
+      : {
+          userAgent: '',
+          platform: 'unknown',
+          browser: 'Unknown',
+          browserVersion: 'Unknown',
+          os: 'Unknown',
+          osVersion: 'Unknown',
+          isMobile: false,
+          deviceType: 'unknown'
+        };
 
     const sessionData: SessionData = {
       sessionId: session.id,
       userId: session.user_id,
-      deviceInfo: JSON.parse(session.user_agent || '{}'),
+      deviceInfo: parsedDeviceInfo,
       location: {
         ip: session.ip_address
       },
@@ -341,7 +359,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
       details: JSON.stringify({ sessionId })
     });
 
-    return result.changes > 0;
+    return (result.changes ?? 0) > 0;
   } catch (error) {
     logger.error('Error deleting session', error);
     return false;
@@ -375,7 +393,7 @@ export async function deleteAllUserSessions(userId: number, exceptSessionId?: st
       UPDATE user_sessions SET is_active = 0 WHERE ${whereClause}
     `).run(...params);
 
-    deletedCount = Math.max(deletedCount, result.changes);
+    deletedCount = Math.max(deletedCount, result.changes ?? 0);
 
     // Log de auditoria
     await logAuthEvent(userId, 'all_sessions_deleted', {
@@ -455,12 +473,32 @@ export async function getUserActiveSessions(userId: number): Promise<ActiveSessi
         SELECT * FROM user_sessions
         WHERE user_id = ? AND is_active = 1
         ORDER BY last_activity DESC
-      `).all(userId) as any[];
+      `).all(userId) as Array<{
+        id: string;
+        user_id: number;
+        user_agent?: string;
+        ip_address: string;
+        last_activity: string;
+        is_active: number;
+      }>;
 
       for (const session of dbSessions) {
+        const parsedDeviceInfo: SessionData['deviceInfo'] = session.user_agent
+          ? JSON.parse(session.user_agent)
+          : {
+              userAgent: '',
+              platform: 'unknown',
+              browser: 'Unknown',
+              browserVersion: 'Unknown',
+              os: 'Unknown',
+              osVersion: 'Unknown',
+              isMobile: false,
+              deviceType: 'unknown'
+            };
+
         sessions.push({
           sessionId: session.id,
-          deviceInfo: JSON.parse(session.user_agent || '{}'),
+          deviceInfo: parsedDeviceInfo,
           location: { ip: session.ip_address },
           lastActivity: session.last_activity,
           isCurrent: false,
@@ -483,9 +521,9 @@ export async function getUserActiveSessions(userId: number): Promise<ActiveSessi
 
 function calculateRiskScore(
   user: User,
-  deviceInfo: any,
-  location: any,
-  loginMethod: string
+  deviceInfo: SessionData['deviceInfo'],
+  _location: { ip: string; country?: string; city?: string; timezone?: string },
+  loginMethod: 'password' | 'sso' | 'api_key' | 'two_factor'
 ): number {
   let score = 0;
 
@@ -539,7 +577,7 @@ function calculateRiskScore(
   return Math.min(100, Math.max(0, score));
 }
 
-function parseDeviceInfo(rawDeviceInfo: any): SessionData['deviceInfo'] {
+function parseDeviceInfo(rawDeviceInfo: { userAgent: string; platform?: string }): SessionData['deviceInfo'] {
   const userAgent = rawDeviceInfo.userAgent || '';
 
   // Parse básico do User-Agent (em produção, use uma biblioteca como ua-parser-js)
@@ -574,7 +612,7 @@ function extractBrowser(userAgent: string): string {
 
 function extractBrowserVersion(userAgent: string): string {
   const matches = userAgent.match(/(Chrome|Firefox|Safari|Edge|Opera)\/(\d+\.\d+)/);
-  return matches ? matches[2] : 'Unknown';
+  return matches && matches[2] ? matches[2] : 'Unknown';
 }
 
 function extractOS(userAgent: string): string {
@@ -588,16 +626,16 @@ function extractOS(userAgent: string): string {
 
 function extractOSVersion(userAgent: string): string {
   const windowsMatch = userAgent.match(/Windows NT (\d+\.\d+)/);
-  if (windowsMatch) return windowsMatch[1];
+  if (windowsMatch && windowsMatch[1]) return windowsMatch[1];
 
   const macMatch = userAgent.match(/Mac OS X (\d+[._]\d+[._]\d+)/);
-  if (macMatch) return macMatch[1].replace(/_/g, '.');
+  if (macMatch && macMatch[1]) return macMatch[1].replace(/_/g, '.');
 
   const androidMatch = userAgent.match(/Android (\d+\.\d+)/);
-  if (androidMatch) return androidMatch[1];
+  if (androidMatch && androidMatch[1]) return androidMatch[1];
 
   const iosMatch = userAgent.match(/OS (\d+_\d+)/);
-  if (iosMatch) return iosMatch[1].replace(/_/g, '.');
+  if (iosMatch && iosMatch[1]) return iosMatch[1].replace(/_/g, '.');
 
   return 'Unknown';
 }
@@ -646,7 +684,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
         AND datetime(last_activity, '+8 hours') < datetime('now')
     `).run();
 
-    cleanedCount += result.changes;
+    cleanedCount += result.changes ?? 0;
 
     logger.info(`Cleaned up ${cleanedCount} expired sessions`);
     return cleanedCount;
@@ -658,23 +696,62 @@ export async function cleanupExpiredSessions(): Promise<number> {
 
 export async function enforceSessionLimits(userId: number, maxSessions: number = 10): Promise<void> {
   try {
-    const sessions = await getUserActiveSessions(userId);
+    // SECURITY FIX: Use database transaction to prevent race condition
+    // This ensures atomic check-and-delete operation
+    const transaction = db.transaction(() => {
+      // Get active sessions directly from database within transaction
+      // This avoids async operations and ensures atomicity
+      const dbSessions = db.prepare(`
+        SELECT id, user_agent, ip_address, last_activity
+        FROM user_sessions
+        WHERE user_id = ? AND is_active = 1
+        ORDER BY last_activity ASC
+      `).all(userId) as Array<{
+        id: string;
+        user_agent?: string;
+        ip_address: string;
+        last_activity: string;
+      }>;
 
-    if (sessions.length > maxSessions) {
-      // Ordenar por última atividade e remover as mais antigas
-      sessions.sort((a, b) => new Date(a.lastActivity).getTime() - new Date(b.lastActivity).getTime());
+      // Check if we need to enforce limits
+      if (dbSessions.length > maxSessions) {
+        // Calculate how many sessions to remove
+        const removeCount = dbSessions.length - maxSessions;
+        const sessionsToRemove = dbSessions.slice(0, removeCount);
 
-      const sessionsToRemove = sessions.slice(0, sessions.length - maxSessions);
+        // Delete sessions from database in the transaction
+        const deleteStmt = db.prepare('UPDATE user_sessions SET is_active = 0 WHERE id = ?');
+        for (const session of sessionsToRemove) {
+          deleteStmt.run(session.id);
+        }
 
-      for (const session of sessionsToRemove) {
-        await deleteSession(session.sessionId);
+        return sessionsToRemove.map(s => s.id);
       }
 
-      // Log de auditoria
+      return [];
+    });
+
+    // Execute the transaction
+    const removedSessionIds = transaction();
+
+    // After transaction completes, clean up Redis (best-effort, async)
+    if (removedSessionIds.length > 0 && useRedis && redisClient) {
+      for (const sessionId of removedSessionIds) {
+        redisClient.del(`session:${sessionId}`).catch((err) => {
+          logger.error('Error deleting session from Redis', err);
+        });
+        redisClient.srem(`user_sessions:${userId}`, sessionId).catch((err) => {
+          logger.error('Error removing session from Redis index', err);
+        });
+      }
+    }
+
+    // Log audit event if sessions were removed
+    if (removedSessionIds.length > 0) {
       await logAuthEvent(userId, 'session_limit_enforced', {
         ip_address: 'system',
         details: JSON.stringify({
-          removedSessions: sessionsToRemove.length,
+          removedSessions: removedSessionIds.length,
           maxSessions
         })
       });
@@ -714,15 +791,15 @@ export async function getSessionAnalytics(userId?: number): Promise<SessionAnaly
       // Total de sessões
       const totalResult = db.prepare(`
         SELECT COUNT(*) as count FROM user_sessions ${whereClause}
-      `).get(...params) as any;
-      analytics.totalSessions = totalResult.count;
+      `).get(...params) as { count: number } | undefined;
+      analytics.totalSessions = totalResult?.count ?? 0;
 
       // Sessões ativas
       const activeResult = db.prepare(`
         SELECT COUNT(*) as count FROM user_sessions
         ${whereClause} ${whereClause ? 'AND' : 'WHERE'} is_active = 1
-      `).get(...params) as any;
-      analytics.activeSessions = activeResult.count;
+      `).get(...params) as { count: number } | undefined;
+      analytics.activeSessions = activeResult?.count ?? 0;
     }
 
     return analytics;
@@ -741,7 +818,7 @@ export async function getSessionAnalytics(userId?: number): Promise<SessionAnaly
 }
 
 // ========================================
-// EXPORTS E INICIALIZAÇÃO
+// INICIALIZAÇÃO
 // ========================================
 
 // Inicializar quando o módulo for carregado
@@ -749,17 +826,3 @@ initializeSessionManager();
 
 // Configurar limpeza automática a cada hora
 setInterval(cleanupExpiredSessions, 60 * 60 * 1000);
-
-export {
-  initializeSessionManager,
-  createSession,
-  getSession,
-  updateSession,
-  deleteSession,
-  deleteAllUserSessions,
-  trackSessionActivity,
-  getUserActiveSessions,
-  cleanupExpiredSessions,
-  enforceSessionLimits,
-  getSessionAnalytics
-};

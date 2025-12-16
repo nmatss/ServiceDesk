@@ -19,7 +19,6 @@ import {
   FilterCondition,
 } from '@/lib/types/workflow';
 import {
-  XMarkIcon,
   PlusIcon,
   TrashIcon,
   InformationCircleIcon,
@@ -28,18 +27,16 @@ import {
 interface NodeConfiguratorProps {
   node: Node;
   onUpdate: (data: any) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export const NodeConfigurator: React.FC<NodeConfiguratorProps> = ({
   node,
   onUpdate,
-  onClose,
 }) => {
   const [config, setConfig] = useState(node.data.configuration || {});
   const [label, setLabel] = useState(node.data.label || '');
   const [description, setDescription] = useState(node.data.description || '');
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Update parent when config changes
   useEffect(() => {

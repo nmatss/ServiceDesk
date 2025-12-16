@@ -103,7 +103,8 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
     },
     ref
   ) => {
-    const selectId = id || `select-${React.useId()}`;
+    const generatedId = React.useId();
+    const selectId = id || `select-${generatedId}`;
     const hasError = !!error;
     const hasSuccess = !!success && !hasError;
     const actualVariant = hasError ? 'error' : hasSuccess ? 'success' : variant;

@@ -2,31 +2,42 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
-import { analyticsQueries, slaQueries, dashboardQueries } from '@/lib/db/queries'
+import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { analyticsQueries, slaQueries, } from '@/lib/db/queries'
 import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
+    // SECURITY: Verify authentication first
+    const user = await verifyTokenFromCookies(request)
+    if (!user) {
       return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
+        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
         { status: 401 }
       )
     }
 
-    // Only allow admin users to access analytics
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+    // SECURITY: Verify tenant context
+    const tenantContext = getTenantContextFromRequest(request)
+    if (!tenantContext) {
       return NextResponse.json(
-        { error: 'Acesso negado' },
+        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
+        { status: 404 }
+      )
+    }
+
+    // SECURITY: Validate user belongs to tenant
+    if (user.organization_id !== tenantContext.id) {
+      return NextResponse.json(
+        { error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' },
+        { status: 403 }
+      )
+    }
+
+    // Only allow admin users to access analytics
+    if (!['admin', 'super_admin', 'tenant_admin', 'team_manager'].includes(user.role)) {
+      return NextResponse.json(
+        { error: 'Access denied', code: 'PERMISSION_DENIED' },
         { status: 403 }
       )
     }
@@ -35,11 +46,13 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || '30d' // 7d, 30d, 90d, 1y
     const metricType = searchParams.get('type') || 'overview'
 
+    const organizationId = tenantContext.id;
+
     // Handle new advanced analytics endpoints
     if (metricType === 'advanced-kpis') {
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getRealTimeKPIs()
+        data: analyticsQueries.getRealTimeKPIs(organizationId)
       });
     }
 
@@ -51,7 +64,7 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getSLAAnalytics(periodMap[period] || 'month')
+        data: analyticsQueries.getSLAAnalytics(organizationId, periodMap[period] || 'month')
       });
     }
 
@@ -63,7 +76,7 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getAgentPerformance(periodMap[period] || 'month')
+        data: analyticsQueries.getAgentPerformance(organizationId, periodMap[period] || 'month')
       });
     }
 
@@ -75,7 +88,7 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getCategoryAnalytics(periodMap[period] || 'month')
+        data: analyticsQueries.getCategoryAnalytics(organizationId, periodMap[period] || 'month')
       });
     }
 
@@ -87,7 +100,7 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getPriorityDistribution(periodMap[period] || 'month')
+        data: analyticsQueries.getPriorityDistribution(organizationId, periodMap[period] || 'month')
       });
     }
 
@@ -99,7 +112,7 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getTicketVolumeTrends(periodMap[period] || 'month')
+        data: analyticsQueries.getTicketVolumeTrends(organizationId, periodMap[period] || 'month')
       });
     }
 
@@ -111,7 +124,7 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getResponseTimeAnalytics(periodMap[period] || 'month')
+        data: analyticsQueries.getResponseTimeAnalytics(organizationId, periodMap[period] || 'month')
       });
     }
 
@@ -123,35 +136,35 @@ export async function GET(request: NextRequest) {
       };
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getSatisfactionTrends(periodMap[period] || 'month')
+        data: analyticsQueries.getSatisfactionTrends(organizationId, periodMap[period] || 'month')
       });
     }
 
     if (metricType === 'sla-breaches') {
       return NextResponse.json({
         success: true,
-        data: slaQueries.getBreachedSLAs()
+        data: slaQueries.getBreachedSLAs(organizationId)
       });
     }
 
     if (metricType === 'upcoming-breaches') {
       return NextResponse.json({
         success: true,
-        data: slaQueries.getUpcomingSLABreaches()
+        data: slaQueries.getUpcomingSLABreaches(organizationId)
       });
     }
 
     if (metricType === 'anomaly-detection') {
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getAnomalyDetectionData()
+        data: analyticsQueries.getAnomalyDetectionData(organizationId)
       });
     }
 
     if (metricType === 'knowledge-base-stats') {
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getKnowledgeBaseAnalytics()
+        data: analyticsQueries.getKnowledgeBaseAnalytics(organizationId)
       });
     }
 
@@ -160,7 +173,7 @@ export async function GET(request: NextRequest) {
       const periods = searchParams.get('periods')?.split(',') || [];
       return NextResponse.json({
         success: true,
-        data: analyticsQueries.getComparativeAnalytics(compareBy, periods)
+        data: analyticsQueries.getComparativeAnalytics(organizationId, compareBy, periods)
       });
     }
 
@@ -185,24 +198,24 @@ export async function GET(request: NextRequest) {
     if (metricType === 'overview' || metricType === 'all') {
       // Overview metrics
       analytics.overview = {
-        totalTickets: db.prepare(`
+        totalTickets: (db.prepare(`
           SELECT COUNT(*) as count FROM tickets
           WHERE tenant_id = ? ${getDateFilter()}
-        `).get(tenantContext.id)?.count || 0,
+        `).get(tenantContext.id) as any)?.count || 0,
 
-        openTickets: db.prepare(`
+        openTickets: (db.prepare(`
           SELECT COUNT(*) as count FROM tickets t
           LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
           WHERE t.tenant_id = ? AND s.is_final = 0 ${getDateFilter('t')}
-        `).get(tenantContext.id, tenantContext.id)?.count || 0,
+        `).get(tenantContext.id, tenantContext.id) as any)?.count || 0,
 
-        closedTickets: db.prepare(`
+        closedTickets: (db.prepare(`
           SELECT COUNT(*) as count FROM tickets t
           LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
           WHERE t.tenant_id = ? AND s.is_final = 1 ${getDateFilter('t')}
-        `).get(tenantContext.id, tenantContext.id)?.count || 0,
+        `).get(tenantContext.id, tenantContext.id) as any)?.count || 0,
 
-        avgResolutionTime: db.prepare(`
+        avgResolutionTime: (db.prepare(`
           SELECT
             AVG(
               CASE
@@ -214,7 +227,7 @@ export async function GET(request: NextRequest) {
           FROM tickets t
           LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
           WHERE t.tenant_id = ? ${getDateFilter('t')}
-        `).get(tenantContext.id, tenantContext.id)?.avg_hours || 0
+        `).get(tenantContext.id, tenantContext.id) as any)?.avg_hours || 0
       }
     }
 
@@ -322,22 +335,22 @@ export async function GET(request: NextRequest) {
       // SLA performance (if columns exist)
       try {
         analytics.slaPerformance = {
-          responseTimeBreaches: db.prepare(`
+          responseTimeBreaches: (db.prepare(`
             SELECT COUNT(*) as count FROM tickets
             WHERE tenant_id = ? AND response_breached = 1 ${getDateFilter()}
-          `).get(tenantContext.id).count,
+          `).get(tenantContext.id) as any)?.count || 0,
 
-          resolutionTimeBreaches: db.prepare(`
+          resolutionTimeBreaches: (db.prepare(`
             SELECT COUNT(*) as count FROM tickets
             WHERE tenant_id = ? AND resolution_breached = 1 ${getDateFilter()}
-          `).get(tenantContext.id).count,
+          `).get(tenantContext.id) as any)?.count || 0,
 
-          onTimeResolutions: db.prepare(`
+          onTimeResolutions: (db.prepare(`
             SELECT COUNT(*) as count FROM tickets t
             LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
             WHERE t.tenant_id = ? AND s.is_final = 1
             AND (t.resolution_breached = 0 OR t.resolution_breached IS NULL) ${getDateFilter('t')}
-          `).get(tenantContext.id, tenantContext.id).count
+          `).get(tenantContext.id, tenantContext.id) as any)?.count || 0
         }
       } catch (error) {
         // SLA columns don't exist yet
@@ -351,13 +364,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      period,
-      analytics
+      data: {
+        period,
+        analytics
+      }
     })
   } catch (error) {
     logger.error('Error fetching analytics', error)
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
       { status: 500 }
     )
   }

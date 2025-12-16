@@ -63,15 +63,18 @@ describe('Common Schemas', () => {
 
   describe('password', () => {
     it('should accept strong passwords', () => {
-      expect(commonSchemas.password.parse('Password123')).toBe('Password123')
-      expect(commonSchemas.password.parse('SecurePass1')).toBe('SecurePass1')
+      // Password requirements: 12+ chars, uppercase, lowercase, number, special char
+      expect(commonSchemas.password.parse('SecurePass1!')).toBe('SecurePass1!')
+      expect(commonSchemas.password.parse('MyPassword@123')).toBe('MyPassword@123')
+      expect(commonSchemas.password.parse('Str0ng!Pass#2024')).toBe('Str0ng!Pass#2024')
     })
 
     it('should reject weak passwords', () => {
       expect(() => commonSchemas.password.parse('short')).toThrow() // too short
       expect(() => commonSchemas.password.parse('password')).toThrow() // no uppercase or number
-      expect(() => commonSchemas.password.parse('PASSWORD123')).toThrow() // no lowercase
-      expect(() => commonSchemas.password.parse('Password')).toThrow() // no number
+      expect(() => commonSchemas.password.parse('PASSWORD123!')).toThrow() // no lowercase
+      expect(() => commonSchemas.password.parse('Password123')).toThrow() // no special char
+      expect(() => commonSchemas.password.parse('Pass!word')).toThrow() // no number + too short
     })
   })
 })
@@ -82,7 +85,7 @@ describe('User Schemas', () => {
       const validUser = {
         name: 'John Doe',
         email: 'john@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass@123',
         role: 'user',
         organization_id: 1,
       }
@@ -95,7 +98,7 @@ describe('User Schemas', () => {
       const invalidUser = {
         name: 'John Doe',
         email: 'john@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass@123',
         role: 'invalid_role',
         organization_id: 1,
       }
@@ -118,7 +121,7 @@ describe('User Schemas', () => {
     it('should validate login credentials', () => {
       const validLogin = {
         email: 'test@example.com',
-        password: 'SecurePass123',
+        password: 'SecurePass@123',
       }
 
       const result = userSchemas.login.parse(validLogin)
@@ -128,7 +131,7 @@ describe('User Schemas', () => {
     it('should reject invalid email', () => {
       expect(() => userSchemas.login.parse({
         email: 'invalid-email',
-        password: 'SecurePass123',
+        password: 'SecurePass@123',
       })).toThrow()
     })
   })

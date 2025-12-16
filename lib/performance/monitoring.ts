@@ -298,7 +298,7 @@ class PerformanceMonitor {
     if (values.length === 0) return 0
 
     const index = Math.ceil((percentile / 100) * values.length) - 1
-    return values[index]
+    return values[index] || 0
   }
 
   /**
@@ -512,8 +512,10 @@ export function measure(name: string, startMark: string, endMark: string) {
     try {
       performance.measure(name, startMark, endMark)
       const measure = performance.getEntriesByName(name)[0]
-      logger.info(`${name}: ${measure.duration.toFixed(2)}ms`)
-      return measure.duration
+      if (measure) {
+        logger.info(`${name}: ${measure.duration.toFixed(2)}ms`)
+        return measure.duration
+      }
     } catch (error) {
       logger.error('Failed to measure performance', error)
     }

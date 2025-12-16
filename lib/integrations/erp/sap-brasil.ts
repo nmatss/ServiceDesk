@@ -5,7 +5,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 import { getSystemSetting } from '@/lib/db/queries';
-import { logger } from '@/lib/monitoring/logger';
+import logger from '@/lib/monitoring/structured-logger';
 
 interface SapConfig {
   baseUrl: string;
@@ -16,6 +16,7 @@ interface SapConfig {
   environment: 'development' | 'production';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface SapAuthResponse {
   SessionId: string;
   Version: string;
@@ -390,7 +391,7 @@ export class SapBrasilClient {
 
       const response = await this.getBusinessPartners({ filter, top: 1 });
 
-      return response.value.length > 0 ? response.value[0] : null;
+      return response.value.length > 0 ? response.value[0] || null : null;
     } catch (error) {
       logger.error('Error fetching business partner by document', error);
       return null;

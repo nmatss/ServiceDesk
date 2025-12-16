@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import db from '@/lib/db/connection';
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,9 +51,6 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json()
-    const { getDb } = await import('@/lib/db')
-    const db = getDb()
-
     // Validate required fields
     if (!data.name || !data.slug || !data.workflow_type) {
       return NextResponse.json(

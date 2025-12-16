@@ -52,7 +52,7 @@ export default function SwipeActions({
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [startX, setStartX] = useState(0);
-  const [currentX, setCurrentX] = useState(0);
+  const [_currentX, setCurrentX] = useState(0);
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
 
@@ -64,6 +64,7 @@ export default function SwipeActions({
       if (disabled || isExecuting) return;
 
       const touch = e.touches[0];
+      if (!touch) return;
       setStartX(touch.clientX);
       setCurrentX(touch.clientX);
       setIsSwiping(true);
@@ -82,6 +83,7 @@ export default function SwipeActions({
       if (!isSwiping || disabled || isExecuting) return;
 
       const touch = e.touches[0];
+      if (!touch) return;
       setCurrentX(touch.clientX);
 
       const deltaX = touch.clientX - startX;
