@@ -26,6 +26,7 @@ import {
   EyeIcon,
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
+import { IconButtonWithTooltip } from '@/components/ui/Tooltip'
 
 interface Ticket {
   id: number
@@ -214,19 +215,27 @@ export default function AgentWorkspacePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button
+              <IconButtonWithTooltip
+                icon={ArrowPathIcon}
+                tooltip="Atualizar chamados"
+                label="Atualizar chamados"
                 onClick={fetchData}
-                className="p-2 rounded-lg hover:bg-gray-100"
-              >
-                <ArrowPathIcon className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-              <button className="p-2 rounded-lg hover:bg-gray-100 relative">
-                <BellAlertIcon className="w-5 h-5 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              <button className="p-2 rounded-lg hover:bg-gray-100">
-                <Cog6ToothIcon className="w-5 h-5 text-gray-600" />
-              </button>
+                className={loading ? 'animate-spin' : ''}
+                disabled={loading}
+              />
+              <IconButtonWithTooltip
+                icon={BellAlertIcon}
+                tooltip="Notificações"
+                label="Ver notificações"
+                onClick={() => {/* TODO: Implement notifications */}}
+                badge={3}
+              />
+              <IconButtonWithTooltip
+                icon={Cog6ToothIcon}
+                tooltip="Configurações do workspace"
+                label="Abrir configurações do workspace"
+                onClick={() => router.push('/agent/settings')}
+              />
             </div>
           </div>
         </div>
@@ -369,24 +378,30 @@ export default function AgentWorkspacePage() {
                 <div className="space-y-2">
                   <button
                     onClick={() => router.push('/tickets/new')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group"
+                    aria-label="Criar novo ticket"
                   >
-                    <BoltIcon className="w-4 h-4 text-blue-500" />
-                    <span>Novo Ticket</span>
+                    <BoltIcon className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
+                    <span className="flex-1">Novo Ticket</span>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                   <button
                     onClick={() => router.push('/knowledge')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group"
+                    aria-label="Acessar base de conhecimento"
                   >
-                    <DocumentTextIcon className="w-4 h-4 text-green-500" />
-                    <span>Base de Conhecimento</span>
+                    <DocumentTextIcon className="w-4 h-4 text-green-500 group-hover:scale-110 transition-transform" />
+                    <span className="flex-1">Base de Conhecimento</span>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                   <button
                     onClick={() => router.push('/admin/problems')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group"
+                    aria-label="Ver problemas conhecidos"
                   >
-                    <BugAntIcon className="w-4 h-4 text-purple-500" />
-                    <span>Problemas</span>
+                    <BugAntIcon className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform" />
+                    <span className="flex-1">Problemas</span>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 </div>
               </div>

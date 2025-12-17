@@ -166,8 +166,8 @@ function NavBar({ items, className }: NavBarProps) {
 function HeroSection() {
   return (
     <section id="inicio" className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-b from-blue-50 via-background to-background dark:from-blue-950/30 pt-20">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Background decorations - pushed to back with z-0 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
         <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-blue-500/5 to-transparent rounded-full" />

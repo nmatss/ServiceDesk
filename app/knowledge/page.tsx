@@ -168,17 +168,17 @@ export default function KnowledgePage() {
       <div className="container-responsive py-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 sm:mb-8 gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">
                 Base de Conhecimento
               </h1>
-              <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
                 Encontre soluções e documentação para problemas comuns
               </p>
             </div>
             {(userRole === 'admin' || userRole === 'agent') && (
-              <div className="mt-4 lg:mt-0">
+              <div className="flex-shrink-0">
                 <button
                   onClick={() => router.push('/knowledge/new')}
                   className="btn btn-primary"
@@ -191,40 +191,40 @@ export default function KnowledgePage() {
           </div>
 
           {/* Search Bar */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <div className="relative">
               <input
                 type="text"
                 placeholder="Buscar artigos, soluções ou documentação..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-primary pl-10 text-lg py-4"
+                className="input-primary pl-10 text-sm sm:text-base lg:text-lg py-3 sm:py-4"
               />
               <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             </div>
           </div>
 
           {/* Categories */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">
               Categorias
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`p-4 rounded-lg border text-left transition-colors ${
+                className={`p-3 sm:p-4 rounded-lg border text-left transition-colors min-h-touch ${
                   selectedCategory === 'all'
                     ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
                     : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600'
                 }`}
               >
-                <div className="flex items-center mb-2">
-                  <BookOpenIcon className="h-5 w-5 text-brand-600 dark:text-brand-400 mr-2" />
-                  <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                <div className="flex items-center mb-1 sm:mb-2">
+                  <BookOpenIcon className="h-4 w-4 sm:h-5 sm:w-5 text-brand-600 dark:text-brand-400 mr-2" />
+                  <span className="font-medium text-sm sm:text-base text-neutral-900 dark:text-neutral-100">
                     Todos os Artigos
                   </span>
                 </div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
                   {articles.length} artigos
                 </p>
               </button>
@@ -233,19 +233,19 @@ export default function KnowledgePage() {
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(category.name)}
-                  className={`p-4 rounded-lg border text-left transition-colors ${
+                  className={`p-3 sm:p-4 rounded-lg border text-left transition-colors min-h-touch ${
                     selectedCategory === category.name
                       ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
                       : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600'
                   }`}
                 >
-                  <div className="flex items-center mb-2">
-                    <span className="text-lg mr-2">{category.icon}</span>
-                    <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                  <div className="flex items-center mb-1 sm:mb-2">
+                    <span className="text-base sm:text-lg mr-2">{category.icon}</span>
+                    <span className="font-medium text-sm sm:text-base text-neutral-900 dark:text-neutral-100 line-clamp-1">
                       {category.name}
                     </span>
                   </div>
-                  <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
+                  <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mb-1 line-clamp-2">
                     {category.description}
                   </p>
                   <p className="text-xs text-neutral-500 dark:text-neutral-500">
@@ -257,18 +257,18 @@ export default function KnowledgePage() {
           </div>
 
           {/* Articles */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2">
+              <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                 {selectedCategory === 'all' ? 'Todos os Artigos' : selectedCategory}
               </h2>
-              <span className="text-sm text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
                 {filteredArticles.length} artigo(s) encontrado(s)
               </span>
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 animate-pulse">
                     <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-3/4 mb-3"></div>
@@ -305,17 +305,17 @@ export default function KnowledgePage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredArticles.map((article) => (
                   <div
                     key={article.id}
-                    className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                    className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer active:scale-98"
                     onClick={() => router.push(`/knowledge/${article.slug}`)}
                   >
-                    <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-2">
+                    <h3 className="text-base sm:text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-2">
                       {article.title}
                     </h3>
-                    <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-4 line-clamp-3">
+                    <p className="text-neutral-600 dark:text-neutral-400 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-3">
                       {truncateContent(article.content)}
                     </p>
 

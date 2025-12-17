@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import AdvancedThemeToggle from '@/src/components/theme/AdvancedThemeToggle'
 import NotificationBell from '@/src/components/notifications/NotificationBell'
+import Tooltip from '@/components/ui/Tooltip'
 
 interface HeaderProps {
   sidebarOpen: boolean
@@ -81,46 +82,55 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
   return (
     <>
       <header
-        className="sticky top-0 z-40 glass border-b border-white/10"
+        className="sticky top-0 z-40 glass border-b border-white/10 safe-top"
         role="banner"
       >
-        <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 px-3 sm:px-6 lg:px-8">
           {/* Left section */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Mobile sidebar toggle */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="btn btn-ghost p-2 lg:hidden"
-              aria-label={sidebarOpen ? "Fechar menu lateral" : "Abrir menu lateral"}
-              aria-expanded={sidebarOpen}
-              aria-controls="main-sidebar"
-            >
-              {sidebarOpen ? (
-                <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-              ) : (
-                <Bars3Icon className="h-6 w-6" aria-hidden="true" />
-              )}
-            </button>
+            <Tooltip content={sidebarOpen ? "Fechar menu" : "Abrir menu"} placement="bottom">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="btn btn-ghost p-2 min-h-touch min-w-touch lg:hidden transition-all duration-200 active:scale-95"
+                aria-label={sidebarOpen ? "Fechar menu lateral" : "Abrir menu lateral"}
+                aria-expanded={sidebarOpen}
+                aria-controls="main-sidebar"
+              >
+                {sidebarOpen ? (
+                  <XMarkIcon className="h-5 w-5 sm:h-6 sm:w-6 transition-transform duration-200" aria-hidden="true" />
+                ) : (
+                  <Bars3Icon className="h-5 w-5 sm:h-6 sm:w-6 transition-transform duration-200" aria-hidden="true" />
+                )}
+              </button>
+            </Tooltip>
 
             {/* Desktop sidebar toggle */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="btn btn-ghost p-2 hidden lg:block"
-              aria-label={sidebarOpen ? "Fechar menu lateral" : "Abrir menu lateral"}
-              aria-expanded={sidebarOpen}
-              aria-controls="main-sidebar"
-            >
-              <Bars3Icon className="h-5 w-5" aria-hidden="true" />
-            </button>
+            <Tooltip content={sidebarOpen ? "Recolher menu" : "Expandir menu"} placement="bottom">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`
+                  btn btn-ghost p-2 min-h-touch min-w-touch hidden lg:block transition-all duration-200 active:scale-95
+                  ${sidebarOpen ? 'rotate-0' : 'rotate-180'}
+                `}
+                aria-label={sidebarOpen ? "Fechar menu lateral" : "Abrir menu lateral"}
+                aria-expanded={sidebarOpen}
+                aria-controls="main-sidebar"
+              >
+                <Bars3Icon className="h-5 w-5 transition-transform duration-300" aria-hidden="true" />
+              </button>
+            </Tooltip>
 
             {/* Search toggle for mobile */}
-            <button
-              onClick={() => setShowSearch(true)}
-              className="btn btn-ghost p-2 sm:hidden"
-              aria-label="Abrir busca"
-            >
-              <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
-            </button>
+            <Tooltip content="Buscar" placement="bottom">
+              <button
+                onClick={() => setShowSearch(true)}
+                className="btn btn-ghost p-2 min-h-touch min-w-touch sm:hidden transition-all duration-200 active:scale-95"
+                aria-label="Abrir busca"
+              >
+                <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </Tooltip>
 
             {/* Search bar for desktop */}
             <form onSubmit={handleSearch} className="hidden sm:block" role="search">
@@ -129,7 +139,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
                 <input
                   type="search"
                   placeholder="Buscar tickets, usuários..."
-                  className="input pl-10 pr-4 w-64 lg:w-80"
+                  className="input pl-10 pr-4 w-48 md:w-64 lg:w-80 text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="Campo de busca"
@@ -150,18 +160,18 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 btn btn-ghost p-2"
+                className="flex items-center space-x-2 btn btn-ghost p-2 min-h-touch"
                 aria-label={`Menu do usuário ${user?.name || 'Usuário'}`}
                 aria-expanded={showUserMenu}
                 aria-controls="user-menu-dropdown"
                 aria-haspopup="true"
               >
-                <div className="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center" aria-hidden="true">
-                  <span className="text-white text-sm font-medium">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 bg-brand-500 rounded-full flex items-center justify-center" aria-hidden="true">
+                  <span className="text-white text-sm sm:text-base font-medium">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </span>
                 </div>
-                <span className="hidden md:block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                <span className="hidden md:block text-sm font-medium text-neutral-700 dark:text-neutral-300 max-w-[120px] truncate">
                   {user?.name || 'Usuário'}
                 </span>
               </button>
@@ -170,7 +180,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
               {showUserMenu && (
                 <div
                   id="user-menu-dropdown"
-                  className="absolute right-0 mt-2 w-56 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-large z-50"
+                  className="absolute right-0 mt-2 w-64 sm:w-72 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-large z-50"
                   role="menu"
                   aria-label="Menu do usuário"
                   onKeyDown={handleUserMenuKeyDown}
@@ -198,11 +208,11 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
                         router.push('/profile')
                         setShowUserMenu(false)
                       }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                      className="flex items-center w-full px-4 py-3 text-sm min-h-touch text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       role="menuitem"
                       aria-label="Ir para meu perfil"
                     >
-                      <UserIcon className="h-4 w-4 mr-3" aria-hidden="true" />
+                      <UserIcon className="h-5 w-5 mr-3" aria-hidden="true" />
                       Meu Perfil
                     </button>
 
@@ -211,11 +221,11 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
                         router.push('/settings')
                         setShowUserMenu(false)
                       }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                      className="flex items-center w-full px-4 py-3 text-sm min-h-touch text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
                       role="menuitem"
                       aria-label="Ir para configurações"
                     >
-                      <Cog6ToothIcon className="h-4 w-4 mr-3" aria-hidden="true" />
+                      <Cog6ToothIcon className="h-5 w-5 mr-3" aria-hidden="true" />
                       Configurações
                     </button>
 
@@ -223,11 +233,11 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
 
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20"
+                      className="flex items-center w-full px-4 py-3 text-sm min-h-touch text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors"
                       role="menuitem"
                       aria-label="Sair da conta"
                     >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" aria-hidden="true" />
+                      <ArrowRightOnRectangleIcon className="h-5 w-5 mr-3" aria-hidden="true" />
                       Sair
                     </button>
                   </div>

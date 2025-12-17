@@ -320,13 +320,13 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 px-6 border-b border-white/10">
+      <div className="flex items-center justify-center h-16 px-4 sm:px-6 border-b border-white/10">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-brand rounded-lg flex items-center justify-center">
-            <TicketIcon className="h-5 w-5 text-white" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-brand rounded-lg flex items-center justify-center">
+            <TicketIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           </div>
           {open && (
-            <span className="text-xl font-bold text-gradient">
+            <span className="text-lg sm:text-xl font-bold text-gradient">
               ServiceDesk Pro
             </span>
           )}
@@ -335,7 +335,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
       {/* Navigation */}
       <nav
-        className="flex-1 px-4 py-6 space-y-2 overflow-y-auto hide-scrollbar"
+        className="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto hide-scrollbar"
         role="navigation"
         aria-label="Menu principal"
       >
@@ -358,24 +358,27 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                   <button
                     onClick={() => toggleSubmenu(item.name)}
                     onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
-                    className={`sidebar-item w-full ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''
-                      }`}
+                    className={`
+                      sidebar-item w-full min-h-touch transition-all duration-200
+                      hover:scale-[1.02] active:scale-[0.98]
+                      ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''}
+                    `}
                     aria-expanded={shouldExpand}
                     aria-controls={`submenu-${item.name}`}
                     aria-current={isItemActive ? 'page' : undefined}
-                    aria-label={`${item.name}${item.badge ? `, ${item.badge} itens` : ''}`}
+                    aria-label={`${item.name}${item.badge ? `, ${item.badge} itens` : ''}. ${shouldExpand ? 'Submenu aberto' : 'Submenu fechado'}. Pressione Enter para ${shouldExpand ? 'fechar' : 'abrir'}.`}
                   >
-                    <IconComponent className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                    <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
                     {open && (
                       <>
                         <span className="ml-3 flex-1 text-left">{item.name}</span>
                         {item.badge && (
-                          <span className="ml-2 badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
+                          <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${item.badge} itens`}>
                             {item.badge}
                           </span>
                         )}
                         <svg
-                          className={`ml-2 h-4 w-4 transition-transform duration-200 ${shouldExpand ? 'rotate-90' : ''
+                          className={`ml-2 h-4 w-4 transition-transform duration-300 ${shouldExpand ? 'rotate-90' : ''
                             }`}
                           fill="none"
                           stroke="currentColor"
@@ -390,16 +393,20 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                 ) : (
                   <Link
                     href={item.href}
-                    className={`sidebar-item ${isItemActive ? 'sidebar-item-active' : ''}`}
+                    className={`
+                      sidebar-item min-h-touch transition-all duration-200
+                      hover:scale-[1.02] active:scale-[0.98]
+                      ${isItemActive ? 'sidebar-item-active' : ''}
+                    `}
                     aria-current={isItemActive ? 'page' : undefined}
-                    aria-label={`${item.name}${item.badge ? `, ${item.badge} itens` : ''}`}
+                    aria-label={`Navegar para ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
                   >
-                    <IconComponent className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                    <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
                     {open && (
                       <>
                         <span className="ml-3">{item.name}</span>
                         {item.badge && (
-                          <span className="ml-auto badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
+                          <span className="ml-auto badge badge-primary text-xs animate-fade-in" aria-label={`${item.badge} itens`}>
                             {item.badge}
                           </span>
                         )}
@@ -438,17 +445,21 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                       <Link
                         key={subItem.href}
                         href={subItem.href}
-                        className={`flex items-center px-4 py-2 text-sm rounded-lg transition-colors duration-150 ${isSubItemActive
-                          ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
-                          }`}
+                        className={`
+                          flex items-center px-4 py-2 min-h-touch text-sm rounded-lg
+                          transition-all duration-200 hover:translate-x-1 active:scale-[0.98]
+                          ${isSubItemActive
+                            ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                          }
+                        `}
                         aria-current={isSubItemActive ? 'page' : undefined}
-                        aria-label={`${subItem.name}${subItem.badge ? `, ${subItem.badge} itens` : ''}`}
+                        aria-label={`Navegar para ${subItem.name}${subItem.badge ? `. ${subItem.badge} itens` : ''}`}
                       >
-                        <subItem.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                        <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
                         <span className="ml-3 flex-1">{subItem.name}</span>
                         {subItem.badge && (
-                          <span className="ml-2 badge badge-primary text-xs" aria-label={`${subItem.badge} itens`}>
+                          <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${subItem.badge} itens`}>
                             {subItem.badge}
                           </span>
                         )}
@@ -488,20 +499,29 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
       {/* Sidebar */}
       <aside
         id="main-sidebar"
-        className={`fixed inset-y-0 left-0 z-50 glass-panel transform transition-all duration-300 ease-in-out ${open
-          ? 'w-64 translate-x-0'
-          : 'w-20 -translate-x-full lg:translate-x-0'
-          }`}
+        className={`
+          fixed inset-y-0 left-0 z-50 glass-panel
+          transform transition-all duration-300 ease-in-out
+          ${open ? 'w-64 sm:w-72 translate-x-0' : 'w-20 -translate-x-full lg:translate-x-0'}
+          ${open ? 'shadow-xl' : 'shadow-md'}
+        `}
         aria-label="Barra lateral de navegação"
         aria-hidden={!open}
       >
         <SidebarContent />
+
+        {/* Visual feedback indicator - only on desktop collapsed state */}
+        {!open && (
+          <div
+            className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-gradient-to-b from-transparent via-brand-500/50 to-transparent animate-pulse-soft"
+            aria-hidden="true"
+          />
+        )}
       </aside>
 
       {/* Spacer for desktop */}
       <div
-        className={`hidden lg:block transition-all duration-300 ease-in-out ${open ? 'w-64' : 'w-20'
-          }`}
+        className={`hidden lg:block transition-all duration-300 ease-in-out ${open ? 'w-64' : 'w-20'}`}
       />
     </>
   )

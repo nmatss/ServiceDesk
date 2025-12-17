@@ -132,14 +132,14 @@ export default function AdminPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
             Visão geral do sistema ServiceDesk Pro
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 flex space-x-3">
+        <div className="flex space-x-3">
           <Link
             href="/tickets/new"
             className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -151,47 +151,47 @@ export default function AdminPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {statsData.map((stat) => (
           <div
             key={stat.name}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                <p className="text-xs text-gray-500 mt-1">{stat.description}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">{stat.name}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stat.value}</p>
+                <p className="text-xs text-gray-500 mt-1 line-clamp-1">{stat.description}</p>
               </div>
-              <div className="h-12 w-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <stat.icon className="h-6 w-6 text-blue-600" />
+              <div className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 ml-3">
+                <stat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
               </div>
             </div>
             {stat.change && (
-              <div className="mt-4 flex items-center">
+              <div className="mt-3 sm:mt-4 flex items-center">
                 {stat.changeType === 'positive' ? (
-                  <ArrowTrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
+                  <ArrowTrendingUpIcon className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 mr-1" />
                 ) : (
-                  <ArrowTrendingDownIcon className="h-4 w-4 text-red-500 mr-1" />
+                  <ArrowTrendingDownIcon className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 mr-1" />
                 )}
-                <span className={`text-sm font-medium ${
+                <span className={`text-xs sm:text-sm font-medium ${
                   stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
                 }`}>
                   {stat.change}
                 </span>
-                <span className="text-sm text-gray-500 ml-1">vs mês anterior</span>
+                <span className="text-xs sm:text-sm text-gray-500 ml-1 hidden sm:inline">vs mês anterior</span>
               </div>
             )}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
         {/* Recent Tickets */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Tickets Recentes</h3>
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Tickets Recentes</h3>
               <Link
                 href="/admin/tickets"
                 className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
@@ -199,24 +199,24 @@ export default function AdminPage() {
                 Ver Todos
               </Link>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
+            <div className="p-4 sm:p-6">
+              <div className="space-y-3 sm:space-y-4">
                 {recentTickets.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-4">
-                      <div className={`h-3 w-3 rounded-full ${
+                  <div key={ticket.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-3">
+                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                      <div className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 sm:mt-0 ${
                         ticket.status === 'Aberto' ? 'bg-red-400' :
                         ticket.status === 'Em Progresso' ? 'bg-yellow-400' :
                         'bg-green-400'
                       }`} />
-                      <div>
-                        <p className="font-medium text-gray-900">{ticket.title}</p>
-                        <p className="text-sm text-gray-500">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm sm:text-base text-gray-900 line-clamp-1">{ticket.title}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">
                           {ticket.id} • {ticket.assignee} • {ticket.created}
                         </p>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                         ticket.priority === 'Alta' ? 'bg-red-100 text-red-800' :
                         ticket.priority === 'Média' ? 'bg-yellow-100 text-yellow-800' :

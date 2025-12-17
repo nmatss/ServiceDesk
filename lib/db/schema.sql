@@ -165,8 +165,10 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     two_factor_required BOOLEAN DEFAULT FALSE,
     two_factor_success BOOLEAN DEFAULT FALSE,
     session_id TEXT,
+    organization_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 -- Tabela de dispositivos WebAuthn/FIDO2
