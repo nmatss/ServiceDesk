@@ -242,11 +242,48 @@ export function deleteSSOProvider(id: number): boolean {
 // FUNÇÕES DE CRIPTOGRAFIA
 // ========================================
 
-const ENCRYPTION_KEY = process.env.SSO_ENCRYPTION_KEY || 'default-key-for-development-only-32-chars';
+function getSSO_ENCRYPTION_KEY(): string {
+  const key = process.env.SSO_ENCRYPTION_KEY;
+
+  if (!key) {
+    throw new Error(
+      '🔴 FATAL: SSO_ENCRYPTION_KEY environment variable is required when SSO is enabled!\n' +
+      'Generate a secure key with:\n' +
+      '  openssl rand -hex 32\n' +
+      'Then set it in your .env file:\n' +
+      '  SSO_ENCRYPTION_KEY=<generated-key>\n' +
+      'Or disable SSO if not needed: ENABLE_SSO=false'
+    );
+  }
+
+  if (key.length < 32) {
+    throw new Error(
+      `🔴 FATAL: SSO_ENCRYPTION_KEY must be at least 32 characters!\n` +
+      `Current length: ${key.length}\n` +
+      'Generate: openssl rand -hex 32'
+    );
+  }
+
+  // Check for weak patterns
+  const weakPatterns = ['default', 'dev', 'test', 'change-me', 'secret'];
+  const lowerKey = key.toLowerCase();
+  for (const pattern of weakPatterns) {
+    if (lowerKey.includes(pattern)) {
+      throw new Error(
+        `🔴 FATAL: SSO_ENCRYPTION_KEY contains weak pattern "${pattern}"!\n` +
+        'Generate a strong random key with: openssl rand -hex 32'
+      );
+    }
+  }
+
+  return key;
+}
+
 const ALGORITHM = 'aes-256-gcm';
 
 function encryptSSOConfiguration(config: string): string {
   try {
+    const ENCRYPTION_KEY = getSSO_ENCRYPTION_KEY();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
 
@@ -278,6 +315,7 @@ function decryptSSOConfiguration(encryptedConfig: string): string {
       return encryptedConfig; // Missing parts
     }
 
+    const ENCRYPTION_KEY = getSSO_ENCRYPTION_KEY();
     const tag = Buffer.from(tagHex, 'hex');
 
     const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);

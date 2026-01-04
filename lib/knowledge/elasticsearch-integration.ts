@@ -115,7 +115,10 @@ export class ElasticsearchIntegration {
 
     try {
       // Dynamic import to avoid build-time resolution issues
-      const esModule = await import('@elastic/elasticsearch').catch(() => null);
+      // Using eval to prevent webpack from trying to bundle at build time
+      const importElasticsearch = new Function('return import("@elastic/elasticsearch")');
+      const esModule = await importElasticsearch().catch(() => null);
+
       if (!esModule) {
         logger.warn('Elasticsearch module not available. Install @elastic/elasticsearch to use this feature.');
         return;
@@ -407,7 +410,7 @@ export class ElasticsearchIntegration {
       }
     };
 
-    const response = await this.client.search(searchParams);
+    const response = await this.client.search(searchParams) as any;
 
     const results: SearchResult[] = response.body.hits.hits.map((hit: any) => ({
       document: hit._source,
@@ -851,7 +854,7 @@ export class ElasticsearchIntegration {
             }
           }
         }
-      });
+      }) as any;
 
       return response.body.suggest.title_suggest[0].options.map(
         (option: any) => option.text
@@ -872,8 +875,8 @@ export class ElasticsearchIntegration {
     }
 
     try {
-      const stats = await this.client.indices.stats({ index: this.indexName });
-      const count = await this.client.count({ index: this.indexName });
+      const stats = await (this.client as any).indices.stats({ index: this.indexName });
+      const count = await (this.client as any).count({ index: this.indexName });
 
       return {
         document_count: count.body.count,

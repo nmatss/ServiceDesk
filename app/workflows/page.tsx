@@ -14,8 +14,10 @@ import {
   TrashIcon,
   DocumentDuplicateIcon,
   ChartBarIcon,
+  HomeIcon,
 } from '@heroicons/react/24/outline';
 import { WorkflowDefinition } from '@/lib/types/workflow';
+import PageHeader from '@/components/ui/PageHeader';
 
 export default function WorkflowsPage() {
   const router = useRouter();
@@ -122,92 +124,92 @@ export default function WorkflowsPage() {
 
   const getCategoryBadgeColor = (category: string) => {
     const colors: Record<string, string> = {
-      ticket_automation: 'bg-blue-100 text-blue-700',
-      notification: 'bg-orange-100 text-orange-700',
-      escalation: 'bg-red-100 text-red-700',
-      approval: 'bg-purple-100 text-purple-700',
-      integration: 'bg-green-100 text-green-700',
-      ml_optimization: 'bg-pink-100 text-pink-700',
+      ticket_automation: 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400',
+      notification: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+      escalation: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+      approval: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      integration: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      ml_optimization: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
     };
-    return colors[category] || 'bg-gray-100 text-gray-700';
+    return colors[category] || 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300';
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Workflows</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Automate your ticket management with visual workflows
-              </p>
-            </div>
-            <button
-              onClick={handleCreateWorkflow}
-              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              <PlusIcon className="w-5 h-5" />
-              <span>Create Workflow</span>
-            </button>
-          </div>
+      <PageHeader
+        title="Workflows"
+        description="Automate your ticket management with visual workflows"
+        breadcrumbs={[
+          { label: 'Início', href: '/', icon: HomeIcon },
+          { label: 'Workflows', href: '/workflows' },
+        ]}
+        actions={
+          <button
+            onClick={handleCreateWorkflow}
+            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <PlusIcon className="w-5 h-5" />
+            <span>Create Workflow</span>
+          </button>
+        }
+      />
 
-          {/* Filters */}
-          <div className="flex items-center space-x-2 mt-6">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                filter === 'all'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('ticket_automation')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                filter === 'ticket_automation'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Ticket Automation
-            </button>
-            <button
-              onClick={() => setFilter('notification')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                filter === 'notification'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Notifications
-            </button>
-            <button
-              onClick={() => setFilter('approval')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                filter === 'approval'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              Approvals
-            </button>
-          </div>
+      {/* Filters */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex items-center space-x-2 animate-fade-in">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+              filter === 'all'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
+                : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilter('ticket_automation')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+              filter === 'ticket_automation'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
+                : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            Ticket Automation
+          </button>
+          <button
+            onClick={() => setFilter('notification')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+              filter === 'notification'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
+                : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            Notifications
+          </button>
+          <button
+            onClick={() => setFilter('approval')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+              filter === 'approval'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
+                : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            Approvals
+          </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="flex items-center justify-center py-12 animate-fade-in">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
           </div>
         ) : workflows.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
+          <div className="text-center py-12 animate-slide-up">
+            <div className="text-neutral-400 mb-4">
               <svg
                 className="w-16 h-16 mx-auto"
                 fill="none"
@@ -222,15 +224,15 @@ export default function WorkflowsPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
               No workflows yet
             </h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-description mb-6">
               Get started by creating your first workflow
             </p>
             <button
               onClick={handleCreateWorkflow}
-              className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all duration-200"
             >
               <PlusIcon className="w-5 h-5" />
               <span>Create Workflow</span>
@@ -238,20 +240,21 @@ export default function WorkflowsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workflows.map((workflow) => (
+            {workflows.map((workflow, index) => (
               <div
                 key={workflow.id}
-                className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+                className="glass-panel border border-neutral-200 dark:border-neutral-700 hover:shadow-lg transition-all duration-200 hover:scale-[1.02] animate-slide-up"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Card Header */}
-                <div className="p-6 border-b border-gray-200">
+                <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-gray-900 truncate">
+                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white truncate">
                         {workflow.name}
                       </h3>
                       {workflow.description && (
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        <p className="text-sm text-description mt-1 line-clamp-2">
                           {workflow.description}
                         </p>
                       )}
@@ -271,7 +274,7 @@ export default function WorkflowsPage() {
                         Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                         Inactive
                       </span>
                     )}
@@ -279,18 +282,18 @@ export default function WorkflowsPage() {
                 </div>
 
                 {/* Card Stats */}
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-sm font-medium text-gray-500">
+                      <div className="text-sm font-medium text-neutral-500">
                         Executions
                       </div>
-                      <div className="text-lg font-semibold text-gray-900 mt-1">
+                      <div className="text-lg font-semibold text-neutral-900 dark:text-white mt-1">
                         {workflow.executionCount || 0}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-500">
+                      <div className="text-sm font-medium text-neutral-500">
                         Success
                       </div>
                       <div className="text-lg font-semibold text-green-600 mt-1">
@@ -298,7 +301,7 @@ export default function WorkflowsPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-500">
+                      <div className="text-sm font-medium text-neutral-500">
                         Failed
                       </div>
                       <div className="text-lg font-semibold text-red-600 mt-1">
@@ -313,28 +316,28 @@ export default function WorkflowsPage() {
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => handleEditWorkflow(workflow.id)}
-                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
                       title="Edit"
                     >
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDuplicateWorkflow(workflow)}
-                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
                       title="Duplicate"
                     >
                       <DocumentDuplicateIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleViewAnalytics(workflow.id)}
-                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
                       title="Analytics"
                     >
                       <ChartBarIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteWorkflow(workflow.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
                       title="Delete"
                     >
                       <TrashIcon className="w-4 h-4" />
@@ -343,9 +346,9 @@ export default function WorkflowsPage() {
 
                   <button
                     onClick={() => handleToggleActive(workflow)}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
                       workflow.isActive
-                        ? 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                        ? 'text-neutral-700 dark:text-neutral-300 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700'
                         : 'text-white bg-green-600 hover:bg-green-700'
                     }`}
                   >

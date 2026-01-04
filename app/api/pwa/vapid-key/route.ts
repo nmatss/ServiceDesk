@@ -7,9 +7,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPublicVapidKey } from '@/lib/pwa/vapid-manager';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const publicKey = getPublicVapidKey();
 

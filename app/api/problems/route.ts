@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
-import { resolveTenant } from '@/lib/tenant/resolver';
+import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type {
   ProblemStatus,
@@ -17,7 +17,10 @@ import type {
   ProblemFilters,
   ProblemSortOptions,
 } from '@/lib/types/problem';
+import { jsonWithCache } from '@/lib/api/cache-headers';
+import { cacheInvalidation } from '@/lib/api/cache';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -25,6 +28,10 @@ export const dynamic = 'force-dynamic';
  * List problems with filters and pagination
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Authenticate via httpOnly cookie
     const cookieStore = await cookies();
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Resolve tenant
-    const tenant = await resolveTenant(request);
+    const tenant = await resolveTenantFromRequest(request);
     if (!tenant?.organizationId) {
       return NextResponse.json(
         { success: false, error: 'Tenant not found' },
@@ -144,10 +151,10 @@ export async function GET(request: NextRequest) {
       { page, limit }
     );
 
-    return NextResponse.json({
+    return jsonWithCache({
       success: true,
       data: result,
-    });
+    }, 'DYNAMIC'); // Cache for 1 minute
   } catch (error) {
     console.error('Error fetching problems:', error);
     return NextResponse.json(
@@ -162,6 +169,10 @@ export async function GET(request: NextRequest) {
  * Create a new problem
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Authenticate via httpOnly cookie
     const cookieStore = await cookies();
@@ -191,7 +202,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve tenant
-    const tenant = await resolveTenant(request);
+    const tenant = await resolveTenantFromRequest(request);
     if (!tenant?.organizationId) {
       return NextResponse.json(
         { success: false, error: 'Tenant not found' },
@@ -231,7 +242,7 @@ export async function POST(request: NextRequest) {
     // Create problem
     const problem = await problemQueries.createProblem(
       tenant.organizationId,
-      payload.userId,
+      payload.userId ?? 0,
       input
     );
 
@@ -240,6 +251,9 @@ export async function POST(request: NextRequest) {
       tenant.organizationId,
       problem.id
     );
+
+    // Invalidate problems cache
+    await cacheInvalidation.problems();
 
     return NextResponse.json(
       {

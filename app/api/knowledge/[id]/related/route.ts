@@ -8,6 +8,7 @@ import db from '@/lib/db/connection';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const vectorDb = new VectorDatabase(db as any);
 
 interface RouteParams {
@@ -16,7 +17,11 @@ interface RouteParams {
   };
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const articleId = parseInt(params.id);
     const { searchParams } = new URL(request.url);

@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import AdvancedThemeToggle from '@/src/components/theme/AdvancedThemeToggle'
 import NotificationBell from '@/src/components/notifications/NotificationBell'
+import GlobalSearchWithAutocomplete from '@/src/components/search/GlobalSearchWithAutocomplete'
 import Tooltip from '@/components/ui/Tooltip'
 
 interface HeaderProps {
@@ -29,16 +30,6 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
   const router = useRouter()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`)
-      setShowSearch(false)
-      setSearchQuery('')
-    }
-  }
 
   const handleLogout = async () => {
     try {
@@ -132,20 +123,13 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
               </button>
             </Tooltip>
 
-            {/* Search bar for desktop */}
-            <form onSubmit={handleSearch} className="hidden sm:block" role="search">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" aria-hidden="true" />
-                <input
-                  type="search"
-                  placeholder="Buscar tickets, usuários..."
-                  className="input pl-10 pr-4 w-48 md:w-64 lg:w-80 text-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  aria-label="Campo de busca"
-                />
-              </div>
-            </form>
+            {/* Search bar for desktop with autocomplete */}
+            <div className="hidden sm:block">
+              <GlobalSearchWithAutocomplete
+                placeholder="Buscar tickets, artigos, usuários..."
+                className=""
+              />
+            </div>
           </div>
 
           {/* Right section */}
@@ -189,7 +173,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
                     <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       {user?.name}
                     </p>
-                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                    <p className="text-xs text-description">
                       {user?.email}
                     </p>
                     <span className={`inline-flex mt-2 badge ${user?.role === 'admin' ? 'badge-error' :
@@ -248,7 +232,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
         </div>
       </header>
 
-      {/* Mobile search overlay */}
+      {/* Mobile search overlay with autocomplete */}
       {showSearch && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm sm:hidden"
@@ -257,28 +241,12 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
           aria-label="Busca móvel"
         >
           <div className="bg-white dark:bg-neutral-900 p-4">
-            <form onSubmit={handleSearch} className="flex items-center space-x-3" role="search">
-              <div className="flex-1 relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" aria-hidden="true" />
-                <input
-                  type="search"
-                  placeholder="Buscar tickets, usuários..."
-                  className="input pl-10 pr-4 w-full"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus
-                  aria-label="Campo de busca móvel"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSearch(false)}
-                className="btn btn-ghost p-2"
-                aria-label="Fechar busca"
-              >
-                <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </form>
+            <GlobalSearchWithAutocomplete
+              placeholder="Buscar tickets, artigos, usuários..."
+              isMobile={true}
+              onClose={() => setShowSearch(false)}
+              autoFocus={true}
+            />
           </div>
         </div>
       )}

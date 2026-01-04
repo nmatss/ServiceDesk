@@ -90,12 +90,12 @@ export function SLAPerformanceWidget({
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               domain={[0, 100]}
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{
@@ -159,12 +159,12 @@ export function SLAPerformanceWidget({
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               domain={[0, 100]}
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{
@@ -187,12 +187,12 @@ export function SLAPerformanceWidget({
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               domain={[0, 100]}
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{
@@ -304,7 +304,7 @@ export function SLAPerformanceWidget({
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <CheckCircleIcon className="w-5 h-5 text-blue-500 mr-1" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Response SLA
               </span>
             </div>
@@ -322,7 +322,7 @@ export function SLAPerformanceWidget({
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-green-500 mr-1" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Resolution SLA
               </span>
             </div>
@@ -340,7 +340,7 @@ export function SLAPerformanceWidget({
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <ClockIcon className="w-5 h-5 text-purple-500 mr-1" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Avg Response
               </span>
             </div>
@@ -355,7 +355,7 @@ export function SLAPerformanceWidget({
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <ClockIcon className="w-5 h-5 text-orange-500 mr-1" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Avg Resolution
               </span>
             </div>

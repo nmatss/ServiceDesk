@@ -411,6 +411,7 @@ export function duplicateTemplate(templateId: number, newName: string, userId: n
       name: newName,
       description: `Cópia de: ${original.description || original.name}`,
       type: original.type,
+      organization_id: original.organization_id,
       category_id: original.category_id,
       title_template: original.title_template,
       content_template: original.content_template,

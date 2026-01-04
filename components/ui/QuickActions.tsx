@@ -353,7 +353,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                     Confirm Action
                   </h3>
                 </div>
-                <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+                <p className="text-description mb-6">
                   {confirmAction.confirmMessage}
                 </p>
                 <div className="flex gap-3 justify-end">
@@ -560,7 +560,7 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
               </h2>
             )}
             {description && (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              <p className="text-sm text-description">
                 {description}
               </p>
             )}

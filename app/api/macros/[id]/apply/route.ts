@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: { id: string };
 }
@@ -17,7 +18,11 @@ interface RouteParams {
 // POST - Apply macro to ticket
 // ========================================
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const macroId = parseInt(params.id);
     const body = await request.json();

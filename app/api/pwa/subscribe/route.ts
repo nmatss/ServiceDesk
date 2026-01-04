@@ -8,6 +8,7 @@ import db from '@/lib/db/connection';
 import { verifyAuthToken } from '@/lib/auth/sqlite-auth';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 interface SubscriptionRequest {
@@ -23,6 +24,10 @@ interface SubscriptionRequest {
  * Subscribe to push notifications
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authHeader = request.headers.get('authorization');
@@ -114,6 +119,10 @@ export async function POST(request: NextRequest) {
  * Get user's push subscriptions
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authHeader = request.headers.get('authorization');
@@ -155,6 +164,10 @@ export async function GET(request: NextRequest) {
  * Unsubscribe from push notifications
  */
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authHeader = request.headers.get('authorization');

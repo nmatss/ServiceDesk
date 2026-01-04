@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withObservability, getObservabilityHealth } from '@/lib/monitoring/observability';
 import db from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/health
  *

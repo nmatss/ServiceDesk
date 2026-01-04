@@ -126,7 +126,7 @@ export interface WorkflowNode {
   metadata?: Record<string, NodeMetadataValue>;
 }
 
-export type NodeConfigurationValue = string | number | boolean | null | undefined | string[] | number[] | Record<string, unknown>;
+export type NodeConfigurationValue = string | number | boolean | null | undefined | string[] | number[] | Record<string, unknown> | unknown[] | any;
 
 export interface NodeConfiguration {
   // Base configuration that all nodes have

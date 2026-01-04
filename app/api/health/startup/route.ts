@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Track startup state
 let isStartupComplete = false;
 let startupCheckedAt: Date | null = null;

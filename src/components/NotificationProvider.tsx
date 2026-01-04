@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react'
 import { logger } from '@/lib/monitoring/logger';
 
 interface Notification {
@@ -12,6 +12,8 @@ interface Notification {
   user_id: number
   tenant_id: number
   is_read: boolean
+  ticket_id?: number
+  data?: any
 }
 
 interface NotificationContextType {
@@ -20,6 +22,7 @@ interface NotificationContextType {
   markAsRead: (id: number) => void
   markAllAsRead: () => void
   isConnected: boolean
+  refresh: () => Promise<void>
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
@@ -39,10 +42,50 @@ interface NotificationProviderProps {
 export function NotificationProvider({ children }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isConnected, setIsConnected] = useState(false)
+  const [usePolling, setUsePolling] = useState(false)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 
-  const markAsRead = (id: number) => {
+  // Fetch notifications from API
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const response = await fetch('/api/notifications/unread', {
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications')
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.notifications) {
+        // Transform API response to match our notification interface
+        const formattedNotifications = data.notifications.map((notif: any) => ({
+          id: notif.id,
+          type: notif.type,
+          title: notif.title,
+          message: notif.message,
+          timestamp: notif.createdAt,
+          is_read: notif.isRead,
+          user_id: 0, // Will be set server-side
+          tenant_id: 0, // Will be set server-side
+          ticket_id: notif.data?.ticketId,
+          data: notif.data,
+        }))
+
+        setNotifications(formattedNotifications)
+        setIsConnected(true)
+      }
+    } catch (error) {
+      logger.error('Error fetching notifications', error)
+      setIsConnected(false)
+    }
+  }, [])
+
+  const markAsRead = useCallback((id: number) => {
     setNotifications(prev =>
       prev.map(notification =>
         notification.id === id
@@ -60,9 +103,9 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       credentials: 'include', // Use httpOnly cookies
       body: JSON.stringify({ notification_id: id })
     }).catch(err => logger.error('Error marking notification as read', err))
-  }
+  }, [])
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setNotifications(prev =>
       prev.map(notification => ({ ...notification, is_read: true }))
     )
@@ -76,48 +119,105 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       credentials: 'include', // Use httpOnly cookies
       body: JSON.stringify({ mark_all_read: true })
     }).catch(err => logger.error('Error marking all notifications as read', err))
-  }
+  }, [])
 
+  // Setup SSE connection
   useEffect(() => {
-    const eventSource = new EventSource('/api/notifications/sse', {
-      withCredentials: true
-    })
+    if (usePolling) return
 
-    eventSource.onopen = () => {
-      setIsConnected(true)
-      logger.info('Connected to notification stream')
-    }
+    let retryCount = 0
+    const maxRetries = 3
 
-    eventSource.onmessage = (event) => {
+    const setupSSE = () => {
       try {
-        const notification = JSON.parse(event.data)
-        logger.info('Received notification', notification)
+        const eventSource = new EventSource('/api/notifications/sse', {
+          withCredentials: true
+        })
 
-        if (notification.type !== 'connection') {
-          setNotifications(prev => [notification, ...prev.slice(0, 99)]) // Manter apenas 100 notificações
+        eventSourceRef.current = eventSource
+
+        eventSource.onopen = () => {
+          setIsConnected(true)
+          retryCount = 0
+          logger.info('Connected to notification stream')
+        }
+
+        eventSource.onmessage = (event) => {
+          try {
+            const notification = JSON.parse(event.data)
+            logger.info('Received notification', notification)
+
+            if (notification.type !== 'connection') {
+              setNotifications(prev => [notification, ...prev.slice(0, 99)])
+            }
+          } catch (error) {
+            logger.error('Error parsing notification', error)
+          }
+        }
+
+        eventSource.onerror = (error) => {
+          logger.error('SSE error', error)
+          setIsConnected(false)
+          eventSource.close()
+          eventSourceRef.current = null
+
+          // Switch to polling after max retries
+          retryCount++
+          if (retryCount >= maxRetries) {
+            logger.warn('SSE max retries reached, switching to polling')
+            setUsePolling(true)
+          } else {
+            // Retry SSE connection after delay
+            setTimeout(setupSSE, 5000 * retryCount)
+          }
         }
       } catch (error) {
-        logger.error('Error parsing notification', error)
+        logger.error('Error setting up SSE', error)
+        setUsePolling(true)
       }
     }
 
-    eventSource.onerror = (error) => {
-      logger.error('SSE error', error)
-      setIsConnected(false)
-    }
+    // Initial fetch
+    fetchNotifications()
+
+    // Setup SSE
+    setupSSE()
 
     return () => {
-      eventSource.close()
-      setIsConnected(false)
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        eventSourceRef.current = null
+      }
     }
-  }, [])
+  }, [usePolling, fetchNotifications])
+
+  // Setup polling fallback
+  useEffect(() => {
+    if (!usePolling) return
+
+    logger.info('Using polling for notifications')
+
+    // Initial fetch
+    fetchNotifications()
+
+    // Poll every 30 seconds
+    pollingIntervalRef.current = setInterval(fetchNotifications, 30000)
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
+  }, [usePolling, fetchNotifications])
 
   const value = {
     notifications,
     unreadCount,
     markAsRead,
     markAllAsRead,
-    isConnected
+    isConnected,
+    refresh: fetchNotifications,
   }
 
   return (

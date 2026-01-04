@@ -7,6 +7,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting for embedding generation (more restrictive)
 const embeddingRateLimit = createRateLimitMiddleware('embedding-generation');
 
@@ -29,6 +30,10 @@ async function getVectorDb(): Promise<VectorDatabase> {
  * Generate embeddings for entities
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Apply rate limiting
   const rateLimitResult = await embeddingRateLimit(request, '/api/embeddings/generate');
   if (rateLimitResult instanceof Response) {
@@ -157,6 +162,10 @@ export async function POST(request: NextRequest) {
  * Get embedding generation status
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -196,6 +205,10 @@ export async function GET(request: NextRequest) {
  * Clear embedding caches
  */
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

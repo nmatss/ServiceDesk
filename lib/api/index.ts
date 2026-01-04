@@ -3,9 +3,48 @@
  * Centralized API utilities and configurations for ServiceDesk
  */
 
+// Export types first (base types)
 export * from './types'
-export * from './errors'
-export * from './validation'
+
+// Export errors (except duplicates already in types)
+export type { ErrorDetailValue, ErrorDetails } from './errors'
+export {
+  ApiErrorBase,
+  NotFoundError,
+  AuthenticationError,
+  AuthorizationError,
+  RateLimitError,
+  BusinessRuleError,
+  ExternalServiceError,
+  DatabaseError,
+  ConflictError,
+  ValidationError,
+  ErrorHandler,
+  createErrorResponse,
+  createValidationErrorResponse,
+  withErrorBoundary,
+  isClientError,
+  isServerError,
+  getErrorCategory
+} from './errors'
+
+// Export validation (except duplicates)
+export {
+  BaseSchemas,
+  UserSchemas,
+  TicketSchemas,
+  CommentSchemas,
+  FileSchemas,
+  KnowledgeSchemas,
+  AdminSchemas,
+  WebhookSchemas,
+  IntegrationSchemas,
+  validateRequest,
+  withValidation,
+  SchemaRegistry
+} from './validation'
+export type { SchemaType } from './validation'
+
 export * from './versioning'
 export * from './cache'
 export * from './rate-limit'

@@ -127,7 +127,7 @@ export const Modal: React.FC<ModalProps> = ({
                         </Dialog.Title>
                       )}
                       {description && (
-                        <Dialog.Description className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                        <Dialog.Description className="mt-2 text-sm text-description">
                           {description}
                         </Dialog.Description>
                       )}
@@ -435,7 +435,7 @@ export const Drawer: React.FC<DrawerProps> = ({
                           </Dialog.Title>
                         )}
                         {description && (
-                          <Dialog.Description className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                          <Dialog.Description className="mt-2 text-sm text-description">
                             {description}
                           </Dialog.Description>
                         )}

@@ -100,7 +100,7 @@ export default function RegisterPage() {
   }, [password])
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-neutral-100 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950 flex animate-fade-in">
       {/* Screen reader announcements */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {statusMessage}
@@ -109,45 +109,45 @@ export default function RegisterPage() {
         {passwordStrengthMessage}
       </div>
 
-      {/* Left Side - Blue Background */}
-      <div className="hidden lg:flex lg:flex-1 bg-blue-600 items-center justify-center" role="complementary" aria-label="Informações sobre o ServiceDesk">
+      {/* Left Side - Brand Background */}
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 dark:from-brand-700 dark:via-brand-800 dark:to-brand-900 items-center justify-center animate-fade-in" role="complementary" aria-label="Informações sobre o ServiceDesk">
         <div className="text-center text-white px-12">
-          <h2 className="text-5xl font-bold mb-4">Junte-se a nós</h2>
-          <p className="text-xl text-blue-100">
+          <h2 className="text-5xl font-bold mb-4 animate-slide-up">Junte-se a nós</h2>
+          <p className="text-xl text-brand-100 dark:text-brand-200 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             Crie sua conta e comece a gerenciar seus tickets de forma profissional
           </p>
           <div className="mt-12 space-y-4">
-            <div className="flex items-center text-left">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+            <div className="flex items-center text-left animate-slide-up" style={{ animationDelay: '0.2s' }}>
+              <div className="flex-shrink-0 w-12 h-12 bg-brand-500 dark:bg-brand-600 rounded-lg flex items-center justify-center shadow-lg">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div className="ml-4">
                 <p className="font-medium">Rápido e Fácil</p>
-                <p className="text-sm text-blue-100">Configure sua conta em minutos</p>
+                <p className="text-sm text-brand-100 dark:text-brand-200">Configure sua conta em minutos</p>
               </div>
             </div>
-            <div className="flex items-center text-left">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+            <div className="flex items-center text-left animate-slide-up" style={{ animationDelay: '0.3s' }}>
+              <div className="flex-shrink-0 w-12 h-12 bg-brand-500 dark:bg-brand-600 rounded-lg flex items-center justify-center shadow-lg">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
               <div className="ml-4">
                 <p className="font-medium">Seguro</p>
-                <p className="text-sm text-blue-100">Seus dados protegidos</p>
+                <p className="text-sm text-brand-100 dark:text-brand-200">Seus dados protegidos</p>
               </div>
             </div>
-            <div className="flex items-center text-left">
-              <div className="flex-shrink-0 w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+            <div className="flex items-center text-left animate-slide-up" style={{ animationDelay: '0.4s' }}>
+              <div className="flex-shrink-0 w-12 h-12 bg-brand-500 dark:bg-brand-600 rounded-lg flex items-center justify-center shadow-lg">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
               <div className="ml-4">
                 <p className="font-medium">Suporte 24/7</p>
-                <p className="text-sm text-blue-100">Sempre disponível para ajudar</p>
+                <p className="text-sm text-brand-100 dark:text-brand-200">Sempre disponível para ajudar</p>
               </div>
             </div>
           </div>
@@ -156,27 +156,27 @@ export default function RegisterPage() {
 
       {/* Right Side - Register Form */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8" role="main">
-        <div className="max-w-md w-full space-y-8">
+        <div className="max-w-md w-full space-y-8 animate-slide-up">
           {/* Header */}
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
               Criar Conta
             </h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-description">
               Preencha os dados para criar sua conta
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5" aria-label="Formulário de criação de conta" noValidate>
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5 glass-panel p-8 rounded-xl" aria-label="Formulário de criação de conta" noValidate>
             {/* Name Input */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Nome Completo
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <UserIcon className="h-5 w-5 text-gray-400" />
+                  <UserIcon className="h-5 w-5 text-icon-muted" />
                 </div>
                 <input
                   id="name"
@@ -190,7 +190,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="block w-full pl-10 pr-3 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
                   placeholder="Seu nome completo"
                 />
                 <span id="name-description" className="sr-only">Digite seu nome completo para criar a conta</span>
@@ -199,12 +199,12 @@ export default function RegisterPage() {
 
             {/* Email Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <EnvelopeIcon className="h-5 w-5 text-gray-400" />
+                  <EnvelopeIcon className="h-5 w-5 text-icon-muted" />
                 </div>
                 <input
                   id="email"
@@ -218,7 +218,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="block w-full pl-10 pr-3 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
                   placeholder="seu@email.com"
                 />
                 <span id="email-description" className="sr-only">Digite um endereço de email válido</span>
@@ -227,12 +227,12 @@ export default function RegisterPage() {
 
             {/* Password Input */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Senha
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                  <LockClosedIcon className="h-5 w-5 text-icon-muted" />
                 </div>
                 <input
                   id="password"
@@ -246,7 +246,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="block w-full pl-10 pr-10 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
                   placeholder="••••••••"
                 />
                 <button
@@ -257,9 +257,9 @@ export default function RegisterPage() {
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />
+                    <EyeSlashIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />
+                    <EyeIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -270,8 +270,8 @@ export default function RegisterPage() {
                   </p>
                   {passwordRequirements.map((req, index) => (
                     <div key={index} className="flex items-center text-xs">
-                      <CheckCircleIcon className={`h-4 w-4 mr-1 ${req.met ? 'text-green-500' : 'text-gray-300'}`} aria-hidden="true" />
-                      <span className={req.met ? 'text-green-600' : 'text-gray-500'}>
+                      <CheckCircleIcon className={`h-4 w-4 mr-1 ${req.met ? 'text-green-500 dark:text-green-400' : 'text-neutral-300 dark:text-neutral-600'}`} aria-hidden="true" />
+                      <span className={req.met ? 'text-green-600 dark:text-green-400' : 'text-muted-content'}>
                         {req.text}
                         <span className="sr-only">{req.met ? ' - atendido' : ' - não atendido'}</span>
                       </span>
@@ -283,12 +283,12 @@ export default function RegisterPage() {
 
             {/* Confirm Password Input */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Confirmar Senha
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                  <LockClosedIcon className="h-5 w-5 text-icon-muted" />
                 </div>
                 <input
                   id="confirmPassword"
@@ -302,7 +302,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                  className="block w-full pl-10 pr-10 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
                   placeholder="••••••••"
                 />
                 <span id="confirm-password-description" className="sr-only">Digite a senha novamente para confirmação</span>
@@ -314,9 +314,9 @@ export default function RegisterPage() {
                   aria-pressed={showConfirmPassword}
                 >
                   {showConfirmPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />
+                    <EyeSlashIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" aria-hidden="true" />
+                    <EyeIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -335,7 +335,7 @@ export default function RegisterPage() {
               disabled={loading}
               aria-label="Criar conta"
               aria-busy={loading}
-              className="w-full flex justify-center items-center py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex justify-center items-center py-3 px-4 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-600 dark:focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-brand-600/20 dark:shadow-brand-500/20"
             >
               {loading ? (
                 <div className="flex items-center">
@@ -354,10 +354,10 @@ export default function RegisterPage() {
           {/* Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-neutral-300 dark:border-neutral-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Já tem uma conta?</span>
+              <span className="px-2 bg-gradient-to-br from-neutral-50 via-brand-50/30 to-neutral-100 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950 text-muted-content">Já tem uma conta?</span>
             </div>
           </div>
 
@@ -365,7 +365,7 @@ export default function RegisterPage() {
           <div className="text-center">
             <Link
               href="/auth/login"
-              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
             >
               Fazer login →
             </Link>

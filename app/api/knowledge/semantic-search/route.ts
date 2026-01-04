@@ -9,10 +9,15 @@ import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const vectorDb = new VectorDatabase(db as any);
 const hybridSearch = new HybridSearchEngine(vectorDb);
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.KNOWLEDGE_SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
@@ -67,23 +72,25 @@ export async function GET(request: NextRequest) {
 
           if (!article) return null;
 
+          const articleTyped = article as Record<string, unknown>
+
           // Parse tags if JSON
           let parsedTags = [];
-          if (article.tags) {
+          if (articleTyped.tags) {
             try {
-              parsedTags = typeof article.tags === 'string' ? JSON.parse(article.tags) : article.tags;
+              parsedTags = typeof articleTyped.tags === 'string' ? JSON.parse(articleTyped.tags) : articleTyped.tags;
             } catch {
               parsedTags = [];
             }
           }
 
           return {
-            ...article,
+            ...articleTyped,
             tags: parsedTags,
             score: result.score,
             semanticScore: result.semanticScore,
             keywordScore: result.keywordScore,
-            highlights: extractHighlights(article.content, query, 2)
+            highlights: extractHighlights(articleTyped.content as string, query, 2)
           };
         } catch (error) {
           logger.error('Error enriching search result', error);
@@ -126,6 +133,10 @@ export async function GET(request: NextRequest) {
  * Track search click (for analytics)
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.KNOWLEDGE_SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
     const { query, articleId, position, userId } = body;

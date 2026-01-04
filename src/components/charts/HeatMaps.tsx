@@ -1,7 +1,28 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import * as d3 from 'd3';
+// Optimize D3 imports: only import specific functions instead of entire library
+import { select, selectAll } from 'd3-selection';
+import { scaleBand, scaleLinear, scaleSequential } from 'd3-scale';
+import { max, min, extent } from 'd3-array';
+import { axisBottom, axisLeft } from 'd3-axis';
+import { interpolateRdYlGn, interpolateYlOrRd } from 'd3-scale-chromatic';
+
+// Create d3 namespace for easier refactoring
+const d3 = {
+  select,
+  selectAll,
+  scaleBand,
+  scaleLinear,
+  scaleSequential,
+  max,
+  min,
+  extent,
+  axisBottom,
+  axisLeft,
+  interpolateRdYlGn,
+  interpolateYlOrRd
+};
 
 interface HeatMapData {
   hour: number;
@@ -245,7 +266,7 @@ export function HourlyPerformanceHeatMap({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Performance Heatmap by Hour and Day
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-description">
           Click on cells to view detailed information
         </p>
       </div>
@@ -425,7 +446,7 @@ export function DepartmentHeatMap({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Department Performance Matrix
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-description">
           Performance metrics across different departments
         </p>
       </div>

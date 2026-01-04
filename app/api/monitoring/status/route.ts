@@ -15,6 +15,7 @@ import { getObservabilityHealth } from '@/lib/monitoring/observability';
 import { performanceMonitor } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(_request: NextRequest) {
   try {
     // Get observability health

@@ -10,7 +10,10 @@ import { getDatabase } from '@/lib/db/connection'
 import { verifyAuth } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
+import { jsonWithCache } from '@/lib/api/cache-headers'
+import { cacheInvalidation } from '@/lib/api/cache'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
 const catalogItemSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -21,7 +24,7 @@ const catalogItemSchema = z.object({
   icon: z.string().default('inbox'),
   image_url: z.string().url().optional(),
   display_order: z.number().int().default(0),
-  form_schema: z.record(z.any()).optional(),
+  form_schema: z.record(z.string(), z.any()).optional(),
   default_priority_id: z.number().int().positive().optional(),
   default_category_id: z.number().int().positive().optional(),
   sla_policy_id: z.number().int().positive().optional(),
@@ -44,7 +47,7 @@ const catalogItemSchema = z.object({
 
 const serviceRequestSchema = z.object({
   catalog_item_id: z.number().int().positive(),
-  form_data: z.record(z.any()),
+  form_data: z.record(z.string(), z.any()),
   justification: z.string().optional(),
   requested_date: z.string().optional(),
   on_behalf_of_id: z.number().int().positive().optional()
@@ -77,6 +80,10 @@ function generateRequestNumber(db: ReturnType<typeof getDatabase>): string {
  * GET /api/catalog - List Service Catalog Items
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
@@ -87,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const auth = await verifyAuth(request)
-      if (auth.success) {
+      if (auth.authenticated && auth.user) {
         organizationId = auth.user.organization_id
         isAuthenticated = true
       }
@@ -161,7 +168,7 @@ export async function GET(request: NextRequest) {
       ORDER BY display_order ASC, name ASC
     `).all(organizationId)
 
-    return NextResponse.json({
+    return jsonWithCache({
       success: true,
       catalog_items: items,
       categories,
@@ -171,7 +178,7 @@ export async function GET(request: NextRequest) {
         limit: params.limit,
         total_pages: Math.ceil(countResult.total / params.limit)
       }
-    })
+    }, 'STATIC') // Cache for 10 minutes
   } catch (error) {
     logger.error('Error listing catalog items', error)
     return NextResponse.json(
@@ -185,6 +192,10 @@ export async function GET(request: NextRequest) {
  * POST /api/catalog - Create Service Catalog Item (Admin only)
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {
@@ -265,6 +276,9 @@ export async function POST(request: NextRequest) {
     ).get(result.lastInsertRowid)
 
     logger.info(`Catalog item created: ${data.name} by user ${auth.user.id}`)
+
+    // Invalidate catalog cache
+    await cacheInvalidation.catalog()
 
     return NextResponse.json({
       success: true,

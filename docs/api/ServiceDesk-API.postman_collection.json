@@ -1,0 +1,655 @@
+{
+  "info": {
+    "name": "ServiceDesk API",
+    "_postman_id": "servicedesk-api-v1",
+    "description": "Complete ServiceDesk API collection with authentication, tickets, admin endpoints, and examples",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenant_slug",
+      "value": "empresa-demo",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "User authentication and session management",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('access_token', jsonData.accessToken);",
+                  "    pm.environment.set('user_id', jsonData.user.id);",
+                  "    pm.test('Login successful', function () {",
+                  "        pm.expect(jsonData.success).to.be.true;",
+                  "    });",
+                  "} else {",
+                  "    pm.test('Login failed', function () {",
+                  "        pm.response.to.have.status(401);",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@empresa.com\",\n  \"password\": \"Admin@123456\",\n  \"tenant_slug\": \"{{tenant_slug}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticate user and receive JWT token via httpOnly cookie"
+          },
+          "response": []
+        },
+        {
+          "name": "Register",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"João Silva\",\n  \"email\": \"joao.silva@empresa.com\",\n  \"password\": \"SenhaForte@2025\",\n  \"tenant_slug\": \"{{tenant_slug}}\",\n  \"job_title\": \"Analista de TI\",\n  \"department\": \"Tecnologia\",\n  \"phone\": \"+55 11 98765-4321\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "verify"]
+            },
+            "description": "Verify JWT token validity and get user info"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "description": "Ticket management (CRUD operations)",
+      "item": [
+        {
+          "name": "List Tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tickets?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tickets"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Retrieve paginated list of tickets"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Ticket (Simple)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Problema com email\",\n  \"description\": \"Não consigo enviar emails desde hoje de manhã\",\n  \"category_id\": 1,\n  \"priority_id\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tickets",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tickets"]
+            },
+            "description": "Create ticket without workflow processing"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Ticket (Workflow)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('ticket_id', jsonData.ticket.id);",
+                  "    pm.test('Ticket created', function () {",
+                  "        pm.expect(jsonData.ticket).to.have.property('id');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Impressora não imprime\",\n  \"description\": \"A impressora HP do 3º andar não está imprimindo. Já tentei reiniciar mas sem sucesso.\",\n  \"ticket_type_id\": 1,\n  \"category_id\": 3,\n  \"priority_id\": 2,\n  \"impact\": 3,\n  \"urgency\": 3,\n  \"affected_users_count\": 5,\n  \"business_service\": \"Impressão\",\n  \"location\": \"Prédio B - 3º andar\",\n  \"source\": \"web\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tickets/create",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tickets", "create"]
+            },
+            "description": "Create ticket with full workflow processing and auto-assignment"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/tickets/{{ticket_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tickets", "{{ticket_id}}"]
+            },
+            "description": "Retrieve single ticket by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Ticket",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status_id\": 2,\n  \"priority_id\": 1,\n  \"title\": \"Impressora não imprime - URGENTE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tickets/{{ticket_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "tickets", "{{ticket_id}}"]
+            },
+            "description": "Update ticket fields (status, priority, title, etc.)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Tickets",
+      "description": "Administrative ticket management endpoints",
+      "item": [
+        {
+          "name": "Get Ticket (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/tickets/{{ticket_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tickets", "{{ticket_id}}"]
+            },
+            "description": "Get ticket with admin privileges (requires Bearer token)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Ticket (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Impressora não imprime - RESOLVIDO\",\n  \"status_id\": 3,\n  \"assigned_to\": 10\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/tickets/{{ticket_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tickets", "{{ticket_id}}"]
+            },
+            "description": "Update ticket with admin capabilities (including assignment)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Ticket (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/tickets/{{ticket_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "tickets", "{{ticket_id}}"]
+            },
+            "description": "Permanently delete a ticket (admin only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Users",
+      "description": "User management endpoints",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"]
+            },
+            "description": "List all users in the organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}"]
+            },
+            "description": "Get user details by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"João da Silva\",\n  \"role\": \"agent\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}"]
+            },
+            "description": "Update user properties (admin only)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Analytics",
+      "description": "Dashboard statistics and reports",
+      "item": [
+        {
+          "name": "Get Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "stats"]
+            },
+            "description": "Get dashboard statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/reports?type=sla&start_date=2025-01-01&end_date=2025-01-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "reports"],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "sla",
+                  "description": "Report type: sla|performance|satisfaction|category"
+                },
+                {
+                  "key": "start_date",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-01-31"
+                }
+              ]
+            },
+            "description": "Generate custom reports"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - SLA",
+      "description": "SLA policy management",
+      "item": [
+        {
+          "name": "List SLA Policies",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/sla",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "sla"]
+            },
+            "description": "List all SLA policies"
+          },
+          "response": []
+        },
+        {
+          "name": "Create SLA Policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"High Priority SLA\",\n  \"priority_id\": 2,\n  \"ticket_type_id\": 1,\n  \"response_time_minutes\": 60,\n  \"resolution_time_hours\": 8,\n  \"business_hours_only\": true,\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/sla",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "sla"]
+            },
+            "description": "Create a new SLA policy"
+          },
+          "response": []
+        },
+        {
+          "name": "Update SLA Policy",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"response_time_minutes\": 30,\n  \"resolution_time_hours\": 6\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/sla/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "sla", "1"]
+            },
+            "description": "Update an existing SLA policy"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete SLA Policy",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/sla/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "sla", "1"]
+            },
+            "description": "Delete an SLA policy"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin - Settings",
+      "description": "System configuration",
+      "item": [
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "settings"]
+            },
+            "description": "Get system settings"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organization_name\": \"Empresa Demo S.A.\",\n  \"support_email\": \"support@empresa.com\",\n  \"business_hours\": {\n    \"start\": \"08:00\",\n    \"end\": \"18:00\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/settings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "settings"]
+            },
+            "description": "Update system settings"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "Real-time notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get paginated list of notifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/unread",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "unread"]
+            },
+            "description": "Get unread notification count"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

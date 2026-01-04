@@ -11,10 +11,11 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
 const createRequestSchema = z.object({
   catalog_item_id: z.number().int().positive(),
-  form_data: z.record(z.any()),
+  form_data: z.record(z.string(), z.any()),
   justification: z.string().optional(),
   requested_date: z.string().optional(),
   on_behalf_of_id: z.number().int().positive().optional()
@@ -46,6 +47,10 @@ function generateRequestNumber(db: ReturnType<typeof getDatabase>): string {
  * GET /api/catalog/requests - List Service Requests
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {
@@ -132,6 +137,10 @@ export async function GET(request: NextRequest) {
  * POST /api/catalog/requests - Create Service Request
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {

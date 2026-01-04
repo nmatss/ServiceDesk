@@ -196,7 +196,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
                             {option.label}
                           </span>
                           {option.description && (
-                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                            <span className="text-xs text-muted-content">
                               {option.description}
                             </span>
                           )}
@@ -217,7 +217,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
 
         {/* Description */}
         {description && !error && !success && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-sm text-description">
             {description}
           </p>
         )}

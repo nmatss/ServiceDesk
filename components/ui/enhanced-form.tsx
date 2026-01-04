@@ -34,7 +34,7 @@ export function EnhancedFormField({
   validate,
   required = false,
   maxLength,
-  _minLength,
+  minLength: _minLength,
   showCount = false,
   help,
   placeholder,
@@ -88,14 +88,13 @@ export function EnhancedFormField({
   const isNearLimit = maxLength && characterCount > maxLength * 0.8
 
   const inputClasses = cn(
-    'w-full px-4 py-2 border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2',
+    'input w-full',
     isError
-      ? 'border-red-300 dark:border-red-600 focus:border-red-500 focus:ring-red-200 dark:focus:ring-red-800'
+      ? 'input-error'
       : isValid
-      ? 'border-green-300 dark:border-green-600 focus:border-green-500 focus:ring-green-200 dark:focus:ring-green-800'
-      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-200 dark:focus:ring-blue-800',
-    disabled && 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60',
-    'dark:bg-gray-900 dark:text-white'
+      ? 'input-success'
+      : 'input-bordered',
+    disabled && 'input-disabled'
   )
 
   const InputComponent = type === 'textarea' ? 'textarea' : 'input'
@@ -104,15 +103,15 @@ export function EnhancedFormField({
     <div className={cn('space-y-2', className)}>
       {/* Label */}
       <div className="flex justify-between items-center">
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label htmlFor={name} className="label label-text font-medium">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-error-500 ml-1">*</span>}
         </label>
         {showCount && maxLength && (
           <span
             className={cn(
               'text-xs',
-              isNearLimit ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'
+              isNearLimit ? 'text-warning-600 dark:text-warning-400' : 'text-muted-content'
             )}
           >
             {characterCount}/{maxLength}
@@ -139,7 +138,7 @@ export function EnhancedFormField({
         {/* Status Icon */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
           {isValidating && (
-            <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-5 w-5 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path
                 className="opacity-75"
@@ -148,19 +147,19 @@ export function EnhancedFormField({
               />
             </svg>
           )}
-          {!isValidating && isError && <ExclamationCircleIcon className="h-5 w-5 text-red-500" />}
-          {!isValidating && isValid && <CheckCircleIcon className="h-5 w-5 text-green-500" />}
+          {!isValidating && isError && <ExclamationCircleIcon className="h-5 w-5 text-error-500" />}
+          {!isValidating && isValid && <CheckCircleIcon className="h-5 w-5 text-success-500" />}
         </div>
       </div>
 
       {/* Help Text or Error */}
       {isError ? (
-        <p className="text-sm text-red-600 dark:text-red-400 flex items-start gap-1">
+        <p className="text-sm text-error-600 dark:text-error-400 flex items-start gap-1">
           <ExclamationCircleIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
           {error}
         </p>
       ) : help ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-start gap-1">
+        <p className="text-sm text-muted-content flex items-start gap-1">
           <InformationCircleIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
           {help}
         </p>
@@ -190,7 +189,7 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
 
   const strength = calculateStrength(password)
   const strengthLabels = ['Muito fraca', 'Fraca', 'Razoável', 'Forte', 'Muito forte']
-  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600']
+  const strengthColors = ['bg-error-500', 'bg-warning-500', 'bg-warning-500', 'bg-success-500', 'bg-success-600']
 
   if (!password) return null
 
@@ -207,7 +206,7 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
           />
         ))}
       </div>
-      <p className="text-xs text-gray-600 dark:text-gray-400">
+      <p className="text-xs text-description">
         Força da senha: <span className="font-medium">{strengthLabels[strength - 1] || 'Muito fraca'}</span>
       </p>
     </div>
@@ -256,7 +255,7 @@ export function AutoSaveForm({ children, onSave, data, debounceMs = 2000, classN
     <div className={className}>
       {/* Auto-save indicator */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="text-sm text-gray-600 dark:text-gray-400">
+        <div className="text-sm text-description">
           {saveStatus === 'saving' && (
             <span className="flex items-center gap-2">
               <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

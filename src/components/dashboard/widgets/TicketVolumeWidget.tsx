@@ -115,11 +115,11 @@ export function TicketVolumeWidget({
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{
@@ -189,11 +189,11 @@ export function TicketVolumeWidget({
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{
@@ -229,11 +229,11 @@ export function TicketVolumeWidget({
             <XAxis
               dataKey="date"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{
@@ -352,7 +352,7 @@ export function TicketVolumeWidget({
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <ChartBarIcon className="w-5 h-5 text-blue-500 mr-1" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Daily Average
               </span>
             </div>
@@ -373,7 +373,7 @@ export function TicketVolumeWidget({
 
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Resolution Rate
               </span>
             </div>
@@ -388,7 +388,7 @@ export function TicketVolumeWidget({
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-red-500 mr-1" />
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 High Priority
               </span>
             </div>
@@ -402,7 +402,7 @@ export function TicketVolumeWidget({
 
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 Current Backlog
               </span>
             </div>

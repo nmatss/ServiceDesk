@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import PageHeader from '@/components/ui/PageHeader'
 import {
   CalendarDaysIcon,
   ChevronLeftIcon,
@@ -12,7 +13,8 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   FunnelIcon,
-  PlusIcon
+  PlusIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 import { CalendarDaysIcon as CalendarDaysSolid } from '@heroicons/react/24/solid'
 
@@ -128,24 +130,24 @@ export default function ChangeCalendarPage() {
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'standard': return 'bg-green-500'
-      case 'normal': return 'bg-blue-500'
+      case 'normal': return 'bg-brand-500'
       case 'emergency': return 'bg-red-500'
-      default: return 'bg-gray-500'
+      default: return 'bg-neutral-500'
     }
   }
 
   const getCategoryBgColor = (category: string) => {
     switch (category) {
       case 'standard': return 'bg-green-100 border-green-300 text-green-800'
-      case 'normal': return 'bg-blue-100 border-blue-300 text-blue-800'
+      case 'normal': return 'bg-brand-100 border-brand-300 text-brand-800'
       case 'emergency': return 'bg-red-100 border-red-300 text-red-800'
-      default: return 'bg-gray-100 border-gray-300 text-gray-800'
+      default: return 'bg-neutral-100 border-neutral-300 text-neutral-800'
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'scheduled': return <ClockIcon className="w-4 h-4 text-blue-500" />
+      case 'scheduled': return <ClockIcon className="w-4 h-4 text-brand-500" />
       case 'in_progress': return <ArrowPathIcon className="w-4 h-4 text-yellow-500 animate-spin" />
       case 'completed': return <CheckCircleIcon className="w-4 h-4 text-green-500" />
       case 'failed': return <XCircleIcon className="w-4 h-4 text-red-500" />
@@ -196,62 +198,62 @@ export default function ChangeCalendarPage() {
   }
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                <CalendarDaysSolid className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" />
-                Calendário de Mudanças
-              </h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Visualização de janelas de manutenção e mudanças agendadas
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => router.push('/admin/changes')}
-                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
-              >
-                Lista de Mudanças
-              </button>
-              <button
-                onClick={() => router.push('/admin/changes/new')}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Nova RFC
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-purple-50/20 pb-6">
+      {/* Modern Header */}
+      <div className="bg-white/80 backdrop-blur-lg border-b border-neutral-200/50 mb-6 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
+          <PageHeader
+            title="Calendário de Mudanças"
+            description="Visualização de janelas de manutenção e mudanças agendadas"
+            icon={CalendarDaysSolid}
+            breadcrumbs={[
+              { label: 'Admin', href: '/admin' },
+              { label: 'Mudanças', href: '/admin/changes' },
+              { label: 'Calendário' }
+            ]}
+            actions={[
+              {
+                label: 'Voltar',
+                onClick: () => router.push('/admin/changes'),
+                icon: ArrowLeftIcon,
+                variant: 'ghost'
+              },
+              {
+                label: 'Nova RFC',
+                href: '/admin/changes/new',
+                icon: PlusIcon,
+                variant: 'primary'
+              }
+            ]}
+          />
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
-        {/* Calendar Controls */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        {/* Modern Calendar Controls */}
+        <div className="glass-panel mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigateMonth(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-brand-50 rounded-lg transition-colors group"
+                title="Mês anterior"
               >
-                <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+                <ChevronLeftIcon className="w-5 h-5 text-neutral-600 group-hover:text-brand-600 transition-colors" />
               </button>
-              <h2 className="text-lg font-semibold text-gray-900 capitalize min-w-[200px] text-center">
+              <h2 className="text-lg font-bold text-neutral-900 capitalize min-w-[200px] text-center">
                 {monthName}
               </h2>
               <button
                 onClick={() => navigateMonth(1)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-brand-50 rounded-lg transition-colors group"
+                title="Próximo mês"
               >
-                <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+                <ChevronRightIcon className="w-5 h-5 text-neutral-600 group-hover:text-brand-600 transition-colors" />
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-3 py-1 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                className="px-4 py-1.5 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
               >
                 Hoje
               </button>
@@ -260,7 +262,7 @@ export default function ChangeCalendarPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                className="px-3 py-2 border border-neutral-200 rounded-lg text-sm bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all"
               >
                 <option value="all">Todas categorias</option>
                 <option value="standard">Padrão</option>
@@ -270,43 +272,46 @@ export default function ChangeCalendarPage() {
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-gray-200">
+          {/* Modern Legend */}
+          <div className="flex flex-wrap gap-6 mt-4 pt-4 border-t border-neutral-200">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green-500"></div>
-              <span className="text-sm text-gray-600">Padrão</span>
+              <div className="w-4 h-4 rounded-full bg-green-500 shadow-md"></div>
+              <span className="text-sm font-medium text-neutral-700">Padrão</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-500"></div>
-              <span className="text-sm text-gray-600">Normal</span>
+              <div className="w-4 h-4 rounded-full bg-brand-500 shadow-md"></div>
+              <span className="text-sm font-medium text-neutral-700">Normal</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-red-500"></div>
-              <span className="text-sm text-gray-600">Emergência</span>
+              <div className="w-4 h-4 rounded-full bg-red-500 shadow-md animate-pulse"></div>
+              <span className="text-sm font-medium text-neutral-700">Emergência</span>
             </div>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Week Days Header */}
-            <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-              {weekDays.map(day => (
-                <div key={day} className="p-2 sm:p-3 text-center text-sm font-medium text-gray-700">
-                  {day}
+          <div className="glass-panel overflow-hidden">
+            {/* Scrollable wrapper for mobile */}
+            <div className="overflow-x-auto scrollbar-thin">
+              <div className="min-w-[640px]">
+                {/* Week Days Header */}
+                <div className="grid grid-cols-7 border-b border-neutral-200 bg-gradient-to-r from-brand-50 to-brand-50">
+                  {weekDays.map(day => (
+                    <div key={day} className="p-2 sm:p-3 text-center text-sm font-semibold text-neutral-700">
+                      {day}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7">
+                {/* Calendar Grid */}
+                <div className="grid grid-cols-7">
               {/* Empty cells for days before the first of the month */}
               {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-                <div key={`empty-${index}`} className="min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 bg-gray-50 border-b border-r border-gray-100"></div>
+                <div key={`empty-${index}`} className="min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 bg-neutral-50 border-b border-r border-neutral-100"></div>
               ))}
 
               {/* Days of the month */}
@@ -318,12 +323,12 @@ export default function ChangeCalendarPage() {
                 return (
                   <div
                     key={day}
-                    className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-b border-r border-gray-100 ${
-                      dayIsToday ? 'bg-indigo-50' : ''
+                    className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-b border-r border-neutral-100 ${
+                      dayIsToday ? 'bg-brand-50' : ''
                     }`}
                   >
                     <div className={`text-sm font-medium mb-1 ${
-                      dayIsToday ? 'w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center' : 'text-gray-700'
+                      dayIsToday ? 'w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center' : 'text-neutral-700'
                     }`}>
                       {day}
                     </div>
@@ -339,7 +344,7 @@ export default function ChangeCalendarPage() {
                         </div>
                       ))}
                       {dayChanges.length > 3 && (
-                        <div className="text-xs text-gray-500 pl-1">
+                        <div className="text-xs text-neutral-500 pl-1">
                           +{dayChanges.length - 3} mais
                         </div>
                       )}
@@ -347,16 +352,21 @@ export default function ChangeCalendarPage() {
                   </div>
                 )
               })}
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {/* Upcoming Changes List */}
-        <div className="mt-6 bg-white rounded-xl border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900">Próximas Mudanças</h3>
+        <div className="mt-6 glass-panel">
+          <div className="p-4 border-b border-neutral-200">
+            <h3 className="font-bold text-lg text-neutral-900 flex items-center gap-2">
+              <ClockIcon className="w-5 h-5 text-brand-500" />
+              Próximas Mudanças
+            </h3>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-neutral-100">
             {changes
               .filter(c => c.status === 'scheduled')
               .sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
@@ -365,12 +375,12 @@ export default function ChangeCalendarPage() {
                 <div
                   key={change.id}
                   onClick={() => router.push(`/admin/changes/${change.id}`)}
-                  className="p-4 flex items-center gap-4 hover:bg-gray-50 cursor-pointer"
+                  className="p-4 flex items-center gap-4 hover:bg-neutral-50 cursor-pointer"
                 >
                   <div className={`w-1 h-12 rounded ${getCategoryColor(change.category)}`}></div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">CHG-{change.id}: {change.title}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="font-medium text-neutral-900 truncate">CHG-{change.id}: {change.title}</p>
+                    <p className="text-sm text-neutral-500">
                       {new Date(change.scheduled_start).toLocaleDateString('pt-BR', {
                         weekday: 'short',
                         day: '2-digit',
@@ -383,16 +393,16 @@ export default function ChangeCalendarPage() {
                     </p>
                   </div>
                   <div className="text-right hidden sm:block">
-                    <p className="text-sm font-medium text-gray-900">{change.assigned_to}</p>
+                    <p className="text-sm font-medium text-neutral-900">{change.assigned_to}</p>
                     <div className="flex gap-1 justify-end mt-1">
                       {change.services.slice(0, 2).map((service, i) => (
-                        <span key={i} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
+                        <span key={i} className="px-2 py-0.5 text-xs bg-neutral-100 text-neutral-600 rounded">
                           {service}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                  <ChevronRightIcon className="w-5 h-5 text-neutral-400" />
                 </div>
               ))}
           </div>
@@ -411,37 +421,37 @@ export default function ChangeCalendarPage() {
                   </span>
                   {getStatusIcon(selectedChange.status)}
                 </div>
-                <h3 className="font-semibold text-gray-900">CHG-{selectedChange.id}</h3>
+                <h3 className="font-semibold text-neutral-900">CHG-{selectedChange.id}</h3>
               </div>
               <button
                 onClick={() => setSelectedChange(null)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-neutral-400 hover:text-neutral-600"
               >
                 <XCircleIcon className="w-6 h-6" />
               </button>
             </div>
 
-            <p className="text-gray-700 mb-4">{selectedChange.title}</p>
+            <p className="text-neutral-700 mb-4">{selectedChange.title}</p>
 
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Início</span>
+                <span className="text-neutral-500">Início</span>
                 <span className="font-medium">
                   {new Date(selectedChange.scheduled_start).toLocaleString('pt-BR')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Fim</span>
+                <span className="text-neutral-500">Fim</span>
                 <span className="font-medium">
                   {new Date(selectedChange.scheduled_end).toLocaleString('pt-BR')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Responsável</span>
+                <span className="text-neutral-500">Responsável</span>
                 <span className="font-medium">{selectedChange.assigned_to}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">Risco</span>
+                <span className="text-neutral-500">Risco</span>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map(level => (
                     <div
@@ -451,17 +461,17 @@ export default function ChangeCalendarPage() {
                           ? selectedChange.risk_level <= 2 ? 'bg-green-500' :
                             selectedChange.risk_level <= 3 ? 'bg-yellow-500' :
                             selectedChange.risk_level <= 4 ? 'bg-orange-500' : 'bg-red-500'
-                          : 'bg-gray-200'
+                          : 'bg-neutral-200'
                       }`}
                     />
                   ))}
                 </div>
               </div>
               <div>
-                <span className="text-gray-500">Serviços Afetados</span>
+                <span className="text-neutral-500">Serviços Afetados</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedChange.services.map((service, i) => (
-                    <span key={i} className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                    <span key={i} className="px-2 py-1 text-xs bg-neutral-100 text-neutral-700 rounded">
                       {service}
                     </span>
                   ))}
@@ -475,13 +485,13 @@ export default function ChangeCalendarPage() {
                   setSelectedChange(null)
                   router.push(`/admin/changes/${selectedChange.id}`)
                 }}
-                className="flex-1 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+                className="flex-1 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700"
               >
                 Ver Detalhes
               </button>
               <button
                 onClick={() => setSelectedChange(null)}
-                className="flex-1 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                className="flex-1 py-2 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg hover:bg-neutral-200"
               >
                 Fechar
               </button>
@@ -495,18 +505,18 @@ export default function ChangeCalendarPage() {
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/admin/changes')}
-            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
           >
             Lista
           </button>
           <button
             onClick={() => router.push('/admin/cab')}
-            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
           >
             CAB
           </button>
           <button
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg"
           >
             Nova RFC
           </button>

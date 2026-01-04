@@ -6,8 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { LRUCache } from 'lru-cache'
 import { ApiContext, RateLimitInfo } from './types'
-import { RateLimitError } from './errors'
-import logger from '../monitoring/structured-logger';
+import { RateLimitError, ErrorDetails } from './errors'
+import logger from '../monitoring/structured-logger'
+import { getTrustedClientIP, validateIPHeaders, logSpoofingAttempt } from './ip-validation';
 
 // Rate Limit Store Interface
 interface RateLimitStore {
@@ -133,7 +134,7 @@ export interface RateLimitConfig {
   legacyHeaders?: boolean
   keyGenerator?: (req: NextRequest, context?: ApiContext) => string
   skip?: (req: NextRequest, context?: ApiContext) => boolean
-  onLimitReached?: (req: NextRequest, context?: ApiContext, rateLimitInfo: RateLimitInfo) => void
+  onLimitReached?: (req: NextRequest, context: ApiContext | undefined, rateLimitInfo: RateLimitInfo) => void
   store?: RateLimitStore
 }
 
@@ -223,10 +224,17 @@ export class RateLimiter {
       return `user:${context.user.id}`
     }
 
-    // Get IP from various headers
-    const forwarded = req.headers.get('x-forwarded-for')
-    const realIp = req.headers.get('x-real-ip')
-    const ip = forwarded?.split(',')[0] || realIp || 'unknown'
+    // ✅ USAR IP VALIDATION - Proteção contra IP spoofing
+    const ip = getTrustedClientIP(req)
+
+    // ⚠️ Validar headers de IP e detectar tentativas de spoofing
+    const validation = validateIPHeaders(req)
+    if (!validation.valid) {
+      // Logar warnings mas continuar (não bloquear)
+      validation.warnings.forEach(warning => {
+        logSpoofingAttempt(req, warning)
+      })
+    }
 
     return `ip:${ip}`
   }
@@ -263,7 +271,7 @@ export class RateLimiter {
         this.config.onLimitReached(req, context, rateLimitInfo)
 
         // Create error response
-        const error = new RateLimitError(retryAfter, rateLimitInfo, context.requestId)
+        const error = new RateLimitError(retryAfter, rateLimitInfo as unknown as ErrorDetails, context.requestId)
         const response = NextResponse.json(
           {
             success: false,

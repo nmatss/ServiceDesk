@@ -8,10 +8,15 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { getWhatsAppStats } from '@/lib/integrations/whatsapp/storage';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET - Get WhatsApp statistics
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);

@@ -16,6 +16,7 @@ import type { WebhookMessage, WebhookStatus } from '@/lib/integrations/whatsapp/
 import { logger } from '@/lib/monitoring/logger';
 import crypto from 'crypto';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * Verifies HMAC signature for webhook security
  * Uses timing-safe comparison to prevent timing attacks
@@ -57,6 +58,10 @@ function verifyWebhookSignature(
  * WhatsApp sends a verification request when you configure the webhook
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WEBHOOK);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const searchParams = request.nextUrl.searchParams;
 
   // WhatsApp sends these parameters for verification
@@ -84,6 +89,10 @@ export async function GET(request: NextRequest) {
  * POST handler - Process incoming messages and status updates
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WEBHOOK);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify webhook signature for security
     const signature = request.headers.get('x-hub-signature-256');
@@ -100,23 +109,27 @@ export async function POST(request: NextRequest) {
     // Get raw body for signature verification
     const rawBody = await request.text();
 
-    // Validate signature if provided
-    if (signature) {
-      if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-        logger.error('Invalid webhook signature', {
-          receivedSignature: signature
-        });
-        return NextResponse.json(
-          { error: 'Invalid signature' },
-          { status: 401 }
-        );
-      }
-      logger.info('Webhook signature verified successfully');
-    } else {
-      // Log warning if signature is missing but continue processing
-      // Some webhook events might not include signature during testing
-      logger.warn('Webhook received without signature - security risk!');
+    // SECURITY: Signature validation is mandatory - reject requests without valid signature
+    if (!signature) {
+      logger.error('Webhook signature missing - rejecting request');
+      return NextResponse.json(
+        { error: 'Signature required' },
+        { status: 401 }
+      );
     }
+
+    // Validate signature
+    if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+      logger.error('Invalid webhook signature', {
+        receivedSignature: signature
+      });
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    logger.info('Webhook signature verified successfully');
 
     const body = JSON.parse(rawBody);
 

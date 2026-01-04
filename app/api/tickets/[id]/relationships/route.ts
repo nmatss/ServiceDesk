@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: { id: string };
 }
@@ -158,7 +159,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // POST - Create a new relationship
 // ========================================
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const ticketId = parseInt(params.id);
     const body = await request.json();
@@ -298,7 +303,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 // DELETE - Remove a relationship
 // ========================================
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const ticketId = parseInt(params.id);
     const { searchParams } = new URL(request.url);

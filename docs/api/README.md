@@ -2,119 +2,171 @@
 
 ## Overview
 
-The ServiceDesk API provides comprehensive access to all platform features including ticket management, knowledge base, user management, SLA tracking, and advanced automation capabilities.
+The ServiceDesk API provides comprehensive access to all platform features including ticket management, knowledge base, user management, SLA tracking, and advanced automation capabilities with full multi-tenant support.
 
-**Base URL**: `https://api.servicedesk.example.com/api`
+**Base URL (Development)**: `http://localhost:3000`
+
+**Base URL (Production)**: `https://api.servicedesk.com`
 
 **API Version**: 1.0.0
+
+## Key Features
+
+- **Multi-tenant Architecture**: Complete organization isolation with tenant-aware queries
+- **JWT Authentication**: Secure httpOnly cookies (15-minute access tokens)
+- **ITIL Compliance**: Full support for Incident, Request, Change, and Problem management
+- **Workflow Automation**: Auto-assignment, approval workflows, SLA tracking
+- **Real-time Updates**: Server-Sent Events for notifications
+- **Rate Limiting**: IP-based throttling for security
+- **Audit Logging**: Complete trail of all actions
 
 ## Getting Started
 
 ### Quick Start
 
-1. **Register an account** or obtain API credentials from your administrator
-2. **Authenticate** using the `/auth/login` endpoint to receive JWT tokens
-3. **Include the access token** in the `Authorization` header for all subsequent requests
+1. **Run database initialization**
+   ```bash
+   npm run init-db
+   ```
+
+2. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+3. **Authenticate** using POST `/api/auth/login`
+   - Receive JWT token via httpOnly cookie
+   - Token automatically included in subsequent requests
+
 4. **Start making requests** to create tickets, manage users, or access analytics
 
-### API Documentation Formats
+### API Documentation Files
 
-- **OpenAPI 3.0 Spec**: See `openapi.yaml` for complete machine-readable specification
-- **Interactive Docs**: Available at `/api/docs` (Swagger UI)
-- **Postman Collection**: Import from `/api/postman-collection.json`
+- **OpenAPI 3.0 Spec**: `openapi.yaml` - Complete machine-readable specification
+- **Authentication Guide**: `authentication.md` - Detailed auth flow and security
+- **Tickets Guide**: `tickets.md` - Complete ticket management documentation
+- **Admin Guide**: `admin.md` - Administrative endpoints and permissions
+- **Postman Collection**: `ServiceDesk-API.postman_collection.json` - Import into Postman
+
+### Postman Collection
+
+Import the Postman collection to get started immediately:
+
+1. Open Postman
+2. Click "Import" > "Upload Files"
+3. Select `ServiceDesk-API.postman_collection.json`
+4. Set environment variables:
+   - `base_url`: http://localhost:3000
+   - `tenant_slug`: empresa-demo
+5. Run "Login" request to authenticate
+6. Token automatically stored in environment variable `access_token`
 
 ## Authentication
 
-The ServiceDesk API uses **JWT (JSON Web Tokens)** for authentication with access and refresh token pairs.
+The ServiceDesk API uses **JWT (JSON Web Tokens)** stored in httpOnly cookies for web applications, with Bearer token support for API clients.
 
 ### Authentication Flow
 
 ```
-1. POST /api/auth/login        → Receive access + refresh tokens
-2. Store tokens securely       → Save in httpOnly cookies or secure storage
-3. Use access token            → Include in Authorization header
-4. Token expires (1h)          → Use refresh token to get new access token
-5. POST /api/auth/refresh      → Receive new access token
+1. POST /api/auth/login        → Credentials validated
+2. Success response            → JWT set in httpOnly cookie (15 min)
+3. Subsequent requests         → Cookie sent automatically
+4. Token expires               → Re-authenticate (no refresh token)
+5. POST /api/auth/verify       → Check token validity anytime
 ```
+
+**Key Security Features**:
+- httpOnly cookies prevent XSS attacks
+- 15-minute token expiration
+- Account lockout after 5 failed attempts (1 minute)
+- Rate limiting: 5 login attempts per 15 minutes per IP
+- Complete audit logging
 
 ### Login Example
 
 ```bash
-curl -X POST https://api.servicedesk.example.com/api/auth/login \
+curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
+  -c cookies.txt \
   -d '{
-    "email": "admin@example.com",
-    "password": "your-password"
+    "email": "admin@empresa.com",
+    "password": "Admin@123456",
+    "tenant_slug": "empresa-demo"
   }'
 ```
 
-**Response**:
+**Response** (200 OK):
 ```json
 {
   "success": true,
+  "message": "Login realizado com sucesso",
   "user": {
     "id": 1,
     "name": "Admin User",
-    "email": "admin@example.com",
-    "role": "admin"
+    "email": "admin@empresa.com",
+    "role": "tenant_admin",
+    "organization_id": 1,
+    "last_login_at": "2025-01-20T10:30:00Z"
   },
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 3600
+  "tenant": {
+    "id": 1,
+    "slug": "empresa-demo",
+    "name": "Empresa Demo"
+  }
 }
 ```
 
-### Using Access Tokens
+**Important**: The JWT token is NOT in the response body. It's sent via httpOnly cookie.
 
-Include the access token in the `Authorization` header for all authenticated requests:
+### Using Cookies (Web Applications)
 
-```bash
-curl -X GET https://api.servicedesk.example.com/api/tickets \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+For browser-based applications, cookies are sent automatically:
+
+```javascript
+// Login
+const response = await fetch('/api/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include', // Important!
+  body: JSON.stringify({
+    email: 'admin@empresa.com',
+    password: 'Admin@123456',
+    tenant_slug: 'empresa-demo'
+  })
+});
+
+// Subsequent requests (cookie sent automatically)
+const tickets = await fetch('/api/tickets', {
+  credentials: 'include'
+});
 ```
 
-### Token Refresh
+### Using Bearer Tokens (API Clients)
 
-When the access token expires (default: 1 hour), use the refresh token to obtain a new one:
+For non-browser clients (mobile apps, scripts), use Bearer tokens:
 
-```bash
-curl -X POST https://api.servicedesk.example.com/api/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{
-    "refreshToken": "YOUR_REFRESH_TOKEN"
-  }'
-```
-
-### Multi-Factor Authentication (MFA)
-
-If MFA is enabled for your account:
-
-1. Complete the initial login to receive a challenge
-2. Submit the MFA code from your authenticator app
-3. Receive access and refresh tokens upon successful verification
+**Admin endpoints require Bearer token**:
 
 ```bash
-curl -X POST https://api.servicedesk.example.com/api/auth/mfa/verify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_token": "TEMP_SESSION_TOKEN",
-    "code": "123456"
-  }'
+curl -X GET http://localhost:3000/api/admin/users \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
+
+**Note**: Regular endpoints accept cookies. Admin endpoints require explicit Bearer tokens.
 
 ## Rate Limiting
 
-To ensure fair usage and system stability, the API implements rate limiting:
+To ensure fair usage and system stability, the API implements IP-based rate limiting:
 
 ### Limits by Endpoint Type
 
-| Endpoint Type | Rate Limit | Window |
-|--------------|------------|--------|
-| Authentication | 5 requests | 15 minutes |
-| Read Operations (GET) | 100 requests | 1 minute |
-| Write Operations (POST/PUT/PATCH) | 50 requests | 1 minute |
-| Delete Operations | 20 requests | 1 minute |
-| AI/Analytics | 30 requests | 1 minute |
+| Endpoint Type | Rate Limit | Window | Scope |
+|--------------|------------|--------|-------|
+| Login | 5 requests | 15 minutes | Per IP |
+| Register | 5 requests | 1 hour | Per IP |
+| Token Verify | 100 requests | 15 minutes | Per user |
+| API Endpoints (GET/POST/PATCH) | 100 requests | 15 minutes | Per user |
+| Ticket Creation | 100 requests | 15 minutes | Per user |
 
 ### Rate Limit Headers
 

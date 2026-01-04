@@ -153,7 +153,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
       <th
         ref={ref}
         className={cn(
-          'text-left align-middle font-medium text-neutral-500 dark:text-neutral-400',
+          'text-left align-middle font-medium text-muted-content',
           'border-b border-neutral-200 dark:border-neutral-700',
           sortable && 'cursor-pointer select-none hover:text-neutral-700 dark:hover:text-neutral-200',
           className
@@ -205,7 +205,7 @@ const TableCaption = React.forwardRef<
   <caption
     ref={ref}
     className={cn(
-      'mt-4 text-sm text-neutral-500 dark:text-neutral-400',
+      'mt-4 text-sm text-muted-content',
       className
     )}
     {...props}
@@ -334,7 +334,7 @@ export function DataTable<T = any>({
         <TableBody>
           <TableRow>
             <TableCell colSpan={columns.length} className="text-center py-8">
-              <div className="text-neutral-500 dark:text-neutral-400">
+              <div className="text-muted-content">
                 {emptyText}
               </div>
             </TableCell>

@@ -41,8 +41,8 @@ const inputVariants = cva(
         ],
       },
       size: {
-        xs: 'h-7 px-2 text-xs',
-        sm: 'h-8 px-3 text-sm',
+        xs: 'h-7 px-2 text-base', // 16px minimum to prevent iOS zoom
+        sm: 'h-8 px-3 text-base', // 16px minimum to prevent iOS zoom
         md: 'h-10 px-3 py-2 text-base',
         lg: 'h-12 px-4 py-3 text-lg',
         xl: 'h-14 px-6 py-4 text-xl',
@@ -70,7 +70,7 @@ const inputVariants = cva(
 );
 
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement>,
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
     VariantProps<typeof inputVariants> {
   label?: string;
   description?: string;
@@ -84,6 +84,7 @@ export interface InputProps
   clearable?: boolean;
   onClear?: () => void;
   fullWidth?: boolean;
+  inputMode?: 'text' | 'email' | 'tel' | 'numeric' | 'url' | 'search' | 'decimal' | 'none';
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -110,6 +111,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       disabled,
       value,
       id,
+      inputMode,
       ...props
     },
     ref
@@ -123,6 +125,26 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const hasError = !!error;
     const hasSuccess = !!success && !hasError;
     const actualVariant = hasError ? 'error' : hasSuccess ? 'success' : variant;
+
+    // Autocomplete mapping for common input types
+    const autocompleteMap: Record<string, string> = {
+      'email': 'email',
+      'password': 'current-password',
+      'tel': 'tel',
+      'url': 'url',
+    };
+
+    // Input mode mapping for better mobile keyboard
+    const inputModeMap: Record<string, string> = {
+      'email': 'email',
+      'tel': 'tel',
+      'number': 'numeric',
+      'url': 'url',
+      'search': 'search',
+    };
+
+    const autoCompleteValue = props.autoComplete || autocompleteMap[type] || undefined;
+    const inputModeValue = inputMode || (inputModeMap[type] as any) || undefined;
 
     const iconSize = {
       xs: 'w-3 h-3',
@@ -177,7 +199,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             id={inputId}
             type={inputType}
             className={cn(
-              inputVariants({ variant: actualVariant, size, rounded, persona }),
+              inputVariants({ variant: actualVariant, size: size as 'xs' | 'sm' | 'md' | 'lg' | 'xl' | undefined, rounded, persona }),
               leftIcon && !leftAddon && 'pl-10',
               leftAddon && 'pl-16',
               (rightIcon || isPassword || clearable) && 'pr-10',
@@ -191,6 +213,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               setInternalValue(e.target.value);
               props.onChange?.(e);
             }}
+            autoComplete={autoCompleteValue}
+            inputMode={inputModeValue}
+            aria-invalid={hasError ? 'true' : 'false'}
+            aria-describedby={
+              error ? `${inputId}-error` :
+              success ? `${inputId}-success` :
+              description ? `${inputId}-description` :
+              undefined
+            }
             {...props}
           />
 
@@ -209,8 +240,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 type="button"
                 onClick={handleClear}
                 className="mr-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                aria-label="Limpar campo"
               >
-                <span className={cn('block', iconSize)}>×</span>
+                <span className={cn('block', iconSize)} aria-hidden="true">×</span>
               </button>
             )}
 
@@ -220,11 +252,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 type="button"
                 onClick={togglePasswordVisibility}
                 className="mr-3 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
               >
                 {showPassword ? (
-                  <EyeOff className={iconSize} />
+                  <EyeOff className={iconSize} aria-hidden="true" />
                 ) : (
-                  <Eye className={iconSize} />
+                  <Eye className={iconSize} aria-hidden="true" />
                 )}
               </button>
             )}
@@ -264,23 +297,33 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
         {/* Description */}
         {description && !error && !success && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p id={`${inputId}-description`} className="text-sm text-description">
             {description}
           </p>
         )}
 
         {/* Error message */}
         {error && (
-          <p className="flex items-center gap-2 text-sm text-error-600 dark:text-error-400">
-            <AlertCircle className="w-4 h-4" />
+          <p
+            id={`${inputId}-error`}
+            className="flex items-center gap-2 text-sm text-error-600 dark:text-error-400"
+            role="alert"
+            aria-live="assertive"
+          >
+            <AlertCircle className="w-4 h-4" aria-hidden="true" />
             {error}
           </p>
         )}
 
         {/* Success message */}
         {success && !error && (
-          <p className="flex items-center gap-2 text-sm text-success-600 dark:text-success-400">
-            <CheckCircle className="w-4 h-4" />
+          <p
+            id={`${inputId}-success`}
+            className="flex items-center gap-2 text-sm text-success-600 dark:text-success-400"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle className="w-4 h-4" aria-hidden="true" />
             {success}
           </p>
         )}
@@ -293,9 +336,17 @@ Input.displayName = 'Input';
 
 // Textarea variant
 export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement>,
-    Omit<InputProps, 'type' | 'leftIcon' | 'rightIcon' | 'clearable' | 'onClear'> {
+  extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> {
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'default' | 'error' | 'success' | 'ghost';
+  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  persona?: 'enduser' | 'agent' | 'manager';
+  label?: string;
+  description?: string;
+  error?: string;
+  success?: string;
+  fullWidth?: boolean;
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
@@ -346,7 +397,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           id={textareaId}
           className={cn(
-            inputVariants({ variant: actualVariant, size, rounded, persona }),
+            inputVariants({ variant: actualVariant, size: size as 'xs' | 'sm' | 'md' | 'lg' | 'xl' | undefined, rounded, persona }),
             'min-h-[80px]',
             resizeClasses[resize],
             className
@@ -354,25 +405,42 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           disabled={disabled}
           value={value}
+          aria-invalid={hasError ? 'true' : 'false'}
+          aria-describedby={
+            error ? `${textareaId}-error` :
+            success ? `${textareaId}-success` :
+            description ? `${textareaId}-description` :
+            undefined
+          }
           {...props}
         />
 
         {description && !error && !success && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p id={`${textareaId}-description`} className="text-sm text-description">
             {description}
           </p>
         )}
 
         {error && (
-          <p className="flex items-center gap-2 text-sm text-error-600 dark:text-error-400">
-            <AlertCircle className="w-4 h-4" />
+          <p
+            id={`${textareaId}-error`}
+            className="flex items-center gap-2 text-sm text-error-600 dark:text-error-400"
+            role="alert"
+            aria-live="assertive"
+          >
+            <AlertCircle className="w-4 h-4" aria-hidden="true" />
             {error}
           </p>
         )}
 
         {success && !error && (
-          <p className="flex items-center gap-2 text-sm text-success-600 dark:text-success-400">
-            <CheckCircle className="w-4 h-4" />
+          <p
+            id={`${textareaId}-success`}
+            className="flex items-center gap-2 text-sm text-success-600 dark:text-success-400"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle className="w-4 h-4" aria-hidden="true" />
             {success}
           </p>
         )}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
   AchievementEngine,
 } from '@/lib/gamification/achievements';
@@ -27,6 +28,10 @@ import {
  * - challengeId?: string (for specific challenge)
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authResult = await verifyAuth(request);
     if (!authResult.authenticated) {
@@ -90,6 +95,10 @@ export async function GET(request: NextRequest) {
  * - react: React to recognition
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authResult = await verifyAuth(request);
     if (!authResult.authenticated) {

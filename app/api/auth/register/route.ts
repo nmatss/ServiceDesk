@@ -5,19 +5,14 @@ import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { validateJWTSecret } from '@/lib/config/env'
 import * as jose from 'jose'
 import { logger } from '@/lib/monitoring/logger';
-import { createRateLimitMiddleware } from '@/lib/rate-limit'
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter'
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
-// Rate limiting agressivo para registro (5/hora por IP)
-const registerRateLimit = createRateLimitMiddleware('auth-strict')
-
 export async function POST(request: NextRequest) {
-  // Aplicar rate limiting
-  const rateLimitResult = await registerRateLimit(request, '/api/auth/register')
-  if (rateLimitResult instanceof Response) {
-    return rateLimitResult // Rate limit exceeded
-  }
+  // SECURITY: Rate limiting agressivo para registro (3/hora por IP)
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_REGISTER)
+  if (rateLimitResponse) return rateLimitResponse
   try {
     const { name, email, password, tenant_slug, job_title, department, phone } = await request.json()
     // Validate required fields
@@ -148,6 +143,19 @@ export async function POST(request: NextRequest) {
       created_at: string
     }
 
+    // SECURITY: Import enterprise token manager
+    const {
+      generateAccessToken,
+      generateRefreshToken,
+      setAuthCookies,
+      generateDeviceFingerprint,
+      getOrCreateDeviceId,
+    } = await import('@/lib/auth/token-manager');
+
+    // Generate device fingerprint and ID
+    const deviceFingerprint = generateDeviceFingerprint(request);
+    const deviceId = getOrCreateDeviceId(request);
+
     // Generate JWT with tenant information
     const tokenPayload = {
       user_id: user.id,
@@ -155,14 +163,13 @@ export async function POST(request: NextRequest) {
       name: user.name,
       email: user.email,
       role: user.role,
-      tenant_slug: tenantContext.slug
+      tenant_slug: tenantContext.slug,
+      device_fingerprint: deviceFingerprint,
     }
 
-    const token = await new jose.SignJWT(tokenPayload)
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('8h')
-      .sign(JWT_SECRET)
+    // Generate access token (15 min) and refresh token (7 days)
+    const accessToken = await generateAccessToken(tokenPayload);
+    const refreshToken = await generateRefreshToken(tokenPayload, deviceFingerprint);
 
     // Prepare user data for response
     const userData = {
@@ -182,7 +189,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: 'Usuário criado com sucesso',
-      // Note: token is NOT included here - it's sent only via httpOnly cookie below
+      // Note: tokens are NOT included here - they're sent only via httpOnly cookies below
       user: userData,
       tenant: {
         id: tenantContext.id,
@@ -191,14 +198,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Set secure httpOnly cookie
-    response.cookies.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 8, // 8 hours
-      path: '/'
-    })
+    // Set secure httpOnly cookies (access token, refresh token, device ID)
+    setAuthCookies(response, accessToken, refreshToken, deviceId);
 
     // Set tenant context cookie for client-side access
     // IMPORTANT: Must use 'tenant-context' (hyphen) to match login, logout, middleware and edge-resolver

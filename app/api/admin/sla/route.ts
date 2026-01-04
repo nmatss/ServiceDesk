@@ -4,8 +4,13 @@ import { getAllSLAPolicies, createSLAPolicy, getSLAMetrics } from '@/lib/sla';
 import { CreateSLAPolicy } from '@/lib/types/database';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // GET - Listar todas as políticas de SLA ou métricas
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -47,6 +52,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Criar nova política de SLA
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

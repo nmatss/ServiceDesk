@@ -5,9 +5,14 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -69,7 +74,11 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação

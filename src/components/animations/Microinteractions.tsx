@@ -281,7 +281,7 @@ export function AnimatedProgress({
         />
       </div>
       {showValue && (
-        <div className="absolute right-0 -top-6 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+        <div className="absolute right-0 -top-6 text-xs font-medium text-description">
           {Math.round(animatedValue)}/{max}
         </div>
       )}

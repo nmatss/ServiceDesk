@@ -25,7 +25,8 @@ import {
   RectangleGroupIcon,
   ClipboardDocumentListIcon,
   PresentationChartLineIcon,
-  WrenchScrewdriverIcon
+  WrenchScrewdriverIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -192,6 +193,12 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
           ]
         },
         {
+          name: 'Equipes',
+          href: '/admin/teams',
+          icon: UserGroupIcon,
+          iconSolid: UserGroupIconSolid
+        },
+        {
           name: 'Relatórios',
           href: '/admin/reports',
           icon: ChartBarIcon,
@@ -213,6 +220,12 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
             { name: 'Auditoria', href: '/admin/governance?tab=audit', icon: ClipboardDocumentListIcon },
             { name: 'Compliance', href: '/admin/governance?tab=compliance', icon: DocumentTextIcon }
           ]
+        },
+        {
+          name: 'Base de Conhecimento',
+          href: '/admin/knowledge',
+          icon: BookOpenIcon,
+          iconSolid: BookOpenIcon
         },
         {
           name: 'Configurações',
@@ -245,7 +258,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
           submenu: [
             { name: 'Atribuídos a mim', href: '/tickets?assigned=me', icon: UserIcon, badge: ticketCounts.assigned },
             { name: 'Novo Ticket', href: '/tickets/new', icon: PlusIcon },
-            { name: 'Todos os Tickets', href: '/tickets', icon: TicketIcon },
+            { name: 'Todos', href: '/tickets', icon: TicketIcon },
             { name: 'Buscar', href: '/search', icon: MagnifyingGlassIcon }
           ]
         },
@@ -285,7 +298,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
           icon: TicketIcon,
           iconSolid: TicketIconSolid,
           submenu: [
-            { name: 'Meus Tickets', href: '/tickets', icon: UserIcon },
+            { name: 'Todos', href: '/tickets', icon: UserIcon },
             { name: 'Novo Ticket', href: '/tickets/new', icon: PlusIcon },
             { name: 'Em Aberto', href: '/tickets?status=open', icon: ClockIcon },
             { name: 'Resolvidos', href: '/tickets?status=resolved', icon: TicketIcon }
@@ -351,45 +364,52 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
             <div key={item.name}>
               {/* Main menu item */}
               <div
-                className={`relative group ${item.submenu ? 'cursor-pointer' : ''
+                className={`relative group ${item.submenu ? '' : ''
                   }`}
               >
                 {item.submenu ? (
-                  <button
-                    onClick={() => toggleSubmenu(item.name)}
-                    onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
-                    className={`
-                      sidebar-item w-full min-h-touch transition-all duration-200
-                      hover:scale-[1.02] active:scale-[0.98]
-                      ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''}
-                    `}
-                    aria-expanded={shouldExpand}
-                    aria-controls={`submenu-${item.name}`}
-                    aria-current={isItemActive ? 'page' : undefined}
-                    aria-label={`${item.name}${item.badge ? `, ${item.badge} itens` : ''}. ${shouldExpand ? 'Submenu aberto' : 'Submenu fechado'}. Pressione Enter para ${shouldExpand ? 'fechar' : 'abrir'}.`}
-                  >
-                    <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                  <div className="relative">
+                    <Link
+                      href={item.href}
+                      className={`
+                        sidebar-item min-h-touch transition-all duration-200
+                        hover:scale-[1.02] active:scale-[0.98] pr-10
+                        ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''}
+                      `}
+                      aria-current={isItemActive ? 'page' : undefined}
+                      aria-label={`Navegar para ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
+                    >
+                      <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                      {open && (
+                        <>
+                          <span className="ml-3 flex-1 text-left">{item.name}</span>
+                          {item.badge && (
+                            <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${item.badge} itens`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Link>
                     {open && (
-                      <>
-                        <span className="ml-3 flex-1 text-left">{item.name}</span>
-                        {item.badge && (
-                          <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${item.badge} itens`}>
-                            {item.badge}
-                          </span>
-                        )}
-                        <svg
-                          className={`ml-2 h-4 w-4 transition-transform duration-300 ${shouldExpand ? 'rotate-90' : ''
-                            }`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleSubmenu(item.name)
+                        }}
+                        onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                        aria-expanded={shouldExpand}
+                        aria-controls={`submenu-${item.name}`}
+                        aria-label={`${shouldExpand ? 'Fechar' : 'Abrir'} submenu de ${item.name}`}
+                      >
+                        <ChevronDownIcon
+                          className={`h-4 w-4 transition-transform duration-300 ${shouldExpand ? 'rotate-180' : ''}`}
                           aria-hidden="true"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </>
+                        />
+                      </button>
                     )}
-                  </button>
+                  </div>
                 ) : (
                   <Link
                     href={item.href}
@@ -450,7 +470,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                           transition-all duration-200 hover:translate-x-1 active:scale-[0.98]
                           ${isSubItemActive
                             ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                            : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                            : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                           }
                         `}
                         aria-current={isSubItemActive ? 'page' : undefined}
@@ -476,7 +496,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
       {/* User info at bottom */}
       {open && (
         <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
-          <div className="text-xs text-neutral-500 dark:text-neutral-400 text-center">
+          <div className="text-xs text-muted-content text-center">
             ServiceDesk Pro v2.0
           </div>
         </div>

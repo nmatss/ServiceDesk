@@ -4,8 +4,13 @@ import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // GET - Listar automações
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const user = await verifyTokenFromCookies(request);
@@ -105,6 +110,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Criar automação
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar tenant context
     const tenantContext = getTenantContextFromRequest(request);
@@ -225,6 +234,10 @@ export async function POST(request: NextRequest) {
 
 // PUT - Atualizar automação
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar tenant context
     const tenantContext = getTenantContextFromRequest(request);
@@ -350,6 +363,10 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Excluir automação
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar tenant context
     const tenantContext = getTenantContextFromRequest(request);

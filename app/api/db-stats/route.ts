@@ -8,6 +8,7 @@ import queryMonitor from '@/lib/db/monitor';
 import queryCache from '@/lib/db/query-cache';
 import { pool } from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

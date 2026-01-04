@@ -168,7 +168,7 @@ export default function AdvancedThemeToggle() {
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
               Personalizar Tema
             </h3>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            <p className="text-sm text-description">
               Escolha seu tema e esquema de cores preferidos
             </p>
           </div>
@@ -192,14 +192,14 @@ export default function AdvancedThemeToggle() {
                   <div className={`p-2 rounded-full mb-2 ${
                     theme === themeName
                       ? 'bg-brand-100 dark:bg-brand-800 text-brand-600 dark:text-brand-400'
-                      : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400'
+                      : 'bg-neutral-100 dark:bg-neutral-700 text-description'
                   }`}>
                     {getThemeIcon(themeName)}
                   </div>
                   <span className={`text-xs font-medium ${
                     theme === themeName
                       ? 'text-brand-700 dark:text-brand-300'
-                      : 'text-neutral-600 dark:text-neutral-400'
+                      : 'text-description'
                   }`}>
                     {getThemeLabel(themeName)}
                   </span>
@@ -260,7 +260,7 @@ export default function AdvancedThemeToggle() {
             {/* Custom Color Picker */}
             {showColorPicker && (
               <div className="mt-4 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg">
-                <h5 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-2">
+                <h5 className="text-xs font-medium text-description mb-2">
                   Cor Personalizada
                 </h5>
                 <div className="flex space-x-2">
@@ -275,7 +275,7 @@ export default function AdvancedThemeToggle() {
                     className="w-8 h-8 rounded border border-neutral-300 dark:border-neutral-600 cursor-pointer"
                   />
                   <div className="flex-1">
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    <p className="text-xs text-muted-content">
                       Escolha uma cor personalizada para o tema
                     </p>
                   </div>
@@ -286,7 +286,7 @@ export default function AdvancedThemeToggle() {
 
           {/* Footer */}
           <div className="p-4 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
-            <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="flex items-center justify-between text-xs text-muted-content">
               <span>Tema atual: {getThemeLabel(theme)}</span>
               <span>Sistema: {resolvedTheme === 'dark' ? 'Escuro' : 'Claro'}</span>
             </div>

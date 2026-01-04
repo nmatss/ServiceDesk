@@ -11,6 +11,7 @@ import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { AddActivityInput } from '@/lib/types/problem';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
@@ -21,7 +22,11 @@ interface RouteParams {
  * GET /api/problems/[id]/activities
  * List activities/timeline for a problem
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -101,7 +106,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * POST /api/problems/[id]/activities
  * Add a comment/activity to a problem
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -185,7 +194,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const activity = await problemQueries.addProblemActivity(
       tenant.organizationId,
       problemId,
-      payload.userId,
+      payload.userId ?? 0,
       input
     );
 

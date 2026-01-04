@@ -291,7 +291,7 @@ const CheckboxGroup = React.forwardRef<HTMLDivElement, CheckboxGroupProps>(
               </label>
             )}
             {description && !error && !success && (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              <p className="text-sm text-description">
                 {description}
               </p>
             )}

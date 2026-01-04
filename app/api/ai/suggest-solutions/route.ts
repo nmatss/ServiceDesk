@@ -4,6 +4,7 @@ import SolutionSuggester from '@/lib/ai/solution-suggester';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const suggestSolutionsSchema = z.object({
   ticketId: z.number().optional(),
@@ -17,6 +18,9 @@ const suggestSolutionsSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting para AI solution suggestions
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_SUGGEST);
+  if (rateLimitResponse) return rateLimitResponse;
   try {
     // Verificar autenticação
     // Verificar autenticação

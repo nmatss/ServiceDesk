@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
   getCacheStats,
   cleanupExpiredCache,
@@ -15,6 +16,10 @@ import {
 
 // GET - Estatísticas do cache
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
@@ -58,6 +63,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Gerenciar cache
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
@@ -187,6 +196,10 @@ export async function POST(request: NextRequest) {
 
 // PUT - Configurar cache
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
@@ -244,6 +257,10 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - Limpar cache
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');

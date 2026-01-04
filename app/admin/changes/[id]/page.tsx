@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import PageHeader from '@/components/ui/PageHeader'
 import {
   ArrowPathIcon,
   ArrowLeftIcon,
@@ -33,7 +34,7 @@ interface Change {
   id: string
   title: string
   description: string
-  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'scheduled' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
+  status: 'draft' | 'submitted' | 'under_review' | 'pending_cab' | 'approved' | 'scheduled' | 'in_progress' | 'completed' | 'failed' | 'cancelled'
   category: 'standard' | 'normal' | 'emergency'
   priority: 'low' | 'medium' | 'high' | 'critical'
   risk_level: number // 1-5
@@ -175,16 +176,16 @@ Ponto de não retorno: Após início da otimização de queries`,
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-700'
-      case 'submitted': return 'bg-blue-100 text-blue-700'
-      case 'under_review': return 'bg-yellow-100 text-yellow-700'
-      case 'approved': return 'bg-green-100 text-green-700'
-      case 'scheduled': return 'bg-indigo-100 text-indigo-700'
-      case 'in_progress': return 'bg-purple-100 text-purple-700'
-      case 'completed': return 'bg-green-100 text-green-700'
-      case 'failed': return 'bg-red-100 text-red-700'
-      case 'cancelled': return 'bg-gray-100 text-gray-700'
-      default: return 'bg-gray-100 text-gray-700'
+      case 'draft': return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+      case 'submitted': return 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+      case 'under_review': return 'bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300'
+      case 'approved': return 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300'
+      case 'scheduled': return 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+      case 'in_progress': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+      case 'completed': return 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300'
+      case 'failed': return 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300'
+      case 'cancelled': return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
+      default: return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
     }
   }
 
@@ -205,10 +206,10 @@ Ponto de não retorno: Após início da otimização de queries`,
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'standard': return 'bg-green-100 text-green-700'
-      case 'normal': return 'bg-blue-100 text-blue-700'
-      case 'emergency': return 'bg-red-100 text-red-700'
-      default: return 'bg-gray-100 text-gray-700'
+      case 'standard': return 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300'
+      case 'normal': return 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+      case 'emergency': return 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300'
+      default: return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
     }
   }
 
@@ -240,21 +241,21 @@ Ponto de não retorno: Após início da otimização de queries`,
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
       </div>
     )
   }
 
   if (!change) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <ArrowPathIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900">Mudança não encontrada</h2>
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <ArrowPathIcon className="w-16 h-16 text-neutral-400 dark:text-neutral-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Mudança não encontrada</h2>
           <button
             onClick={() => router.push('/admin/changes')}
-            className="mt-4 text-indigo-600 hover:text-indigo-700"
+            className="mt-4 text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
           >
             Voltar para lista
           </button>
@@ -272,64 +273,193 @@ Ponto de não retorno: Após início da otimização de queries`,
   ]
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4">
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => router.push('/admin/changes')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                <span>Mudança</span>
-                <ChevronRightIcon className="w-4 h-4" />
-                <span className="font-mono">CHG-{change.id}</span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                {change.title}
-              </h1>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-purple-50/20 dark:from-neutral-950 dark:via-brand-950/20 dark:to-purple-950/10 pb-6 animate-fade-in">
+      {/* Modern Header */}
+      <div className="glass-panel border-b border-neutral-200/50 dark:border-neutral-700/50 mb-6 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
+          <PageHeader
+            title={change.title}
+            description={`CHG-${change.id} • ${getStatusLabel(change.status)}`}
+            icon={ArrowPathIcon}
+            breadcrumbs={[
+              { label: 'Admin', href: '/admin' },
+              { label: 'Mudanças', href: '/admin/changes' },
+              { label: `CHG-${change.id}` }
+            ]}
+            actions={[
+              {
+                label: 'Voltar',
+                onClick: () => router.push('/admin/changes'),
+                icon: ArrowLeftIcon,
+                variant: 'ghost'
+              },
+              {
+                label: 'Editar',
+                onClick: () => {},
+                icon: PencilIcon,
+                variant: 'secondary'
+              }
+            ]}
+          />
 
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(change.status)}`}>
+          {/* Status Badges and Info */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${getStatusColor(change.status)} shadow-sm`}>
               {getStatusLabel(change.status)}
             </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(change.category)}`}>
+            <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${getCategoryColor(change.category)} shadow-sm`}>
               {getCategoryLabel(change.category)}
             </span>
             {change.cab_required && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700 flex items-center gap-1">
+              <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-700 flex items-center gap-1.5 shadow-sm">
                 <UserGroupIcon className="w-4 h-4" />
                 CAB Required
               </span>
             )}
             {change.scheduled_start && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700 flex items-center gap-1">
+              <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-700 flex items-center gap-1.5 shadow-sm">
                 <CalendarDaysIcon className="w-4 h-4" />
                 {formatDate(change.scheduled_start)}
               </span>
             )}
           </div>
 
-          {/* Risk Indicator */}
-          <div className="flex items-center gap-4 mb-4">
-            <span className="text-sm text-gray-500">Risco:</span>
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map(level => (
-                <div
-                  key={level}
-                  className={`w-6 h-3 rounded ${level <= change.risk_level ? getRiskColor(change.risk_level) : 'bg-gray-200'}`}
-                />
-              ))}
+          {/* Visual Approval Workflow */}
+          <div className="mt-6 glass-panel bg-gradient-to-r from-success-50/50 via-brand-50/50 to-purple-50/50 dark:from-success-950/20 dark:via-brand-950/20 dark:to-purple-950/20">
+            <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-4">Workflow de Aprovação</h3>
+            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
+              {/* Step 1: Submitted */}
+              <div className="flex flex-col items-center min-w-[100px] transition-all animate-slide-up">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  ['submitted', 'pending_cab', 'approved', 'scheduled', 'in_progress', 'completed'].includes(change.status)
+                    ? 'bg-success-500 text-white shadow-glow-success'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
+                }`}>
+                  <CheckCircleIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">Submetida</span>
+              </div>
+
+              <div className={`flex-1 h-1 mx-2 transition-all ${
+                ['pending_cab', 'approved', 'scheduled', 'in_progress', 'completed'].includes(change.status)
+                  ? 'bg-success-500'
+                  : 'bg-neutral-200 dark:bg-neutral-700'
+              }`}></div>
+
+              {/* Step 2: CAB Review */}
+              <div className="flex flex-col items-center min-w-[100px] transition-all animate-slide-up delay-75">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  change.cab_decision === 'approved'
+                    ? 'bg-success-500 text-white shadow-glow-success'
+                    : change.status === 'pending_cab'
+                    ? 'bg-purple-500 text-white animate-pulse-soft shadow-glow-purple'
+                    : ['approved', 'scheduled', 'in_progress', 'completed'].includes(change.status)
+                    ? 'bg-success-500 text-white shadow-glow-success'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
+                }`}>
+                  <UserGroupIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">CAB Review</span>
+              </div>
+
+              <div className={`flex-1 h-1 mx-2 transition-all ${
+                ['approved', 'scheduled', 'in_progress', 'completed'].includes(change.status)
+                  ? 'bg-success-500'
+                  : 'bg-neutral-200 dark:bg-neutral-700'
+              }`}></div>
+
+              {/* Step 3: Approved */}
+              <div className="flex flex-col items-center min-w-[100px] transition-all animate-slide-up delay-150">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  ['approved', 'scheduled', 'in_progress', 'completed'].includes(change.status)
+                    ? 'bg-success-500 text-white shadow-glow-success'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
+                }`}>
+                  <HandThumbUpIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">Aprovada</span>
+              </div>
+
+              <div className={`flex-1 h-1 mx-2 transition-all ${
+                ['scheduled', 'in_progress', 'completed'].includes(change.status)
+                  ? 'bg-brand-500'
+                  : 'bg-neutral-200 dark:bg-neutral-700'
+              }`}></div>
+
+              {/* Step 4: Scheduled */}
+              <div className="flex flex-col items-center min-w-[100px] transition-all animate-slide-up delay-200">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  change.status === 'scheduled'
+                    ? 'bg-brand-500 text-white animate-pulse-soft shadow-glow-brand'
+                    : ['in_progress', 'completed'].includes(change.status)
+                    ? 'bg-brand-500 text-white shadow-glow-brand'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
+                }`}>
+                  <CalendarDaysIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">Agendada</span>
+              </div>
+
+              <div className={`flex-1 h-1 mx-2 transition-all ${
+                ['in_progress', 'completed'].includes(change.status)
+                  ? 'bg-brand-500'
+                  : 'bg-neutral-200 dark:bg-neutral-700'
+              }`}></div>
+
+              {/* Step 5: In Progress */}
+              <div className="flex flex-col items-center min-w-[100px] transition-all animate-slide-up delay-300">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  change.status === 'in_progress'
+                    ? 'bg-warning-500 text-white shadow-glow-warning'
+                    : change.status === 'completed'
+                    ? 'bg-brand-500 text-white shadow-glow-brand'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
+                }`}>
+                  <PlayIcon className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">Em Execução</span>
+              </div>
+
+              <div className={`flex-1 h-1 mx-2 transition-all ${
+                change.status === 'completed' ? 'bg-success-600' : 'bg-neutral-200 dark:bg-neutral-700'
+              }`}></div>
+
+              {/* Step 6: Completed */}
+              <div className="flex flex-col items-center min-w-[100px] transition-all animate-slide-up delay-400">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                  change.status === 'completed'
+                    ? 'bg-success-600 text-white shadow-glow-success'
+                    : change.status === 'failed'
+                    ? 'bg-danger-600 text-white shadow-glow-danger'
+                    : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
+                }`}>
+                  {change.status === 'failed' ? (
+                    <XCircleIcon className="w-6 h-6" />
+                  ) : (
+                    <CheckCircleIcon className="w-6 h-6" />
+                  )}
+                </div>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">Concluída</span>
+              </div>
             </div>
-            <span className="text-sm font-medium text-gray-700">
-              {change.risk_level <= 2 ? 'Baixo' : change.risk_level <= 3 ? 'Médio' : change.risk_level <= 4 ? 'Alto' : 'Crítico'}
-            </span>
+          </div>
+
+          {/* Risk Indicator */}
+          <div className="mt-6 glass-panel animate-slide-up">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Nível de Risco:</span>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map(level => (
+                  <div
+                    key={level}
+                    className={`w-8 h-3 rounded-full transition-all ${level <= change.risk_level ? getRiskColor(change.risk_level) + ' shadow-md' : 'bg-neutral-200 dark:bg-neutral-700'}`}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                {change.risk_level <= 2 ? 'Baixo' : change.risk_level <= 3 ? 'Médio' : change.risk_level <= 4 ? 'Alto' : 'Crítico'}
+              </span>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -338,10 +468,10 @@ Ponto de não retorno: Após início da otimização de queries`,
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg transition-colors ${
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === tab.id
-                    ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 border-b-2 border-brand-600 dark:border-brand-400'
+                    : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -359,32 +489,32 @@ Ponto de não retorno: Após início da otimização de queries`,
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3">Descrição</h2>
-                  <p className="text-gray-600 whitespace-pre-wrap">{change.description}</p>
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Descrição</h2>
+                  <p className="text-description whitespace-pre-wrap">{change.description}</p>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3">Justificativa</h2>
-                  <p className="text-gray-600 whitespace-pre-wrap">{change.justification}</p>
+                <div className="glass-panel animate-slide-up delay-75">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Justificativa</h2>
+                  <p className="text-description whitespace-pre-wrap">{change.justification}</p>
                 </div>
 
                 {/* Schedule */}
                 {change.scheduled_start && (
-                  <div className="bg-indigo-50 rounded-xl border border-indigo-200 p-4 sm:p-6">
-                    <h2 className="font-semibold text-indigo-800 mb-3 flex items-center gap-2">
+                  <div className="glass-panel bg-brand-50/50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800 animate-slide-up delay-150">
+                    <h2 className="font-semibold text-brand-800 dark:text-brand-300 mb-3 flex items-center gap-2">
                       <CalendarDaysIcon className="w-5 h-5" />
                       Janela de Manutenção
                     </h2>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-indigo-600">Início Planejado</p>
-                        <p className="font-medium text-indigo-900">{formatDate(change.scheduled_start)}</p>
+                        <p className="text-sm text-brand-600 dark:text-brand-400">Início Planejado</p>
+                        <p className="font-medium text-brand-900 dark:text-brand-200">{formatDate(change.scheduled_start)}</p>
                       </div>
                       {change.scheduled_end && (
                         <div>
-                          <p className="text-sm text-indigo-600">Fim Planejado</p>
-                          <p className="font-medium text-indigo-900">{formatDate(change.scheduled_end)}</p>
+                          <p className="text-sm text-brand-600 dark:text-brand-400">Fim Planejado</p>
+                          <p className="font-medium text-brand-900 dark:text-brand-200">{formatDate(change.scheduled_end)}</p>
                         </div>
                       )}
                     </div>
@@ -392,35 +522,35 @@ Ponto de não retorno: Após início da otimização de queries`,
                 )}
 
                 {/* Approvals Status */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">Status de Aprovações</h2>
+                <div className="glass-panel animate-slide-up delay-200">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Status de Aprovações</h2>
                   <div className="space-y-3">
                     {change.approvals.map((approval, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={index} className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
                         <div className="flex items-center gap-3">
                           {approval.status === 'approved' ? (
-                            <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                            <CheckCircleIcon className="w-5 h-5 text-success-500" />
                           ) : approval.status === 'rejected' ? (
-                            <XCircleIcon className="w-5 h-5 text-red-500" />
+                            <XCircleIcon className="w-5 h-5 text-danger-500" />
                           ) : (
-                            <ClockIcon className="w-5 h-5 text-gray-400" />
+                            <ClockIcon className="w-5 h-5 text-icon-muted" />
                           )}
                           <div>
-                            <p className="font-medium text-gray-900">{approval.user}</p>
-                            <p className="text-sm text-gray-500">{approval.role}</p>
+                            <p className="font-medium text-neutral-900 dark:text-neutral-100">{approval.user}</p>
+                            <p className="text-sm text-muted-content">{approval.role}</p>
                           </div>
                         </div>
                         <div className="text-right">
                           <span className={`text-sm font-medium ${
-                            approval.status === 'approved' ? 'text-green-600' :
-                            approval.status === 'rejected' ? 'text-red-600' :
-                            'text-gray-500'
+                            approval.status === 'approved' ? 'text-success-600 dark:text-success-400' :
+                            approval.status === 'rejected' ? 'text-danger-600 dark:text-danger-400' :
+                            'text-muted-content'
                           }`}>
                             {approval.status === 'approved' ? 'Aprovado' :
                              approval.status === 'rejected' ? 'Rejeitado' : 'Pendente'}
                           </span>
                           {approval.timestamp && (
-                            <p className="text-xs text-gray-500">{formatDate(approval.timestamp)}</p>
+                            <p className="text-xs text-muted-content">{formatDate(approval.timestamp)}</p>
                           )}
                         </div>
                       </div>
@@ -433,33 +563,33 @@ Ponto de não retorno: Após início da otimização de queries`,
             {/* Plans Tab */}
             {activeTab === 'plans' && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <RocketLaunchIcon className="w-5 h-5 text-blue-500" />
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <RocketLaunchIcon className="w-5 h-5 text-brand-500" />
                     Plano de Implementação
                   </h2>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{change.implementation_plan}</pre>
+                  <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
+                    <pre className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap font-sans">{change.implementation_plan}</pre>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <ArrowUturnLeftIcon className="w-5 h-5 text-orange-500" />
+                <div className="glass-panel animate-slide-up delay-75">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <ArrowUturnLeftIcon className="w-5 h-5 text-warning-500" />
                     Plano de Rollback
                   </h2>
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{change.rollback_plan}</pre>
+                  <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg p-4">
+                    <pre className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap font-sans">{change.rollback_plan}</pre>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <BeakerIcon className="w-5 h-5 text-green-500" />
+                <div className="glass-panel animate-slide-up delay-150">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <BeakerIcon className="w-5 h-5 text-success-500" />
                     Plano de Testes
                   </h2>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{change.test_plan}</pre>
+                  <div className="bg-success-50 dark:bg-success-900/20 border border-success-200 dark:border-success-800 rounded-lg p-4">
+                    <pre className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap font-sans">{change.test_plan}</pre>
                   </div>
                 </div>
               </>
@@ -470,29 +600,29 @@ Ponto de não retorno: Após início da otimização de queries`,
               <>
                 {change.cab_required ? (
                   <>
-                    <div className={`rounded-xl border p-4 sm:p-6 ${
-                      change.cab_decision === 'approved' ? 'bg-green-50 border-green-200' :
-                      change.cab_decision === 'rejected' ? 'bg-red-50 border-red-200' :
-                      'bg-yellow-50 border-yellow-200'
+                    <div className={`glass-panel animate-slide-up ${
+                      change.cab_decision === 'approved' ? 'bg-success-50/50 dark:bg-success-900/20 border-success-200 dark:border-success-800' :
+                      change.cab_decision === 'rejected' ? 'bg-danger-50/50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800' :
+                      'bg-warning-50/50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-800'
                     }`}>
                       <div className="flex items-center gap-3 mb-3">
                         <UserGroupIcon className={`w-6 h-6 ${
-                          change.cab_decision === 'approved' ? 'text-green-600' :
-                          change.cab_decision === 'rejected' ? 'text-red-600' :
-                          'text-yellow-600'
+                          change.cab_decision === 'approved' ? 'text-success-600 dark:text-success-400' :
+                          change.cab_decision === 'rejected' ? 'text-danger-600 dark:text-danger-400' :
+                          'text-warning-600 dark:text-warning-400'
                         }`} />
                         <div>
-                          <h2 className="font-semibold text-gray-900">Decisão do CAB</h2>
+                          <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">Decisão do CAB</h2>
                           {change.cab_meeting_date && (
-                            <p className="text-sm text-gray-500">Reunião: {formatDate(change.cab_meeting_date)}</p>
+                            <p className="text-sm text-muted-content">Reunião: {formatDate(change.cab_meeting_date)}</p>
                           )}
                         </div>
                       </div>
                       <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
-                        change.cab_decision === 'approved' ? 'bg-green-100 text-green-700' :
-                        change.cab_decision === 'rejected' ? 'bg-red-100 text-red-700' :
-                        change.cab_decision === 'deferred' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-gray-100 text-gray-700'
+                        change.cab_decision === 'approved' ? 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300' :
+                        change.cab_decision === 'rejected' ? 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300' :
+                        change.cab_decision === 'deferred' ? 'bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300' :
+                        'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
                       }`}>
                         {change.cab_decision === 'approved' ? 'Aprovada' :
                          change.cab_decision === 'rejected' ? 'Rejeitada' :
@@ -500,45 +630,45 @@ Ponto de não retorno: Após início da otimização de queries`,
                       </span>
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                      <h2 className="font-semibold text-gray-900 mb-4">Votos do CAB</h2>
+                    <div className="glass-panel animate-slide-up delay-75">
+                      <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Votos do CAB</h2>
                       <div className="space-y-3">
                         {change.cab_votes.map((vote, index) => (
-                          <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                          <div key={index} className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:bg-neutral-100 dark:hover:bg-neutral-700/50">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-3">
                                 {vote.vote === 'approve' ? (
-                                  <HandThumbUpIcon className="w-5 h-5 text-green-500" />
+                                  <HandThumbUpIcon className="w-5 h-5 text-success-500" />
                                 ) : vote.vote === 'reject' ? (
-                                  <HandThumbDownIcon className="w-5 h-5 text-red-500" />
+                                  <HandThumbDownIcon className="w-5 h-5 text-danger-500" />
                                 ) : (
-                                  <div className="w-5 h-5 rounded-full bg-gray-300" />
+                                  <div className="w-5 h-5 rounded-full bg-neutral-300 dark:bg-neutral-600" />
                                 )}
-                                <span className="font-medium text-gray-900">{vote.user}</span>
+                                <span className="font-medium text-neutral-900 dark:text-neutral-100">{vote.user}</span>
                               </div>
                               <span className={`text-sm font-medium ${
-                                vote.vote === 'approve' ? 'text-green-600' :
-                                vote.vote === 'reject' ? 'text-red-600' :
-                                'text-gray-500'
+                                vote.vote === 'approve' ? 'text-success-600 dark:text-success-400' :
+                                vote.vote === 'reject' ? 'text-danger-600 dark:text-danger-400' :
+                                'text-muted-content'
                               }`}>
                                 {vote.vote === 'approve' ? 'Aprova' :
                                  vote.vote === 'reject' ? 'Rejeita' : 'Abstém'}
                               </span>
                             </div>
                             {vote.comment && (
-                              <p className="text-sm text-gray-600 italic">"{vote.comment}"</p>
+                              <p className="text-sm text-description italic">"{vote.comment}"</p>
                             )}
-                            <p className="text-xs text-gray-500 mt-1">{formatDate(vote.timestamp)}</p>
+                            <p className="text-xs text-muted-content mt-1">{formatDate(vote.timestamp)}</p>
                           </div>
                         ))}
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                    <ShieldCheckIcon className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                    <h2 className="font-semibold text-gray-900 mb-2">CAB não requerido</h2>
-                    <p className="text-gray-500">Esta mudança foi classificada como padrão e não requer aprovação do CAB</p>
+                  <div className="glass-panel text-center animate-slide-up">
+                    <ShieldCheckIcon className="w-12 h-12 text-success-500 mx-auto mb-3" />
+                    <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">CAB não requerido</h2>
+                    <p className="text-muted-content">Esta mudança foi classificada como padrão e não requer aprovação do CAB</p>
                   </div>
                 )}
               </>
@@ -548,34 +678,34 @@ Ponto de não retorno: Após início da otimização de queries`,
             {activeTab === 'impact' && (
               <>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Risco</p>
-                    <p className="text-2xl font-bold text-orange-600">{change.risk_level}/5</p>
+                  <div className="glass-panel text-center animate-slide-up">
+                    <p className="text-sm text-muted-content mb-1">Risco</p>
+                    <p className="text-2xl font-bold text-warning-600 dark:text-warning-400">{change.risk_level}/5</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Impacto</p>
-                    <p className="text-2xl font-bold text-red-600">{change.impact_level}/5</p>
+                  <div className="glass-panel text-center animate-slide-up delay-75">
+                    <p className="text-sm text-muted-content mb-1">Impacto</p>
+                    <p className="text-2xl font-bold text-danger-600 dark:text-danger-400">{change.impact_level}/5</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Urgência</p>
-                    <p className="text-2xl font-bold text-yellow-600">{change.urgency_level}/5</p>
+                  <div className="glass-panel text-center animate-slide-up delay-150">
+                    <p className="text-sm text-muted-content mb-1">Urgência</p>
+                    <p className="text-2xl font-bold text-warning-600 dark:text-warning-400">{change.urgency_level}/5</p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">Serviços Afetados</h2>
+                <div className="glass-panel animate-slide-up delay-200">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Serviços Afetados</h2>
                   <div className="flex flex-wrap gap-2">
                     {change.affected_services.map((service, index) => (
-                      <span key={index} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm">
+                      <span key={index} className="px-3 py-1.5 bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300 rounded-lg text-sm transition-all hover:shadow-md">
                         {service}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <ServerIcon className="w-5 h-5 text-gray-400" />
+                <div className="glass-panel animate-slide-up delay-300">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                    <ServerIcon className="w-5 h-5 text-icon-muted" />
                     CIs Afetados
                   </h2>
                   <div className="space-y-2">
@@ -583,16 +713,16 @@ Ponto de não retorno: Após início da otimização de queries`,
                       <div
                         key={ci.id}
                         onClick={() => router.push(`/admin/cmdb/${ci.id}`)}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                        className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/50 cursor-pointer transition-all"
                       >
                         <div className="flex items-center gap-3">
-                          <ServerIcon className="w-5 h-5 text-gray-400" />
+                          <ServerIcon className="w-5 h-5 text-icon-muted" />
                           <div>
-                            <p className="font-medium text-gray-900">{ci.name}</p>
-                            <p className="text-xs text-gray-500 capitalize">{ci.type}</p>
+                            <p className="font-medium text-neutral-900 dark:text-neutral-100">{ci.name}</p>
+                            <p className="text-xs text-muted-content capitalize">{ci.type}</p>
                           </div>
                         </div>
-                        <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                        <ChevronRightIcon className="w-5 h-5 text-icon-muted" />
                       </div>
                     ))}
                   </div>
@@ -600,43 +730,43 @@ Ponto de não retorno: Após início da otimização de queries`,
 
                 {/* Related Items */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Problemas Relacionados</h3>
+                  <div className="glass-panel animate-slide-up delay-400">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Problemas Relacionados</h3>
                     {change.related_problems.length > 0 ? (
                       <div className="space-y-2">
                         {change.related_problems.map(id => (
                           <div
                             key={id}
                             onClick={() => router.push(`/admin/problems/${id}`)}
-                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                            className="flex items-center gap-2 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer transition-all"
                           >
                             <ExclamationTriangleIcon className="w-4 h-4 text-purple-500" />
-                            <span className="text-sm">PRB-{id}</span>
+                            <span className="text-sm text-neutral-700 dark:text-neutral-300">PRB-{id}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">Nenhum problema vinculado</p>
+                      <p className="text-sm text-muted-content">Nenhum problema vinculado</p>
                     )}
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Incidentes Relacionados</h3>
+                  <div className="glass-panel animate-slide-up delay-500">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Incidentes Relacionados</h3>
                     {change.related_incidents.length > 0 ? (
                       <div className="space-y-2 max-h-32 overflow-y-auto">
                         {change.related_incidents.map(id => (
                           <div
                             key={id}
                             onClick={() => router.push(`/tickets/${id}`)}
-                            className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                            className="flex items-center gap-2 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 rounded cursor-pointer transition-all"
                           >
-                            <ExclamationTriangleIcon className="w-4 h-4 text-orange-500" />
-                            <span className="text-sm">INC-{id}</span>
+                            <ExclamationTriangleIcon className="w-4 h-4 text-warning-500" />
+                            <span className="text-sm text-neutral-700 dark:text-neutral-300">INC-{id}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">Nenhum incidente vinculado</p>
+                      <p className="text-sm text-muted-content">Nenhum incidente vinculado</p>
                     )}
                   </div>
                 </div>
@@ -645,17 +775,17 @@ Ponto de não retorno: Após início da otimização de queries`,
 
             {/* Timeline Tab */}
             {activeTab === 'timeline' && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">Histórico de Atividades</h2>
+              <div className="glass-panel animate-slide-up">
+                <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Histórico de Atividades</h2>
                 <div className="space-y-4">
                   {change.timeline.map((event, index) => (
-                    <div key={event.id} className="flex gap-4">
+                    <div key={event.id} className="flex gap-4 animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
                       <div className="flex flex-col items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          event.type === 'approval' ? 'bg-green-100 text-green-600' :
-                          event.type === 'cab_vote' ? 'bg-purple-100 text-purple-600' :
-                          event.type === 'implementation' ? 'bg-blue-100 text-blue-600' :
-                          'bg-gray-100 text-gray-600'
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                          event.type === 'approval' ? 'bg-success-100 dark:bg-success-900/30 text-success-600 dark:text-success-400' :
+                          event.type === 'cab_vote' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                          event.type === 'implementation' ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' :
+                          'bg-neutral-100 dark:bg-neutral-800 text-description'
                         }`}>
                           {event.type === 'approval' ? <CheckCircleIcon className="w-4 h-4" /> :
                            event.type === 'cab_vote' ? <UserGroupIcon className="w-4 h-4" /> :
@@ -664,12 +794,12 @@ Ponto de não retorno: Após início da otimização de queries`,
                            <ArrowPathIcon className="w-4 h-4" />}
                         </div>
                         {index < change.timeline.length - 1 && (
-                          <div className="w-0.5 h-full bg-gray-200 mt-2" />
+                          <div className="w-0.5 h-full bg-neutral-200 dark:bg-neutral-700 mt-2" />
                         )}
                       </div>
                       <div className="flex-1 pb-4">
-                        <p className="text-gray-900">{event.content}</p>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                        <p className="text-neutral-900 dark:text-neutral-100">{event.content}</p>
+                        <div className="flex items-center gap-2 mt-1 text-sm text-muted-content">
                           <span>{event.user}</span>
                           <span>•</span>
                           <span>{formatDate(event.timestamp)}</span>
@@ -685,32 +815,32 @@ Ponto de não retorno: Após início da otimização de queries`,
           {/* Sidebar */}
           <div className="space-y-4">
             {/* Actions */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Ações</h3>
+            <div className="glass-panel animate-slide-up">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Ações</h3>
               <div className="space-y-2">
                 {change.status === 'scheduled' && (
-                  <button className="w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center justify-center gap-2">
+                  <button className="w-full px-4 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2">
                     <PlayIcon className="w-4 h-4" />
                     Iniciar Execução
                   </button>
                 )}
                 {change.status === 'in_progress' && (
                   <>
-                    <button className="w-full px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 flex items-center justify-center gap-2">
+                    <button className="w-full px-4 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2">
                       <CheckCircleIcon className="w-4 h-4" />
                       Concluir com Sucesso
                     </button>
-                    <button className="w-full px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 flex items-center justify-center gap-2">
+                    <button className="w-full px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2">
                       <XCircleIcon className="w-4 h-4" />
                       Marcar como Falha
                     </button>
-                    <button className="w-full px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 flex items-center justify-center gap-2">
+                    <button className="w-full px-4 py-2 bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300 rounded-lg text-sm font-medium hover:bg-warning-200 dark:hover:bg-warning-900/50 transition-all flex items-center justify-center gap-2">
                       <ArrowUturnLeftIcon className="w-4 h-4" />
                       Executar Rollback
                     </button>
                   </>
                 )}
-                <button className="w-full px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 flex items-center justify-center gap-2">
+                <button className="w-full px-4 py-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg text-sm font-medium hover:bg-brand-200 dark:hover:bg-brand-900/50 transition-all flex items-center justify-center gap-2">
                   <PencilIcon className="w-4 h-4" />
                   Editar RFC
                 </button>
@@ -718,47 +848,47 @@ Ponto de não retorno: Após início da otimização de queries`,
             </div>
 
             {/* Details */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Informações</h3>
+            <div className="glass-panel animate-slide-up delay-75">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Informações</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Responsável</span>
-                  <span className="font-medium text-gray-900">{change.assigned_name || 'Não atribuído'}</span>
+                  <span className="text-muted-content">Responsável</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{change.assigned_name || 'Não atribuído'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Solicitante</span>
-                  <span className="font-medium text-gray-900">{change.created_by_name}</span>
+                  <span className="text-muted-content">Solicitante</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{change.created_by_name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Criado em</span>
-                  <span className="font-medium text-gray-900">{formatDate(change.created_at)}</span>
+                  <span className="text-muted-content">Criado em</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatDate(change.created_at)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Atualizado</span>
-                  <span className="font-medium text-gray-900">{formatDate(change.updated_at)}</span>
+                  <span className="text-muted-content">Atualizado</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatDate(change.updated_at)}</span>
                 </div>
               </div>
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Métricas</h3>
+            <div className="glass-panel animate-slide-up delay-150">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Métricas</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">{change.affected_services.length}</p>
-                  <p className="text-xs text-gray-500">Serviços</p>
+                <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:shadow-md">
+                  <p className="text-2xl font-bold text-danger-600 dark:text-danger-400">{change.affected_services.length}</p>
+                  <p className="text-xs text-muted-content">Serviços</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{change.affected_cis.length}</p>
-                  <p className="text-xs text-gray-500">CIs</p>
+                <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:shadow-md">
+                  <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">{change.affected_cis.length}</p>
+                  <p className="text-xs text-muted-content">CIs</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{change.approvals.filter(a => a.status === 'approved').length}</p>
-                  <p className="text-xs text-gray-500">Aprovações</p>
+                <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:shadow-md">
+                  <p className="text-2xl font-bold text-success-600 dark:text-success-400">{change.approvals.filter(a => a.status === 'approved').length}</p>
+                  <p className="text-xs text-muted-content">Aprovações</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">{change.cab_votes.length}</p>
-                  <p className="text-xs text-gray-500">Votos CAB</p>
+                <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:shadow-md">
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{change.cab_votes.length}</p>
+                  <p className="text-xs text-muted-content">Votos CAB</p>
                 </div>
               </div>
             </div>
@@ -767,21 +897,21 @@ Ponto de não retorno: Após início da otimização de queries`,
       </div>
 
       {/* Mobile Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 glass-panel border-t shadow-lg p-3 sm:hidden safe-bottom animate-slide-up">
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/admin/changes')}
-            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 rounded-lg transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700"
           >
             Voltar
           </button>
           {change.status === 'scheduled' && (
-            <button className="flex-1 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg">
+            <button className="flex-1 py-2.5 text-sm font-medium text-white bg-success-600 hover:bg-success-700 rounded-lg transition-all">
               Iniciar
             </button>
           )}
           {change.status !== 'scheduled' && (
-            <button className="flex-1 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg">
+            <button className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all">
               Editar
             </button>
           )}

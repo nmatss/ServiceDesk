@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import PageHeader from '@/components/ui/PageHeader'
 import StatsCard, { StatsGrid, StatsCardSkeleton } from '@/components/ui/StatsCard'
 import { logger } from '@/lib/monitoring/logger';
 import {
@@ -9,7 +10,8 @@ import {
   EyeIcon,
   PlusIcon,
   FunnelIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ChartPieIcon
 } from '@heroicons/react/24/outline'
 
 interface DashboardData {
@@ -93,7 +95,7 @@ interface DashboardData {
 }
 
 interface ModernDashboardProps {
-  userRole: 'admin' | 'agent' | 'user'
+  userRole: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin'
   period?: number
 }
 
@@ -156,7 +158,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
           Erro ao carregar dashboard
         </h3>
-        <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+        <p className="text-description mb-4">
           {error}
         </p>
         <button onClick={refresh} className="btn btn-primary">
@@ -181,37 +183,33 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-neutral-600 dark:text-neutral-400">
-            {userRole === 'admin' ? 'Visão geral do sistema' :
-             userRole === 'agent' ? 'Seus tickets e performance' :
-             'Seus tickets de suporte'}
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex items-center space-x-3">
-          <button
-            onClick={refresh}
-            disabled={refreshing}
-            className="btn btn-secondary"
-          >
-            <ArrowPathIcon className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Atualizando...' : 'Atualizar'}
-          </button>
-          {userRole !== 'user' && (
-            <button
-              onClick={() => router.push('/admin/reports')}
-              className="btn btn-primary"
-            >
-              <ChartBarIcon className="h-4 w-4 mr-2" />
-              Relatórios
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description={
+          userRole === 'admin' ? 'Visão geral do sistema' :
+          userRole === 'agent' ? 'Seus tickets e performance' :
+          'Seus tickets de suporte'
+        }
+        icon={ChartPieIcon}
+        breadcrumbs={[
+          { label: 'Home', href: '/' },
+          { label: 'Dashboard' }
+        ]}
+        actions={[
+          {
+            label: refreshing ? 'Atualizando...' : 'Atualizar',
+            onClick: refresh,
+            icon: ArrowPathIcon,
+            variant: 'secondary'
+          },
+          ...(userRole !== 'user' ? [{
+            label: 'Relatórios',
+            href: '/admin/reports',
+            icon: ChartBarIcon,
+            variant: 'primary' as const
+          }] : [])
+        ]}
+      />
 
       {/* Main Stats */}
       <StatsGrid cols={userRole === 'admin' ? 4 : 3}>
@@ -267,7 +265,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
       {/* SLA Stats */}
       {sla.total_tracked > 0 && (
-        <div className="card">
+        <div className="glass-panel animate-slide-up">
           <div className="card-header">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
               Compliance SLA
@@ -303,7 +301,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
       {/* Performance dos Agentes (Admin only) */}
       {userRole === 'admin' && agentPerformance.length > 0 && (
-        <div className="card">
+        <div className="glass-panel animate-slide-up">
           <div className="card-header">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
@@ -322,7 +320,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
               {agentPerformance.slice(0, 6).map((agent) => (
                 <div
                   key={agent.id}
-                  className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg"
+                  className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg hover:shadow-soft transition-all duration-200"
                 >
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 bg-brand-500 rounded-full flex items-center justify-center">
@@ -334,10 +332,10 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                       <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
                         {agent.name ?? 'Agente'}
                       </h4>
-                      <div className="text-sm text-neutral-600 dark:text-neutral-400">
+                      <div className="text-sm text-description">
                         {agent.tickets_resolved ?? 0} resolvidos
                       </div>
-                      <div className="text-xs text-neutral-500">
+                      <div className="text-xs text-muted-content">
                         {(agent.avg_resolution_hours ?? 0).toFixed(1)}h média
                       </div>
                     </div>
@@ -349,7 +347,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                       }`}>
                         {agent.resolution_rate ?? 0}%
                       </div>
-                      <div className="text-xs text-neutral-500">
+                      <div className="text-xs text-muted-content">
                         taxa resolução
                       </div>
                     </div>
@@ -362,9 +360,9 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       )}
 
       {/* Grid de Categorias e Prioridades */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-up">
         {/* Top Categorias */}
-        <div className="card">
+        <div className="glass-panel">
           <div className="card-header">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
               Tickets por Categoria
@@ -373,7 +371,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
           <div className="card-body">
             <div className="space-y-3">
               {categories.length === 0 ? (
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhuma categoria encontrada</p>
+                <p className="text-sm text-muted-content">Nenhuma categoria encontrada</p>
               ) : categories.slice(0, 5).map((category) => {
                 const maxCount = Math.max(...categories.map(c => c.count ?? 0), 1)
                 return (
@@ -387,13 +385,13 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                         <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                           {category.name ?? 'Sem nome'}
                         </span>
-                        <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                        <span className="text-sm text-description">
                           {category.count ?? 0}
                         </span>
                       </div>
                       <div className="mt-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
                         <div
-                          className="h-2 rounded-full"
+                          className="h-2 rounded-full transition-all duration-300"
                           style={{
                             backgroundColor: category.color ?? '#6B7280',
                             width: `${Math.min(((category.count ?? 0) / maxCount) * 100, 100)}%`
@@ -409,7 +407,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         </div>
 
         {/* Tickets por Prioridade */}
-        <div className="card">
+        <div className="glass-panel">
           <div className="card-header">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
               Tickets por Prioridade
@@ -418,7 +416,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
           <div className="card-body">
             <div className="space-y-3">
               {priorities.length === 0 ? (
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhuma prioridade encontrada</p>
+                <p className="text-sm text-muted-content">Nenhuma prioridade encontrada</p>
               ) : [...priorities]
                 .sort((a, b) => (b.level ?? 0) - (a.level ?? 0))
                 .map((priority) => {
@@ -434,13 +432,13 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                           <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                             {priority.name ?? 'Sem nome'}
                           </span>
-                          <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                          <span className="text-sm text-description">
                             {priority.count ?? 0}
                           </span>
                         </div>
                         <div className="mt-1 bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
                           <div
-                            className="h-2 rounded-full"
+                            className="h-2 rounded-full transition-all duration-300"
                             style={{
                               backgroundColor: priority.color ?? '#6B7280',
                               width: `${Math.min(((priority.count ?? 0) / maxCount) * 100, 100)}%`
@@ -457,7 +455,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       </div>
 
       {/* Atividade Recente */}
-      <div className="card">
+      <div className="glass-panel animate-slide-up">
         <div className="card-header">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
@@ -474,13 +472,13 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         <div className="card-body p-0">
           <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
             {recentActivity.length === 0 ? (
-              <div className="p-4 text-center text-sm text-neutral-500 dark:text-neutral-400">
+              <div className="p-4 text-center text-sm text-muted-content">
                 Nenhuma atividade recente
               </div>
             ) : recentActivity.slice(0, 8).map((ticket) => (
               <div
                 key={ticket.id}
-                className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+                className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-all duration-200"
                 onClick={() => router.push(`/tickets/${ticket.id}`)}
               >
                 <div className="flex items-center justify-between">
@@ -499,7 +497,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                         {ticket.status_name ?? 'Desconhecido'}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center space-x-4 text-xs text-neutral-600 dark:text-neutral-400">
+                    <div className="mt-1 flex items-center space-x-4 text-xs text-description">
                       <span>{ticket.user_name ?? 'Anônimo'}</span>
                       <span>{ticket.category_name ?? 'Sem categoria'}</span>
                       <span
@@ -510,7 +508,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                       </span>
                     </div>
                   </div>
-                  <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <div className="text-xs text-muted-content">
                     {ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('pt-BR') : '-'}
                   </div>
                 </div>
@@ -521,10 +519,10 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-slide-up">
         <button
           onClick={() => router.push('/tickets/new')}
-          className="p-4 card hover:shadow-medium transition-all duration-200 group"
+          className="p-4 glass-panel hover:shadow-medium transition-all duration-200 group"
         >
           <div className="text-center">
             <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/20 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
@@ -538,7 +536,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
         <button
           onClick={() => router.push('/search')}
-          className="p-4 card hover:shadow-medium transition-all duration-200 group"
+          className="p-4 glass-panel hover:shadow-medium transition-all duration-200 group"
         >
           <div className="text-center">
             <div className="w-12 h-12 bg-success-100 dark:bg-success-900/20 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
@@ -553,7 +551,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
         {userRole !== 'user' && (
           <button
             onClick={() => router.push('/admin/reports')}
-            className="p-4 card hover:shadow-medium transition-all duration-200 group"
+            className="p-4 glass-panel hover:shadow-medium transition-all duration-200 group"
           >
             <div className="text-center">
               <div className="w-12 h-12 bg-warning-100 dark:bg-warning-900/20 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
@@ -568,11 +566,11 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 
         <button
           onClick={() => router.push('/knowledge')}
-          className="p-4 card hover:shadow-medium transition-all duration-200 group"
+          className="p-4 glass-panel hover:shadow-medium transition-all duration-200 group"
         >
           <div className="text-center">
             <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-              <EyeIcon className="h-6 w-6 text-neutral-600 dark:text-neutral-400" />
+              <EyeIcon className="h-6 w-6 text-description" />
             </div>
             <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Base Conhecimento
@@ -587,7 +585,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
 // Loading skeleton
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header skeleton */}
       <div className="flex justify-between items-start">
         <div>
@@ -607,7 +605,7 @@ function DashboardSkeleton() {
       {/* Content skeletons */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="card">
+          <div key={i} className="glass-panel">
             <div className="card-header">
               <div className="w-32 h-6 loading-skeleton rounded" />
             </div>

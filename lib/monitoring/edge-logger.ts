@@ -71,7 +71,7 @@ function formatLog(level: LogLevel, message: string, metadata?: LogMetadata): st
     timestamp,
     level,
     message,
-    ...redactedMeta,
+    ...(redactedMeta as Record<string, unknown>),
   });
 }
 

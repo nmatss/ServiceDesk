@@ -45,7 +45,7 @@ export default function SearchPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 loading-spinner mx-auto mb-4"></div>
-          <p className="text-neutral-600 dark:text-neutral-400">Carregando busca...</p>
+          <p className="text-description">Carregando busca...</p>
         </div>
       </div>
     )

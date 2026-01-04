@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth/sqlite-auth';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface Context {
   params: Promise<{
     id: string;
@@ -10,7 +11,11 @@ interface Context {
 }
 
 // GET - Buscar política específica
-export async function GET(request: NextRequest, { params }: Context) {
+export async function GET(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: Context) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -47,7 +52,11 @@ export async function GET(request: NextRequest, { params }: Context) {
 }
 
 // PUT - Atualizar política
-export async function PUT(request: NextRequest, { params }: Context) {
+export async function PUT(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: Context) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -126,7 +135,11 @@ export async function PUT(request: NextRequest, { params }: Context) {
 }
 
 // DELETE - Deletar política
-export async function DELETE(request: NextRequest, { params }: Context) {
+export async function DELETE(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: Context) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

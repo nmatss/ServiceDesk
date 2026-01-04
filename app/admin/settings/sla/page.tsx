@@ -12,8 +12,10 @@ import {
   BellIcon,
   ArrowPathIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline'
+import PageHeader from '@/components/ui/PageHeader'
 
 interface SLAPolicy {
   id: string
@@ -86,10 +88,10 @@ const businessHours = {
 }
 
 const priorityColors = {
-  critical: 'bg-red-100 text-red-700 border-red-200',
-  high: 'bg-orange-100 text-orange-700 border-orange-200',
-  medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  low: 'bg-green-100 text-green-700 border-green-200'
+  critical: 'bg-error-100 text-error-700 dark:bg-error-900/20 dark:text-error-400 border-error-200 dark:border-error-800',
+  high: 'bg-warning-100 text-warning-700 dark:bg-warning-900/20 dark:text-warning-400 border-warning-200 dark:border-warning-800',
+  medium: 'bg-warning-100 text-warning-700 dark:bg-warning-900/20 dark:text-warning-400 border-warning-200 dark:border-warning-800',
+  low: 'bg-success-100 text-success-700 dark:bg-success-900/20 dark:text-success-400 border-success-200 dark:border-success-800'
 }
 
 const priorityLabels = {
@@ -133,83 +135,112 @@ export default function SLASettingsPage() {
   }
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <ClockIcon className="w-6 h-6 text-blue-600" />
-                Políticas de SLA
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Configure os tempos de resposta e resolução por prioridade
-              </p>
-            </div>
-            <button
-              onClick={() => {
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Modern Header with Breadcrumbs */}
+        <PageHeader
+          title="Políticas de SLA"
+          description="Configure os tempos de resposta e resolução por prioridade"
+          icon={ClockIcon}
+          breadcrumbs={[
+            { label: 'Admin', href: '/admin' },
+            { label: 'Configurações', href: '/admin/settings' },
+            { label: 'SLA', href: '/admin/settings/sla' }
+          ]}
+          actions={[
+            {
+              label: 'Nova Política',
+              onClick: () => {
                 setEditingPolicy(null)
                 setShowModal(true)
-              }}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2"
-            >
-              <PlusIcon className="w-5 h-5" />
-              Nova Política
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
+              },
+              icon: PlusIcon,
+              variant: 'primary'
+            }
+          ]}
+        />
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Políticas Ativas</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="glass-panel p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-description">Políticas Ativas</div>
+              <div className="h-10 w-10 bg-gradient-brand rounded-lg flex items-center justify-center">
+                <CheckCircleIcon className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-3">
               {policies.filter(p => p.active).length}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Total de Políticas</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+          <div className="glass-panel p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 animate-fade-in delay-75">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-description">Total de Políticas</div>
+              <div className="h-10 w-10 bg-gradient-to-br from-brand-500 to-brand-600 rounded-lg flex items-center justify-center">
+                <Cog6ToothIcon className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-3">
               {policies.length}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Com Escalonamento</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+          <div className="glass-panel p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 animate-fade-in delay-150">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-description">Com Escalonamento</div>
+              <div className="h-10 w-10 bg-gradient-to-br from-warning-500 to-warning-600 rounded-lg flex items-center justify-center">
+                <BellIcon className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-3">
               {policies.filter(p => p.escalation_enabled).length}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">24/7</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+          <div className="glass-panel p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 animate-fade-in delay-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-description">24/7</div>
+              <div className="h-10 w-10 bg-gradient-to-br from-success-500 to-success-600 rounded-lg flex items-center justify-center">
+                <ArrowPathIcon className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-3">
               {policies.filter(p => !p.business_hours_only).length}
             </div>
           </div>
         </div>
 
         {/* Business Hours Card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ClockIcon className="w-5 h-5 text-gray-400" />
-            Horário Comercial
-          </h2>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Início:</span>
-              <span className="px-3 py-1 bg-gray-100 rounded-lg font-medium">{businessHours.start}</span>
+        <div className="glass-panel p-6 animate-fade-in delay-300">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                <ClockIcon className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+                Horário Comercial
+              </h2>
+              <p className="text-sm text-description mt-1">
+                Configuração padrão para políticas com horário comercial
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Fim:</span>
-              <span className="px-3 py-1 bg-gray-100 rounded-lg font-medium">{businessHours.end}</span>
+            <div className="h-12 w-12 bg-gradient-brand rounded-xl flex items-center justify-center">
+              <ClockIcon className="h-7 w-7 text-white" />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Dias:</span>
-              <div className="flex gap-1">
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+              <span className="text-sm font-medium text-description">Início:</span>
+              <div className="mt-2 px-3 py-2 bg-white dark:bg-neutral-950 rounded-lg font-bold text-lg text-neutral-900 dark:text-neutral-100 border border-neutral-300 dark:border-neutral-600">
+                {businessHours.start}
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+              <span className="text-sm font-medium text-description">Fim:</span>
+              <div className="mt-2 px-3 py-2 bg-white dark:bg-neutral-950 rounded-lg font-bold text-lg text-neutral-900 dark:text-neutral-100 border border-neutral-300 dark:border-neutral-600">
+                {businessHours.end}
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+              <span className="text-sm font-medium text-description block mb-2">Dias:</span>
+              <div className="flex flex-wrap gap-1">
                 {businessHours.days.map(day => (
-                  <span key={day} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                  <span key={day} className="px-2.5 py-1 bg-brand-100 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 rounded-lg text-xs font-bold border border-brand-200 dark:border-brand-800">
                     {day}
                   </span>
                 ))}
@@ -220,119 +251,123 @@ export default function SLASettingsPage() {
 
         {/* Policies List */}
         <div className="space-y-4">
-          {policies.map((policy) => (
+          {policies.map((policy, index) => (
             <div
               key={policy.id}
-              className={`bg-white rounded-xl border transition-all ${
-                policy.active ? 'border-gray-200' : 'border-gray-200 opacity-60'
+              className={`glass-panel transition-all duration-300 hover:shadow-large hover:-translate-y-1 animate-fade-in ${
+                !policy.active ? 'opacity-60' : ''
               }`}
+              style={{ animationDelay: `${400 + index * 100}ms` }}
             >
               {/* Policy Header */}
               <div
-                className="p-4 sm:p-6 cursor-pointer"
+                className="p-6 cursor-pointer"
                 onClick={() => togglePolicy(policy.id)}
               >
                 <div className="flex items-start sm:items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="font-semibold text-gray-900">{policy.name}</h3>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${priorityColors[policy.priority]}`}>
+                    <div className="flex items-center gap-3 flex-wrap mb-2">
+                      <div className="h-10 w-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Cog6ToothIcon className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="font-bold text-lg text-neutral-900 dark:text-neutral-100">{policy.name}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${priorityColors[policy.priority]}`}>
                         {priorityLabels[policy.priority]}
                       </span>
                       {!policy.active && (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                        <span className="px-3 py-1 bg-neutral-100 dark:bg-neutral-800 text-description rounded-full text-xs font-bold border border-neutral-200 dark:border-neutral-700">
                           Inativo
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">{policy.description}</p>
+                    <p className="text-sm text-description mt-1">{policy.description}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="hidden sm:flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex items-center gap-6 text-sm">
                       <div className="text-center">
-                        <div className="text-gray-500">Resposta</div>
-                        <div className="font-semibold text-gray-900">{formatTime(policy.response_time)}</div>
+                        <div className="text-muted-content text-xs font-medium mb-1">Resposta</div>
+                        <div className="font-bold text-brand-600 dark:text-brand-400">{formatTime(policy.response_time)}</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-gray-500">Resolução</div>
-                        <div className="font-semibold text-gray-900">{formatTime(policy.resolution_time)}</div>
+                        <div className="text-muted-content text-xs font-medium mb-1">Resolução</div>
+                        <div className="font-bold text-success-600 dark:text-success-400">{formatTime(policy.resolution_time)}</div>
                       </div>
                     </div>
                     {expandedPolicy === policy.id ? (
-                      <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+                      <ChevronUpIcon className="w-5 h-5 text-icon-muted transition-transform" />
                     ) : (
-                      <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                      <ChevronDownIcon className="w-5 h-5 text-icon-muted transition-transform" />
                     )}
                   </div>
                 </div>
 
                 {/* Mobile time display */}
-                <div className="flex sm:hidden items-center gap-4 mt-3 text-sm">
-                  <div className="flex items-center gap-1">
-                    <ClockIcon className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-600">Resp: {formatTime(policy.response_time)}</span>
+                <div className="flex sm:hidden items-center gap-4 mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 dark:bg-brand-900/10 rounded-lg border border-brand-200 dark:border-brand-800">
+                    <ClockIcon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                    <span className="text-description text-sm">Resp: <span className="font-bold text-neutral-900 dark:text-neutral-100">{formatTime(policy.response_time)}</span></span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <CheckCircleIcon className="w-4 h-4 text-gray-400" />
-                    <span className="text-gray-600">Res: {formatTime(policy.resolution_time)}</span>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-success-50 dark:bg-success-900/10 rounded-lg border border-success-200 dark:border-success-800">
+                    <CheckCircleIcon className="w-4 h-4 text-success-600 dark:text-success-400" />
+                    <span className="text-description text-sm">Res: <span className="font-bold text-neutral-900 dark:text-neutral-100">{formatTime(policy.resolution_time)}</span></span>
                   </div>
                 </div>
               </div>
 
               {/* Expanded Details */}
               {expandedPolicy === policy.id && (
-                <div className="border-t border-gray-100 p-4 sm:p-6 bg-gray-50">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                        <ClockIcon className="w-4 h-4" />
+                <div className="border-t border-neutral-200 dark:border-neutral-700 p-6 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 animate-slide-down">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white dark:bg-neutral-950 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 shadow-soft hover:shadow-medium transition-shadow">
+                      <div className="flex items-center gap-2 text-sm font-medium text-description mb-2">
+                        <ClockIcon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                         Tempo de Resposta
                       </div>
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-2xl font-bold text-brand-600 dark:text-brand-400">
                         {formatTime(policy.response_time)}
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                        <CheckCircleIcon className="w-4 h-4" />
+                    <div className="bg-white dark:bg-neutral-950 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 shadow-soft hover:shadow-medium transition-shadow">
+                      <div className="flex items-center gap-2 text-sm font-medium text-description mb-2">
+                        <CheckCircleIcon className="w-4 h-4 text-success-600 dark:text-success-400" />
                         Tempo de Resolução
                       </div>
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-2xl font-bold text-success-600 dark:text-success-400">
                         {formatTime(policy.resolution_time)}
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                    <div className="bg-white dark:bg-neutral-950 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 shadow-soft hover:shadow-medium transition-shadow">
+                      <div className="flex items-center gap-2 text-sm font-medium text-description mb-2">
                         <BellIcon className="w-4 h-4" />
                         Escalonamento
                       </div>
-                      <div className="text-lg font-semibold">
+                      <div className="text-2xl font-bold">
                         {policy.escalation_enabled ? (
-                          <span className="text-green-600">Ativado</span>
+                          <span className="text-success-600 dark:text-success-400">Ativado</span>
                         ) : (
-                          <span className="text-gray-500">Desativado</span>
+                          <span className="text-muted-content">Desativado</span>
                         )}
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                    <div className="bg-white dark:bg-neutral-950 rounded-xl p-4 border border-neutral-200 dark:border-neutral-700 shadow-soft hover:shadow-medium transition-shadow">
+                      <div className="flex items-center gap-2 text-sm font-medium text-description mb-2">
                         <ArrowPathIcon className="w-4 h-4" />
                         Cobertura
                       </div>
-                      <div className="text-lg font-semibold text-gray-900">
+                      <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
                         {policy.business_hours_only ? 'Horário Comercial' : '24/7'}
                       </div>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         handleEdit(policy)
                       }}
-                      className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm"
+                      className="px-4 py-2.5 bg-white dark:bg-neutral-950 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:shadow-medium transition-all duration-200 flex items-center gap-2 text-sm font-medium"
                     >
                       <PencilIcon className="w-4 h-4" />
                       Editar
@@ -342,10 +377,10 @@ export default function SLASettingsPage() {
                         e.stopPropagation()
                         toggleActive(policy.id)
                       }}
-                      className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm ${
+                      className={`px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:shadow-medium ${
                         policy.active
-                          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          ? 'bg-warning-100 dark:bg-warning-900/20 text-warning-700 dark:text-warning-400 border border-warning-200 dark:border-warning-800 hover:bg-warning-200 dark:hover:bg-warning-900/30'
+                          : 'bg-success-100 dark:bg-success-900/20 text-success-700 dark:text-success-400 border border-success-200 dark:border-success-800 hover:bg-success-200 dark:hover:bg-success-900/30'
                       }`}
                     >
                       {policy.active ? (
@@ -365,7 +400,7 @@ export default function SLASettingsPage() {
                         e.stopPropagation()
                         handleDelete(policy.id)
                       }}
-                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-2 text-sm"
+                      className="px-4 py-2.5 bg-error-100 dark:bg-error-900/20 text-error-700 dark:text-error-400 rounded-lg border border-error-200 dark:border-error-800 hover:bg-error-200 dark:hover:bg-error-900/30 hover:shadow-medium transition-all duration-200 flex items-center gap-2 text-sm font-medium"
                     >
                       <TrashIcon className="w-4 h-4" />
                       Excluir
@@ -378,32 +413,48 @@ export default function SLASettingsPage() {
         </div>
 
         {/* Escalation Rules */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
-            Regras de Escalonamento
-          </h2>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <div className="font-medium text-gray-900">50% do tempo de resposta</div>
-                <div className="text-sm text-gray-600">Notificar agente atribuído</div>
-              </div>
-              <BellIcon className="w-5 h-5 text-yellow-500" />
+        <div className="glass-panel p-8 animate-fade-in delay-500">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                <ExclamationTriangleIcon className="w-6 h-6 text-warning-600 dark:text-warning-400" />
+                Regras de Escalonamento
+              </h2>
+              <p className="text-sm text-description mt-1">
+                Ações automáticas baseadas no progresso do SLA
+              </p>
             </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <div className="font-medium text-gray-900">80% do tempo de resposta</div>
-                <div className="text-sm text-gray-600">Notificar líder da equipe</div>
-              </div>
-              <BellIcon className="w-5 h-5 text-orange-500" />
+            <div className="h-12 w-12 bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl flex items-center justify-center">
+              <ExclamationTriangleIcon className="h-7 w-7 text-white" />
             </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/10 dark:to-warning-800/10 rounded-xl border border-warning-200 dark:border-warning-800 hover:shadow-medium transition-all duration-200">
               <div>
-                <div className="font-medium text-gray-900">SLA violado</div>
-                <div className="text-sm text-gray-600">Notificar gerente + escalar prioridade</div>
+                <div className="font-bold text-neutral-900 dark:text-neutral-100 mb-1">50% do tempo de resposta</div>
+                <div className="text-sm text-description">Notificar agente atribuído</div>
               </div>
-              <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
+              <div className="h-10 w-10 bg-warning-500 rounded-lg flex items-center justify-center">
+                <BellIcon className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/10 dark:to-warning-800/10 rounded-xl border border-warning-200 dark:border-warning-800 hover:shadow-medium transition-all duration-200">
+              <div>
+                <div className="font-bold text-neutral-900 dark:text-neutral-100 mb-1">80% do tempo de resposta</div>
+                <div className="text-sm text-description">Notificar líder da equipe</div>
+              </div>
+              <div className="h-10 w-10 bg-warning-600 rounded-lg flex items-center justify-center">
+                <BellIcon className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-gradient-to-br from-error-50 to-error-100 dark:from-error-900/10 dark:to-error-800/10 rounded-xl border border-error-200 dark:border-error-800 hover:shadow-medium transition-all duration-200">
+              <div>
+                <div className="font-bold text-neutral-900 dark:text-neutral-100 mb-1">SLA violado</div>
+                <div className="text-sm text-description">Notificar gerente + escalar prioridade</div>
+              </div>
+              <div className="h-10 w-10 bg-error-600 rounded-lg flex items-center justify-center">
+                <ExclamationTriangleIcon className="w-6 h-6 text-white" />
+              </div>
             </div>
           </div>
         </div>
@@ -411,51 +462,56 @@ export default function SLASettingsPage() {
 
       {/* Modal for Creating/Editing Policy */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-panel max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in">
+            <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {editingPolicy ? 'Editar Política' : 'Nova Política de SLA'}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-gradient-brand rounded-lg flex items-center justify-center">
+                    <Cog6ToothIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                    {editingPolicy ? 'Editar Política' : 'Nova Política de SLA'}
+                  </h2>
+                </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
                 >
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  <XMarkIcon className="w-5 h-5 text-muted-content" />
                 </button>
               </div>
             </div>
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                   Nome da Política *
                 </label>
                 <input
                   type="text"
                   defaultValue={editingPolicy?.name || ''}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent transition-all"
                   placeholder="Ex: SLA Crítico"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                   Descrição
                 </label>
                 <textarea
                   defaultValue={editingPolicy?.description || ''}
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent transition-all"
                   placeholder="Descreva quando esta política se aplica..."
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                   Prioridade *
                 </label>
                 <select
                   defaultValue={editingPolicy?.priority || 'medium'}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent transition-all"
                 >
                   <option value="low">Baixa</option>
                   <option value="medium">Média</option>
@@ -465,55 +521,55 @@ export default function SLASettingsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                     Tempo de Resposta (min) *
                   </label>
                   <input
                     type="number"
                     defaultValue={editingPolicy?.response_time || 60}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
                     Tempo de Resolução (min) *
                   </label>
                   <input
                     type="number"
                     defaultValue={editingPolicy?.resolution_time || 480}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent transition-all"
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2">
+              <div className="space-y-3 pt-2">
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     defaultChecked={editingPolicy?.escalation_enabled ?? true}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-5 h-5 text-brand-600 dark:text-brand-500 rounded focus:ring-brand-500 dark:focus:ring-brand-400 border-neutral-300 dark:border-neutral-600"
                   />
-                  <span className="text-sm text-gray-700">Habilitar escalonamento</span>
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-neutral-100">Habilitar escalonamento</span>
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     defaultChecked={editingPolicy?.business_hours_only ?? true}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    className="w-5 h-5 text-brand-600 dark:text-brand-500 rounded focus:ring-brand-500 dark:focus:ring-brand-400 border-neutral-300 dark:border-neutral-600"
                   />
-                  <span className="text-sm text-gray-700">Apenas horário comercial</span>
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-neutral-100">Apenas horário comercial</span>
                 </label>
               </div>
             </div>
-            <div className="p-4 sm:p-6 border-t border-gray-200 flex gap-3">
+            <div className="p-6 border-t border-neutral-200 dark:border-neutral-700 flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200"
+                className="flex-1 px-5 py-2.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-semibold hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                className="flex-1 px-5 py-2.5 bg-gradient-brand text-white rounded-lg font-semibold hover:shadow-large transition-all duration-200"
               >
                 {editingPolicy ? 'Salvar' : 'Criar'}
               </button>

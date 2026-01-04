@@ -786,7 +786,7 @@ export function BulkOperations({
 
                 {/* Progress Bar */}
                 <div className="mb-2">
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <div className="flex justify-between text-sm text-description mb-1">
                     <span>
                       {job.progress.completed} of {job.progress.total} completed
                     </span>

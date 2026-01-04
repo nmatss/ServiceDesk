@@ -715,7 +715,6 @@ export class DataProtectionManager {
   }
 
   // Method available for future use
-  // @ts-expect-error - Reserved for future implementation
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async getAllPIIFields(organizationId: number): Promise<PIIField[]> {
     try {

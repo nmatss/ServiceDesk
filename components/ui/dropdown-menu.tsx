@@ -89,8 +89,8 @@ const DropdownMenuContent = React.forwardRef<HTMLDivElement, DropdownMenuContent
           ref={ref}
           style={{ marginTop: side === 'bottom' ? sideOffset : undefined, marginBottom: side === 'top' ? sideOffset : undefined }}
           className={cn(
-            'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 shadow-lg',
-            'dark:border-gray-700 dark:bg-gray-800',
+            'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-neutral-200 bg-white p-1 shadow-lg',
+            'dark:border-neutral-700 dark:bg-neutral-800',
             'focus:outline-none',
             alignmentClasses[align],
             sideClasses[side],
@@ -138,10 +138,10 @@ const DropdownMenuItem = React.forwardRef<HTMLButtonElement, DropdownMenuItemPro
             disabled={disabled}
             className={cn(
               'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors',
-              active && 'bg-gray-100 dark:bg-gray-700',
+              active && 'bg-neutral-100 dark:bg-neutral-700',
               destructive
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-gray-900 dark:text-gray-100',
+                ? 'text-error-600 dark:text-error-400'
+                : 'text-neutral-900 dark:text-white',
               disabled && 'pointer-events-none opacity-50',
               className
             )}
@@ -149,7 +149,7 @@ const DropdownMenuItem = React.forwardRef<HTMLButtonElement, DropdownMenuItemPro
             {icon && <span className="mr-2 h-4 w-4">{icon}</span>}
             <span className="flex-1 text-left">{children}</span>
             {shortcut && (
-              <span className="ml-auto text-xs tracking-widest text-gray-400 dark:text-gray-500">
+              <span className="ml-auto text-xs tracking-widest text-icon-muted">
                 {shortcut}
               </span>
             )}
@@ -187,13 +187,13 @@ const DropdownMenuCheckboxItem = React.forwardRef<HTMLButtonElement, DropdownMen
             disabled={disabled}
             className={cn(
               'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors',
-              active && 'bg-gray-100 dark:bg-gray-700',
+              active && 'bg-neutral-100 dark:bg-neutral-700',
               disabled && 'pointer-events-none opacity-50',
               className
             )}
           >
             <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-              {checked && <CheckIcon className="h-4 w-4" />}
+              {checked && <CheckIcon className="h-4 w-4 text-brand-600 dark:text-brand-400" />}
             </span>
             {children}
           </button>
@@ -255,14 +255,14 @@ const DropdownMenuRadioItem = React.forwardRef<HTMLButtonElement, DropdownMenuRa
             disabled={disabled}
             className={cn(
               'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors',
-              active && 'bg-gray-100 dark:bg-gray-700',
+              active && 'bg-neutral-100 dark:bg-neutral-700',
               disabled && 'pointer-events-none opacity-50',
               className
             )}
           >
             <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
               {checked && (
-                <span className="h-2 w-2 rounded-full bg-current" />
+                <span className="h-2 w-2 rounded-full bg-brand-600 dark:bg-brand-400" />
               )}
             </span>
             {children}
@@ -285,7 +285,7 @@ interface DropdownMenuSeparatorProps {
 const DropdownMenuSeparator = ({ className }: DropdownMenuSeparatorProps) => {
   return (
     <div
-      className={cn('-mx-1 my-1 h-px bg-gray-200 dark:bg-gray-700', className)}
+      className={cn('-mx-1 my-1 h-px bg-neutral-200 dark:bg-neutral-700', className)}
       role="separator"
     />
   );
@@ -305,7 +305,7 @@ const DropdownMenuLabel = ({ children, className, inset }: DropdownMenuLabelProp
   return (
     <div
       className={cn(
-        'px-2 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400',
+        'px-2 py-1.5 text-xs font-semibold text-muted-content',
         inset && 'pl-8',
         className
       )}
@@ -381,7 +381,7 @@ const DropdownMenuSubTrigger = React.forwardRef<HTMLButtonElement, DropdownMenuS
         disabled={disabled}
         className={cn(
           'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors',
-          open && 'bg-gray-100 dark:bg-gray-700',
+          open && 'bg-neutral-100 dark:bg-neutral-700',
           disabled && 'pointer-events-none opacity-50',
           className
         )}
@@ -403,8 +403,8 @@ const DropdownMenuSubContent = ({ children, className }: DropdownMenuSubContentP
   return (
     <div
       className={cn(
-        'absolute left-full top-0 z-50 ml-1 min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white p-1 shadow-lg',
-        'dark:border-gray-700 dark:bg-gray-800',
+        'absolute left-full top-0 z-50 ml-1 min-w-[8rem] overflow-hidden rounded-md border border-neutral-200 bg-white p-1 shadow-lg',
+        'dark:border-neutral-700 dark:bg-neutral-800',
         className
       )}
     >

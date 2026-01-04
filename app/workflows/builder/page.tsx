@@ -7,10 +7,37 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import WorkflowBuilder from '@/src/components/workflow/WorkflowBuilder';
-import WorkflowTester from '@/src/components/workflow/WorkflowTester';
+import dynamic from 'next/dynamic';
 import { WorkflowDefinition } from '@/lib/types/workflow';
 import toast from 'react-hot-toast';
+
+// Lazy load heavy components to reduce initial bundle size
+const WorkflowBuilder = dynamic(
+  () => import('@/src/components/workflow/WorkflowBuilder'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-description">Carregando editor de workflow...</p>
+        </div>
+      </div>
+    )
+  }
+);
+
+const WorkflowTester = dynamic(
+  () => import('@/src/components/workflow/WorkflowTester'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+      </div>
+    )
+  }
+);
 
 function WorkflowBuilderContent() {
   const router = useRouter();
@@ -119,7 +146,7 @@ function WorkflowBuilderContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
       </div>
     );
   }
@@ -149,7 +176,7 @@ export default function WorkflowBuilderPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
         </div>
       }
     >

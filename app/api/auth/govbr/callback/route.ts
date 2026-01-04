@@ -17,11 +17,16 @@ import { generateToken, getUserByEmail, createUser } from '@/lib/auth/sqlite-aut
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET handler - OAuth callback
  * Handles the OAuth redirect from Gov.br
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');

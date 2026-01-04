@@ -9,7 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { emailAutomation } from '@/lib/integrations/email/automation';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WEBHOOK);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Get webhook secret for verification
     const webhookSecret = process.env.EMAIL_WEBHOOK_SECRET;
@@ -115,6 +120,10 @@ export async function POST(request: NextRequest) {
 
 // Handle GET requests (webhook verification)
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WEBHOOK);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Some webhook services require GET verification
   const challenge = request.nextUrl.searchParams.get('challenge');
 

@@ -1,8 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, memo, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { logger } from '@/lib/monitoring/logger';
+import { customToast } from '@/components/ui/toast'
+
+// Lazy load heavy components
+const Button = dynamic(() => import('@/components/ui/Button').then(mod => ({ default: mod.Button })), {
+  loading: () => <button className="h-10 px-4 py-2 bg-neutral-200 animate-pulse rounded-md" />,
+  ssr: true
+})
+
 import {
   ExclamationTriangleIcon,
   PlusCircleIcon,
@@ -56,6 +66,44 @@ const urgencyOptions = [
   { value: 5, label: 'Planejamento', description: 'Pode aguardar', color: '#6B7280' }
 ]
 
+// Memoized radio option component to prevent re-renders
+const RadioOption = memo(({
+  option,
+  checked,
+  name,
+  onChange
+}: {
+  option: { value: number; label: string; description: string; color: string }
+  checked: boolean
+  name: string
+  onChange: (value: number) => void
+}) => (
+  <label className="flex items-center space-x-3 cursor-pointer">
+    <input
+      type="radio"
+      name={name}
+      value={option.value}
+      checked={checked}
+      onChange={(e) => onChange(parseInt(e.target.value))}
+      className="text-brand-600"
+      aria-label={`${name} ${option.label}: ${option.description}`}
+    />
+    <div className="flex items-center space-x-2">
+      <span
+        className="w-3 h-3 rounded-full"
+        style={{ backgroundColor: option.color }}
+        aria-hidden="true"
+      ></span>
+      <div>
+        <span className="font-medium">{option.label}</span>
+        <span className="text-sm text-neutral-500 ml-2">{option.description}</span>
+      </div>
+    </div>
+  </label>
+))
+
+RadioOption.displayName = 'RadioOption'
+
 export default function CreateTicketPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -86,57 +134,62 @@ export default function CreateTicketPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (typeSlug) {
-      fetchTicketType(typeSlug)
-    }
-    fetchCategories()
-    fetchPriorities()
-  }, [typeSlug])
+    // Fetch all data in parallel to reduce loading time
+    const fetchAllData = async () => {
+      const startTime = performance.now()
 
-  const fetchTicketType = async (slug: string) => {
-    try {
-      const response = await fetch('/api/ticket-types?customer_visible=true')
-      const data = await response.json()
-
-      if (data.success) {
-        const type = data.ticket_types.find((t: TicketType) => t.slug === slug)
-        if (type) {
-          setTicketType(type)
-        } else {
-          router.push('/portal')
+      try {
+        // Use cache-friendly fetch with stale-while-revalidate
+        const fetchOptions = {
+          next: { revalidate: 1800 }, // 30 minutes
+          headers: {
+            'Cache-Control': 'public, s-maxage=1800, stale-while-revalidate=3600'
+          }
         }
-      }
-    } catch (error) {
-      logger.error('Error fetching ticket type', error)
-      router.push('/portal')
-    } finally {
-      setLoading(false)
-    }
-  }
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories')
-      const data = await response.json()
-      if (data.success) {
-        setCategories(data.categories)
-      }
-    } catch (error) {
-      logger.error('Error fetching categories', error)
-    }
-  }
+        const [ticketTypesRes, categoriesRes, prioritiesRes] = await Promise.all([
+          fetch('/api/ticket-types?customer_visible=true', fetchOptions),
+          fetch('/api/categories', fetchOptions),
+          fetch('/api/priorities', fetchOptions)
+        ])
 
-  const fetchPriorities = async () => {
-    try {
-      const response = await fetch('/api/priorities')
-      const data = await response.json()
-      if (data.success) {
-        setPriorities(data.priorities)
+        const [ticketTypesData, categoriesData, prioritiesData] = await Promise.all([
+          ticketTypesRes.json(),
+          categoriesRes.json(),
+          prioritiesRes.json()
+        ])
+
+        // Set categories and priorities immediately for faster rendering
+        if (categoriesData.success) {
+          setCategories(categoriesData.categories)
+        }
+        if (prioritiesData.success) {
+          setPriorities(prioritiesData.priorities)
+        }
+
+        // Find and set ticket type if slug provided
+        if (typeSlug && ticketTypesData.success) {
+          const type = ticketTypesData.ticket_types.find((t: TicketType) => t.slug === typeSlug)
+          if (type) {
+            setTicketType(type)
+          } else {
+            router.push('/portal')
+          }
+        }
+
+        const loadTime = performance.now() - startTime
+        logger.performance('Portal create page data loaded', loadTime)
+      } catch (error) {
+        logger.error('Error fetching data', error)
+        customToast.error('Erro ao carregar dados. Redirecionando...')
+        setTimeout(() => router.push('/portal'), 1500)
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      logger.error('Error fetching priorities', error)
     }
-  }
+
+    fetchAllData()
+  }, [typeSlug, router])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -175,6 +228,7 @@ export default function CreateTicketPage() {
     e.preventDefault()
 
     if (!validateForm()) {
+      customToast.error('Por favor, preencha todos os campos obrigatórios')
       return
     }
 
@@ -183,6 +237,9 @@ export default function CreateTicketPage() {
     }
 
     setSubmitting(true)
+
+    // Show loading toast
+    const loadingToast = customToast.loading('Criando ticket...')
 
     try {
       const response = await fetch('/api/tickets/create', {
@@ -198,27 +255,42 @@ export default function CreateTicketPage() {
 
       const data = await response.json()
 
+      // Dismiss loading toast
+      customToast.dismiss(loadingToast)
+
       if (data.success) {
-        router.push(`/portal/ticket/${data.ticket.id}?created=true`)
+        customToast.success('Ticket criado com sucesso!')
+        // Small delay to show success message before redirect
+        setTimeout(() => {
+          router.push(`/portal/ticket/${data.ticket.id}?created=true`)
+        }, 500)
       } else {
         setErrors({ submit: data.error || 'Erro ao criar ticket' })
+        customToast.error(data.error || 'Erro ao criar ticket')
       }
     } catch (error) {
       logger.error('Error creating ticket', error)
+      customToast.dismiss(loadingToast)
       setErrors({ submit: 'Erro ao criar ticket' })
+      customToast.error('Erro ao criar ticket. Tente novamente.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const updateFormData = (field: string, value: any) => {
+  const updateFormData = useCallback((field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
-    }
-  }
+    setErrors(prev => {
+      if (prev[field]) {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      }
+      return prev
+    })
+  }, [])
 
-  const getWorkflowInfo = () => {
+  const workflowInfo = useMemo(() => {
     if (!ticketType) return null
 
     switch (ticketType.workflow_type) {
@@ -249,25 +321,69 @@ export default function CreateTicketPage() {
           helpText: 'Sua solicitação será analisada pela equipe técnica.'
         }
     }
-  }
+  }, [ticketType])
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+        {/* Header Skeleton */}
+        <div className="glass-panel shadow-sm border-b backdrop-blur-lg">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="h-6 w-48 bg-neutral-200 rounded animate-pulse mb-3"></div>
+            <div className="flex items-center space-x-4">
+              <div className="w-9 h-9 bg-neutral-200 rounded-lg animate-pulse"></div>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-neutral-200 rounded-lg animate-pulse"></div>
+                <div className="space-y-2">
+                  <div className="h-6 w-48 bg-neutral-200 rounded animate-pulse"></div>
+                  <div className="h-4 w-64 bg-neutral-200 rounded animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Skeleton */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="space-y-6">
+            {/* Info Banner Skeleton */}
+            <div className="h-16 bg-brand-100 rounded-lg animate-pulse"></div>
+
+            {/* Form Sections */}
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="glass-panel rounded-lg border border-neutral-200 p-6">
+                <div className="h-6 w-40 bg-neutral-200 rounded animate-pulse mb-4"></div>
+                <div className="space-y-4">
+                  <div className="h-10 bg-neutral-100 rounded animate-pulse"></div>
+                  <div className="h-32 bg-neutral-100 rounded animate-pulse"></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="h-10 bg-neutral-100 rounded animate-pulse"></div>
+                    <div className="h-10 bg-neutral-100 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Button Skeleton */}
+            <div className="flex justify-between">
+              <div className="h-10 w-24 bg-neutral-200 rounded animate-pulse"></div>
+              <div className="h-10 w-40 bg-brand-200 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!ticketType) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <ExclamationCircleIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Tipo de ticket não encontrado</h2>
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center glass-panel p-8 rounded-xl animate-fade-in">
+          <ExclamationCircleIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-neutral-900 mb-2">Tipo de ticket não encontrado</h2>
           <button
             onClick={() => router.push('/portal')}
-            className="text-blue-600 hover:text-blue-700"
+            className="text-brand-600 hover:text-brand-700 transition-colors"
           >
             Voltar à página inicial
           </button>
@@ -276,17 +392,41 @@ export default function CreateTicketPage() {
     )
   }
 
-  const workflowInfo = getWorkflowInfo()
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="glass-panel shadow-sm border-b backdrop-blur-lg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center space-x-4">
+          {/* Breadcrumbs */}
+          <nav className="flex mb-3" aria-label="Breadcrumb">
+            <ol className="flex items-center space-x-2 text-sm">
+              <li className="flex items-center">
+                <Link href="/portal" className="text-neutral-600 hover:text-brand-600">
+                  Portal
+                </Link>
+              </li>
+              <li className="flex items-center">
+                <svg
+                  className="h-4 w-4 text-neutral-400 mx-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="text-neutral-900 font-medium">Criar Solicitação</span>
+              </li>
+            </ol>
+          </nav>
+
+          <div className="flex items-center space-x-4 animate-slide-up">
             <button
               onClick={() => router.push('/portal')}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-all duration-200"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
@@ -298,10 +438,10 @@ export default function CreateTicketPage() {
                 {workflowInfo && <workflowInfo.icon className="w-6 h-6" />}
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">
+                <h1 className="text-xl font-semibold text-neutral-900">
                   Criar {ticketType.name}
                 </h1>
-                <p className="text-gray-600">{ticketType.description}</p>
+                <p className="text-neutral-600">{ticketType.description}</p>
               </div>
             </div>
           </div>
@@ -312,24 +452,24 @@ export default function CreateTicketPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Workflow Info */}
         {workflowInfo && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-brand-50 border border-brand-200 rounded-lg p-4 mb-6 animate-slide-up">
             <div className="flex items-start space-x-3">
-              <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5" />
-              <p className="text-blue-800">{workflowInfo.helpText}</p>
+              <InformationCircleIcon className="w-5 h-5 text-brand-600 mt-0.5" />
+              <p className="text-brand-800">{workflowInfo.helpText}</p>
             </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6" aria-label="Formulário de criação de ticket">
           {/* Basic Information */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">
               Informações Básicas
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="ticket-title" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="ticket-title" className="block text-sm font-medium text-neutral-700 mb-2">
                   Título *
                 </label>
                 <input
@@ -337,9 +477,7 @@ export default function CreateTicketPage() {
                   type="text"
                   value={formData.title}
                   onChange={(e) => updateFormData('title', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.title ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`input hover-lift ${errors.title ? 'input-error' : ''}`}
                   placeholder="Descreva brevemente o problema ou solicitação"
                   required
                   aria-required="true"
@@ -348,14 +486,14 @@ export default function CreateTicketPage() {
                   aria-invalid={errors.title ? 'true' : 'false'}
                 />
                 {errors.title ? (
-                  <p id="title-error" className="text-red-600 text-sm mt-1" role="alert">{errors.title}</p>
+                  <p id="title-error" className="text-error-600 text-sm mt-1" role="alert">{errors.title}</p>
                 ) : (
                   <span id="title-help" className="sr-only">Digite um título breve e descritivo para o ticket</span>
                 )}
               </div>
 
               <div>
-                <label htmlFor="ticket-description" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="ticket-description" className="block text-sm font-medium text-neutral-700 mb-2">
                   Descrição Detalhada *
                 </label>
                 <textarea
@@ -363,9 +501,7 @@ export default function CreateTicketPage() {
                   rows={4}
                   value={formData.description}
                   onChange={(e) => updateFormData('description', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.description ? 'border-red-300' : 'border-gray-300'
-                  }`}
+                  className={`input hover-lift ${errors.description ? 'input-error' : ''}`}
                   placeholder="Descreva detalhadamente o problema ou solicitação, incluindo passos para reproduzir (se aplicável)"
                   required
                   aria-required="true"
@@ -374,7 +510,7 @@ export default function CreateTicketPage() {
                   aria-invalid={errors.description ? 'true' : 'false'}
                 />
                 {errors.description ? (
-                  <p id="description-error" className="text-red-600 text-sm mt-1" role="alert">{errors.description}</p>
+                  <p id="description-error" className="text-error-600 text-sm mt-1" role="alert">{errors.description}</p>
                 ) : (
                   <span id="description-help" className="sr-only">Descreva detalhadamente o problema ou solicitação</span>
                 )}
@@ -382,15 +518,15 @@ export default function CreateTicketPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="category" className="block text-sm font-medium text-neutral-700 mb-2">
                     Categoria *
                   </label>
                   <select
                     id="category"
                     value={formData.category_id}
                     onChange={(e) => updateFormData('category_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.category_id ? 'border-red-300' : 'border-gray-300'
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                      errors.category_id ? 'border-error-300' : 'border-neutral-300'
                     }`}
                     required
                     aria-required="true"
@@ -405,19 +541,19 @@ export default function CreateTicketPage() {
                       </option>
                     ))}
                   </select>
-                  {errors.category_id && <p id="category-error" className="text-red-600 text-sm mt-1" role="alert">{errors.category_id}</p>}
+                  {errors.category_id && <p id="category-error" className="text-error-600 text-sm mt-1" role="alert">{errors.category_id}</p>}
                 </div>
 
                 <div>
-                  <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 mb-2">
                     Prioridade *
                   </label>
                   <select
                     id="priority"
                     value={formData.priority_id}
                     onChange={(e) => updateFormData('priority_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.priority_id ? 'border-red-300' : 'border-gray-300'
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                      errors.priority_id ? 'border-error-300' : 'border-neutral-300'
                     }`}
                     required
                     aria-required="true"
@@ -432,7 +568,7 @@ export default function CreateTicketPage() {
                       </option>
                     ))}
                   </select>
-                  {errors.priority_id && <p id="priority-error" className="text-red-600 text-sm mt-1" role="alert">{errors.priority_id}</p>}
+                  {errors.priority_id && <p id="priority-error" className="text-error-600 text-sm mt-1" role="alert">{errors.priority_id}</p>}
                 </div>
               </div>
             </div>
@@ -440,72 +576,42 @@ export default function CreateTicketPage() {
 
           {/* Impact and Urgency (for incidents) */}
           {ticketType.workflow_type === 'incident' && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up">
+              <h2 className="text-lg font-semibold text-neutral-900 mb-4">
                 Impacto e Urgência
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-neutral-700 mb-3">
                     Impacto
                   </label>
                   <div className="space-y-2">
                     {impactOptions.map((option) => (
-                      <label key={option.value} className="flex items-center space-x-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="impact"
-                          value={option.value}
-                          checked={formData.impact === option.value}
-                          onChange={(e) => updateFormData('impact', parseInt(e.target.value))}
-                          className="text-blue-600"
-                          aria-label={`Impacto ${option.label}: ${option.description}`}
-                        />
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: option.color }}
-                            aria-hidden="true"
-                          ></span>
-                          <div>
-                            <span className="font-medium">{option.label}</span>
-                            <span className="text-sm text-gray-500 ml-2">{option.description}</span>
-                          </div>
-                        </div>
-                      </label>
+                      <RadioOption
+                        key={option.value}
+                        option={option}
+                        checked={formData.impact === option.value}
+                        name="impact"
+                        onChange={(value) => updateFormData('impact', value)}
+                      />
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-neutral-700 mb-3">
                     Urgência
                   </label>
                   <div className="space-y-2">
                     {urgencyOptions.map((option) => (
-                      <label key={option.value} className="flex items-center space-x-3 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="urgency"
-                          value={option.value}
-                          checked={formData.urgency === option.value}
-                          onChange={(e) => updateFormData('urgency', parseInt(e.target.value))}
-                          className="text-blue-600"
-                          aria-label={`Urgência ${option.label}: ${option.description}`}
-                        />
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: option.color }}
-                            aria-hidden="true"
-                          ></span>
-                          <div>
-                            <span className="font-medium">{option.label}</span>
-                            <span className="text-sm text-gray-500 ml-2">{option.description}</span>
-                          </div>
-                        </div>
-                      </label>
+                      <RadioOption
+                        key={option.value}
+                        option={option}
+                        checked={formData.urgency === option.value}
+                        name="urgency"
+                        onChange={(value) => updateFormData('urgency', value)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -514,14 +620,14 @@ export default function CreateTicketPage() {
           )}
 
           {/* Additional Information */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">
               Informações Adicionais
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Usuários Afetados
                 </label>
                 <input
@@ -529,32 +635,32 @@ export default function CreateTicketPage() {
                   min="1"
                   value={formData.affected_users_count}
                   onChange={(e) => updateFormData('affected_users_count', parseInt(e.target.value) || 1)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Localização
                 </label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => updateFormData('location', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Prédio, sala, andar..."
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Serviço de Negócio Afetado
                 </label>
                 <input
                   type="text"
                   value={formData.business_service}
                   onChange={(e) => updateFormData('business_service', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Sistema, aplicação ou serviço específico"
                 />
               </div>
@@ -562,53 +668,53 @@ export default function CreateTicketPage() {
           </div>
 
           {/* Contact Information */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-4">
               Informações de Contato
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Nome Completo *
                 </label>
                 <input
                   type="text"
                   value={formData.contact_name}
                   onChange={(e) => updateFormData('contact_name', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.contact_name ? 'border-red-300' : 'border-gray-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                    errors.contact_name ? 'border-error-300' : 'border-neutral-300'
                   }`}
                   placeholder="Seu nome completo"
                 />
-                {errors.contact_name && <p className="text-red-600 text-sm mt-1">{errors.contact_name}</p>}
+                {errors.contact_name && <p className="text-error-600 text-sm mt-1">{errors.contact_name}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Email *
                 </label>
                 <input
                   type="email"
                   value={formData.contact_email}
                   onChange={(e) => updateFormData('contact_email', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.contact_email ? 'border-red-300' : 'border-gray-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                    errors.contact_email ? 'border-error-300' : 'border-neutral-300'
                   }`}
                   placeholder="seu.email@empresa.com"
                 />
-                {errors.contact_email && <p className="text-red-600 text-sm mt-1">{errors.contact_email}</p>}
+                {errors.contact_email && <p className="text-error-600 text-sm mt-1">{errors.contact_email}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Telefone
                 </label>
                 <input
                   type="tel"
                   value={formData.contact_phone}
                   onChange={(e) => updateFormData('contact_phone', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="(11) 99999-9999"
                 />
               </div>
@@ -616,36 +722,32 @@ export default function CreateTicketPage() {
           </div>
 
           {/* Submit Button */}
-          <div className="flex items-center justify-between">
-            <button
+          <div className="flex items-center justify-between animate-slide-up">
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => router.push('/portal')}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="hover-lift"
             >
               Cancelar
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="submit"
-              disabled={submitting}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              variant="primary"
+              size="lg"
+              loading={submitting}
+              loadingText="Criando..."
+              className="hover-lift"
               aria-label={`Criar ${ticketType.name}`}
-              aria-busy={submitting}
             >
-              {submitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" aria-hidden="true"></div>
-                  <span>Criando...</span>
-                </>
-              ) : (
-                <span>Criar {ticketType.name}</span>
-              )}
-            </button>
+              Criar {ticketType.name}
+            </Button>
           </div>
 
           {errors.submit && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4" role="alert" aria-live="assertive">
-              <p className="text-red-800">{errors.submit}</p>
+            <div className="bg-error-50 border border-error-200 rounded-lg p-4" role="alert" aria-live="assertive">
+              <p className="text-error-800">{errors.submit}</p>
             </div>
           )}
         </form>

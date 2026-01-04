@@ -1,7 +1,30 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import * as d3 from 'd3';
+// Optimize D3 imports: only import specific functions instead of entire library
+import { select, selectAll } from 'd3-selection';
+import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from 'd3-force';
+import { scaleOrdinal, scaleLinear } from 'd3-scale';
+import { max } from 'd3-array';
+import { drag } from 'd3-drag';
+import { zoom, zoomTransform } from 'd3-zoom';
+
+// Create d3 namespace for easier refactoring
+const d3 = {
+  select,
+  selectAll,
+  forceSimulation,
+  forceLink,
+  forceManyBody,
+  forceCenter,
+  forceCollide,
+  scaleOrdinal,
+  scaleLinear,
+  max,
+  drag,
+  zoom,
+  zoomTransform
+};
 
 interface NetworkNode {
   id: string;
@@ -372,7 +395,7 @@ export function AgentCollaborationNetwork({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Agent Collaboration Network
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-description">
           Interactive network showing collaboration patterns between team members
         </p>
       </div>
@@ -405,19 +428,19 @@ export function AgentCollaborationNetwork({
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {data.nodes.length}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Nodes</div>
+          <div className="text-sm text-description">Nodes</div>
         </div>
         <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {data.links.length}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Connections</div>
+          <div className="text-sm text-description">Connections</div>
         </div>
         <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="text-lg font-bold text-gray-900 dark:text-white">
             {(data.links.reduce((sum, link) => sum + link.value, 0) / data.links.length).toFixed(1)}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Avg Strength</div>
+          <div className="text-sm text-description">Avg Strength</div>
         </div>
         <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="text-lg font-bold text-gray-900 dark:text-white">
@@ -427,7 +450,7 @@ export function AgentCollaborationNetwork({
               ).length
             ))}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Max Connections</div>
+          <div className="text-sm text-description">Max Connections</div>
         </div>
       </div>
 
@@ -438,33 +461,33 @@ export function AgentCollaborationNetwork({
           {/* Node Types */}
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Agent</span>
+            <span className="text-sm text-description">Agent</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Supervisor</span>
+            <span className="text-sm text-description">Supervisor</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Department</span>
+            <span className="text-sm text-description">Department</span>
           </div>
 
           {/* Link Types */}
           <div className="flex items-center space-x-2 ml-6">
             <div className="w-6 h-1 bg-blue-500"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Collaboration</span>
+            <span className="text-sm text-description">Collaboration</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-6 h-1 bg-red-500"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Escalation</span>
+            <span className="text-sm text-description">Escalation</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-6 h-1 bg-green-500"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Assignment</span>
+            <span className="text-sm text-description">Assignment</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-6 h-1 bg-purple-500"></div>
-            <span className="text-sm text-gray-600 dark:text-gray-400">Communication</span>
+            <span className="text-sm text-description">Communication</span>
           </div>
         </div>
       </div>
@@ -504,7 +527,7 @@ export function NetworkGraphs({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Escalation Network
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-description">
               Network showing escalation patterns and hierarchies
             </p>
           </div>
@@ -525,7 +548,7 @@ export function NetworkGraphs({
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Communication Network
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-description">
               Communication patterns and information flow between team members
             </p>
           </div>

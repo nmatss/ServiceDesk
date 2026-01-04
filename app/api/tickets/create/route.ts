@@ -11,7 +11,10 @@ import { safeQuery, safeTransaction } from '@/lib/db/safe-queries'
 import { getWorkflowManager } from '@/lib/workflow/manager'
 import db from '@/lib/db/connection'
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
+import { cacheInvalidation } from '@/lib/api/cache'
+import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting moderado para criação de tickets (100 requests em 15 minutos)
 const createTicketRateLimit = createRateLimitMiddleware('api')
 
@@ -41,7 +44,13 @@ export const POST = apiHandler(async (request: NextRequest) => {
   })
 
   type CreateTicketData = typeof createTicketSchema._output
-  const data = await parseJSONBody<CreateTicketData>(request, createTicketSchema)
+  let data = await parseJSONBody<CreateTicketData>(request, createTicketSchema)
+
+  // Sanitizar entrada do usuário para prevenir XSS
+  data = await sanitizeRequestBody(data, {
+    stripFields: ['title'], // Título sem HTML
+    htmlFields: ['description'], // Descrição pode ter HTML básico
+  }) as CreateTicketData
 
   const tenantId = tenant.id
   const workflowManager = getWorkflowManager()
@@ -131,7 +140,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
       ticketData.user_id,
       data.category_id,
       data.priority_id,
-      workflowResult.initial_status_id,
+      workflowResult.initial_status_id ?? 0,
       workflowResult.assigned_to || null,
       workflowResult.assigned_team_id || null,
       data.impact || 3,
@@ -152,7 +161,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
   const ticketId = transactionResult.data
 
   // 9. Handle approval workflow if required
-  if (workflowResult.approval_required) {
+  if (workflowResult.approval_required && ticketId !== undefined) {
     await createApprovalWorkflow(ticketId, tenantId, ticketType)
   }
 
@@ -213,7 +222,11 @@ export const POST = apiHandler(async (request: NextRequest) => {
   // 12. Send notifications based on workflow type
   await sendWorkflowNotifications(createdTicket, workflowResult, ticketType)
 
-  // 13. Return success response
+  // 13. Invalidate tickets and dashboard cache
+  await cacheInvalidation.ticket(Number(ticketId))
+  await cacheInvalidation.dashboard(String(tenant.id))
+
+  // 14. Return success response
   return {
     ticket: createdTicket,
     workflow_result: {
@@ -237,7 +250,7 @@ async function createApprovalWorkflow(ticketId: number, tenantId: number, ticket
     `).get(tenantId, ticketType.id)
 
     if (workflow) {
-      const approvalSteps = JSON.parse(workflow.approval_steps)
+      const approvalSteps = JSON.parse((workflow as any).approval_steps)
 
       // Create approval requests for each step
       for (let i = 0; i < approvalSteps.length; i++) {
@@ -245,7 +258,7 @@ async function createApprovalWorkflow(ticketId: number, tenantId: number, ticket
         db.prepare(`
           INSERT INTO approval_requests (tenant_id, ticket_id, workflow_id, step_number, approver_id)
           VALUES (?, ?, ?, ?, ?)
-        `).run(tenantId, ticketId, workflow.id, i + 1, step.approver_id)
+        `).run(tenantId, ticketId, (workflow as any).id, i + 1, step.approver_id)
       }
     }
   }

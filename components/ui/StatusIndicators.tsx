@@ -26,7 +26,12 @@ import {
   Cog6ToothIcon,
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
-import { PersonaType } from '../../../lib/design-system/tokens';
+import { PersonaType } from '@/lib/design-system/tokens';
+
+/**
+ * IconComponent type that accepts both regular components and forward refs from Heroicons
+ */
+type IconComponent = React.ComponentType<{ className?: string }> | React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>;
 
 interface StatusIndicatorProps {
   status: string;
@@ -44,9 +49,17 @@ interface StatusIndicatorProps {
   metadata?: Record<string, any>;
 }
 
+/**
+ * Status configuration interface
+ * @property {string} label - Display label for the status
+ * @property {IconComponent} icon - Icon component to display
+ * @property {object} color - Color configuration for different parts
+ * @property {string} description - Optional description text
+ * @property {number} priority - Optional priority level
+ */
 interface StatusConfig {
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: IconComponent;
   color: {
     bg: string;
     text: string;
@@ -496,7 +509,7 @@ export function StatusIndicator({
   // Render variants
   const renderDot = () => (
     <div
-      className={`inline-flex items-center gap-2 ${personaClasses[persona]} ${className}`}
+      className={`inline-flex items-center gap-2 ${personaClasses[persona || 'enduser']} ${className}`}
       title={showTooltip ? tooltipText : undefined}
     >
       <div

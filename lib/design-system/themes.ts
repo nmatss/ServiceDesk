@@ -187,7 +187,7 @@ const darkColors: ThemeColors = {
     primary: colors.neutral[900],
     secondary: colors.neutral[800],
     tertiary: colors.neutral[700],
-    elevated: colors.neutral[850],
+    elevated: colors.neutral[800],
     overlay: 'rgba(0, 0, 0, 0.8)',
   },
   text: {

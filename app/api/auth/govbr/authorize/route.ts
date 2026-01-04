@@ -4,11 +4,16 @@ import { createAuditLog } from '@/lib/audit/logger';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET - Iniciar autenticação Gov.br
  * Redireciona para o portal Gov.br para autenticação
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const returnUrl = searchParams.get('returnUrl') || '/dashboard';

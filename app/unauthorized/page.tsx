@@ -142,16 +142,16 @@ export default function Unauthorized() {
             {!loading && user && (
               <div className="mb-8 p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg border border-neutral-200 dark:border-neutral-600">
                 <div className="flex items-center gap-3">
-                  <UserCircleIcon className="w-6 h-6 text-neutral-500 dark:text-neutral-400 flex-shrink-0" />
+                  <UserCircleIcon className="w-6 h-6 text-muted-content flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    <p className="text-sm text-description">
                       Conectado como:
                     </p>
                     <p className="text-base font-medium text-neutral-900 dark:text-neutral-100 truncate">
                       {user.email}
                     </p>
                     {user.role && (
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                      <p className="text-xs text-muted-content mt-1">
                         Função: <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
                           {user.role}
                         </span>
@@ -183,7 +183,7 @@ export default function Unauthorized() {
 
             {/* Recommendations */}
             <div className="border-t border-neutral-200 dark:border-neutral-700 pt-8 mt-8">
-              <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-6 text-center">
+              <p className="text-sm font-medium text-muted-content mb-6 text-center">
                 O que você pode fazer?
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -202,7 +202,7 @@ export default function Unauthorized() {
                         <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {rec.title}
                         </h3>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+                        <p className="text-sm text-muted-content mb-4">
                           {rec.description}
                         </p>
                         <div className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 group-hover:gap-2 transition-all">
@@ -218,7 +218,7 @@ export default function Unauthorized() {
 
             {/* Help Section */}
             <div className="mt-8 pt-8 border-t border-neutral-200 dark:border-neutral-700">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4 text-center">
+              <p className="text-sm text-muted-content mb-4 text-center">
                 Precisa de mais ajuda?
               </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm">
@@ -265,7 +265,7 @@ export default function Unauthorized() {
 
         {/* Footer Note */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs text-muted-content">
             Código do erro: 403 - Acesso negado
           </p>
         </div>

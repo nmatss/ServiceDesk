@@ -79,7 +79,7 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
             {isTopPerformer ? (
               <TrophyIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
             ) : (
-              <UserIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <UserIcon className="w-5 h-5 text-description" />
             )}
           </div>
           <div>
@@ -119,28 +119,28 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Resolution Rate</span>
+          <span className="text-sm text-description">Resolution Rate</span>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {agent.resolution_rate.toFixed(1)}%
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Efficiency Score</span>
+          <span className="text-sm text-description">Efficiency Score</span>
           <span className={`text-sm font-medium ${getEfficiencyColor()}`}>
             {(agent.efficiency_score || 0).toFixed(0)}
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Avg Response</span>
+          <span className="text-sm text-description">Avg Response</span>
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             {agent.avg_response_time.toFixed(0)}m
           </span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Satisfaction</span>
+          <span className="text-sm text-description">Satisfaction</span>
           <div className="flex items-center space-x-1">
             <StarIcon className="w-4 h-4 text-yellow-500" />
             <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -235,7 +235,7 @@ export function AgentPerformanceWidget({
               name="Response Time"
               unit="m"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               type="number"
@@ -243,7 +243,7 @@ export function AgentPerformanceWidget({
               name="Resolution Rate"
               unit="%"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               cursor={{ strokeDasharray: '3 3' }}
@@ -305,11 +305,11 @@ export function AgentPerformanceWidget({
             <XAxis
               dataKey="name"
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <YAxis
               tick={{ fontSize: 12 }}
-              className="text-gray-600 dark:text-gray-400"
+              className="text-description"
             />
             <Tooltip
               contentStyle={{

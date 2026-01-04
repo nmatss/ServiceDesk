@@ -11,6 +11,7 @@ import { createAuditLog } from '@/lib/audit/logger';
 import { z } from 'zod';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const templateSchema = z.object({
   name: z.string().min(1).max(512),
   category: z.enum(['TRANSACTIONAL', 'MARKETING', 'AUTHENTICATION', 'UTILITY']),
@@ -38,6 +39,10 @@ const templateSchema = z.object({
  * GET - List all templates
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
@@ -74,6 +79,10 @@ export async function GET(request: NextRequest) {
  * POST - Create/register a new template
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
@@ -131,6 +140,10 @@ export async function POST(request: NextRequest) {
  * DELETE - Delete a template
  */
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);

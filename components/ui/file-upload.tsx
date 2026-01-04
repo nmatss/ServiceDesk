@@ -106,8 +106,13 @@ export default function FileUpload({
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Erro no upload')
+      try {
+        const error = await response.json()
+        throw new Error(error.error || 'Erro no upload')
+      } catch (e) {
+        // If JSON parsing fails, throw a generic error with status
+        throw new Error(`Upload failed with status ${response.status}`)
+      }
     }
 
     const result = await response.json()

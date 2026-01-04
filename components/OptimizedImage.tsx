@@ -48,8 +48,7 @@ interface OptimizedImageProps extends Omit<ImageProps, 'placeholder'> {
  */
 function generateBlurDataURL(width: number = 8, height: number = 8): string {
   // Simple gray gradient as placeholder
-  return `data:image/svg+xml;base64,${Buffer.from(
-    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:rgb(240,240,240);stop-opacity:1" />
@@ -58,7 +57,12 @@ function generateBlurDataURL(width: number = 8, height: number = 8): string {
       </defs>
       <rect width="100%" height="100%" fill="url(#grad)"/>
     </svg>`
-  ).toString('base64')}`
+
+  // Use btoa for browser environment, Buffer for server
+  if (typeof window !== 'undefined') {
+    return `data:image/svg+xml;base64,${btoa(svg)}`
+  }
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 }
 
 /**

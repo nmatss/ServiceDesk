@@ -509,7 +509,7 @@ export function createWebhookMiddleware(secret: string, tolerance = 300) {
 
       // Verify signature
       const manager = new WebhookManager()
-      const isValid = manager.verifySignature(payload, signature, secret, timestamp)
+      const isValid = manager.verifySignature(payload, signature, secret, timestamp ?? undefined)
 
       if (!isValid) {
         return { valid: false, error: 'Invalid signature' }

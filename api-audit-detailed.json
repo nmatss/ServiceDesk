@@ -1,0 +1,101 @@
+{
+  "metadata": {
+    "generated": "2025-12-25T20:25:54.839Z",
+    "agent": "AGENT 8 - API Route Consistency Analyzer",
+    "totalRoutes": 179,
+    "analysisVersion": "1.0.0"
+  },
+  "summary": {
+    "compliance": {
+      "fullyCompliant": 26,
+      "minorIssues": 65,
+      "criticalIssues": 87,
+      "securitySensitive": 40
+    },
+    "coverage": {
+      "errorHandling": { "count": 177, "percentage": 98.9 },
+      "validation": { "count": 150, "percentage": 83.8 },
+      "authentication": { "count": 88, "percentage": 49.2 },
+      "rateLimit": { "count": 11, "percentage": 6.1 },
+      "properStatus": { "count": 171, "percentage": 95.5 }
+    },
+    "securityGrade": "C+",
+    "urgency": "CRITICAL"
+  },
+  "criticalFindings": [
+    {
+      "severity": "CRITICAL",
+      "issue": "Missing Authentication",
+      "affectedRoutes": 91,
+      "percentage": 50.8,
+      "description": "91 routes lack authentication checks, exposing sensitive endpoints",
+      "categories": [
+        "/admin/governance/*",
+        "/admin/super/*",
+        "/cmdb/*",
+        "/catalog/*",
+        "/portal/tickets/*",
+        "/cab/*",
+        "/changes/*",
+        "/macros/*",
+        "/teams/*",
+        "/workflows/*"
+      ]
+    },
+    {
+      "severity": "HIGH",
+      "issue": "Missing Rate Limiting",
+      "affectedRoutes": 168,
+      "percentage": 93.9,
+      "description": "168 routes lack rate limiting, vulnerable to DDoS and brute force",
+      "risks": ["Brute force attacks", "DDoS attacks", "Resource exhaustion"]
+    },
+    {
+      "severity": "MEDIUM",
+      "issue": "Missing Input Validation",
+      "affectedRoutes": 29,
+      "percentage": 16.2,
+      "description": "29 routes lack proper input validation"
+    }
+  ],
+  "recommendations": {
+    "phase1": {
+      "priority": "CRITICAL",
+      "timeline": "Week 1",
+      "tasks": [
+        "Add authentication to 91 unprotected routes",
+        "Fix 2 routes without error handling",
+        "Secure all /admin/* routes",
+        "Secure all /cmdb/* routes"
+      ]
+    },
+    "phase2": {
+      "priority": "HIGH",
+      "timeline": "Week 2-3",
+      "tasks": [
+        "Implement rate limiting for 168 mutation endpoints",
+        "Add Zod validation to 29 remaining routes",
+        "Standardize error responses"
+      ]
+    },
+    "phase3": {
+      "priority": "MEDIUM",
+      "timeline": "Week 4",
+      "tasks": [
+        "Add CORS configuration where needed",
+        "Implement request logging",
+        "Add monitoring and alerting"
+      ]
+    }
+  },
+  "bestPracticeExamples": [
+    "/api/auth/login/route.ts",
+    "/api/ai/classify-ticket/route.ts",
+    "/api/embeddings/generate/route.ts"
+  ],
+  "reports": {
+    "detailed": "API_SECURITY_AUDIT_REPORT.md",
+    "summary": "API_AUDIT_SUMMARY.txt",
+    "rawData": "/tmp/api_analysis_results.json"
+  }
+}

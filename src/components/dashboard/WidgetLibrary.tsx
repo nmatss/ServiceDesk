@@ -529,7 +529,7 @@ export function WidgetLibrary({
                             <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                               Description
                             </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-description">
                               {selectedWidget.longDescription}
                             </p>
                           </div>
@@ -576,7 +576,7 @@ export function WidgetLibrary({
                               Default Configuration
                             </h4>
                             <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3">
-                              <pre className="text-xs text-gray-600 dark:text-gray-400">
+                              <pre className="text-xs text-description">
                                 {JSON.stringify(selectedWidget.defaultConfig, null, 2)}
                               </pre>
                             </div>

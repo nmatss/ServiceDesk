@@ -10,7 +10,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import html2canvas from 'html2canvas';
 import logger from '../monitoring/structured-logger';
 
@@ -190,7 +190,6 @@ async function addWidgetToPDF(
     const widgetElement = document.getElementById(widget.id);
     if (widgetElement) {
       const canvas = await html2canvas(widgetElement, {
-        scale: 2,
         logging: false,
         useCORS: true
       });
@@ -232,10 +231,20 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   } = options;
 
   try {
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'ServiceDesk';
+    workbook.created = new Date();
 
     // Add summary sheet
     if (metrics?.kpiSummary) {
+      const summarySheet = workbook.addWorksheet('Summary');
+
+      // Set column widths
+      summarySheet.columns = [
+        { width: 35 },
+        { width: 20 }
+      ];
+
       const summaryData = [
         ['ServiceDesk Dashboard Report'],
         ['Generated:', new Date().toLocaleString()],
@@ -264,31 +273,44 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
         ['CSAT Responses', metrics.kpiSummary.csat_responses || 0]
       ];
 
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      summarySheet.addRows(summaryData);
 
-      // Set column widths
-      summarySheet['!cols'] = [
-        { wch: 35 },
-        { wch: 20 }
-      ];
-
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+      // Style the header
+      summarySheet.getRow(1).font = { bold: true, size: 16 };
+      summarySheet.getRow(4).font = { bold: true, size: 14 };
+      summarySheet.getRow(12).font = { bold: true, size: 14 };
+      summarySheet.getRow(19).font = { bold: true, size: 14 };
     }
 
     // Add data sheets for each widget
     if (metrics?.slaData && metrics.slaData.length > 0) {
-      const slaSheet = XLSX.utils.json_to_sheet(metrics.slaData);
-      XLSX.utils.book_append_sheet(workbook, slaSheet, 'SLA Performance');
+      const slaSheet = workbook.addWorksheet('SLA Performance');
+      const slaHeaders = Object.keys(metrics.slaData[0]);
+      slaSheet.addRow(slaHeaders);
+      metrics.slaData.forEach((row: any) => {
+        slaSheet.addRow(slaHeaders.map(key => row[key]));
+      });
+      slaSheet.getRow(1).font = { bold: true };
     }
 
     if (metrics?.agentData && metrics.agentData.length > 0) {
-      const agentSheet = XLSX.utils.json_to_sheet(metrics.agentData);
-      XLSX.utils.book_append_sheet(workbook, agentSheet, 'Agent Performance');
+      const agentSheet = workbook.addWorksheet('Agent Performance');
+      const agentHeaders = Object.keys(metrics.agentData[0]);
+      agentSheet.addRow(agentHeaders);
+      metrics.agentData.forEach((row: any) => {
+        agentSheet.addRow(agentHeaders.map(key => row[key]));
+      });
+      agentSheet.getRow(1).font = { bold: true };
     }
 
     if (metrics?.volumeData && metrics.volumeData.length > 0) {
-      const volumeSheet = XLSX.utils.json_to_sheet(metrics.volumeData);
-      XLSX.utils.book_append_sheet(workbook, volumeSheet, 'Ticket Volume');
+      const volumeSheet = workbook.addWorksheet('Ticket Volume');
+      const volumeHeaders = Object.keys(metrics.volumeData[0]);
+      volumeSheet.addRow(volumeHeaders);
+      metrics.volumeData.forEach((row: any) => {
+        volumeSheet.addRow(volumeHeaders.map(key => row[key]));
+      });
+      volumeSheet.getRow(1).font = { bold: true };
     }
 
     if (metrics?.customData) {
@@ -301,14 +323,25 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
       }));
 
       if (customData.length > 0) {
-        const customSheet = XLSX.utils.json_to_sheet(customData);
-        XLSX.utils.book_append_sheet(workbook, customSheet, 'Custom Metrics');
+        const customSheet = workbook.addWorksheet('Custom Metrics');
+        customSheet.addRow(['Metric', 'Value', 'Unit', 'Change', 'Target']);
+        customData.forEach(row => {
+          customSheet.addRow([row.Metric, row.Value, row.Unit, row.Change, row.Target]);
+        });
+        customSheet.getRow(1).font = { bold: true };
       }
     }
 
     // Generate and download Excel file
     const filename = `dashboard-${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(workbook, filename);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
 
     logger.info('Excel export completed successfully');
   } catch (error) {

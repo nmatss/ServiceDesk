@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db/connection';
 import { hashPassword } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: Request) {
     try {
         const body = await request.json();

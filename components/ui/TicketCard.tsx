@@ -291,7 +291,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
         <div className={cn('flex items-start justify-between', selectable && 'ml-6')}>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs font-mono text-muted-content">
                 #{ticket.id}
               </span>
               <StatusBadge status={ticket.status} variant="status" />
@@ -312,7 +312,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
             </h3>
 
             {showDetails && ticket.description && !compact && (
-              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">
+              <p className="mt-2 text-sm text-description line-clamp-2">
                 {ticket.description}
               </p>
             )}
@@ -336,7 +336,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
                 {ticket.requester && (
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-neutral-400" />
-                    <span className="text-neutral-600 dark:text-neutral-400">
+                    <span className="text-description">
                       {ticket.requester.name}
                     </span>
                   </div>
@@ -346,7 +346,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
               {ticket.category && (
                 <div className="flex items-center gap-1">
                   <Tag className="h-3 w-3 text-neutral-400" />
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <span className="text-xs text-muted-content">
                     {ticket.category}
                   </span>
                 </div>
@@ -354,7 +354,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
             </div>
 
             {/* Meta information */}
-            <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="flex items-center justify-between text-xs text-muted-content">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -407,7 +407,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
                   </span>
                 ))}
                 {ticket.tags.length > (compact ? 2 : 4) && (
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <span className="text-xs text-muted-content">
                     +{ticket.tags.length - (compact ? 2 : 4)} more
                   </span>
                 )}
@@ -416,7 +416,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
 
             {/* Time tracking */}
             {(ticket.estimatedHours || ticket.actualHours) && !compact && (
-              <div className="flex items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400">
+              <div className="flex items-center gap-4 text-xs text-muted-content">
                 {ticket.estimatedHours && (
                   <span>Est: {ticket.estimatedHours}h</span>
                 )}
@@ -517,7 +517,7 @@ export const TicketList: React.FC<TicketListProps> = ({
   if (tickets.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="text-neutral-500 dark:text-neutral-400 text-lg">
+        <div className="text-muted-content text-lg">
           {emptyText}
         </div>
       </div>

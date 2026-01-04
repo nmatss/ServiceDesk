@@ -170,7 +170,7 @@ export function DataSourcePicker({
                             {ds.parameters.map((param, idx) => (
                               <span
                                 key={idx}
-                                className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-description"
                               >
                                 {param.name}
                                 {param.required && <span className="text-red-500 ml-1">*</span>}

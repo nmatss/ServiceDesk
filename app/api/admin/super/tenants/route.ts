@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/admin/super/tenants
  *
@@ -14,6 +15,10 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth';
  * - Additional super-admin permission check
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
     try {
         // Verify authentication
         const authResult = await verifyAuth(request);

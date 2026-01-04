@@ -171,11 +171,11 @@ export default function TicketDetailPage() {
     switch (statusCategory) {
       case 'resolved':
       case 'closed':
-        return <CheckCircleIcon className="w-5 h-5 text-green-500" />
+        return <CheckCircleIcon className="w-5 h-5 text-success-500" />
       case 'in_progress':
-        return <ClockIcon className="w-5 h-5 text-blue-500" />
+        return <ClockIcon className="w-5 h-5 text-brand-500" />
       default:
-        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
+        return <ExclamationTriangleIcon className="w-5 h-5 text-warning-500" />
     }
   }
 
@@ -217,21 +217,21 @@ export default function TicketDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
       </div>
     )
   }
 
   if (!ticket) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in flex items-center justify-center">
         <div className="text-center">
-          <ExclamationTriangleIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Ticket não encontrado</h2>
+          <ExclamationTriangleIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-neutral-900 mb-2">Ticket não encontrado</h2>
           <button
             onClick={() => router.push('/portal/tickets')}
-            className="text-blue-600 hover:text-blue-700"
+            className="text-brand-600 hover:text-brand-700"
           >
             Voltar para lista de tickets
           </button>
@@ -241,20 +241,20 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="glass-panel shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => router.push('/portal/tickets')}
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-2 rounded-lg border border-neutral-200 hover:bg-neutral-50 transition-colors"
             >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+              <ArrowLeftIcon className="w-5 h-5 text-neutral-600" />
             </button>
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-2">
-                <span className="text-sm font-mono text-gray-500">#{ticket.ticket_number}</span>
+                <span className="text-sm font-mono text-neutral-500">#{ticket.ticket_number}</span>
                 <div className="flex items-center space-x-2">
                   {getStatusIcon(ticket.status_category)}
                   <span className="text-sm font-medium" style={{ color: ticket.status_color }}>
@@ -268,13 +268,13 @@ export default function TicketDetailPage() {
                   {ticket.priority}
                 </span>
                 {ticket.is_overdue && (
-                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-error-100 text-error-800">
                     Vencido
                   </span>
                 )}
               </div>
-              <h1 className="text-xl font-bold text-gray-900">{ticket.title}</h1>
-              <p className="text-gray-600">{ticket.ticket_type_name} • {ticket.category_name}</p>
+              <h1 className="text-xl font-bold text-neutral-900">{ticket.title}</h1>
+              <p className="text-neutral-600">{ticket.ticket_type_name} • {ticket.category_name}</p>
             </div>
           </div>
         </div>
@@ -285,22 +285,22 @@ export default function TicketDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Descrição</h2>
+            <div className="glass-panel rounded-lg border border-neutral-200 p-6">
+              <h2 className="text-lg font-semibold text-neutral-900 mb-4">Descrição</h2>
               <div className="prose prose-sm max-w-none">
-                <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
+                <p className="text-neutral-700 whitespace-pre-wrap">{ticket.description}</p>
               </div>
             </div>
 
             {/* Comments */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="glass-panel rounded-lg border border-neutral-200 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-neutral-900">
                   Comentários ({comments.length})
                 </h2>
                 <button
                   onClick={() => setShowAddComment(!showAddComment)}
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-brand-600 hover:text-brand-700"
                 >
                   <ChatBubbleBottomCenterTextIcon className="w-4 h-4 mr-1" />
                   Adicionar comentário
@@ -308,27 +308,27 @@ export default function TicketDetailPage() {
               </div>
 
               {showAddComment && (
-                <form onSubmit={handleAddComment} className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <form onSubmit={handleAddComment} className="mb-6 p-4 bg-neutral-50 rounded-lg">
                   <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Escreva seu comentário..."
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     required
                   />
                   <div className="mt-3 flex justify-end space-x-3">
                     <button
                       type="button"
                       onClick={() => setShowAddComment(false)}
-                      className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                      className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={addingComment}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="px-4 py-2 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 disabled:opacity-50"
                     >
                       {addingComment ? 'Adicionando...' : 'Adicionar comentário'}
                     </button>
@@ -338,31 +338,31 @@ export default function TicketDetailPage() {
 
               <div className="space-y-4">
                 {comments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-neutral-500 text-center py-8">
                     Nenhum comentário ainda. Seja o primeiro a comentar!
                   </p>
                 ) : (
                   comments.map((comment) => (
                     <div key={comment.id} className="flex space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                          <UserIcon className="w-4 h-4 text-gray-600" />
+                        <div className="w-8 h-8 bg-neutral-300 rounded-full flex items-center justify-center">
+                          <UserIcon className="w-4 h-4 text-neutral-600" />
                         </div>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-neutral-900">
                             {comment.author_name}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-neutral-500">
                             {comment.author_role}
                           </span>
-                          <span className="text-xs text-gray-500">•</span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-neutral-500">•</span>
+                          <span className="text-xs text-neutral-500">
                             {formatDate(comment.created_at)}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                        <div className="text-sm text-neutral-700 whitespace-pre-wrap">
                           {comment.content}
                         </div>
                       </div>
@@ -374,25 +374,25 @@ export default function TicketDetailPage() {
 
             {/* Attachments */}
             {attachments.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              <div className="glass-panel rounded-lg border border-neutral-200 p-6">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-4">
                   Anexos ({attachments.length})
                 </h2>
                 <div className="space-y-3">
                   {attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={attachment.id} className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <DocumentIcon className="w-5 h-5 text-gray-400" />
+                        <DocumentIcon className="w-5 h-5 text-neutral-400" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-neutral-900">
                             {attachment.original_filename}
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-neutral-500">
                             {formatFileSize(attachment.file_size)} • Enviado por {attachment.uploaded_by}
                           </p>
                         </div>
                       </div>
-                      <button className="p-2 text-gray-400 hover:text-gray-600 rounded">
+                      <button className="p-2 text-neutral-400 hover:text-neutral-600 rounded">
                         <EyeIcon className="w-4 h-4" />
                       </button>
                     </div>
@@ -405,27 +405,27 @@ export default function TicketDetailPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Ticket Info */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações do Ticket</h3>
+            <div className="glass-panel rounded-lg border border-neutral-200 p-6">
+              <h3 className="text-lg font-semibold text-neutral-900 mb-4">Informações do Ticket</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Criado:</span>
-                  <span className="text-sm text-gray-900">{formatDate(ticket.created_at)}</span>
+                  <span className="text-sm text-neutral-600">Criado:</span>
+                  <span className="text-sm text-neutral-900">{formatDate(ticket.created_at)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Última atualização:</span>
-                  <span className="text-sm text-gray-900">{formatDate(ticket.updated_at)}</span>
+                  <span className="text-sm text-neutral-600">Última atualização:</span>
+                  <span className="text-sm text-neutral-900">{formatDate(ticket.updated_at)}</span>
                 </div>
                 {ticket.assigned_to_name && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Atribuído a:</span>
-                    <span className="text-sm text-gray-900">{ticket.assigned_to_name}</span>
+                    <span className="text-sm text-neutral-600">Atribuído a:</span>
+                    <span className="text-sm text-neutral-900">{ticket.assigned_to_name}</span>
                   </div>
                 )}
                 {ticket.resolved_at && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Resolvido em:</span>
-                    <span className="text-sm text-gray-900">{formatDate(ticket.resolved_at)}</span>
+                    <span className="text-sm text-neutral-600">Resolvido em:</span>
+                    <span className="text-sm text-neutral-900">{formatDate(ticket.resolved_at)}</span>
                   </div>
                 )}
               </div>
@@ -433,20 +433,20 @@ export default function TicketDetailPage() {
 
             {/* SLA Information */}
             {ticket.sla_info && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">SLA</h3>
+              <div className="glass-panel rounded-lg border border-neutral-200 p-6">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-4">SLA</h3>
                 <div className="space-y-3">
                   {ticket.sla_info.sla_policy_name && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Política:</span>
-                      <span className="text-sm text-gray-900">{ticket.sla_info.sla_policy_name}</span>
+                      <span className="text-sm text-neutral-600">Política:</span>
+                      <span className="text-sm text-neutral-900">{ticket.sla_info.sla_policy_name}</span>
                     </div>
                   )}
 
                   {ticket.time_metrics.response_time_remaining !== null && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Tempo para resposta:</span>
-                      <span className={`text-sm ${ticket.time_metrics.is_response_overdue ? 'text-red-600' : 'text-gray-900'}`}>
+                      <span className="text-sm text-neutral-600">Tempo para resposta:</span>
+                      <span className={`text-sm ${ticket.time_metrics.is_response_overdue ? 'text-error-600' : 'text-neutral-900'}`}>
                         {formatTimeRemaining(ticket.time_metrics.response_time_remaining)}
                       </span>
                     </div>
@@ -454,8 +454,8 @@ export default function TicketDetailPage() {
 
                   {ticket.time_metrics.resolution_time_remaining !== null && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Tempo para resolução:</span>
-                      <span className={`text-sm ${ticket.time_metrics.is_resolution_overdue ? 'text-red-600' : 'text-gray-900'}`}>
+                      <span className="text-sm text-neutral-600">Tempo para resolução:</span>
+                      <span className={`text-sm ${ticket.time_metrics.is_resolution_overdue ? 'text-error-600' : 'text-neutral-900'}`}>
                         {formatTimeRemaining(ticket.time_metrics.resolution_time_remaining)}
                       </span>
                     </div>
@@ -466,18 +466,18 @@ export default function TicketDetailPage() {
 
             {/* Activity History */}
             {history.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Histórico</h3>
+              <div className="glass-panel rounded-lg border border-neutral-200 p-6">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-4">Histórico</h3>
                 <div className="space-y-3">
                   {history.slice(0, 5).map((item) => (
                     <div key={item.id} className="text-sm">
                       <div className="flex items-start space-x-2">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
+                        <div className="w-2 h-2 bg-brand-400 rounded-full mt-2 flex-shrink-0"></div>
                         <div>
-                          <p className="text-gray-700">
+                          <p className="text-neutral-700">
                             <span className="font-medium">{item.user_name}</span> {item.action}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-neutral-500 mt-1">
                             {formatDate(item.created_at)}
                           </p>
                         </div>

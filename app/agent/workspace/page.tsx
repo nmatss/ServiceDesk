@@ -27,6 +27,7 @@ import {
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 import { IconButtonWithTooltip } from '@/components/ui/Tooltip'
+import PageHeader from '@/components/ui/PageHeader'
 
 interface Ticket {
   id: number
@@ -64,18 +65,18 @@ interface QueueStats {
 }
 
 const priorityConfig: Record<string, { color: string; bgColor: string; borderColor: string }> = {
-  critical: { color: 'text-red-700', bgColor: 'bg-red-100', borderColor: 'border-red-300' },
-  high: { color: 'text-orange-700', bgColor: 'bg-orange-100', borderColor: 'border-orange-300' },
-  medium: { color: 'text-yellow-700', bgColor: 'bg-yellow-100', borderColor: 'border-yellow-300' },
-  low: { color: 'text-green-700', bgColor: 'bg-green-100', borderColor: 'border-green-300' }
+  critical: { color: 'text-priority-critical dark:text-priority-critical', bgColor: 'bg-priority-critical/10 dark:bg-priority-critical/20', borderColor: 'border-priority-critical/30 dark:border-priority-critical/50' },
+  high: { color: 'text-priority-high dark:text-priority-high', bgColor: 'bg-priority-high/10 dark:bg-priority-high/20', borderColor: 'border-priority-high/30 dark:border-priority-high/50' },
+  medium: { color: 'text-priority-medium dark:text-priority-medium', bgColor: 'bg-priority-medium/10 dark:bg-priority-medium/20', borderColor: 'border-priority-medium/30 dark:border-priority-medium/50' },
+  low: { color: 'text-priority-low dark:text-priority-low', bgColor: 'bg-priority-low/10 dark:bg-priority-low/20', borderColor: 'border-priority-low/30 dark:border-priority-low/50' }
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-  open: { label: 'Aberto', color: 'text-blue-700', bgColor: 'bg-blue-100' },
-  in_progress: { label: 'Em Andamento', color: 'text-yellow-700', bgColor: 'bg-yellow-100' },
-  pending: { label: 'Pendente', color: 'text-orange-700', bgColor: 'bg-orange-100' },
-  resolved: { label: 'Resolvido', color: 'text-green-700', bgColor: 'bg-green-100' },
-  closed: { label: 'Fechado', color: 'text-gray-700', bgColor: 'bg-gray-100' }
+  open: { label: 'Aberto', color: 'text-status-open dark:text-status-open', bgColor: 'bg-status-open/10 dark:bg-status-open/20' },
+  in_progress: { label: 'Em Andamento', color: 'text-status-progress dark:text-status-progress', bgColor: 'bg-status-progress/10 dark:bg-status-progress/20' },
+  pending: { label: 'Pendente', color: 'text-priority-high dark:text-priority-high', bgColor: 'bg-priority-high/10 dark:bg-priority-high/20' },
+  resolved: { label: 'Resolvido', color: 'text-status-resolved dark:text-status-resolved', bgColor: 'bg-status-resolved/10 dark:bg-status-resolved/20' },
+  closed: { label: 'Fechado', color: 'text-description', bgColor: 'bg-neutral-100 dark:bg-neutral-800' }
 }
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -166,7 +167,7 @@ export default function AgentWorkspacePage() {
 
   const getSLAStatus = (ticket: Ticket) => {
     if (ticket.sla_response_breach || ticket.sla_resolution_breach) {
-      return { label: 'Violado', color: 'text-red-600', bgColor: 'bg-red-100' }
+      return { label: 'Violado', color: 'text-priority-critical dark:text-priority-critical', bgColor: 'bg-priority-critical/10 dark:bg-priority-critical/20' }
     }
     // Check if at risk (within 30 minutes of deadline)
     if (ticket.sla_response_deadline || ticket.sla_resolution_deadline) {
@@ -176,16 +177,16 @@ export default function AgentWorkspacePage() {
       const minutesRemaining = Math.floor(diff / 60000)
 
       if (minutesRemaining < 0) {
-        return { label: 'Violado', color: 'text-red-600', bgColor: 'bg-red-100' }
+        return { label: 'Violado', color: 'text-priority-critical dark:text-priority-critical', bgColor: 'bg-priority-critical/10 dark:bg-priority-critical/20' }
       }
       if (minutesRemaining < 30) {
-        return { label: `${minutesRemaining}m`, color: 'text-orange-600', bgColor: 'bg-orange-100' }
+        return { label: `${minutesRemaining}m`, color: 'text-priority-high dark:text-priority-high', bgColor: 'bg-priority-high/10 dark:bg-priority-high/20' }
       }
       if (minutesRemaining < 60) {
-        return { label: `${minutesRemaining}m`, color: 'text-yellow-600', bgColor: 'bg-yellow-100' }
+        return { label: `${minutesRemaining}m`, color: 'text-priority-medium dark:text-priority-medium', bgColor: 'bg-priority-medium/10 dark:bg-priority-medium/20' }
       }
     }
-    return { label: 'OK', color: 'text-green-600', bgColor: 'bg-green-100' }
+    return { label: 'OK', color: 'text-status-resolved dark:text-status-resolved', bgColor: 'bg-status-resolved/10 dark:bg-status-resolved/20' }
   }
 
   const handleTicketClick = (ticket: Ticket) => {
@@ -197,86 +198,74 @@ export default function AgentWorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-20">
-        <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <InboxIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Workspace do Agente</h1>
-                <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">
-                  Gerencie seus chamados em uma única tela
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <IconButtonWithTooltip
-                icon={ArrowPathIcon}
-                tooltip="Atualizar chamados"
-                label="Atualizar chamados"
-                onClick={fetchData}
-                className={loading ? 'animate-spin' : ''}
-                disabled={loading}
-              />
-              <IconButtonWithTooltip
-                icon={BellAlertIcon}
-                tooltip="Notificações"
-                label="Ver notificações"
-                onClick={() => {/* TODO: Implement notifications */}}
-                badge={3}
-              />
-              <IconButtonWithTooltip
-                icon={Cog6ToothIcon}
-                tooltip="Configurações do workspace"
-                label="Abrir configurações do workspace"
-                onClick={() => router.push('/agent/settings')}
-              />
-            </div>
-          </div>
+      <div className="glass-panel border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-20">
+        <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 py-4">
+          <PageHeader
+            title="Workspace do Agente"
+            description="Gerencie seus chamados em uma única tela"
+            icon={InboxIcon}
+            actions={[
+              {
+                label: 'Atualizar',
+                onClick: fetchData,
+                icon: ArrowPathIcon,
+                variant: 'ghost'
+              },
+              {
+                label: 'Notificações',
+                onClick: () => {/* TODO: Implement notifications */},
+                icon: BellAlertIcon,
+                variant: 'ghost'
+              },
+              {
+                label: 'Configurações',
+                onClick: () => router.push('/agent/settings'),
+                icon: Cog6ToothIcon,
+                variant: 'secondary'
+              }
+            ]}
+          />
         </div>
       </div>
 
       {/* Stats Bar */}
-      <div className="bg-white border-b">
+      <div className="glass-panel border-b border-neutral-200 dark:border-neutral-800">
         <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
-          <div className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0 scrollbar-thin">
             {agentStats && (
               <>
-                <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg flex-shrink-0">
-                  <TicketIcon className="w-4 h-4 text-blue-600" />
+                <div className="flex items-center gap-2 px-3 py-2 bg-status-open/10 dark:bg-status-open/20 rounded-lg flex-shrink-0 transition-all hover:scale-105 animate-slide-up">
+                  <TicketIcon className="w-4 h-4 text-status-open" />
                   <div>
-                    <p className="text-xs text-gray-500">Meus Abertos</p>
-                    <p className="text-lg font-bold text-blue-600">{agentStats.assigned_open}</p>
+                    <p className="text-xs text-description">Meus Abertos</p>
+                    <p className="text-lg font-bold text-status-open">{agentStats.assigned_open}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg flex-shrink-0">
-                  <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                <div className="flex items-center gap-2 px-3 py-2 bg-status-resolved/10 dark:bg-status-resolved/20 rounded-lg flex-shrink-0 transition-all hover:scale-105 animate-slide-up" style={{ animationDelay: '100ms' }}>
+                  <CheckCircleIcon className="w-4 h-4 text-status-resolved" />
                   <div>
-                    <p className="text-xs text-gray-500">Resolvidos Hoje</p>
-                    <p className="text-lg font-bold text-green-600">{agentStats.resolved_today}</p>
+                    <p className="text-xs text-description">Resolvidos Hoje</p>
+                    <p className="text-lg font-bold text-status-resolved">{agentStats.resolved_today}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg flex-shrink-0">
-                  <ChartBarIcon className="w-4 h-4 text-purple-600" />
+                <div className="flex items-center gap-2 px-3 py-2 bg-brand-500/10 dark:bg-brand-500/20 rounded-lg flex-shrink-0 transition-all hover:scale-105 animate-slide-up" style={{ animationDelay: '200ms' }}>
+                  <ChartBarIcon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                   <div>
-                    <p className="text-xs text-gray-500">SLA</p>
-                    <p className="text-lg font-bold text-purple-600">{agentStats.sla_compliance}%</p>
+                    <p className="text-xs text-description">SLA</p>
+                    <p className="text-lg font-bold text-brand-600 dark:text-brand-400">{agentStats.sla_compliance}%</p>
                   </div>
                 </div>
 
                 {queueStats && queueStats.sla_at_risk > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg flex-shrink-0">
-                    <FireIcon className="w-4 h-4 text-red-600" />
+                  <div className="flex items-center gap-2 px-3 py-2 bg-priority-critical/10 dark:bg-priority-critical/20 rounded-lg flex-shrink-0 transition-all hover:scale-105 animate-slide-up animate-pulse-soft" style={{ animationDelay: '300ms' }}>
+                    <FireIcon className="w-4 h-4 text-priority-critical" />
                     <div>
-                      <p className="text-xs text-gray-500">SLA em Risco</p>
-                      <p className="text-lg font-bold text-red-600">{queueStats.sla_at_risk}</p>
+                      <p className="text-xs text-description">SLA em Risco</p>
+                      <p className="text-lg font-bold text-priority-critical">{queueStats.sla_at_risk}</p>
                     </div>
                   </div>
                 )}
@@ -291,21 +280,21 @@ export default function AgentWorkspacePage() {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Left Panel - Queue & Filters */}
           <div className="lg:w-80 flex-shrink-0">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm sticky top-[120px]">
+            <div className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm sticky top-[120px] animate-slide-up">
               {/* Queue Tabs */}
-              <div className="p-3 border-b">
-                <div className="flex bg-gray-100 rounded-lg p-1">
+              <div className="p-3 border-b border-neutral-200 dark:border-neutral-800">
+                <div className="flex bg-neutral-100 dark:bg-neutral-900 rounded-lg p-1">
                   <button
                     onClick={() => setActiveQueue('my')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      activeQueue === 'my' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      activeQueue === 'my' ? 'glass-panel text-brand-600 dark:text-brand-400 shadow-sm' : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100'
                     }`}
                   >
                     <span className="flex items-center justify-center gap-1">
                       <UserIcon className="w-4 h-4" />
                       <span>Meus</span>
                       {queueStats && (
-                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">
+                        <span className="px-1.5 py-0.5 bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded text-xs">
                           {queueStats.my_queue}
                         </span>
                       )}
@@ -313,8 +302,8 @@ export default function AgentWorkspacePage() {
                   </button>
                   <button
                     onClick={() => setActiveQueue('team')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      activeQueue === 'team' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      activeQueue === 'team' ? 'glass-panel text-brand-600 dark:text-brand-400 shadow-sm' : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100'
                     }`}
                   >
                     <span className="flex items-center justify-center gap-1">
@@ -324,15 +313,15 @@ export default function AgentWorkspacePage() {
                   </button>
                   <button
                     onClick={() => setActiveQueue('unassigned')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      activeQueue === 'unassigned' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      activeQueue === 'unassigned' ? 'glass-panel text-brand-600 dark:text-brand-400 shadow-sm' : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100'
                     }`}
                   >
                     <span className="flex items-center justify-center gap-1">
                       <InboxIcon className="w-4 h-4" />
                       <span>Fila</span>
                       {queueStats && (
-                        <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-xs">
+                        <span className="px-1.5 py-0.5 bg-priority-high/10 dark:bg-priority-high/20 text-priority-high rounded text-xs">
                           {queueStats.unassigned}
                         </span>
                       )}
@@ -344,11 +333,11 @@ export default function AgentWorkspacePage() {
               {/* Filters */}
               <div className="p-3 space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 mb-1 block">Prioridade</label>
+                  <label className="text-xs font-medium text-description mb-1 block">Prioridade</label>
                   <select
                     value={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent transition-all"
                   >
                     <option value="">Todas</option>
                     <option value="critical">Crítica</option>
@@ -358,50 +347,50 @@ export default function AgentWorkspacePage() {
                   </select>
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={showSLARisk}
                     onChange={(e) => setShowSLARisk(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-neutral-300 dark:border-neutral-700 text-brand-600 dark:text-brand-500 focus:ring-brand-500 dark:focus:ring-brand-600"
                   />
-                  <span className="text-sm text-gray-700 flex items-center gap-1">
-                    <FireIcon className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm text-neutral-700 dark:text-neutral-300 flex items-center gap-1 group-hover:text-neutral-900 dark:group-hover:text-neutral-100 transition-colors">
+                    <FireIcon className="w-4 h-4 text-priority-high" />
                     Apenas SLA em risco
                   </span>
                 </label>
               </div>
 
               {/* Quick Actions */}
-              <div className="p-3 border-t">
-                <h3 className="text-xs font-medium text-gray-500 mb-2">Ações Rápidas</h3>
+              <div className="p-3 border-t border-neutral-200 dark:border-neutral-800">
+                <h3 className="text-xs font-medium text-description mb-2">Ações Rápidas</h3>
                 <div className="space-y-2">
                   <button
                     onClick={() => router.push('/tickets/new')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group text-neutral-700 dark:text-neutral-300"
                     aria-label="Criar novo ticket"
                   >
-                    <BoltIcon className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform" />
+                    <BoltIcon className="w-4 h-4 text-brand-500 group-hover:scale-110 transition-transform" />
                     <span className="flex-1">Novo Ticket</span>
-                    <ChevronRightIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRightIcon className="w-4 h-4 text-neutral-300 dark:text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                   <button
                     onClick={() => router.push('/knowledge')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group text-neutral-700 dark:text-neutral-300"
                     aria-label="Acessar base de conhecimento"
                   >
-                    <DocumentTextIcon className="w-4 h-4 text-green-500 group-hover:scale-110 transition-transform" />
+                    <DocumentTextIcon className="w-4 h-4 text-status-resolved group-hover:scale-110 transition-transform" />
                     <span className="flex-1">Base de Conhecimento</span>
-                    <ChevronRightIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRightIcon className="w-4 h-4 text-neutral-300 dark:text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                   <button
                     onClick={() => router.push('/admin/problems')}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-gray-50 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all duration-200 hover:shadow-sm hover:translate-x-1 group text-neutral-700 dark:text-neutral-300"
                     aria-label="Ver problemas conhecidos"
                   >
-                    <BugAntIcon className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform" />
+                    <BugAntIcon className="w-4 h-4 text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform" />
                     <span className="flex-1">Problemas</span>
-                    <ChevronRightIcon className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRightIcon className="w-4 h-4 text-neutral-300 dark:text-neutral-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 </div>
               </div>
@@ -410,29 +399,29 @@ export default function AgentWorkspacePage() {
 
           {/* Center - Ticket List */}
           <div className="flex-1 min-w-0">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm animate-slide-up" style={{ animationDelay: '100ms' }}>
               {/* Search */}
-              <div className="p-3 border-b">
+              <div className="p-3 border-b border-neutral-200 dark:border-neutral-800">
                 <div className="relative">
-                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-600" />
                   <input
                     type="text"
                     placeholder="Buscar tickets..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-600 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent transition-all"
                   />
                 </div>
               </div>
 
               {/* Ticket List */}
-              <div className="divide-y divide-gray-100 max-h-[calc(100vh-280px)] overflow-y-auto">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800 max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin">
                 {loading && tickets.length === 0 ? (
                   <div className="p-8 text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 dark:border-brand-400 mx-auto"></div>
                   </div>
                 ) : tickets.length === 0 ? (
                   <div className="p-8 text-center">
-                    <InboxIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">Nenhum ticket na fila</p>
+                    <InboxIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
+                    <p className="text-muted-content">Nenhum ticket na fila</p>
                   </div>
                 ) : (
                   tickets.map((ticket) => {
@@ -445,8 +434,8 @@ export default function AgentWorkspacePage() {
                       <div
                         key={ticket.id}
                         onClick={() => handleTicketClick(ticket)}
-                        className={`p-3 sm:p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                          selectedTicket?.id === ticket.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                        className={`p-3 sm:p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-all group ${
+                          selectedTicket?.id === ticket.id ? 'bg-brand-50 dark:bg-brand-950 border-l-4 border-brand-500 dark:border-brand-400' : ''
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -454,14 +443,14 @@ export default function AgentWorkspacePage() {
                           <div className={`w-1 h-12 rounded-full ${priority.bgColor}`}></div>
 
                           {/* Type Icon */}
-                          <div className={`p-2 rounded-lg ${priority.bgColor} flex-shrink-0`}>
+                          <div className={`p-2 rounded-lg ${priority.bgColor} flex-shrink-0 group-hover:scale-110 transition-transform`}>
                             <TypeIcon className={`w-4 h-4 ${priority.color}`} />
                           </div>
 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-mono text-gray-500">#{ticket.id}</span>
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="text-xs font-mono text-muted-content">#{ticket.id}</span>
                               <span className={`px-2 py-0.5 rounded text-xs font-medium ${status.bgColor} ${status.color}`}>
                                 {status.label}
                               </span>
@@ -470,11 +459,11 @@ export default function AgentWorkspacePage() {
                               </span>
                             </div>
 
-                            <h4 className="font-medium text-gray-900 line-clamp-1 mb-1">
+                            <h4 className="font-medium text-neutral-900 dark:text-neutral-100 line-clamp-1 mb-1">
                               {ticket.title}
                             </h4>
 
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <div className="flex items-center gap-3 text-xs text-muted-content flex-wrap">
                               <span className="flex items-center gap-1">
                                 <UserIcon className="w-3.5 h-3.5" />
                                 {ticket.requester_name}
@@ -487,12 +476,12 @@ export default function AgentWorkspacePage() {
                           {/* Indicators */}
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {ticket.unread_comments > 0 && (
-                              <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-600 rounded text-xs">
+                              <span className="flex items-center gap-1 px-2 py-1 bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 rounded text-xs animate-pulse-soft">
                                 <ChatBubbleLeftRightIcon className="w-3.5 h-3.5" />
                                 {ticket.unread_comments}
                               </span>
                             )}
-                            <ChevronRightIcon className="w-5 h-5 text-gray-300 hidden sm:block" />
+                            <ChevronRightIcon className="w-5 h-5 text-neutral-300 dark:text-neutral-700 hidden sm:block group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors" />
                           </div>
                         </div>
                       </div>
@@ -505,56 +494,56 @@ export default function AgentWorkspacePage() {
 
           {/* Right Panel - Ticket Preview (Desktop only) */}
           <div className="hidden xl:block xl:w-96 flex-shrink-0">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm sticky top-[120px]">
+            <div className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm sticky top-[120px] animate-slide-up" style={{ animationDelay: '200ms' }}>
               {selectedTicket ? (
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-mono text-gray-500">#{selectedTicket.id}</span>
+                    <span className="text-sm font-mono text-muted-content">#{selectedTicket.id}</span>
                     <button
                       onClick={() => router.push(`/tickets/${selectedTicket.id}`)}
-                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                      className="flex items-center gap-1 text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
                     >
                       <EyeIcon className="w-4 h-4" />
                       Abrir
                     </button>
                   </div>
 
-                  <h3 className="font-semibold text-gray-900 mb-3">{selectedTicket.title}</h3>
+                  <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">{selectedTicket.title}</h3>
 
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-gray-500">Solicitante</span>
-                      <span className="text-sm font-medium">{selectedTicket.requester_name}</span>
+                    <div className="flex items-center justify-between py-2 border-b border-neutral-200 dark:border-neutral-800">
+                      <span className="text-sm text-muted-content">Solicitante</span>
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{selectedTicket.requester_name}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-gray-500">Categoria</span>
-                      <span className="text-sm font-medium">{selectedTicket.category_name}</span>
+                    <div className="flex items-center justify-between py-2 border-b border-neutral-200 dark:border-neutral-800">
+                      <span className="text-sm text-muted-content">Categoria</span>
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{selectedTicket.category_name}</span>
                     </div>
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-gray-500">Prioridade</span>
+                    <div className="flex items-center justify-between py-2 border-b border-neutral-200 dark:border-neutral-800">
+                      <span className="text-sm text-muted-content">Prioridade</span>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${priorityConfig[selectedTicket.priority]?.bgColor} ${priorityConfig[selectedTicket.priority]?.color}`}>
                         {selectedTicket.priority}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm text-gray-500">Criado</span>
-                      <span className="text-sm">{formatTimeAgo(selectedTicket.created_at)}</span>
+                    <div className="flex items-center justify-between py-2 border-b border-neutral-200 dark:border-neutral-800">
+                      <span className="text-sm text-muted-content">Criado</span>
+                      <span className="text-sm text-neutral-900 dark:text-neutral-100">{formatTimeAgo(selectedTicket.created_at)}</span>
                     </div>
                   </div>
 
                   <div className="mt-4 flex gap-2">
-                    <button className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                    <button className="flex-1 px-3 py-2 bg-gradient-brand text-white rounded-lg text-sm font-medium hover:opacity-90 transition-all hover:shadow-lg">
                       Responder
                     </button>
-                    <button className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50">
+                    <button className="px-3 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all">
                       Atribuir
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="p-8 text-center">
-                  <TicketIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm">Selecione um ticket para visualizar</p>
+                  <TicketIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
+                  <p className="text-muted-content text-sm">Selecione um ticket para visualizar</p>
                 </div>
               )}
             </div>

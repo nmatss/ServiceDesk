@@ -3,10 +3,15 @@ import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // GET single ticket
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const tenantContext = getTenantContextFromRequest(request)
@@ -92,7 +97,11 @@ export async function GET(
 // PATCH ticket (for updates like status change)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const tenantContext = getTenantContextFromRequest(request)

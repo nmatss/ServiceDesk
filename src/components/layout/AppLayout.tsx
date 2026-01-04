@@ -57,14 +57,13 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Verify auth using httpOnly cookies (sent automatically with credentials: 'include')
+        // Verify auth using httpOnly cookies
         const response = await fetch('/api/auth/verify', {
           credentials: 'include'
         })
 
         if (response.ok) {
           const responseData = await response.json()
-          // API returns { success: true, user: {...} }
           if (responseData.success && responseData.user) {
             setUser({
               id: responseData.user.id,
@@ -72,28 +71,16 @@ function AppLayoutContent({ children }: AppLayoutProps) {
               email: responseData.user.email,
               role: responseData.user.role as 'admin' | 'agent' | 'user'
             })
-
-            // Redirect to appropriate dashboard based on role
-            if (pathname === '/' || pathname === '/auth/login') {
-              if (responseData.user.role === 'admin') {
-                router.push('/admin')
-              } else {
-                router.push('/dashboard')
-              }
-            }
           } else if (!publicRoutes.includes(pathname)) {
-            // No valid session and not on public route
             router.push('/auth/login')
           }
         } else {
-          // Not authenticated
           if (!publicRoutes.includes(pathname)) {
             router.push('/auth/login')
           }
         }
       } catch (error) {
         console.error('[AppLayout] Auth check failed:', error)
-
         if (!publicRoutes.includes(pathname)) {
           router.push('/auth/login')
         }
@@ -119,15 +106,11 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         setSidebarOpen(false)
       }
     }
-
-    // Set initial state
     handleResize()
-
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Loading screen
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
@@ -136,7 +119,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
             ServiceDesk
           </h2>
-          <p className="text-neutral-600 dark:text-neutral-400">
+          <p className="text-description">
             Carregando...
           </p>
         </div>
@@ -153,15 +136,9 @@ function AppLayoutContent({ children }: AppLayoutProps) {
     )
   }
 
-  // Admin and other custom layout pages have their own layout
-  if (hasCustomLayout) {
-    return <>{children}</>
-  }
-
-  // Main application layout
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-[#0a0a0c] bg-pattern">
-      {/* Sidebar */}
+      {/* Sidebar - Single Source of Truth */}
       <Sidebar
         open={sidebarOpen}
         setOpen={setSidebarOpen}
@@ -170,7 +147,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
 
       {/* Main content area */}
       <div className={`flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
-        {/* Header */}
+        {/* Header - Single Source of Truth */}
         <Header
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
@@ -197,20 +174,20 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         >
           <div className="container-responsive">
             <div className="flex flex-col sm:flex-row justify-between items-center">
-              <div className="text-sm text-neutral-600 dark:text-neutral-400">
+              <div className="text-sm text-description">
                 © 2024 ServiceDesk Pro. Todos os direitos reservados.
               </div>
               <nav className="flex items-center space-x-4 mt-2 sm:mt-0" aria-label="Links do rodapé">
                 <a
                   href="/knowledge"
-                  className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                   aria-label="Ir para base de conhecimento"
                 >
                   Documentação
                 </a>
                 <a
                   href="/portal/create"
-                  className="text-sm text-neutral-600 dark:text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                  className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                   aria-label="Abrir novo ticket de suporte"
                 >
                   Suporte
@@ -264,7 +241,7 @@ export class AppLayoutErrorBoundary extends React.Component<
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
                 Algo deu errado
               </h2>
-              <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              <p className="text-description mb-4">
                 Ocorreu um erro inesperado. Tente recarregar a página.
               </p>
               <button

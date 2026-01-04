@@ -12,6 +12,7 @@ import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateProblemInput } from '@/lib/types/problem';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
@@ -22,7 +23,11 @@ interface RouteParams {
  * GET /api/problems/[id]
  * Get problem by ID with full details
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -106,7 +111,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PUT /api/problems/[id]
  * Update problem
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -197,7 +206,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const updatedProblem = await problemQueries.updateProblem(
       tenant.organizationId,
       problemId,
-      payload.userId,
+      payload.userId ?? 0,
       input
     );
 
@@ -218,7 +227,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/problems/[id]
  * Delete problem (admin only)
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);

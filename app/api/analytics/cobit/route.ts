@@ -10,6 +10,7 @@ import { getDatabase } from '@/lib/db/connection'
 import { verifyAuth } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface COBITMetrics {
   // EDM - Evaluate, Direct, Monitor (Governance)
   governance: {
@@ -54,6 +55,10 @@ interface COBITMetrics {
  * GET /api/analytics/cobit - Get COBIT 2019 Metrics
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {

@@ -10,6 +10,7 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schema for CI updates
 const updateCISchema = z.object({
   name: z.string().min(1).optional(),
@@ -39,7 +40,7 @@ const updateCISchema = z.object({
   installation_date: z.string().optional().nullable(),
   warranty_expiry: z.string().optional().nullable(),
   end_of_life_date: z.string().optional().nullable(),
-  custom_attributes: z.record(z.any()).optional()
+  custom_attributes: z.record(z.string(), z.any()).optional()
 })
 
 /**
@@ -47,7 +48,11 @@ const updateCISchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await verifyAuth(request)
@@ -155,7 +160,11 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await verifyAuth(request)
@@ -267,7 +276,11 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const auth = await verifyAuth(request)

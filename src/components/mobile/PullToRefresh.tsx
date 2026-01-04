@@ -57,13 +57,13 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
               className={`w-8 h-8 ${
                 shouldRelease
                   ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-neutral-400 dark:text-neutral-500'
+                  : 'text-icon-muted'
               }`}
             />
           </div>
 
           {/* Text */}
-          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+          <p className="text-xs font-medium text-description">
             {isRefreshing ? refreshingText : shouldRelease ? releaseText : pullText}
           </p>
 

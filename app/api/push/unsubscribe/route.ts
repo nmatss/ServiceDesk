@@ -3,11 +3,16 @@ import dbConnection from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * POST /api/push/unsubscribe
  * Unsubscribe from push notifications
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authResult = await verifyAuth(request);
     if (!authResult.authenticated || !authResult.user) {

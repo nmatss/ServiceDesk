@@ -13,19 +13,51 @@ import {
   MinusIcon
 } from '@heroicons/react/24/outline'
 
+/**
+ * IconComponent type that accepts both regular components and forward refs from Heroicons
+ */
+type IconComponent = React.ComponentType<{ className?: string }> | React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>
+
+/**
+ * StatsCard component props
+ * @property {string} title - The title of the stat card (alias: label)
+ * @property {string} label - Alternative prop name for title
+ * @property {string | number} value - The main value to display
+ * @property {object} change - Optional change indicator with value, type, and period
+ * @property {string} trend - Alternative way to specify trend direction (up/down/neutral)
+ * @property {string} trendValue - Alternative way to specify trend percentage
+ * @property {string} trendLabel - Alternative way to specify trend period label
+ * @property {IconComponent | React.ReactNode | string} icon - Icon as component, element, or preset key
+ * @property {string} color - Color theme for the card
+ * @property {string} variant - Card style variant (default/glass)
+ * @property {string} size - Size variant (sm, md, lg)
+ * @property {boolean} loading - Loading state indicator
+ * @property {function} onClick - Optional click handler
+ * @property {string} description - Optional description text
+ * @property {string} valueColor - Custom color class for the value
+ * @property {string} className - Additional CSS classes
+ */
 interface StatsCardProps {
-  title: string
+  title?: string
+  label?: string
   value: string | number
   change?: {
     value: number
     type: 'increase' | 'decrease' | 'neutral'
     period?: string
   }
-  icon?: React.ReactNode | 'tickets' | 'users' | 'time' | 'resolved' | 'pending' | 'chart'
+  trend?: 'up' | 'down' | 'neutral'
+  trendValue?: string
+  trendLabel?: string
+  icon?: IconComponent | React.ReactNode | 'tickets' | 'users' | 'time' | 'resolved' | 'pending' | 'chart'
   color?: 'brand' | 'success' | 'warning' | 'error' | 'neutral' | 'info'
+  variant?: 'default' | 'glass'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   onClick?: () => void
+  description?: string
+  valueColor?: string
+  className?: string
 }
 
 const iconMap = {
@@ -63,15 +95,15 @@ const colorConfig = {
     gradient: 'bg-gradient-error'
   },
   info: {
-    bg: 'bg-blue-500',
-    bgLight: 'bg-blue-50 dark:bg-blue-900/20',
-    text: 'text-blue-600 dark:text-blue-400',
-    gradient: 'bg-gradient-to-r from-blue-500 to-blue-400'
+    bg: 'bg-brand-500',
+    bgLight: 'bg-brand-50 dark:bg-brand-900/20',
+    text: 'text-brand-600 dark:text-brand-400',
+    gradient: 'bg-gradient-brand'
   },
   neutral: {
     bg: 'bg-neutral-500',
     bgLight: 'bg-neutral-50 dark:bg-neutral-800',
-    text: 'text-neutral-600 dark:text-neutral-400',
+    text: 'text-description',
     gradient: 'bg-gradient-to-r from-neutral-500 to-neutral-400'
   }
 }
@@ -103,18 +135,36 @@ const sizeConfig = {
   }
 }
 
-export default function StatsCard({
+export function StatsCard({
   title,
+  label,
   value,
   change,
+  trend,
+  trendValue,
+  trendLabel,
   icon,
   color = 'brand',
+  variant = 'default',
   size = 'md',
   loading = false,
-  onClick
+  onClick,
+  description,
+  valueColor,
+  className = ''
 }: StatsCardProps) {
   const colors = colorConfig[color]
   const sizes = sizeConfig[size]
+
+  // Support both title and label props
+  const displayTitle = title || label || ''
+
+  // Convert trend props to change object if provided
+  const displayChange = change || (trend && trendValue ? {
+    value: parseFloat(trendValue.replace('%', '')),
+    type: trend === 'up' ? 'increase' as const : trend === 'down' ? 'decrease' as const : 'neutral' as const,
+    period: trendLabel
+  } : undefined)
 
   const formatValue = (val: string | number) => {
     if (typeof val === 'number') {
@@ -147,22 +197,30 @@ export default function StatsCard({
       case 'decrease':
         return 'text-error-600 dark:text-error-400'
       default:
-        return 'text-neutral-600 dark:text-neutral-400'
+        return 'text-description'
     }
   }
 
-  const ChangeIcon = change ? getChangeIcon(change.type) : null
+  const ChangeIcon = displayChange ? getChangeIcon(displayChange.type) : null
 
-  // Render icon - either React node or string key
+  // Render icon - handles React elements, component types, and string keys
   const renderIcon = () => {
+    // Handle React elements (JSX icons)
     if (React.isValidElement(icon)) {
       return React.cloneElement(icon as React.ReactElement, {
         className: `${sizes.icon} ${colors.text}`
       })
     }
 
+    // Handle string keys from iconMap
     if (typeof icon === 'string' && iconMap[icon as keyof typeof iconMap]) {
       const IconComponent = iconMap[icon as keyof typeof iconMap]
+      return <IconComponent className={`${sizes.icon} ${colors.text}`} aria-hidden="true" />
+    }
+
+    // Handle icon as a component (ComponentType or ForwardRefExoticComponent)
+    if (typeof icon === 'function' || (icon && typeof icon === 'object' && '$$typeof' in icon)) {
+      const IconComponent = icon as IconComponent
       return <IconComponent className={`${sizes.icon} ${colors.text}`} aria-hidden="true" />
     }
 
@@ -170,15 +228,26 @@ export default function StatsCard({
     return <ChartBarIcon className={`${sizes.icon} ${colors.text}`} aria-hidden="true" />
   }
 
+  // Determine value color class
+  const valueColorClass = valueColor || 'text-neutral-900 dark:text-neutral-100'
+
+  // Determine card variant classes
+  const variantClasses = variant === 'glass'
+    ? 'glass-panel'
+    : 'bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm'
+
   return (
     <div
       className={`
-        bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm
-        group cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-1
-        ${onClick ? 'hover:scale-[1.02]' : ''}
-        ${loading ? 'animate-pulse' : ''}
+        ${variantClasses} group relative overflow-hidden
+        transition-all duration-300 hover:shadow-large hover:-translate-y-1
+        ${onClick ? 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]' : ''}
+        ${loading ? 'animate-pulse' : 'animate-slide-up'}
+        ${className}
       `}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className={sizes.container}>
         <div className="flex items-center justify-between">
@@ -192,11 +261,11 @@ export default function StatsCard({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <dt className={`${sizes.title} font-medium text-neutral-500 dark:text-neutral-400 truncate`}>
-                {title}
+              <dt className={`${sizes.title} font-medium text-muted-content truncate`}>
+                {displayTitle}
               </dt>
               <dd className="flex items-baseline space-x-2">
-                <div className={`${sizes.value} font-bold text-neutral-900 dark:text-neutral-100`}>
+                <div className={`${sizes.value} font-bold ${valueColorClass}`}>
                   {loading ? (
                     <div className="w-16 h-8 bg-neutral-200 dark:bg-neutral-700 rounded animate-pulse" />
                   ) : (
@@ -204,30 +273,35 @@ export default function StatsCard({
                   )}
                 </div>
               </dd>
+              {description && !loading && (
+                <p className="text-xs text-muted-content mt-1">
+                  {description}
+                </p>
+              )}
             </div>
           </div>
 
           {/* Change Indicator */}
-          {change && !loading && (
-            <div className={`flex items-center space-x-1 ${sizes.change} font-semibold ${getChangeColor(change.type)}`}>
+          {displayChange && !loading && (
+            <div className={`flex items-center space-x-1 ${sizes.change} font-semibold ${getChangeColor(displayChange.type)}`}>
               {ChangeIcon && <ChangeIcon className="h-4 w-4" />}
-              <span>{Math.abs(change.value)}%</span>
+              <span>{Math.abs(displayChange.value)}%</span>
             </div>
           )}
         </div>
 
         {/* Bottom Section with Change Details */}
-        {change && !loading && (
+        {displayChange && !loading && !description && (
           <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center justify-between">
-              <div className={`text-xs ${getChangeColor(change.type)}`}>
+              <div className={`text-xs ${getChangeColor(displayChange.type)}`}>
                 <span className="font-medium">
-                  {change.type === 'increase' ? 'Aumento' :
-                   change.type === 'decrease' ? 'Diminuição' :
+                  {displayChange.type === 'increase' ? 'Aumento' :
+                   displayChange.type === 'decrease' ? 'Diminuição' :
                    'Sem mudança'}
                 </span>
-                <span className="text-neutral-500 dark:text-neutral-400 ml-1">
-                  {change.period || 'vs período anterior'}
+                <span className="text-muted-content ml-1">
+                  {displayChange.period || 'vs período anterior'}
                 </span>
               </div>
 
@@ -237,8 +311,8 @@ export default function StatsCard({
                   <div
                     className={`h-full ${colors.bg} transition-all duration-1000 ease-out`}
                     style={{
-                      width: `${Math.min(Math.abs(change.value), 100)}%`,
-                      transform: change.type === 'decrease' ? 'scaleX(-1)' : 'none'
+                      width: `${Math.min(Math.abs(displayChange.value), 100)}%`,
+                      transform: displayChange.type === 'decrease' ? 'scaleX(-1)' : 'none'
                     }}
                   />
                 </div>
@@ -249,9 +323,11 @@ export default function StatsCard({
       </div>
 
       {/* Hover effect gradient overlay */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 rounded-xl">
-        <div className={`w-full h-full ${colors.gradient} rounded-xl`} />
-      </div>
+      {onClick && (
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 rounded-xl pointer-events-none">
+          <div className={`w-full h-full ${colors.gradient} rounded-xl`} />
+        </div>
+      )}
     </div>
   )
 }
@@ -261,7 +337,7 @@ export function StatsCardSkeleton({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }
   const sizes = sizeConfig[size]
 
   return (
-    <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm animate-pulse">
+    <div className="glass-panel animate-pulse">
       <div className={sizes.container}>
         <div className="flex items-center space-x-4">
           <div className={`${sizes.iconContainer} bg-neutral-200 dark:bg-neutral-700 rounded-xl`}>
@@ -280,10 +356,12 @@ export function StatsCardSkeleton({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }
 // Grid container for stats cards
 export function StatsGrid({
   children,
-  cols = 4
+  cols = 4,
+  className = ''
 }: {
   children: React.ReactNode
   cols?: 1 | 2 | 3 | 4 | 5 | 6
+  className?: string
 }) {
   const gridCols = {
     1: 'grid-cols-1',
@@ -295,8 +373,10 @@ export function StatsGrid({
   }
 
   return (
-    <div className={`grid gap-4 sm:gap-6 ${gridCols[cols]}`}>
+    <div className={`grid gap-4 sm:gap-6 ${gridCols[cols]} ${className}`}>
       {children}
     </div>
   )
 }
+
+export default StatsCard

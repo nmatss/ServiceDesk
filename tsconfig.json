@@ -63,6 +63,7 @@
     "tests",
     "examples",
     "scripts",
+    "src/**",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
@@ -83,12 +84,6 @@
     "lib/knowledge/semantic-search.ts",
     "lib/notifications/channels.ts",
     "lib/performance/code-splitting.tsx",
-    "src/components/charts/SankeyDiagrams.tsx",
-    "src/components/charts/TicketTrendChart.tsx",
-    "src/components/dashboard/DashboardBuilder.tsx",
-    "src/components/dashboard/ExecutiveDashboard.tsx",
-    "src/components/workflow/WorkflowBuilder.tsx",
-    "src/components/knowledge/SemanticSearchBar.tsx",
     "lib/knowledge",
     "lib/notifications/channels.ts"
   ]

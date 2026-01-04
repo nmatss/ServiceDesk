@@ -10,10 +10,15 @@ import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting muito restritivo para treinamento de AI (máximo 3 requests por hora)
 const trainRateLimit = createRateLimitMiddleware('auth-strict')
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Aplicar rate limiting
   const rateLimitResult = await trainRateLimit(request, '/api/ai/train')
   if (rateLimitResult instanceof Response) {
@@ -87,6 +92,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Aplicar rate limiting
   const rateLimitResult = await trainRateLimit(request, '/api/ai/train')
   if (rateLimitResult instanceof Response) {

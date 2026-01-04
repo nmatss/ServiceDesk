@@ -3,6 +3,7 @@ import { verifyAuth } from "@/lib/auth/sqlite-auth";
 import { z } from "zod";
 import { logger } from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Schema de validação
 const requestSchema = z.object({
   action: z.enum(["create", "update", "delete"]),
@@ -14,6 +15,10 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authResult = await verifyAuth(request);

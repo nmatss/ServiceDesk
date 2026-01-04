@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
+import PageHeader from '@/components/ui/PageHeader'
 import { toast } from 'react-hot-toast'
 import { logger } from '@/lib/monitoring/logger';
 import {
@@ -158,19 +159,19 @@ export default function EmailsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'sent': return <CheckCircleIcon className="w-5 h-5 text-green-500" />
-      case 'failed': return <XCircleIcon className="w-5 h-5 text-red-500" />
-      case 'sending': return <ArrowPathIcon className="w-5 h-5 text-blue-500 animate-spin" />
-      default: return <ClockIcon className="w-5 h-5 text-yellow-500" />
+      case 'sent': return <CheckCircleIcon className="w-5 h-5 text-success-600 dark:text-success-400" />
+      case 'failed': return <XCircleIcon className="w-5 h-5 text-danger-600 dark:text-danger-400" />
+      case 'sending': return <ArrowPathIcon className="w-5 h-5 text-brand-600 dark:text-brand-400 animate-spin" />
+      default: return <ClockIcon className="w-5 h-5 text-warning-600 dark:text-warning-400" />
     }
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-red-600 bg-red-100'
-      case 'medium': return 'text-yellow-600 bg-yellow-100'
-      case 'low': return 'text-green-600 bg-green-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'high': return 'text-danger-700 bg-danger-100 dark:text-danger-300 dark:bg-danger-950/30'
+      case 'medium': return 'text-warning-700 bg-warning-100 dark:text-warning-300 dark:bg-warning-950/30'
+      case 'low': return 'text-success-700 bg-success-100 dark:text-success-300 dark:bg-success-950/30'
+      default: return 'text-neutral-700 bg-neutral-100 dark:text-neutral-300 dark:bg-neutral-800'
     }
   }
 
@@ -179,20 +180,21 @@ export default function EmailsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Emails</h1>
-          <p className="mt-2 text-gray-600">
-            Monitore e gerencie a fila de emails do sistema
-          </p>
-        </div>
-        <div className="mt-4 sm:mt-0 flex space-x-3">
+      <PageHeader
+        title="Gerenciamento de Emails"
+        description="Monitore e gerencie a fila de emails do sistema"
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Emails', href: '/admin/emails' }
+        ]}
+      >
+        <div className="flex flex-wrap gap-3">
           <Button
             onClick={processQueue}
             disabled={processing}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
           >
             {processing ? (
               <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
@@ -206,63 +208,71 @@ export default function EmailsPage() {
             Novo Email
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="glass-panel group hover:shadow-lg transition-all duration-300 animate-slide-up" style={{ animationDelay: '0ms' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm font-medium text-description">Total</p>
+              <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 transition-transform duration-300 group-hover:scale-110">{stats.total}</p>
             </div>
-            <EnvelopeIcon className="w-8 h-8 text-gray-400" />
+            <div className="p-3 bg-neutral-100 dark:bg-neutral-800 rounded-lg group-hover:bg-brand-100 dark:group-hover:bg-brand-900/30 transition-colors duration-300">
+              <EnvelopeIcon className="w-8 h-8 text-description group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors duration-300" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="glass-panel group hover:shadow-lg transition-all duration-300 animate-slide-up" style={{ animationDelay: '100ms' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Enviados</p>
-              <p className="text-3xl font-bold text-green-600">{stats.sent}</p>
+              <p className="text-sm font-medium text-description">Enviados</p>
+              <p className="text-3xl font-bold text-success-600 dark:text-success-400 transition-transform duration-300 group-hover:scale-110">{stats.sent}</p>
             </div>
-            <CheckCircleIcon className="w-8 h-8 text-green-400" />
+            <div className="p-3 bg-success-100 dark:bg-success-900/30 rounded-lg group-hover:bg-success-200 dark:group-hover:bg-success-900/50 transition-colors duration-300">
+              <CheckCircleIcon className="w-8 h-8 text-success-600 dark:text-success-400 transition-transform duration-300 group-hover:scale-110" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="glass-panel group hover:shadow-lg transition-all duration-300 animate-slide-up" style={{ animationDelay: '200ms' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Pendentes</p>
-              <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+              <p className="text-sm font-medium text-description">Pendentes</p>
+              <p className="text-3xl font-bold text-warning-600 dark:text-warning-400 transition-transform duration-300 group-hover:scale-110">{stats.pending}</p>
             </div>
-            <ClockIcon className="w-8 h-8 text-yellow-400" />
+            <div className="p-3 bg-warning-100 dark:bg-warning-900/30 rounded-lg group-hover:bg-warning-200 dark:group-hover:bg-warning-900/50 transition-colors duration-300">
+              <ClockIcon className="w-8 h-8 text-warning-600 dark:text-warning-400 transition-transform duration-300 group-hover:scale-110" />
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="glass-panel group hover:shadow-lg transition-all duration-300 animate-slide-up" style={{ animationDelay: '300ms' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Falhados</p>
-              <p className="text-3xl font-bold text-red-600">{stats.failed}</p>
+              <p className="text-sm font-medium text-description">Falhados</p>
+              <p className="text-3xl font-bold text-danger-600 dark:text-danger-400 transition-transform duration-300 group-hover:scale-110">{stats.failed}</p>
             </div>
-            <XCircleIcon className="w-8 h-8 text-red-400" />
+            <div className="p-3 bg-danger-100 dark:bg-danger-900/30 rounded-lg group-hover:bg-danger-200 dark:group-hover:bg-danger-900/50 transition-colors duration-300">
+              <XCircleIcon className="w-8 h-8 text-danger-600 dark:text-danger-400 transition-transform duration-300 group-hover:scale-110" />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+      <div className="glass-panel animate-slide-up" style={{ animationDelay: '400ms' }}>
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Status
               </label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="block w-full rounded-lg border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 dark:focus:border-brand-400 dark:focus:ring-brand-400 transition-colors duration-200"
               >
                 <option value="all">Todos</option>
                 <option value="pending">Pendentes</option>
@@ -272,14 +282,14 @@ export default function EmailsPage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Prioridade
               </label>
               <select
                 value={selectedPriority}
                 onChange={(e) => setSelectedPriority(e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="block w-full rounded-lg border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm focus:border-brand-500 focus:ring-brand-500 dark:focus:border-brand-400 dark:focus:ring-brand-400 transition-colors duration-200"
               >
                 <option value="all">Todas</option>
                 <option value="high">Alta</option>
@@ -289,11 +299,11 @@ export default function EmailsPage() {
             </div>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={retryFailed}
-              className="text-yellow-600 hover:text-yellow-700"
+              className="text-warning-600 hover:text-warning-700 dark:text-warning-400 dark:hover:text-warning-300 border-warning-300 hover:border-warning-400 dark:border-warning-600 dark:hover:border-warning-500"
             >
               <ArrowPathIcon className="w-4 h-4 mr-2" />
               Reprocessar
@@ -301,7 +311,7 @@ export default function EmailsPage() {
             <Button
               variant="outline"
               onClick={clearFailed}
-              className="text-red-600 hover:text-red-700"
+              className="text-danger-600 hover:text-danger-700 dark:text-danger-400 dark:hover:text-danger-300 border-danger-300 hover:border-danger-400 dark:border-danger-600 dark:hover:border-danger-500"
             >
               <TrashIcon className="w-4 h-4 mr-2" />
               Limpar Falhados
@@ -311,61 +321,88 @@ export default function EmailsPage() {
       </div>
 
       {/* Email List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Fila de Emails</h3>
+      <div className="glass-panel p-0 overflow-hidden animate-slide-up" style={{ animationDelay: '500ms' }}>
+        <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Fila de Emails</h3>
         </div>
 
         {loading ? (
           <div className="p-6">
             <div className="animate-pulse space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 bg-gray-200 rounded"></div>
+                <div key={i} className="h-20 bg-neutral-200 dark:bg-neutral-700 rounded-lg"></div>
               ))}
             </div>
           </div>
         ) : emails.length === 0 ? (
           <div className="p-12 text-center">
-            <EnvelopeIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 mb-4">
+              <EnvelopeIcon className="w-8 h-8 text-icon-muted" />
+            </div>
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
               Nenhum email encontrado
             </h3>
-            <p className="text-gray-600">
+            <p className="text-description">
               Não há emails na fila com os filtros selecionados.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {emails.map((email) => (
-              <div key={email.id} className="p-6 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    {getStatusIcon(email.status)}
+          <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
+            {emails.map((email, index) => (
+              <div
+                key={email.id}
+                className="p-6 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-all duration-200 group animate-slide-up"
+                style={{ animationDelay: `${600 + (index * 50)}ms` }}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div className="flex items-start space-x-4 flex-1 min-w-0">
+                    <div className="mt-1 flex-shrink-0">
+                      {getStatusIcon(email.status)}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                           {email.subject}
                         </p>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(email.priority)}`}>
-                          {email.priority}
+                        <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full whitespace-nowrap ${getPriorityColor(email.priority)}`}>
+                          {email.priority === 'high' ? 'Alta' : email.priority === 'medium' ? 'Média' : 'Baixa'}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span>Para: {email.to_email}</span>
-                        <span>Tipo: {email.template_type}</span>
-                        <span>Tentativas: {email.attempts}/{email.max_attempts}</span>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-description">
+                        <span className="flex items-center">
+                          <span className="font-medium mr-1">Para:</span>
+                          {email.to_email}
+                        </span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="flex items-center">
+                          <span className="font-medium mr-1">Tipo:</span>
+                          {email.template_type}
+                        </span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="flex items-center">
+                          <span className="font-medium mr-1">Tentativas:</span>
+                          {email.attempts}/{email.max_attempts}
+                        </span>
+                        <span className="hidden sm:inline">•</span>
                         <span>{formatDate(email.created_at)}</span>
                       </div>
                       {email.error_message && (
-                        <p className="text-sm text-red-600 mt-1">
-                          Erro: {email.error_message}
-                        </p>
+                        <div className="mt-2 p-3 bg-danger-50 dark:bg-danger-950/20 border border-danger-200 dark:border-danger-900/30 rounded-lg">
+                          <p className="text-sm text-danger-700 dark:text-danger-300">
+                            <span className="font-semibold">Erro:</span> {email.error_message}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-description lg:text-right flex-shrink-0">
                     {email.sent_at && (
-                      <span>Enviado: {formatDate(email.sent_at)}</span>
+                      <div className="inline-flex items-center px-3 py-1.5 bg-success-50 dark:bg-success-950/20 border border-success-200 dark:border-success-900/30 rounded-lg">
+                        <CheckCircleIcon className="w-4 h-4 mr-1.5 text-success-600 dark:text-success-400" />
+                        <span className="text-success-700 dark:text-success-300">
+                          {formatDate(email.sent_at)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -376,16 +413,17 @@ export default function EmailsPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
+          <div className="px-6 py-4 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="text-sm text-neutral-700 dark:text-neutral-300 font-medium">
               Página {page} de {totalPages}
             </div>
-            <div className="flex space-x-2">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setPage(page - 1)}
                 disabled={page <= 1}
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Anterior
               </Button>
@@ -394,6 +432,7 @@ export default function EmailsPage() {
                 size="sm"
                 onClick={() => setPage(page + 1)}
                 disabled={page >= totalPages}
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Próximo
               </Button>

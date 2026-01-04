@@ -1,7 +1,32 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import * as d3 from 'd3';
+// Optimize D3 imports: only import specific functions instead of entire library
+import { select, selectAll } from 'd3-selection';
+import { scaleBand, scaleLinear, scaleOrdinal } from 'd3-scale';
+import { max, extent } from 'd3-array';
+import { axisBottom, axisLeft } from 'd3-axis';
+import { schemeCategory10 } from 'd3-scale-chromatic';
+import { zoom, zoomTransform, zoomIdentity } from 'd3-zoom';
+import { transition } from 'd3-transition';
+
+// Create d3 namespace for easier refactoring
+const d3 = {
+  select,
+  selectAll,
+  scaleBand,
+  scaleLinear,
+  scaleOrdinal,
+  max,
+  extent,
+  axisBottom,
+  axisLeft,
+  schemeCategory10,
+  zoom,
+  zoomTransform,
+  zoomIdentity,
+  transition
+};
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -323,7 +348,7 @@ export function ZoomableChart({
         </ComposedChart>
       </ResponsiveContainer>
 
-      <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+      <div className="mt-4 text-sm text-description">
         <p>💡 Tip: Click and drag on the chart to zoom into a specific time range</p>
       </div>
     </div>

@@ -3,9 +3,14 @@ import { getCurrentTenantId } from '@/lib/tenant/manager'
 import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { id: string } }
 ) {
   try {
     const tenantId = getCurrentTenantId()
@@ -44,7 +49,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { id: string } }
 ) {
   try {
     const tenantId = getCurrentTenantId()
@@ -140,7 +149,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { id: string } }
 ) {
   try {
     const tenantId = getCurrentTenantId()
@@ -155,9 +168,9 @@ export async function DELETE(
     // Check if there are tickets using this type
     const ticketsCount = db.prepare(
       'SELECT COUNT(*) as count FROM tickets WHERE ticket_type_id = ? AND tenant_id = ?'
-    ).get(ticketTypeId, tenantId)
+    ).get(ticketTypeId, tenantId) as { count: number } | undefined
 
-    if (ticketsCount.count > 0) {
+    if (ticketsCount && ticketsCount.count > 0) {
       return NextResponse.json(
         { success: false, error: 'Cannot delete ticket type with existing tickets' },
         { status: 400 }

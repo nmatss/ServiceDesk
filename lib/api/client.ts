@@ -9,7 +9,7 @@ import { LRUCache } from 'lru-cache'
 // TYPES
 // ===========================
 
-export interface ApiClientOptions extends RequestInit {
+export interface ApiClientOptions extends Omit<RequestInit, 'cache'> {
   /**
    * Enable response caching
    * @default true
@@ -148,6 +148,11 @@ async function fetchWithRetry(
     retryAttempts = 3,
     retryDelay = 1000,
     timeout = 30000,
+    cache: _cache,
+    cacheTTL: _cacheTTL,
+    deduplicate: _deduplicate,
+    onError: _onError,
+    ...fetchOptions
   } = options
 
   try {
@@ -156,7 +161,7 @@ async function fetchWithRetry(
     const timeoutId = setTimeout(() => controller.abort(), timeout)
 
     const response = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal,
     })
 

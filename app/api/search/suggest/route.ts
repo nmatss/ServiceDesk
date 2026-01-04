@@ -7,6 +7,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting for suggestions
 const suggestRateLimit = createRateLimitMiddleware('search-suggest');
 
@@ -38,6 +39,10 @@ async function getHybridSearch(): Promise<HybridSearchEngine> {
  * Get auto-complete suggestions for search
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Apply rate limiting
   const rateLimitResult = await suggestRateLimit(request, '/api/search/suggest');
   if (rateLimitResult instanceof Response) {
@@ -114,6 +119,10 @@ export async function GET(request: NextRequest) {
  * Advanced auto-complete with filters
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Apply rate limiting
   const rateLimitResult = await suggestRateLimit(request, '/api/search/suggest');
   if (rateLimitResult instanceof Response) {

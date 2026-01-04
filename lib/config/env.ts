@@ -137,7 +137,7 @@ export function isDevelopment(): boolean {
 }
 
 export function isStaging(): boolean {
-  return process.env.NODE_ENV === 'staging';
+  return (process.env.NODE_ENV as string) === 'staging';
 }
 
 // ============================================
@@ -150,32 +150,24 @@ export function validateJWTSecret(): string {
     return process.env.JWT_SECRET || 'build-time-placeholder-secret-32-chars';
   }
 
-  if (!process.env.JWT_SECRET) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(
-        '🔴 FATAL: JWT_SECRET environment variable must be set in production!\n' +
-        'Generate a secure secret with: openssl rand -hex 32\n' +
-        'Then set it in your .env file or deployment environment.'
-      );
-    }
-
-    logger.warn(
-      '⚠️  WARNING: Using development JWT secret. ' +
-      'This is INSECURE for production use!'
-    );
-
-    return 'dev-secret-CHANGE-ME-IN-PRODUCTION-MINIMUM-32-CHARS';
-  }
-
   const secret = process.env.JWT_SECRET;
 
-  // Enhanced validation: minimum length (256 bits = 32 bytes)
-  // Production requires 32 characters minimum, no exceptions
-  if (secret.length < 32) {
+  if (!secret) {
     throw new Error(
-      '🔴 FATAL: JWT_SECRET must be at least 32 characters long for security!\n' +
+      '🔴 FATAL: JWT_SECRET environment variable is required!\n' +
+      'Generate a secure secret with:\n' +
+      '  openssl rand -hex 64\n' +
+      'Then set it in your .env file:\n' +
+      '  JWT_SECRET=<generated-secret>'
+    );
+  }
+
+  // Enhanced validation: minimum length (512 bits = 64 bytes for production)
+  if (secret.length < 64) {
+    throw new Error(
+      '🔴 FATAL: JWT_SECRET must be at least 64 characters long!\n' +
       `Current length: ${secret.length} characters\n` +
-      'Generate a secure secret with: openssl rand -hex 32'
+      'Generate a secure secret with: openssl rand -hex 64'
     );
   }
 
@@ -187,51 +179,36 @@ export function validateJWTSecret(): string {
     '12345',
     'qwerty',
     'dev-secret',
+    'dev',
+    'test',
+    'local',
     'change-me',
-    'default-secret'
+    'changeme',
+    'default',
+    'placeholder',
+    'build-time'
   ];
 
   const lowerSecret = secret.toLowerCase();
   for (const weak of weakSecrets) {
     if (lowerSecret.includes(weak)) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          `🔴 FATAL: JWT_SECRET contains weak pattern "${weak}"!\n` +
-          'Generate a strong random secret with: openssl rand -hex 32'
-        );
-      }
-      logger.warn(`⚠️  WARNING: JWT_SECRET contains weak pattern "${weak}"`);
-    }
-  }
-
-  // Check entropy (basic check for randomness)
-  const uniqueChars = new Set(secret.split('')).size;
-  const entropyRatio = uniqueChars / secret.length;
-
-  if (entropyRatio < 0.5 && secret.length >= 32) {
-    logger.warn(
-      '⚠️  WARNING: JWT_SECRET may have low entropy. ' +
-      'Consider using a cryptographically random secret.'
-    );
-  }
-
-  // Production-specific checks
-  if (process.env.NODE_ENV === 'production') {
-    // Require minimum 64 characters in production for extra security
-    if (secret.length < 64) {
-      logger.warn(
-        '⚠️  WARNING: JWT_SECRET should be at least 64 characters in production. ' +
-        'Current length: ' + secret.length
-      );
-    }
-
-    // Ensure secret doesn't match common development patterns
-    if (secret.includes('dev') || secret.includes('test') || secret.includes('local')) {
       throw new Error(
-        '🔴 FATAL: JWT_SECRET appears to be a development secret!\n' +
-        'Generate a production secret with: openssl rand -hex 64'
+        `🔴 FATAL: JWT_SECRET contains weak or default pattern "${weak}"!\n` +
+        'Generate a strong random secret with: openssl rand -hex 64'
       );
     }
+  }
+
+  // Check for obvious patterns (like all same character, sequential, etc)
+  // For hex secrets, we expect good distribution of chars but not high unique/length ratio
+  const hasRepeatedPattern = /(.)\1{10,}/.test(secret); // 10+ same char in a row
+  const isSequential = /(0123456789|abcdefghij|9876543210|jihgfedcba)/.test(secret);
+
+  if (hasRepeatedPattern || isSequential) {
+    throw new Error(
+      '🔴 FATAL: JWT_SECRET contains obvious patterns!\n' +
+      'Generate a cryptographically random secret with: openssl rand -hex 64'
+    );
   }
 
   return secret;
@@ -273,36 +250,45 @@ export function validateSessionSecret(): string {
   const secret = process.env.SESSION_SECRET;
 
   if (!secret) {
-    if (isProduction()) {
-      throw new Error(
-        '🔴 FATAL: SESSION_SECRET must be set in production!\n' +
-        'Generate with: openssl rand -hex 32'
-      );
-    }
-
-    logger.warn('⚠️  WARNING: Using development SESSION_SECRET. This is INSECURE for production!');
-    return 'dev-session-secret-change-in-production-32-chars';
+    throw new Error(
+      '🔴 FATAL: SESSION_SECRET environment variable is required!\n' +
+      'Generate a secure secret with:\n' +
+      '  openssl rand -hex 64\n' +
+      'Then set it in your .env file:\n' +
+      '  SESSION_SECRET=<generated-secret>'
+    );
   }
 
-  // Enforce 32 character minimum in all environments
-  if (secret.length < 32) {
+  // Enforce 64 character minimum for enhanced security
+  if (secret.length < 64) {
     throw new Error(
-      '🔴 FATAL: SESSION_SECRET must be at least 32 characters long!\n' +
+      '🔴 FATAL: SESSION_SECRET must be at least 64 characters long!\n' +
       `Current length: ${secret.length} characters\n` +
-      'Generate a secure secret with: openssl rand -hex 32'
+      'Generate a secure secret with: openssl rand -hex 64'
     );
   }
 
   // Check for weak patterns
+  const weakPatterns = [
+    'dev',
+    'test',
+    'local',
+    'default',
+    'secret',
+    'password',
+    'change-me',
+    'changeme',
+    'placeholder'
+  ];
+
   const lowerSecret = secret.toLowerCase();
-  if (lowerSecret.includes('dev') || lowerSecret.includes('test') || lowerSecret.includes('default')) {
-    if (isProduction()) {
+  for (const pattern of weakPatterns) {
+    if (lowerSecret.includes(pattern)) {
       throw new Error(
-        '🔴 FATAL: SESSION_SECRET appears to be a development/test secret!\n' +
-        'Generate a production secret with: openssl rand -hex 32'
+        `🔴 FATAL: SESSION_SECRET contains weak or default pattern "${pattern}"!\n` +
+        'Generate a strong random secret with: openssl rand -hex 64'
       );
     }
-    logger.warn('⚠️  WARNING: SESSION_SECRET appears to be a development secret');
   }
 
   return secret;
@@ -466,7 +452,7 @@ export function validateEnvironment(): void {
 
     // Report results
     if (errors.length > 0) {
-      logger.error('❌ Environment validation failed:', errors);
+      logger.error('❌ Environment validation failed:', { errors });
       throw new Error(`Environment validation failed:\n${errors.join('\n')}`);
     }
 
@@ -476,7 +462,7 @@ export function validateEnvironment(): void {
 
     logger.info('✅ Environment validation passed!');
   } catch (error) {
-    logger.error('❌ Environment validation failed', error);
+    logger.error('❌ Environment validation failed', error instanceof Error ? error : new Error(String(error)));
     // Don't call process.exit() - let the calling code handle the error
     throw error;
   }

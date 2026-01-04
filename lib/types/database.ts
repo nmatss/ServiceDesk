@@ -99,6 +99,8 @@ export interface Priority {
   name: string;
   level: number; // 1 = baixa, 2 = média, 3 = alta, 4 = crítica
   color: string;
+  response_time?: number; // Hours for initial response
+  resolution_time?: number; // Hours for resolution
   created_at: string;
   updated_at: string;
 }
@@ -2078,7 +2080,7 @@ export type CreateCABConfiguration = Omit<CABConfiguration, 'id' | 'created_at' 
 export type CreateCABMember = Omit<CABMember, 'id' | 'joined_at'>;
 export type CreateCABMeeting = Omit<CABMeeting, 'id' | 'actual_start' | 'actual_end' | 'created_at' | 'updated_at'>;
 export type CreateChangeRequest = Omit<ChangeRequest, 'id' | 'change_number' | 'cab_meeting_id' | 'approved_by' | 'approved_at' | 'actual_start_date' | 'actual_end_date' | 'pir_completed' | 'pir_notes' | 'pir_success_rating' | 'created_at' | 'updated_at'>;
-export type CreateChangeRequestApproval = Omit<ChangeRequestApproval, 'id' | 'vote' | 'voted_at' | 'created_at'>;
+export type CreateChangeRequestApproval = Omit<ChangeRequestApproval, 'id' | 'voted_at' | 'created_at'>;
 export type CreateChangeCalendar = Omit<ChangeCalendar, 'id' | 'created_at' | 'updated_at'>;
 
 // ========================================

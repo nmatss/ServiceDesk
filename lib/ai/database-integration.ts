@@ -22,7 +22,7 @@ export class AIDatabaseService {
   // ========================================
 
   async saveClassification(
-    classification: CreateAIClassification,
+    classification: CreateAIClassification & { ticket_id?: number; suggested_category_id?: number; suggested_priority_id?: number; suggested_category?: string; reasoning?: string },
     context?: AIOperationContext
   ): Promise<number> {
     const result = await this.db.run(`
@@ -110,7 +110,7 @@ export class AIDatabaseService {
   // ========================================
 
   async saveSuggestion(
-    suggestion: CreateAISuggestion,
+    suggestion: CreateAISuggestion & { ticket_id?: number; content?: string },
     context?: AIOperationContext
   ): Promise<number> {
     const result = await this.db.run(`

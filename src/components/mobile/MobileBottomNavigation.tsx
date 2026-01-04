@@ -233,7 +233,7 @@ export const MobileBottomNavigation: React.FC<MobileBottomNavigationProps> = ({
                     transition-all duration-200 active:scale-95 touch-target
                     ${isActive
                       ? 'text-brand-600 dark:text-brand-400'
-                      : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+                      : 'text-muted-content hover:text-neutral-700 dark:hover:text-neutral-300'
                     }
                   `}
                   aria-label={`${item.label}${

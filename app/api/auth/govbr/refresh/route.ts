@@ -9,7 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { refreshGovBrTokens } from '@/lib/integrations/govbr/verification';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
     const { userId } = body;

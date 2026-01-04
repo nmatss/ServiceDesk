@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { AdminCard } from '@/src/components/admin/AdminCard'
-import { AdminButton } from '@/src/components/admin/AdminButton'
-import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { logger } from '@/lib/monitoring/logger';
+import { CheckIcon, XMarkIcon, UserIcon } from '@heroicons/react/24/outline'
+import { logger } from '@/lib/monitoring/logger'
+import PageHeader from '@/components/ui/PageHeader'
 
 interface User {
   id: number
@@ -150,9 +149,9 @@ export default function EditUserPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando usuário...</p>
+        <div className="text-center animate-fade-in">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto"></div>
+          <p className="mt-4 text-description">Carregando usuário...</p>
         </div>
       </div>
     )
@@ -161,13 +160,13 @@ export default function EditUserPage() {
   if (error || !user) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="text-red-600 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Erro</h1>
-          <p className="text-gray-600 mb-4">{error || 'Usuário não encontrado'}</p>
-          <AdminButton variant="primary" onClick={() => router.back()}>
+        <div className="text-center animate-fade-in">
+          <div className="text-error-600 dark:text-error-400 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Erro</h1>
+          <p className="text-description mb-4">{error || 'Usuário não encontrado'}</p>
+          <button className="btn btn-primary" onClick={() => router.back()}>
             Voltar
-          </AdminButton>
+          </button>
         </div>
       </div>
     )
@@ -175,134 +174,145 @@ export default function EditUserPage() {
 
   return (
     <div className="space-y-6">
-        {/* Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Editar Usuário
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Editar informações do usuário {user.name}
-            </p>
+      <PageHeader
+        title="Editar Usuário"
+        description={`Editar informações do usuário ${user.name}`}
+        icon={UserIcon}
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Usuários', href: '/admin/users' },
+          { label: 'Editar' }
+        ]}
+      />
+
+      {/* Formulário */}
+      <div className="glass-panel p-6 animate-slide-up">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Nome */}
+          <div className="space-y-2">
+            <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Nome Completo *
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              className={`input ${
+                errors.name ? 'border-error-300 dark:border-error-700 focus:ring-error-500' : ''
+              }`}
+              placeholder="Digite o nome completo"
+            />
+            {errors.name && (
+              <p className="mt-1 text-sm text-error-600 dark:text-error-400 animate-fade-in">{errors.name}</p>
+            )}
           </div>
-        </div>
 
-        {/* Formulário */}
-        <AdminCard>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Nome */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Nome Completo *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.name ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Digite o nome completo"
-              />
-              {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
-              )}
-            </div>
+          {/* Email */}
+          <div className="space-y-2">
+            <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Email *
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className={`input ${
+                errors.email ? 'border-error-300 dark:border-error-700 focus:ring-error-500' : ''
+              }`}
+              placeholder="Digite o email"
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-error-600 dark:text-error-400 animate-fade-in">{errors.email}</p>
+            )}
+          </div>
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email *
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Digite o email"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
-            </div>
-
-            {/* Role */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Usuário *
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="user">Usuário</option>
-                <option value="agent">Agente</option>
-                <option value="admin">Administrador</option>
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                <strong>Usuário:</strong> Pode criar e visualizar seus próprios tickets<br/>
-                <strong>Agente:</strong> Pode gerenciar tickets atribuídos a ele<br/>
-                <strong>Administrador:</strong> Acesso completo ao sistema
-              </p>
-            </div>
-
-            {/* Informações do usuário */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Informações do Usuário</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-500">ID:</span>
-                  <p className="text-gray-900">#{user.id}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-500">Criado em:</span>
-                  <p className="text-gray-900">
-                    {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
+          {/* Role */}
+          <div className="space-y-2">
+            <label htmlFor="role" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Tipo de Usuário *
+            </label>
+            <select
+              id="role"
+              name="role"
+              value={formData.role}
+              onChange={handleInputChange}
+              className="input"
+            >
+              <option value="user">Usuário</option>
+              <option value="agent">Agente</option>
+              <option value="admin">Administrador</option>
+            </select>
+            <div className="mt-3 space-y-2 text-sm text-description">
+              <div className="flex items-start space-x-2">
+                <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-[120px]">Usuário:</span>
+                <span>Pode criar e visualizar seus próprios tickets</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-[120px]">Agente:</span>
+                <span>Pode gerenciar tickets atribuídos a ele</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-[120px]">Administrador:</span>
+                <span>Acesso completo ao sistema</span>
               </div>
             </div>
+          </div>
 
-            {/* Botões */}
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-              <AdminButton
-                variant="secondary"
-                onClick={() => router.back()}
-                className="flex items-center"
-              >
-                <XMarkIcon className="h-4 w-4 mr-2" />
-                Cancelar
-              </AdminButton>
-              <AdminButton
-                variant="primary"
-                type="submit"
-                disabled={saving}
-                className="flex items-center"
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <CheckIcon className="h-4 w-4 mr-2" />
-                    Salvar Alterações
-                  </>
-                )}
-              </AdminButton>
+          {/* Informações do usuário */}
+          <div className="bg-neutral-50 dark:bg-neutral-900/50 p-6 rounded-xl border border-neutral-200 dark:border-neutral-700 animate-fade-in">
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Informações do Usuário</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-content uppercase tracking-wider">ID</span>
+                <p className="text-neutral-900 dark:text-neutral-100 font-mono">#{user.id}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium text-muted-content uppercase tracking-wider">Criado em</span>
+                <p className="text-neutral-900 dark:text-neutral-100">
+                  {new Date(user.created_at).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
             </div>
-          </form>
-        </AdminCard>
+          </div>
+
+          {/* Botões */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 border-t border-neutral-200 dark:border-neutral-700">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="btn btn-secondary"
+            >
+              <XMarkIcon className="h-5 w-5 mr-2" />
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn btn-primary"
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <CheckIcon className="h-5 w-5 mr-2" />
+                  Salvar Alterações
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
+    </div>
   )
 }

@@ -3,9 +3,14 @@ import { getCurrentTenantId } from '@/lib/tenant/manager'
 import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { id: string; userId: string } }
 ) {
   try {
     const tenantId = getCurrentTenantId()
@@ -23,9 +28,9 @@ export async function DELETE(
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND assigned_team_id = ? AND tenant_id = ?
       AND status_id NOT IN (SELECT id FROM statuses WHERE is_final = 1 AND tenant_id = ?)
-    `).get(userId, teamId, tenantId, tenantId)
+    `).get(userId, teamId, tenantId, tenantId) as { count: number } | undefined
 
-    if (assignedTickets.count > 0) {
+    if (assignedTickets && assignedTickets.count > 0) {
       return NextResponse.json(
         { success: false, error: 'Cannot remove team member with active assigned tickets' },
         { status: 400 }

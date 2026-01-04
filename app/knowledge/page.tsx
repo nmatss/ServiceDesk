@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
@@ -10,9 +11,11 @@ import {
   EyeIcon,
   PlusIcon,
   BookOpenIcon,
-  TagIcon
+  TagIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline'
 import { useNotificationHelpers } from '@/src/components/notifications/NotificationProvider'
+import { useRequireAuth } from '@/lib/hooks/useRequireAuth'
 
 interface KnowledgeArticle {
   id: number
@@ -42,39 +45,18 @@ export default function KnowledgePage() {
   const [categories, setCategories] = useState<KnowledgeCategory[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [userRole, setUserRole] = useState<'admin' | 'agent' | 'user'>('user')
   const { error } = useNotificationHelpers()
 
+  // Use the centralized auth hook - eliminates 30+ lines of duplicate code
+  const { user, loading: authLoading } = useRequireAuth()
+  const userRole = user?.role || 'user'
+
   useEffect(() => {
-    // SECURITY: Verify authentication via httpOnly cookies only
-    const verifyAndLoad = async () => {
-      try {
-        const response = await fetch('/api/auth/verify', {
-          method: 'GET',
-          credentials: 'include' // Use httpOnly cookies
-        })
-
-        if (!response.ok) {
-          router.push('/auth/login')
-          return
-        }
-
-        const data = await response.json()
-
-        if (!data.success || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUserRole(data.user.role || 'user')
-        fetchKnowledgeData()
-      } catch {
-        router.push('/auth/login')
-      }
+    // Only load data once authenticated
+    if (!authLoading && user) {
+      fetchKnowledgeData()
     }
-
-    verifyAndLoad()
-  }, [router])
+  }, [authLoading, user])
 
   const fetchKnowledgeData = async () => {
     try {
@@ -167,25 +149,51 @@ export default function KnowledgePage() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="container-responsive py-6">
         <div className="max-w-7xl mx-auto">
+          {/* Breadcrumbs */}
+          <nav className="flex mb-4" aria-label="Breadcrumb">
+            <ol className="flex items-center space-x-2 text-sm">
+              <li className="flex items-center">
+                <Link href="/" className="text-description hover:text-brand-600 dark:hover:text-brand-400">
+                  <HomeIcon className="h-4 w-4" />
+                </Link>
+              </li>
+              <li className="flex items-center">
+                <svg
+                  className="h-4 w-4 text-neutral-400 dark:text-neutral-600 mx-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="text-neutral-900 dark:text-neutral-100 font-medium">Base de Conhecimento</span>
+              </li>
+            </ol>
+          </nav>
+
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 sm:mb-8 gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">
                 Base de Conhecimento
               </h1>
-              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-neutral-600 dark:text-neutral-400">
+              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-description">
                 Encontre soluções e documentação para problemas comuns
               </p>
             </div>
-            {(userRole === 'admin' || userRole === 'agent') && (
+            {(user?.role === 'admin' || user?.role === 'agent') && (
               <div className="flex-shrink-0">
-                <button
-                  onClick={() => router.push('/knowledge/new')}
+                <a
+                  href="/knowledge/new"
                   className="btn btn-primary"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
                   Novo Artigo
-                </button>
+                </a>
               </div>
             )}
           </div>
@@ -224,7 +232,7 @@ export default function KnowledgePage() {
                     Todos os Artigos
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+                <p className="text-xs sm:text-sm text-description">
                   {articles.length} artigos
                 </p>
               </button>
@@ -245,7 +253,7 @@ export default function KnowledgePage() {
                       {category.name}
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mb-1 line-clamp-2">
+                  <p className="text-xs sm:text-sm text-description mb-1 line-clamp-2">
                     {category.description}
                   </p>
                   <p className="text-xs text-neutral-500 dark:text-neutral-500">
@@ -262,7 +270,7 @@ export default function KnowledgePage() {
               <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                 {selectedCategory === 'all' ? 'Todos os Artigos' : selectedCategory}
               </h2>
-              <span className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs sm:text-sm text-muted-content">
                 {filteredArticles.length} artigo(s) encontrado(s)
               </span>
             </div>
@@ -291,7 +299,7 @@ export default function KnowledgePage() {
                 <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                   Nenhum artigo encontrado
                 </h3>
-                <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+                <p className="text-description mb-4">
                   {searchTerm ? 'Tente buscar com outros termos' : 'Nenhum artigo disponível nesta categoria'}
                 </p>
                 {(userRole === 'admin' || userRole === 'agent') && (
@@ -315,7 +323,7 @@ export default function KnowledgePage() {
                     <h3 className="text-base sm:text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-2">
                       {article.title}
                     </h3>
-                    <p className="text-neutral-600 dark:text-neutral-400 text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-3">
+                    <p className="text-description text-xs sm:text-sm mb-3 sm:mb-4 line-clamp-3">
                       {truncateContent(article.content)}
                     </p>
 
@@ -331,14 +339,14 @@ export default function KnowledgePage() {
                         </span>
                       ))}
                       {article.tags.length > 3 && (
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                        <span className="text-xs text-muted-content">
                           +{article.tags.length - 3} mais
                         </span>
                       )}
                     </div>
 
                     {/* Meta info */}
-                    <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                    <div className="flex items-center justify-between text-xs text-muted-content">
                       <div className="flex items-center">
                         <ClockIcon className="h-3 w-3 mr-1" />
                         {formatDate(article.updated_at)}

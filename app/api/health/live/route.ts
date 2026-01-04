@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/health/live
  *

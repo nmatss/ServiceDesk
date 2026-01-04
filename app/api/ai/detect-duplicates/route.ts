@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
+import { getUserContextFromRequest } from '@/lib/auth/context';
+import { z } from 'zod';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 // Initialize OpenAI client
 let openai: OpenAI | null = null;
@@ -11,6 +14,14 @@ if (process.env.OPENAI_API_KEY) {
   });
 }
 
+// Request validation schema
+const detectDuplicatesSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().min(1, 'Description is required'),
+  threshold: z.number().min(0).max(1).optional().default(0.85),
+  // NOTE: tenant_id is NOT accepted from request body - it's extracted from JWT
+});
+
 /**
  * POST /api/ai/detect-duplicates
  *
@@ -18,7 +29,25 @@ if (process.env.OPENAI_API_KEY) {
  * Uses OpenAI embeddings to find tickets with similar content
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting para AI duplicate detection
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_SEMANTIC);
+  if (rateLimitResponse) return rateLimitResponse;
   try {
+    // SECURITY: Authenticate and get user context from JWT
+    const userContext = await getUserContextFromRequest(request);
+    if (!userContext) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized - Invalid or missing authentication token',
+        },
+        { status: 401 }
+      );
+    }
+
+    // SECURITY: Extract tenant_id from JWT (not from request body!)
+    const tenantId = userContext.organization_id;
+
     // Check if AI features are enabled
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -40,30 +69,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate request body
     const body = await request.json();
-    const { title, description, tenant_id, threshold = 0.85 } = body;
+    const validationResult = detectDuplicatesSchema.safeParse(body);
 
-    // Validate required fields
-    if (!title || !description) {
+    if (!validationResult.success) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Title and description are required',
+          error: 'Invalid request data',
+          details: validationResult.error.errors,
         },
         { status: 400 }
       );
     }
 
-    // Validate threshold
-    if (threshold < 0 || threshold > 1) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Threshold must be between 0 and 1',
-        },
-        { status: 400 }
-      );
-    }
+    const { title, description, threshold } = validationResult.data;
 
     // Combine title and description for embedding
     const queryText = `${title}\n\n${description}`;
@@ -87,7 +108,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get recent tickets from the same tenant (last 90 days)
+    // SECURITY: Get recent tickets from the AUTHENTICATED USER'S TENANT ONLY
+    // This ensures tenant isolation - users can only see tickets from their own organization
     const query = `
       SELECT
         t.id,
@@ -102,14 +124,15 @@ export async function POST(request: NextRequest) {
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN users u ON t.user_id = u.id
       WHERE
-        t.tenant_id = ?
+        t.organization_id = ?
         AND t.created_at > datetime('now', '-90 days')
         AND s.name NOT IN ('Resolvido', 'Fechado', 'Resolved', 'Closed')
       ORDER BY t.created_at DESC
       LIMIT 100
     `;
 
-    const recentTickets = db.prepare(query).all(tenant_id || 1) as any[];
+    // SECURITY FIX: Use tenantId from JWT token, NOT from request body
+    const recentTickets = db.prepare(query).all(tenantId) as any[];
 
     // Calculate similarity scores
     const similarities: Array<{

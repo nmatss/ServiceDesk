@@ -6,6 +6,7 @@ import { createAuditLog } from '@/lib/audit/logger';
 import { z } from 'zod';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const sendMessageSchema = z.object({
   to: z.string().min(10, 'Phone number must be at least 10 digits'),
   type: z.enum(['text', 'image', 'document', 'template']),
@@ -27,6 +28,10 @@ const sendMessageSchema = z.object({
  * Endpoint para enviar mensagens via WhatsApp Business API
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WHATSAPP_SEND);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verifica autenticação
     const authResult = await verifyAuth(request);

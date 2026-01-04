@@ -93,10 +93,11 @@ export const LazyCharts = {
 }
 
 /**
- * Lazy load React Quill (rich text editor)
+ * Lazy load React Quill New (rich text editor)
+ * Using react-quill-new to fix CVE-2021-3163
  */
 export const LazyRichTextEditor = lazyLoad(
-  () => import('react-quill'),
+  () => import('react-quill-new'),
   {
     ssr: false, // Quill doesn't work well with SSR
     loading: () => (
@@ -115,10 +116,6 @@ export const LazyRichTextEditor = lazyLoad(
 // ========================
 
 export const LazyAdminComponents = {
-  Dashboard: lazyLoad(() => import('@/src/components/admin/AdminDashboard'), {
-    loading: LoadingSkeleton,
-  }),
-
   UserManagement: lazyLoad(() => import('@/src/components/admin/UserManagement'), {
     loading: LoadingCard,
   }),

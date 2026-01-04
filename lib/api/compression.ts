@@ -220,7 +220,7 @@ export async function createCompressedResponse(
 ): Promise<NextResponse> {
   const compressed = await compressResponse(data, acceptEncoding)
 
-  return new NextResponse(compressed.body, {
+  return new NextResponse(new Uint8Array(compressed.body), {
     status: options?.status || 200,
     statusText: options?.statusText,
     headers: {
@@ -299,7 +299,7 @@ export function paginateResponse<T>(
 /**
  * Field selection - Return only requested fields
  */
-export function selectFields<T>(
+export function selectFields<T extends object>(
   data: T | T[],
   fields?: string[]
 ): Partial<T> | Partial<T>[] {

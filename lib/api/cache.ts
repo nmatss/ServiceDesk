@@ -165,11 +165,11 @@ class MemoryCacheStore implements CacheStore {
 // Redis Cache Store (for production)
 class RedisCacheStore implements CacheStore {
   private redis: Redis | Cluster
-  private stats: CacheStats
+  private _cacheStats: CacheStats
 
   constructor(redisClient: Redis | Cluster) {
     this.redis = redisClient
-    this.stats = {
+    this._cacheStats = {
       hits: 0,
       misses: 0,
       sets: 0,
@@ -184,17 +184,17 @@ class RedisCacheStore implements CacheStore {
       const data = await this.redis.get(key)
 
       if (data) {
-        this.stats.hits++
+        this._cacheStats.hits++
         this.updateHitRate()
         return JSON.parse(data)
       }
 
-      this.stats.misses++
+      this._cacheStats.misses++
       this.updateHitRate()
       return null
     } catch (error) {
       logger.error('Redis cache get error', error)
-      this.stats.misses++
+      this._cacheStats.misses++
       return null
     }
   }
@@ -210,7 +210,7 @@ class RedisCacheStore implements CacheStore {
         await this.redis.set(key, serialized)
       }
 
-      this.stats.sets++
+      this._cacheStats.sets++
     } catch (error) {
       logger.error('Redis cache set error', error)
     }
@@ -219,7 +219,7 @@ class RedisCacheStore implements CacheStore {
   async delete(key: string): Promise<void> {
     try {
       await this.redis.del(key)
-      this.stats.deletes++
+      this._cacheStats.deletes++
     } catch (error) {
       logger.error('Redis cache delete error', error)
     }
@@ -231,7 +231,7 @@ class RedisCacheStore implements CacheStore {
         const keys = await this.redis.keys(pattern)
         if (keys.length > 0) {
           await this.redis.del(...keys)
-          this.stats.deletes += keys.length
+          this._cacheStats.deletes += keys.length
         }
       } else {
         await this.redis.flushdb()
@@ -269,13 +269,13 @@ class RedisCacheStore implements CacheStore {
   }
 
   async stats(): Promise<CacheStats> {
-    this.stats.size = await this.size()
-    return { ...this.stats }
+    this._cacheStats.size = await this.size()
+    return { ...this._cacheStats }
   }
 
   private updateHitRate(): void {
-    const total = this.stats.hits + this.stats.misses
-    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0
+    const total = this._cacheStats.hits + this._cacheStats.misses
+    this._cacheStats.hitRate = total > 0 ? this._cacheStats.hits / total : 0
   }
 }
 
@@ -596,6 +596,64 @@ export const cacheInvalidation = {
       (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
       defaultCacheManager
     await manager.clear()
+  },
+
+  // Invalidate dashboard cache
+  async dashboard(orgId?: string): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    const tags = orgId ? ['dashboard', `org:${orgId}`] : ['dashboard']
+    await manager.invalidateByTags(tags)
+  },
+
+  // Invalidate analytics cache
+  async analytics(orgId?: string): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    const tags = orgId ? ['analytics', `org:${orgId}`] : ['analytics']
+    await manager.invalidateByTags(tags)
+  },
+
+  // Invalidate catalog cache
+  async catalog(): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    await manager.invalidateByTags(['catalog'])
+  },
+
+  // Invalidate problems cache
+  async problems(): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    await manager.invalidateByTags(['problems'])
+  },
+
+  // Invalidate CMDB cache
+  async cmdb(): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    await manager.invalidateByTags(['cmdb'])
+  },
+
+  // Invalidate by single tag
+  async byTag(tag: string): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    await manager.invalidateByTags([tag])
+  },
+
+  // Invalidate by multiple tags
+  async byTags(tags: string[]): Promise<void> {
+    const manager =
+      (global as typeof globalThis & { cacheManager?: CacheManager }).cacheManager ||
+      defaultCacheManager
+    await manager.invalidateByTags(tags)
   },
 }
 

@@ -334,20 +334,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 )}
 
                 {command.recent && (
-                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  <span className="text-xs text-muted-content">
                     Recent
                   </span>
                 )}
               </div>
 
               {command.subtitle && (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                <p className="text-xs text-muted-content truncate">
                   {command.subtitle}
                 </p>
               )}
 
               {command.description && !command.subtitle && (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                <p className="text-xs text-muted-content truncate">
                   {command.description}
                 </p>
               )}

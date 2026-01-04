@@ -2,10 +2,18 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AdminCard } from '@/src/components/admin/AdminCard'
-import { AdminButton } from '@/src/components/admin/AdminButton'
-import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { logger } from '@/lib/monitoring/logger';
+import PageHeader from '@/components/ui/PageHeader'
+import {
+  CheckIcon,
+  XMarkIcon,
+  UserPlusIcon,
+  EnvelopeIcon,
+  LockClosedIcon,
+  UserCircleIcon,
+  ExclamationCircleIcon,
+  ShieldCheckIcon
+} from '@heroicons/react/24/outline'
+import { logger } from '@/lib/monitoring/logger'
 
 export default function NewUserPage() {
   const router = useRouter()
@@ -105,161 +113,247 @@ export default function NewUserPage() {
   }
 
   return (
-    <div className="space-y-6">
-        {/* Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Novo Usuário
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Criar um novo usuário no sistema
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-blue-50/20 to-neutral-50 dark:from-neutral-950 dark:via-blue-950/20 dark:to-neutral-950">
+      {/* Modern PageHeader with Breadcrumbs */}
+      <div className="glass-panel sticky top-0 z-20 border-b border-neutral-200/50 dark:border-neutral-800/50 backdrop-blur-lg bg-white/80 dark:bg-neutral-900/80">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+          <PageHeader
+            title="Novo Usuário"
+            description="Criar um novo usuário no sistema"
+            icon={UserPlusIcon}
+            breadcrumbs={[
+              { label: 'Admin', href: '/admin' },
+              { label: 'Usuários', href: '/admin/users' },
+              { label: 'Novo Usuário' }
+            ]}
+          />
         </div>
+      </div>
 
-        {/* Formulário */}
-        <AdminCard>
-          <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Form Content */}
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">
+        <div className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 shadow-xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm overflow-hidden animate-fade-in">
+          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
             {/* Nome */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="animate-slide-up">
+              <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Nome Completo *
               </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.name ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Digite o nome completo"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <UserCircleIcon className="h-5 w-5 text-icon-muted" />
+                </div>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-3 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                    errors.name
+                      ? 'border-red-300 dark:border-red-700 focus:ring-red-500 dark:focus:ring-red-400 bg-red-50 dark:bg-red-900/10'
+                      : 'border-neutral-200 dark:border-neutral-700 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800'
+                  } text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500`}
+                  placeholder="Digite o nome completo"
+                />
+                {errors.name && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
+                  </div>
+                )}
+              </div>
               {errors.name && (
-                <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+                <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <ExclamationCircleIcon className="h-4 w-4" />
+                  {errors.name}
+                </p>
               )}
             </div>
 
             {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Email *
               </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="Digite o email"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <EnvelopeIcon className="h-5 w-5 text-icon-muted" />
+                </div>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`w-full pl-10 pr-3 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                    errors.email
+                      ? 'border-red-300 dark:border-red-700 focus:ring-red-500 dark:focus:ring-red-400 bg-red-50 dark:bg-red-900/10'
+                      : 'border-neutral-200 dark:border-neutral-700 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800'
+                  } text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500`}
+                  placeholder="Digite o email"
+                />
+                {errors.email && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
+                  </div>
+                )}
+              </div>
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <ExclamationCircleIcon className="h-4 w-4" />
+                  {errors.email}
+                </p>
               )}
             </div>
 
             {/* Senha */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Senha *
                 </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="Digite a senha"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockClosedIcon className="h-5 w-5 text-icon-muted" />
+                  </div>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                      errors.password
+                        ? 'border-red-300 dark:border-red-700 focus:ring-red-500 dark:focus:ring-red-400 bg-red-50 dark:bg-red-900/10'
+                        : 'border-neutral-200 dark:border-neutral-700 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800'
+                    } text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500`}
+                    placeholder="Digite a senha"
+                  />
+                  {errors.password && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
+                    </div>
+                  )}
+                </div>
                 {errors.password && (
-                  <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                  <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <ExclamationCircleIcon className="h-4 w-4" />
+                    {errors.password}
+                  </p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Confirmar Senha *
                 </label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleInputChange}
-                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                  placeholder="Confirme a senha"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <LockClosedIcon className="h-5 w-5 text-icon-muted" />
+                  </div>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    className={`w-full pl-10 pr-3 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                      errors.confirmPassword
+                        ? 'border-red-300 dark:border-red-700 focus:ring-red-500 dark:focus:ring-red-400 bg-red-50 dark:bg-red-900/10'
+                        : 'border-neutral-200 dark:border-neutral-700 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800'
+                    } text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500`}
+                    placeholder="Confirme a senha"
+                  />
+                  {errors.confirmPassword && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
+                    </div>
+                  )}
+                </div>
                 {errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+                  <p className="mt-1.5 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <ExclamationCircleIcon className="h-4 w-4" />
+                    {errors.confirmPassword}
+                  </p>
                 )}
               </div>
             </div>
 
             {/* Role */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+              <label htmlFor="role" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Tipo de Usuário *
               </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="user">Usuário</option>
-                <option value="agent">Agente</option>
-                <option value="admin">Administrador</option>
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                <strong>Usuário:</strong> Pode criar e visualizar seus próprios tickets<br/>
-                <strong>Agente:</strong> Pode gerenciar tickets atribuídos a ele<br/>
-                <strong>Administrador:</strong> Acesso completo ao sistema
-              </p>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <ShieldCheckIcon className="h-5 w-5 text-icon-muted" />
+                </div>
+                <select
+                  id="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-10 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800 transition-all text-neutral-900 dark:text-neutral-100 appearance-none cursor-pointer"
+                >
+                  <option value="user">Usuário</option>
+                  <option value="agent">Agente</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-icon-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-3 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50">
+                <p className="text-sm text-description space-y-1">
+                  <span className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-fit">Usuário:</span>
+                    <span>Pode criar e visualizar seus próprios tickets</span>
+                  </span>
+                  <span className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-fit">Agente:</span>
+                    <span>Pode gerenciar tickets atribuídos a ele</span>
+                  </span>
+                  <span className="flex items-start gap-2">
+                    <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-fit">Administrador:</span>
+                    <span>Acesso completo ao sistema</span>
+                  </span>
+                </p>
+              </div>
             </div>
 
             {/* Botões */}
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-              <AdminButton
-                variant="secondary"
+            <div className="flex items-center justify-end gap-3 sm:gap-4 pt-6 border-t border-neutral-200/50 dark:border-neutral-700/50 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+              <button
+                type="button"
                 onClick={() => router.back()}
-                className="flex items-center"
+                className="px-4 sm:px-5 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow"
               >
-                <XMarkIcon className="h-4 w-4 mr-2" />
-                Cancelar
-              </AdminButton>
-              <AdminButton
-                variant="primary"
+                <XMarkIcon className="h-5 w-5" />
+                <span className="hidden sm:inline">Cancelar</span>
+              </button>
+              <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center"
+                className="px-4 sm:px-5 py-2.5 rounded-lg bg-gradient-to-r from-brand-600 to-brand-700 dark:from-brand-500 dark:to-brand-600 text-white font-medium hover:from-brand-700 hover:to-brand-800 dark:hover:from-brand-600 dark:hover:to-brand-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Criando...
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>Criando...</span>
                   </>
                 ) : (
                   <>
-                    <CheckIcon className="h-4 w-4 mr-2" />
-                    Criar Usuário
+                    <CheckIcon className="h-5 w-5" />
+                    <span>Criar Usuário</span>
                   </>
                 )}
-              </AdminButton>
+              </button>
             </div>
           </form>
-        </AdminCard>
+        </div>
       </div>
+    </div>
   )
 }

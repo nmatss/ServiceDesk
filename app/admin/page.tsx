@@ -1,8 +1,6 @@
-'use client'
-
-import { useState, useEffect } from 'react'
+import { Suspense } from 'react'
+import { Metadata } from 'next'
 import Link from 'next/link'
-import { logger } from '@/lib/monitoring/logger';
 import {
   UsersIcon,
   TicketIcon,
@@ -11,66 +9,189 @@ import {
   ExclamationTriangleIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
-  PlusIcon
+  PlusIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline'
-// Button import removed - using direct Link elements with button styling
 
-export default function AdminPage() {
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalTickets: 0,
-    openTickets: 0,
-    resolvedTickets: 0
-  })
-  const [loading, setLoading] = useState(true)
+export const metadata: Metadata = {
+  title: 'Dashboard Administrativo | ServiceDesk',
+  description: 'Visão geral completa do sistema ServiceDesk Pro',
+}
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+interface DashboardStats {
+  totalUsers: number
+  totalTickets: number
+  openTickets: number
+  resolvedTickets: number
+}
 
-  const fetchStats = async () => {
-    try {
-      // Cookies are automatically sent with fetch, no need for localStorage
-      const response = await fetch('/api/analytics?type=overview', {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include' // Ensure cookies are sent
-      })
+interface CategoryStats {
+  id: number
+  name: string
+  color: string
+  total_tickets: number
+  resolved_tickets: number
+  resolution_rate: number
+}
 
-      if (response.ok) {
-        const data = await response.json()
-        // Safe access with nullish coalescing
-        const overview = data?.analytics?.overview ?? {}
-        setStats({
-          totalUsers: overview.totalUsers ?? 125,
-          totalTickets: overview.totalTickets ?? 0,
-          openTickets: overview.openTickets ?? 0,
-          resolvedTickets: overview.closedTickets ?? 0
-        })
-      } else {
-        // Handle non-OK responses gracefully
-        logger.warn('Failed to fetch stats', { status: response.status })
+// Categories Distribution Component
+async function CategoriesDistribution() {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+  try {
+    const response = await fetch(`${baseUrl}/api/analytics?type=category-analytics`, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      next: {
+        revalidate: 300, // 5 minutes
+        tags: ['category-stats']
       }
-    } catch (error) {
-      logger.error('Erro ao buscar estatísticas', error)
-      // Keep default stats on error
-    } finally {
-      setLoading(false)
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch category stats')
+    }
+
+    const result = await response.json()
+    const categories: CategoryStats[] = result.data || []
+
+    if (categories.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-content">Nenhuma categoria encontrada</p>
+        </div>
+      )
+    }
+
+    const totalTickets = categories.reduce((sum, cat) => sum + cat.total_tickets, 0)
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {categories.map((category) => {
+          const percentage = totalTickets > 0
+            ? ((category.total_tickets / totalTickets) * 100).toFixed(1)
+            : '0'
+
+          return (
+            <div
+              key={category.id}
+              className="p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: category.color }}
+                  />
+                  <h4 className="font-medium text-sm text-neutral-900 dark:text-neutral-100">
+                    {category.name}
+                  </h4>
+                </div>
+                <span className="text-xs font-semibold text-muted-content">
+                  {percentage}%
+                </span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-description">Total</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                    {category.total_tickets}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-description">Resolvidos</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                    {category.resolved_tickets}
+                  </span>
+                </div>
+                <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 mt-2">
+                  <div
+                    className="h-1.5 rounded-full transition-all duration-500"
+                    style={{
+                      width: `${category.resolution_rate || 0}%`,
+                      backgroundColor: category.color
+                    }}
+                  />
+                </div>
+                <div className="text-xs text-right text-muted-content">
+                  {category.resolution_rate?.toFixed(0) || 0}% resolvidos
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  } catch (error) {
+    console.error('Error fetching categories:', error)
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-content">Erro ao carregar categorias</p>
+      </div>
+    )
+  }
+}
+
+// Parallel data fetching for optimal performance
+async function getDashboardData(): Promise<DashboardStats> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+  try {
+    const response = await fetch(`${baseUrl}/api/analytics?type=overview`, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      next: {
+        revalidate: 60, // 1 minute for dashboard
+        tags: ['dashboard-stats']
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      const overview = data?.analytics?.overview ?? {}
+      return {
+        totalUsers: overview.totalUsers ?? 125,
+        totalTickets: overview.totalTickets ?? 0,
+        openTickets: overview.openTickets ?? 0,
+        resolvedTickets: overview.closedTickets ?? 0
+      }
+    }
+
+    // Fallback data
+    return {
+      totalUsers: 125,
+      totalTickets: 0,
+      openTickets: 0,
+      resolvedTickets: 0
+    }
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error)
+    return {
+      totalUsers: 125,
+      totalTickets: 0,
+      openTickets: 0,
+      resolvedTickets: 0
     }
   }
+}
 
-  const resolutionRate = stats.totalTickets > 0 
+export default async function AdminPage() {
+  const stats = await getDashboardData()
+
+  const resolutionRate = stats.totalTickets > 0
     ? ((stats.resolvedTickets / stats.totalTickets) * 100).toFixed(1)
     : '0.0'
 
-  // Only show change indicators when we have real data
   const hasRealData = stats.totalTickets > 0 || stats.totalUsers > 0
 
   const statsData = [
     {
       name: 'Total de Usuários',
-      value: loading ? '...' : stats.totalUsers.toString(),
+      value: stats.totalUsers.toString(),
       change: hasRealData && stats.totalUsers > 0 ? '+12%' : null,
       changeType: 'positive' as const,
       icon: UsersIcon,
@@ -78,7 +199,7 @@ export default function AdminPage() {
     },
     {
       name: 'Tickets Ativos',
-      value: loading ? '...' : stats.openTickets.toString(),
+      value: stats.openTickets.toString(),
       change: hasRealData && stats.openTickets > 0 ? '+5%' : null,
       changeType: 'positive' as const,
       icon: TicketIcon,
@@ -86,7 +207,7 @@ export default function AdminPage() {
     },
     {
       name: 'Tickets Resolvidos',
-      value: loading ? '...' : stats.resolvedTickets.toString(),
+      value: stats.resolvedTickets.toString(),
       change: hasRealData && stats.resolvedTickets > 0 ? '+18%' : null,
       changeType: 'positive' as const,
       icon: CheckCircleIcon,
@@ -94,7 +215,7 @@ export default function AdminPage() {
     },
     {
       name: 'Taxa de Resolução',
-      value: loading ? '...' : `${resolutionRate}%`,
+      value: `${resolutionRate}%`,
       change: hasRealData && stats.totalTickets > 0 ? '+2%' : null,
       changeType: 'positive' as const,
       icon: ChartPieIcon,
@@ -130,21 +251,23 @@ export default function AdminPage() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
-            Visão geral do sistema ServiceDesk Pro
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+            Dashboard Administrativo
+          </h1>
+          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-description">
+            Visão geral completa do sistema ServiceDesk Pro
           </p>
         </div>
         <div className="flex space-x-3">
           <Link
             href="/tickets/new"
-            className="inline-flex items-center justify-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            className="btn btn-primary"
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon className="w-5 h-5 mr-2" />
             Novo Ticket
           </Link>
         </div>
@@ -155,79 +278,119 @@ export default function AdminPage() {
         {statsData.map((stat) => (
           <div
             key={stat.name}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow"
+            className="glass-panel p-4 sm:p-6 hover:shadow-large transition-all duration-300 group animate-slide-up"
           >
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">{stat.name}</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stat.value}</p>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-1">{stat.description}</p>
+                <p className="text-xs sm:text-sm font-medium text-description truncate">
+                  {stat.name}
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 sm:mt-2">
+                  {stat.value}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1 line-clamp-1">
+                  {stat.description}
+                </p>
               </div>
-              <div className="h-10 w-10 sm:h-12 sm:w-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 ml-3">
-                <stat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+              <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-brand rounded-xl flex items-center justify-center flex-shrink-0 ml-3 group-hover:scale-110 transition-transform duration-300">
+                <stat.icon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
               </div>
             </div>
             {stat.change && (
               <div className="mt-3 sm:mt-4 flex items-center">
                 {stat.changeType === 'positive' ? (
-                  <ArrowTrendingUpIcon className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 mr-1" />
+                  <ArrowTrendingUpIcon className="h-4 w-4 text-success-600 dark:text-success-400 mr-1" />
                 ) : (
-                  <ArrowTrendingDownIcon className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 mr-1" />
+                  <ArrowTrendingDownIcon className="h-4 w-4 text-error-600 dark:text-error-400 mr-1" />
                 )}
                 <span className={`text-xs sm:text-sm font-medium ${
-                  stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
+                  stat.changeType === 'positive'
+                    ? 'text-success-600 dark:text-success-400'
+                    : 'text-error-600 dark:text-error-400'
                 }`}>
                   {stat.change}
                 </span>
-                <span className="text-xs sm:text-sm text-gray-500 ml-1 hidden sm:inline">vs mês anterior</span>
+                <span className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-500 ml-1 hidden sm:inline">
+                  vs mês anterior
+                </span>
               </div>
             )}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
+      {/* Categories Distribution */}
+      <div className="glass-panel p-4 sm:p-6 animate-slide-up">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            Distribuição por Categorias
+          </h3>
+          <Link
+            href="/admin/categories"
+            className="text-brand-600 hover:text-brand-700 text-sm font-medium"
+          >
+            Gerenciar →
+          </Link>
+        </div>
+        <Suspense fallback={
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+          </div>
+        }>
+          <CategoriesDistribution />
+        </Suspense>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Recent Tickets */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Tickets Recentes</h3>
+          <div className="glass-panel overflow-hidden animate-slide-up">
+            <div className="px-4 sm:px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+              <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                Tickets Recentes
+              </h3>
               <Link
                 href="/admin/tickets"
-                className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+                className="btn btn-secondary text-sm"
               >
                 Ver Todos
               </Link>
             </div>
             <div className="p-4 sm:p-6">
-              <div className="space-y-3 sm:space-y-4">
-                {recentTickets.map((ticket) => (
-                  <div key={ticket.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 rounded-lg gap-3">
+              <div className="space-y-3">
+                {recentTickets.map((ticket, index) => (
+                  <div
+                    key={ticket.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl gap-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
                     <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                       <div className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 sm:mt-0 ${
-                        ticket.status === 'Aberto' ? 'bg-red-400' :
-                        ticket.status === 'Em Progresso' ? 'bg-yellow-400' :
-                        'bg-green-400'
-                      }`} />
+                        ticket.status === 'Aberto' ? 'bg-error-400' :
+                        ticket.status === 'Em Progresso' ? 'bg-warning-400' :
+                        'bg-success-400'
+                      } animate-pulse-soft`} />
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm sm:text-base text-gray-900 line-clamp-1">{ticket.title}</p>
-                        <p className="text-xs sm:text-sm text-gray-500 truncate">
+                        <p className="font-medium text-sm sm:text-base text-neutral-900 dark:text-neutral-100 line-clamp-1">
+                          {ticket.title}
+                        </p>
+                        <p className="text-xs sm:text-sm text-description truncate">
                           {ticket.id} • {ticket.assignee} • {ticket.created}
                         </p>
                       </div>
                     </div>
                     <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        ticket.priority === 'Alta' ? 'bg-red-100 text-red-800' :
-                        ticket.priority === 'Média' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
+                      <span className={`badge ${
+                        ticket.priority === 'Alta' ? 'badge-error' :
+                        ticket.priority === 'Média' ? 'badge-warning' :
+                        'badge-success'
                       }`}>
                         {ticket.priority}
                       </span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        ticket.status === 'Aberto' ? 'bg-red-100 text-red-800' :
-                        ticket.status === 'Em Progresso' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
+                      <span className={`badge ${
+                        ticket.status === 'Aberto' ? 'badge-error' :
+                        ticket.status === 'Em Progresso' ? 'badge-warning' :
+                        'badge-success'
                       }`}>
                         {ticket.status}
                       </span>
@@ -240,68 +403,121 @@ export default function AdminPage() {
         </div>
 
         {/* Quick Actions & System Status */}
-        <div className="space-y-6">
-          {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
+        <div className="space-y-4 sm:space-y-6">
+          {/* Quick Actions - Enhanced Design */}
+          <div className="glass-panel p-4 sm:p-6 animate-slide-up">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+              Ações Rápidas
+            </h3>
             <div className="space-y-3">
               <Link
                 href="/tickets/new"
-                className="inline-flex items-center justify-start w-full h-10 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="group relative bg-gradient-to-br from-sky-500 to-blue-600 p-4 rounded-xl hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex items-center overflow-hidden"
               >
-                <PlusIcon className="w-4 h-4 mr-2" />
-                Criar Novo Ticket
+                {/* Icon container */}
+                <div className="h-12 w-12 bg-white/20 rounded-lg flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0">
+                  <PlusIcon className="w-6 h-6 text-white" />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-bold text-white">
+                    Criar Novo Ticket
+                  </h4>
+                  <p className="text-xs text-white/80">
+                    Abrir chamado rapidamente
+                  </p>
+                </div>
+
+                {/* Arrow */}
+                <ArrowRightIcon className="w-5 h-5 text-white/70 group-hover:text-white group-hover:translate-x-1 transition-all flex-shrink-0" />
               </Link>
+
               <Link
                 href="/admin/reports"
-                className="inline-flex items-center justify-start w-full h-10 px-4 py-2 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+                className="group relative bg-gradient-to-br from-white to-purple-50 dark:from-neutral-800 dark:to-purple-950/20 p-4 rounded-xl border-2 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex items-center overflow-hidden"
               >
-                <ChartPieIcon className="w-4 h-4 mr-2" />
-                Ver Relatórios
+                {/* Icon container */}
+                <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0 shadow-md">
+                  <ChartPieIcon className="w-6 h-6 text-white" />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                    Ver Relatórios
+                  </h4>
+                  <p className="text-xs text-description">
+                    Análises e métricas
+                  </p>
+                </div>
+
+                {/* Arrow */}
+                <ArrowRightIcon className="w-5 h-5 text-purple-600 dark:text-purple-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </Link>
+
               <Link
                 href="/admin/users"
-                className="inline-flex items-center justify-start w-full h-10 px-4 py-2 text-sm font-medium border border-neutral-300 bg-transparent text-neutral-700 rounded-md hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+                className="group relative bg-gradient-to-br from-white to-green-50 dark:from-neutral-800 dark:to-green-950/20 p-4 rounded-xl border-2 border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex items-center overflow-hidden"
               >
-                <UsersIcon className="w-4 h-4 mr-2" />
-                Gerenciar Usuários
+                {/* Icon container */}
+                <div className="h-12 w-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0 shadow-md">
+                  <UsersIcon className="w-6 h-6 text-white" />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                    Gerenciar Usuários
+                  </h4>
+                  <p className="text-xs text-description">
+                    Equipe e permissões
+                  </p>
+                </div>
+
+                {/* Arrow */}
+                <ArrowRightIcon className="w-5 h-5 text-green-600 dark:text-green-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </Link>
             </div>
           </div>
 
           {/* System Status */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Status do Sistema</h3>
+          <div className="glass-panel p-4 sm:p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+              Status do Sistema
+            </h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Sistema</span>
-                <span className="flex items-center text-sm">
-                  <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
+                <span className="text-sm text-description">Sistema</span>
+                <span className="flex items-center text-sm text-neutral-900 dark:text-neutral-100">
+                  <div className="h-2 w-2 bg-success-400 rounded-full mr-2 animate-pulse-soft"></div>
                   Online
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Última Atualização</span>
-                <span className="text-sm text-gray-900">2 min atrás</span>
+                <span className="text-sm text-description">Última Atualização</span>
+                <span className="text-sm text-neutral-900 dark:text-neutral-100">2 min atrás</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Versão</span>
-                <span className="text-sm text-gray-900">v1.0.0</span>
+                <span className="text-sm text-description">Versão</span>
+                <span className="text-sm text-neutral-900 dark:text-neutral-100">v2.0.0</span>
               </div>
             </div>
           </div>
 
           {/* Alerts */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertas</h3>
+          <div className="glass-panel p-4 sm:p-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+              Alertas
+            </h3>
             <div className="space-y-3">
-              <div className="flex items-center p-3 bg-yellow-50 rounded-lg">
-                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 mr-3" />
-                <span className="text-sm text-yellow-800">3 tickets pendentes</span>
+              <div className="flex items-center p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200 dark:border-warning-800">
+                <ExclamationTriangleIcon className="h-5 w-5 text-warning-600 dark:text-warning-400 mr-3 flex-shrink-0" />
+                <span className="text-sm text-warning-800 dark:text-warning-300">3 tickets pendentes</span>
               </div>
-              <div className="flex items-center p-3 bg-green-50 rounded-lg">
-                <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
-                <span className="text-sm text-green-800">Sistema funcionando</span>
+              <div className="flex items-center p-3 bg-success-50 dark:bg-success-900/20 rounded-lg border border-success-200 dark:border-success-800">
+                <CheckCircleIcon className="h-5 w-5 text-success-600 dark:text-success-400 mr-3 flex-shrink-0" />
+                <span className="text-sm text-success-800 dark:text-success-300">Sistema funcionando normalmente</span>
               </div>
             </div>
           </div>

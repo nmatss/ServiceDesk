@@ -169,7 +169,7 @@ export default function RecentTickets({ limit = 5, showUserTickets = false, clas
             <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-3">
               <TicketIcon className="h-6 w-6 text-neutral-400" />
             </div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+            <p className="text-sm text-description mb-4">
               {showUserTickets ? 'Você ainda não criou nenhum ticket' : 'Nenhum ticket encontrado'}
             </p>
             <Link
@@ -188,9 +188,9 @@ export default function RecentTickets({ limit = 5, showUserTickets = false, clas
                     href={`/tickets/${ticket.id}`}
                     className="text-sm font-medium text-neutral-900 dark:text-neutral-100 hover:text-brand-600 dark:hover:text-brand-400 truncate block group"
                   >
-                    <span className="text-neutral-500 dark:text-neutral-400">#{ticket.id}</span> {ticket.title}
+                    <span className="text-muted-content">#{ticket.id}</span> {ticket.title}
                   </Link>
-                  <div className="mt-2 flex items-center space-x-4 text-xs text-neutral-500 dark:text-neutral-400">
+                  <div className="mt-2 flex items-center space-x-4 text-xs text-muted-content">
                     <div className="flex items-center">
                       <UserIcon className="h-3 w-3 mr-1" />
                       {ticket.user_name}

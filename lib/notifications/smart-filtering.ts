@@ -239,18 +239,18 @@ export class SmartFilteringEngine {
   private loadUserPreferences() {
     try {
       interface DbUserPreference {
-        user_id: number
+        id: number
         notification_preferences: string
       }
 
       const preferences = this.db.prepare(`
-        SELECT user_id, notification_preferences FROM users
+        SELECT id, notification_preferences FROM users
         WHERE notification_preferences IS NOT NULL
       `).all() as DbUserPreference[]
 
       for (const pref of preferences) {
         const userPrefs = JSON.parse(pref.notification_preferences) as Partial<UserPreferences>
-        this.userPreferences.set(pref.user_id, this.normalizeUserPreferences(userPrefs))
+        this.userPreferences.set(pref.id, this.normalizeUserPreferences(userPrefs))
       }
 
       logger.info(`Loaded preferences for ${preferences.length} users`)

@@ -74,7 +74,7 @@ export function createObservabilityContext(request: NextRequest): ObservabilityC
     startTime: Date.now(),
     userId: userId ? parseInt(userId, 10) : undefined,
     tenantId: tenantId ? parseInt(tenantId, 10) : undefined,
-    userRole,
+    userRole: userRole ?? undefined,
     ipAddress,
     userAgent,
   };

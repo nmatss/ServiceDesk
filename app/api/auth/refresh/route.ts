@@ -23,10 +23,15 @@ import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting para refresh tokens
 const refreshRateLimit = createRateLimitMiddleware('refresh');
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Apply rate limiting
   const rateLimitResult = await refreshRateLimit(request, '/api/auth/refresh');
   if (rateLimitResult instanceof Response) {
@@ -126,6 +131,10 @@ export async function POST(request: NextRequest) {
  * Checks if current refresh token is valid without rotating it
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { refreshToken, deviceFingerprint } = extractTokensFromRequest(request);
 

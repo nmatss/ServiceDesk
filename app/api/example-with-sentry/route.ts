@@ -14,12 +14,17 @@ import {
 } from '@/lib/monitoring/sentry-helpers'
 import db from '@/lib/db/connection'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ========================
 // APPROACH 1: Using withSentry wrapper (Recommended)
 // ========================
 // This automatically tracks performance and captures errors
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Add custom breadcrumb for debugging
     addBreadcrumb('Fetching example data', 'database', 'info')
@@ -64,6 +69,10 @@ export async function GET(request: NextRequest) {
 // Use this if you need more control over error capture
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json()
 
@@ -134,6 +143,10 @@ export async function POST(request: NextRequest) {
 // This endpoint intentionally throws errors for testing
 
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const { searchParams } = new URL(request.url)
   const errorType = searchParams.get('type')
 

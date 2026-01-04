@@ -92,8 +92,9 @@ export function useIsLandscape(): boolean {
  */
 export async function lockOrientation(type: OrientationLockType): Promise<boolean> {
   try {
-    if (window.screen?.orientation?.lock) {
-      await window.screen.orientation.lock(type)
+    const orientation = window.screen?.orientation as ScreenOrientation & { lock?: (type: string) => Promise<void> }
+    if (orientation?.lock) {
+      await orientation.lock(type)
       return true
     }
     return false

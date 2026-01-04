@@ -107,7 +107,7 @@ export default function NotificationBell() {
           className={`relative p-2 rounded-lg transition-colors ${
             unreadCount > 0
               ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20'
-              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
           }`}
           aria-label={unreadCount > 0 ? `Notificações: ${unreadCount} não lidas` : 'Notificações'}
           aria-expanded={isOpen}
@@ -175,7 +175,7 @@ export default function NotificationBell() {
               </div>
             </div>
             {unreadCount > 0 && (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+              <p className="text-sm text-description mt-1">
                 {unreadCount} {unreadCount === 1 ? 'nova notificação' : 'novas notificações'}
               </p>
             )}
@@ -192,7 +192,7 @@ export default function NotificationBell() {
             {notifications.length === 0 ? (
               <div className="p-8 text-center" role="status">
                 <BellIcon className="h-12 w-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" aria-hidden="true" />
-                <p className="text-neutral-600 dark:text-neutral-400 text-sm">
+                <p className="text-description text-sm">
                   Nenhuma notificação
                 </p>
               </div>
@@ -224,7 +224,7 @@ export default function NotificationBell() {
                             </p>
                             <p className={`text-sm mt-1 ${
                               !notification.read
-                                ? 'text-neutral-600 dark:text-neutral-400'
+                                ? 'text-description'
                                 : 'text-neutral-500 dark:text-neutral-500'
                             }`}>
                               {notification.message}

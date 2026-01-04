@@ -84,7 +84,7 @@ export class WorkflowEngine {
       await this.emitEvent('workflow_started', {
         workflowId: workflow.id,
         executionId: execution.id,
-        triggerData,
+        triggerData: triggerData as unknown as EventPayloadValue,
       });
 
       // Start execution
@@ -267,7 +267,7 @@ export class WorkflowEngine {
       context.log('info', `Completed execution of node: ${node.name}`, {
         nodeId: node.id,
         executionTime: stepExecution.executionTimeMs,
-        outputData: result.outputData,
+        outputData: result.outputData as unknown as LogEntryData,
       });
 
       // Emit step completed event
@@ -275,7 +275,7 @@ export class WorkflowEngine {
         executionId: context.execution.id,
         stepId: node.id,
         executionTime: stepExecution.executionTimeMs,
-        outputData: result.outputData,
+        outputData: result.outputData as unknown as EventPayloadValue,
       });
 
       // Handle result
@@ -480,7 +480,7 @@ export class WorkflowEngine {
     // Simple condition evaluation - can be extended
     for (const condition of conditions) {
       const fieldValue = this.getFieldValue(data, condition.field) ||
-                        this.getFieldValue(context.getVariables(), condition.field);
+                        this.getFieldValue(context.getVariables() as Record<string, StepDataValue>, condition.field);
 
       if (!this.evaluateCondition(fieldValue, condition.operator, condition.value)) {
         return false;
@@ -519,15 +519,15 @@ export class WorkflowEngine {
       case 'less_than':
         return Number(fieldValue) < Number(expectedValue);
       case 'in':
-        return Array.isArray(expectedValue) && expectedValue.includes(fieldValue);
+        return Array.isArray(expectedValue) && (expectedValue as unknown[]).includes(fieldValue as unknown);
       case 'not_in':
-        return Array.isArray(expectedValue) && !expectedValue.includes(fieldValue);
+        return Array.isArray(expectedValue) && !(expectedValue as unknown[]).includes(fieldValue as unknown);
       case 'is_null':
         return fieldValue == null;
       case 'is_not_null':
         return fieldValue != null;
       case 'regex':
-        return new RegExp(expectedValue).test(String(fieldValue));
+        return new RegExp(String(expectedValue)).test(String(fieldValue));
       default:
         return false;
     }
@@ -552,13 +552,13 @@ export class WorkflowEngine {
     await this.persistenceAdapter.updateExecution(context.execution);
 
     context.log('info', 'Workflow execution completed successfully', {
-      outputData: context.getVariables(),
+      outputData: context.getVariables() as unknown as LogEntryData,
     });
 
     await this.emitEvent('workflow_completed', {
       executionId: context.execution.id,
       workflowId: context.workflow.id,
-      outputData: context.getVariables(),
+      outputData: context.getVariables() as unknown as EventPayloadValue,
     });
 
     // Update workflow metrics
@@ -580,7 +580,7 @@ export class WorkflowEngine {
     await this.persistenceAdapter.updateExecution(context.execution);
 
     context.log('error', `Workflow execution failed: ${error.message}`, {
-      error: error.stack,
+      error: error.stack || error.message,
     });
 
     await this.emitEvent('workflow_failed', {
@@ -757,15 +757,15 @@ export class WorkflowEngine {
   private async handleApprovalReceived(event: WorkflowEvent): Promise<void> {
     const { executionId, approved } = event.payload;
     if (approved) {
-      await this.resumeExecution(executionId, { approvalResult: 'approved' });
+      await this.resumeExecution(Number(executionId), { approvalResult: 'approved' });
     } else {
-      await this.cancelExecution(executionId, 'Approval rejected');
+      await this.cancelExecution(Number(executionId), 'Approval rejected');
     }
   }
 
   private async handleTimeoutOccurred(event: WorkflowEvent): Promise<void> {
     const { executionId } = event.payload;
-    await this.cancelExecution(executionId, 'Execution timed out');
+    await this.cancelExecution(Number(executionId), 'Execution timed out');
   }
 
   private async handleEscalationTriggered(_event: WorkflowEvent): Promise<void> {

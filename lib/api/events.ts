@@ -27,12 +27,12 @@ interface EventSnapshot {
 }
 
 // Domain Event
-export interface DomainEvent {
+export interface DomainEvent<T = any> {
   id: string
   streamId: string
   eventType: string
   eventVersion: number
-  data: any
+  data: T
   metadata?: Record<string, any>
   timestamp: string
   version: number

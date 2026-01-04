@@ -11,11 +11,16 @@ import { dbOptimizer } from '@/lib/db/optimizer'
 import { createCompressedResponse } from '@/lib/api/compression'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/performance/metrics
  * Get comprehensive performance statistics
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const acceptEncoding = request.headers.get('accept-encoding') || ''
 
@@ -71,6 +76,10 @@ export async function GET(request: NextRequest) {
  * Record client-side performance metrics
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const data = await request.json()
 

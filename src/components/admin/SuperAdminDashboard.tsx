@@ -49,7 +49,7 @@ export default function SuperAdminDashboard() {
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">Visão Geral do Sistema</h1>
-                    <p className="text-neutral-500 dark:text-neutral-400">Gerencie todos os tenants e monitore a saúde da plataforma.</p>
+                    <p className="text-muted-content">Gerencie todos os tenants e monitore a saúde da plataforma.</p>
                 </div>
                 <button className="btn btn-primary">
                     Novo Tenant
@@ -63,7 +63,7 @@ export default function SuperAdminDashboard() {
                         <div className={`absolute top-0 right-0 w-24 h-24 ${stat.bg} rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 opacity-50 group-hover:opacity-100 transition-opacity`} />
                         <div className="flex items-start justify-between relative z-10">
                             <div>
-                                <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{stat.name}</p>
+                                <p className="text-sm font-medium text-muted-content">{stat.name}</p>
                                 <p className="text-2xl font-bold text-neutral-900 dark:text-white mt-2">{stat.value}</p>
                             </div>
                             <div className={`p-3 rounded-lg ${stat.bg}`}>
@@ -73,7 +73,7 @@ export default function SuperAdminDashboard() {
                         <div className="mt-4 flex items-center text-sm relative z-10">
                             <ArrowTrendingUpIcon className="w-4 h-4 text-green-500 mr-1" />
                             <span className="text-green-500 font-medium">{stat.change}</span>
-                            <span className="text-neutral-500 dark:text-neutral-400 ml-2">vs mês anterior</span>
+                            <span className="text-muted-content ml-2">vs mês anterior</span>
                         </div>
                     </div>
                 ))}
@@ -89,11 +89,11 @@ export default function SuperAdminDashboard() {
                     <table className="w-full">
                         <thead className="bg-neutral-50/50 dark:bg-neutral-900/50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Empresa</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Plano</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Entrou em</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">Ações</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-content uppercase tracking-wider">Empresa</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-content uppercase tracking-wider">Plano</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-content uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-content uppercase tracking-wider">Entrou em</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-muted-content uppercase tracking-wider">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -106,7 +106,7 @@ export default function SuperAdminDashboard() {
                                             </div>
                                             <div className="ml-4">
                                                 <div className="text-sm font-medium text-neutral-900 dark:text-white">{tenant.name}</div>
-                                                <div className="text-sm text-neutral-500 dark:text-neutral-400">{tenant.slug}.servicedesk.com</div>
+                                                <div className="text-sm text-muted-content">{tenant.slug}.servicedesk.com</div>
                                             </div>
                                         </div>
                                     </td>
@@ -123,7 +123,7 @@ export default function SuperAdminDashboard() {
                                             {tenant.subscription_status}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500 dark:text-neutral-400">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-content">
                                         {new Date(tenant.created_at).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

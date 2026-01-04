@@ -146,7 +146,7 @@ export function AccessibleModalExample() {
                   <h2 id={titleId} className="text-xl font-semibold">
                     Confirmar Ação
                   </h2>
-                  <p id={descId} className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                  <p id={descId} className="text-sm text-description mt-1">
                     Esta ação não pode ser desfeita.
                   </p>
                 </div>
@@ -440,7 +440,7 @@ export function AccessibleTabsExample() {
               px-4 py-2 text-sm font-medium transition-colors
               ${selectedTab === index
                 ? 'border-b-2 border-brand-600 text-brand-600'
-                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
+                : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100'
               }
             `}
           >

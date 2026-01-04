@@ -83,7 +83,7 @@ export function MetricCard({
   const getTrendColor = () => {
     if (trendData.direction === 'up') return 'text-green-600 dark:text-green-400';
     if (trendData.direction === 'down') return 'text-red-600 dark:text-red-400';
-    return 'text-gray-600 dark:text-gray-400';
+    return 'text-description';
   };
 
   const getTrendIcon = () => {
@@ -132,7 +132,7 @@ export function MetricCard({
           {/* Progress Bar (if target is set) */}
           {progress !== undefined && (
             <div className="mt-4">
-              <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+              <div className="flex items-center justify-between text-xs text-description mb-1">
                 <span>Progress</span>
                 <span className="font-medium">{progress.toFixed(0)}%</span>
               </div>

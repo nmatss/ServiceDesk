@@ -11,7 +11,12 @@ import Fuse from 'fuse.js'
 import type { KBArticle } from '@/lib/types/database'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.KNOWLEDGE_SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')
@@ -106,7 +111,7 @@ export async function GET(request: NextRequest) {
     // Use semantic/hybrid search if mode is not 'keyword'
     if (mode === 'semantic' || mode === 'hybrid') {
       try {
-        const searchResults = await semanticSearchEngine.hybridSearch(query.trim(), articles, {
+        const searchResults = await semanticSearchEngine.hybridSearch(query.trim(), articles as any, {
           limit: limit + offset,
           hybridMode: mode as any,
           filters,
@@ -132,7 +137,7 @@ export async function GET(request: NextRequest) {
         semanticSearchEngine.trackSearch({
           query: query.trim(),
           resultsCount: results.length,
-          userId,
+          userId: userId || undefined,
           timestamp: new Date(),
           filters,
         })
@@ -189,7 +194,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get facets for filtering
-    const facets = semanticSearchEngine.getFacets(articles)
+    const facets = semanticSearchEngine.getFacets(articles as any)
 
     // Buscar sugestões de categorias relacionadas
     const categoryQuery = query.toLowerCase()
@@ -249,6 +254,10 @@ export async function GET(request: NextRequest) {
  * Track search result clicks for analytics
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.KNOWLEDGE_SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json()
     const { query, articleId, position, userId } = body

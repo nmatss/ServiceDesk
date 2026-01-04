@@ -6,10 +6,10 @@ Complete End-to-End test suite for ServiceDesk using Playwright with accessibili
 
 ## Test Statistics
 
-- **Total Test Files**: 9
-- **Total Test Cases**: 77+ component tests + 4 journey tests (per browser configuration)
-- **Browser Configurations**: 2 (Desktop + Mobile)
-- **Total Test Executions**: 200+
+- **Total Test Files**: 15 (9 existing + 6 new comprehensive tests)
+- **Total Test Cases**: 200+ (77+ component tests + 4 journey tests + 120+ new integration tests)
+- **Browser Configurations**: 4 (Chromium Desktop, Firefox Desktop, Mobile Chrome, Mobile Safari)
+- **Total Test Executions**: 400+
 
 ## Test Structure
 

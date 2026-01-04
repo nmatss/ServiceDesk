@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import db from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: { id: string };
 }
@@ -50,7 +51,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PUT - Update tag
 // ========================================
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const tagId = parseInt(params.id);
     const body = await request.json();

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import PageHeader from '@/components/ui/PageHeader'
 import {
   CpuChipIcon,
   PlusIcon,
@@ -19,7 +20,8 @@ import {
   XMarkIcon,
   DocumentDuplicateIcon,
   BeakerIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline'
 
 interface Automation {
@@ -129,9 +131,24 @@ const mockAutomations: Automation[] = [
 ]
 
 const triggerTypes = {
-  event: { label: 'Evento', icon: BoltIcon, color: 'bg-yellow-100 text-yellow-700' },
-  schedule: { label: 'Agendado', icon: ClockIcon, color: 'bg-blue-100 text-blue-700' },
-  condition: { label: 'Condição', icon: ArrowPathIcon, color: 'bg-purple-100 text-purple-700' }
+  event: {
+    label: 'Evento',
+    icon: BoltIcon,
+    color: 'bg-warning-50 text-warning-700 dark:bg-warning-950 dark:text-warning-400',
+    iconColor: 'text-warning-500 dark:text-warning-400'
+  },
+  schedule: {
+    label: 'Agendado',
+    icon: ClockIcon,
+    color: 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-400',
+    iconColor: 'text-brand-500 dark:text-brand-400'
+  },
+  condition: {
+    label: 'Condição',
+    icon: ArrowPathIcon,
+    color: 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-400',
+    iconColor: 'text-purple-500 dark:text-purple-400'
+  }
 }
 
 const eventOptions = [
@@ -221,155 +238,190 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <CpuChipIcon className="w-6 h-6 text-purple-600" />
-                Automações
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Configure regras e automações para o workflow de tickets
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setEditingAutomation(null)
-                setShowModal(true)
-              }}
-              className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 flex items-center justify-center gap-2"
-            >
-              <PlusIcon className="w-5 h-5" />
-              Nova Automação
-            </button>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-purple-50/20 to-neutral-50 dark:from-neutral-950 dark:via-purple-950/20 dark:to-neutral-950 pb-6">
+      {/* Modern Header with PageHeader */}
+      <div className="glass-panel border-b border-neutral-200/50 dark:border-neutral-700/50 backdrop-blur-lg bg-white/80 dark:bg-neutral-900/80 mb-6">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
+          <PageHeader
+            title="Automações"
+            description="Configure regras e automações para o workflow de tickets"
+            icon={CpuChipIcon}
+            breadcrumbs={[
+              { label: 'Admin', href: '/admin' },
+              { label: 'Configurações', href: '/admin/settings' },
+              { label: 'Automações' }
+            ]}
+            actions={[
+              {
+                label: 'Nova Automação',
+                icon: PlusIcon,
+                variant: 'primary',
+                onClick: () => {
+                  setEditingAutomation(null)
+                  setShowModal(true)
+                }
+              }
+            ]}
+          />
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Total</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">{automations.length}</div>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
+        {/* Modern Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 animate-fade-in">
+          <div className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 p-4 sm:p-5 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:scale-105 group">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-description">Total</div>
+              <CpuChipIcon className="w-5 h-5 text-icon-muted group-hover:text-purple-500 dark:group-hover:text-purple-400 transition-colors" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">{automations.length}</div>
+            <div className="text-xs text-muted-content mt-1">automações configuradas</div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Ativas</div>
-            <div className="text-2xl font-bold text-green-600 mt-1">
+
+          <div className="glass-panel rounded-xl border border-success-200/50 dark:border-success-700/50 p-4 sm:p-5 bg-gradient-to-br from-success-50/50 to-white/80 dark:from-success-950/30 dark:to-neutral-900/80 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:scale-105 group">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-success-700 dark:text-success-400">Ativas</div>
+              <CheckCircleIcon className="w-5 h-5 text-success-500 dark:text-success-400 group-hover:scale-110 transition-transform" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-success-700 dark:text-success-400">
               {automations.filter(a => a.enabled).length}
             </div>
+            <div className="text-xs text-success-600 dark:text-success-500 mt-1">em execução</div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Execuções Hoje</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+
+          <div className="glass-panel rounded-xl border border-brand-200/50 dark:border-brand-700/50 p-4 sm:p-5 bg-gradient-to-br from-brand-50/50 to-white/80 dark:from-brand-950/30 dark:to-neutral-900/80 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:scale-105 group">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-brand-700 dark:text-brand-400">Execuções Hoje</div>
+              <PlayIcon className="w-5 h-5 text-brand-500 dark:text-brand-400 group-hover:scale-110 transition-transform" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-brand-700 dark:text-brand-400">
               {automations.reduce((sum, a) => sum + a.executions_today, 0)}
             </div>
+            <div className="text-xs text-brand-600 dark:text-brand-500 mt-1">ações executadas</div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Taxa de Sucesso</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+
+          <div className="glass-panel rounded-xl border border-purple-200/50 dark:border-purple-700/50 p-4 sm:p-5 bg-gradient-to-br from-purple-50/50 to-white/80 dark:from-purple-950/30 dark:to-neutral-900/80 backdrop-blur-sm hover:shadow-lg transition-all duration-300 hover:scale-105 group">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-purple-700 dark:text-purple-400">Taxa de Sucesso</div>
+              <ChartBarIcon className="w-5 h-5 text-purple-500 dark:text-purple-400 group-hover:scale-110 transition-transform" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-purple-700 dark:text-purple-400">
               {(automations.reduce((sum, a) => sum + a.success_rate, 0) / automations.length).toFixed(1)}%
             </div>
+            <div className="text-xs text-purple-600 dark:text-purple-500 mt-1">média geral</div>
           </div>
         </div>
 
-        {/* Automations List */}
-        <div className="space-y-4">
-          {automations.map((automation) => {
+        {/* Modern Automations List */}
+        <div className="space-y-4 animate-slide-up">
+          {automations.map((automation, index) => {
             const TriggerIcon = triggerTypes[automation.trigger_type].icon
             return (
               <div
                 key={automation.id}
-                className={`bg-white rounded-xl border transition-all ${
-                  automation.enabled ? 'border-gray-200' : 'border-gray-200 opacity-60'
+                className={`glass-panel rounded-xl border transition-all duration-300 hover:shadow-xl ${
+                  automation.enabled
+                    ? 'border-neutral-200/50 dark:border-neutral-700/50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm'
+                    : 'border-neutral-200/30 dark:border-neutral-700/30 bg-white/40 dark:bg-neutral-900/40 backdrop-blur-sm opacity-70'
                 }`}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Automation Header */}
                 <div
-                  className="p-4 sm:p-6 cursor-pointer"
+                  className="p-4 sm:p-6 cursor-pointer hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50 transition-colors rounded-t-xl"
                   onClick={() => toggleAutomation(automation.id)}
                 >
                   <div className="flex items-start sm:items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <div className={`p-1.5 rounded-lg ${triggerTypes[automation.trigger_type].color}`}>
-                          <TriggerIcon className="w-4 h-4" />
+                        <div className={`p-2 rounded-lg ${triggerTypes[automation.trigger_type].color} shadow-sm`}>
+                          <TriggerIcon className="w-5 h-5" />
                         </div>
-                        <h3 className="font-semibold text-gray-900">{automation.name}</h3>
+                        <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{automation.name}</h3>
                         {automation.enabled ? (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium flex items-center gap-1">
-                            <CheckCircleIcon className="w-3 h-3" />
+                          <span className="px-2.5 py-1 bg-success-100 dark:bg-success-950 text-success-700 dark:text-success-400 rounded-full text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
                             Ativa
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium flex items-center gap-1">
-                            <PauseIcon className="w-3 h-3" />
+                          <span className="px-2.5 py-1 bg-neutral-100 dark:bg-neutral-800 text-description rounded-full text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                            <PauseIcon className="w-3.5 h-3.5" />
                             Pausada
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">{automation.description}</p>
+                      <p className="text-sm text-description mt-2">{automation.description}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="hidden sm:flex items-center gap-4 text-sm text-gray-500 mr-4">
-                        <div className="text-center">
-                          <div className="text-xs">Hoje</div>
-                          <div className="font-semibold text-gray-900">{automation.executions_today}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="hidden sm:flex items-center gap-4 text-sm text-muted-content mr-2">
+                        <div className="text-center px-3 py-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
+                          <div className="text-xs font-medium text-muted-content">Hoje</div>
+                          <div className="font-bold text-neutral-900 dark:text-neutral-100 mt-0.5">{automation.executions_today}</div>
                         </div>
-                        <div className="text-center">
-                          <div className="text-xs">Sucesso</div>
-                          <div className={`font-semibold ${automation.success_rate >= 95 ? 'text-green-600' : automation.success_rate >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        <div className="text-center px-3 py-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
+                          <div className="text-xs font-medium text-muted-content">Sucesso</div>
+                          <div className={`font-bold mt-0.5 ${
+                            automation.success_rate >= 95
+                              ? 'text-success-600 dark:text-success-400'
+                              : automation.success_rate >= 80
+                              ? 'text-warning-600 dark:text-warning-400'
+                              : 'text-error-600 dark:text-error-400'
+                          }`}>
                             {automation.success_rate}%
                           </div>
                         </div>
                       </div>
                       {expandedAutomation === automation.id ? (
-                        <ChevronUpIcon className="w-5 h-5 text-gray-400" />
+                        <ChevronUpIcon className="w-5 h-5 text-icon-muted transition-transform" />
                       ) : (
-                        <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+                        <ChevronDownIcon className="w-5 h-5 text-icon-muted transition-transform" />
                       )}
                     </div>
                   </div>
 
                   {/* Mobile Stats */}
-                  <div className="flex sm:hidden items-center gap-4 mt-3 text-xs text-gray-500">
-                    <span>Execuções hoje: {automation.executions_today}</span>
-                    <span>Sucesso: {automation.success_rate}%</span>
+                  <div className="flex sm:hidden items-center gap-3 mt-4 text-xs">
+                    <span className="px-2.5 py-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium">
+                      Execuções hoje: {automation.executions_today}
+                    </span>
+                    <span className="px-2.5 py-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium">
+                      Sucesso: {automation.success_rate}%
+                    </span>
                   </div>
                 </div>
 
                 {/* Expanded Details */}
                 {expandedAutomation === automation.id && (
-                  <div className="border-t border-gray-100 p-4 sm:p-6 bg-gray-50">
+                  <div className="border-t border-neutral-200/50 dark:border-neutral-700/50 p-4 sm:p-6 bg-gradient-to-br from-neutral-50/50 to-white/50 dark:from-neutral-800/50 dark:to-neutral-900/50 backdrop-blur-sm animate-fade-in">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                       {/* Trigger */}
                       <div>
-                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                          <BoltIcon className="w-4 h-4 text-yellow-500" />
+                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                          <BoltIcon className={`w-5 h-5 ${triggerTypes[automation.trigger_type].iconColor}`} />
                           Gatilho
                         </h4>
-                        <div className="bg-white rounded-lg p-4 border border-gray-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${triggerTypes[automation.trigger_type].color}`}>
+                        <div className="glass-panel rounded-lg p-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm shadow-sm">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className={`px-3 py-1 rounded-lg text-xs font-medium ${triggerTypes[automation.trigger_type].color} shadow-sm`}>
                               {triggerTypes[automation.trigger_type].label}
                             </span>
                           </div>
                           {automation.trigger_config.event && (
-                            <div className="text-sm text-gray-700">
-                              Evento: <span className="font-medium">{automation.trigger_config.event}</span>
+                            <div className="text-sm text-neutral-700 dark:text-neutral-300">
+                              <span className="text-muted-content">Evento:</span>{' '}
+                              <span className="font-semibold">{automation.trigger_config.event}</span>
                             </div>
                           )}
                           {automation.trigger_config.schedule && (
-                            <div className="text-sm text-gray-700">
-                              Cron: <span className="font-mono">{automation.trigger_config.schedule}</span>
+                            <div className="text-sm text-neutral-700 dark:text-neutral-300">
+                              <span className="text-muted-content">Cron:</span>{' '}
+                              <span className="font-mono font-semibold bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded">{automation.trigger_config.schedule}</span>
                             </div>
                           )}
                           {automation.trigger_config.condition && (
-                            <div className="text-sm text-gray-700">
-                              Condição: <span className="font-medium">{automation.trigger_config.condition}</span>
+                            <div className="text-sm text-neutral-700 dark:text-neutral-300">
+                              <span className="text-muted-content">Condição:</span>{' '}
+                              <span className="font-semibold">{automation.trigger_config.condition}</span>
                             </div>
                           )}
                         </div>
@@ -377,17 +429,17 @@ export default function AutomationsPage() {
 
                       {/* Actions */}
                       <div>
-                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                          <PlayIcon className="w-4 h-4 text-green-500" />
+                        <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                          <PlayIcon className="w-5 h-5 text-success-500 dark:text-success-400" />
                           Ações ({automation.actions.length})
                         </h4>
-                        <div className="bg-white rounded-lg p-4 border border-gray-200 space-y-2">
+                        <div className="glass-panel rounded-lg p-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm shadow-sm space-y-2">
                           {automation.actions.map((action, index) => {
                             const actionDef = actionTypes.find(a => a.id === action.type)
                             return (
-                              <div key={index} className="flex items-center gap-2 text-sm">
-                                <span>{actionDef?.icon || '⚙️'}</span>
-                                <span className="text-gray-700">{actionDef?.name || action.type}</span>
+                              <div key={index} className="flex items-center gap-3 text-sm p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                                <span className="text-lg">{actionDef?.icon || '⚙️'}</span>
+                                <span className="text-neutral-700 dark:text-neutral-300 font-medium">{actionDef?.name || action.type}</span>
                               </div>
                             )
                           })}
@@ -397,46 +449,49 @@ export default function AutomationsPage() {
 
                     {/* Execution Stats */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-                        <div className="text-xs text-gray-500">Última Execução</div>
-                        <div className="text-sm font-medium text-gray-900 mt-1">
+                      <div className="glass-panel rounded-lg p-3 sm:p-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm text-center hover:shadow-md transition-shadow">
+                        <div className="text-xs font-medium text-muted-content">Última Execução</div>
+                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mt-1.5">
                           {formatLastExecution(automation.last_execution)}
                         </div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-                        <div className="text-xs text-gray-500">Execuções Hoje</div>
-                        <div className="text-sm font-medium text-gray-900 mt-1">
+                      <div className="glass-panel rounded-lg p-3 sm:p-4 border border-brand-200/50 dark:border-brand-700/50 bg-gradient-to-br from-brand-50/50 to-white/80 dark:from-brand-950/30 dark:to-neutral-900/80 backdrop-blur-sm text-center hover:shadow-md transition-shadow">
+                        <div className="text-xs font-medium text-brand-600 dark:text-brand-400">Execuções Hoje</div>
+                        <div className="text-sm font-semibold text-brand-700 dark:text-brand-300 mt-1.5">
                           {automation.executions_today}
                         </div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-                        <div className="text-xs text-gray-500">Taxa de Sucesso</div>
-                        <div className={`text-sm font-medium mt-1 ${
-                          automation.success_rate >= 95 ? 'text-green-600' :
-                          automation.success_rate >= 80 ? 'text-yellow-600' : 'text-red-600'
+                      <div className="glass-panel rounded-lg p-3 sm:p-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm text-center hover:shadow-md transition-shadow">
+                        <div className="text-xs font-medium text-muted-content">Taxa de Sucesso</div>
+                        <div className={`text-sm font-semibold mt-1.5 ${
+                          automation.success_rate >= 95
+                            ? 'text-success-600 dark:text-success-400'
+                            : automation.success_rate >= 80
+                            ? 'text-warning-600 dark:text-warning-400'
+                            : 'text-error-600 dark:text-error-400'
                         }`}>
                           {automation.success_rate}%
                         </div>
                       </div>
-                      <div className="bg-white rounded-lg p-3 border border-gray-200 text-center">
-                        <div className="text-xs text-gray-500">Criado em</div>
-                        <div className="text-sm font-medium text-gray-900 mt-1">
+                      <div className="glass-panel rounded-lg p-3 sm:p-4 border border-neutral-200/50 dark:border-neutral-700/50 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm text-center hover:shadow-md transition-shadow">
+                        <div className="text-xs font-medium text-muted-content">Criado em</div>
+                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mt-1.5">
                           {automation.created_at}
                         </div>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2">
+                    {/* Modern Action Buttons */}
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           toggleEnabled(automation.id)
                         }}
-                        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm ${
+                        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 ${
                           automation.enabled
-                            ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            ? 'bg-warning-100 dark:bg-warning-950 text-warning-700 dark:text-warning-400 hover:bg-warning-200 dark:hover:bg-warning-900 border border-warning-200 dark:border-warning-800'
+                            : 'bg-success-100 dark:bg-success-950 text-success-700 dark:text-success-400 hover:bg-success-200 dark:hover:bg-success-900 border border-success-200 dark:border-success-800'
                         }`}
                       >
                         {automation.enabled ? (
@@ -457,11 +512,11 @@ export default function AutomationsPage() {
                           handleTest(automation.id)
                         }}
                         disabled={testingId === automation.id}
-                        className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-2 text-sm disabled:opacity-50"
+                        className="px-4 py-2 bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-400 rounded-lg hover:bg-brand-200 dark:hover:bg-brand-900 border border-brand-200 dark:border-brand-800 flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {testingId === automation.id ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-700 dark:border-brand-400"></div>
                             Testando...
                           </>
                         ) : (
@@ -476,7 +531,7 @@ export default function AutomationsPage() {
                           e.stopPropagation()
                           handleEdit(automation)
                         }}
-                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm"
+                        className="px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
                       >
                         <PencilIcon className="w-4 h-4" />
                         Editar
@@ -486,7 +541,7 @@ export default function AutomationsPage() {
                           e.stopPropagation()
                           handleDuplicate(automation)
                         }}
-                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm"
+                        className="px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
                       >
                         <DocumentDuplicateIcon className="w-4 h-4" />
                         Duplicar
@@ -496,7 +551,7 @@ export default function AutomationsPage() {
                           e.stopPropagation()
                           handleDelete(automation.id)
                         }}
-                        className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center gap-2 text-sm"
+                        className="px-4 py-2 bg-error-100 dark:bg-error-950 text-error-700 dark:text-error-400 rounded-lg hover:bg-error-200 dark:hover:bg-error-900 border border-error-200 dark:border-error-800 flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
                       >
                         <TrashIcon className="w-4 h-4" />
                         Excluir
@@ -510,149 +565,181 @@ export default function AutomationsPage() {
         </div>
 
         {automations.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <CpuChipIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma automação configurada</h3>
-            <p className="text-gray-600 mb-4">
-              Crie automações para otimizar o workflow de tickets
-            </p>
-            <button
-              onClick={() => {
-                setEditingAutomation(null)
-                setShowModal(true)
-              }}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
-            >
-              Criar Primeira Automação
-            </button>
+          <div className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 p-8 sm:p-12 text-center bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm shadow-lg animate-fade-in">
+            <div className="max-w-md mx-auto">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-brand-100 dark:from-purple-900/30 dark:to-brand-900/30 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md">
+                <CpuChipIcon className="w-10 h-10 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">Nenhuma automação configurada</h3>
+              <p className="text-description mb-6">
+                Crie automações inteligentes para otimizar o workflow de tickets e aumentar a produtividade da equipe
+              </p>
+              <button
+                onClick={() => {
+                  setEditingAutomation(null)
+                  setShowModal(true)
+                }}
+                className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              >
+                <PlusIcon className="w-5 h-5 mr-2" />
+                Criar Primeira Automação
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Execution Log Summary */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mt-6">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ChartBarIcon className="w-5 h-5 text-gray-400" />
+        {/* Modern Execution Log Summary */}
+        <div className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 p-4 sm:p-6 mt-6 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm shadow-lg animate-fade-in">
+          <h2 className="font-bold text-neutral-900 dark:text-neutral-100 mb-6 flex items-center gap-2">
+            <ChartBarIcon className="w-6 h-6 text-purple-500 dark:text-purple-400" />
             Resumo de Execuções (Últimas 24h)
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <CheckCircleIcon className="w-8 h-8 text-green-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-green-600">
+            <div className="text-center p-5 sm:p-6 glass-panel rounded-xl border border-success-200/50 dark:border-success-700/50 bg-gradient-to-br from-success-50/50 to-white/80 dark:from-success-950/30 dark:to-neutral-900/80 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 group">
+              <CheckCircleIcon className="w-10 h-10 text-success-500 dark:text-success-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
+              <div className="text-3xl font-bold text-success-600 dark:text-success-400">
                 {automations.reduce((sum, a) => sum + Math.round(a.executions_today * a.success_rate / 100), 0)}
               </div>
-              <div className="text-sm text-green-700">Execuções com Sucesso</div>
+              <div className="text-sm font-medium text-success-700 dark:text-success-500 mt-2">Execuções com Sucesso</div>
             </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <XCircleIcon className="w-8 h-8 text-red-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-red-600">
+            <div className="text-center p-5 sm:p-6 glass-panel rounded-xl border border-error-200/50 dark:border-error-700/50 bg-gradient-to-br from-error-50/50 to-white/80 dark:from-error-950/30 dark:to-neutral-900/80 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 group">
+              <XCircleIcon className="w-10 h-10 text-error-500 dark:text-error-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
+              <div className="text-3xl font-bold text-error-600 dark:text-error-400">
                 {automations.reduce((sum, a) => sum + Math.round(a.executions_today * (100 - a.success_rate) / 100), 0)}
               </div>
-              <div className="text-sm text-red-700">Execuções com Falha</div>
+              <div className="text-sm font-medium text-error-700 dark:text-error-500 mt-2">Execuções com Falha</div>
             </div>
-            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-              <ExclamationTriangleIcon className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-yellow-600">
+            <div className="text-center p-5 sm:p-6 glass-panel rounded-xl border border-warning-200/50 dark:border-warning-700/50 bg-gradient-to-br from-warning-50/50 to-white/80 dark:from-warning-950/30 dark:to-neutral-900/80 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 group">
+              <ExclamationTriangleIcon className="w-10 h-10 text-warning-500 dark:text-warning-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
+              <div className="text-3xl font-bold text-warning-600 dark:text-warning-400">
                 {automations.filter(a => a.success_rate < 90).length}
               </div>
-              <div className="text-sm text-yellow-700">Automações com Problemas</div>
+              <div className="text-sm font-medium text-warning-700 dark:text-warning-500 mt-2">Automações com Problemas</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Modern Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-panel rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-neutral-900/95 backdrop-blur-lg shadow-2xl border border-neutral-200/50 dark:border-neutral-700/50 animate-scale-in">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-6 border-b border-neutral-200/50 dark:border-neutral-700/50 bg-gradient-to-r from-purple-50/50 to-brand-50/50 dark:from-purple-950/30 dark:to-brand-950/30">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {editingAutomation ? 'Editar Automação' : 'Nova Automação'}
-                </h2>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-brand-500 rounded-xl flex items-center justify-center shadow-md">
+                    <CpuChipIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                    {editingAutomation ? 'Editar Automação' : 'Nova Automação'}
+                  </h2>
+                </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
                 >
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  <XMarkIcon className="w-5 h-5 text-muted-content" />
                 </button>
               </div>
             </div>
-            <div className="p-4 sm:p-6 space-y-4">
+
+            {/* Modal Content */}
+            <div className="p-4 sm:p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nome *
+                <label className="block text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
+                  Nome da Automação *
                 </label>
                 <input
                   type="text"
                   defaultValue={editingAutomation?.name || ''}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Nome da automação"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent transition-all shadow-sm"
+                  placeholder="Ex: Auto-atribuição por categoria"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
                   Descrição
                 </label>
                 <textarea
                   defaultValue={editingAutomation?.description || ''}
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="O que esta automação faz?"
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent transition-all shadow-sm resize-none"
+                  placeholder="Descreva o que esta automação faz..."
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
                   Tipo de Gatilho *
                 </label>
                 <select
                   defaultValue={editingAutomation?.trigger_type || 'event'}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent transition-all shadow-sm"
                 >
-                  <option value="event">Evento</option>
-                  <option value="schedule">Agendado (Cron)</option>
-                  <option value="condition">Condição</option>
+                  <option value="event">Evento (acionado por ação do sistema)</option>
+                  <option value="schedule">Agendado (executa em horários específicos)</option>
+                  <option value="condition">Condição (acionado quando condição é satisfeita)</option>
                 </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Evento *
+                <label className="block text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
+                  Evento do Sistema *
                 </label>
                 <select
                   defaultValue={editingAutomation?.trigger_config.event || 'ticket.created'}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-transparent transition-all shadow-sm"
                 >
                   {eventOptions.map(event => (
                     <option key={event.id} value={event.id}>{event.name}</option>
                   ))}
                 </select>
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Ações
+                <label className="block text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
+                  Ações a Executar
                 </label>
-                <div className="space-y-2">
-                  {actionTypes.slice(0, 6).map(action => (
-                    <label key={action.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
-                      <input type="checkbox" className="w-4 h-4 text-purple-600 rounded" />
-                      <span>{action.icon}</span>
-                      <span className="text-sm text-gray-700">{action.name}</span>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                  {actionTypes.slice(0, 8).map(action => (
+                    <label
+                      key={action.id}
+                      className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700/50 transition-colors border border-neutral-200/50 dark:border-neutral-700/50"
+                    >
+                      <input type="checkbox" className="w-4 h-4 text-purple-600 dark:text-purple-500 rounded border-neutral-300 dark:border-neutral-600 focus:ring-purple-500 dark:focus:ring-purple-400" />
+                      <span className="text-lg">{action.icon}</span>
+                      <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{action.name}</span>
                     </label>
                   ))}
                 </div>
               </div>
             </div>
-            <div className="p-4 sm:p-6 border-t border-gray-200 flex gap-3">
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-6 border-t border-neutral-200/50 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/50 flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200"
+                className="flex-1 px-4 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-50 dark:hover:bg-neutral-700 shadow-sm hover:shadow-md transition-all duration-200"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-brand-600 dark:from-purple-500 dark:to-brand-500 text-white rounded-lg font-medium hover:from-purple-700 hover:to-brand-700 dark:hover:from-purple-600 dark:hover:to-brand-600 shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
               >
-                {editingAutomation ? 'Salvar' : 'Criar'}
+                {editingAutomation ? (
+                  <>
+                    <CheckCircleIcon className="w-5 h-5" />
+                    Salvar Alterações
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon className="w-5 h-5" />
+                    Criar Automação
+                  </>
+                )}
               </button>
             </div>
           </div>

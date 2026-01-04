@@ -1,0 +1,122 @@
+[
+  {
+    "url": "http://localhost:3000/",
+    "pageName": "Home (Landing)",
+    "metrics": {
+      "performance": 85,
+      "accessibility": 75,
+      "bestPractices": 100,
+      "seo": 45,
+      "fcp": 1304,
+      "lcp": 1695.2,
+      "cls": 0.05,
+      "tbt": 536.4,
+      "tti": 1788,
+      "si": 1280.3999999985099
+    },
+    "opportunities": [
+      "[625ms] Reduce Time to First Byte"
+    ],
+    "diagnostics": []
+  },
+  {
+    "url": "http://localhost:3000/portal",
+    "pageName": "Portal Home",
+    "metrics": {
+      "performance": 85,
+      "accessibility": 75,
+      "bestPractices": 100,
+      "seo": 45,
+      "fcp": 948,
+      "lcp": 1232.4,
+      "cls": 0.05,
+      "tbt": 429.9,
+      "tti": 1433,
+      "si": 928.2999999970198
+    },
+    "opportunities": [
+      "[303ms] Reduce Time to First Byte"
+    ],
+    "diagnostics": []
+  },
+  {
+    "url": "http://localhost:3000/portal/knowledge",
+    "pageName": "Knowledge Base (SSR)",
+    "metrics": {
+      "performance": 85,
+      "accessibility": 75,
+      "bestPractices": 100,
+      "seo": 45,
+      "fcp": 928,
+      "lcp": 1206.4,
+      "cls": 0.05,
+      "tbt": 425.4,
+      "tti": 1418,
+      "si": 908.8000000044703
+    },
+    "opportunities": [
+      "[289ms] Reduce Time to First Byte"
+    ],
+    "diagnostics": []
+  },
+  {
+    "url": "http://localhost:3000/admin/dashboard/itil",
+    "pageName": "Admin Dashboard (SSR)",
+    "metrics": {
+      "performance": 85,
+      "accessibility": 75,
+      "bestPractices": 100,
+      "seo": 45,
+      "fcp": 924,
+      "lcp": 1201.2,
+      "cls": 0.05,
+      "tbt": 424.5,
+      "tti": 1415,
+      "si": 908
+    },
+    "opportunities": [
+      "[289ms] Reduce Time to First Byte"
+    ],
+    "diagnostics": []
+  },
+  {
+    "url": "http://localhost:3000/analytics",
+    "pageName": "Analytics",
+    "metrics": {
+      "performance": 92,
+      "accessibility": 75,
+      "bestPractices": 100,
+      "seo": 45,
+      "fcp": 812,
+      "lcp": 1055.6000000000001,
+      "cls": 0.05,
+      "tbt": 389.7,
+      "tti": 1299,
+      "si": 795.5
+    },
+    "opportunities": [
+      "[177ms] Reduce Time to First Byte"
+    ],
+    "diagnostics": []
+  },
+  {
+    "url": "http://localhost:3000/portal/tickets",
+    "pageName": "Portal Tickets List",
+    "metrics": {
+      "performance": 85,
+      "accessibility": 75,
+      "bestPractices": 100,
+      "seo": 45,
+      "fcp": 912,
+      "lcp": 1185.6000000000001,
+      "cls": 0.05,
+      "tbt": 420.3,
+      "tti": 1401,
+      "si": 896.7000000029802
+    },
+    "opportunities": [
+      "[271ms] Reduce Time to First Byte"
+    ],
+    "diagnostics": []
+  }
+]

@@ -1,0 +1,2263 @@
+/**
+ * Knowledge Base seed data - 15+ comprehensive articles across 5 categories
+ *
+ * Article format: [title, slug, summary, content, category_id, author_id, status, visibility, featured, view_count, helpful_votes, not_helpful_votes, search_keywords]
+ */
+
+export const kbArticles = [
+  // Categoria 1: Primeiros Passos (id: 1)
+  [
+    'Como Criar Seu Primeiro Ticket',
+    'como-criar-primeiro-ticket',
+    'Guia completo para criar e acompanhar seu primeiro ticket no ServiceDesk',
+    `# Como Criar Seu Primeiro Ticket
+
+## Bem-vindo ao ServiceDesk!
+
+Este guia vai te ajudar a criar seu primeiro ticket de suporte.
+
+## Passo a Passo
+
+### 1. Acesse o Portal
+- Faça login com suas credenciais corporativas
+- Você será direcionado ao dashboard principal
+
+### 2. Clique em "Novo Ticket"
+- Localize o botão "Novo Ticket" no canto superior direito
+- Ou acesse o menu "Portal" > "Criar Ticket"
+
+### 3. Preencha as Informações
+
+**Título**
+- Seja claro e objetivo
+- Exemplo: "Não consigo acessar o sistema X"
+
+**Descrição**
+- Descreva o problema detalhadamente
+- Inclua mensagens de erro
+- Mencione quando começou
+
+**Categoria**
+- Selecione a categoria que melhor se encaixa
+- Suporte Técnico: problemas de sistema
+- Solicitação: novas funcionalidades
+- Acesso: permissões e acessos
+
+**Prioridade**
+- Baixa: pode esperar alguns dias
+- Média: precisa de atenção mas não é urgente
+- Alta: impacta seu trabalho significativamente
+- Crítica: sistema fora do ar (use com moderação!)
+
+### 4. Anexe Arquivos (Opcional)
+- Prints de tela ajudam muito
+- Logs de erro
+- Documentos relacionados
+
+### 5. Envie o Ticket
+- Revise as informações
+- Clique em "Criar Ticket"
+- Você receberá um número de protocolo
+
+## Acompanhamento
+
+- Você receberá notificações por email
+- Acesse "Meus Tickets" para ver o status
+- Responda aos comentários dos agentes
+
+## Dicas
+
+✅ Seja específico na descrição
+✅ Um problema por ticket
+✅ Responda rapidamente às solicitações
+❌ Não crie múltiplos tickets para o mesmo problema\`,
+    1, // Primeiros Passos
+    2, // João Silva (agente)
+    'published',
+    'public',
+    1, // featured
+    856,
+    742,
+    18,
+    'ticket, primeiro ticket, criar, tutorial, novo usuário'
+  ],
+  [
+    'Como Resetar Sua Senha',
+    'como-resetar-senha',
+    'Instruções passo a passo para resetar sua senha de acesso',
+    \`# Como Resetar Sua Senha
+
+## Esqueceu sua senha? Não se preocupe!
+
+Siga este guia para recuperar o acesso à sua conta.
+
+## Processo de Reset
+
+### 1. Acesse a Página de Login
+- Vá para a página de login do ServiceDesk
+- Clique em "Esqueci minha senha"
+
+### 2. Digite Seu Email
+- Informe seu email corporativo
+- Clique em "Enviar Link de Recuperação"
+
+### 3. Verifique Seu Email
+- Aguarde até 5 minutos
+- Verifique a caixa de entrada
+- Verifique também a pasta de spam
+
+### 4. Clique no Link
+- O link é válido por 1 hora
+- Você será redirecionado para criar nova senha
+
+### 5. Crie Nova Senha
+
+A senha deve ter:
+- Mínimo de 12 caracteres
+- Pelo menos 1 letra maiúscula
+- Pelo menos 1 letra minúscula
+- Pelo menos 1 número
+- Pelo menos 1 caractere especial (@#$%&*)
+
+### 6. Confirme a Nova Senha
+- Digite a senha novamente
+- Clique em "Redefinir Senha"
+
+## Problemas Comuns
+
+### Não recebi o email
+- Verifique a pasta de spam
+- Aguarde até 10 minutos
+- Verifique se o email está correto
+- Tente novamente
+
+### Link expirado
+- Links expiram após 1 hora
+- Solicite um novo link
+
+### Ainda não funciona?
+- Abra um ticket de suporte
+- Categoria: Acesso
+- Prioridade: Alta
+- Ou contate: suporte@servicedesk.com
+
+## Segurança
+
+⚠️ NUNCA compartilhe sua senha
+⚠️ Use senha única (diferente de outros sistemas)
+⚠️ Troque a senha a cada 90 dias
+⚠️ Use gerenciador de senhas\`,
+    1, // Primeiros Passos
+    2, // João Silva
+    'published',
+    'public',
+    1, // featured
+    1452,
+    1289,
+    32,
+    'senha, reset, recuperar, login, acesso, esqueci'
+  ],
+  [
+    'Entendendo Prioridades e SLAs',
+    'entendendo-prioridades-slas',
+    'Aprenda sobre prioridades de tickets e tempos de resposta (SLA)',
+    \`# Entendendo Prioridades e SLAs
+
+## O que é SLA?
+
+SLA (Service Level Agreement) é o acordo de nível de serviço que define nossos tempos de resposta e resolução.
+
+## Níveis de Prioridade
+
+### 🔴 Crítica
+**Quando usar:** Sistema completamente fora do ar, afetando múltiplos usuários
+
+**SLA:**
+- Tempo de resposta: 15 minutos
+- Tempo de resolução: 4 horas
+- Atendimento: 24/7
+
+**Exemplos:**
+- Servidor de produção offline
+- Sistema de pagamento indisponível
+- Perda de dados críticos
+
+### 🟠 Alta
+**Quando usar:** Funcionalidade importante indisponível, impacto significativo
+
+**SLA:**
+- Tempo de resposta: 1 hora
+- Tempo de resolução: 8 horas (horário comercial)
+- Atendimento: Horário comercial
+
+**Exemplos:**
+- Erro crítico em módulo importante
+- Integração com sistema externo falhando
+- Bug bloqueando trabalho de equipe
+
+### 🟡 Média
+**Quando usar:** Problema afeta trabalho mas tem workaround
+
+**SLA:**
+- Tempo de resposta: 4 horas
+- Tempo de resolução: 24 horas (horário comercial)
+- Atendimento: Horário comercial
+
+**Exemplos:**
+- Funcionalidade com comportamento incorreto
+- Lentidão em módulo específico
+- Erro em relatório não-crítico
+
+### 🟢 Baixa
+**Quando usar:** Questões menores, melhorias, dúvidas
+
+**SLA:**
+- Tempo de resposta: 8 horas
+- Tempo de resolução: 72 horas (horário comercial)
+- Atendimento: Horário comercial
+
+**Exemplos:**
+- Dúvidas sobre funcionalidades
+- Solicitações de melhoria
+- Ajustes de interface
+
+## Como Definir a Prioridade Correta
+
+1. **Impacto no Negócio**
+   - Quantas pessoas são afetadas?
+   - Qual o impacto financeiro?
+
+2. **Urgência**
+   - Existe workaround?
+   - Pode esperar ou precisa ser agora?
+
+3. **Criticidade**
+   - Bloqueia trabalho completamente?
+   - Afeta clientes externos?
+
+## Dicas
+
+✅ Seja honesto ao definir a prioridade
+✅ Não abuse da prioridade "Crítica"
+✅ Descreva bem o impacto
+❌ Não subestime problemas reais\`,
+    1, // Primeiros Passos
+    1, // Admin
+    'published',
+    'public',
+    1, // featured
+    623,
+    541,
+    22,
+    'sla, prioridade, tempo, resposta, urgência, acordo'
+  ],
+
+  // Categoria 2: Tutoriais (id: 2)
+  [
+    'Configuração de VPN Corporativa',
+    'configuracao-vpn-corporativa',
+    'Como configurar VPN corporativa em Windows, Mac e Mobile',
+    \`# Configuração de VPN Corporativa
+
+## Por que usar VPN?
+
+A VPN (Virtual Private Network) cria uma conexão segura para acessar recursos internos da empresa remotamente.
+
+## Windows 10/11
+
+### Método 1: Cliente VPN Nativo
+
+1. Baixe o perfil VPN do portal de TI
+2. Abra Configurações > Rede e Internet > VPN
+3. Clique em "Adicionar VPN"
+4. Preencha:
+   - Provedor VPN: Windows (integrado)
+   - Nome da conexão: VPN Corporativa
+   - Endereço do servidor: vpn.empresa.com
+   - Tipo de VPN: IKEv2
+5. Salve e conecte usando suas credenciais
+
+### Método 2: OpenVPN Connect
+
+1. Baixe OpenVPN Connect em openvpn.net
+2. Execute o instalador
+3. Importe o arquivo .ovpn do portal de TI
+4. Configure com suas credenciais corporativas
+5. Conecte
+
+## macOS
+
+### Perfil de Configuração
+
+1. Baixe o perfil VPN (.mobileconfig)
+2. Abra Preferências do Sistema > Perfis
+3. Instale o perfil baixado
+4. Vá em Preferências do Sistema > Rede
+5. Selecione a VPN configurada
+6. Conecte com suas credenciais
+
+### OpenVPN
+
+1. Instale Tunnelblick (gratuito)
+2. Baixe o arquivo de configuração .ovpn
+3. Abra com Tunnelblick
+4. Conecte com credenciais
+
+## Mobile (iOS e Android)
+
+### iOS
+
+1. App Store > Baixe "OpenVPN Connect"
+2. Acesse portal de TI no Safari
+3. Baixe o perfil mobile
+4. Abra com OpenVPN Connect
+5. Importe e conecte
+
+### Android
+
+1. Play Store > Baixe "OpenVPN for Android"
+2. Baixe perfil .ovpn do portal
+3. Importe no app
+4. Configure credenciais
+5. Conecte
+
+## Solução de Problemas
+
+### Não conecta
+
+- Verifique internet
+- Confirme credenciais
+- Teste em rede diferente (4G)
+- Verifique se não há firewall bloqueando
+
+### Conecta mas não acessa recursos
+
+- Verifique DNS
+- Teste ping para servidor interno
+- Recon ecte a VPN
+- Abra ticket se persistir
+
+### Muito lento
+
+- VPN adiciona latência (normal)
+- Use apenas quando necessário
+- Verifique qualidade da sua internet
+
+## Suporte
+
+Problemas com VPN: suporte.ti@empresa.com
+Priority: Alta (se bloqueia trabalho remoto)\`,
+    2, // Tutoriais
+    2, // João Silva
+    'published',
+    'public',
+    0, // not featured
+    1234,
+    1089,
+    45,
+    'vpn, rede, remoto, acesso remoto, home office, configuração'
+  ],
+  [
+    'Instalação do Microsoft Office 365',
+    'instalacao-office-365',
+    'Guia completo para instalar e ativar o Office 365',
+    \`# Instalação do Microsoft Office 365
+
+## Pré-requisitos
+
+### Requisitos do Sistema
+
+**Windows:**
+- Windows 10 ou 11
+- 4GB RAM (mínimo)
+- 10GB espaço em disco
+- Resolução 1280x768
+
+**Mac:**
+- macOS 10.14 (Mojave) ou superior
+- 4GB RAM
+- 10GB espaço livre
+
+### Antes de Começar
+
+- Conexão estável com internet
+- Email corporativo ativo
+- Permissões de administrador
+
+## Instalação - Windows
+
+### Passo a Passo
+
+1. **Acesse o Portal**
+   - Abra portal.office.com
+   - Faça login com email corporativo
+   - Senha corporativa
+
+2. **Baixe o Instalador**
+   - Clique em "Instalar Office"
+   - Selecione "Office 365 apps"
+   - Aguarde download (±2GB)
+
+3. **Execute a Instalação**
+   - Clique com botão direito > "Executar como administrador"
+   - Aguarde instalação (15-30 minutos)
+   - Não use o computador durante instalação
+
+4. **Ativação**
+   - Abra qualquer app (Word, Excel, etc)
+   - Clique em "Entrar"
+   - Use email corporativo
+   - Ativação automática
+
+## Instalação - Mac
+
+1. **Portal Office**
+   - Acesse portal.office.com
+   - Login corporativo
+   - "Instalar Office"
+
+2. **Download**
+   - Baixe arquivo .pkg
+   - Aguarde conclusão
+
+3. **Instalação**
+   - Abra o arquivo .pkg
+   - Siga o assistente
+   - Digite senha de administrador
+   - Aguarde 15-20 minutos
+
+4. **Ativação**
+   - Abra app do Office
+   - Login automático via macOS
+
+## Aplicativos Incluídos
+
+- **Word** - Editor de texto
+- **Excel** - Planilhas
+- **PowerPoint** - Apresentações
+- **Outlook** - Email e calendário
+- **Teams** - Comunicação
+- **OneDrive** - Armazenamento (1TB)
+- **OneNote** - Anotações
+
+## Problemas Comuns
+
+### Erro de Ativação
+
+**Sintoma:** "Não foi possível ativar"
+
+**Solução:**
+1. Verifique conexão de internet
+2. Confirme email corporativo correto
+3. Desconecte e entre novamente
+4. Abra Conta > Sair > Entrar novamente
+
+### Instalação Lenta
+
+**Normal!** A instalação baixa e instala ~3GB
+- Aguarde pacientemente
+- Não interrompa o processo
+- Conexão lenta = instalação mais demorada
+
+### Erro de Permissão
+
+**Sintoma:** "Você precisa de permissões de administrador"
+
+**Solução:**
+1. Clique com direito no instalador
+2. "Executar como administrador"
+3. Digite senha de admin
+4. Tente novamente
+
+### Office não aparece
+
+**Solução:**
+1. Windows: Verifique Menu Iniciar
+2. Mac: Verifique pasta Aplicativos
+3. Reinstale se necessário
+
+## Desinstalação (se necessário)
+
+### Windows
+1. Configurações > Aplicativos
+2. Procure "Microsoft 365"
+3. Desinstalar
+
+### Mac
+1. Abra Finder > Aplicativos
+2. Arraste apps Office para Lixeira
+3. Esvazie lixeira
+
+## Suporte
+
+- Email: suporte.ti@empresa.com
+- Ticket: Categoria "Solicitação"
+- Priority: Média\`,
+    2, // Tutoriais
+    3, // Pedro Costa
+    'published',
+    'public',
+    0,
+    892,
+    789,
+    38,
+    'office, microsoft, 365, word, excel, instalação, ativação'
+  ],
+  [
+    'Configuração de Email Corporativo no Celular',
+    'configuracao-email-celular',
+    'Configure email corporativo no iPhone e Android',
+    \`# Configuração de Email Corporativo no Celular
+
+## iPhone e iPad (iOS)
+
+### Método 1: Outlook App (Recomendado)
+
+**Mais fácil e com mais recursos!**
+
+1. **Download**
+   - App Store > "Microsoft Outlook"
+   - Instalar (gratuito)
+
+2. **Configuração**
+   - Abra o app
+   - Toque em "Adicionar Conta"
+   - Digite email corporativo
+   - Login automático
+   - Pronto!
+
+**Vantagens:**
+- Configuração automática
+- Calendário integrado
+- Anexos do OneDrive
+- Notificações melhores
+
+### Método 2: Mail Nativo
+
+1. **Ajustes**
+   - Ajustes > Mail > Contas
+   - "Adicionar Conta"
+   - Selecione "Exchange"
+
+2. **Dados**
+   - Email: seuemail@empresa.com
+   - Descrição: Email Trabalho
+   - Próximo
+
+3. **Configuração Manual**
+   - Servidor: outlook.office365.com
+   - Domínio: deixe em branco
+   - Nome de usuário: seuemail@empresa.com
+   - Senha: senha corporativa
+
+4. **Sincronização**
+   - Ative: Mail, Contatos, Calendários
+   - Salvar
+
+## Android
+
+### Método 1: Outlook App (Recomendado)
+
+1. **Download**
+   - Play Store > "Microsoft Outlook"
+   - Instalar
+
+2. **Setup**
+   - Abra o app
+   - "Começar"
+   - Digite email corporativo
+   - "Continuar"
+   - Login automático
+
+3. **Políticas**
+   - Aceite políticas de segurança
+   - Configuração concluída
+
+### Método 2: Gmail App
+
+1. **Gmail**
+   - Abra app Gmail
+   - Menu (☰) > Configurações
+   - "Adicionar conta"
+
+2. **Tipo**
+   - Selecione "Exchange e Office 365"
+   - Digite email corporativo
+   - Próximo
+
+3. **Senha**
+   - Digite senha corporativa
+   - Aceite permissões
+   - Configuração automática
+
+4. **Opções**
+   - Configure notificações
+   - Sincronização
+   - Concluir
+
+## Políticas de Segurança
+
+Ao configurar, o sistema pode solicitar:
+
+### iOS
+- Código de acesso do dispositivo (obrigatório)
+- Touch ID/Face ID (recomendado)
+- Tempo de bloqueio automático
+
+### Android
+- PIN ou senha do dispositivo
+- Criptografia (automática)
+- Permissão para apagar dados remotamente (em caso de perda)
+
+**Não se preocupe:** Isso protege dados da empresa, não seus dados pessoais!
+
+## Recursos Disponíveis
+
+### Com Outlook App
+- ✅ Email em tempo real
+- ✅ Calendário sincronizado
+- ✅ Contatos
+- ✅ Anexos
+- ✅ Notificações push
+- ✅ Acesso offline
+
+### Limitações Mail Nativo
+- ⚠️ Sincronização mais lenta
+- ⚠️ Menos recursos
+- ⚠️ Configuração manual necessária
+
+## Dicas
+
+1. **Use Outlook App**
+   - Mais fácil de configurar
+   - Melhor experiência
+   - Mais recursos
+
+2. **Notificações**
+   - Configure para não incomodar fora do expediente
+   - Outlook permite horários personalizados
+
+3. **Anexos**
+   - Outlook permite abrir arquivos do OneDrive
+   - Economiza espaço no celular
+
+## Problemas Comuns
+
+### Não sincroniza
+
+1. Verifique conexão de internet
+2. Tente sair e entrar novamente
+3. Remova e adicione conta novamente
+4. Verifique se senha não expirou
+
+### Senha incorreta
+
+1. Confirme que é a senha corporativa
+2. Se esqueceu, use "Esqueci minha senha"
+3. Não use senha pessoal
+
+### Políticas de segurança
+
+**"Este dispositivo não atende aos requisitos"**
+
+Solução:
+1. Configure código/senha do dispositivo
+2. Atualize sistema operacional
+3. Aceite políticas requeridas
+
+## Suporte
+
+Problemas? Abra ticket:
+- Categoria: Suporte Técnico
+- Prioridade: Média
+- Ou: suporte.ti@empresa.com\`,
+    2, // Tutoriais
+    3, // Pedro Costa
+    'published',
+    'public',
+    0,
+    1045,
+    921,
+    52,
+    'email, mobile, celular, outlook, exchange, ios, android'
+  ],
+
+  // Categoria 3: Problemas Comuns (id: 3)
+  [
+    'Não Consigo Fazer Login - Soluções',
+    'nao-consigo-fazer-login',
+    'Resolva problemas de login no ServiceDesk',
+    \`# Não Consigo Fazer Login - Soluções
+
+## Problema 1: Senha Incorreta
+
+### Sintomas
+- Mensagem: "Email ou senha incorretos"
+- Tentou várias vezes
+- Certeza que a senha está correta
+
+### Soluções
+
+**1. Verifique Caps Lock**
+- Senhas são case-sensitive
+- Verifique se Caps Lock está desativado
+
+**2. Copie e Cole**
+- Se salvou a senha, copie e cole
+- Evita erros de digitação
+
+**3. Resetar Senha**
+- Clique em "Esqueci minha senha"
+- Siga o processo de reset
+- Crie nova senha
+
+**4. Verifique Email**
+- Confirme que está usando email corporativo
+- Não use email pessoal
+
+## Problema 2: Conta Bloqueada
+
+### Sintomas
+- Mensagem: "Conta bloqueada"
+- Após 3-5 tentativas incorretas
+
+### Solução
+
+**Desbloqueio Automático**
+- Aguarde 15 minutos
+- Sistema desbloqueia automaticamente
+
+**Desbloqueio Manual**
+- Abra ticket de suporte
+- Categoria: Acesso
+- Prioridade: Alta
+- Ou: suporte.ti@empresa.com
+
+## Problema 3: Sessão Expirada
+
+### Sintomas
+- Estava logado, foi desconectado
+- Mensagem: "Sessão expirada"
+
+### Causas Comuns
+- Inatividade por 2+ horas
+- Mudança de rede/IP
+- Outro login em dispositivo diferente
+
+### Solução
+- Apenas faça login novamente
+- Normal e esperado para segurança
+
+## Problema 4: Email Não Reconhecido
+
+### Sintomas
+- Mensagem: "Email não encontrado"
+- Certeza que o email está correto
+
+### Soluções
+
+**1. Verifique o Formato**
+- Use: seunome@empresa.com
+- Não use nome de exibição
+
+**2. Conta Nova?**
+- Se é primeiro acesso
+- Aguarde até 24h após criação da conta
+- Verifique se RH já solicitou sua conta
+
+**3. Mudou de Departamento?**
+- Email pode ter mudado
+- Confirme com RH qual é o email atual
+
+## Problema 5: Página Não Carrega
+
+### Sintomas
+- Tela branca
+- Erro de conexão
+- Demora infinita
+
+### Soluções
+
+**1. Limpe Cache do Navegador**
+
+Chrome:
+1. Ctrl+Shift+Del (Windows) ou Cmd+Shift+Del (Mac)
+2. Selecione "Imagens e arquivos em cache"
+3. Limpar dados
+4. Tente novamente
+
+Firefox:
+1. Ctrl+Shift+Del
+2. Cache
+3. Limpar agora
+
+**2. Teste Outro Navegador**
+- Tente Chrome, Firefox ou Edge
+- Se funciona = problema no navegador original
+
+**3. Modo Anônimo/Privado**
+- Chrome: Ctrl+Shift+N
+- Firefox: Ctrl+Shift+P
+- Se funciona = problema com extensões/cache
+
+**4. Desative Extensões**
+- Bloqueadores de anúncio
+- VPNs (se não for VPN corporativa)
+- Extensões de privacidade
+
+## Problema 6: Autenticação de Dois Fatores
+
+### Sintomas
+- Pede código adicional
+- Não recebe código
+- Código não funciona
+
+### Soluções
+
+**Código não chega**
+1. Verifique spam
+2. Aguarde 2-3 minutos
+3. Solicite novo código
+4. Verifique número de celular cadastrado
+
+**Código inválido**
+1. Códigos expiram em 5 minutos
+2. Use código mais recente
+3. Digite exatamente como aparece
+
+**Perdeu acesso ao celular?**
+- Abra ticket urgente
+- Categoria: Acesso
+- Prioridade: Alta
+- Backup: códigos de recuperação
+
+## Dicas de Prevenção
+
+1. **Salve Senhas com Segurança**
+   - Use gerenciador de senhas
+   - Não anote em papel
+
+2. **Mantenha Email Atualizado**
+   - Notifique TI se mudar de departamento
+   - Acesse emails regularmente
+
+3. **Navegador Atualizado**
+   - Sempre use versão mais recente
+   - Aceite atualizações automáticas
+
+4. **VPN Quando Remoto**
+   - Use VPN corporativa
+   - Especialmente de redes públicas
+
+## Quando Abrir Ticket
+
+Abra ticket se:
+- ❌ Nenhuma solução acima funcionou
+- ❌ Problema persiste há mais de 1 hora
+- ❌ Urgente (bloqueando trabalho)
+
+**Informações para Incluir:**
+- Email que está tentando usar
+- Navegador e versão
+- Mensagem de erro exata
+- Print da tela de erro
+- Já tentou limpar cache?
+- Funciona em modo anônimo?
+
+## Suporte Rápido
+
+- 📧 Email: suporte.ti@empresa.com
+- 🎫 Ticket: Categoria "Acesso", Prioridade "Alta"
+- ⏰ SLA: Resposta em 1 hora\`,
+    3, // Problemas Comuns
+    2, // João Silva
+    'published',
+    'public',
+    1, // featured
+    2341,
+    2104,
+    87,
+    'login, senha, acesso, bloqueio, sessão expirada, autenticação'
+  ],
+  [
+    'Impressora Não Funciona - Diagnóstico',
+    'impressora-nao-funciona',
+    'Resolva problemas comuns com impressoras de rede',
+    \`# Impressora Não Funciona - Diagnóstico
+
+## Verificações Iniciais
+
+### 1. Impressora Ligada?
+- Verifique se está ligada
+- Luz indicadora acesa
+- Tela exibe mensagens
+
+### 2. Conectada à Rede?
+- Cabo de rede conectado (se não for WiFi)
+- WiFi ativo (se for sem fio)
+- Luz de rede piscando
+
+### 3. Papel e Tinta
+- Tem papel na bandeja?
+- Nível de tinta suficiente?
+- Sem atolamentos visíveis?
+
+## Problema 1: Impressora Não Aparece
+
+### Windows
+
+**Adicionar Impressora**
+1. Configurações > Dispositivos > Impressoras
+2. "Adicionar impressora"
+3. Aguarde busca automática
+4. Selecione a impressora
+5. Clique em "Adicionar dispositivo"
+
+**Impressora de Rede por IP**
+1. Configurações > Impressoras
+2. "Adicionar por endereço TCP/IP"
+3. Digite IP da impressora (ex: 192.168.1.100)
+4. Deixar porta padrão
+5. Avançar e concluir
+
+### Mac
+
+1. Preferências do Sistema > Impressoras
+2. Clique no "+" (adicionar)
+3. Aguarde listar impressoras
+4. Selecione a desejada
+5. Usar: Software genérico ou específico
+6. Adicionar
+
+## Problema 2: Trabalhos de Impressão Presos
+
+### Sintomas
+- Enviou para imprimir mas nada acontece
+- Fila de impressão travada
+- Documento aparece como "em erro"
+
+### Solução Windows
+
+1. **Abrir Fila**
+   - Painel de Controle > Dispositivos e Impressoras
+   - Clique duplo na impressora
+   - Ver fila de impressão
+
+2. **Cancelar Tudo**
+   - Impressora > Cancelar todos os documentos
+   - Aguarde limpar
+
+3. **Reiniciar Serviço**
+   - Win+R > digite: services.msc
+   - Localize "Spooler de Impressão"
+   - Clique direito > Reiniciar
+
+4. **Tente Imprimir Novamente**
+
+### Solução Mac
+
+1. **Preferências do Sistema** > Impressoras
+2. Abra fila de impressão
+3. Clique no "X" para cancelar trabalhos
+4. Se não funcionar:
+   - Terminal > digite: sudo cancel -a
+   - Digite senha
+   - Enter
+
+## Problema 3: Imprime Páginas em Branco
+
+### Causas Comuns
+- Tinta/toner vazio
+- Cabeçotes entupidos
+- Proteções não removidas
+
+### Soluções
+
+**1. Verifique Níveis**
+- Painel da impressora
+- Software do fabricante
+- Troque cartucho se vazio
+
+**2. Limpeza de Cabeçotes**
+- Menu da impressora > Manutenção
+- Executar limpeza
+- Imprimir página de teste
+
+**3. Proteções**
+- Verifique se removeu fitas de proteção
+- Cartuchos novos vêm com proteções
+
+## Problema 4: Impressão Muito Lenta
+
+### Causas
+- Arquivo muito grande
+- Qualidade de impressão muito alta
+- Rede lenta
+- Memória da impressora insuficiente
+
+### Soluções
+
+**1. Reduza Qualidade**
+- Propriedades da impressora
+- Qualidade: Rascunho ou Normal
+- Não use "Alta" para documentos simples
+
+**2. Simplifique o Documento**
+- PDFs complexos demoram
+- Muitas imagens pesam
+- Divida em partes menores
+
+**3. Cabo USB**
+- Se possível, use cabo USB direto
+- Mais rápido que rede
+
+## Problema 5: Cores Erradas
+
+### Sintomas
+- Cores diferentes do monitor
+- Tons esverdeados/rosados
+- Falta alguma cor
+
+### Soluções
+
+**1. Alinhamento**
+- Menu impressora > Manutenção
+- Alinhar cabeçotes
+- Teste novamente
+
+**2. Nível de Tinta**
+- Verifique todos os cartuchos
+- Um vazio afeta todas as cores
+- Substitua os vazios
+
+**3. Limpeza**
+- Execute limpeza profunda
+- Imprima página de teste
+- Repita se necessário
+
+**4. Calibração de Cores**
+- Software da impressora
+- Calibrar cores
+- Usar perfil de cores adequado
+
+## Problema 6: Papel Atolando
+
+### Prevenção
+- Use papel adequado
+- Não sobrecarregue bandeja
+- Ajuste guias laterais
+- Papel úmido atola (guarde em local seco)
+
+### Resolver Atolamento
+
+1. **Desligue a Impressora**
+   - Evita danos
+
+2. **Remova com Cuidado**
+   - Puxe no sentido da alimentação
+   - Não force
+   - Não rasgue
+
+3. **Verifique Resíduos**
+   - Pedacinhos de papel
+   - Limpe rolos
+
+4. **Religue e Teste**
+
+## Impressora de Rede - Problemas de Conexão
+
+### Teste de Ping
+
+**Windows:**
+1. Win+R > cmd
+2. Digite: ping [IP-da-impressora]
+3. Deve receber respostas
+
+**Mac:**
+1. Terminal
+2. ping [IP-da-impressora]
+
+**Se não responde:**
+- Impressora desligada
+- Problema de rede
+- IP mudou
+
+### Descubra IP da Impressora
+
+1. Imprima configuração de rede (botão na impressora)
+2. Ou:
+   - Menu > Rede > Configurações TCP/IP
+   - Anotar o IP
+
+## Quando Chamar Suporte
+
+Abra ticket se:
+- ❌ Erro de hardware (peça quebrada)
+- ❌ Precisa substituir peça
+- ❌ Mensagem de erro técnico
+- ❌ Nenhuma solução acima funcionou
+
+**Informações Úteis:**
+- Modelo da impressora
+- Localização física
+- Mensagem de erro (se houver)
+- O que já tentou
+- Foto do erro (se possível)
+
+## Dicas
+
+1. **Impressão Segura**
+   - Use código de liberação
+   - Evita desperdício
+   - Garante privacidade
+
+2. **Frente e Verso**
+   - Economiza papel
+   - Configure como padrão
+
+3. **Rascunho para Testes**
+   - Qualidade rascunho usa menos tinta
+   - Suficiente para maioria dos casos
+
+## Suporte
+
+- 🎫 Ticket: Categoria "Suporte Técnico"
+- 📧 Email: suporte.ti@empresa.com
+- 📞 Ramal: 2000 (TI)\`,
+    3, // Problemas Comuns
+    4, // Pedro Costa
+    'published',
+    'public',
+    0,
+    1687,
+    1442,
+    98,
+    'impressora, imprimir, papel, tinta, rede, atolamento, fila'
+  ],
+
+  // Categoria 4: FAQ (id: 4)
+  [
+    'Perguntas Frequentes - Portal do Usuário',
+    'faq-portal-usuario',
+    'Respostas para as dúvidas mais comuns sobre o portal',
+    \`# Perguntas Frequentes - Portal do Usuário
+
+## Acesso e Autenticação
+
+### Como faço para acessar o portal?
+
+Acesse [portal.servicedesk.com] e faça login com:
+- **Email:** seu email corporativo (usuario@empresa.com)
+- **Senha:** sua senha corporativa
+
+### Esqueci minha senha. E agora?
+
+1. Clique em "Esqueci minha senha" no login
+2. Digite seu email corporativo
+3. Verifique seu email (pode demorar até 5min)
+4. Clique no link recebido (válido por 1h)
+5. Crie nova senha
+
+### Posso usar autenticação via GOV.BR?
+
+Sim! Se sua organização habilitou, você verá o botão "Entrar com GOV.BR" na tela de login.
+
+### Preciso mudar minha senha regularmente?
+
+Sim, a cada 90 dias por política de segurança.
+
+### Posso acessar de casa?
+
+Sim, mas recomendamos usar VPN corporativa para maior segurança.
+
+## Tickets
+
+### Como abrir um ticket?
+
+1. Faça login no portal
+2. Clique em "Novo Ticket" (canto superior direito)
+3. Preencha título, descrição e categoria
+4. Selecione prioridade
+5. Anexe arquivos se necessário
+6. Clique em "Enviar"
+
+### Posso acompanhar meus tickets?
+
+Sim! Acesse "Meus Tickets" no menu principal para ver:
+- Tickets abertos
+- Tickets em andamento
+- Histórico completo
+- Comentários e atualizações
+
+### Quanto tempo leva para resposta?
+
+Depende da prioridade:
+- **Crítica:** até 15 minutos
+- **Alta:** até 1 hora
+- **Média:** até 4 horas
+- **Baixa:** até 8 horas
+
+### Posso atualizar um ticket depois de criado?
+
+Sim! Abra o ticket e adicione comentários com mais informações.
+
+### Como sei se meu ticket foi respondido?
+
+Você receberá email automático a cada atualização. Também pode verificar em "Meus Tickets".
+
+### Posso fechar um ticket?
+
+Sim! Quando o problema for resolvido:
+1. Abra o ticket
+2. Confirme que está resolvido
+3. Clique em "Marcar como Resolvido"
+
+### E se o problema voltar depois de fechado?
+
+Você pode:
+- Reabrir o mesmo ticket (se recente)
+- Ou criar novo ticket mencionando o anterior
+
+## Catálogo de Serviços
+
+### O que é o catálogo de serviços?
+
+É um menu de solicitações pré-definidas (ex: novo usuário, acesso VPN, instalação de software).
+
+### Como solicitar um serviço?
+
+1. Vá em "Catálogo de Serviços"
+2. Navegue pelas categorias
+3. Escolha o serviço
+4. Preencha campos obrigatórios
+5. Envie a solicitação
+
+### Quanto tempo leva para aprovar uma solicitação?
+
+Varia por tipo:
+- **Solicitações simples:** 1 dia útil
+- **Solicitações que precisam aprovação:** 2-3 dias úteis
+- **Solicitações complexas:** até 5 dias úteis
+
+## Notificações
+
+### Como recebo atualizações dos meus tickets?
+
+Por padrão, você recebe email quando:
+- Ticket recebe resposta
+- Status muda
+- Ticket é resolvido
+- Alguém solicita informações
+
+### Posso desativar notificações por email?
+
+Sim!
+1. Vá em "Perfil" > "Configurações"
+2. Seção "Notificações"
+3. Desmarque os tipos que não quer receber
+4. Salvar
+
+### Recebo muitos emails. Como reduzir?
+
+Configure notificações para:
+- Apenas respostas (não mudanças de status)
+- Resumo diário em vez de email por atualização
+- Desative para tickets de baixa prioridade
+
+## Base de Conhecimento
+
+### O que é a Base de Conhecimento?
+
+Biblioteca de artigos, tutoriais e soluções para problemas comuns.
+
+### Como busco na Base de Conhecimento?
+
+1. Clique em "Base de Conhecimento"
+2. Use a barra de pesquisa
+3. Ou navegue por categorias
+4. Clique no artigo para ler
+
+### Posso sugerir tópicos novos?
+
+Sim! Ao final de cada artigo há opção "Sugerir Melhoria" ou abra ticket com sugestão.
+
+## Segurança e Privacidade
+
+### Minhas informações estão seguras?
+
+Sim! Usamos:
+- Criptografia SSL/TLS
+- Autenticação segura
+- Backup diário
+- Conformidade com LGPD
+
+### Quem pode ver meus tickets?
+
+Apenas:
+- Você
+- Agentes de suporte designados
+- Administradores (para fins de auditoria)
+
+### Posso excluir meus dados?
+
+Sim! Conforme LGPD, você pode solicitar:
+- Acesso aos seus dados
+- Correção de dados incorretos
+- Exclusão de dados (sujeito a obrigações legais)
+
+## Anexos e Arquivos
+
+### Quais tipos de arquivo posso anexar?
+
+- Documentos: PDF, DOC, DOCX, TXT
+- Imagens: JPG, PNG, GIF
+- Planilhas: XLS, XLSX, CSV
+- Compactados: ZIP, RAR
+
+### Qual o tamanho máximo de arquivo?
+
+10MB por arquivo. Para arquivos maiores, use link do OneDrive/Google Drive.
+
+### Posso anexar vários arquivos?
+
+Sim! Até 5 arquivos por ticket.
+
+## Mobile
+
+### Existe app para celular?
+
+Sim! Disponível para iOS e Android:
+- App Store (iPhone/iPad)
+- Google Play (Android)
+
+### O app tem todas as funcionalidades?
+
+Sim! Você pode:
+- Criar tickets
+- Acompanhar tickets
+- Responder comentários
+- Ver notificações
+- Acessar Base de Conhecimento
+
+## Problemas Técnicos
+
+### O portal não carrega. O que fazer?
+
+1. Limpe cache do navegador
+2. Tente modo anônimo
+3. Teste outro navegador
+4. Verifique conexão de internet
+5. Se persistir, abra ticket
+
+### Estou com erro ao anexar arquivo
+
+Verifique se:
+- Arquivo não ultrapassa 10MB
+- Formato é permitido
+- Navegador está atualizado
+
+## Contato
+
+### Outras dúvidas?
+
+- 📧 Email: suporte@empresa.com
+- 🎫 Abra ticket: Categoria "Dúvida"
+- 📞 Ramal: 2000
+- 💬 Chat: Disponível no portal (horário comercial)\`,
+    4, // FAQ
+    2, // João Silva
+    'published',
+    'public',
+    1, // featured
+    3421,
+    2987,
+    134,
+    'faq, perguntas, dúvidas, frequentes, ajuda, suporte'
+  ],
+  [
+    'Entendendo seu Nível de Satisfação',
+    'entendendo-nivel-satisfacao',
+    'Como funciona a pesquisa de satisfação e sua importância',
+    \`# Entendendo seu Nível de Satisfação
+
+## O que é a Pesquisa de Satisfação?
+
+Após resolvermos seu ticket, você receberá um email com pesquisa rápida para avaliar nosso atendimento.
+
+## Por que é Importante?
+
+Seus feedbacks nos ajudam a:
+- ✅ Melhorar qualidade do atendimento
+- ✅ Identificar pontos fracos
+- ✅ Reconhecer bons agentes
+- ✅ Priorizar melhorias no sistema
+- ✅ Treinar equipe
+
+## Como Funciona?
+
+### 1. Ticket Resolvido
+
+Quando marcarmos seu ticket como "Resolvido", você receberá um email.
+
+### 2. Email de Pesquisa
+
+O email contém:
+- Resumo do ticket
+- Nome do agente que atendeu
+- Link para pesquisa (2 minutos)
+
+### 3. Avaliação
+
+Você avaliará:
+
+**Tempo de Resposta**
+- Muito Rápido
+- Rápido
+- Adequado
+- Lento
+- Muito Lento
+
+**Qualidade da Solução**
+- Resolveu completamente
+- Resolveu parcialmente
+- Não resolveu
+- Precisei abrir novo ticket
+
+**Atendimento do Agente**
+- Excelente
+- Bom
+- Regular
+- Ruim
+- Péssimo
+
+**Clareza da Comunicação**
+- Muito clara
+- Clara
+- Razoável
+- Confusa
+- Muito confusa
+
+**Nota Geral (0-10)**
+- 0-6: Insatisfeito
+- 7-8: Satisfeito
+- 9-10: Muito Satisfeito
+
+### 4. Comentários (Opcional)
+
+Campo livre para você explicar sua avaliação, especialmente se:
+- Nota baixa (nos diga o que melhorar)
+- Elogio especial ao agente
+- Sugestões de melhoria
+
+## Quando Responder?
+
+### Prazo
+- Link válido por 7 dias
+- Quanto antes melhor (memória fresca)
+
+### Honestidade
+- Seja honesto! Não tenha medo de dar nota baixa se o atendimento foi ruim
+- Críticas construtivas são bem-vindas
+
+## O que Acontece com Sua Avaliação?
+
+### Análise pela Gestão
+- Avaliações são revisadas semanalmente
+- Notas baixas geram investigação
+- Padrões são identificados
+
+### Impacto no Agente
+- Elogios vão para o histórico do agente
+- Críticas geram feedback e treinamento
+- Influencia avaliações de desempenho
+
+### Melhorias no Processo
+- Problemas recorrentes viram prioridade
+- Artigos da base de conhecimento são atualizados
+- Treinamentos são planejados
+
+## Tipos de Problemas que Relatamos
+
+### Comum: Tempo de Resposta
+**Sua avaliação:**
+- "Lento - demorou 6 horas para primeira resposta em ticket de prioridade Alta"
+
+**Nossa ação:**
+- Revisar distribuição de tickets
+- Verificar carga de trabalho dos agentes
+- Ajustar políticas de SLA
+
+### Comum: Solução Incompleta
+**Sua avaliação:**
+- "Resolveu parcialmente - problema voltou após 2 dias"
+
+**Nossa ação:**
+- Reabrir ticket automaticamente
+- Investigar causa raiz (não apenas sintoma)
+- Criar artigo na base de conhecimento
+
+### Comum: Comunicação Ruim
+**Sua avaliação:**
+- "Agente usou muitos termos técnicos, não entendi a solução"
+
+**Nossa ação:**
+- Treinamento de soft skills
+- Feedback individualizado
+- Revisão de templates de resposta
+
+## Dicas para Dar Bom Feedback
+
+### ✅ Seja Específico
+**Ruim:** "Atendimento ruim"
+**Bom:** "Agente demorou 12 horas para responder minha pergunta sobre o erro"
+
+### ✅ Seja Construtivo
+**Ruim:** "Agente incompetente"
+**Bom:** "Agente não soube responder minha dúvida e não escalou para especialista"
+
+### ✅ Reconheça o Positivo
+Se o agente foi excelente:
+- Mencione o nome
+- Diga o que especificamente foi bom
+- Isso impacta positivamente a carreira dele!
+
+## Estatísticas (Transparência)
+
+Publicamos mensalmente:
+- Taxa de satisfação geral
+- Tempo médio de resposta
+- Taxa de resolução no primeiro contato
+- Agentes com melhores avaliações
+
+Acesse em: "Relatórios Públicos" no portal
+
+## Privacidade
+
+- Suas respostas são anônimas (exceto se você se identificar no comentário)
+- Nunca compartilhamos externamente
+- Usadas apenas internamente para melhorias
+
+## Não Recebeu a Pesquisa?
+
+Verifique:
+- Pasta de spam
+- Configurações de notificação (pode ter desabilitado)
+- Se ticket foi realmente marcado como "Resolvido"
+
+## Outras Formas de Feedback
+
+Além da pesquisa de satisfação, você pode:
+
+1. **Elogiar Diretamente**
+   - Responda ao ticket elogiando o agente
+   - Email para: elogios@empresa.com
+
+2. **Reclamar**
+   - Ticket categoria "Reclamação"
+   - Email: ouvidoria@empresa.com
+
+3. **Sugerir Melhorias**
+   - Ticket categoria "Sugestão"
+   - Participe de grupos de feedback
+
+## Muito Insatisfeito?
+
+Se nota 0-4:
+- Gerente de TI é notificado automaticamente
+- Você receberá contato em 24h
+- Situação será investigada pessoalmente
+- Solução será priorizada
+
+## Resumo
+
+🎯 **Responda a pesquisa!** Leva 2 minutos
+💯 **Seja honesto** - queremos REALMENTE melhorar
+📝 **Seja específico** - detalhes ajudam
+❤️ **Reconheça** bons agentes
+🚀 **Suas respostas** geram melhorias reais
+
+Obrigado por nos ajudar a melhorar!\`,
+    4, // FAQ
+    1, // Admin
+    'published',
+    'public',
+    0,
+    789,
+    692,
+    34,
+    'satisfação, pesquisa, feedback, avaliação, nota, qualidade'
+  ],
+
+  // Categoria 5: Boas Práticas (id: 5)
+  [
+    'Boas Práticas de Segurança Digital',
+    'boas-praticas-seguranca-digital',
+    'Proteja seus dados e os da empresa com estas práticas',
+    \`# Boas Práticas de Segurança Digital
+
+## Por que Segurança é Importante?
+
+Você é a primeira linha de defesa da empresa!
+- 90% das invasões começam com erro humano
+- Um clique errado pode comprometer toda a empresa
+- Seus dados pessoais também estão em risco
+
+## 1. Senhas Seguras
+
+### O que FAZER ✅
+
+**Crie senhas fortes:**
+- Mínimo 12 caracteres
+- Combine maiúsculas, minúsculas, números e símbolos
+- Use frases longas: "MeuCachorroTem3Anos!"
+
+**Use gerenciador de senhas:**
+- 1Password (recomendado)
+- LastPass
+- Bitwarden (gratuito)
+
+**Senha única por sistema:**
+- NUNCA reutilize senhas
+- Se um site for invadido, só essa conta fica comprometida
+
+**Autenticação de dois fatores (2FA):**
+- Sempre que disponível, ative!
+- Mesmo que alguém tenha sua senha, precisa do segundo fator
+
+### O que NÃO fazer ❌
+
+- Senha123, 123456, Empresa2024
+- Aniversário, nome de filhos, pet
+- Mesma senha em vários lugares
+- Anotar senha em post-it na tela
+- Compartilhar senha (NUNCA!)
+- Enviar senha por email/WhatsApp
+
+## 2. Phishing - O Maior Perigo
+
+### Como Identificar Email Falso
+
+**Sinais de Alerta:**
+- 🚨 Senso de urgência ("Sua conta será bloqueada AGORA!")
+- 🚨 Erros de português
+- 🚨 Remetente estranho (amaz0n@gmail.com)
+- 🚨 Links suspeitos (passe o mouse e veja URL real)
+- 🚨 Pede informações pessoais/senhas
+- 🚨 Anexos inesperados
+
+**Exemplos Reais:**
+
+**Falso Banco:**
+\\`\\`\\`
+De: bancobrasil@gmail.com ❌
+Assunto: URGENTE - Confirme seus dados
+"Detectamos atividade suspeita. Clique aqui para confirmar sua identidade em 24h ou sua conta será bloqueada."
+\\`\\`\\`
+
+**Falso RH:**
+\\`\\`\\`
+De: rh.empresa@yahoo.com ❌
+Assunto: Atualização de Benefícios
+"Anexo: Novo-Plano-Saude.exe" ⚠️
+\\`\\`\\`
+
+### O que Fazer se Receber
+
+1. **NÃO clique** em links
+2. **NÃO baixe** anexos
+3. **Reporte** para: seguranca@empresa.com
+4. **Delete** o email
+5. Se clicou, **avise TI imediatamente**
+
+## 3. Wi-Fi Público
+
+### Perigos
+- Hackers em cafés/aeroportos podem interceptar dados
+- "Ataques Man-in-the-Middle"
+- Redes falsas ("Starbucks-Gratis")
+
+### Regras de Ouro
+
+**SEMPRE use VPN** 🔒
+- Nunca acesse sistemas da empresa sem VPN
+- VPN criptografa sua conexão
+
+**O que NÃO fazer em Wi-Fi público:**
+- ❌ Acessar banco
+- ❌ Compras online
+- ❌ Email corporativo (sem VPN)
+- ❌ Arquivos sensíveis da empresa
+
+**O que é OK:**
+- ✅ Navegar notícias
+- ✅ YouTube, Netflix
+- ✅ Redes sociais (não poste dados corporativos!)
+
+## 4. Dispositivos
+
+### Computador
+
+**Mantenha Atualizado:**
+- Windows/macOS: atualizações automáticas
+- Antivírus: sempre ligado e atualizado
+- Aplicativos: versões mais recentes
+
+**Bloqueio Automático:**
+- Configure para bloquear após 5 minutos
+- Use senha/biometria
+- Windows: Win+L ao se afastar
+
+**Backups:**
+- OneDrive: arquivos da empresa
+- Pessoal: Google Drive, iCloud
+- Regra 3-2-1: 3 cópias, 2 mídias, 1 offsite
+
+### Celular/Tablet
+
+**Segurança Básica:**
+- Senha/PIN/biometria
+- Atualizar sistema operacional
+- Apps apenas de lojas oficiais (App Store, Google Play)
+- Não fazer jailbreak/root
+
+**Se Perder o Dispositivo:**
+1. Avise TI **IMEDIATAMENTE**
+2. Use "Buscar meu iPhone" ou "Find My Device"
+3. Bloqueie remotamente
+4. Se tinha dados corporativos, pode precisar apagar
+
+## 5. Redes Sociais
+
+### Cuidados
+
+**No LinkedIn:**
+- ✅ Fale sobre seu trabalho em termos gerais
+- ❌ Não poste detalhes de projetos confidenciais
+- ❌ Não compartilhe crachá/acesso
+
+**Facebook/Instagram/X:**
+- ❌ Não fotografe telas com dados sensíveis
+- ❌ Não reclame publicamente da empresa
+- ❌ Cuidado com engenharia social
+
+**Privacidade:**
+- Revise configurações de privacidade
+- Limite quem vê suas postagens
+- Desconfie de pedidos de amizade estranhos
+
+## 6. Engenharia Social
+
+### O que é?
+
+Manipulação psicológica para obter informações. Hackers fingem ser:
+- Suporte técnico
+- RH/Gerência
+- Fornecedores
+- Clientes
+
+### Exemplos Reais
+
+**Telefone:**
+\\`\\`\\`
+"Olá, sou do TI. Preciso da sua senha para atualizar o sistema."
+❌ TI NUNCA pede senhas!
+\\`\\`\\`
+
+**Email:**
+\\`\\`\\`
+"Sou o diretor. Preciso urgente de transferência bancária. Não conte a ninguém."
+❌ Sempre confirme por outro canal!
+\\`\\`\\`
+
+### Proteção
+
+- ✅ Verifique identidade por outro canal
+- ✅ Ligue de volta para número oficial
+- ✅ Desconfie de urgência extrema
+- ✅ Quando na dúvida, pergunte ao TI
+
+## 7. Dados Sensíveis
+
+### Classificação
+
+**Público:**
+- Pode ser compartilhado livremente
+
+**Interno:**
+- Só para funcionários
+- Não compartilhe com externos
+
+**Confidencial:**
+- Dados de clientes
+- Informações financeiras
+- Estratégias de negócio
+- Email criptografado, reuniões privadas
+
+**Secreto:**
+- Altamente sensível
+- Acesso restrito
+- Protocolos especiais
+
+### LGPD - Lei Geral de Proteção de Dados
+
+**Você é responsável por:**
+- Proteger dados pessoais de clientes
+- Não compartilhar sem autorização
+- Reportar vazamentos
+- Deletar dados quando solicitado
+
+**Dados Pessoais incluem:**
+- Nome, CPF, RG
+- Email, telefone
+- Endereço
+- Dados de saúde
+- Dados bancários
+
+## 8. Trabalho Remoto
+
+### Home Office Seguro
+
+**Local de Trabalho:**
+- Canto privado (família não vê sua tela)
+- Rede doméstica segura (senha WiFi forte)
+- SEMPRE use VPN
+
+**Videochamadas:**
+- Cuidado com o fundo (informações sensíveis visíveis?)
+- Microfone mudo quando não fala
+- Não compartilhe link de reuniões publicamente
+
+## 9. Se Algo Der Errado
+
+### Sinais de Comprometimento
+
+- Arquivos sendo criptografados sozinhos (ransomware!)
+- Senhas não funcionam
+- Programas abrindo sozinhos
+- Computador muito lento de repente
+- Emails estranhos sendo enviados da sua conta
+
+### O que Fazer
+
+1. **DESLIGUE DA INTERNET** (cabo ou WiFi)
+2. **Avise TI IMEDIATAMENTE**
+   - Email: seguranca@empresa.com
+   - Telefone: (XX) XXXX-XXXX
+   - Não tente resolver sozinho!
+3. **Não apague nada** (evidências)
+4. **Troque senhas** em outro dispositivo
+5. **Ative 2FA** em todas as contas
+
+## 10. Checklist de Segurança
+
+Use este checklist mensalmente:
+
+**Senhas:**
+- [ ] Todas as senhas são únicas?
+- [ ] Uso gerenciador de senhas?
+- [ ] 2FA ativado onde possível?
+- [ ] Senha corporativa não tem mais de 90 dias?
+
+**Dispositivos:**
+- [ ] Sistema operacional atualizado?
+- [ ] Antivírus ativo e atualizado?
+- [ ] Backup recente?
+- [ ] Bloqueio automático configurado?
+
+**Rede:**
+- [ ] WiFi doméstico com senha forte?
+- [ ] VPN sempre que em rede pública?
+- [ ] Firewall ativo?
+
+**Consciência:**
+- [ ] Nenhum email suspeito clicado?
+- [ ] Não compartilhei dados sensíveis?
+- [ ] Revisei privacidade de redes sociais?
+
+## Recursos
+
+**Treinamentos:**
+- Curso online: "Segurança Digital Básica" (2h)
+- Webinars mensais sobre ameaças recentes
+
+**Suporte:**
+- Dúvidas: seguranca@empresa.com
+- Incidentes: URGENTE - ligue (XX) XXXX-XXXX
+- Denúncias: whistleblower@empresa.com
+
+**Ferramentas Recomendadas:**
+- Gerenciador de senhas: 1Password (empresa paga)
+- VPN: Fornecida pela empresa
+- Antivírus: Windows Defender (built-in) ou corporativo
+
+## Lembre-se
+
+🔒 Segurança é responsabilidade de TODOS
+🤝 Um clique errado afeta a equipe toda
+📞 Na dúvida, SEMPRE pergunte ao TI
+⚠️ Melhor prevenir que remediar
+
+Proteja-se. Proteja a empresa. Proteja os clientes.\`,
+    5, // Boas Práticas
+    1, // Admin
+    'published',
+    'public',
+    1, // featured
+    2145,
+    1876,
+    102,
+    'segurança, phishing, senha, privacidade, lgpd, compliance, vpn'
+  ],
+  [
+    'Como Escrever um Bom Ticket',
+    'como-escrever-bom-ticket',
+    'Aprenda a criar tickets claros que serão resolvidos mais rápido',
+    \`# Como Escrever um Bom Ticket
+
+## Por que Isso Importa?
+
+Um ticket bem escrito:
+- ✅ É resolvido **2x mais rápido**
+- ✅ Evita idas e vindas de perguntas
+- ✅ Ajuda na solução permanente
+- ✅ Cria documentação útil
+
+Ticket mal escrito:
+- ❌ Demora para resolver
+- ❌ Agente precisa pedir mais info
+- ❌ Aumenta frustração de ambos os lados
+
+## Anatomia de um Bom Ticket
+
+### 1. Título Descritivo
+
+**Ruim:**
+- "Ajuda"
+- "Não funciona"
+- "Erro no sistema"
+- "Urgente!!!"
+
+**Bom:**
+- "Erro 500 ao tentar gerar relatório de vendas"
+- "Impressora HP do 2º andar não responde"
+- "Não consigo acessar módulo financeiro desde ontem"
+- "Solicitação de acesso ao sistema SAP"
+
+**Regra de Ouro:**
+Alguém deve entender o problema **apenas lendo o título**.
+
+### 2. Descrição Detalhada
+
+Use a **Fórmula 5W2H** (adaptado):
+
+**O QUÊ aconteceu?**
+\\`\\`\\`
+"Ao tentar gerar o relatório mensal de vendas, recebo mensagem de erro."
+\\`\\`\\`
+
+**QUANDO começou?**
+\\`\\`\\`
+"Começou hoje pela manhã, por volta das 9h. Ontem funcionava normalmente."
+\\`\\`\\`
+
+**ONDE ocorre?**
+\\`\\`\\`
+"No módulo Relatórios > Vendas > Mensal"
+\\`\\`\\`
+
+**QUEM é afetado?**
+\\`\\`\\`
+"Apenas eu ou toda a equipe de vendas? Testei em outro computador e o erro persiste."
+\\`\\`\\`
+
+**COMO reproduzir?**
+\\`\\`\\`
+1. Acesso módulo Relatórios
+2. Clico em Vendas
+3. Seleciono período: Janeiro/2024
+4. Clico em Gerar
+5. Erro aparece
+\\`\\`\\`
+
+**MENSAGEM DE ERRO EXATA:**
+\\`\\`\\`
+"Error 500: Internal Server Error
+Request ID: abc123xyz789"
+\\`\\`\\`
+
+### 3. Categoria e Prioridade Corretas
+
+**Categoria:**
+- Suporte Técnico: sistema não funciona
+- Bug Report: comportamento incorreto
+- Solicitação: novo acesso, software, etc.
+- Dúvida: como fazer algo
+
+**Prioridade:**
+- Crítica: produção parada, múltiplos usuários
+- Alta: trabalho bloqueado, prazo apertado
+- Média: impacta trabalho mas tem workaround
+- Baixa: melhoria, dúvida, pode esperar
+
+### 4. Anexos Úteis
+
+**O que anexar:**
+
+**Print da tela:**
+- Erro completo visível
+- Contexto (qual tela, o que estava fazendo)
+- Windows: Win+Shift+S
+- Mac: Cmd+Shift+4
+
+**Arquivo de log:**
+- Se o sistema gerou
+- Geralmente em C:\Logs ou similar
+
+**Arquivo que dá erro:**
+- Se problema ao abrir/processar arquivo
+- Arquivo de exemplo que reproduz
+
+**Vídeo da tela (opcional):**
+- Para problemas intermitentes
+- Use Windows Game Bar (Win+G) ou QuickTime (Mac)
+
+**O que NÃO anexar:**
+- ❌ Foto de tela com celular (use print!)
+- ❌ Arquivos gigantes (>10MB)
+- ❌ Dados sensíveis sem proteção
+
+## Exemplos Completos
+
+### Exemplo 1: Problema Técnico
+
+**Título:**
+"Erro ao salvar documento no Word - documento fica em branco"
+
+**Descrição:**
+\\`\\`\\`
+Problema:
+Quando tento salvar um documento do Word, ele salva mas fica vazio (0 bytes).
+
+Quando começou:
+Desde ontem (15/03) após atualização do Windows.
+
+Como reproduzir:
+1. Abro Word 2019
+2. Digito texto qualquer
+3. Ctrl+S ou Arquivo > Salvar
+4. Escolho local: Documentos
+5. Clico em Salvar
+6. Mensagem: "Documento salvo com sucesso"
+7. Ao reabrir, arquivo está vazio (0KB)
+
+Já tentei:
+- Reparar Office (não resolveu)
+- Salvar em outro local (mesmo problema)
+- Criar novo documento (mesmo problema)
+- Funciona normalmente no Excel
+
+Versão do Office: 365, versão 16.0.14326.20404
+Sistema: Windows 11 Pro, versão 22H2
+\\`\\`\\`
+
+**Anexos:**
+- Print do arquivo vazio
+- Print das propriedades mostrando 0 bytes
+
+**Categoria:** Suporte Técnico
+**Prioridade:** Alta (bloqueia trabalho)
+
+### Exemplo 2: Solicitação
+
+**Título:**
+"Solicitação de acesso ao sistema SAP - Módulo Financeiro"
+
+**Descrição:**
+\\`\\`\\`
+Solicitação:
+Preciso de acesso ao SAP, módulo Financeiro, perfil "Analista Contas a Pagar".
+
+Justificativa:
+Fui promovido para Analista Financeiro e agora sou responsável pelo contas a pagar da filial SP.
+
+Informações:
+- Nome: João Silva
+- Matrícula: 12345
+- Departamento: Financeiro
+- Gestor: Maria Santos
+- Nível de acesso: Analista (leitura e inserção)
+
+Aprovação:
+Anexei email de aprovação da gerente Maria Santos.
+
+Prazo:
+Ideal até 20/03 para início das atividades.
+\\`\\`\\`
+
+**Anexos:**
+- Email de aprovação da gerente
+
+**Categoria:** Acesso
+**Prioridade:** Média
+
+### Exemplo 3: Bug Report
+
+**Título:**
+"Relatório de vendas exibe valores errados - mostra dobro do real"
+
+**Descrição:**
+\\`\\`\\`
+Bug:
+O relatório "Vendas Mensais por Vendedor" está mostrando valores em dobro.
+
+Como descobri:
+Conferindo com planilha manual, os valores estão exatamente 2x maiores.
+
+Exemplo:
+- Vendedor: Pedro Costa
+- Real (planilha): R$ 10.000,00
+- Sistema mostra: R$ 20.000,00
+- Conferido nos últimos 3 meses: sempre o dobro
+
+Impacto:
+- Comissões sendo calculadas errado
+- Relatório gerencial incorreto
+- Afeta toda a equipe (10 vendedores)
+
+Quando notado:
+Hoje (15/03) ao fechar mês de fevereiro.
+
+Já aconteceu antes?
+Não. Janeiro fechou correto. Pode ter relação com atualização de 10/03.
+
+Dados para teste:
+Vendedor ID 456 (Pedro Costa), mês 02/2024
+\\`\\`\\`
+
+**Anexos:**
+- Print do relatório do sistema
+- Planilha Excel com valores corretos
+- Print mostrando diferença
+
+**Categoria:** Bug Report
+**Prioridade:** Crítica (dados financeiros incorretos)
+
+## Dicas Extras
+
+### Use Markdown para Formatar
+
+\\`\\`\\`
+## Título grande
+### Subtítulo
+
+**Negrito** para destacar
+*Itálico* para ênfase
+
+1. Lista numerada
+2. Item 2
+
+- Lista com marcadores
+- Item 2
+
+\`Código ou comando\`
+\\`\\`\\`
+
+### Seja Específico com Datas/Horas
+
+**Ruim:**
+"Começou há alguns dias"
+
+**Bom:**
+"Começou em 10/03/2024 às 14h30"
+
+### Mencione o que JÁ Tentou
+
+Evita que agente sugira algo que você já fez:
+
+\\`\\`\\`
+Já tentei:
+✓ Reiniciar o computador
+✓ Limpar cache do navegador
+✓ Testar em outro navegador (Chrome e Edge)
+✓ Verificar conexão de internet
+✗ Não tentei desinstalar e reinstalar (não tenho permissão)
+\\`\\`\\`
+
+### Use Linguagem Profissional mas Humana
+
+**Muito formal:**
+"Venho por meio deste solicitar vossa colaboração..."
+
+**Muito informal:**
+"Eai galera blz? sistema bugado aq kk"
+
+**Bom tom:**
+"Olá! Estou com um problema no módulo de vendas e gostaria de ajuda para resolver."
+
+### Atualize o Ticket
+
+Se descobrir informações novas:
+
+\\`\\`\\`
+Atualização 16/03 10:30:
+Descobri que o problema só ocorre em arquivos .DOCX.
+Arquivos .DOC (formato antigo) salvam normalmente.
+\\`\\`\\`
+
+## O que Evitar
+
+### Não Seja Vago
+
+❌ "Sistema lento"
+✅ "Dashboard demora 30+ segundos para carregar, antes era instantâneo"
+
+### Não Abra Múltiplos Tickets
+
+❌ Um ticket para cada sintoma do mesmo problema
+✅ Um ticket com todos os sintomas relacionados
+
+### Não Use CAPS LOCK ou !!!
+
+❌ "URGENTE!!! SISTEMA FORA DO AR!!!"
+✅ Escolha prioridade "Crítica" - transmite urgência profissionalmente
+
+### Não Seja Rude
+
+❌ "Esse sistema é horrível, sempre bugado, vocês não fazem nada direito"
+✅ "Sistema apresenta erros frequentes. Pode ser investigado?"
+
+Lembre-se: agentes querem ajudar você!
+
+## Checklist Final
+
+Antes de enviar, verifique:
+
+- [ ] Título é claro e específico?
+- [ ] Descrição tem todos os detalhes?
+- [ ] Incluí mensagem de erro exata?
+- [ ] Anexei prints/arquivos relevantes?
+- [ ] Categoria está correta?
+- [ ] Prioridade é honesta?
+- [ ] Mencionei o que já tentei?
+- [ ] Tom é profissional e respeitoso?
+
+## Resultado
+
+Seguindo estas práticas:
+- ⚡ Resolução 2x mais rápida
+- 🎯 Solução mais precisa
+- 📚 Base de conhecimento melhor
+- 😊 Todos mais satisfeitos
+
+Bons tickets = Boas soluções!\`,
+    5, // Boas Práticas
+    2, // João Silva
+    'published',
+    'public',
+    1, // featured
+    1567,
+    1398,
+    73,
+    'ticket, escrever, descrição, boas práticas, comunicação, qualidade'
+  ],
+];

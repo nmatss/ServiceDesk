@@ -4,12 +4,17 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 import webpush from 'web-push';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * POST /api/push/send
  * Send push notification to user(s)
  * Admin/Agent only
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authResult = await verifyAuth(request);
     if (!authResult.authenticated || !authResult.user) {

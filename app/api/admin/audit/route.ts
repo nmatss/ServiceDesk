@@ -4,8 +4,13 @@ import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // GET - Buscar logs de auditoria
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar tenant context
     const tenantContext = getTenantContextFromRequest(request);
@@ -170,6 +175,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Criar log de auditoria manual
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar tenant context
     const tenantContext = getTenantContextFromRequest(request);
@@ -266,6 +275,10 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Limpar logs antigos
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar tenant context
     const tenantContext = getTenantContextFromRequest(request);

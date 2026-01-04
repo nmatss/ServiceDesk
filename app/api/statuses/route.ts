@@ -2,9 +2,16 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
-import { logger } from '@/lib/monitoring/logger';
+import { logger } from '@/lib/monitoring/logger'
+import { jsonWithCache } from '@/lib/api/cache-headers'
+import { cacheInvalidation } from '@/lib/api/cache'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Get tenant context from middleware
     const tenantContext = getTenantContextFromRequest(request)
@@ -28,16 +35,16 @@ export async function GET(request: NextRequest) {
     `).all(tenantContext.id)
 
     // Parse JSON fields
-    const parsedStatuses = statuses.map(status => ({
+    const parsedStatuses = (statuses as Array<Record<string, unknown>>).map((status: Record<string, unknown>) => ({
       ...status,
-      next_statuses: status.next_statuses ? JSON.parse(status.next_statuses) : null,
-      automated_actions: status.automated_actions ? JSON.parse(status.automated_actions) : null
+      next_statuses: status.next_statuses ? JSON.parse(status.next_statuses as string) : null,
+      automated_actions: status.automated_actions ? JSON.parse(status.automated_actions as string) : null
     }))
 
-    return NextResponse.json({
+    return jsonWithCache({
       success: true,
       statuses: parsedStatuses
-    })
+    }, 'LONG_STATIC') // Cache for 30 minutes - statuses rarely change
   } catch (error) {
     logger.error('Error fetching statuses', error)
     return NextResponse.json(
@@ -48,6 +55,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const tenantContext = getTenantContextFromRequest(request)
     if (!tenantContext) {
@@ -83,6 +94,9 @@ export async function POST(request: NextRequest) {
 
     // Get created status
     const newStatus = db.prepare('SELECT * FROM statuses WHERE id = ?').get(result.lastInsertRowid)
+
+    // Invalidate statuses cache
+    await cacheInvalidation.byTag('statuses')
 
     return NextResponse.json({
       success: true,

@@ -16,7 +16,9 @@ import {
   ClockIcon,
   DocumentMagnifyingGlassIcon,
   LightBulbIcon,
+  HomeIcon,
 } from '@heroicons/react/24/outline';
+import PageHeader from '@/components/ui/PageHeader';
 import type {
   ProblemWithRelations,
   ProblemStatus,
@@ -27,7 +29,7 @@ import type {
 const STATUS_BADGES: Record<ProblemStatus, { label: string; color: string; icon: React.ReactNode }> = {
   new: {
     label: 'Novo',
-    color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    color: 'bg-brand-100 text-brand-800 dark:bg-brand-900/30 dark:text-brand-400',
     icon: <ClockIcon className="w-4 h-4" />,
   },
   investigation: {
@@ -52,7 +54,7 @@ const STATUS_BADGES: Record<ProblemStatus, { label: string; color: string; icon:
   },
   closed: {
     label: 'Fechado',
-    color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+    color: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-400',
     icon: <CheckCircleIcon className="w-4 h-4" />,
   },
 };
@@ -144,56 +146,52 @@ export default function ProblemsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Gerenciamento de Problemas
-              </h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                ITIL Problem Management - Identificação e resolução de causas raiz
-              </p>
-            </div>
-            <Link
-              href="/problems/new"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <PlusIcon className="w-5 h-5" />
-              Novo Problema
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Gerenciamento de Problemas"
+        description="ITIL Problem Management - Identificação e resolução de causas raiz"
+        breadcrumbs={[
+          { label: 'Início', href: '/', icon: HomeIcon },
+          { label: 'Problemas', href: '/problems' },
+        ]}
+        actions={
+          <Link
+            href="/problems/new"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Novo Problema
+          </Link>
+        }
+      />
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">
         {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+        <div className="glass-panel p-4 mb-6 animate-slide-up">
           <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="text"
                 placeholder="Buscar problemas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
               />
             </div>
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
             >
               <FunnelIcon className="w-5 h-5" />
               Filtros
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md"
             >
               Buscar
             </button>
@@ -201,15 +199,15 @@ export default function ProblemsPage() {
 
           {/* Filter Panel */}
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700 grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-down">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Status
                 </label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as ProblemStatus | '')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200"
                 >
                   <option value="">Todos</option>
                   <option value="new">Novo</option>
@@ -221,13 +219,13 @@ export default function ProblemsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Impacto
                 </label>
                 <select
                   value={impactFilter}
                   onChange={(e) => setImpactFilter(e.target.value as ProblemImpact | '')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200"
                 >
                   <option value="">Todos</option>
                   <option value="low">Baixo</option>
@@ -244,7 +242,7 @@ export default function ProblemsPage() {
                     setImpactFilter('');
                     setSearchQuery('');
                   }}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                  className="px-4 py-2 text-description hover:text-neutral-900 dark:hover:text-white transition-all duration-200"
                 >
                   Limpar Filtros
                 </button>
@@ -255,30 +253,30 @@ export default function ProblemsPage() {
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 animate-slide-down">
             <p className="text-red-800 dark:text-red-400">{error}</p>
           </div>
         )}
 
         {/* Loading State */}
         {loading ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
-            <p className="mt-4 text-gray-500 dark:text-gray-400">Carregando problemas...</p>
+          <div className="glass-panel p-8 text-center animate-fade-in">
+            <div className="animate-spin w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto"></div>
+            <p className="mt-4 text-muted-content">Carregando problemas...</p>
           </div>
         ) : problems.length === 0 ? (
           /* Empty State */
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
-            <ExclamationTriangleIcon className="w-12 h-12 text-gray-400 mx-auto" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+          <div className="glass-panel p-8 text-center animate-fade-in">
+            <ExclamationTriangleIcon className="w-12 h-12 text-neutral-400 mx-auto" />
+            <h3 className="mt-4 text-lg font-medium text-neutral-900 dark:text-white">
               Nenhum problema encontrado
             </h3>
-            <p className="mt-2 text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-muted-content">
               Não há problemas registrados com os filtros atuais.
             </p>
             <Link
               href="/problems/new"
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md"
             >
               <PlusIcon className="w-5 h-5" />
               Registrar Problema
@@ -287,17 +285,18 @@ export default function ProblemsPage() {
         ) : (
           /* Problems List */
           <div className="space-y-4">
-            {problems.map((problem) => (
+            {problems.map((problem, index) => (
               <Link
                 key={problem.id}
                 href={`/problems/${problem.id}`}
-                className="block bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow p-4"
+                className="block glass-panel hover:shadow-md transition-all duration-200 p-4 animate-slide-up hover:scale-[1.01]"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex flex-col md:flex-row md:items-center gap-4">
                   {/* Problem Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
+                      <span className="text-sm font-mono text-muted-content">
                         {problem.problem_number}
                       </span>
                       <span
@@ -314,16 +313,16 @@ export default function ProblemsPage() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
+                    <h3 className="text-lg font-medium text-neutral-900 dark:text-white truncate">
                       {problem.title}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
+                    <p className="text-sm text-muted-content line-clamp-2 mt-1">
                       {problem.description}
                     </p>
                   </div>
 
                   {/* Metadata */}
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex flex-wrap gap-4 text-sm text-muted-content">
                     {problem.incident_count > 0 && (
                       <div className="flex items-center gap-1">
                         <ExclamationTriangleIcon className="w-4 h-4" />
@@ -341,7 +340,7 @@ export default function ProblemsPage() {
                     )}
                     {problem.assignee && (
                       <div className="flex items-center gap-1">
-                        <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium">
+                        <span className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center text-xs font-medium">
                           {problem.assignee.name.charAt(0).toUpperCase()}
                         </span>
                         <span>{problem.assignee.name}</span>
@@ -359,8 +358,8 @@ export default function ProblemsPage() {
 
         {/* Pagination */}
         {!loading && pagination.totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="mt-6 flex items-center justify-between animate-fade-in">
+            <p className="text-sm text-muted-content">
               Mostrando {((pagination.page - 1) * pagination.limit) + 1} a{' '}
               {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
               {pagination.total} problemas
@@ -369,17 +368,17 @@ export default function ProblemsPage() {
               <button
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
-                className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 border border-neutral-300 dark:border-neutral-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
               >
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
-              <span className="text-sm text-gray-700 dark:text-gray-300">
+              <span className="text-sm text-neutral-700 dark:text-neutral-300">
                 Página {pagination.page} de {pagination.totalPages}
               </span>
               <button
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.totalPages}
-                className="p-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 border border-neutral-300 dark:border-neutral-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
               >
                 <ChevronRightIcon className="w-5 h-5" />
               </button>

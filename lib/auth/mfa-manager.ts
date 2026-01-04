@@ -5,6 +5,47 @@ import db from '../db/connection';
 import { User } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
+/**
+ * Get MFA secret for HMAC operations
+ * MUST be configured when MFA is enabled
+ */
+function getMFASecret(): string {
+  const secret = process.env.MFA_SECRET;
+
+  if (!secret) {
+    throw new Error(
+      '🔴 FATAL: MFA_SECRET environment variable is required when MFA is enabled!\n' +
+      'Generate a secure secret with:\n' +
+      '  openssl rand -hex 32\n' +
+      'Then set it in your .env file:\n' +
+      '  MFA_SECRET=<generated-secret>\n' +
+      'Or disable MFA if not needed: ENFORCE_2FA_FOR_ADMIN=false'
+    );
+  }
+
+  if (secret.length < 32) {
+    throw new Error(
+      `🔴 FATAL: MFA_SECRET must be at least 32 characters!\n` +
+      `Current length: ${secret.length}\n` +
+      'Generate: openssl rand -hex 32'
+    );
+  }
+
+  // Check for weak patterns
+  const weakPatterns = ['default', 'dev', 'test', 'change-me', 'mfa', 'secret'];
+  const lowerSecret = secret.toLowerCase();
+  for (const pattern of weakPatterns) {
+    if (lowerSecret.includes(pattern)) {
+      throw new Error(
+        `🔴 FATAL: MFA_SECRET contains weak pattern "${pattern}"!\n` +
+        'Generate a strong random secret with: openssl rand -hex 32'
+      );
+    }
+  }
+
+  return secret;
+}
+
 export interface MFASetup {
   secret: string;
   qrCodeUrl: string;
@@ -76,8 +117,9 @@ class MFAManager {
       if (!isValid) return false;
 
       // Hash backup codes
+      const mfaSecret = getMFASecret();
       const hashedBackupCodes = backupCodes.map(code =>
-        createHmac('sha256', process.env.MFA_SECRET || 'default-mfa-secret')
+        createHmac('sha256', mfaSecret)
           .update(code)
           .digest('hex')
       );
@@ -152,7 +194,8 @@ class MFAManager {
       }
 
       const backupCodes: string[] = JSON.parse(user.two_factor_backup_codes);
-      const codeHash = createHmac('sha256', process.env.MFA_SECRET || 'default-mfa-secret')
+      const mfaSecret = getMFASecret();
+      const codeHash = createHmac('sha256', mfaSecret)
         .update(code.toLowerCase().replace(/\s/g, ''))
         .digest('hex');
 
@@ -431,8 +474,9 @@ class MFAManager {
   generateNewBackupCodes(userId: number): string[] | null {
     try {
       const backupCodes = this.generateBackupCodes();
+      const mfaSecret = getMFASecret();
       const hashedBackupCodes = backupCodes.map(code =>
-        createHmac('sha256', process.env.MFA_SECRET || 'default-mfa-secret')
+        createHmac('sha256', mfaSecret)
           .update(code)
           .digest('hex')
       );
@@ -517,7 +561,8 @@ class MFAManager {
    * Hash verification code
    */
   private hashVerificationCode(code: string): string {
-    return createHmac('sha256', process.env.MFA_SECRET || 'default-mfa-secret')
+    const mfaSecret = getMFASecret();
+    return createHmac('sha256', mfaSecret)
       .update(code.toLowerCase().replace(/\s/g, ''))
       .digest('hex');
   }

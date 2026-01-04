@@ -8,7 +8,12 @@ import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const auth = await verifyAuth(request);
@@ -47,7 +52,7 @@ export async function GET(request: NextRequest) {
 async function analyzeContentGaps(days: number, minTickets: number) {
   try {
     // Get ticket topics without articles
-    const gaps = await db.all(
+    const stmt = db.prepare(
       `
       SELECT
         c.id as category_id,
@@ -68,9 +73,9 @@ async function analyzeContentGaps(days: number, minTickets: number) {
       HAVING ticket_count >= ?
       ORDER BY (ticket_count - article_count) DESC, ticket_count DESC
       LIMIT 20
-      `,
-      [days, minTickets]
+      `
     );
+    const gaps = stmt.all(days, minTickets) as any[];
 
     // Analyze each gap
     const analyzedGaps = gaps.map((gap: any) => {

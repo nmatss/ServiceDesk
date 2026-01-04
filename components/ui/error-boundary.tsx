@@ -25,7 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log to Sentry
     Sentry.captureException(error, {
       contexts: {
@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: undefined })
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback
@@ -64,7 +64,7 @@ export class ErrorBoundary extends Component<Props, State> {
               Algo deu errado
             </h3>
 
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-description mb-6">
               Ocorreu um erro ao carregar este componente. Por favor, tente novamente.
             </p>
 

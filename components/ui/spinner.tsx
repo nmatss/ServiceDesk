@@ -57,7 +57,7 @@ export function InlineSpinner({ text, size = 'sm' }: { text?: string; size?: 'sm
     <div className="flex items-center gap-2">
       <Spinner size={size} color="primary" />
       {text && (
-        <span className="text-sm text-gray-600 dark:text-gray-400">{text}</span>
+        <span className="text-sm text-description">{text}</span>
       )}
     </div>
   )

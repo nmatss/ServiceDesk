@@ -138,7 +138,7 @@ export class EmailAutomation {
 
       // Check if ticket was closed and reopen it
       if (ticket.status_id === 4) { // Assuming 4 is closed status
-        await updateTicket({ id: ticketId, status_id: 1 }); // Reopen
+        await updateTicket({ id: ticketId, status_id: 1 }, tenantId); // Reopen
         logger.info('Ticket reopened due to new comment', { ticketId });
       }
 

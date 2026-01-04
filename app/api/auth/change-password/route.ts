@@ -5,10 +5,14 @@ import { db } from '@/lib/db'
 import { validateJWTSecret } from '@/lib/config/env'
 import { logger } from '@/lib/monitoring/logger'
 import { passwordPolicyManager } from '@/lib/auth/password-policies';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter'
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret())
 
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting for password changes
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_FORGOT_PASSWORD)
+  if (rateLimitResponse) return rateLimitResponse
   try {
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

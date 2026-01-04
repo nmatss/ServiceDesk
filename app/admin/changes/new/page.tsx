@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import PageHeader from '@/components/ui/PageHeader'
 import {
   ArrowPathIcon,
   ArrowLeftIcon,
@@ -69,42 +70,43 @@ export default function NewChangePage() {
   }
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/admin/changes')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <ArrowPathIcon className="w-6 h-6 text-indigo-600" />
-                Nova Requisição de Mudança (RFC)
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Submeter uma nova mudança para aprovação
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-purple-50/20 pb-6">
+      {/* Modern Header with Breadcrumbs */}
+      <div className="bg-white/80 backdrop-blur-lg border-b border-neutral-200/50 mb-6 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
+          <PageHeader
+            title="Nova Requisição de Mudança (RFC)"
+            description="Submeter uma nova mudança para aprovação pelo CAB"
+            icon={ArrowPathIcon}
+            breadcrumbs={[
+              { label: 'Admin', href: '/admin' },
+              { label: 'Mudanças', href: '/admin/changes' },
+              { label: 'Nova RFC' }
+            ]}
+            actions={[
+              {
+                label: 'Voltar',
+                onClick: () => router.push('/admin/changes'),
+                icon: ArrowLeftIcon,
+                variant: 'ghost'
+              }
+            ]}
+          />
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <DocumentTextIcon className="w-5 h-5 text-gray-400" />
+          <div className="glass-panel">
+            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+              <DocumentTextIcon className="w-5 h-5 text-brand-500" />
               Informações Básicas
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Título da Mudança *
                 </label>
                 <input
@@ -112,13 +114,13 @@ export default function NewChangePage() {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Ex: Atualização de segurança do firewall"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Descrição *
                 </label>
                 <textarea
@@ -126,13 +128,13 @@ export default function NewChangePage() {
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Descreva o que será alterado..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Justificativa *
                 </label>
                 <textarea
@@ -140,21 +142,21 @@ export default function NewChangePage() {
                   value={formData.justification}
                   onChange={(e) => setFormData(prev => ({ ...prev, justification: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Por que esta mudança é necessária? Qual problema resolve?"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Categoria *
                   </label>
                   <select
                     required
                     value={formData.category}
                     onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   >
                     <option value="standard">Padrão (pré-aprovada)</option>
                     <option value="normal">Normal (requer CAB)</option>
@@ -163,14 +165,14 @@ export default function NewChangePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Prioridade *
                   </label>
                   <select
                     required
                     value={formData.priority}
                     onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   >
                     <option value="low">Baixa</option>
                     <option value="medium">Média</option>
@@ -181,14 +183,14 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Problema Relacionado (opcional)
                 </label>
                 <input
                   type="text"
                   value={formData.related_problem}
                   onChange={(e) => setFormData(prev => ({ ...prev, related_problem: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Ex: PRB-123"
                 />
               </div>
@@ -196,15 +198,15 @@ export default function NewChangePage() {
           </div>
 
           {/* Risk Assessment */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="glass-panel bg-gradient-to-br from-orange-50/50 to-red-50/30">
+            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
               Avaliação de Risco
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Nível de Risco (1-5)
                 </label>
                 <input
@@ -215,7 +217,7 @@ export default function NewChangePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, risk_level: parseInt(e.target.value) }))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-neutral-500">
                   <span>Baixo</span>
                   <span className="font-medium text-lg text-orange-600">{formData.risk_level}</span>
                   <span>Alto</span>
@@ -223,7 +225,7 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Nível de Impacto (1-5)
                 </label>
                 <input
@@ -234,7 +236,7 @@ export default function NewChangePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, impact_level: parseInt(e.target.value) }))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-neutral-500">
                   <span>Baixo</span>
                   <span className="font-medium text-lg text-red-600">{formData.impact_level}</span>
                   <span>Alto</span>
@@ -242,7 +244,7 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Nível de Urgência (1-5)
                 </label>
                 <input
@@ -253,7 +255,7 @@ export default function NewChangePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, urgency_level: parseInt(e.target.value) }))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-500">
+                <div className="flex justify-between text-xs text-neutral-500">
                   <span>Baixa</span>
                   <span className="font-medium text-lg text-yellow-600">{formData.urgency_level}</span>
                   <span>Alta</span>
@@ -263,34 +265,34 @@ export default function NewChangePage() {
           </div>
 
           {/* Schedule */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <CalendarDaysIcon className="w-5 h-5 text-indigo-500" />
+          <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-brand-50/30">
+            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+              <CalendarDaysIcon className="w-5 h-5 text-brand-500" />
               Agendamento
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Início Planejado
                 </label>
                 <input
                   type="datetime-local"
                   value={formData.scheduled_start}
                   onChange={(e) => setFormData(prev => ({ ...prev, scheduled_start: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Fim Planejado
                 </label>
                 <input
                   type="datetime-local"
                   value={formData.scheduled_end}
                   onChange={(e) => setFormData(prev => ({ ...prev, scheduled_end: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -301,9 +303,9 @@ export default function NewChangePage() {
                 id="cab_required"
                 checked={formData.cab_required}
                 onChange={(e) => setFormData(prev => ({ ...prev, cab_required: e.target.checked }))}
-                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                className="w-4 h-4 text-brand-600 border-neutral-300 rounded focus:ring-brand-500"
               />
-              <label htmlFor="cab_required" className="text-sm text-gray-700 flex items-center gap-2">
+              <label htmlFor="cab_required" className="text-sm text-neutral-700 flex items-center gap-2">
                 <UserGroupIcon className="w-4 h-4" />
                 Requer aprovação do CAB
               </label>
@@ -311,12 +313,12 @@ export default function NewChangePage() {
           </div>
 
           {/* Plans */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Planos de Execução</h2>
+          <div className="glass-panel">
+            <h2 className="font-bold text-lg text-neutral-900 mb-4">Planos de Execução</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Plano de Implementação *
                 </label>
                 <textarea
@@ -324,13 +326,13 @@ export default function NewChangePage() {
                   value={formData.implementation_plan}
                   onChange={(e) => setFormData(prev => ({ ...prev, implementation_plan: e.target.value }))}
                   rows={5}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
                   placeholder="1. Backup do sistema&#10;2. Parar serviços&#10;3. Aplicar mudanças&#10;4. Testar&#10;5. Reiniciar serviços"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Plano de Rollback *
                 </label>
                 <textarea
@@ -338,13 +340,13 @@ export default function NewChangePage() {
                   value={formData.rollback_plan}
                   onChange={(e) => setFormData(prev => ({ ...prev, rollback_plan: e.target.value }))}
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
                   placeholder="Em caso de falha:&#10;1. Parar o processo&#10;2. Restaurar backup&#10;3. Reiniciar serviços"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Plano de Testes *
                 </label>
                 <textarea
@@ -352,7 +354,7 @@ export default function NewChangePage() {
                   value={formData.test_plan}
                   onChange={(e) => setFormData(prev => ({ ...prev, test_plan: e.target.value }))}
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
                   placeholder="Testes de validação:&#10;1. Verificar conectividade&#10;2. Testar funcionalidades principais&#10;3. Validar logs"
                 />
               </div>
@@ -360,9 +362,9 @@ export default function NewChangePage() {
           </div>
 
           {/* Affected Services */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <ServerIcon className="w-5 h-5 text-blue-500" />
+          <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-cyan-50/30">
+            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+              <ServerIcon className="w-5 h-5 text-brand-500" />
               Serviços Afetados
             </h2>
 
@@ -372,13 +374,13 @@ export default function NewChangePage() {
                 value={newService}
                 onChange={(e) => setNewService(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 placeholder="Nome do serviço"
               />
               <button
                 type="button"
                 onClick={addService}
-                className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200"
+                className="px-4 py-2 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200"
               >
                 <PlusIcon className="w-5 h-5" />
               </button>
@@ -388,34 +390,37 @@ export default function NewChangePage() {
               {formData.affected_services.map((service, index) => (
                 <span
                   key={index}
-                  className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm flex items-center gap-2"
+                  className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded-lg text-sm flex items-center gap-2"
                 >
                   {service}
                   <button
                     type="button"
                     onClick={() => removeService(service)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-neutral-400 hover:text-neutral-600"
                   >
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </span>
               ))}
               {formData.affected_services.length === 0 && (
-                <p className="text-sm text-gray-500">Nenhum serviço adicionado</p>
+                <p className="text-sm text-neutral-500">Nenhum serviço adicionado</p>
               )}
             </div>
           </div>
 
           {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
-            <InformationCircleIcon className="w-6 h-6 text-blue-600 flex-shrink-0" />
-            <div className="text-sm text-blue-700">
-              <p className="font-medium mb-1">Próximos passos após submissão:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>A RFC será revisada pelo gestor responsável</li>
-                {formData.cab_required && <li>Será agendada revisão pelo CAB</li>}
-                <li>Após aprovação, você poderá agendar a execução</li>
-              </ul>
+          <div className="glass-panel bg-gradient-to-br from-brand-50 to-brand-50 border-brand-200">
+            <div className="flex gap-3">
+              <InformationCircleIcon className="w-6 h-6 text-brand-600 flex-shrink-0" />
+              <div className="text-sm text-brand-700">
+                <p className="font-semibold mb-2">Próximos passos após submissão:</p>
+                <ul className="list-disc list-inside space-y-1.5">
+                  <li>A RFC será revisada pelo gestor responsável</li>
+                  {formData.cab_required && <li>Será agendada revisão pelo CAB (Change Advisory Board)</li>}
+                  <li>Após aprovação, você poderá agendar a execução</li>
+                  <li>Todas as partes interessadas serão notificadas automaticamente</li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -424,7 +429,7 @@ export default function NewChangePage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 sm:flex-none px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none px-6 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -440,14 +445,14 @@ export default function NewChangePage() {
             </button>
             <button
               type="button"
-              className="flex-1 sm:flex-none px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200"
+              className="flex-1 sm:flex-none px-6 py-3 bg-neutral-100 text-neutral-700 rounded-lg font-medium hover:bg-neutral-200"
             >
               Salvar Rascunho
             </button>
             <button
               type="button"
               onClick={() => router.push('/admin/changes')}
-              className="flex-1 sm:flex-none px-6 py-3 text-gray-600 rounded-lg font-medium hover:bg-gray-100"
+              className="flex-1 sm:flex-none px-6 py-3 text-neutral-600 rounded-lg font-medium hover:bg-neutral-100"
             >
               Cancelar
             </button>
@@ -461,14 +466,14 @@ export default function NewChangePage() {
           <button
             type="button"
             onClick={() => router.push('/admin/changes')}
-            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg disabled:opacity-50"
+            className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg disabled:opacity-50"
           >
             {loading ? 'Criando...' : 'Submeter RFC'}
           </button>

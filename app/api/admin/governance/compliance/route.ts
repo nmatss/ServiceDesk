@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/db/connection'
 import { verifyAuth } from '@/lib/auth/sqlite-auth'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface ComplianceControl {
   id: string
   framework: 'COBIT' | 'LGPD' | 'ISO27001' | 'ITIL'
@@ -21,6 +22,10 @@ interface ComplianceControl {
 }
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
@@ -134,6 +139,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
@@ -191,6 +200,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {

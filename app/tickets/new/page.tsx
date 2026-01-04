@@ -56,7 +56,7 @@ export default function NewTicketPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 loading-spinner mx-auto mb-4"></div>
-          <p className="text-neutral-600 dark:text-neutral-400">Carregando...</p>
+          <p className="text-description">Carregando...</p>
         </div>
       </div>
     )
@@ -80,7 +80,7 @@ export default function NewTicketPage() {
               Novo Ticket
             </h1>
           </div>
-          <p className="text-neutral-600 dark:text-neutral-400">
+          <p className="text-description">
             Crie um novo ticket de suporte
           </p>
         </div>

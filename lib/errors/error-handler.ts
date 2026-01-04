@@ -303,8 +303,8 @@ export function validateOrThrow<T>(
   if (!result.success) {
     const errors: Record<string, string[]> = {}
 
-    // Handle Zod v4 error format
-    const zodErrors = result.error.errors || []
+    // Handle Zod error format
+    const zodErrors = result.error.issues || []
 
     if (zodErrors.length === 0 && result.error.message) {
       // Fallback for different error formats

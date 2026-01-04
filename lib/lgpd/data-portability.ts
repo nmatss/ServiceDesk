@@ -113,8 +113,8 @@ export class DataPortabilityService {
 
       // 7. User Preferences
       const preferences = {
-        timezone: user.timezone,
-        language: user.language,
+        timezone: (user as any).timezone || 'UTC',
+        language: (user as any).language || 'pt-BR',
         notifications: this.getUserNotificationPreferences(userId)
       };
 

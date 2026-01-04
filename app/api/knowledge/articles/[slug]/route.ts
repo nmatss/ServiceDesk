@@ -3,9 +3,14 @@ import db from '@/lib/db/connection'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { slug: string } }
 ) {
   try {
     // Buscar artigo por slug
@@ -41,7 +46,7 @@ export async function GET(
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN users r ON a.reviewer_id = r.id
       WHERE a.slug = ? AND a.status = 'published'
-    `).get(params.slug)
+    `).get(params.slug) as { id: number } | undefined
 
     if (!article) {
       return NextResponse.json(
@@ -132,7 +137,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { slug: string } }
 ) {
   try {
     // Verificar autenticação
@@ -154,7 +163,7 @@ export async function PUT(
       )
     }
     // Verificar se artigo existe
-    const existingArticle = db.prepare('SELECT id, author_id FROM kb_articles WHERE slug = ?').get(params.slug)
+    const existingArticle = db.prepare('SELECT id, author_id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number; author_id: number } | undefined
     if (!existingArticle) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -226,11 +235,11 @@ export async function PUT(
       if (tags && Array.isArray(tags)) {
         for (const tagName of tags) {
           const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-          let tag = db.prepare('SELECT id FROM kb_tags WHERE slug = ?').get(tagSlug)
+          let tag = db.prepare('SELECT id FROM kb_tags WHERE slug = ?').get(tagSlug) as { id: number } | undefined
 
           if (!tag) {
             const tagResult = db.prepare('INSERT INTO kb_tags (name, slug) VALUES (?, ?)').run(tagName, tagSlug)
-            tag = { id: tagResult.lastInsertRowid }
+            tag = { id: Number(tagResult.lastInsertRowid) }
           }
 
           db.prepare('INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)').run(existingArticle.id, tag.id)
@@ -256,7 +265,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { slug: string } }
 ) {
   try {
     // Verificar autenticação
@@ -278,7 +291,7 @@ export async function DELETE(
       )
     }
     // Verificar se artigo existe
-    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug)
+    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number } | undefined
     if (!article) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },

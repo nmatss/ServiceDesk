@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { ReportFilters } from '@/lib/reports';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
   getTicketMetrics,
   getAgentPerformance,
@@ -13,6 +14,10 @@ import {
 } from '@/lib/reports';
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // SECURITY: Verificar autenticação via cookies httpOnly
     const decoded = await verifyTokenFromCookies(request);
@@ -120,6 +125,10 @@ export async function GET(request: NextRequest) {
 
 // POST - Gerar relatório customizado ou agendar relatório
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // SECURITY: Verificar autenticação via cookies httpOnly
     const decoded = await verifyTokenFromCookies(request);

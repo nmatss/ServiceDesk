@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import type {
   PermanentFixStatus,
   CreateKnownErrorInput,
@@ -22,6 +23,10 @@ export const dynamic = 'force-dynamic';
  * List known errors with filters and pagination
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Authenticate via httpOnly cookie
     const cookieStore = await cookies();
@@ -119,6 +124,10 @@ export async function GET(request: NextRequest) {
  * Create a new known error
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Authenticate via httpOnly cookie
     const cookieStore = await cookies();
@@ -198,7 +207,7 @@ export async function POST(request: NextRequest) {
     // Create known error
     const knownError = await problemQueries.createKnownError(
       tenant.organizationId,
-      payload.userId,
+      payload.userId ?? 0,
       input
     );
 

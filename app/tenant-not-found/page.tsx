@@ -4,13 +4,13 @@ import Link from 'next/link'
 
 export default function TenantNotFoundPage() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 flex flex-col justify-center py-12 sm:px-6 lg:px-8 animate-fade-in">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-neutral-800 py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 animate-slide-up">
           <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 animate-pulse-soft">
               <svg
-                className="h-6 w-6 text-red-600"
+                className="h-6 w-6 text-red-600 dark:text-red-400"
                 fill="none"
                 viewBox="0 0 24 24"
                 strokeWidth="1.5"
@@ -24,21 +24,21 @@ export default function TenantNotFoundPage() {
               </svg>
             </div>
 
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-neutral-900 dark:text-white">
               Tenant não encontrado
             </h2>
 
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-description">
               O tenant especificado não foi encontrado ou não está ativo.
             </p>
           </div>
 
           <div className="mt-6">
-            <div className="rounded-md bg-yellow-50 p-4">
+            <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4 border border-yellow-200 dark:border-yellow-800/30">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg
-                    className="h-5 w-5 text-yellow-400"
+                    className="h-5 w-5 text-yellow-400 dark:text-yellow-500"
                     viewBox="0 0 20 20"
                     fill="currentColor"
                   >
@@ -50,10 +50,10 @@ export default function TenantNotFoundPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">
+                  <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
                     Possíveis causas:
                   </h3>
-                  <div className="mt-2 text-sm text-yellow-700">
+                  <div className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
                     <ul className="list-disc pl-5 space-y-1">
                       <li>URL incorreta ou expirada</li>
                       <li>Tenant desativado ou removido</li>
@@ -68,14 +68,14 @@ export default function TenantNotFoundPage() {
           <div className="mt-6">
             <Link
               href="/landing"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 dark:focus:ring-offset-neutral-800 transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98]"
             >
               Voltar à página inicial
             </Link>
           </div>
 
           <div className="mt-4 text-center">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-content">
               Se o problema persistir, entre em contato com o suporte.
             </p>
           </div>

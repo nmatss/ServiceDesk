@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Button } from './Button'
 
 interface EmptyStateProps {
   icon?: ReactNode
@@ -23,31 +24,26 @@ export function EmptyState({
   return (
     <div className={cn('flex flex-col items-center justify-center p-12 text-center', className)}>
       {icon && (
-        <div className="mb-6 flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800">
+        <div className="mb-6 flex items-center justify-center w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800">
           {icon}
         </div>
       )}
 
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
         {title}
       </h3>
 
-      <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+      <p className="text-description mb-6 max-w-md">
         {description}
       </p>
 
       {action && (
-        <button
+        <Button
+          variant={action.variant || 'primary'}
           onClick={action.onClick}
-          className={cn(
-            'px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-sm',
-            action.variant === 'secondary'
-              ? 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md'
-          )}
         >
           {action.label}
-        </button>
+        </Button>
       )}
     </div>
   )

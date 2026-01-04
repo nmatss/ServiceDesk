@@ -6,9 +6,14 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_ATTACHMENT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -40,7 +45,7 @@ export async function GET(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const attachments = attachmentQueries.getByTicketId(ticketId);
+    const attachments = attachmentQueries.getByTicketId(ticketId, user.organization_id);
     return NextResponse.json({ attachments });
   } catch (error) {
     logger.error('Erro ao buscar anexos', error);
@@ -50,7 +55,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_ATTACHMENT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -129,7 +138,7 @@ export async function POST(
       mime_type: file.type,
       size: file.size,
       uploaded_by: user.id
-    });
+    }, user.organization_id);
 
     return NextResponse.json({ attachment }, { status: 201 });
   } catch (error) {

@@ -10,6 +10,7 @@ import {
   AuthenticationError,
   AuthorizationError,
   ValidationError,
+  ErrorType,
   handleAPIError,
   validateOrThrow,
 } from '../errors/error-handler'
@@ -307,14 +308,15 @@ export async function enforceRateLimit(
 
   if (!result.allowed) {
     const retryAfter = Math.ceil((result.resetTime.getTime() - Date.now()) / 1000)
-    const errorDetails = new Error(
-      `Rate limit exceeded. Retry after ${retryAfter} seconds. ` +
+    const errorDetails = `Rate limit exceeded. Retry after ${retryAfter} seconds. ` +
       `Limit: ${result.total}, Remaining: ${result.remaining}, Reset: ${result.resetTime.toISOString()}`
-    )
+
     throw new AppError(
       config.message || 'Rate limit exceeded',
-      errorDetails,
-      429
+      ErrorType.RATE_LIMIT_ERROR,
+      429,
+      true,
+      errorDetails
     )
   }
 }

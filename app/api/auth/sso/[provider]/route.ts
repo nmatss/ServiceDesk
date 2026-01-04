@@ -19,6 +19,7 @@ import { sign } from 'jsonwebtoken';
 import { validateJWTSecret } from '@/lib/config/env';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const JWT_SECRET = validateJWTSecret();
 const COOKIE_NAME = 'servicedesk_token';
 
@@ -28,7 +29,11 @@ const COOKIE_NAME = 'servicedesk_token';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { provider: string } }
 ) {
   try {
     const { provider } = params;
@@ -98,7 +103,11 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { provider: string } }
 ) {
   try {
     const { provider } = params;

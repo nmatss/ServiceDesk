@@ -3,8 +3,13 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // GET - Buscar notificações do usuário
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const tenantContext = getTenantContextFromRequest(request);
     if (!tenantContext) {
@@ -74,6 +79,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const tenantContext = getTenantContextFromRequest(request);
     if (!tenantContext) {
@@ -123,6 +132,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const tenantContext = getTenantContextFromRequest(request);
     if (!tenantContext) {

@@ -4,31 +4,16 @@ import db from '@/lib/db/connection';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import { validateJWTSecret } from '@/lib/config/env';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
-import { applyRateLimit, rateLimitConfigs } from '@/lib/rate-limit';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import * as jose from 'jose';
 
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret());
 
 export async function POST(request: NextRequest) {
   try {
-    // Aplicar rate limiting ANTES de processar a requisição
-    const rateLimitResult = await applyRateLimit(request, rateLimitConfigs.auth, 'login');
-
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json({
-        success: false,
-        error: rateLimitConfigs.auth.message,
-        retryAfter: Math.ceil((rateLimitResult.resetTime.getTime() - Date.now()) / 1000)
-      }, {
-        status: 429,
-        headers: {
-          'X-RateLimit-Limit': rateLimitResult.total.toString(),
-          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-          'X-RateLimit-Reset': rateLimitResult.resetTime.toISOString(),
-          'Retry-After': Math.ceil((rateLimitResult.resetTime.getTime() - Date.now()) / 1000).toString()
-        }
-      });
-    }
+    // SECURITY: Rate limiting crítico para login (5 req/15min)
+    const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const { email, password, tenant_slug } = await request.json();
 
@@ -144,7 +129,7 @@ export async function POST(request: NextRequest) {
       // SECURITY: Increment failed login attempts
       const newFailedAttempts = user.failed_login_attempts + 1;
       const MAX_FAILED_ATTEMPTS = 5;
-      const LOCKOUT_DURATION_MINUTES = 15;
+      const LOCKOUT_DURATION_MINUTES = 1;
 
       if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
         // Lock the account

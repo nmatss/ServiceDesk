@@ -10,6 +10,7 @@ import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -17,6 +18,10 @@ export const dynamic = 'force-dynamic';
  * Search known errors by symptoms
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Authenticate via httpOnly cookie
     const cookieStore = await cookies();

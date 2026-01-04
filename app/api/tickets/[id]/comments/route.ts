@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { commentQueries, ticketQueries } from '@/lib/db/queries';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_COMMENT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -37,7 +43,7 @@ export async function GET(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const comments = commentQueries.getByTicketId(ticketId);
+    const comments = commentQueries.getByTicketId(ticketId, user.organization_id);
     return NextResponse.json({ comments });
   } catch (error) {
     logger.error('Erro ao buscar comentários', error);
@@ -47,7 +53,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_COMMENT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -80,7 +90,13 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { content, is_internal } = body;
+
+    // Sanitizar entrada do usuário para prevenir XSS
+    const sanitized = await sanitizeRequestBody(body, {
+      htmlFields: ['content'], // Permitir HTML básico em comentários
+    });
+
+    const { content, is_internal } = sanitized;
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json({ error: 'Conteúdo do comentário é obrigatório' }, { status: 400 });
@@ -94,7 +110,7 @@ export async function POST(
       user_id: user.id,
       content: content.trim(),
       is_internal: internalComment
-    });
+    }, user.organization_id);
 
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error) {

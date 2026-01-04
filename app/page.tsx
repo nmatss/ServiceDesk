@@ -49,7 +49,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-brand-600 mx-auto mb-4"></div>
-        <p className="text-neutral-600 dark:text-neutral-400">Redirecionando...</p>
+        <p className="text-description">Redirecionando...</p>
       </div>
     </div>
   )

@@ -310,7 +310,7 @@ export default function AdvancedSearch() {
                   className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                     searchType === key
                       ? 'bg-white dark:bg-neutral-700 text-brand-600 dark:text-brand-400 shadow-sm'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+                      : 'text-description hover:text-neutral-900 dark:hover:text-neutral-200'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -445,7 +445,7 @@ export default function AdvancedSearch() {
                 <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                   Nenhum resultado encontrado
                 </h3>
-                <p className="text-neutral-600 dark:text-neutral-400 mb-6">
+                <p className="text-description mb-6">
                   Tente ajustar sua busca ou usar termos diferentes
                 </p>
                 <div className="flex justify-center space-x-3">
@@ -507,7 +507,7 @@ export default function AdvancedSearch() {
                             </div>
                             <div className="flex-1">
                               <h4 className="font-medium">{user.name}</h4>
-                              <p className="text-sm text-neutral-600 dark:text-neutral-400">{user.email}</p>
+                              <p className="text-sm text-description">{user.email}</p>
                               <span className="badge badge-sm">{user.role}</span>
                             </div>
                           </div>
@@ -530,7 +530,7 @@ export default function AdvancedSearch() {
                       <div key={article.id} className="card">
                         <div className="card-body">
                           <h4 className="font-medium text-lg mb-2">{article.title}</h4>
-                          <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+                          <p className="text-description mb-4">
                             {article.excerpt}
                           </p>
                           <div className="flex items-center justify-between">

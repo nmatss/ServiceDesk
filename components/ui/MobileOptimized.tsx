@@ -7,6 +7,11 @@ import {
   ChevronUpIcon
 } from '@heroicons/react/24/outline'
 
+/**
+ * IconComponent type that accepts both regular components and forward refs from Heroicons
+ */
+type IconComponent = React.ComponentType<{ className?: string }> | React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>
+
 // Mobile-optimized collapsible section
 interface MobileCollapsibleProps {
   title: string
@@ -45,12 +50,18 @@ export function MobileCollapsible({
   )
 }
 
-// Mobile-optimized tabs
+/**
+ * Mobile tab configuration
+ * @property {string} key - Unique identifier for the tab
+ * @property {string} label - Tab label text
+ * @property {number} count - Optional count badge
+ * @property {IconComponent} icon - Optional icon component
+ */
 interface MobileTab {
   key: string
   label: string
   count?: number
-  icon?: React.ComponentType<{ className?: string }>
+  icon?: IconComponent
 }
 
 interface MobileTabsProps {
@@ -126,7 +137,7 @@ export function MobileTabs({
               className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 tab.key === activeTab
                   ? 'bg-white dark:bg-neutral-700 text-brand-600 dark:text-brand-400 shadow-sm'
-                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200'
+                  : 'text-description hover:text-neutral-900 dark:hover:text-neutral-200'
               }`}
             >
               {tab.icon && <tab.icon className="h-4 w-4" />}
@@ -189,7 +200,7 @@ export function MobileListItem({
           {children}
         </div>
         {subtitle && (
-          <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+          <div className="text-xs text-muted-content mt-1">
             {subtitle}
           </div>
         )}

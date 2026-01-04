@@ -16,13 +16,17 @@ export function PageLoadingBar({ isLoading = false, progress, className }: PageL
   if (!isLoading && progress === undefined) return null
 
   return (
-    <div className={cn('fixed top-0 left-0 right-0 z-50 h-1', className)}>
+    <div className={cn('fixed top-0 left-0 right-0 z-50 h-1', className)} role="progressbar" aria-label="Progresso de carregamento da página">
       <div
         className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out"
         style={{
           width: progress !== undefined ? `${progress}%` : '100%',
           animation: progress === undefined ? 'progress-indeterminate 2s ease-in-out infinite' : undefined,
         }}
+        role="presentation"
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
       />
       <style jsx>{`
         @keyframes progress-indeterminate {
@@ -155,10 +159,13 @@ export function ButtonLoading({
         sizes[size],
         className
       )}
+      aria-busy={isLoading}
+      aria-live="polite"
     >
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center" role="status" aria-label="Carregando">
           <InlineSpinner size={size === 'sm' ? 'sm' : 'md'} />
+          <span className="sr-only">Carregando...</span>
         </div>
       )}
       <span className={cn(isLoading && 'invisible')}>{children}</span>
@@ -189,6 +196,8 @@ export function InlineSpinner({ size = 'md', className, color = 'currentColor' }
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
+      role="status"
+      aria-label="Carregando"
     >
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke={color} strokeWidth="4" />
       <path
@@ -210,9 +219,9 @@ interface FullPageLoadingProps {
 
 export function FullPageLoading({ message = 'Carregando...', className }: FullPageLoadingProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900', className)}>
+    <div className={cn('flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900', className)} role="status" aria-live="polite" aria-label={message}>
       <InlineSpinner size="lg" className="text-blue-600 mb-4" />
-      <p className="text-gray-600 dark:text-gray-400 text-lg">{message}</p>
+      <p className="text-description text-lg">{message}</p>
     </div>
   )
 }
@@ -305,3 +314,88 @@ export function ImageWithLoading({ src, alt, className, width, height }: ImageWi
 
 // Add React import for ImageWithLoading component
 import React from 'react'
+
+// ========================================
+// TICKET LIST LOADING
+// ========================================
+export function TicketListSkeleton({ items = 5 }: { items?: number }) {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: items }).map((_, i) => (
+        <div key={i} className="glass-panel p-6 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-3 flex-1">
+              <Skeleton className="h-4 w-24" /> {/* Ticket number */}
+              <Skeleton className="h-5 w-32" /> {/* Status */}
+              <Skeleton className="h-5 w-20 rounded-full" /> {/* Priority badge */}
+            </div>
+            <Skeleton className="h-8 w-8 rounded" />
+          </div>
+          <Skeleton className="h-6 w-3/4 mb-2" /> {/* Title */}
+          <div className="space-y-2 mb-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ========================================
+// STATS CARDS LOADING
+// ========================================
+export function StatsCardsSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${count} gap-6`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="glass-panel p-6 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <Skeleton className="h-4 w-32 mb-4" />
+          <Skeleton className="h-8 w-20 mb-2" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ========================================
+// DASHBOARD LOADING
+// ========================================
+export function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <Skeleton className="h-10 w-32 rounded-lg" />
+      </div>
+
+      {/* Stats */}
+      <StatsCardsSkeleton count={4} />
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass-panel p-6 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <Skeleton className="h-6 w-48 mb-6" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+        <div className="glass-panel p-6 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <Skeleton className="h-6 w-48 mb-6" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+
+      {/* Table */}
+      <SkeletonTable rows={10} columns={5} />
+    </div>
+  )
+}

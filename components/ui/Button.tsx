@@ -173,10 +173,13 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && (
-          <Loader2 className={cn('animate-spin', iconSize)} />
+          <>
+            <Loader2 className={cn('animate-spin', iconSize)} aria-hidden="true" />
+            <span className="sr-only">{loadingText || 'Carregando...'}</span>
+          </>
         )}
         {!loading && leftIcon && (
-          <span className={cn('flex-shrink-0', iconSize)}>
+          <span className={cn('flex-shrink-0', iconSize)} aria-hidden="true">
             {leftIcon}
           </span>
         )}
@@ -184,7 +187,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {loading && loadingText ? loadingText : children}
 
         {!loading && rightIcon && (
-          <span className={cn('flex-shrink-0', iconSize)}>
+          <span className={cn('flex-shrink-0', iconSize)} aria-hidden="true">
             {rightIcon}
           </span>
         )}

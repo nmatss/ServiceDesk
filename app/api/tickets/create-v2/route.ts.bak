@@ -1,0 +1,132 @@
+/**
+ * POST /api/tickets/create-v2
+ *
+ * Refactored ticket creation endpoint using service layer architecture.
+ * Demonstrates clean separation: Controller -> Service -> Repository
+ *
+ * IMPROVEMENTS:
+ * - Thin controller (API route)
+ * - Business logic in service layer
+ * - Testable architecture
+ * - Consistent error handling
+ * - SOLID principles compliance
+ */
+
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import {
+  apiHandler,
+  getUserFromRequest,
+  getTenantFromRequest,
+  parseJSONBody,
+} from '@/lib/api/api-helpers';
+import { ValidationError } from '@/lib/errors/error-handler';
+import { ticketSchemas } from '@/lib/validation/schemas';
+import { getTicketService } from '@/lib/di/container';
+import { createRateLimitMiddleware } from '@/lib/rate-limit';
+import { cacheInvalidation } from '@/lib/api/cache';
+
+// Rate limiting
+const createTicketRateLimit = createRateLimitMiddleware('api');
+
+/**
+ * Create ticket request schema
+ */
+const createTicketRequestSchema = ticketSchemas.create.extend({
+  category_id: ticketSchemas.create.shape.category_id,
+  priority_id: ticketSchemas.create.shape.priority_id,
+  status_id: ticketSchemas.create.shape.status_id,
+});
+
+type CreateTicketRequest = typeof createTicketRequestSchema._output;
+
+/**
+ * POST /api/tickets/create-v2
+ * Create a new ticket using service layer
+ */
+export const POST = apiHandler(async (request: NextRequest) => {
+  // 1. Apply rate limiting
+  const rateLimitResult = await createTicketRateLimit(request, '/api/tickets/create-v2');
+  if (rateLimitResult instanceof Response) {
+    return rateLimitResult;
+  }
+
+  // 2. Extract authenticated user and tenant
+  const user = getUserFromRequest(request);
+  const tenant = getTenantFromRequest(request);
+
+  // 3. Validate and parse request body
+  const data = await parseJSONBody<CreateTicketRequest>(request, createTicketRequestSchema);
+
+  // 4. Validate organization isolation
+  if (user.organization_id !== tenant.id) {
+    throw new ValidationError('User organization mismatch');
+  }
+
+  // 5. Get service from DI container
+  const ticketService = getTicketService();
+
+  try {
+    // 6. Create ticket through service layer
+    // All business logic and validation happens in the service
+    const ticket = await ticketService.createTicket({
+      title: data.title,
+      description: data.description,
+      user_id: user.id,
+      assigned_to: data.assigned_to,
+      category_id: data.category_id,
+      priority_id: data.priority_id,
+      status_id: data.status_id || 1, // Default to "Open"
+      organization_id: tenant.id,
+    });
+
+    // 7. Invalidate caches
+    await cacheInvalidation.ticket(ticket.id);
+    await cacheInvalidation.dashboard(String(tenant.id));
+
+    // 8. Get ticket with details for response
+    const ticketWithDetails = await ticketService.getTicketById(ticket.id);
+
+    // 9. Return success response
+    return NextResponse.json(
+      {
+        success: true,
+        data: ticketWithDetails,
+        message: 'Ticket created successfully',
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    // Service layer throws business rule violations as errors
+    // API handler catches and formats them appropriately
+    throw error;
+  }
+});
+
+/**
+ * COMPARISON: Before vs After Architecture
+ *
+ * BEFORE (Old route.ts):
+ * ✗ 277 lines of mixed concerns
+ * ✗ Database queries directly in route
+ * ✗ Business logic scattered throughout
+ * ✗ Hard to test (requires full HTTP stack)
+ * ✗ Difficult to reuse logic
+ * ✗ No separation of concerns
+ *
+ * AFTER (This file):
+ * ✓ ~80 lines (controller only)
+ * ✓ No database queries (delegated to repository)
+ * ✓ Business logic in service layer
+ * ✓ Easy to test (mock services)
+ * ✓ Reusable service methods
+ * ✓ Clear separation of concerns
+ * ✓ SOLID principles compliance
+ *
+ * BENEFITS:
+ * 1. Testability: Can unit test TicketService without HTTP
+ * 2. Maintainability: Business rules in one place
+ * 3. Reusability: Service methods used across multiple routes
+ * 4. Flexibility: Easy to swap implementations (mock for testing)
+ * 5. Scalability: Clear boundaries for future growth
+ */

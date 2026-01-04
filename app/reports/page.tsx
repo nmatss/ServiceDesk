@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger';
 import {
@@ -8,9 +8,11 @@ import {
   ClockIcon,
   TicketIcon,
   TrophyIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline'
 import { useNotificationHelpers } from '@/src/components/notifications/NotificationProvider'
+import { Breadcrumb } from '@/components/ui/Breadcrumb'
 
 interface ReportStats {
   totalTickets: number
@@ -162,13 +164,22 @@ export default function ReportsPage() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="container-responsive py-6">
         <div className="max-w-7xl mx-auto">
+          {/* Breadcrumbs */}
+          <Breadcrumb
+            items={[
+              { label: 'Home', href: '/', icon: HomeIcon },
+              { label: userRole === 'agent' ? 'Meus Relatórios' : 'Relatórios' }
+            ]}
+            className="mb-4"
+          />
+
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
                 {userRole === 'agent' ? 'Meus Relatórios' : 'Relatórios'}
               </h1>
-              <p className="mt-2 text-neutral-600 dark:text-neutral-400">
+              <p className="mt-2 text-description">
                 {userRole === 'agent'
                   ? `Análise da performance de ${userName}`
                   : 'Análise de performance e estatísticas do sistema'
@@ -221,7 +232,7 @@ export default function ReportsPage() {
                 }`}>
                   {getPerformanceBadge(stats.performanceScore)}
                 </span>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                <p className="text-sm text-description">
                   Baseado em resolução, tempo de resposta e satisfação do cliente
                 </p>
               </div>
@@ -235,7 +246,7 @@ export default function ReportsPage() {
                 <div className="flex items-center">
                   <TicketIcon className="h-8 w-8 text-brand-600 dark:text-brand-400" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                    <p className="text-sm font-medium text-description">
                       Total de Tickets
                     </p>
                     <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -247,7 +258,7 @@ export default function ReportsPage() {
                   <span className="text-green-600 dark:text-green-400 font-medium">
                     +{((stats.ticketsThisMonth - stats.ticketsLastMonth) / stats.ticketsLastMonth * 100).toFixed(1)}%
                   </span>
-                  <span className="text-neutral-600 dark:text-neutral-400 ml-1">
+                  <span className="text-description ml-1">
                     vs mês anterior
                   </span>
                 </div>
@@ -257,7 +268,7 @@ export default function ReportsPage() {
                 <div className="flex items-center">
                   <ChartBarIcon className="h-8 w-8 text-green-600 dark:text-green-400" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                    <p className="text-sm font-medium text-description">
                       Taxa de Resolução
                     </p>
                     <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -265,7 +276,7 @@ export default function ReportsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="mt-2 text-sm text-description">
                   {stats.resolvedTickets} de {stats.totalTickets} tickets
                 </div>
               </div>
@@ -274,7 +285,7 @@ export default function ReportsPage() {
                 <div className="flex items-center">
                   <ClockIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                    <p className="text-sm font-medium text-description">
                       Tempo Médio de Resolução
                     </p>
                     <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -282,7 +293,7 @@ export default function ReportsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                <div className="mt-2 text-sm text-description">
                   Tempo de resposta: {stats.responseTime}h
                 </div>
               </div>
@@ -291,7 +302,7 @@ export default function ReportsPage() {
                 <div className="flex items-center">
                   <TrophyIcon className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                    <p className="text-sm font-medium text-description">
                       Satisfação do Cliente
                     </p>
                     <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
@@ -344,7 +355,7 @@ export default function ReportsPage() {
                           title={`Resolvidos: ${trend.resolved}`}
                         />
                       </div>
-                      <span className="text-xs text-neutral-500 dark:text-neutral-400 transform rotate-45">
+                      <span className="text-xs text-muted-content transform rotate-45">
                         {new Date(trend.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                       </span>
                     </div>
@@ -354,11 +365,11 @@ export default function ReportsPage() {
               <div className="flex justify-center space-x-6 mt-4">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-brand-500 rounded mr-2"></div>
-                  <span className="text-sm text-neutral-600 dark:text-neutral-400">Criados</span>
+                  <span className="text-sm text-description">Criados</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-green-500 rounded mr-2"></div>
-                  <span className="text-sm text-neutral-600 dark:text-neutral-400">Resolvidos</span>
+                  <span className="text-sm text-description">Resolvidos</span>
                 </div>
               </div>
             </div>
@@ -379,7 +390,7 @@ export default function ReportsPage() {
                         <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                           {category.count}
                         </span>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-1">
+                        <span className="text-xs text-muted-content ml-1">
                           ({category.percentage}%)
                         </span>
                       </div>
@@ -391,7 +402,7 @@ export default function ReportsPage() {
                       />
                     </div>
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      <span className="text-xs text-muted-content">
                         Tempo médio: {category.avgResolutionTime}h
                       </span>
                     </div>

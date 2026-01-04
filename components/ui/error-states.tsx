@@ -39,16 +39,16 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center p-12 text-center', className)}>
+    <div className={cn('flex flex-col items-center justify-center p-12 text-center', className)} role="alert" aria-live="polite">
       {icon && (
-        <div className="mb-6 flex items-center justify-center w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30">
+        <div className="mb-6 flex items-center justify-center w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30" aria-hidden="true">
           {icon}
         </div>
       )}
 
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{title}</h3>
 
-      <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">{description}</p>
+      <p className="text-description mb-6 max-w-md">{description}</p>
 
       <div className="flex flex-col sm:flex-row gap-3">
         {action && (
@@ -170,7 +170,7 @@ interface ServerErrorProps {
   message?: string
 }
 
-export function ServerError({ onRetry, onContactSupport, _errorId, message }: ServerErrorProps) {
+export function ServerError({ onRetry, onContactSupport, errorId: _errorId, message }: ServerErrorProps) {
   return (
     <ErrorState
       icon={<ServerIcon className="w-10 h-10 text-red-600" />}
@@ -301,16 +301,16 @@ export function InlineError({ message, onDismiss, className, variant = 'error' }
   const style = variants[variant]
 
   return (
-    <div className={cn('flex items-start gap-3 p-4 rounded-lg border', style.bg, className)}>
-      <div className="flex-shrink-0 mt-0.5">{style.icon}</div>
+    <div className={cn('flex items-start gap-3 p-4 rounded-lg border', style.bg, className)} role={variant === 'error' ? 'alert' : 'status'} aria-live={variant === 'error' ? 'assertive' : 'polite'}>
+      <div className="flex-shrink-0 mt-0.5" aria-hidden="true">{style.icon}</div>
       <p className={cn('flex-1 text-sm font-medium', style.text)}>{message}</p>
       {onDismiss && (
         <button
           onClick={onDismiss}
           className={cn('flex-shrink-0 hover:opacity-70 transition-opacity', style.text)}
-          aria-label="Dismiss error"
+          aria-label={variant === 'error' ? 'Dispensar erro' : 'Dispensar aviso'}
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -337,9 +337,11 @@ export function FormErrorSummary({ errors, onDismiss, className }: FormErrorSumm
         'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4',
         className
       )}
+      role="alert"
+      aria-live="assertive"
     >
       <div className="flex items-start gap-3">
-        <XCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+        <XCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
         <div className="flex-1">
           <h4 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
             {errors.length === 1 ? 'Corrija o seguinte erro:' : `Corrija os ${errors.length} erros a seguir:`}
@@ -354,9 +356,9 @@ export function FormErrorSummary({ errors, onDismiss, className }: FormErrorSumm
           <button
             onClick={onDismiss}
             className="flex-shrink-0 text-red-800 dark:text-red-200 hover:opacity-70 transition-opacity"
-            aria-label="Dismiss errors"
+            aria-label="Dispensar erros"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -403,6 +405,61 @@ export function ErrorBoundaryFallback({ error, resetError }: ErrorBoundaryFallba
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ========================================
+// API ERROR HANDLER (with HTTP status codes)
+// ========================================
+interface ApiErrorProps {
+  statusCode?: number
+  message?: string
+  onRetry?: () => void
+  onGoBack?: () => void
+}
+
+export function ApiError({ statusCode, message, onRetry, onGoBack }: ApiErrorProps) {
+  // Determine error type based on status code
+  switch (statusCode) {
+    case 404:
+      return <NotFoundError message={message} onGoBack={onGoBack} />
+    case 403:
+    case 401:
+      return <PermissionDenied message={message} onGoBack={onGoBack} />
+    case 500:
+    case 502:
+    case 503:
+      return <ServerError message={message} onRetry={onRetry} />
+    case 0:
+    case undefined:
+      return <NetworkError message={message} onRetry={onRetry} onGoBack={onGoBack} />
+    default:
+      return <GenericError message={message} onRetry={onRetry} />
+  }
+}
+
+// ========================================
+// LOADING ERROR (for failed data fetches)
+// ========================================
+interface LoadingErrorProps {
+  message?: string
+  onRetry: () => void
+  isRetrying?: boolean
+}
+
+export function LoadingError({ message, onRetry, isRetrying = false }: LoadingErrorProps) {
+  return (
+    <div className="glass-panel p-12 rounded-lg border border-neutral-200 dark:border-neutral-700">
+      <ErrorState
+        icon={<ExclamationTriangleIcon className="w-10 h-10 text-red-600" />}
+        title="Erro ao Carregar Dados"
+        description={message || 'Não foi possível carregar as informações. Por favor, tente novamente.'}
+        action={{
+          label: isRetrying ? 'Tentando...' : 'Tentar Novamente',
+          onClick: onRetry,
+        }}
+      />
     </div>
   )
 }

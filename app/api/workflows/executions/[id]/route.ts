@@ -8,13 +8,18 @@ import db from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/workflows/executions/[id]
  * Get execution details and history
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { id: string } }
 ) {
   try {
     // Verify authentication
@@ -61,11 +66,12 @@ export async function GET(
     `).all(executionId);
 
     // Parse JSON fields
+    const executionTyped = execution as Record<string, unknown>
     const parsedExecution = {
-      ...execution,
-      trigger_data: JSON.parse(execution.trigger_data || '{}'),
-      variables: JSON.parse(execution.variables || '{}'),
-      execution_log: JSON.parse(execution.execution_log || '[]'),
+      ...executionTyped,
+      trigger_data: JSON.parse((executionTyped.trigger_data as string) || '{}'),
+      variables: JSON.parse((executionTyped.variables as string) || '{}'),
+      execution_log: JSON.parse((executionTyped.execution_log as string) || '[]'),
       steps: steps.map((step: any) => ({
         ...step,
         input_data: JSON.parse(step.input_data || '{}'),
@@ -93,7 +99,11 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: { id: string } }
 ) {
   try {
     // Verify authentication

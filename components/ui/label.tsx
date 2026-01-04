@@ -13,7 +13,7 @@ const labelVariants = cva(
     variants: {
       variant: {
         default: 'text-neutral-900 dark:text-neutral-100',
-        muted: 'text-neutral-600 dark:text-neutral-400',
+        muted: 'text-description',
         error: 'text-error-600 dark:text-error-400',
         success: 'text-success-600 dark:text-success-400',
         warning: 'text-warning-600 dark:text-warning-400',
@@ -82,13 +82,13 @@ const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
             </span>
           )}
           {optional && (
-            <span className="ml-1 text-neutral-500 dark:text-neutral-400 font-normal text-xs">
+            <span className="ml-1 text-muted-content font-normal text-xs">
               (optional)
             </span>
           )}
         </label>
         {description && (
-          <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+          <p className="text-xs text-description leading-relaxed">
             {description}
           </p>
         )}
@@ -150,7 +150,7 @@ const Field = React.forwardRef<HTMLDivElement, FieldProps>(
 
         {/* Description (only show if no label or if there's an error/success state) */}
         {description && !label && !error && !success && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-sm text-description">
             {description}
           </p>
         )}

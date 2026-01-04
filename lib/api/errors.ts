@@ -9,11 +9,11 @@ import { ApiError, ApiResponse, ErrorCode, HTTP_STATUS, HttpStatus } from './typ
 import logger from '../monitoring/structured-logger';
 
 // Error detail types
-export type ErrorDetailValue = string | number | boolean | null | string[] | number[] | { [key: string]: unknown };
+export type ErrorDetailValue = string | number | boolean | null | string[] | number[] | { [key: string]: unknown } | Array<{ [key: string]: unknown }>;
 
 export interface ErrorDetails {
   field?: string;
-  value?: unknown;
+  value?: ErrorDetailValue;
   constraint?: string;
   code?: string;
   retryAfter?: number;
@@ -178,7 +178,7 @@ export class ErrorHandler {
 
     // Handle validation errors from Zod
     if (error && typeof error === 'object' && 'issues' in error) {
-      this.logError(error as Error, path, id)
+      this.logError(error as unknown as Error, path, id)
 
       const validationError = new ValidationError('Validation failed', {
         issues: (error as { issues: unknown }).issues as ErrorDetailValue,

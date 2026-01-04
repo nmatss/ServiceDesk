@@ -21,27 +21,38 @@ const CSRF_TOKEN_LENGTH = 32;
 
 // Get CSRF secret - MUST be configured in production
 function getCSRFSecret(): string {
+  // Prefer CSRF_SECRET, fallback to JWT_SECRET (both are validated elsewhere)
   const secret = process.env.CSRF_SECRET || process.env.JWT_SECRET;
 
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(
-        '🔴 FATAL: CSRF_SECRET or JWT_SECRET must be set in production!\n' +
-        'Generate a secure secret with: openssl rand -hex 32\n' +
-        'Set CSRF_SECRET or JWT_SECRET in your .env file.'
-      );
-    }
-
-    // Development fallback
-    logger.warn('⚠️  WARNING: Using development CSRF secret. This is INSECURE for production!');
-    return 'dev-csrf-secret-CHANGE-ME-IN-PRODUCTION-MINIMUM-32-CHARS';
+    throw new Error(
+      '🔴 FATAL: CSRF_SECRET or JWT_SECRET environment variable is required!\n' +
+      'Generate a secure secret with:\n' +
+      '  openssl rand -hex 32\n' +
+      'Then set it in your .env file:\n' +
+      '  CSRF_SECRET=<generated-secret>\n' +
+      'Or JWT_SECRET can be used as fallback'
+    );
   }
 
   if (secret.length < 32) {
     throw new Error(
       '🔴 FATAL: CSRF_SECRET must be at least 32 characters long!\n' +
+      `Current length: ${secret.length}\n` +
       'Generate a secure secret with: openssl rand -hex 32'
     );
+  }
+
+  // Check for weak patterns
+  const weakPatterns = ['default', 'dev', 'test', 'change-me', 'csrf', 'secret', 'placeholder'];
+  const lowerSecret = secret.toLowerCase();
+  for (const pattern of weakPatterns) {
+    if (lowerSecret.includes(pattern)) {
+      throw new Error(
+        `🔴 FATAL: CSRF_SECRET contains weak or default pattern "${pattern}"!\n` +
+        'Generate a strong random secret with: openssl rand -hex 32'
+      );
+    }
   }
 
   return secret;

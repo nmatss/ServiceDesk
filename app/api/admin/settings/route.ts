@@ -16,6 +16,7 @@ import {
 } from '@/lib/db/queries';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/admin/settings
  * Retrieve all system settings
@@ -25,6 +26,10 @@ import logger from '@/lib/monitoring/structured-logger';
  * - includeEncrypted: Include encrypted values (false by default for security)
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication and admin role
     const authHeader = request.headers.get('authorization');
@@ -104,6 +109,10 @@ export async function GET(request: NextRequest) {
  * }
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication and admin role
     const authHeader = request.headers.get('authorization');
@@ -198,6 +207,10 @@ export async function POST(request: NextRequest) {
  * }
  */
 export async function PUT(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication and admin role
     const authHeader = request.headers.get('authorization');
@@ -281,6 +294,10 @@ export async function PUT(request: NextRequest) {
  * - organizationId: Optional organization ID
  */
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication and admin role
     const authHeader = request.headers.get('authorization');

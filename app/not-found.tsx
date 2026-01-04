@@ -113,7 +113,7 @@ export default function NotFound() {
 
             {/* Quick Links Grid */}
             <div className="border-t border-neutral-200 dark:border-neutral-700 pt-8 mt-8">
-              <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-6">
+              <p className="text-sm font-medium text-muted-content mb-6">
                 Páginas Populares
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -133,7 +133,7 @@ export default function NotFound() {
                           <p className="font-medium text-neutral-900 dark:text-neutral-100 text-sm mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                             {link.label}
                           </p>
-                          <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1">
+                          <p className="text-xs text-muted-content line-clamp-1">
                             {link.description}
                           </p>
                         </div>
@@ -146,7 +146,7 @@ export default function NotFound() {
 
             {/* Help Section */}
             <div className="mt-8 pt-8 border-t border-neutral-200 dark:border-neutral-700">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+              <p className="text-sm text-muted-content mb-4">
                 Precisa de ajuda?
               </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm">
@@ -177,7 +177,7 @@ export default function NotFound() {
 
         {/* Footer Note */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs text-muted-content">
             Código do erro: 404 - Página não encontrada
           </p>
         </div>

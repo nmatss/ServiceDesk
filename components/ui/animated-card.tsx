@@ -432,7 +432,7 @@ export function AnimatedProgressBar({
   return (
     <div className={cn('w-full', className)}>
       {showLabel && (
-        <div className="flex justify-between mb-1 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex justify-between mb-1 text-sm text-description">
           <span>Progresso</span>
           <span>{progress}%</span>
         </div>

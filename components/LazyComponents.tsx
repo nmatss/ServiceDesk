@@ -49,8 +49,11 @@ function ModalSkeleton() {
  */
 function ChartSkeleton() {
   return (
-    <div className="animate-pulse">
-      <div className="h-64 bg-gray-200 rounded" />
+    <div className="glass-panel p-6 h-96 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 mx-auto mb-2"></div>
+        <p className="text-sm text-description">Carregando gráfico...</p>
+      </div>
     </div>
   )
 }
@@ -112,11 +115,12 @@ export const LazyAreaChart = dynamic(
 // ===========================
 
 /**
- * React Quill (heavy library ~150KB)
+ * React Quill New (heavy library ~150KB)
  * Only load when user needs to edit
+ * Using react-quill-new to fix CVE-2021-3163
  */
 export const LazyRichTextEditor = dynamic(
-  () => import('react-quill').then((mod) => mod.default),
+  () => import('react-quill-new').then((mod) => mod.default),
   {
     loading: () => <EditorSkeleton />,
     ssr: false, // Quill doesn't work with SSR
@@ -169,33 +173,28 @@ export const LazyMiniMap = dynamic(
 /**
  * Modal component (load only when opened)
  */
-export const LazyModal = dynamic(() => import('./ui/Modal'), {
-  loading: () => <ModalSkeleton />,
-  ssr: true, // Modals can be SSR'd
-})
+export const LazyModal = dynamic(
+  () => import('./ui/Modal').then((mod) => ({ default: mod.Modal })),
+  {
+    loading: () => <ModalSkeleton />,
+    ssr: true, // Modals can be SSR'd
+  }
+)
 
 /**
  * Dialog component
  */
-export const LazyDialog = dynamic(() => import('./ui/dialog'), {
-  loading: () => <ModalSkeleton />,
-  ssr: true,
-})
+export const LazyDialog = dynamic(
+  () => import('./ui/dialog').then((mod) => ({ default: mod.Dialog })),
+  {
+    loading: () => <ModalSkeleton />,
+    ssr: true,
+  }
+)
 
 // ===========================
 // LAZY-LOADED ADMIN COMPONENTS
 // ===========================
-
-/**
- * Admin dashboard (load only for admin users)
- */
-export const LazyAdminDashboard = dynamic(
-  () => import('@/app/admin/dashboard/page'),
-  {
-    loading: () => <DashboardFullSkeleton />,
-    ssr: true,
-  }
-)
 
 /**
  * Analytics dashboard (heavy component with charts)
@@ -379,6 +378,62 @@ export function LazyOnVisible({
   )
 }
 
+// ===========================
+// LAZY-LOADED ADMIN PAGES
+// ===========================
+
+/**
+ * Heavy admin pages with tables and charts
+ */
+export const LazyCMDBPage = dynamic(
+  () => import('@/app/admin/cmdb/page'),
+  {
+    loading: () => (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-description">Carregando CMDB...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+export const LazyKnowledgePage = dynamic(
+  () => import('@/app/admin/knowledge/page'),
+  {
+    loading: () => (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-description">Carregando Base de Conhecimento...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+export const LazyTeamsPage = dynamic(
+  () => import('@/app/admin/teams/page'),
+  {
+    loading: () => (
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-description">Carregando Equipes...</p>
+        </div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+// ===========================
+// EXPORTS
+// ===========================
+
 export default {
   LazyLineChart,
   LazyBarChart,
@@ -388,7 +443,6 @@ export default {
   LazyReactFlow,
   LazyModal,
   LazyDialog,
-  LazyAdminDashboard,
   LazyAnalyticsDashboard,
   LazyReportsPage,
   LazyKnowledgeArticle,
@@ -396,6 +450,9 @@ export default {
   LazyFileUpload,
   LazyCommandPalette,
   LazyComunidadeBuilder,
+  LazyCMDBPage,
+  LazyKnowledgePage,
+  LazyTeamsPage,
   LazyWrapper,
   ConditionalLazy,
   LazyOnVisible,

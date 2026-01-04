@@ -70,7 +70,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
       case 'high': return 'text-orange-600 dark:text-orange-400';
       case 'medium': return 'text-yellow-600 dark:text-yellow-400';
       case 'low': return 'text-blue-600 dark:text-blue-400';
-      default: return 'text-gray-600 dark:text-gray-400';
+      default: return 'text-description';
     }
   };
 
@@ -107,7 +107,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
                 {alert.severity}
               </span>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+            <p className="text-sm text-description mt-1 line-clamp-2">
               {alert.description}
             </p>
             <div className="flex items-center justify-between mt-2">
@@ -282,25 +282,25 @@ export function RealtimeAlertsWidget({
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {getSeverityCount('critical')}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Critical</div>
+          <div className="text-sm text-description">Critical</div>
         </div>
         <div className="text-center">
           <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
             {getSeverityCount('high')}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">High</div>
+          <div className="text-sm text-description">High</div>
         </div>
         <div className="text-center">
           <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
             {getSeverityCount('medium')}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Medium</div>
+          <div className="text-sm text-description">Medium</div>
         </div>
         <div className="text-center">
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {getSeverityCount('low')}
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Low</div>
+          <div className="text-sm text-description">Low</div>
         </div>
       </div>
 
@@ -333,7 +333,7 @@ export function RealtimeAlertsWidget({
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-gray-600 dark:text-gray-400">
+            <span className="text-description">
               {isConnected ? 'Real-time monitoring active' : 'Connection lost'}
             </span>
           </div>
@@ -368,7 +368,7 @@ export function RealtimeAlertsWidget({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                  <p className="text-gray-600 dark:text-gray-400">{selectedAlert.description}</p>
+                  <p className="text-description">{selectedAlert.description}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -401,7 +401,7 @@ export function RealtimeAlertsWidget({
                 {selectedAlert.auto_actions && selectedAlert.auto_actions.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Auto Actions Taken</label>
-                    <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
+                    <ul className="list-disc list-inside text-description">
                       {selectedAlert.auto_actions.map((action, index) => (
                         <li key={index}>{action}</li>
                       ))}

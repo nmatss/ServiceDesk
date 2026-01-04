@@ -14,29 +14,29 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+        default: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300',
         primary: 'bg-brand-100 text-brand-800 dark:bg-brand-900/30 dark:text-brand-300',
-        secondary: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-        success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-        warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-        danger: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-        info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+        secondary: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
+        success: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-300',
+        warning: 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-300',
+        danger: 'bg-error-100 text-error-800 dark:bg-error-900/30 dark:text-error-300',
+        info: 'bg-brand-100 text-brand-800 dark:bg-brand-900/30 dark:text-brand-300',
         purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-        outline: 'border border-gray-300 text-gray-700 bg-transparent dark:border-gray-600 dark:text-gray-300',
+        outline: 'border border-neutral-300 text-neutral-700 bg-transparent dark:border-neutral-600 dark:text-neutral-300',
         // Status variants
-        open: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-        inProgress: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+        open: 'bg-brand-100 text-brand-800 dark:bg-brand-900/30 dark:text-brand-300',
+        inProgress: 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-300',
         pending: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-        resolved: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-        closed: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+        resolved: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-300',
+        closed: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300',
         // Priority variants
-        low: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-        medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
-        high: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-        critical: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+        low: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-300',
+        medium: 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-300',
+        high: 'bg-warning-100 text-warning-800 dark:bg-warning-900/30 dark:text-warning-300',
+        critical: 'bg-error-100 text-error-800 dark:bg-error-900/30 dark:text-error-300',
       },
       size: {
-        xs: 'text-[10px] px-1.5 py-0.5 rounded',
+        xs: 'text-xs px-1.5 py-0.5 rounded',
         sm: 'text-xs px-2 py-0.5 rounded',
         md: 'text-xs px-2.5 py-1 rounded-md',
         lg: 'text-sm px-3 py-1 rounded-md',
@@ -127,13 +127,13 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
               onRemove?.();
             }}
             className={cn(
-              'ml-1 -mr-1 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10',
+              'ml-1 -mr-2 rounded-full p-2 min-h-[44px] min-w-[44px] hover:bg-black/10 dark:hover:bg-white/10',
               'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current',
-              'transition-colors'
+              'transition-colors flex items-center justify-center'
             )}
             aria-label="Remove"
           >
-            <XMarkIcon className="h-3 w-3" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         )}
       </span>

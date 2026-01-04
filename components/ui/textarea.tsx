@@ -161,7 +161,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 
           {/* Character counter */}
           {(showCounter || maxLength) && (
-            <div className="absolute bottom-2 right-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="absolute bottom-2 right-2 text-xs text-muted-content">
               {maxLength ? `${currentLength}/${maxLength}` : currentLength}
             </div>
           )}
@@ -169,7 +169,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 
         {/* Description */}
         {description && !error && !success && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="text-sm text-description">
             {description}
           </p>
         )}

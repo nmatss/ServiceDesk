@@ -164,13 +164,13 @@ export default function ProblemDetailPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'new': return 'bg-blue-100 text-blue-700'
-      case 'investigation': return 'bg-yellow-100 text-yellow-700'
-      case 'root_cause_identified': return 'bg-orange-100 text-orange-700'
-      case 'known_error': return 'bg-purple-100 text-purple-700'
-      case 'resolved': return 'bg-green-100 text-green-700'
-      case 'closed': return 'bg-gray-100 text-gray-700'
-      default: return 'bg-gray-100 text-gray-700'
+      case 'new': return 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
+      case 'investigation': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'root_cause_identified': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+      case 'known_error': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+      case 'resolved': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+      case 'closed': return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
+      default: return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
     }
   }
 
@@ -188,11 +188,11 @@ export default function ProblemDetailPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'low': return 'bg-green-100 text-green-700'
-      case 'medium': return 'bg-yellow-100 text-yellow-700'
-      case 'high': return 'bg-orange-100 text-orange-700'
-      case 'critical': return 'bg-red-100 text-red-700'
-      default: return 'bg-gray-100 text-gray-700'
+      case 'low': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+      case 'medium': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+      case 'high': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+      case 'critical': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+      default: return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
     }
   }
 
@@ -219,21 +219,21 @@ export default function ProblemDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 dark:border-brand-400"></div>
       </div>
     )
   }
 
   if (!problem) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
         <div className="text-center">
-          <ExclamationCircleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900">Problema não encontrado</h2>
+          <ExclamationCircleIcon className="w-16 h-16 text-neutral-400 dark:text-neutral-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Problema não encontrado</h2>
           <button
             onClick={() => router.push('/admin/problems')}
-            className="mt-4 text-purple-600 hover:text-purple-700"
+            className="mt-4 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
           >
             Voltar para lista
           </button>
@@ -251,104 +251,105 @@ export default function ProblemDetailPage() {
   ]
 
   return (
-    <div className="pb-6">
+    <>
+      <div className="space-y-6 animate-fade-in pb-6">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4">
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => router.push('/admin/problems')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                <span>Problema</span>
-                <ChevronRightIcon className="w-4 h-4" />
-                <span className="font-mono">PRB-{problem.id}</span>
-              </div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
-                {problem.title}
-              </h1>
+      <div className="glass-panel">
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={() => router.push('/admin/problems')}
+            className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+          >
+            <ArrowLeftIcon className="w-5 h-5 text-description" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-sm text-muted-content mb-1">
+              <span>Problema</span>
+              <ChevronRightIcon className="w-4 h-4" />
+              <span className="font-mono font-semibold">PRB-{problem.id}</span>
             </div>
+            <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 truncate">
+              {problem.title}
+            </h1>
           </div>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(problem.status)}`}>
-              {getStatusLabel(problem.status)}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(problem.status)}`}>
+            {getStatusLabel(problem.status)}
+          </span>
+          <span className={`px-3 py-1.5 rounded-full text-sm font-semibold ${getPriorityColor(problem.priority)}`}>
+            {problem.priority.toUpperCase()}
+          </span>
+          <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+            {problem.category}
+          </span>
+          {problem.workaround && (
+            <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-brand-100 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 flex items-center gap-2">
+              <LightBulbIcon className="w-4 h-4" />
+              Workaround disponível
             </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(problem.priority)}`}>
-              {problem.priority.toUpperCase()}
-            </span>
-            <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
-              {problem.category}
-            </span>
-            {problem.workaround && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
-                <LightBulbIcon className="w-4 h-4" />
-                Workaround disponível
-              </span>
-            )}
-          </div>
+          )}
+        </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 overflow-x-auto scrollbar-hide -mb-px">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
-              </button>
-            ))}
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide border-t border-neutral-200 dark:border-neutral-700 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-4">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap rounded-lg transition-all ${
+                activeTab === tab.id
+                  ? 'bg-brand-500 text-white shadow-md'
+                  : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Details Tab */}
-            {activeTab === 'details' && (
-              <>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3">Descrição</h2>
-                  <p className="text-gray-600 whitespace-pre-wrap">{problem.description}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Details Tab */}
+          {activeTab === 'details' && (
+            <>
+              <div className="glass-panel animate-slide-up">
+                <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                  <DocumentTextIcon className="w-5 h-5 text-brand-500" />
+                  Descrição
+                </h2>
+                <p className="text-description whitespace-pre-wrap">{problem.description}</p>
+              </div>
+
+              {problem.impact && (
+                <div className="glass-panel bg-error-50 dark:bg-error-900/20 border-error-200 dark:border-error-800 animate-slide-up">
+                  <h2 className="font-semibold text-error-800 dark:text-error-400 mb-3 flex items-center gap-2">
+                    <ExclamationTriangleSolid className="w-5 h-5" />
+                    Impacto no Negócio
+                  </h2>
+                  <p className="text-error-700 dark:text-error-300">{problem.impact}</p>
                 </div>
+              )}
 
-                {problem.impact && (
-                  <div className="bg-red-50 rounded-xl border border-red-200 p-4 sm:p-6">
-                    <h2 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
-                      <ExclamationTriangleSolid className="w-5 h-5" />
-                      Impacto
-                    </h2>
-                    <p className="text-red-700">{problem.impact}</p>
-                  </div>
-                )}
-
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4">Serviços Afetados</h2>
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Serviços Afetados</h2>
                   <div className="flex flex-wrap gap-2">
                     {problem.affected_services.map((service, index) => (
-                      <span key={index} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm">
+                      <span key={index} className="px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm">
                         {service}
                       </span>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <ServerIcon className="w-5 h-5 text-gray-400" />
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                    <ServerIcon className="w-5 h-5 text-icon-muted" />
                     CIs Afetados
                   </h2>
                   <div className="space-y-2">
@@ -356,16 +357,16 @@ export default function ProblemDetailPage() {
                       <div
                         key={ci.id}
                         onClick={() => router.push(`/admin/cmdb/${ci.id}`)}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                        className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <ServerIcon className="w-5 h-5 text-gray-400" />
+                          <ServerIcon className="w-5 h-5 text-icon-muted" />
                           <div>
-                            <p className="font-medium text-gray-900">{ci.name}</p>
-                            <p className="text-xs text-gray-500 capitalize">{ci.type}</p>
+                            <p className="font-medium text-neutral-900 dark:text-neutral-100">{ci.name}</p>
+                            <p className="text-xs text-muted-content capitalize">{ci.type}</p>
                           </div>
                         </div>
-                        <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                        <ChevronRightIcon className="w-5 h-5 text-icon-muted" />
                       </div>
                     ))}
                   </div>
@@ -376,60 +377,60 @@ export default function ProblemDetailPage() {
             {/* RCA Tab */}
             {activeTab === 'rca' && (
               <>
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <BeakerIcon className="w-5 h-5 text-orange-500" />
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <BeakerIcon className="w-5 h-5 text-orange-500 dark:text-orange-400" />
                     Análise de Causa Raiz (RCA)
                   </h2>
                   {problem.root_cause ? (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                      <p className="text-gray-700 whitespace-pre-wrap">{problem.root_cause}</p>
+                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                      <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{problem.root_cause}</p>
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">Causa raiz ainda não identificada</p>
+                    <p className="text-muted-content italic">Causa raiz ainda não identificada</p>
                   )}
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <LightBulbIcon className="w-5 h-5 text-yellow-500" />
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <LightBulbIcon className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
                     Workaround
                   </h2>
                   {problem.workaround ? (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="text-gray-700 whitespace-pre-wrap">{problem.workaround}</p>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                      <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{problem.workaround}</p>
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">Nenhum workaround documentado</p>
+                    <p className="text-muted-content italic">Nenhum workaround documentado</p>
                   )}
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                  <h2 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                <div className="glass-panel animate-slide-up">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <CheckCircleIcon className="w-5 h-5 text-green-500 dark:text-green-400" />
                     Solução Permanente
                   </h2>
                   {problem.permanent_solution ? (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <p className="text-gray-700 whitespace-pre-wrap">{problem.permanent_solution}</p>
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                      <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{problem.permanent_solution}</p>
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">Solução permanente ainda não definida</p>
+                    <p className="text-muted-content italic">Solução permanente ainda não definida</p>
                   )}
                 </div>
 
                 {problem.status === 'known_error' && (
-                  <div className="bg-purple-50 rounded-xl border border-purple-200 p-4 sm:p-6">
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800 p-4 sm:p-6 animate-slide-up">
                     <div className="flex items-center gap-3 mb-3">
-                      <BookOpenIcon className="w-6 h-6 text-purple-600" />
+                      <BookOpenIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                       <div>
-                        <h2 className="font-semibold text-purple-800">Erro Conhecido (KEDB)</h2>
-                        <p className="text-sm text-purple-600">Este problema foi registrado na base de erros conhecidos</p>
+                        <h2 className="font-semibold text-purple-800 dark:text-purple-300">Erro Conhecido (KEDB)</h2>
+                        <p className="text-sm text-purple-600 dark:text-purple-400">Este problema foi registrado na base de erros conhecidos</p>
                       </div>
                     </div>
                     <button
                       onClick={() => router.push('/admin/problems/kedb')}
-                      className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+                      className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 text-sm font-medium transition-colors"
                     >
                       Ver no KEDB →
                     </button>
@@ -440,29 +441,29 @@ export default function ProblemDetailPage() {
 
             {/* Incidents Tab */}
             {activeTab === 'incidents' && (
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <h2 className="font-semibold text-gray-900">Incidentes Relacionados</h2>
-                  <button className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1">
+              <div className="glass-panel animate-slide-up">
+                <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">Incidentes Relacionados</h2>
+                  <button className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 transition-colors">
                     <PlusIcon className="w-4 h-4" />
                     Vincular
                   </button>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                   {problem.related_incidents.map(incidentId => (
                     <div
                       key={incidentId}
                       onClick={() => router.push(`/tickets/${incidentId}`)}
-                      className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+                      className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
+                        <ExclamationTriangleIcon className="w-5 h-5 text-orange-500 dark:text-orange-400" />
                         <div>
-                          <p className="font-medium text-gray-900">INC-{incidentId}</p>
-                          <p className="text-sm text-gray-500">Lentidão no ERP - Módulo Financeiro</p>
+                          <p className="font-medium text-neutral-900 dark:text-neutral-100">INC-{incidentId}</p>
+                          <p className="text-sm text-muted-content">Lentidão no ERP - Módulo Financeiro</p>
                         </div>
                       </div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         Resolvido
                       </span>
                     </div>
@@ -473,40 +474,40 @@ export default function ProblemDetailPage() {
 
             {/* Changes Tab */}
             {activeTab === 'changes' && (
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                  <h2 className="font-semibold text-gray-900">Mudanças Relacionadas</h2>
-                  <button className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1">
+              <div className="glass-panel animate-slide-up">
+                <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                  <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">Mudanças Relacionadas</h2>
+                  <button className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 transition-colors">
                     <PlusIcon className="w-4 h-4" />
                     Criar RFC
                   </button>
                 </div>
                 {problem.related_changes.length > 0 ? (
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {problem.related_changes.map(changeId => (
                       <div
                         key={changeId}
                         onClick={() => router.push(`/admin/changes/${changeId}`)}
-                        className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
+                        className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <ArrowPathIcon className="w-5 h-5 text-indigo-500" />
+                          <ArrowPathIcon className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                           <div>
-                            <p className="font-medium text-gray-900">CHG-{changeId}</p>
-                            <p className="text-sm text-gray-500">Otimização de índices do banco ERP</p>
+                            <p className="font-medium text-neutral-900 dark:text-neutral-100">CHG-{changeId}</p>
+                            <p className="text-sm text-muted-content">Otimização de índices do banco ERP</p>
                           </div>
                         </div>
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">
+                        <span className="px-2 py-1 text-xs rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
                           Agendada
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <div className="p-8 text-center text-muted-content">
+                    <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 text-neutral-300 dark:text-neutral-600" />
                     <p>Nenhuma mudança vinculada</p>
-                    <button className="mt-2 text-purple-600 hover:text-purple-700 text-sm">
+                    <button className="mt-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm transition-colors">
                       Criar RFC para este problema
                     </button>
                   </div>
@@ -516,30 +517,38 @@ export default function ProblemDetailPage() {
 
             {/* Timeline Tab */}
             {activeTab === 'timeline' && (
-              <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-                <h2 className="font-semibold text-gray-900 mb-4">Histórico de Atividades</h2>
-                <div className="space-y-4">
+              <div className="glass-panel animate-slide-up">
+                <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-6 flex items-center gap-2">
+                  <ClockIcon className="w-5 h-5 text-brand-500" />
+                  Histórico de Atividades
+                </h2>
+                <div className="space-y-6">
                   {problem.timeline.map((event, index) => (
-                    <div key={event.id} className="flex gap-4">
+                    <div key={event.id} className="flex gap-4 group">
                       <div className="flex flex-col items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          event.type === 'rca_update' ? 'bg-orange-100 text-orange-600' :
-                          event.type === 'workaround_added' ? 'bg-yellow-100 text-yellow-600' :
-                          event.type === 'status_change' ? 'bg-purple-100 text-purple-600' :
-                          'bg-gray-100 text-gray-600'
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-transform group-hover:scale-110 ${
+                          event.type === 'rca_update' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
+                          event.type === 'workaround_added' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' :
+                          event.type === 'status_change' ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' :
+                          event.type === 'assignment' ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' :
+                          'bg-neutral-100 dark:bg-neutral-800 text-description'
                         }`}>
                           {getTimelineIcon(event.type)}
                         </div>
                         {index < problem.timeline.length - 1 && (
-                          <div className="w-0.5 h-full bg-gray-200 mt-2" />
+                          <div className="w-0.5 flex-1 bg-gradient-to-b from-neutral-300 to-transparent dark:from-neutral-600 mt-2" />
                         )}
                       </div>
-                      <div className="flex-1 pb-4">
-                        <p className="text-gray-900">{event.content}</p>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                          <span>{event.user}</span>
-                          <span>•</span>
-                          <span>{formatDate(event.timestamp)}</span>
+                      <div className="flex-1 pb-6">
+                        <div className="glass-panel !p-4 hover:shadow-md transition-shadow">
+                          <p className="text-neutral-900 dark:text-neutral-100 font-medium">{event.content}</p>
+                          <div className="flex items-center gap-2 mt-2 text-sm text-muted-content">
+                            <UserIcon className="w-4 h-4" />
+                            <span className="font-medium">{event.user}</span>
+                            <span>•</span>
+                            <ClockIcon className="w-4 h-4" />
+                            <span>{formatDate(event.timestamp)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -547,19 +556,23 @@ export default function ProblemDetailPage() {
                 </div>
 
                 {/* Add Comment */}
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <h3 className="font-medium text-gray-900 mb-2">Adicionar Comentário</h3>
+                <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-700">
+                  <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3 flex items-center gap-2">
+                    <ChatBubbleLeftRightIcon className="w-5 h-5 text-brand-500" />
+                    Adicionar Comentário
+                  </h3>
                   <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Digite seu comentário..."
-                    className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    rows={3}
+                    placeholder="Descreva as ações realizadas, descobertas ou próximos passos..."
+                    className="w-full p-4 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                    rows={4}
                   />
                   <button
-                    className="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+                    className="mt-3 btn btn-primary"
                   >
-                    Enviar
+                    <PlusIcon className="w-4 h-4 mr-2" />
+                    Adicionar ao Histórico
                   </button>
                 </div>
               </div>
@@ -569,76 +582,76 @@ export default function ProblemDetailPage() {
           {/* Sidebar */}
           <div className="space-y-4">
             {/* Actions */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Ações</h3>
+            <div className="glass-panel animate-slide-up">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Ações Rápidas</h3>
               <div className="space-y-2">
-                <button className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 flex items-center justify-center gap-2">
-                  <PencilIcon className="w-4 h-4" />
+                <button className="btn btn-primary w-full justify-center">
+                  <PencilIcon className="w-4 h-4 mr-2" />
                   Editar Problema
                 </button>
                 {problem.status !== 'known_error' && problem.root_cause && (
-                  <button className="w-full px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 flex items-center justify-center gap-2">
-                    <BookOpenIcon className="w-4 h-4" />
+                  <button className="btn btn-secondary w-full justify-center bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-900/30">
+                    <BookOpenIcon className="w-4 h-4 mr-2" />
                     Promover para KEDB
                   </button>
                 )}
-                <button className="w-full px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 flex items-center justify-center gap-2">
-                  <ArrowPathIcon className="w-4 h-4" />
+                <button className="btn btn-secondary w-full justify-center">
+                  <ArrowPathIcon className="w-4 h-4 mr-2" />
                   Criar RFC
                 </button>
               </div>
             </div>
 
             {/* Details */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Informações</h3>
+            <div className="glass-panel animate-slide-up">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Informações do Problema</h3>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Responsável</span>
-                  <span className="font-medium text-gray-900">{problem.assigned_name || 'Não atribuído'}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-content">Responsável</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{problem.assigned_name || 'Não atribuído'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Criado por</span>
-                  <span className="font-medium text-gray-900">{problem.created_by_name}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-content">Criado por</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{problem.created_by_name}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Criado em</span>
-                  <span className="font-medium text-gray-900">{formatDate(problem.created_at)}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-content">Criado em</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatDate(problem.created_at)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Atualizado</span>
-                  <span className="font-medium text-gray-900">{formatDate(problem.updated_at)}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-content">Atualizado</span>
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{formatDate(problem.updated_at)}</span>
                 </div>
                 {problem.resolved_at && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Resolvido em</span>
-                    <span className="font-medium text-gray-900">{formatDate(problem.resolved_at)}</span>
+                  <div className="flex justify-between items-center pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                    <span className="text-muted-content">Resolvido em</span>
+                    <span className="font-medium text-success-600 dark:text-success-400">{formatDate(problem.resolved_at)}</span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Métricas</h3>
+            <div className="glass-panel animate-slide-up">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Métricas do Problema</h3>
               <div className="grid grid-cols-2 gap-3">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-orange-600">{problem.related_incidents.length}</p>
-                  <p className="text-xs text-gray-500">Incidentes</p>
+                <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800">
+                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{problem.related_incidents.length}</p>
+                  <p className="text-xs text-orange-700 dark:text-orange-500 font-medium mt-1">Incidentes</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-indigo-600">{problem.related_changes.length}</p>
-                  <p className="text-xs text-gray-500">Mudanças</p>
+                <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/10 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                  <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{problem.related_changes.length}</p>
+                  <p className="text-xs text-indigo-700 dark:text-indigo-500 font-medium mt-1">Mudanças</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{problem.affected_cis.length}</p>
-                  <p className="text-xs text-gray-500">CIs Afetados</p>
+                <div className="text-center p-4 bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/20 dark:to-brand-900/10 rounded-xl border border-brand-200 dark:border-brand-800">
+                  <p className="text-3xl font-bold text-brand-600 dark:text-brand-400">{problem.affected_cis.length}</p>
+                  <p className="text-xs text-brand-700 dark:text-brand-500 font-medium mt-1">CIs Afetados</p>
                 </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">
+                <div className="text-center p-4 bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                  <p className="text-3xl font-bold text-description">
                     {Math.ceil((new Date().getTime() - new Date(problem.created_at).getTime()) / (1000 * 60 * 60 * 24))}
                   </p>
-                  <p className="text-xs text-gray-500">Dias aberto</p>
+                  <p className="text-xs text-neutral-700 dark:text-neutral-500 font-medium mt-1">Dias Aberto</p>
                 </div>
               </div>
             </div>
@@ -646,22 +659,24 @@ export default function ProblemDetailPage() {
         </div>
       </div>
 
-      {/* Mobile Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 glass-panel border-t shadow-2xl p-3 sm:hidden safe-bottom z-50">
+        {/* Mobile Bottom Actions */}
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/admin/problems')}
-            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg"
+            className="btn btn-secondary flex-1"
           >
+            <ArrowLeftIcon className="w-4 h-4 mr-2" />
             Voltar
           </button>
           <button
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-purple-600 rounded-lg"
+            className="btn btn-primary flex-1"
           >
+            <PencilIcon className="w-4 h-4 mr-2" />
             Editar
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }

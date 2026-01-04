@@ -35,8 +35,12 @@ interface Agent {
   email: string
 }
 
+interface ExtendedTicket extends Partial<Ticket> {
+  assigned_agent_id?: number
+}
+
 interface TicketFormProps {
-  ticket?: Partial<Ticket>
+  ticket?: ExtendedTicket
   mode: 'create' | 'edit'
   userRole?: 'admin' | 'agent' | 'user'
   onSubmit?: (data: any) => void
@@ -330,7 +334,7 @@ export default function TicketForm({
         <h1 className="text-xl font-semibold">
           {mode === 'create' ? 'Novo Ticket' : 'Editar Ticket'}
         </h1>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        <p className="text-sm text-description">
           {mode === 'create'
             ? 'Preencha as informações para criar um novo ticket'
             : 'Atualize as informações do ticket'
@@ -569,7 +573,7 @@ export default function TicketForm({
             aria-label="Área de upload de arquivos"
           >
             <PaperClipIcon className="h-8 w-8 mx-auto text-neutral-400 mb-2" aria-hidden="true" />
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
+            <p className="text-sm text-description mb-2">
               Arraste arquivos aqui ou clique para selecionar
             </p>
             <input

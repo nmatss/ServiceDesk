@@ -4,18 +4,23 @@ import './globals.css'
 import AppLayout from '@/src/components/layout/AppLayout'
 import { baseMetadata } from '@/lib/seo/metadata'
 import WebVitalsReporter from '@/components/WebVitalsReporter'
+import { ToastProvider } from '@/components/ui/toast'
 
 // Initialize Sentry for client-side
 import '@/sentry.client.config'
 
 const inter = Inter({
   subsets: ['latin'],
-  display: 'swap', // Optimize font loading
+  display: 'swap', // Optimize font loading - show fallback until font loads
   preload: true,
+  variable: '--font-inter', // CSS variable for more control
+  // Only load necessary weights to reduce bundle size
+  weight: ['400', '500', '600', '700'],
+  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
 })
 
 export const metadata: Metadata = {
-  ...baseMetadata,
+  ...(baseMetadata as Metadata),
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -31,6 +36,17 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/manifest.json'
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f172a' }
+  ]
 }
 
 export default function RootLayout({
@@ -59,6 +75,7 @@ export default function RootLayout({
           Pular para o conteúdo principal
         </a>
         <WebVitalsReporter />
+        <ToastProvider />
         <AppLayout>
           {children}
         </AppLayout>

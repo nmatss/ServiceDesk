@@ -21,11 +21,13 @@ export class ConditionNodeExecutor extends NodeExecutor {
     }
 
     // Get actual value from context variables
-    const actualValue = this.getFieldValue(context.getVariables(), field);
+    const fieldString = String(field);
+    const actualValue = this.getFieldValue(context.getVariables(), fieldString);
 
     // Evaluate condition
+    const operatorString = String(operator);
     let result = false;
-    switch (operator) {
+    switch (operatorString) {
       case 'equals':
         result = actualValue === value;
         break;
@@ -51,10 +53,10 @@ export class ConditionNodeExecutor extends NodeExecutor {
         result = Number(actualValue) <= Number(value);
         break;
       case 'in':
-        result = Array.isArray(value) && value.includes(actualValue);
+        result = Array.isArray(value) && (value as any[]).includes(actualValue);
         break;
       case 'not_in':
-        result = Array.isArray(value) && !value.includes(actualValue);
+        result = Array.isArray(value) && !(value as any[]).includes(actualValue);
         break;
       case 'is_null':
         result = actualValue == null;
@@ -66,18 +68,18 @@ export class ConditionNodeExecutor extends NodeExecutor {
         result = new RegExp(String(value)).test(String(actualValue));
         break;
       default:
-        throw new Error(`Unknown operator: ${operator}`);
+        throw new Error(`Unknown operator: ${operatorString}`);
     }
 
-    logger.info(`Condition evaluated: ${field} ${operator} ${value} = ${result}`);
+    logger.info(`Condition evaluated: ${fieldString} ${operatorString} ${value} = ${result}`);
 
     return {
       action: 'continue' as const,
       outputData: {
         conditionResult: result,
-        evaluatedField: field,
-        evaluatedValue: actualValue,
-        expectedValue: value,
+        evaluatedField: fieldString,
+        evaluatedValue: actualValue as string | number | boolean | null,
+        expectedValue: value as string | number | boolean | null,
       },
     };
   }
@@ -103,50 +105,52 @@ export class NotificationNodeExecutor extends NodeExecutor {
     const recipientList = Array.isArray(recipients) ? recipients : [recipients];
 
     // Replace template variables
-    const processedMessage = this.replaceVariables(message || template || '', context.getVariables());
-    const processedSubject = this.replaceVariables(subject || 'Workflow Notification', context.getVariables());
+    const processedMessage = this.replaceVariables(String(message || template || ''), context.getVariables());
+    const processedSubject = this.replaceVariables(String(subject || 'Workflow Notification'), context.getVariables());
 
     // Send notifications based on channel
-    const results = [];
+    const channelString = String(channel);
+    const results: Array<{ recipient: string; channel: string; sent: boolean; error?: string }> = [];
     for (const recipient of recipientList) {
       try {
-        switch (channel) {
+        const recipientStr = String(recipient);
+        switch (channelString) {
           case 'email':
-            await this.sendEmailNotification(recipient, processedSubject, processedMessage);
-            results.push({ recipient, channel: 'email', sent: true });
+            await this.sendEmailNotification(recipientStr, processedSubject, processedMessage);
+            results.push({ recipient: recipientStr, channel: 'email', sent: true });
             break;
 
           case 'in_app':
-            await this.sendInAppNotification(recipient, processedSubject, processedMessage, context);
-            results.push({ recipient, channel: 'in_app', sent: true });
+            await this.sendInAppNotification(recipientStr, processedSubject, processedMessage, context);
+            results.push({ recipient: recipientStr, channel: 'in_app', sent: true });
             break;
 
           case 'sms':
-            await this.sendSMSNotification(recipient, processedMessage);
-            results.push({ recipient, channel: 'sms', sent: true });
+            await this.sendSMSNotification(recipientStr, processedMessage);
+            results.push({ recipient: recipientStr, channel: 'sms', sent: true });
             break;
 
           default:
-            logger.warn(`Unknown notification channel: ${channel}`);
-            results.push({ recipient, channel, sent: false, error: 'Unknown channel' });
+            logger.warn(`Unknown notification channel: ${channelString}`);
+            results.push({ recipient: recipientStr, channel: channelString, sent: false, error: 'Unknown channel' });
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(`Failed to send notification to ${recipient}:`, error);
-        results.push({ recipient, channel, sent: false, error: errorMessage });
+        results.push({ recipient: String(recipient), channel: channelString, sent: false, error: errorMessage });
       }
     }
 
     const sentCount = results.filter(r => r.sent).length;
-    logger.info(`Sent ${sentCount}/${recipientList.length} notifications via ${channel}`);
+    logger.info(`Sent ${sentCount}/${recipientList.length} notifications via ${channelString}`);
 
     return {
       action: 'continue' as const,
       outputData: {
         notificationsSent: sentCount,
         totalRecipients: recipientList.length,
-        channel,
-        results,
+        channel: channelString,
+        results: results as any, // Type cast to satisfy StepDataValue
       },
     };
   }
@@ -219,14 +223,23 @@ export class WebhookNodeExecutor extends NodeExecutor {
     }
 
     // Replace variables in URL
-    const processedUrl = this.replaceVariables(url, context.getVariables());
+    const urlString = String(url);
+    const processedUrl = this.replaceVariables(urlString, context.getVariables());
 
     // Prepare request headers
-    const requestHeaders: Record<string, string> = {
+    const baseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'ServiceDesk-Workflow-Engine',
-      ...(headers || {}),
     };
+
+    // Safely merge headers
+    if (typeof headers === 'object' && headers !== null && !Array.isArray(headers)) {
+      for (const [key, value] of Object.entries(headers)) {
+        baseHeaders[key] = String(value);
+      }
+    }
+
+    const requestHeaders: Record<string, string> = baseHeaders;
 
     // Prepare request body
     let requestBody: string | undefined;
@@ -245,10 +258,12 @@ export class WebhookNodeExecutor extends NodeExecutor {
     const startTime = Date.now();
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout || 30000);
+      const timeoutMs = typeof timeout === 'number' ? timeout : 30000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      const methodString = method ? String(method).toUpperCase() : 'POST';
       const response = await fetch(processedUrl, {
-        method: method || 'POST',
+        method: methodString,
         headers: requestHeaders,
         body: requestBody,
         signal: controller.signal,
@@ -420,7 +435,7 @@ export class ActionNodeExecutor extends NodeExecutor {
 
     return {
       action: 'continue' as const,
-      outputData: { ticketCreated: true, ticketId: result.lastInsertRowid },
+      outputData: { ticketCreated: true, ticketId: Number(result.lastInsertRowid) },
     };
   }
 
@@ -439,7 +454,7 @@ export class ActionNodeExecutor extends NodeExecutor {
 
     return {
       action: 'continue' as const,
-      outputData: { commentAdded: true, commentId: result.lastInsertRowid },
+      outputData: { commentAdded: true, commentId: Number(result.lastInsertRowid) },
     };
   }
 
@@ -490,11 +505,13 @@ export class ActionNodeExecutor extends NodeExecutor {
  */
 export class DelayNodeExecutor extends NodeExecutor {
   async execute(node: WorkflowNode, _context: ExecutionContext) {
-    const { duration, unit } = node.configuration || {};
+    const { duration: rawDuration, unit } = node.configuration || {};
 
-    if (!duration) {
+    if (!rawDuration) {
       throw new Error('Delay node requires duration configuration');
     }
+
+    const duration = typeof rawDuration === 'number' ? rawDuration : Number(rawDuration);
 
     // Convert to milliseconds
     let delayMs: number;
@@ -550,7 +567,8 @@ export class ApprovalNodeExecutor extends NodeExecutor {
 
     // Set timeout if specified
     if (timeout) {
-      context.setVariable('approvalTimeout', Date.now() + timeout);
+      const timeoutMs = typeof timeout === 'number' ? timeout : Number(timeout);
+      context.setVariable('approvalTimeout', Date.now() + timeoutMs);
     }
 
     // Wait for approval (execution will be paused)

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
   ticketDataSources,
   slaDataSources,

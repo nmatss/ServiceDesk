@@ -69,7 +69,7 @@ export default function SmartTicketDeflection({ query, onArticleClick }: SmartTi
                 )}
             </div>
 
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+            <p className="text-sm text-muted-content mb-4">
                 Encontramos alguns artigos que podem ajudar a resolver seu problema agora mesmo:
             </p>
 
@@ -88,7 +88,7 @@ export default function SmartTicketDeflection({ query, onArticleClick }: SmartTi
                             <h4 className="text-sm font-medium text-neutral-900 dark:text-white group-hover:text-brand-400 transition-colors">
                                 {article.title}
                             </h4>
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-1">
+                            <p className="text-xs text-muted-content mt-1 line-clamp-1">
                                 {article.excerpt}
                             </p>
                         </div>

@@ -152,7 +152,7 @@ export default function WorkflowValidation({
         });
       }
 
-      if (node.type === 'approval' && (!node.configuration || !node.configuration.approvers || node.configuration.approvers.length === 0)) {
+      if (node.type === 'approval' && (!node.configuration || !node.configuration.approvers || (Array.isArray(node.configuration.approvers) && node.configuration.approvers.length === 0))) {
         validationIssues.push({
           type: 'error',
           message: `Approval node "${node.name}" has no approvers configured`,
@@ -168,7 +168,7 @@ export default function WorkflowValidation({
         });
       }
 
-      if (node.type === 'notification' && (!node.configuration || !node.configuration.recipients || node.configuration.recipients.length === 0)) {
+      if (node.type === 'notification' && (!node.configuration || !node.configuration.recipients || (Array.isArray(node.configuration.recipients) && node.configuration.recipients.length === 0))) {
         validationIssues.push({
           type: 'warning',
           message: `Notification node "${node.name}" has no recipients configured`,

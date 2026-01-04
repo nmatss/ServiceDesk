@@ -15,9 +15,12 @@ import {
   TrophyIcon,
   FireIcon,
   BoltIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatsCard, StatsGrid } from '@/components/ui/StatsCard'
 
 interface PerformanceMetric {
   label: string
@@ -185,79 +188,67 @@ export default function MyPerformancePage() {
   const maxActivity = Math.max(...dailyActivity.map(d => d.tickets_resolved), 1)
 
   return (
-    <div className="pb-20 sm:pb-6">
+    <div className="pb-20 sm:pb-6 animate-fade-in">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                <ChartBarIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                Minha Performance
-              </h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Acompanhe suas métricas e conquistas
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white"
-              >
-                <option value="7d">Últimos 7 dias</option>
-                <option value="30d">Últimos 30 dias</option>
-                <option value="90d">Últimos 90 dias</option>
-                <option value="year">Este ano</option>
-              </select>
-              <button
-                onClick={() => fetchPerformanceData()}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                <ArrowPathIcon className="w-5 h-5" />
-              </button>
-            </div>
+      <PageHeader
+        title="Minha Performance"
+        description="Acompanhe suas métricas e conquistas"
+        icon={ChartBarIcon}
+        breadcrumbs={[
+          { label: 'Início', href: '/dashboard', icon: HomeIcon },
+          { label: 'Relatórios', href: '/reports' },
+          { label: 'Minha Performance' }
+        ]}
+        actions={
+          <div className="flex gap-2">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+            >
+              <option value="7d">Últimos 7 dias</option>
+              <option value="30d">Últimos 30 dias</option>
+              <option value="90d">Últimos 90 dias</option>
+              <option value="year">Este ano</option>
+            </select>
+            <button
+              onClick={() => fetchPerformanceData()}
+              className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-all"
+              aria-label="Atualizar dados"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+            </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div>
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-slide-up">
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <StatsGrid cols={4}>
               {metrics.map((metric, index) => (
-                <div
+                <StatsCard
                   key={index}
-                  className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <metric.icon className={`w-5 h-5 ${metric.color}`} />
-                    <span className="text-sm text-gray-500">{metric.label}</span>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">{metric.value}</p>
-                  <div className="flex items-center gap-1 mt-2">
-                    {metric.change > 0 ? (
-                      <ArrowTrendingUpIcon className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <ArrowTrendingDownIcon className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className="text-xs text-green-600">
-                      {Math.abs(metric.change)}% {metric.changeLabel}
-                    </span>
-                  </div>
-                </div>
+                  label={metric.label}
+                  value={metric.value}
+                  icon={metric.icon}
+                  trend={metric.change > 0 ? 'up' : 'down'}
+                  trendValue={`${Math.abs(metric.change)}%`}
+                  trendLabel={metric.changeLabel}
+                  variant="glass"
+                />
               ))}
-            </div>
+            </StatsGrid>
 
             {/* CSAT and Additional Stats */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* CSAT Score */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
+              <div className="glass-panel bg-gradient-to-br from-brand-600 to-brand-700 rounded-xl p-6 text-white border-0">
                 <h3 className="text-lg font-medium opacity-90 mb-2">Satisfação do Cliente</h3>
                 <div className="flex items-end gap-3">
                   <span className="text-5xl font-bold">{stats.csat_score}</span>
@@ -276,20 +267,20 @@ export default function MyPerformancePage() {
               </div>
 
               {/* Quick Stats */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Resumo Rápido</h3>
+              <div className="glass-panel rounded-xl p-6">
+                <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Resumo Rápido</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Tickets Pendentes</span>
-                    <span className="font-medium text-orange-600">{stats.pending}</span>
+                    <span className="text-sm text-description">Tickets Pendentes</span>
+                    <span className="font-medium text-status-warning-text">{stats.pending}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Taxa de Reabertura</span>
-                    <span className="font-medium text-gray-900">{stats.reopen_rate}%</span>
+                    <span className="text-sm text-description">Taxa de Reabertura</span>
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{stats.reopen_rate}%</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Média Diária</span>
-                    <span className="font-medium text-gray-900">
+                    <span className="text-sm text-description">Média Diária</span>
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">
                       {(stats.resolved / (period === '7d' ? 7 : period === '30d' ? 30 : 90)).toFixed(1)} tickets
                     </span>
                   </div>
@@ -297,27 +288,27 @@ export default function MyPerformancePage() {
               </div>
 
               {/* Ranking */}
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <TrophyIcon className="w-5 h-5 text-yellow-500" />
+              <div className="glass-panel rounded-xl p-6">
+                <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                  <TrophyIcon className="w-5 h-5 text-priority-medium-icon" />
                   Ranking da Equipe
                 </h3>
                 <div className="text-center py-4">
-                  <span className="text-4xl font-bold text-gray-900">3º</span>
-                  <p className="text-sm text-gray-500 mt-1">de 12 agentes</p>
+                  <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">3º</span>
+                  <p className="text-sm text-muted-content mt-1">de 12 agentes</p>
                 </div>
-                <div className="mt-2 bg-yellow-50 rounded-lg p-2 text-center">
-                  <span className="text-sm text-yellow-700">
-                    🏆 Top 25% da equipe
+                <div className="mt-2 bg-priority-medium-bg dark:bg-priority-medium-bg/20 rounded-lg p-2 text-center">
+                  <span className="text-sm text-priority-medium-text dark:text-priority-medium-icon">
+                    Top 25% da equipe
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Activity Chart */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <CalendarDaysIcon className="w-5 h-5 text-gray-400" />
+            <div className="glass-panel rounded-xl p-4 sm:p-6">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                <CalendarDaysIcon className="w-5 h-5 text-icon-muted" />
                 Atividade Diária (últimos 14 dias)
               </h3>
               <div className="overflow-x-auto">
@@ -332,69 +323,69 @@ export default function MyPerformancePage() {
                       <div key={index} className="flex-1 flex flex-col items-center gap-1">
                         <div className="w-full h-24 flex items-end justify-center">
                           <div
-                            className="w-full max-w-[30px] bg-blue-500 rounded-t transition-all hover:bg-blue-600"
+                            className="w-full max-w-[30px] bg-brand-500 dark:bg-brand-600 rounded-t transition-all hover:bg-brand-600 dark:hover:bg-brand-500"
                             style={{ height: `${Math.max(height, 10)}%` }}
                             title={`${day.tickets_resolved} tickets resolvidos`}
                           />
                         </div>
-                        <span className="text-xs text-gray-500">{dayNum}</span>
-                        <span className="text-[10px] text-gray-400 uppercase">{dayName}</span>
+                        <span className="text-xs text-muted-content">{dayNum}</span>
+                        <span className="text-[10px] text-icon-muted uppercase">{dayName}</span>
                       </div>
                     )
                   })}
                 </div>
               </div>
-              <div className="flex items-center justify-center gap-4 mt-4 text-sm text-gray-500">
+              <div className="flex items-center justify-center gap-4 mt-4 text-sm text-muted-content">
                 <span className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-blue-500 rounded" />
+                  <div className="w-3 h-3 bg-brand-500 dark:bg-brand-600 rounded" />
                   Tickets Resolvidos
                 </span>
               </div>
             </div>
 
             {/* Achievements */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <TrophyIcon className="w-5 h-5 text-yellow-500" />
+            <div className="glass-panel rounded-xl p-4 sm:p-6">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                <TrophyIcon className="w-5 h-5 text-priority-medium-icon" />
                 Conquistas
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {achievements.map(achievement => (
                   <div
                     key={achievement.id}
-                    className={`p-4 rounded-xl border-2 text-center transition-all ${
+                    className={`p-4 rounded-xl border-2 text-center transition-all hover:scale-105 ${
                       achievement.earned
-                        ? 'border-yellow-200 bg-yellow-50'
-                        : 'border-gray-100 bg-gray-50 opacity-75'
+                        ? 'border-priority-medium-border bg-priority-medium-bg dark:bg-priority-medium-bg/20'
+                        : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 opacity-75'
                     }`}
                   >
                     <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${
-                      achievement.earned ? 'bg-yellow-100' : 'bg-gray-200'
+                      achievement.earned ? 'bg-priority-medium-bg dark:bg-priority-medium-bg/30' : 'bg-neutral-200 dark:bg-neutral-700'
                     }`}>
                       <achievement.icon className={`w-6 h-6 ${
-                        achievement.earned ? achievement.color : 'text-gray-400'
+                        achievement.earned ? achievement.color : 'text-icon-muted'
                       }`} />
                     </div>
                     <h4 className={`font-medium mt-2 text-sm ${
-                      achievement.earned ? 'text-gray-900' : 'text-gray-500'
+                      achievement.earned ? 'text-neutral-900 dark:text-neutral-100' : 'text-muted-content'
                     }`}>
                       {achievement.title}
                     </h4>
-                    <p className="text-xs text-gray-500 mt-1">{achievement.description}</p>
+                    <p className="text-xs text-muted-content mt-1">{achievement.description}</p>
                     {!achievement.earned && achievement.progress !== undefined && (
                       <div className="mt-2">
-                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 rounded-full"
+                            className="h-full bg-brand-500 dark:bg-brand-600 rounded-full transition-all"
                             style={{ width: `${achievement.progress}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-400 mt-1">{achievement.progress}%</span>
+                        <span className="text-xs text-icon-muted mt-1">{achievement.progress}%</span>
                       </div>
                     )}
                     {achievement.earned && (
-                      <span className="inline-block mt-2 text-xs text-yellow-600 font-medium">
-                        ✓ Conquistado
+                      <span className="inline-block mt-2 text-xs text-priority-medium-text dark:text-priority-medium-icon font-medium">
+                        Conquistado
                       </span>
                     )}
                   </div>
@@ -403,19 +394,19 @@ export default function MyPerformancePage() {
             </div>
 
             {/* Tips */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6">
-              <h3 className="font-semibold text-blue-900 mb-3">💡 Dicas para melhorar</h3>
-              <ul className="space-y-2 text-sm text-blue-800">
+            <div className="glass-panel bg-brand-50 dark:bg-brand-950/20 border-brand-200 dark:border-brand-900/50 rounded-xl p-4 sm:p-6">
+              <h3 className="font-semibold text-brand-900 dark:text-brand-100 mb-3">Dicas para melhorar</h3>
+              <ul className="space-y-2 text-sm text-brand-800 dark:text-brand-200">
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-0.5">•</span>
+                  <span className="text-brand-500 dark:text-brand-400 mt-0.5">•</span>
                   Responda tickets de alta prioridade primeiro para melhorar o SLA
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-0.5">•</span>
+                  <span className="text-brand-500 dark:text-brand-400 mt-0.5">•</span>
                   Use templates de resposta para agilizar o atendimento
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-0.5">•</span>
+                  <span className="text-brand-500 dark:text-brand-400 mt-0.5">•</span>
                   Consulte a base de conhecimento antes de escalar
                 </li>
               </ul>

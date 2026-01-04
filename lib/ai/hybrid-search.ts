@@ -244,7 +244,7 @@ export class HybridSearchEngine {
             content: article.title,
             metadata: {
               summary: article.summary,
-              category: article.category_name,
+              category: (article as any).category_name,
               viewCount: article.view_count,
               helpfulCount: article.helpful_count
             }

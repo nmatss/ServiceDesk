@@ -392,7 +392,7 @@ class DuplicateDetector {
   private performKeywordAnalysis(
     newTicket: { title: string; description: string; },
     existingTicket: Ticket
-  ): Promise<{ similarity: number; evidence: string[] }> {
+  ): { similarity: number; evidence: string[] } {
     const newText = `${newTicket.title} ${newTicket.description}`.toLowerCase();
     const existingText = `${existingTicket.title} ${existingTicket.description}`.toLowerCase();
 
@@ -433,7 +433,7 @@ class DuplicateDetector {
       evidence.push(`Technical terms: ${technicalMatches.join(', ')}`);
     }
 
-    return Promise.resolve({ similarity, evidence });
+    return { similarity, evidence };
   }
 
   /**
@@ -442,7 +442,7 @@ class DuplicateDetector {
   private performStructuralAnalysis(
     newTicket: { title: string; description: string; },
     existingTicket: Ticket
-  ): Promise<{ similarity: number; evidence: string[] }> {
+  ): { similarity: number; evidence: string[] } {
     const evidence = [];
     let similarity = 0;
 
@@ -479,7 +479,7 @@ class DuplicateDetector {
       similarity += structureSimilarity * 0.2;
     }
 
-    return Promise.resolve({ similarity: Math.min(similarity, 1), evidence });
+    return { similarity: Math.min(similarity, 1), evidence };
   }
 
   /**
@@ -487,7 +487,7 @@ class DuplicateDetector {
    */
   private performTemporalAnalysis(
     existingTicket: Ticket
-  ): Promise<{ relevance: number; evidence: string[] }> {
+  ): { relevance: number; evidence: string[] } {
     const evidence = [];
     let relevance = 0;
 
@@ -524,7 +524,7 @@ class DuplicateDetector {
       }
     }
 
-    return Promise.resolve({ relevance: Math.min(relevance, 1), evidence });
+    return { relevance: Math.min(relevance, 1), evidence };
   }
 
   /**
@@ -822,7 +822,7 @@ class DuplicateDetector {
       ['application', 2], ['software', 2], ['hardware', 3], ['system', 2]
     ];
 
-    this.technicalTerms = new Map(terms);
+    this.technicalTerms = new Map(terms.map(([k, v]) => [k, v] as [string, number]));
   }
 
   /**
@@ -864,6 +864,5 @@ class DuplicateDetector {
 // Export singleton instance
 export const duplicateDetector = new DuplicateDetector();
 
-// Export types and classes
+// Export class (types DetectionConfig and EmbeddingCache are already exported with their interfaces)
 export { DuplicateDetector };
-export type { DetectionConfig, EmbeddingCache };

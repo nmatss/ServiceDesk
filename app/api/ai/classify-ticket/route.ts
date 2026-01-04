@@ -4,10 +4,7 @@ import TicketClassifier from '@/lib/ai/ticket-classifier';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
-import { createRateLimitMiddleware } from '@/lib/rate-limit';
-
-// Rate limiting para classificação AI (proteger recursos computacionais)
-const classifyRateLimit = createRateLimitMiddleware('api')
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const classifyTicketSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -18,11 +15,9 @@ const classifyTicketSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  // Aplicar rate limiting
-  const rateLimitResult = await classifyRateLimit(request, '/api/ai/classify-ticket')
-  if (rateLimitResult instanceof Response) {
-    return rateLimitResult // Rate limit exceeded
-  }
+  // SECURITY: Rate limiting para AI (alto custo computacional)
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     // Verificar autenticação
@@ -49,7 +44,7 @@ export async function POST(request: NextRequest) {
     const { title, description, userId, includeHistoricalData, generateEmbedding } =
       classifyTicketSchema.parse(body);
 
-    // Buscar categorias e prioridades disponíveis
+    // NOTE: Categories and priorities are global (no organization_id filter needed)
     const categories = db.prepare(`
       SELECT id, name, description, color, created_at, updated_at
       FROM categories

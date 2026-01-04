@@ -210,7 +210,7 @@ export default function BiometricAuth({
           <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
             Autenticação Biométrica Não Disponível
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-description">
             Seu dispositivo não suporta autenticação biométrica
           </p>
         </div>
@@ -233,7 +233,7 @@ export default function BiometricAuth({
           </h3>
 
           {/* Description */}
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-sm text-description mb-6">
             {mode === 'register'
               ? 'Configure sua biometria para acesso rápido e seguro'
               : 'Use sua impressão digital ou Face ID para entrar'}
@@ -313,7 +313,7 @@ export default function BiometricAuth({
       ) : (
         <div className="text-center p-6">
           {/* PIN Icon */}
-          <div className="mb-6 text-gray-600 dark:text-gray-400 flex justify-center">
+          <div className="mb-6 text-description flex justify-center">
             <svg className="w-16 h-16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" />
             </svg>
@@ -445,7 +445,7 @@ export function BiometricSettings() {
       </h3>
 
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+        <span className="text-sm text-description">
           {isEnabled ? 'Ativada' : 'Desativada'}
         </span>
         <button

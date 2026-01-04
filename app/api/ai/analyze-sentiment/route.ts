@@ -5,6 +5,7 @@ import SolutionSuggester from '@/lib/ai/solution-suggester';
 import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const analyzeSentimentSchema = z.object({
   text: z.string().min(1, 'Text is required').max(5000, 'Text too long'),
   ticketId: z.number().optional(),
@@ -13,6 +14,10 @@ const analyzeSentimentSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
@@ -276,6 +281,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');

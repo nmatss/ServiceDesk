@@ -4,10 +4,15 @@ import db from '@/lib/db/connection'
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting para operações admin
 const adminRateLimit = createRateLimitMiddleware('api')
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_USER);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Aplicar rate limiting
   const rateLimitResult = await adminRateLimit(request, '/api/admin/users')
   if (rateLimitResult instanceof Response) {

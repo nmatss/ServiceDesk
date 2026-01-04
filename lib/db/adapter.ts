@@ -268,11 +268,11 @@ export class SQLDialectConverter {
     converted = converted.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
     converted = converted.replace(/AUTOINCREMENT/gi, 'SERIAL');
 
+    // DATETIME('now') -> CURRENT_TIMESTAMP (must be before general DATETIME replacement)
+    converted = converted.replace(/DATETIME\s*\(\s*['"]now['"]\s*\)/gi, 'CURRENT_TIMESTAMP');
+
     // DATETIME -> TIMESTAMP WITH TIME ZONE
     converted = converted.replace(/DATETIME/gi, 'TIMESTAMP WITH TIME ZONE');
-
-    // CURRENT_TIMESTAMP
-    converted = converted.replace(/DATETIME\('now'\)/gi, 'CURRENT_TIMESTAMP');
 
     // Boolean values
     converted = converted.replace(/\bBOOLEAN\b/gi, 'BOOLEAN');

@@ -4,11 +4,16 @@ import { getMessagesByContact, getMessagesByTicket } from '@/lib/integrations/wh
 import { createAuditLog } from '@/lib/audit/logger';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET - Buscar mensagens WhatsApp
  * Busca mensagens por contato ou ticket
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verifica autenticação
     const authResult = await verifyAuth(request);

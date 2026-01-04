@@ -3,9 +3,14 @@ import { ticketQueries } from '@/lib/db/queries';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -46,7 +51,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -90,6 +99,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Descrição não pode estar vazia' }, { status: 400 });
     }
 
+    // SECURITY: Pass organization_id for tenant isolation
     const updatedTicket = ticketQueries.update({
       id: ticketId,
       title: title?.trim(),
@@ -98,7 +108,7 @@ export async function PUT(
       priority_id,
       status_id,
       assigned_to
-    });
+    }, user.organization_id);
 
     return NextResponse.json({ ticket: updatedTicket });
   } catch (error) {
@@ -109,7 +119,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar autenticação
@@ -141,7 +155,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Ticket não encontrado' }, { status: 404 });
     }
 
-    const success = ticketQueries.delete(ticketId);
+    // SECURITY: Pass organization_id for tenant isolation
+    const success = ticketQueries.delete(ticketId, user.organization_id);
     if (!success) {
       return NextResponse.json({ error: 'Erro ao deletar ticket' }, { status: 500 });
     }

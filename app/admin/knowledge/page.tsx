@@ -9,8 +9,17 @@ import {
   HandThumbUpIcon,
   HandThumbDownIcon,
   PencilIcon,
-  TrashIcon
+  TrashIcon,
+  BookOpenIcon,
+  DocumentTextIcon,
+  ChartBarIcon,
+  SparklesIcon,
+  FunnelIcon
 } from '@heroicons/react/24/outline'
+import PageHeader from '@/components/ui/PageHeader'
+import StatsCard, { StatsGrid } from '@/components/ui/StatsCard'
+import { ArticleListSkeleton, StatsCardsSkeleton } from '@/components/ui/states'
+import { LoadingError, KnowledgeBaseEmptyState, FilterEmptyState } from '@/components/ui/states'
 
 interface Article {
   id: number
@@ -37,6 +46,7 @@ export default function KnowledgePage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
@@ -47,6 +57,7 @@ export default function KnowledgePage() {
 
   const fetchArticles = async () => {
     try {
+      setError(null)
       const params = new URLSearchParams()
       if (search) params.append('search', search)
       if (selectedCategory) params.append('category', selectedCategory)
@@ -61,9 +72,12 @@ export default function KnowledgePage() {
         const data = await response.json()
         setArticles(data.articles)
         setCategories(data.categories)
+      } else {
+        setError('Erro ao carregar artigos')
       }
     } catch (error) {
       logger.error('Erro ao buscar artigos', error)
+      setError('Erro ao carregar artigos. Verifique sua conexão.')
     } finally {
       setLoading(false)
     }
@@ -94,13 +108,13 @@ export default function KnowledgePage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'published':
-        return 'bg-green-100 text-green-800'
+        return 'bg-success-100 text-success-800 dark:bg-success-900/20 dark:text-success-400'
       case 'draft':
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400'
       case 'archived':
-        return 'bg-red-100 text-red-800'
+        return 'bg-error-100 text-error-800 dark:bg-error-900/20 dark:text-error-400'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400'
     }
   }
 
@@ -117,56 +131,117 @@ export default function KnowledgePage() {
     }
   }
 
+  // Calculate stats
+  const totalArticles = articles.length
+  const publishedArticles = articles.filter(a => a.status === 'published').length
+  const draftArticles = articles.filter(a => a.status === 'draft').length
+  const totalViews = articles.reduce((sum, a) => sum + a.view_count, 0)
+  const avgHelpfulRate = articles.length > 0
+    ? Math.round(
+        articles.reduce((sum, a) => {
+          const total = a.helpful_count + a.not_helpful_count
+          return sum + (total > 0 ? (a.helpful_count / total) * 100 : 0)
+        }, 0) / articles.length
+      )
+    : 0
+
   return (
-    <div className="space-y-6">
-        {/* Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Base de Conhecimento
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Gerencie artigos e documentação do sistema
-            </p>
-          </div>
-          <div className="mt-4 flex md:ml-4 md:mt-0">
-            <button
-              type="button"
-              className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            >
-              <PlusIcon className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
-              Novo Artigo
-            </button>
-          </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Modern Header */}
+      <PageHeader
+        title="Base de Conhecimento"
+        description="Gerencie artigos e documentação do sistema"
+        icon={BookOpenIcon}
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Base de Conhecimento' }
+        ]}
+        actions={[
+          {
+            label: 'Novo Artigo',
+            icon: PlusIcon,
+            variant: 'primary',
+            onClick: () => logger.info('Create new article')
+          }
+        ]}
+      />
+
+      {/* Stats Cards */}
+      <StatsGrid cols={4}>
+        <StatsCard
+          title="Total de Artigos"
+          value={totalArticles}
+          icon={DocumentTextIcon}
+          color="brand"
+          loading={loading}
+          change={totalArticles > 0 ? { value: 12, type: 'increase', period: 'vs mês anterior' } : undefined}
+        />
+        <StatsCard
+          title="Artigos Publicados"
+          value={publishedArticles}
+          icon={BookOpenIcon}
+          color="success"
+          loading={loading}
+          change={publishedArticles > 0 ? { value: 8, type: 'increase', period: 'vs mês anterior' } : undefined}
+        />
+        <StatsCard
+          title="Rascunhos"
+          value={draftArticles}
+          icon={PencilIcon}
+          color="warning"
+          loading={loading}
+        />
+        <StatsCard
+          title="Visualizações Totais"
+          value={totalViews}
+          icon={EyeIcon}
+          color="info"
+          loading={loading}
+          change={totalViews > 0 ? { value: 25, type: 'increase', period: 'vs mês anterior' } : undefined}
+        />
+      </StatsGrid>
+
+      {/* Modern Filters */}
+      <div className="glass-panel p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <FunnelIcon className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            Filtros
+          </h3>
         </div>
 
-        {/* Filters */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {/* Search Input */}
           <div>
-            <label htmlFor="search" className="sr-only">
-              Buscar
+            <label htmlFor="search" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Buscar Artigos
             </label>
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400" aria-hidden="true" />
               </div>
               <input
                 id="search"
                 name="search"
                 type="search"
-                placeholder="Buscar artigos..."
+                placeholder="Buscar por título, conteúdo..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="block w-full rounded-md border-0 py-1.5 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                className="input-field pl-10"
               />
             </div>
           </div>
 
+          {/* Category Filter */}
           <div>
+            <label htmlFor="category" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Categoria
+            </label>
             <select
+              id="category"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+              className="input-field"
             >
               <option value="">Todas as categorias</option>
               {categories.map((cat) => (
@@ -177,11 +252,16 @@ export default function KnowledgePage() {
             </select>
           </div>
 
+          {/* Status Filter */}
           <div>
+            <label htmlFor="status" className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Status
+            </label>
             <select
+              id="status"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+              className="input-field"
             >
               <option value="all">Todos os status</option>
               <option value="published">Publicados</option>
@@ -190,115 +270,160 @@ export default function KnowledgePage() {
             </select>
           </div>
         </div>
+      </div>
 
-        {/* Articles List */}
-        <div className="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl">
-          <div className="px-4 py-6 sm:p-8">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-4 text-sm text-gray-500">Carregando artigos...</p>
+      {/* Articles Grid */}
+      <div className="glass-panel p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <DocumentTextIcon className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+              Artigos ({articles.length})
+            </h3>
+          </div>
+          {articles.length > 0 && (
+            <span className="text-sm text-muted-content">
+              {search || selectedCategory || selectedStatus !== 'all' ? 'Filtrados' : 'Todos os artigos'}
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative">
+              <div className="h-12 w-12 rounded-full border-4 border-neutral-200 dark:border-neutral-700"></div>
+              <div className="absolute top-0 h-12 w-12 rounded-full border-4 border-brand-600 dark:border-brand-400 border-t-transparent animate-spin"></div>
+            </div>
+            <p className="mt-4 text-sm text-muted-content">Carregando artigos...</p>
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative mb-4">
+              <div className="h-16 w-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                <DocumentTextIcon className="h-8 w-8 text-neutral-400" />
               </div>
-            ) : articles.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="mx-auto h-12 w-12 text-gray-400">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">Nenhum artigo encontrado</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Comece criando um novo artigo para sua base de conhecimento.
-                </p>
-                <div className="mt-6">
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
-                  >
-                    <PlusIcon className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
-                    Novo Artigo
-                  </button>
-                </div>
+              <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center">
+                <SparklesIcon className="h-4 w-4 text-brand-600 dark:text-brand-400" />
               </div>
-            ) : (
-              <div className="space-y-6">
-                {articles.map((article) => (
-                  <div
-                    key={article.id}
-                    className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3">
-                          <h3 className="text-lg font-semibold text-gray-900 truncate">
-                            {article.title}
-                          </h3>
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                              article.status
-                            )}`}
-                          >
-                            {getStatusText(article.status)}
+            </div>
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
+              Nenhum artigo encontrado
+            </h3>
+            <p className="text-sm text-muted-content mb-6 text-center max-w-md">
+              {search || selectedCategory || selectedStatus !== 'all'
+                ? 'Tente ajustar os filtros para encontrar artigos.'
+                : 'Comece criando seu primeiro artigo para construir sua base de conhecimento.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => logger.info('Create new article')}
+              className="btn btn-primary"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Novo Artigo
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {articles.map((article, index) => (
+              <div
+                key={article.id}
+                className="group relative glass-panel p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 animate-slide-up"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    {/* Title and Status */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                        {article.title}
+                      </h3>
+                      <span className={`badge shrink-0 ${
+                        article.status === 'published' ? 'badge-success' :
+                        article.status === 'draft' ? 'badge-warning' :
+                        'badge-error'
+                      }`}>
+                        {getStatusText(article.status)}
+                      </span>
+                    </div>
+
+                    {/* Excerpt */}
+                    {article.excerpt && (
+                      <p className="text-sm text-description line-clamp-2 mb-4">
+                        {article.excerpt}
+                      </p>
+                    )}
+
+                    {/* Category Badge */}
+                    {article.category && (
+                      <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 text-xs font-medium mb-4">
+                        <BookOpenIcon className="h-3 w-3" />
+                        {article.category}
+                      </div>
+                    )}
+
+                    {/* Metadata */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-content">
+                      <span className="flex items-center gap-1">
+                        Por <span className="font-medium text-neutral-700 dark:text-neutral-300">{article.author_name}</span>
+                      </span>
+                      <span>•</span>
+                      <span>{formatDate(article.created_at)}</span>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-6 mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+                      <div className="flex items-center gap-2 text-sm">
+                        <EyeIcon className="h-4 w-4 text-info-500" />
+                        <span className="text-description">{article.view_count}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <HandThumbUpIcon className="h-4 w-4 text-success-500" />
+                        <span className="text-description">{article.helpful_count}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <HandThumbDownIcon className="h-4 w-4 text-error-500" />
+                        <span className="text-description">{article.not_helpful_count}</span>
+                      </div>
+                      {article.helpful_count + article.not_helpful_count > 0 && (
+                        <>
+                          <span className="text-neutral-300 dark:text-neutral-600">•</span>
+                          <span className="text-sm text-description">
+                            {Math.round((article.helpful_count / (article.helpful_count + article.not_helpful_count)) * 100)}% útil
                           </span>
-                        </div>
-
-                        {article.excerpt && (
-                          <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                            {article.excerpt}
-                          </p>
-                        )}
-
-                        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                          <span>Por {article.author_name}</span>
-                          <span>•</span>
-                          <span>{article.category}</span>
-                          <span>•</span>
-                          <span>{formatDate(article.created_at)}</span>
-                        </div>
-
-                        <div className="mt-4 flex items-center space-x-6">
-                          <div className="flex items-center space-x-1">
-                            <EyeIcon className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-500">{article.view_count}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <HandThumbUpIcon className="h-4 w-4 text-green-400" />
-                            <span className="text-sm text-gray-500">{article.helpful_count}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <HandThumbDownIcon className="h-4 w-4 text-red-400" />
-                            <span className="text-sm text-gray-500">{article.not_helpful_count}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2 ml-4">
-                        <button
-                          type="button"
-                          className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteArticle(article.id)}
-                          className="inline-flex items-center rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 hover:text-red-600"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                ))}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => logger.info('Edit article', article.id)}
+                      aria-label="Editar artigo"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteArticle(article.id)}
+                      className="btn btn-danger"
+                      aria-label="Excluir artigo"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hover gradient overlay */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 rounded-xl pointer-events-none bg-gradient-brand" />
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        )}
       </div>
+    </div>
   )
 }

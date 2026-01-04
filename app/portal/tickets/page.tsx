@@ -16,6 +16,9 @@ import {
   CheckCircleIcon,
   ClockIcon
 } from '@heroicons/react/24/outline'
+import { TicketListSkeleton, StatsCardsSkeleton } from '@/components/ui/loading-states'
+import { LoadingError } from '@/components/ui/error-states'
+import { TicketsEmptyState, FilterEmptyState } from '@/components/ui/empty-state'
 
 interface Ticket {
   id: number
@@ -54,6 +57,7 @@ export default function MyTicketsPage() {
   const [statuses, setStatuses] = useState<Status[]>([])
   const [priorities, setPriorities] = useState<Priority[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedPriority, setSelectedPriority] = useState('all')
@@ -70,6 +74,7 @@ export default function MyTicketsPage() {
   const fetchTickets = async () => {
     try {
       setLoading(true)
+      setError(null)
       const params = new URLSearchParams({
         sort_by: sortBy,
         sort_order: sortOrder,
@@ -94,11 +99,15 @@ export default function MyTicketsPage() {
       if (data.success) {
         setTickets(data.tickets || [])
       } else {
-        toast.error('Erro ao carregar tickets')
+        const errorMsg = 'Erro ao carregar tickets'
+        setError(errorMsg)
+        toast.error(errorMsg)
       }
     } catch (error) {
       logger.error('Error fetching tickets', error)
-      toast.error('Erro ao carregar tickets')
+      const errorMsg = 'Erro ao carregar tickets. Verifique sua conexão.'
+      setError(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -139,12 +148,12 @@ export default function MyTicketsPage() {
       return <CheckCircleIcon className="w-4 h-4 text-green-500" />
     }
     if (statusLower.includes('progresso') || statusLower.includes('atendimento')) {
-      return <ClockIcon className="w-4 h-4 text-blue-500" />
+      return <ClockIcon className="w-4 h-4 text-brand-500" />
     }
     if (statusLower.includes('pendente') || statusLower.includes('aguard')) {
-      return <ExclamationTriangleIcon className="w-4 h-4 text-yellow-500" />
+      return <ExclamationTriangleIcon className="w-4 h-4 text-warning-500" />
     }
-    return <ClockIcon className="w-4 h-4 text-gray-500" />
+    return <ClockIcon className="w-4 h-4 text-neutral-500" />
   }
 
   const formatDate = (dateString: string) => {
@@ -176,20 +185,20 @@ export default function MyTicketsPage() {
     const diffInHours = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60)
 
     if (diffInHours < 0) {
-      return <span className="text-red-600 font-medium">Vencido</span>
+      return <span className="text-error-600 font-medium">Vencido</span>
     }
 
     if (diffInHours < 1) {
       const diffInMinutes = Math.floor(diffInHours * 60)
-      return <span className="text-orange-600 font-medium">{diffInMinutes}m restantes</span>
+      return <span className="text-warning-600 font-medium">{diffInMinutes}m restantes</span>
     }
 
     if (diffInHours < 24) {
-      return <span className="text-yellow-600 font-medium">{Math.floor(diffInHours)}h restantes</span>
+      return <span className="text-warning-600 font-medium">{Math.floor(diffInHours)}h restantes</span>
     }
 
     const diffInDays = Math.floor(diffInHours / 24)
-    return <span className="text-green-600 font-medium">{diffInDays}d restantes</span>
+    return <span className="text-success-600 font-medium">{diffInDays}d restantes</span>
   }
 
   const getTicketsByStatus = () => {
@@ -205,40 +214,77 @@ export default function MyTicketsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-20 bg-white rounded-lg border border-gray-200"></div>
-              ))}
+          <div className="glass-panel shadow-sm border-b mb-8">
+            <div className="py-6 px-4">
+              <div className="h-8 bg-neutral-200 dark:bg-neutral-700 rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-1/3"></div>
             </div>
+          </div>
+          <StatsCardsSkeleton count={3} />
+          <div className="mt-6">
+            <TicketListSkeleton items={5} />
           </div>
         </div>
       </div>
     )
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <LoadingError message={error} onRetry={fetchTickets} />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="glass-panel shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Breadcrumbs */}
+          <nav className="flex mb-4" aria-label="Breadcrumb">
+            <ol className="flex items-center space-x-2 text-sm">
+              <li className="flex items-center">
+                <Link href="/portal" className="text-neutral-600 hover:text-brand-600">
+                  Portal
+                </Link>
+              </li>
+              <li className="flex items-center">
+                <svg
+                  className="h-4 w-4 text-neutral-400 mx-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span className="text-neutral-900 font-medium">Meus Tickets</span>
+              </li>
+            </ol>
+          </nav>
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                 Meus Tickets
               </h1>
-              <p className="text-gray-600">
+              <p className="text-description">
                 Acompanhe o status das suas solicitações
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
               <Link
                 href="/portal"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
               >
                 <PlusIcon className="w-4 h-4 mr-2" />
                 Nova Solicitação
@@ -251,39 +297,39 @@ export default function MyTicketsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="glass-panel rounded-lg border border-neutral-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Abertos</p>
-                <p className="text-3xl font-bold text-orange-600">{statusGroups.open.length}</p>
+                <p className="text-sm font-medium text-neutral-600">Abertos</p>
+                <p className="text-3xl font-bold text-warning-600">{statusGroups.open.length}</p>
               </div>
-              <ClockIcon className="w-8 h-8 text-orange-400" />
+              <ClockIcon className="w-8 h-8 text-warning-400" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="glass-panel rounded-lg border border-neutral-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Em Progresso</p>
-                <p className="text-3xl font-bold text-blue-600">{statusGroups.in_progress.length}</p>
+                <p className="text-sm font-medium text-neutral-600">Em Progresso</p>
+                <p className="text-3xl font-bold text-brand-600">{statusGroups.in_progress.length}</p>
               </div>
-              <ExclamationTriangleIcon className="w-8 h-8 text-blue-400" />
+              <ExclamationTriangleIcon className="w-8 h-8 text-brand-400" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="glass-panel rounded-lg border border-neutral-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Resolvidos</p>
-                <p className="text-3xl font-bold text-green-600">{statusGroups.resolved.length}</p>
+                <p className="text-sm font-medium text-neutral-600">Resolvidos</p>
+                <p className="text-3xl font-bold text-success-600">{statusGroups.resolved.length}</p>
               </div>
-              <CheckCircleIcon className="w-8 h-8 text-green-400" />
+              <CheckCircleIcon className="w-8 h-8 text-success-400" />
             </div>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="glass-panel rounded-lg border border-neutral-200 p-6 mb-6">
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -292,36 +338,36 @@ export default function MyTicketsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por número, título ou descrição..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
-                <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                <MagnifyingGlassIcon className="w-5 h-5 text-neutral-400 absolute left-3 top-2.5" />
               </div>
             </div>
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-neutral-300 rounded-lg hover:bg-neutral-50 transition-colors"
             >
               <FunnelIcon className="w-4 h-4 mr-2" />
               Filtros
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
             >
               Buscar
             </button>
           </form>
 
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-4 pt-4 border-t border-neutral-200">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Status</label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="all">Todos os status</option>
                     {statuses.map(status => (
@@ -331,11 +377,11 @@ export default function MyTicketsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Prioridade</label>
                   <select
                     value={selectedPriority}
                     onChange={(e) => setSelectedPriority(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="all">Todas as prioridades</option>
                     {priorities.map(priority => (
@@ -345,7 +391,7 @@ export default function MyTicketsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por</label>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Ordenar por</label>
                   <select
                     value={`${sortBy}-${sortOrder}`}
                     onChange={(e) => {
@@ -353,7 +399,7 @@ export default function MyTicketsPage() {
                       if (field) setSortBy(field)
                       setSortOrder(order as 'asc' | 'desc')
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="created_at-desc">Mais recentes</option>
                     <option value="created_at-asc">Mais antigos</option>
@@ -368,36 +414,27 @@ export default function MyTicketsPage() {
 
         {/* Tickets List */}
         {tickets.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-            <ExclamationTriangleIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhum ticket encontrado
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {searchTerm || selectedStatus !== 'all' || selectedPriority !== 'all'
-                ? 'Tente ajustar os filtros de busca.'
-                : 'Você ainda não criou nenhuma solicitação.'}
-            </p>
-            <Link
-              href="/portal"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              Criar primeira solicitação
-            </Link>
-          </div>
+          searchTerm || selectedStatus !== 'all' || selectedPriority !== 'all' ? (
+            <FilterEmptyState onClearFilters={() => {
+              setSearchTerm('')
+              setSelectedStatus('all')
+              setSelectedPriority('all')
+            }} />
+          ) : (
+            <TicketsEmptyState onCreateTicket={() => router.push('/portal')} />
+          )
         ) : (
           <div className="space-y-4">
             {tickets.map(ticket => (
               <div
                 key={ticket.id}
-                className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                className="glass-panel rounded-lg border border-neutral-200 hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => router.push(`/portal/tickets/${ticket.id}`)}
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center space-x-3">
-                      <span className="text-sm font-mono text-gray-500">
+                      <span className="text-sm font-mono text-neutral-500">
                         #{ticket.ticket_number}
                       </span>
                       <div className="flex items-center space-x-2">
@@ -413,25 +450,25 @@ export default function MyTicketsPage() {
                         {ticket.priority}
                       </span>
                       {ticket.is_overdue && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-error-100 text-error-800">
                           Vencido
                         </span>
                       )}
                     </div>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <EyeIcon className="w-4 h-4 text-gray-400" />
+                    <button className="p-1 hover:bg-neutral-100 rounded">
+                      <EyeIcon className="w-4 h-4 text-neutral-400" />
                     </button>
                   </div>
 
-                  <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-1">
+                  <h3 className="text-lg font-medium text-neutral-900 mb-2 line-clamp-1">
                     {ticket.title}
                   </h3>
 
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                  <p className="text-neutral-600 text-sm mb-4 line-clamp-2">
                     {ticket.description}
                   </p>
 
-                  <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div className="flex items-center justify-between text-sm text-neutral-500">
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-1">
                         <CalendarIcon className="w-4 h-4" />
@@ -445,7 +482,7 @@ export default function MyTicketsPage() {
                       )}
                       {ticket.category_name && (
                         <div className="flex items-center space-x-1">
-                          <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                          <span className="w-2 h-2 bg-neutral-400 dark:bg-neutral-500 rounded-full"></span>
                           <span>{ticket.category_name}</span>
                         </div>
                       )}

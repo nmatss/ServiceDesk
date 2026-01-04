@@ -12,12 +12,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMetrics } from '@/lib/monitoring/metrics';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/metrics
  *
  * Returns all application metrics in Prometheus format
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Optional: Add API key authentication
     const apiKey = request.headers.get('x-api-key');

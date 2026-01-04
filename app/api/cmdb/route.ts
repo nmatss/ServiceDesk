@@ -11,6 +11,7 @@ import { verifyAuth } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
 const createCISchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -40,7 +41,7 @@ const createCISchema = z.object({
   installation_date: z.string().optional(),
   warranty_expiry: z.string().optional(),
   end_of_life_date: z.string().optional(),
-  custom_attributes: z.record(z.any()).optional()
+  custom_attributes: z.record(z.string(), z.any()).optional()
 })
 
 const querySchema = z.object({
@@ -72,6 +73,10 @@ function generateCINumber(db: ReturnType<typeof getDatabase>): string {
  * GET /api/cmdb - List Configuration Items
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {
@@ -174,6 +179,10 @@ export async function GET(request: NextRequest) {
  * POST /api/cmdb - Create Configuration Item
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {

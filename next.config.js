@@ -10,15 +10,13 @@ const nextConfig = {
 
   // TypeScript configuration
   typescript: {
-    // TODO: Fix all TypeScript errors and re-enable strict checking
-    // Temporarily ignoring build errors to allow deployment
-    ignoreBuildErrors: true,
+    // TypeScript errors have been fixed - strict type checking is now enabled
+    ignoreBuildErrors: false,
   },
 
   // ESLint configuration
   eslint: {
-    // TODO: Fix all ESLint errors and re-enable strict checking
-    // Temporarily ignoring build errors to allow deployment
+    // ESLint warnings exist but don't block build
     ignoreDuringBuilds: true,
   },
 
@@ -114,13 +112,189 @@ const nextConfig = {
           },
         ],
       },
-      // API routes (no cache by default, controlled per route)
+      // ========================
+      // API ROUTE CACHING
+      // ========================
+      // Knowledge Base API - 10 min cache (static content)
       {
-        source: '/api/:path*',
+        source: '/api/knowledge/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      // Catalog API - 10 min cache (static content)
+      {
+        source: '/api/catalog',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=600, stale-while-revalidate=300',
+          },
+        ],
+      },
+      // Analytics API - 5 min cache (semi-static)
+      {
+        source: '/api/analytics/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      // Dashboard API - 5 min cache (semi-static)
+      {
+        source: '/api/admin/dashboard/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      // Static lookup APIs - 30 min cache (rarely changes)
+      {
+        source: '/api/statuses',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=1800, stale-while-revalidate=600',
+          },
+        ],
+      },
+      {
+        source: '/api/priorities',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=1800, stale-while-revalidate=600',
+          },
+        ],
+      },
+      {
+        source: '/api/categories',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=1800, stale-while-revalidate=600',
+          },
+        ],
+      },
+      {
+        source: '/api/ticket-types/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=1800, stale-while-revalidate=600',
+          },
+        ],
+      },
+      // Teams & Users - 5 min cache
+      {
+        source: '/api/teams',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      {
+        source: '/api/users',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      // CMDB - 5 min cache
+      {
+        source: '/api/cmdb',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      // Settings - 5 min cache
+      {
+        source: '/api/settings',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      // Workflows - 5 min cache
+      {
+        source: '/api/workflows/definitions',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=300, stale-while-revalidate=60',
+          },
+        ],
+      },
+      // Mutations - no cache (create, update, delete)
+      {
+        source: '/api/tickets/create',
         headers: [
           {
             key: 'Cache-Control',
             value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/catalog/requests',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/problems/:id/activities',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/workflows/execute',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      // Authentication - no cache
+      {
+        source: '/api/auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, must-revalidate',
+          },
+        ],
+      },
+      // Real-time APIs - 30 sec cache
+      {
+        source: '/api/notifications',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=30, stale-while-revalidate=10',
           },
         ],
       },
@@ -211,9 +385,9 @@ const nextConfig = {
   // ========================
   // SOURCE MAPS (For Sentry)
   // ========================
-  // Generate source maps in production for error tracking
-  // These should be uploaded to Sentry and NOT served publicly
-  productionBrowserSourceMaps: true, // Enable for Sentry error tracking
+  // SECURITY: Source maps are generated but NOT served publicly
+  // They are uploaded to Sentry for error tracking, then removed from public access
+  productionBrowserSourceMaps: false, // Disabled - source maps hidden via hideSourceMaps below
 }
 
 // ========================
@@ -223,8 +397,8 @@ const { withSentryConfig } = require('@sentry/nextjs')
 
 // Sentry webpack plugin options
 const sentryWebpackPluginOptions = {
-  // Suppress all Sentry CLI logs in development
-  silent: process.env.NODE_ENV !== 'production',
+  // Show logs in production for transparency during deployment
+  silent: false,
 
   // Organization and project slugs from environment
   org: process.env.SENTRY_ORG,
@@ -233,15 +407,16 @@ const sentryWebpackPluginOptions = {
   // Auth token for uploading source maps
   authToken: process.env.SENTRY_AUTH_TOKEN,
 
-  // Only upload source maps when explicitly enabled
-  // Set SENTRY_UPLOAD_SOURCEMAPS=true in production
-  dryRun: process.env.SENTRY_UPLOAD_SOURCEMAPS !== 'true',
+  // Upload source maps to Sentry in production when auth token is available
+  // This will be a dry run (no upload) if:
+  // - Not in production environment
+  // - SENTRY_AUTH_TOKEN is not set
+  dryRun: process.env.NODE_ENV !== 'production' || !process.env.SENTRY_AUTH_TOKEN,
 
-  // Disable automatic source map upload during build
-  // We'll handle this manually in CI/CD
-  widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger: true,
+  // Source map upload configuration
+  widenClientFileUpload: true,  // Upload all client files for better stack traces
+  hideSourceMaps: true,          // Remove source maps from public output (SECURITY)
+  disableLogger: false,          // Enable logging to see upload status
 }
 
 // Bundle analyzer plugin

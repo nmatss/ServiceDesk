@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import React, { useEffect, useState } from "react"
 import { motion } from "framer-motion"
+import { contactInfo, formattedContacts } from '@/lib/config/contact'
 import {
   Headphones,
   Clock,
@@ -572,6 +573,16 @@ function FeaturesSection() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           {features.map((feature, index) => {
             const colors = colorClasses[feature.color]
+            const gradientMap: Record<string, string> = {
+              blue: 'from-sky-500 to-blue-600',
+              green: 'from-green-500 to-emerald-600',
+              purple: 'from-purple-500 to-indigo-600',
+              orange: 'from-orange-500 to-amber-600',
+              cyan: 'from-cyan-500 to-blue-600',
+              pink: 'from-pink-500 to-rose-600'
+            }
+            const gradient = gradientMap[feature.color]
+
             return (
               <motion.div
                 key={index}
@@ -581,22 +592,33 @@ function FeaturesSection() {
                 transition={{ delay: index * 0.1 }}
               >
                 <Card className={cn(
-                  "h-full hover:shadow-xl transition-all hover:-translate-y-2 border-2",
+                  "group relative h-full bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-800 dark:to-neutral-900 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 overflow-hidden",
+                  colors.border,
                   `hover:${colors.border}`
                 )}>
                   <CardHeader className="pb-3 sm:pb-4">
                     <div className="flex items-start justify-between mb-3 sm:mb-4">
-                      <div className={cn("w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center", colors.bg)}>
-                        <feature.icon className={cn("w-6 h-6 sm:w-7 sm:h-7", colors.text)} />
+                      {/* Icon with gradient background */}
+                      <div className={cn("w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300", gradient)}>
+                        <feature.icon className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                       </div>
-                      <span className={cn("px-2 py-1 rounded-full text-xs font-semibold", colors.bg, colors.text)}>
+                      {/* Badge */}
+                      <span className={cn("px-3 py-1 rounded-full text-xs font-bold shadow-md", colors.bg, colors.text)}>
                         {feature.badge}
                       </span>
                     </div>
-                    <h3 className="text-lg sm:text-xl font-bold">{feature.title}</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                      {feature.title}
+                    </h3>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{feature.description}</p>
+                    <p className="text-sm sm:text-base text-muted-foreground leading-relaxed mb-4">{feature.description}</p>
+
+                    {/* Call to action indicator */}
+                    <div className={cn("flex items-center font-medium text-sm opacity-0 group-hover:opacity-100 transition-opacity", colors.text)}>
+                      Saiba mais
+                      <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -971,7 +993,7 @@ function PricingSection() {
                           "w-full text-sm",
                           plan.highlight ? "bg-blue-600 hover:bg-blue-700" : ""
                         )}
-                        variant={plan.highlight ? "default" : "outline"}
+                        variant={plan.highlight ? "primary" : "outline"}
                         size="sm"
                       >
                         {plan.cta}
@@ -1266,17 +1288,23 @@ function Footer() {
               ao cliente e equipe de suporte.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
+              <a
+                href={formattedContacts.mailto.main}
+                className="flex items-center gap-2 text-sm hover:text-blue-400 transition-colors"
+              >
                 <Mail className="w-4 h-4" />
-                <span>contato@servicedeskpro.com.br</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
+                <span>{contactInfo.email.main}</span>
+              </a>
+              <a
+                href={`tel:${formattedContacts.tel.main}`}
+                className="flex items-center gap-2 text-sm hover:text-blue-400 transition-colors"
+              >
                 <Phone className="w-4 h-4" />
-                <span>0800 123 4567</span>
-              </div>
+                <span>{contactInfo.phone.main}</span>
+              </a>
               <div className="flex items-center gap-2 text-sm">
                 <Globe className="w-4 h-4" />
-                <span>Sao Paulo, Brasil</span>
+                <span>{contactInfo.address.city}, {contactInfo.address.country}</span>
               </div>
             </div>
           </div>
@@ -1305,11 +1333,34 @@ function Footer() {
             &copy; {new Date().getFullYear()} ServiceDesk Pro. Todos os direitos reservados.
           </p>
           <div className="flex gap-4">
-            <a href="#" className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors">
+            <a
+              href={contactInfo.social.linkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors"
+              aria-label="LinkedIn"
+            >
               <Linkedin className="w-4 h-4" />
             </a>
-            <a href="#" className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors">
+            <a
+              href={formattedContacts.whatsapp.support}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors"
+              aria-label="WhatsApp"
+            >
               <MessageCircle className="w-4 h-4" />
+            </a>
+            <a
+              href={contactInfo.social.twitter}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-sky-500 transition-colors"
+              aria-label="Twitter"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
             </a>
           </div>
         </div>

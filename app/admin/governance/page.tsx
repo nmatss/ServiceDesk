@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import PageHeader from '@/components/ui/PageHeader'
 import {
   ShieldCheckIcon,
   DocumentCheckIcon,
@@ -367,10 +368,10 @@ export default function GovernancePage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'compliant': return 'text-green-700 bg-green-100'
-      case 'partial': return 'text-yellow-700 bg-yellow-100'
-      case 'non_compliant': return 'text-red-700 bg-red-100'
-      default: return 'text-gray-700 bg-gray-100'
+      case 'compliant': return 'text-success-700 bg-success-100 dark:text-success-400 dark:bg-success-900/20'
+      case 'partial': return 'text-warning-700 bg-warning-100 dark:text-warning-400 dark:bg-warning-900/20'
+      case 'non_compliant': return 'text-error-700 bg-error-100 dark:text-error-400 dark:bg-error-900/20'
+      default: return 'text-neutral-700 bg-neutral-100 dark:text-neutral-400 dark:bg-neutral-900/20'
     }
   }
 
@@ -385,11 +386,11 @@ export default function GovernancePage() {
 
   const getRiskColor = (level: string) => {
     switch (level) {
-      case 'low': return 'text-green-600 bg-green-50'
-      case 'medium': return 'text-yellow-600 bg-yellow-50'
-      case 'high': return 'text-orange-600 bg-orange-50'
-      case 'critical': return 'text-red-600 bg-red-50'
-      default: return 'text-gray-600 bg-gray-50'
+      case 'low': return 'text-success-600 bg-success-50 dark:text-success-400 dark:bg-success-900/20'
+      case 'medium': return 'text-warning-600 bg-warning-50 dark:text-warning-400 dark:bg-warning-900/20'
+      case 'high': return 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20'
+      case 'critical': return 'text-error-600 bg-error-50 dark:text-error-400 dark:bg-error-900/20'
+      default: return 'text-neutral-600 bg-neutral-50 dark:text-neutral-400 dark:bg-neutral-900/20'
     }
   }
 
@@ -452,71 +453,63 @@ export default function GovernancePage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                <ShieldCheckIconSolid className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" />
-                Governança e Auditoria
-              </h1>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Controles COBIT, LGPD e gestão de conformidade
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => fetchGovernanceData()}
-                className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2"
-              >
-                <ArrowPathIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Atualizar</span>
-              </button>
-              <button
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2"
-              >
-                <ArrowDownTrayIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Exportar Relatório</span>
-              </button>
-            </div>
-          </div>
+    <>
+      <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        title="Governança e Auditoria"
+        description="Controles COBIT, LGPD e gestão de conformidade"
+        icon={ShieldCheckIcon}
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Governança' }
+        ]}
+        actions={[
+          {
+            label: 'Atualizar',
+            icon: ArrowPathIcon,
+            onClick: () => fetchGovernanceData(),
+            variant: 'secondary'
+          },
+          {
+            label: 'Exportar Relatório',
+            icon: ArrowDownTrayIcon,
+            onClick: () => {},
+            variant: 'primary'
+          }
+        ]}
+      />
 
-          {/* Tabs */}
-          <div className="mt-4 -mb-px flex gap-1 overflow-x-auto scrollbar-hide">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Tabs */}
+      <div className="glass-panel p-1 flex gap-1 overflow-x-auto scrollbar-hide">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all ${
+              activeTab === tab.id
+                ? 'bg-brand-500 text-white shadow-md'
+                : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-          </div>
-        ) : (
-          <>
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
-              <div className="space-y-6">
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
+        </div>
+      ) : (
+        <>
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6 animate-slide-up">
                 {/* Compliance Score */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="lg:col-span-1 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl p-6 text-white">
+                  <div className="lg:col-span-1 bg-gradient-to-br from-brand-600 to-purple-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
                     <h3 className="text-lg font-medium opacity-90">Score de Conformidade</h3>
                     <div className="mt-4 flex items-end gap-4">
                       <span className="text-5xl font-bold">{compliancePercentage}%</span>
@@ -543,50 +536,50 @@ export default function GovernancePage() {
                   </div>
 
                   <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-white rounded-xl p-4 border border-gray-200">
-                      <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 text-muted-content mb-2">
                         <ClipboardDocumentListIcon className="w-5 h-5" />
                         <span className="text-xs font-medium">Eventos Hoje</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900">{auditLogs.length}</p>
-                      <p className="text-xs text-gray-500 mt-1">Trilha de auditoria</p>
+                      <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{auditLogs.length}</p>
+                      <p className="text-xs text-muted-content mt-1">Trilha de auditoria</p>
                     </div>
 
-                    <div className="bg-white rounded-xl p-4 border border-gray-200">
-                      <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 text-muted-content mb-2">
                         <BellAlertIcon className="w-5 h-5" />
                         <span className="text-xs font-medium">Alertas</span>
                       </div>
-                      <p className="text-2xl font-bold text-orange-600">
+                      <p className="text-2xl font-bold text-warning-600 dark:text-warning-400">
                         {alerts.filter(a => !a.acknowledged).length}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">Pendentes</p>
+                      <p className="text-xs text-muted-content mt-1">Pendentes</p>
                     </div>
 
-                    <div className="bg-white rounded-xl p-4 border border-gray-200">
-                      <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 text-muted-content mb-2">
                         <UserGroupIcon className="w-5 h-5" />
                         <span className="text-xs font-medium">Políticas</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900">{policies.length}</p>
-                      <p className="text-xs text-gray-500 mt-1">Ativas</p>
+                      <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{policies.length}</p>
+                      <p className="text-xs text-muted-content mt-1">Ativas</p>
                     </div>
 
-                    <div className="bg-white rounded-xl p-4 border border-gray-200">
-                      <div className="flex items-center gap-2 text-gray-500 mb-2">
+                    <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center gap-2 text-muted-content mb-2">
                         <ShieldCheckIcon className="w-5 h-5" />
                         <span className="text-xs font-medium">Frameworks</span>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900">4</p>
-                      <p className="text-xs text-gray-500 mt-1">Monitorados</p>
+                      <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">4</p>
+                      <p className="text-xs text-muted-content mt-1">Monitorados</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Security Alerts */}
                 {alerts.filter(a => !a.acknowledged).length > 0 && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <h3 className="font-semibold text-red-800 flex items-center gap-2 mb-3">
+                  <div className="bg-error-50 dark:bg-error-900/20 border border-error-200 dark:border-error-800 rounded-xl p-4">
+                    <h3 className="font-semibold text-error-800 dark:text-error-400 flex items-center gap-2 mb-3">
                       <BellAlertIcon className="w-5 h-5" />
                       Alertas de Segurança Pendentes
                     </h3>
@@ -594,22 +587,22 @@ export default function GovernancePage() {
                       {alerts.filter(a => !a.acknowledged).map(alert => (
                         <div
                           key={alert.id}
-                          className={`flex items-center justify-between p-3 rounded-lg ${
-                            alert.severity === 'critical' ? 'bg-red-100' :
-                            alert.severity === 'warning' ? 'bg-yellow-100' : 'bg-blue-100'
+                          className={`flex items-center justify-between p-3 rounded-lg transition-all hover:shadow-md ${
+                            alert.severity === 'critical' ? 'bg-error-100 dark:bg-error-900/30' :
+                            alert.severity === 'warning' ? 'bg-warning-100 dark:bg-warning-900/30' : 'bg-brand-100 dark:bg-brand-900/30'
                           }`}
                         >
                           <div className="flex items-center gap-3">
                             <ExclamationTriangleIcon className={`w-5 h-5 ${
-                              alert.severity === 'critical' ? 'text-red-600' :
-                              alert.severity === 'warning' ? 'text-yellow-600' : 'text-blue-600'
+                              alert.severity === 'critical' ? 'text-error-600 dark:text-error-400' :
+                              alert.severity === 'warning' ? 'text-warning-600 dark:text-warning-400' : 'text-brand-600 dark:text-brand-400'
                             }`} />
                             <div>
-                              <p className="font-medium text-gray-900">{alert.message}</p>
-                              <p className="text-xs text-gray-500">{formatTimestamp(alert.timestamp)}</p>
+                              <p className="font-medium text-neutral-900 dark:text-neutral-100">{alert.message}</p>
+                              <p className="text-xs text-muted-content">{formatTimestamp(alert.timestamp)}</p>
                             </div>
                           </div>
-                          <button className="text-sm text-gray-600 hover:text-gray-900">
+                          <button className="text-sm text-description hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
                             Reconhecer
                           </button>
                         </div>
@@ -627,58 +620,58 @@ export default function GovernancePage() {
                     const percentage = total > 0 ? Math.round((compliant / total) * 100) : 0
 
                     return (
-                      <div key={framework} className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                      <div key={framework} className="glass-panel p-4 hover:shadow-md transition-all">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="font-semibold text-gray-900">{framework}</span>
+                          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{framework}</span>
                           <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                            percentage >= 80 ? 'bg-green-100 text-green-700' :
-                            percentage >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
+                            percentage >= 80 ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400' :
+                            percentage >= 50 ? 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400' :
+                            'bg-error-100 text-error-700 dark:bg-error-900/30 dark:text-error-400'
                           }`}>
                             {percentage}%
                           </span>
                         </div>
-                        <div className="bg-gray-100 rounded-full h-2 mb-2">
+                        <div className="bg-neutral-100 dark:bg-neutral-800 rounded-full h-2 mb-2">
                           <div
                             className={`rounded-full h-2 transition-all ${
-                              percentage >= 80 ? 'bg-green-500' :
-                              percentage >= 50 ? 'bg-yellow-500' :
-                              'bg-red-500'
+                              percentage >= 80 ? 'bg-success-500' :
+                              percentage >= 50 ? 'bg-warning-500' :
+                              'bg-error-500'
                             }`}
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
-                        <p className="text-xs text-gray-500">{compliant} de {total} controles</p>
+                        <p className="text-xs text-muted-content">{compliant} de {total} controles</p>
                       </div>
                     )
                   })}
                 </div>
 
                 {/* Recent Activity */}
-                <div className="bg-white rounded-xl border border-gray-200">
-                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Atividade Recente</h3>
+                <div className="glass-panel overflow-hidden">
+                  <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">Atividade Recente</h3>
                     <button
                       onClick={() => setActiveTab('audit')}
-                      className="text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                      className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 flex items-center gap-1 transition-colors"
                     >
                       Ver tudo
                       <ChevronRightIcon className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {auditLogs.slice(0, 5).map(log => (
-                      <div key={log.id} className="p-4 flex items-center gap-4 hover:bg-gray-50">
+                      <div key={log.id} className="p-4 flex items-center gap-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          log.status === 'failure' ? 'bg-red-100 text-red-600' :
-                          log.risk_level === 'high' || log.risk_level === 'critical' ? 'bg-orange-100 text-orange-600' :
-                          'bg-gray-100 text-gray-600'
+                          log.status === 'failure' ? 'bg-error-100 text-error-600 dark:bg-error-900/30 dark:text-error-400' :
+                          log.risk_level === 'high' || log.risk_level === 'critical' ? 'bg-warning-100 text-warning-600 dark:bg-warning-900/30 dark:text-warning-400' :
+                          'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
                         }`}>
                           {getActionIcon(log.action)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900">{log.user_name}</p>
-                          <p className="text-sm text-gray-500 truncate">
+                          <p className="font-medium text-neutral-900 dark:text-neutral-100">{log.user_name}</p>
+                          <p className="text-sm text-muted-content truncate">
                             {log.action} - {log.resource_name}
                           </p>
                         </div>
@@ -686,7 +679,7 @@ export default function GovernancePage() {
                           <span className={`text-xs px-2 py-1 rounded-full ${getRiskColor(log.risk_level)}`}>
                             {log.risk_level.toUpperCase()}
                           </span>
-                          <p className="text-xs text-gray-500 mt-1">{formatTimestamp(log.timestamp)}</p>
+                          <p className="text-xs text-muted-content mt-1">{formatTimestamp(log.timestamp)}</p>
                         </div>
                       </div>
                     ))}
@@ -697,25 +690,25 @@ export default function GovernancePage() {
 
             {/* Audit Trail Tab */}
             {activeTab === 'audit' && (
-              <div className="space-y-4">
+              <div className="space-y-4 animate-slide-up">
                 {/* Filters */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <div className="glass-panel p-4">
                   <div className="flex flex-col sm:flex-row gap-3">
                     <div className="flex-1 relative">
-                      <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-icon-muted" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar por usuário, recurso ou ação..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full pl-10 pr-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
                       />
                     </div>
                     <div className="flex gap-2">
                       <select
                         value={dateRange}
                         onChange={(e) => setDateRange(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
                       >
                         <option value="1h">Última hora</option>
                         <option value="24h">24 horas</option>
@@ -725,7 +718,7 @@ export default function GovernancePage() {
                       <select
                         value={actionFilter}
                         onChange={(e) => setActionFilter(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
                       >
                         <option value="all">Todas ações</option>
                         <option value="LOGIN">Login</option>
@@ -738,7 +731,7 @@ export default function GovernancePage() {
                       <select
                         value={riskFilter}
                         onChange={(e) => setRiskFilter(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                        className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
                       >
                         <option value="all">Todos riscos</option>
                         <option value="low">Baixo</option>
@@ -751,54 +744,54 @@ export default function GovernancePage() {
                 </div>
 
                 {/* Audit Log Table */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="glass-panel overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-700">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuário</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ação</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recurso</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Risco</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Detalhes</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">Timestamp</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">Usuário</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">Ação</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">Recurso</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">IP</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-content uppercase">Risco</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-muted-content uppercase">Detalhes</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                         {filteredLogs.map(log => (
-                          <tr key={log.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                          <tr key={log.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
+                            <td className="px-4 py-3 text-sm text-muted-content whitespace-nowrap">
                               {new Date(log.timestamp).toLocaleString('pt-BR')}
                             </td>
                             <td className="px-4 py-3">
                               <div>
-                                <p className="text-sm font-medium text-gray-900">{log.user_name}</p>
-                                <p className="text-xs text-gray-500">{log.user_email}</p>
+                                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{log.user_name}</p>
+                                <p className="text-xs text-muted-content">{log.user_email}</p>
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="flex items-center gap-2 text-sm text-gray-900">
+                              <span className="flex items-center gap-2 text-sm text-neutral-900 dark:text-neutral-100">
                                 {getActionIcon(log.action)}
                                 {log.action}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               <div>
-                                <p className="text-sm text-gray-900">{log.resource_name}</p>
-                                <p className="text-xs text-gray-500">{log.resource_type}</p>
+                                <p className="text-sm text-neutral-900 dark:text-neutral-100">{log.resource_name}</p>
+                                <p className="text-xs text-muted-content">{log.resource_type}</p>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm text-gray-500">{log.ip_address}</td>
+                            <td className="px-4 py-3 text-sm text-muted-content">{log.ip_address}</td>
                             <td className="px-4 py-3">
                               {log.status === 'success' ? (
-                                <span className="flex items-center gap-1 text-green-600 text-sm">
+                                <span className="flex items-center gap-1 text-success-600 dark:text-success-400 text-sm">
                                   <CheckCircleIcon className="w-4 h-4" />
                                   Sucesso
                                 </span>
                               ) : (
-                                <span className="flex items-center gap-1 text-red-600 text-sm">
+                                <span className="flex items-center gap-1 text-error-600 dark:text-error-400 text-sm">
                                   <XCircleIcon className="w-4 h-4" />
                                   Falha
                                 </span>
@@ -810,7 +803,7 @@ export default function GovernancePage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <button className="text-indigo-600 hover:text-indigo-700">
+                              <button className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
                                 <EyeIcon className="w-5 h-5" />
                               </button>
                             </td>
@@ -825,13 +818,13 @@ export default function GovernancePage() {
 
             {/* Compliance Tab */}
             {activeTab === 'compliance' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-slide-up">
                 {/* Framework Selector */}
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {['Todos', 'COBIT', 'LGPD', 'ISO27001', 'ITIL'].map(fw => (
                     <button
                       key={fw}
-                      className="px-4 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 hover:bg-gray-50 whitespace-nowrap"
+                      className="px-4 py-2 text-sm font-medium rounded-lg glass-panel hover:bg-neutral-50 dark:hover:bg-neutral-800 whitespace-nowrap transition-all"
                     >
                       {fw}
                     </button>
@@ -843,22 +836,22 @@ export default function GovernancePage() {
                   {controls.map(control => (
                     <div
                       key={control.id}
-                      className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+                      className="glass-panel p-4 hover:shadow-md transition-all"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
+                          <span className="px-2 py-1 text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded">
                             {control.framework}
                           </span>
-                          <span className="text-sm font-mono text-gray-500">{control.control_id}</span>
+                          <span className="text-sm font-mono text-muted-content">{control.control_id}</span>
                         </div>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(control.status)}`}>
                           {getStatusLabel(control.status)}
                         </span>
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-1">{control.name}</h3>
-                      <p className="text-sm text-gray-500 mb-3">{control.description}</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
+                      <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">{control.name}</h3>
+                      <p className="text-sm text-muted-content mb-3">{control.description}</p>
+                      <div className="flex items-center justify-between text-xs text-muted-content pt-3 border-t border-neutral-100 dark:border-neutral-800">
                         <span className="flex items-center gap-1">
                           <UserIcon className="w-3.5 h-3.5" />
                           {control.owner}
@@ -880,67 +873,67 @@ export default function GovernancePage() {
 
             {/* Access Control Tab */}
             {activeTab === 'access' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-slide-up">
                 {/* RBAC Overview */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="glass-panel p-4 hover:shadow-md transition-all">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                        <UserGroupIcon className="w-6 h-6 text-purple-600" />
+                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                        <UserGroupIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                           {policies.filter(p => p.type === 'role').length}
                         </p>
-                        <p className="text-sm text-gray-500">Roles Definidos</p>
+                        <p className="text-sm text-muted-content">Roles Definidos</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="glass-panel p-4 hover:shadow-md transition-all">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <KeyIcon className="w-6 h-6 text-blue-600" />
+                      <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-xl flex items-center justify-center">
+                        <KeyIcon className="w-6 h-6 text-brand-600 dark:text-brand-400" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                           {policies.reduce((acc, p) => acc + p.users_affected, 0)}
                         </p>
-                        <p className="text-sm text-gray-500">Usuários Cobertos</p>
+                        <p className="text-sm text-muted-content">Usuários Cobertos</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="glass-panel p-4 hover:shadow-md transition-all">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                        <CheckCircleIcon className="w-6 h-6 text-green-600" />
+                      <div className="w-12 h-12 bg-success-100 dark:bg-success-900/30 rounded-xl flex items-center justify-center">
+                        <CheckCircleIcon className="w-6 h-6 text-success-600 dark:text-success-400" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">
+                        <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                           {policies.filter(p => p.status === 'active').length}
                         </p>
-                        <p className="text-sm text-gray-500">Políticas Ativas</p>
+                        <p className="text-sm text-muted-content">Políticas Ativas</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Policies List */}
-                <div className="bg-white rounded-xl border border-gray-200">
-                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Políticas de Acesso</h3>
-                    <button className="px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">
+                <div className="glass-panel overflow-hidden">
+                  <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">Políticas de Acesso</h3>
+                    <button className="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors">
                       Nova Política
                     </button>
                   </div>
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {policies.map(policy => (
-                      <div key={policy.id} className="p-4 flex items-center gap-4 hover:bg-gray-50">
+                      <div key={policy.id} className="p-4 flex items-center gap-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          policy.type === 'role' ? 'bg-purple-100 text-purple-600' :
-                          policy.type === 'permission' ? 'bg-blue-100 text-blue-600' :
-                          'bg-green-100 text-green-600'
+                          policy.type === 'role' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' :
+                          policy.type === 'permission' ? 'bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400' :
+                          'bg-success-100 text-success-600 dark:bg-success-900/30 dark:text-success-400'
                         }`}>
                           {policy.type === 'role' ? <UserGroupIcon className="w-5 h-5" /> :
                            policy.type === 'permission' ? <KeyIcon className="w-5 h-5" /> :
@@ -948,23 +941,23 @@ export default function GovernancePage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-gray-900">{policy.name}</p>
+                            <p className="font-medium text-neutral-900 dark:text-neutral-100">{policy.name}</p>
                             <span className={`px-2 py-0.5 text-xs rounded-full ${
-                              policy.status === 'active' ? 'bg-green-100 text-green-700' :
-                              policy.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
+                              policy.status === 'active' ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400' :
+                              policy.status === 'draft' ? 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400' :
+                              'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
                             }`}>
                               {policy.status === 'active' ? 'Ativa' :
                                policy.status === 'draft' ? 'Rascunho' : 'Depreciada'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500">{policy.description}</p>
+                          <p className="text-sm text-muted-content">{policy.description}</p>
                         </div>
                         <div className="text-right hidden sm:block">
-                          <p className="text-sm font-medium text-gray-900">{policy.users_affected} usuários</p>
-                          <p className="text-xs text-gray-500">{policy.scope}</p>
+                          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{policy.users_affected} usuários</p>
+                          <p className="text-xs text-muted-content">{policy.scope}</p>
                         </div>
-                        <button className="text-gray-400 hover:text-gray-600">
+                        <button className="text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
                           <Cog6ToothIcon className="w-5 h-5" />
                         </button>
                       </div>
@@ -974,29 +967,29 @@ export default function GovernancePage() {
 
                 {/* SSO & MFA Status */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <GlobeAltIcon className="w-5 h-5 text-gray-400" />
+                  <div className="glass-panel p-4">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                      <GlobeAltIcon className="w-5 h-5 text-icon-muted" />
                       Single Sign-On (SSO)
                     </h3>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Azure AD</span>
-                        <span className="flex items-center gap-1 text-green-600 text-sm">
+                        <span className="text-sm text-description">Azure AD</span>
+                        <span className="flex items-center gap-1 text-success-600 dark:text-success-400 text-sm">
                           <CheckCircleIcon className="w-4 h-4" />
                           Configurado
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Google Workspace</span>
-                        <span className="flex items-center gap-1 text-green-600 text-sm">
+                        <span className="text-sm text-description">Google Workspace</span>
+                        <span className="flex items-center gap-1 text-success-600 dark:text-success-400 text-sm">
                           <CheckCircleIcon className="w-4 h-4" />
                           Configurado
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Okta</span>
-                        <span className="flex items-center gap-1 text-gray-400 text-sm">
+                        <span className="text-sm text-description">Okta</span>
+                        <span className="flex items-center gap-1 text-icon-muted text-sm">
                           <XCircleIcon className="w-4 h-4" />
                           Não configurado
                         </span>
@@ -1004,23 +997,23 @@ export default function GovernancePage() {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <FingerPrintIcon className="w-5 h-5 text-gray-400" />
+                  <div className="glass-panel p-4">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
+                      <FingerPrintIcon className="w-5 h-5 text-icon-muted" />
                       Autenticação Multi-Fator (MFA)
                     </h3>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Administradores</span>
-                        <span className="text-sm font-medium text-green-600">100% habilitado</span>
+                        <span className="text-sm text-description">Administradores</span>
+                        <span className="text-sm font-medium text-success-600 dark:text-success-400">100% habilitado</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Agentes</span>
-                        <span className="text-sm font-medium text-yellow-600">85% habilitado</span>
+                        <span className="text-sm text-description">Agentes</span>
+                        <span className="text-sm font-medium text-warning-600 dark:text-warning-400">85% habilitado</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Usuários</span>
-                        <span className="text-sm font-medium text-orange-600">42% habilitado</span>
+                        <span className="text-sm text-description">Usuários</span>
+                        <span className="text-sm font-medium text-orange-600 dark:text-orange-400">42% habilitado</span>
                       </div>
                     </div>
                   </div>
@@ -1030,9 +1023,9 @@ export default function GovernancePage() {
 
             {/* Data Governance Tab */}
             {activeTab === 'data' && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-slide-up">
                 {/* LGPD Compliance Overview */}
-                <div className="bg-gradient-to-r from-green-600 to-teal-600 rounded-xl p-6 text-white">
+                <div className="bg-gradient-to-r from-success-600 to-teal-600 rounded-xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                       <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -1052,30 +1045,30 @@ export default function GovernancePage() {
 
                 {/* Data Protection Metrics */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <p className="text-sm text-gray-500 mb-1">Titulares Cadastrados</p>
-                    <p className="text-2xl font-bold text-gray-900">12.458</p>
+                  <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                    <p className="text-sm text-muted-content mb-1">Titulares Cadastrados</p>
+                    <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">12.458</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <p className="text-sm text-gray-500 mb-1">Consentimentos Ativos</p>
-                    <p className="text-2xl font-bold text-green-600">11.892</p>
+                  <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                    <p className="text-sm text-muted-content mb-1">Consentimentos Ativos</p>
+                    <p className="text-2xl font-bold text-success-600 dark:text-success-400">11.892</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <p className="text-sm text-gray-500 mb-1">Solicitações Pendentes</p>
-                    <p className="text-2xl font-bold text-yellow-600">23</p>
+                  <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                    <p className="text-sm text-muted-content mb-1">Solicitações Pendentes</p>
+                    <p className="text-2xl font-bold text-warning-600 dark:text-warning-400">23</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-4">
-                    <p className="text-sm text-gray-500 mb-1">Dados Anonimizados</p>
-                    <p className="text-2xl font-bold text-blue-600">8.234</p>
+                  <div className="glass-panel p-4 hover:shadow-md transition-shadow">
+                    <p className="text-sm text-muted-content mb-1">Dados Anonimizados</p>
+                    <p className="text-2xl font-bold text-brand-600 dark:text-brand-400">8.234</p>
                   </div>
                 </div>
 
                 {/* Data Categories */}
-                <div className="bg-white rounded-xl border border-gray-200">
-                  <div className="p-4 border-b border-gray-200">
-                    <h3 className="font-semibold text-gray-900">Categorias de Dados Pessoais</h3>
+                <div className="glass-panel overflow-hidden">
+                  <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">Categorias de Dados Pessoais</h3>
                   </div>
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {[
                       { category: 'Dados de Identificação', count: 15234, sensitivity: 'Médio', encrypted: true },
                       { category: 'Dados de Contato', count: 14892, sensitivity: 'Baixo', encrypted: true },
@@ -1083,26 +1076,26 @@ export default function GovernancePage() {
                       { category: 'Dados Financeiros', count: 8923, sensitivity: 'Alto', encrypted: true },
                       { category: 'Dados de Saúde', count: 3421, sensitivity: 'Sensível', encrypted: true }
                     ].map((item, index) => (
-                      <div key={index} className="p-4 flex items-center gap-4">
+                      <div key={index} className="p-4 flex items-center gap-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{item.category}</p>
-                          <p className="text-sm text-gray-500">{item.count.toLocaleString('pt-BR')} registros</p>
+                          <p className="font-medium text-neutral-900 dark:text-neutral-100">{item.category}</p>
+                          <p className="text-sm text-muted-content">{item.count.toLocaleString('pt-BR')} registros</p>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          item.sensitivity === 'Sensível' ? 'bg-red-100 text-red-700' :
-                          item.sensitivity === 'Alto' ? 'bg-orange-100 text-orange-700' :
-                          item.sensitivity === 'Médio' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-green-100 text-green-700'
+                          item.sensitivity === 'Sensível' ? 'bg-error-100 text-error-700 dark:bg-error-900/30 dark:text-error-400' :
+                          item.sensitivity === 'Alto' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                          item.sensitivity === 'Médio' ? 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400' :
+                          'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400'
                         }`}>
                           {item.sensitivity}
                         </span>
                         {item.encrypted ? (
-                          <span className="flex items-center gap-1 text-green-600 text-sm">
+                          <span className="flex items-center gap-1 text-success-600 dark:text-success-400 text-sm">
                             <LockClosedIcon className="w-4 h-4" />
                             Criptografado
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1 text-gray-400 text-sm">
+                          <span className="flex items-center gap-1 text-icon-muted text-sm">
                             <ExclamationTriangleIcon className="w-4 h-4" />
                             Não criptografado
                           </span>
@@ -1113,44 +1106,44 @@ export default function GovernancePage() {
                 </div>
 
                 {/* Data Subject Requests */}
-                <div className="bg-white rounded-xl border border-gray-200">
-                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Solicitações de Titulares (DSAR)</h3>
-                    <button className="text-sm text-indigo-600 hover:text-indigo-700">Ver todas</button>
+                <div className="glass-panel overflow-hidden">
+                  <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">Solicitações de Titulares (DSAR)</h3>
+                    <button className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">Ver todas</button>
                   </div>
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {[
                       { id: 'DSAR-001', type: 'Acesso', requester: 'joao.silva@email.com', status: 'pending', date: '2024-12-10' },
                       { id: 'DSAR-002', type: 'Exclusão', requester: 'maria.santos@email.com', status: 'in_progress', date: '2024-12-08' },
                       { id: 'DSAR-003', type: 'Portabilidade', requester: 'carlos.lima@email.com', status: 'completed', date: '2024-12-05' }
                     ].map((request, index) => (
-                      <div key={index} className="p-4 flex items-center gap-4">
+                      <div key={index} className="p-4 flex items-center gap-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm text-gray-500">{request.id}</span>
-                            <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded">
+                            <span className="font-mono text-sm text-muted-content">{request.id}</span>
+                            <span className="px-2 py-0.5 text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded">
                               {request.type}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">{request.requester}</p>
+                          <p className="text-sm text-description mt-1">{request.requester}</p>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          request.status === 'completed' ? 'bg-green-100 text-green-700' :
-                          request.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                          'bg-yellow-100 text-yellow-700'
+                          request.status === 'completed' ? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-400' :
+                          request.status === 'in_progress' ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400' :
+                          'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400'
                         }`}>
                           {request.status === 'completed' ? 'Concluído' :
                            request.status === 'in_progress' ? 'Em andamento' : 'Pendente'}
                         </span>
-                        <span className="text-sm text-gray-500">{new Date(request.date).toLocaleDateString('pt-BR')}</span>
+                        <span className="text-sm text-muted-content">{new Date(request.date).toLocaleDateString('pt-BR')}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Retention Policies */}
-                <div className="bg-white rounded-xl border border-gray-200 p-4">
-                  <h3 className="font-semibold text-gray-900 mb-4">Políticas de Retenção de Dados</h3>
+                <div className="glass-panel p-4">
+                  <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Políticas de Retenção de Dados</h3>
                   <div className="space-y-3">
                     {[
                       { type: 'Tickets Resolvidos', retention: '5 anos', autoDelete: true },
@@ -1159,17 +1152,17 @@ export default function GovernancePage() {
                       { type: 'Anexos de Tickets', retention: '3 anos', autoDelete: false },
                       { type: 'Dados de Contato', retention: 'Até revogação', autoDelete: false }
                     ].map((policy, index) => (
-                      <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                        <span className="text-sm text-gray-600">{policy.type}</span>
+                      <div key={index} className="flex items-center justify-between py-2 border-b border-neutral-100 dark:border-neutral-800 last:border-0">
+                        <span className="text-sm text-description">{policy.type}</span>
                         <div className="flex items-center gap-4">
-                          <span className="text-sm font-medium text-gray-900">{policy.retention}</span>
+                          <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{policy.retention}</span>
                           {policy.autoDelete ? (
-                            <span className="flex items-center gap-1 text-green-600 text-xs">
+                            <span className="flex items-center gap-1 text-success-600 dark:text-success-400 text-xs">
                               <CheckCircleIcon className="w-4 h-4" />
                               Auto-exclusão
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 text-gray-400 text-xs">
+                            <span className="flex items-center gap-1 text-icon-muted text-xs">
                               <ClockIcon className="w-4 h-4" />
                               Manual
                             </span>
@@ -1185,22 +1178,22 @@ export default function GovernancePage() {
         )}
       </div>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800 shadow-lg p-3 sm:hidden safe-bottom">
+        {/* Mobile Bottom Navigation */}
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/admin')}
-            className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-description bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors"
           >
             Voltar
           </button>
           <button
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
           >
             Exportar Relatório
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }

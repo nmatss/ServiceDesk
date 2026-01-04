@@ -1,23 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
-import { logger } from '@/lib/monitoring/logger';
+import { logger } from '@/lib/monitoring/logger'
+import { validateTicketAccessToken, recordTokenUsage } from '@/lib/db/queries'
+import { z } from 'zod'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+// Validation schemas
+const ticketIdSchema = z.coerce.number().int().min(1).max(2147483647)
+const tokenSchema = z.string().uuid()
+
+/**
+ * GET /api/portal/tickets/[id]?token=xxx
+ *
+ * PUBLIC ENDPOINT: Allows unauthenticated access via secure UUID token
+ * Fetches ticket details for portal users without requiring login
+ *
+ * SECURITY:
+ * - Requires valid UUID token in query parameter
+ * - Token must not be expired or revoked
+ * - Token must match the requested ticket ID
+ * - Only public data is returned (no internal comments)
+ *
+ * @param id - The ticket ID
+ * @param token - UUID v4 access token (query parameter)
+ * @returns Ticket details with comments and attachments
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // SECURITY: Rate limiting
+    const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
+    if (rateLimitResponse) return rateLimitResponse;
+    // 1. VALIDATE TICKET ID
     const { id } = await params
-    const ticketId = parseInt(id)
+    const ticketIdResult = ticketIdSchema.safeParse(id)
 
-    if (isNaN(ticketId)) {
+    if (!ticketIdResult.success) {
+      logger.warn('Invalid ticket ID in portal request', { id })
       return NextResponse.json(
         { success: false, error: 'ID do ticket inválido' },
         { status: 400 }
       )
     }
 
-    // Get ticket details
+    const ticketId = ticketIdResult.data
+
+    // 2. VALIDATE ACCESS TOKEN
+    const { searchParams } = new URL(request.url)
+    const token = searchParams.get('token')
+
+    if (!token) {
+      logger.warn('Missing access token in portal ticket request', { ticketId })
+      return NextResponse.json(
+        { success: false, error: 'Token de acesso obrigatório' },
+        { status: 401 }
+      )
+    }
+
+    // 3. VALIDATE TOKEN FORMAT
+    const tokenResult = tokenSchema.safeParse(token)
+    if (!tokenResult.success) {
+      logger.warn('Invalid token format', { token: token.substring(0, 8) })
+      return NextResponse.json(
+        { success: false, error: 'Token inválido' },
+        { status: 401 }
+      )
+    }
+
+    // 4. VERIFY TOKEN IS VALID AND MATCHES TICKET
+    const tokenData = validateTicketAccessToken(token, ticketId)
+
+    if (!tokenData) {
+      logger.warn('Invalid or expired token', {
+        ticketId,
+        token: token.substring(0, 8)
+      })
+      return NextResponse.json(
+        { success: false, error: 'Token inválido ou expirado' },
+        { status: 403 }
+      )
+    }
+
+    // 5. RECORD TOKEN USAGE
+    const clientIp = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
+                     'unknown'
+    const userAgent = request.headers.get('user-agent') || 'unknown'
+
+    recordTokenUsage(tokenData.id, {
+      ip: clientIp,
+      userAgent,
+      timestamp: new Date().toISOString()
+    })
+
+    // 6. GET TICKET DETAILS
+    // Note: We verify ticket_id matches token to prevent token reuse for other tickets
     const ticket = db.prepare(`
       SELECT
         t.id,
@@ -56,9 +135,10 @@ export async function GET(
       LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
       LEFT JOIN tenants tenant ON t.tenant_id = tenant.id
       WHERE t.id = ?
-    `).get(ticketId)
+    `).get(ticketId) as { created_at?: string; response_due_at?: string; sla_due_at?: string } | undefined
 
     if (!ticket) {
+      logger.warn('Ticket not found for valid token', { ticketId })
       return NextResponse.json(
         { success: false, error: 'Ticket não encontrado' },
         { status: 404 }
@@ -107,10 +187,16 @@ export async function GET(
       FROM tickets t
       LEFT JOIN sla_policies sp ON t.sla_policy_id = sp.id
       WHERE t.id = ?
-    `).get(ticketId)
+    `).get(ticketId) as Record<string, unknown> | undefined
 
     // Calculate time metrics
-    const timeMetrics = {
+    const timeMetrics: {
+      created_hours_ago: number
+      response_time_remaining: number | null
+      resolution_time_remaining: number | null
+      is_response_overdue: boolean
+      is_resolution_overdue: boolean
+    } = {
       created_hours_ago: 0,
       response_time_remaining: null,
       resolution_time_remaining: null,
@@ -179,22 +265,82 @@ export async function GET(
   }
 }
 
-// POST method for adding customer comments
+/**
+ * POST /api/portal/tickets/[id]?token=xxx
+ *
+ * PUBLIC ENDPOINT: Allows customers to add comments via token
+ * Adds a public comment to a ticket without requiring authentication
+ *
+ * SECURITY:
+ * - Requires valid UUID token in query parameter
+ * - Token must not be expired or revoked
+ * - Token must match the requested ticket ID
+ * - Comments are always marked as public (is_internal = 0)
+ *
+ * @param id - The ticket ID
+ * @param token - UUID v4 access token (query parameter)
+ * @param content - Comment content (required)
+ * @returns Success message with comment ID
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // SECURITY: Rate limiting
+    const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
+    if (rateLimitResponse) return rateLimitResponse;
+    // 1. VALIDATE TICKET ID
     const { id } = await params
-    const ticketId = parseInt(id)
+    const ticketIdResult = ticketIdSchema.safeParse(id)
 
-    if (isNaN(ticketId)) {
+    if (!ticketIdResult.success) {
+      logger.warn('Invalid ticket ID in portal comment request', { id })
       return NextResponse.json(
         { success: false, error: 'ID do ticket inválido' },
         { status: 400 }
       )
     }
 
+    const ticketId = ticketIdResult.data
+
+    // 2. VALIDATE ACCESS TOKEN
+    const { searchParams } = new URL(request.url)
+    const token = searchParams.get('token')
+
+    if (!token) {
+      logger.warn('Missing access token in portal comment request', { ticketId })
+      return NextResponse.json(
+        { success: false, error: 'Token de acesso obrigatório' },
+        { status: 401 }
+      )
+    }
+
+    // 3. VALIDATE TOKEN FORMAT
+    const tokenResult = tokenSchema.safeParse(token)
+    if (!tokenResult.success) {
+      logger.warn('Invalid token format in comment request', { token: token.substring(0, 8) })
+      return NextResponse.json(
+        { success: false, error: 'Token inválido' },
+        { status: 401 }
+      )
+    }
+
+    // 4. VERIFY TOKEN IS VALID AND MATCHES TICKET
+    const tokenData = validateTicketAccessToken(token, ticketId)
+
+    if (!tokenData) {
+      logger.warn('Invalid or expired token in comment request', {
+        ticketId,
+        token: token.substring(0, 8)
+      })
+      return NextResponse.json(
+        { success: false, error: 'Token inválido ou expirado' },
+        { status: 403 }
+      )
+    }
+
+    // 5. VALIDATE REQUEST BODY
     const body = await request.json()
     const { content, customer_name, customer_email } = body
 
@@ -205,16 +351,18 @@ export async function POST(
       )
     }
 
-    // Verify ticket exists
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId)
+    // 6. VERIFY TICKET EXISTS
+    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId) as { id: number } | undefined
     if (!ticket) {
+      logger.warn('Ticket not found for comment', { ticketId })
       return NextResponse.json(
         { success: false, error: 'Ticket não encontrado' },
         { status: 404 }
       )
     }
 
-    // Add comment (from customer perspective, so user_id might be null)
+    // 7. ADD COMMENT (public comment, no user_id)
+    // SECURITY: Comment is always public (is_internal = 0) for portal access
     const result = db.prepare(`
       INSERT INTO comments (
         ticket_id,
@@ -225,14 +373,14 @@ export async function POST(
       ) VALUES (?, ?, 0, datetime('now'), NULL)
     `).run(ticketId, content.trim())
 
-    // Update ticket's updated_at timestamp
+    // 8. UPDATE TICKET TIMESTAMP
     db.prepare(`
       UPDATE tickets
       SET updated_at = datetime('now')
       WHERE id = ?
     `).run(ticketId)
 
-    // Log the action
+    // 9. LOG THE ACTION
     db.prepare(`
       INSERT INTO audit_logs (
         entity_type,
@@ -249,9 +397,22 @@ export async function POST(
         comment_id: result.lastInsertRowid,
         author: customer_name || 'Cliente',
         email: customer_email || 'N/A',
-        content_preview: content.substring(0, 100)
+        content_preview: content.substring(0, 100),
+        via: 'portal_token'
       })
     )
+
+    // 10. RECORD TOKEN USAGE FOR COMMENT
+    recordTokenUsage(tokenData.id, {
+      action: 'comment_added',
+      comment_id: result.lastInsertRowid
+    })
+
+    logger.info('Portal comment added successfully', {
+      ticketId,
+      commentId: result.lastInsertRowid,
+      customerName: customer_name || 'Unknown'
+    })
 
     return NextResponse.json({
       success: true,

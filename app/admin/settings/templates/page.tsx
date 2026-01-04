@@ -15,6 +15,7 @@ import {
   EyeIcon,
   CheckIcon
 } from '@heroicons/react/24/outline'
+import PageHeader from '@/components/ui/PageHeader'
 
 interface Template {
   id: string
@@ -116,10 +117,10 @@ const typeLabels = {
 }
 
 const typeColors = {
-  email: 'bg-blue-100 text-blue-700',
-  ticket_response: 'bg-green-100 text-green-700',
-  notification: 'bg-yellow-100 text-yellow-700',
-  internal_note: 'bg-purple-100 text-purple-700'
+  email: 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400',
+  ticket_response: 'bg-success-100 dark:bg-success-900/20 text-success-700 dark:text-success-400',
+  notification: 'bg-warning-100 dark:bg-warning-900/20 text-warning-700 dark:text-warning-400',
+  internal_note: 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
 }
 
 export default function TemplatesPage() {
@@ -167,55 +168,51 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 mb-6">
-        <div className="px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <DocumentTextIcon className="w-6 h-6 text-green-600" />
-                Templates
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Gerencie templates de e-mail, respostas e notificações
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setEditingTemplate(null)
-                setShowModal(true)
-              }}
-              className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 flex items-center justify-center gap-2"
-            >
-              <PlusIcon className="w-5 h-5" />
-              Novo Template
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header moderno com breadcrumbs */}
+      <PageHeader
+        title="Templates"
+        description="Gerencie templates de e-mail, respostas e notificações"
+        icon={DocumentTextIcon}
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Configurações', href: '/admin/settings' },
+          { label: 'Templates' }
+        ]}
+        actions={[
+          {
+            label: 'Novo Template',
+            icon: PlusIcon,
+            variant: 'primary',
+            onClick: () => {
+              setEditingTemplate(null)
+              setShowModal(true)
+            }
+          }
+        ]}
+      />
 
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
-        {/* Search and Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+      <div className="space-y-6">
+        {/* Search and Filters - Glass Panel */}
+        <div className="glass-panel animate-slide-up">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-icon-muted" />
               <input
                 type="text"
                 placeholder="Buscar templates..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 bg-transparent border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 transition-all"
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0">
               <button
                 onClick={() => setFilterType('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                   filterType === 'all'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-brand-600 dark:bg-brand-500 text-white shadow-lg shadow-brand-500/30'
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                 }`}
               >
                 Todos
@@ -224,10 +221,10 @@ export default function TemplatesPage() {
                 <button
                   key={key}
                   onClick={() => setFilterType(key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                     filterType === key
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-brand-600 dark:bg-brand-500 text-white shadow-lg shadow-brand-500/30'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700'
                   }`}
                 >
                   {label}
@@ -237,27 +234,29 @@ export default function TemplatesPage() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Total</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">{templates.length}</div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <div className="glass-panel group hover:shadow-lg hover:shadow-brand-500/10 transition-all duration-300">
+            <div className="text-sm text-description">Total</div>
+            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+              {templates.length}
+            </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Ativos</div>
-            <div className="text-2xl font-bold text-green-600 mt-1">
+          <div className="glass-panel group hover:shadow-lg hover:shadow-success-500/10 transition-all duration-300">
+            <div className="text-sm text-description">Ativos</div>
+            <div className="text-2xl font-bold text-success-600 dark:text-success-400 mt-1 group-hover:scale-110 transition-transform">
               {templates.filter(t => t.active).length}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Usos Totais</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+          <div className="glass-panel group hover:shadow-lg hover:shadow-info-500/10 transition-all duration-300">
+            <div className="text-sm text-description">Usos Totais</div>
+            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-info-600 dark:group-hover:text-info-400 transition-colors">
               {templates.reduce((sum, t) => sum + t.usage_count, 0).toLocaleString()}
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">Categorias</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">
+          <div className="glass-panel group hover:shadow-lg hover:shadow-warning-500/10 transition-all duration-300">
+            <div className="text-sm text-description">Categorias</div>
+            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-warning-600 dark:group-hover:text-warning-400 transition-colors">
               {new Set(templates.map(t => t.category)).size}
             </div>
           </div>
@@ -265,45 +264,46 @@ export default function TemplatesPage() {
 
         {/* Templates Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filteredTemplates.map((template) => {
+          {filteredTemplates.map((template, index) => {
             const TypeIcon = typeIcons[template.type]
             return (
               <div
                 key={template.id}
-                className={`bg-white rounded-xl border transition-all ${
-                  template.active ? 'border-gray-200' : 'border-gray-200 opacity-60'
+                className={`glass-panel group hover:shadow-xl transition-all duration-300 animate-slide-up ${
+                  template.active ? '' : 'opacity-60'
                 }`}
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="p-4 sm:p-6">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${typeColors[template.type]}`}>
+                      <div className={`p-2 rounded-lg transition-transform group-hover:scale-110 ${typeColors[template.type]}`}>
                         <TypeIcon className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-gray-900">{template.name}</h3>
+                        <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{template.name}</h3>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${typeColors[template.type]}`}>
                             {typeLabels[template.type]}
                           </span>
-                          <span className="text-xs text-gray-500">{template.category}</span>
+                          <span className="text-xs text-muted-content">{template.category}</span>
                         </div>
                       </div>
                     </div>
                     {!template.active && (
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                      <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-description rounded text-xs font-medium">
                         Inativo
                       </span>
                     )}
                   </div>
 
                   {template.subject && (
-                    <div className="text-sm text-gray-600 mb-2">
+                    <div className="text-sm text-description mb-2">
                       <span className="font-medium">Assunto:</span> {template.subject}
                     </div>
                   )}
 
-                  <div className="text-sm text-gray-600 line-clamp-2 mb-3">
+                  <div className="text-sm text-description line-clamp-2 mb-3">
                     {template.content.substring(0, 150)}...
                   </div>
 
@@ -311,20 +311,20 @@ export default function TemplatesPage() {
                     {template.variables.slice(0, 4).map((variable) => (
                       <span
                         key={variable}
-                        className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono"
+                        className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-description rounded text-xs font-mono"
                       >
                         {`{{${variable}}}`}
                       </span>
                     ))}
                     {template.variables.length > 4 && (
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+                      <span className="px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-description rounded text-xs">
                         +{template.variables.length - 4}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
+                  <div className="flex items-center justify-between pt-3 border-t border-neutral-200 dark:border-neutral-700">
+                    <div className="text-xs text-muted-content">
                       <span className="font-medium">{template.usage_count}</span> usos
                       {template.last_used && (
                         <span className="ml-2">• Último: {template.last_used}</span>
@@ -333,28 +333,28 @@ export default function TemplatesPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setShowPreview(template)}
-                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                        className="p-2 text-icon-muted hover:text-info-600 dark:hover:text-info-400 hover:bg-info-50 dark:hover:bg-info-900/20 rounded-lg transition-all"
                         title="Visualizar"
                       >
                         <EyeIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(template)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                        className="p-2 text-icon-muted hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all"
                         title="Editar"
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDuplicate(template)}
-                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
+                        className="p-2 text-icon-muted hover:text-success-600 dark:hover:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded-lg transition-all"
                         title="Duplicar"
                       >
                         <DocumentDuplicateIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(template.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        className="p-2 text-icon-muted hover:text-error-600 dark:hover:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 rounded-lg transition-all"
                         title="Excluir"
                       >
                         <TrashIcon className="w-4 h-4" />
@@ -368,10 +368,10 @@ export default function TemplatesPage() {
         </div>
 
         {filteredTemplates.length === 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-            <DocumentTextIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum template encontrado</h3>
-            <p className="text-gray-600">
+          <div className="glass-panel p-8 text-center animate-fade-in">
+            <DocumentTextIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">Nenhum template encontrado</h3>
+            <p className="text-description">
               {searchQuery || filterType !== 'all'
                 ? 'Tente ajustar os filtros ou termos de busca'
                 : 'Comece criando seu primeiro template'}
@@ -382,9 +382,9 @@ export default function TemplatesPage() {
 
       {/* Preview Modal */}
       {showPreview && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up border border-neutral-200 dark:border-neutral-800">
+            <div className="p-4 sm:p-6 border-b border-neutral-200 dark:border-neutral-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${typeColors[showPreview.type]}`}>
@@ -394,7 +394,7 @@ export default function TemplatesPage() {
                     })()}
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">{showPreview.name}</h2>
+                    <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{showPreview.name}</h2>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${typeColors[showPreview.type]}`}>
                       {typeLabels[showPreview.type]}
                     </span>
@@ -402,32 +402,32 @@ export default function TemplatesPage() {
                 </div>
                 <button
                   onClick={() => setShowPreview(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
                 >
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  <XMarkIcon className="w-5 h-5 text-muted-content" />
                 </button>
               </div>
             </div>
             <div className="p-4 sm:p-6">
               {showPreview.subject && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-xs text-gray-500 mb-1">Assunto</div>
-                  <div className="font-medium text-gray-900">{showPreview.subject}</div>
+                <div className="mb-4 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                  <div className="text-xs text-muted-content mb-1">Assunto</div>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-100">{showPreview.subject}</div>
                 </div>
               )}
               <div className="mb-4">
-                <div className="text-xs text-gray-500 mb-2">Conteúdo</div>
-                <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm text-gray-700">
+                <div className="text-xs text-muted-content mb-2">Conteúdo</div>
+                <div className="p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
                   {showPreview.content}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-2">Variáveis disponíveis</div>
+                <div className="text-xs text-muted-content mb-2">Variáveis disponíveis</div>
                 <div className="flex flex-wrap gap-2">
                   {showPreview.variables.map((variable) => (
                     <span
                       key={variable}
-                      className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-mono"
+                      className="px-3 py-1.5 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 rounded-lg text-sm font-mono"
                     >
                       {`{{${variable}}}`}
                     </span>
@@ -435,10 +435,10 @@ export default function TemplatesPage() {
                 </div>
               </div>
             </div>
-            <div className="p-4 sm:p-6 border-t border-gray-200 flex justify-end gap-3">
+            <div className="p-4 sm:p-6 border-t border-neutral-200 dark:border-neutral-700 flex justify-end gap-3">
               <button
                 onClick={() => setShowPreview(null)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200"
+                className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
               >
                 Fechar
               </button>
@@ -447,7 +447,7 @@ export default function TemplatesPage() {
                   setShowPreview(null)
                   handleEdit(showPreview)
                 }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+                className="px-4 py-2 bg-brand-600 dark:bg-brand-500 text-white rounded-lg font-medium hover:bg-brand-700 dark:hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/30"
               >
                 Editar
               </button>
@@ -458,41 +458,41 @@ export default function TemplatesPage() {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up border border-neutral-200 dark:border-neutral-800">
+            <div className="p-4 sm:p-6 border-b border-neutral-200 dark:border-neutral-700">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                   {editingTemplate ? 'Editar Template' : 'Novo Template'}
                 </h2>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
                 >
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  <XMarkIcon className="w-5 h-5 text-muted-content" />
                 </button>
               </div>
             </div>
             <div className="p-4 sm:p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Nome *
                 </label>
                 <input
                   type="text"
                   defaultValue={editingTemplate?.name || ''}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 transition-all"
                   placeholder="Nome do template"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Tipo *
                   </label>
                   <select
                     defaultValue={editingTemplate?.type || 'email'}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 transition-all"
                   >
                     {Object.entries(typeLabels).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
@@ -500,53 +500,53 @@ export default function TemplatesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Categoria
                   </label>
                   <input
                     type="text"
                     defaultValue={editingTemplate?.category || ''}
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 transition-all"
                     placeholder="Ex: Tickets, Alertas"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Assunto (para e-mails)
                 </label>
                 <input
                   type="text"
                   defaultValue={editingTemplate?.subject || ''}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 transition-all"
                   placeholder="Assunto do e-mail (use {{variavel}} para campos dinâmicos)"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Conteúdo *
                 </label>
                 <textarea
                   defaultValue={editingTemplate?.content || ''}
                   rows={8}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent font-mono text-sm text-neutral-900 dark:text-neutral-100 transition-all"
                   placeholder="Conteúdo do template (use {{variavel}} para campos dinâmicos)"
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-muted-content">
                   Use {`{{variavel}}`} para inserir campos dinâmicos. Ex: {`{{user_name}}`}, {`{{ticket_id}}`}
                 </p>
               </div>
             </div>
-            <div className="p-4 sm:p-6 border-t border-gray-200 flex gap-3">
+            <div className="p-4 sm:p-6 border-t border-neutral-200 dark:border-neutral-700 flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200"
+                className="flex-1 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+                className="flex-1 px-4 py-2 bg-brand-600 dark:bg-brand-500 text-white rounded-lg font-medium hover:bg-brand-700 dark:hover:bg-brand-600 transition-colors shadow-lg shadow-brand-500/30"
               >
                 {editingTemplate ? 'Salvar' : 'Criar'}
               </button>

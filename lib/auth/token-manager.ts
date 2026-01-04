@@ -62,14 +62,48 @@ interface RefreshTokenRecord {
 /**
  * Generate device fingerprint from request
  * Combines multiple request attributes for unique device identification
+ *
+ * Enhanced with additional security attributes:
+ * - IP address (first in chain to prevent proxy spoofing)
+ * - Client Hints headers (browser, platform, mobile detection)
+ * - Screen resolution hints
+ * - Timezone offset
  */
 export function generateDeviceFingerprint(request: NextRequest): string {
   const userAgent = request.headers.get('user-agent') || '';
   const acceptLanguage = request.headers.get('accept-language') || '';
   const acceptEncoding = request.headers.get('accept-encoding') || '';
 
-  // Combine headers for fingerprint
-  const fingerprintData = `${userAgent}|${acceptLanguage}|${acceptEncoding}`;
+  // Get real IP (first in x-forwarded-for chain to prevent spoofing)
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const ipAddress = forwardedFor ? forwardedFor.split(',')[0].trim() :
+                     request.headers.get('x-real-ip') ||
+                     request.headers.get('cf-connecting-ip') ||
+                     'unknown';
+
+  // Client Hints for better device identification
+  const secChUa = request.headers.get('sec-ch-ua') || ''; // Browser brand/version
+  const secChUaPlatform = request.headers.get('sec-ch-ua-platform') || ''; // OS
+  const secChUaMobile = request.headers.get('sec-ch-ua-mobile') || ''; // Mobile detection
+  const secChUaModel = request.headers.get('sec-ch-ua-model') || ''; // Device model
+
+  // Viewport hints
+  const secChViewportWidth = request.headers.get('sec-ch-viewport-width') || '';
+  const secChViewportHeight = request.headers.get('sec-ch-viewport-height') || '';
+
+  // Combine all headers for enhanced fingerprint
+  const fingerprintData = [
+    ipAddress,
+    userAgent,
+    acceptLanguage,
+    acceptEncoding,
+    secChUa,
+    secChUaPlatform,
+    secChUaMobile,
+    secChUaModel,
+    secChViewportWidth,
+    secChViewportHeight
+  ].join('|');
 
   return crypto
     .createHash('sha256')

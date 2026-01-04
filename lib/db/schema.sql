@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
     timezone TEXT DEFAULT 'America/Sao_Paulo',
     language TEXT DEFAULT 'pt-BR',
     metadata TEXT, -- JSON for additional user data
+    notification_preferences TEXT, -- JSON for user notification preferences
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -217,6 +218,36 @@ CREATE TABLE IF NOT EXISTS auth_audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- ========================================
+-- TICKET ACCESS TOKENS (PORTAL SECURITY)
+-- ========================================
+
+-- Tabela de tokens de acesso para portal público
+-- Permite que usuários não autenticados acessem tickets específicos via token UUID
+-- SECURITY: Implementa acesso seguro sem exigir autenticação completa
+CREATE TABLE IF NOT EXISTS ticket_access_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE, -- UUID v4
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL, -- Tokens expiram após 30 dias por padrão
+    used_at DATETIME, -- Timestamp do primeiro acesso
+    usage_count INTEGER DEFAULT 0, -- Quantas vezes o token foi usado
+    last_used_at DATETIME, -- Timestamp do último acesso
+    revoked_at DATETIME, -- Se o token foi revogado manualmente
+    is_active BOOLEAN DEFAULT TRUE, -- Flag de controle rápido
+    created_by INTEGER, -- Usuário que gerou o token (se aplicável)
+    metadata TEXT, -- JSON para informações adicionais (IP, user-agent, etc.)
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Índices para performance e segurança
+CREATE INDEX IF NOT EXISTS idx_ticket_access_tokens_token ON ticket_access_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_ticket_access_tokens_ticket_id ON ticket_access_tokens(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_access_tokens_expires ON ticket_access_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_ticket_access_tokens_active ON ticket_access_tokens(is_active, expires_at);
+
 -- Tabela de categorias
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -353,8 +384,9 @@ CREATE TABLE IF NOT EXISTS escalations (
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     ticket_id INTEGER,
-    type TEXT NOT NULL CHECK (type IN ('ticket_assigned', 'ticket_updated', 'ticket_resolved', 'ticket_escalated', 'sla_warning', 'sla_breach', 'escalation', 'comment_added', 'system_alert')),
+    type TEXT NOT NULL CHECK (type IN ('ticket_assigned', 'ticket_updated', 'ticket_resolved', 'ticket_escalated', 'sla_warning', 'sla_breach', 'escalation', 'comment_added', 'system_alert', 'ticket_created', 'mention')),
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     data TEXT, -- JSON data for additional notification context
@@ -942,6 +974,83 @@ CREATE TABLE IF NOT EXISTS notification_events (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabela de lotes de notificações (notification batching)
+CREATE TABLE IF NOT EXISTS notification_batches (
+    id TEXT PRIMARY KEY,
+    batch_key TEXT NOT NULL, -- 'digest_email', 'ticket_updates', 'sla_warnings', etc.
+    notifications TEXT NOT NULL, -- JSON array de notificações
+    target_users TEXT NOT NULL, -- JSON array de user IDs
+    created_at DATETIME NOT NULL,
+    scheduled_at DATETIME NOT NULL, -- quando o lote deve ser enviado
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'processed', 'failed')),
+    config TEXT, -- JSON com configuração do lote
+    metadata TEXT, -- JSON com metadados adicionais (groupKey, batchKey, etc.)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de configurações de lotes
+CREATE TABLE IF NOT EXISTS batch_configurations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_key TEXT UNIQUE NOT NULL,
+    max_batch_size INTEGER NOT NULL DEFAULT 10,
+    max_wait_time INTEGER NOT NULL DEFAULT 300000, -- milliseconds
+    group_by TEXT NOT NULL DEFAULT 'user' CHECK (group_by IN ('user', 'ticket', 'type', 'priority', 'custom')),
+    custom_grouper TEXT, -- função JavaScript para agrupamento customizado
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela de regras de filtragem inteligente
+CREATE TABLE IF NOT EXISTS filter_rules (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    conditions TEXT NOT NULL, -- JSON array de FilterCondition
+    action TEXT NOT NULL CHECK (action IN ('block', 'allow', 'delay', 'modify', 'priority_change')),
+    action_params TEXT, -- JSON com parâmetros da ação (delayMinutes, newPriority, etc.)
+    priority INTEGER NOT NULL DEFAULT 50, -- prioridade da regra (maior = mais alta)
+    is_active BOOLEAN DEFAULT TRUE,
+    user_id INTEGER, -- NULL para regras globais, ou ID do usuário para regras específicas
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Tabela de regras de escalação de notificações
+CREATE TABLE IF NOT EXISTS escalation_rules (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    conditions TEXT NOT NULL, -- JSON array de EscalationCondition
+    actions TEXT NOT NULL, -- JSON array de EscalationAction
+    priority INTEGER NOT NULL DEFAULT 50,
+    is_active BOOLEAN DEFAULT TRUE,
+    cooldown_period INTEGER NOT NULL DEFAULT 30, -- minutos de cooldown entre escalações
+    max_escalations INTEGER NOT NULL DEFAULT 3, -- número máximo de escalações permitidas
+    created_by INTEGER NOT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
+);
+
+-- Tabela de instâncias de escalação ativas
+CREATE TABLE IF NOT EXISTS escalation_instances (
+    id TEXT PRIMARY KEY,
+    notification_id TEXT NOT NULL,
+    rule_id TEXT NOT NULL,
+    triggered_at DATETIME NOT NULL,
+    executed_actions TEXT, -- JSON array de ExecutedAction
+    status TEXT NOT NULL CHECK (status IN ('pending', 'executing', 'completed', 'failed', 'cancelled')),
+    escalation_level INTEGER NOT NULL DEFAULT 1,
+    last_action_at DATETIME,
+    next_action_at DATETIME,
+    metadata TEXT, -- JSON com metadados adicionais
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (rule_id) REFERENCES escalation_rules(id) ON DELETE CASCADE
+);
+
 -- Atualizar tabela de notificações existente para suportar mais tipos
 -- (Fazer via ALTER TABLE para não quebrar dados existentes)
 
@@ -983,6 +1092,36 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(is_active);
 CREATE INDEX IF NOT EXISTS idx_notification_events_processed ON notification_events(processed);
 CREATE INDEX IF NOT EXISTS idx_notification_events_type ON notification_events(event_type);
 
+-- Notification Batches
+CREATE INDEX IF NOT EXISTS idx_notification_batches_batch_key ON notification_batches(batch_key);
+CREATE INDEX IF NOT EXISTS idx_notification_batches_status ON notification_batches(status);
+CREATE INDEX IF NOT EXISTS idx_notification_batches_scheduled ON notification_batches(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_notification_batches_created ON notification_batches(created_at);
+
+-- Filter Rules
+CREATE INDEX IF NOT EXISTS idx_filter_rules_user_id ON filter_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_filter_rules_active ON filter_rules(is_active);
+CREATE INDEX IF NOT EXISTS idx_filter_rules_priority ON filter_rules(priority);
+
+-- Escalation Rules
+CREATE INDEX IF NOT EXISTS idx_escalation_rules_active ON escalation_rules(is_active);
+CREATE INDEX IF NOT EXISTS idx_escalation_rules_priority ON escalation_rules(priority);
+CREATE INDEX IF NOT EXISTS idx_escalation_rules_created_by ON escalation_rules(created_by);
+
+-- Escalation Instances
+CREATE INDEX IF NOT EXISTS idx_escalation_instances_notification ON escalation_instances(notification_id);
+CREATE INDEX IF NOT EXISTS idx_escalation_instances_rule ON escalation_instances(rule_id);
+CREATE INDEX IF NOT EXISTS idx_escalation_instances_status ON escalation_instances(status);
+CREATE INDEX IF NOT EXISTS idx_escalation_instances_next_action ON escalation_instances(next_action_at) WHERE status = 'pending';
+
+-- Batch Configurations
+CREATE INDEX IF NOT EXISTS idx_batch_configurations_active ON batch_configurations(is_active);
+
+-- Filter Rules
+CREATE INDEX IF NOT EXISTS idx_filter_rules_user ON filter_rules(user_id);
+CREATE INDEX IF NOT EXISTS idx_filter_rules_active ON filter_rules(is_active);
+CREATE INDEX IF NOT EXISTS idx_filter_rules_priority ON filter_rules(priority DESC);
+
 -- ========================================
 -- TRIGGERS PARA AUTOMAÇÃO
 -- ========================================
@@ -998,6 +1137,36 @@ CREATE TRIGGER IF NOT EXISTS update_kb_articles_updated_at
     AFTER UPDATE ON kb_articles
     BEGIN
         UPDATE kb_articles SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER IF NOT EXISTS update_notification_batches_updated_at
+    AFTER UPDATE ON notification_batches
+    BEGIN
+        UPDATE notification_batches SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER IF NOT EXISTS update_batch_configurations_updated_at
+    AFTER UPDATE ON batch_configurations
+    BEGIN
+        UPDATE batch_configurations SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER IF NOT EXISTS update_filter_rules_updated_at
+    AFTER UPDATE ON filter_rules
+    BEGIN
+        UPDATE filter_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER IF NOT EXISTS update_escalation_rules_updated_at
+    AFTER UPDATE ON escalation_rules
+    BEGIN
+        UPDATE escalation_rules SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER IF NOT EXISTS update_escalation_instances_updated_at
+    AFTER UPDATE ON escalation_instances
+    BEGIN
+        UPDATE escalation_instances SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
 -- Trigger para incrementar view_count automaticamente
@@ -2131,12 +2300,16 @@ ON sla_policies(is_active, priority_id, category_id);
 
 -- Composite index for notifications filtering
 CREATE INDEX IF NOT EXISTS idx_notifications_user_status
-ON notifications(user_id, is_read, type, created_at DESC);
+ON notifications(user_id, tenant_id, is_read, type, created_at DESC);
 
--- Partial index for unread notifications
+-- Partial index for unread notifications with tenant isolation
 CREATE INDEX IF NOT EXISTS idx_notifications_unread_only
-ON notifications(user_id, created_at DESC)
+ON notifications(user_id, tenant_id, created_at DESC)
 WHERE is_read = 0;
+
+-- Index for tenant-based notification queries
+CREATE INDEX IF NOT EXISTS idx_notifications_tenant
+ON notifications(tenant_id, created_at DESC);
 
 -- Index for audit log queries by date range
 CREATE INDEX IF NOT EXISTS idx_audit_logs_date_range

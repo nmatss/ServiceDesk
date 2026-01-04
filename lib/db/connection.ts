@@ -25,11 +25,28 @@ const legacyDb = new Database(dbPath, {
 // Habilitar foreign keys
 legacyDb.pragma('foreign_keys = ON');
 
-// Configurações de performance
+// OPTIMIZED: Performance configurations (Agent 13)
+// WAL mode: Better concurrency and performance
 legacyDb.pragma('journal_mode = WAL');
+
+// NORMAL sync: Balance between safety and performance
 legacyDb.pragma('synchronous = NORMAL');
-legacyDb.pragma('cache_size = 1000');
+
+// 64MB cache size: -64000 = 64MB (negative = KB, positive = pages)
+// Previous: 1000 pages (~4MB) | New: 64MB (~16x improvement)
+legacyDb.pragma('cache_size = -64000');
+
+// Memory-based temp storage: Faster temporary tables and sorts
 legacyDb.pragma('temp_store = MEMORY');
+
+// Memory-mapped I/O: 30GB (faster reads for large databases)
+legacyDb.pragma('mmap_size = 30000000000');
+
+// Auto-vacuum: Incremental (prevents database bloat)
+legacyDb.pragma('auto_vacuum = INCREMENTAL');
+
+// Busy timeout: 5 seconds (prevents lock errors)
+legacyDb.pragma('busy_timeout = 5000');
 
 /**
  * Default export: Legacy direct connection for backward compatibility

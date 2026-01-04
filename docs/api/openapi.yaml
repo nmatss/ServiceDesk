@@ -2,34 +2,46 @@ openapi: 3.0.3
 info:
   title: ServiceDesk API
   description: |
-    Enterprise-grade Service Desk API with comprehensive ticket management,
-    knowledge base, SLA tracking, and advanced automation features.
+    Comprehensive ITIL-compliant Service Desk management system API with multi-tenant support,
+    workflow automation, SLA tracking, and real-time notifications.
 
-    ## Features
-    - JWT-based authentication with refresh tokens
-    - Role-based access control (RBAC)
-    - Multi-factor authentication (MFA/2FA)
-    - SSO support (OAuth2, SAML, Gov.br)
-    - Real-time notifications via WebSockets
-    - Advanced workflow automation
-    - AI-powered ticket classification
-    - WhatsApp integration
-    - Complete audit logging
+    ## Key Features
+    - Multi-tenant architecture with organization isolation
+    - JWT-based authentication with httpOnly cookies (15-minute access tokens)
+    - Role-based access control (super_admin, tenant_admin, agent, user)
+    - Rate limiting for security and fair usage
+    - ITIL workflow support (Incident, Request, Change, Problem)
+    - Real-time notifications via Server-Sent Events
+    - Comprehensive audit logging with tenant isolation
+    - SQLite database with PostgreSQL-ready schema
+    - Advanced workflow automation with approval processes
+
+    ## Authentication
+    All protected endpoints require authentication via JWT token sent in:
+    - httpOnly cookie `auth_token` (preferred for web clients)
+    - Authorization header: `Bearer <token>` (for API clients)
+
+    ## Rate Limits
+    - Auth endpoints (login): 5 requests per 15 minutes per IP
+    - Auth endpoints (register): 5 requests per hour per IP
+    - API endpoints: 100 requests per 15 minutes per user
+
+    ## Multi-Tenant Context
+    Most requests require tenant context passed via:
+    - `tenant-context` cookie (automatically set after login)
+    - `tenant_slug` in request body (for login/register)
 
   version: 1.0.0
   contact:
     name: ServiceDesk API Support
-    email: support@servicedesk.example.com
+    email: support@servicedesk.com
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+    name: Proprietary
 
 servers:
-  - url: http://localhost:3000/api
+  - url: http://localhost:3000
     description: Development server
-  - url: https://staging.servicedesk.example.com/api
-    description: Staging server
-  - url: https://api.servicedesk.example.com/api
+  - url: https://api.servicedesk.com
     description: Production server
 
 tags:
@@ -58,11 +70,16 @@ tags:
 
 components:
   securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: JWT token stored in httpOnly cookie (preferred)
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT access token obtained from /auth/login
+      description: JWT access token for API clients
 
   schemas:
     Error:

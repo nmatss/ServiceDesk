@@ -294,19 +294,19 @@ export function KPISummaryWidget({
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">This Week:</span>
+                <span className="text-description">This Week:</span>
                 <span className="font-medium text-gray-900 dark:text-white">
                   {metrics?.tickets_this_week || 0}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">This Month:</span>
+                <span className="text-description">This Month:</span>
                 <span className="font-medium text-gray-900 dark:text-white">
                   {metrics?.tickets_this_month || 0}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Total:</span>
+                <span className="text-description">Total:</span>
                 <span className="font-medium text-gray-900 dark:text-white">
                   {metrics?.total_tickets || 0}
                 </span>
@@ -320,14 +320,14 @@ export function KPISummaryWidget({
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Response SLA:</span>
+                <span className="text-description">Response SLA:</span>
                 <span className="font-medium text-green-600">
                   {metrics?.total_sla_tracked ?
                     ((metrics.sla_response_met / metrics.total_sla_tracked) * 100).toFixed(1) : 0}%
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Resolution SLA:</span>
+                <span className="text-description">Resolution SLA:</span>
                 <span className="font-medium text-green-600">
                   {metrics?.total_sla_tracked ?
                     ((metrics.sla_resolution_met / metrics.total_sla_tracked) * 100).toFixed(1) : 0}%
@@ -342,7 +342,7 @@ export function KPISummaryWidget({
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Connection:</span>
+                <span className="text-description">Connection:</span>
                 <div className="flex items-center space-x-2">
                   <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
                   <span className="font-medium text-gray-900 dark:text-white">
@@ -351,7 +351,7 @@ export function KPISummaryWidget({
                 </div>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">Last Update:</span>
+                <span className="text-description">Last Update:</span>
                 <span className="font-medium text-gray-900 dark:text-white">
                   {lastUpdated.toLocaleTimeString()}
                 </span>

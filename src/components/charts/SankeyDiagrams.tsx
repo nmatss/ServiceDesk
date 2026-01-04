@@ -1,8 +1,21 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import * as d3 from 'd3';
+// Optimize D3 imports: only import specific functions instead of entire library
+import { select, selectAll } from 'd3-selection';
+import { scaleOrdinal } from 'd3-scale';
+import { format } from 'd3-format';
+import { schemeCategory10 } from 'd3-scale-chromatic';
 import { sankey, sankeyLinkHorizontal, SankeyNode, SankeyLink } from 'd3-sankey';
+
+// Create d3 namespace for easier refactoring
+const d3 = {
+  select,
+  selectAll,
+  scaleOrdinal,
+  format,
+  schemeCategory10
+};
 
 interface SankeyData {
   nodes: Array<{
@@ -294,7 +307,7 @@ export function WorkflowSankey({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Ticket Workflow Analysis
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-description">
           Visualizing ticket flow through different stages and processes
         </p>
       </div>
@@ -339,23 +352,23 @@ export function WorkflowSankey({
       <div className="mt-4 flex flex-wrap gap-4">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-blue-500 rounded"></div>
-          <span className="text-sm text-gray-600 dark:text-gray-400">Open</span>
+          <span className="text-sm text-description">Open</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-          <span className="text-sm text-gray-600 dark:text-gray-400">In Progress</span>
+          <span className="text-sm text-description">In Progress</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-green-500 rounded"></div>
-          <span className="text-sm text-gray-600 dark:text-gray-400">Resolved</span>
+          <span className="text-sm text-description">Resolved</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-gray-500 rounded"></div>
-          <span className="text-sm text-gray-600 dark:text-gray-400">Closed</span>
+          <span className="text-sm text-description">Closed</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-red-500 rounded"></div>
-          <span className="text-sm text-gray-600 dark:text-gray-400">Escalated</span>
+          <span className="text-sm text-description">Escalated</span>
         </div>
       </div>
     </div>
@@ -397,7 +410,7 @@ export function AgentAssignmentSankey({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Agent Assignment Flow
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-description">
           How tickets are distributed and reassigned among agents
         </p>
       </div>

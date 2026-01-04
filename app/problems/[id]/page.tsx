@@ -21,7 +21,9 @@ import {
   CalendarIcon,
   ChartBarIcon,
   DocumentTextIcon,
+  HomeIcon,
 } from '@heroicons/react/24/outline';
+import PageHeader from '@/components/ui/PageHeader';
 import type {
   ProblemWithRelations,
   ProblemStatus,
@@ -33,8 +35,8 @@ import type {
 const STATUS_CONFIG: Record<ProblemStatus, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
   new: {
     label: 'Novo',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    color: 'text-brand-600',
+    bgColor: 'bg-brand-100 dark:bg-brand-900/30',
     icon: <ClockIcon className="w-5 h-5" />,
   },
   investigation: {
@@ -63,8 +65,8 @@ const STATUS_CONFIG: Record<ProblemStatus, { label: string; color: string; bgCol
   },
   closed: {
     label: 'Fechado',
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-100 dark:bg-gray-900/30',
+    color: 'text-neutral-600',
+    bgColor: 'bg-neutral-100 dark:bg-neutral-900/30',
     icon: <CheckCircleIcon className="w-5 h-5" />,
   },
 };
@@ -192,10 +194,10 @@ export default function ProblemDetailPage({ params }: PageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
-          <p className="mt-4 text-gray-500 dark:text-gray-400">Carregando problema...</p>
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
+        <div className="text-center animate-fade-in">
+          <div className="animate-spin w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto"></div>
+          <p className="mt-4 text-muted-content">Carregando problema...</p>
         </div>
       </div>
     );
@@ -203,15 +205,15 @@ export default function ProblemDetailPage({ params }: PageProps) {
 
   if (error || !problem) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 flex items-center justify-center">
+        <div className="text-center animate-fade-in">
           <ExclamationTriangleIcon className="w-12 h-12 text-red-500 mx-auto" />
-          <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+          <h2 className="mt-4 text-xl font-semibold text-neutral-900 dark:text-white">
             {error || 'Problema não encontrado'}
           </h2>
           <Link
             href="/problems"
-            className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700"
+            className="mt-4 inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 transition-all duration-200 duration-200"
           >
             <ArrowLeftIcon className="w-4 h-4" />
             Voltar para lista
@@ -224,18 +226,13 @@ export default function ProblemDetailPage({ params }: PageProps) {
   const statusConfig = STATUS_CONFIG[problem.status];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href="/problems"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-500" />
-            </Link>
-            <span className="font-mono text-gray-500 dark:text-gray-400">
+      <PageHeader
+        title={problem.title}
+        description={
+          <div className="flex items-center gap-2 mt-2">
+            <span className="font-mono text-sm text-muted-content">
               {problem.problem_number}
             </span>
             <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${statusConfig.bgColor} ${statusConfig.color}`}>
@@ -248,43 +245,45 @@ export default function ProblemDetailPage({ params }: PageProps) {
               </span>
             )}
           </div>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {problem.title}
-            </h1>
-            <div className="flex items-center gap-2">
-              <select
-                value={problem.status}
-                onChange={(e) => handleStatusChange(e.target.value as ProblemStatus)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
-              >
-                <option value="new">Novo</option>
-                <option value="investigation">Em Investigação</option>
-                <option value="root_cause_identified">Causa Identificada</option>
-                <option value="known_error">Erro Conhecido</option>
-                <option value="resolved">Resolvido</option>
-                <option value="closed">Fechado</option>
-              </select>
-              <Link
-                href={`/problems/${id}/edit`}
-                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <PencilIcon className="w-4 h-4" />
-                Editar
-              </Link>
-            </div>
+        }
+        breadcrumbs={[
+          { label: 'Início', href: '/', icon: HomeIcon },
+          { label: 'Problemas', href: '/problems' },
+          { label: problem.problem_number, href: `/problems/${id}` },
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <select
+              value={problem.status}
+              onChange={(e) => handleStatusChange(e.target.value as ProblemStatus)}
+              className="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm transition-all duration-200"
+            >
+              <option value="new">Novo</option>
+              <option value="investigation">Em Investigação</option>
+              <option value="root_cause_identified">Causa Identificada</option>
+              <option value="known_error">Erro Conhecido</option>
+              <option value="resolved">Resolvido</option>
+              <option value="closed">Fechado</option>
+            </select>
+            <Link
+              href={`/problems/${id}/edit`}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
+            >
+              <PencilIcon className="w-4 h-4" />
+              Editar
+            </Link>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Tabs */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="border-b border-gray-200 dark:border-gray-700">
+            <div className="glass-panel overflow-hidden animate-slide-up">
+              <div className="border-b border-neutral-200 dark:border-neutral-700">
                 <nav className="flex">
                   {[
                     { key: 'details', label: 'Detalhes', icon: DocumentTextIcon },
@@ -294,10 +293,10 @@ export default function ProblemDetailPage({ params }: PageProps) {
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                      className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+                      className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-all duration-200 ${
                         activeTab === tab.key
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          ? 'border-brand-600 text-brand-600'
+                          : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
                       }`}
                     >
                       <tab.icon className="w-4 h-4" />
@@ -312,10 +311,10 @@ export default function ProblemDetailPage({ params }: PageProps) {
                 {activeTab === 'details' && (
                   <div className="space-y-6">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      <h3 className="text-sm font-medium text-muted-content mb-2">
                         Descrição
                       </h3>
-                      <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                      <p className="text-neutral-900 dark:text-white whitespace-pre-wrap">
                         {problem.description}
                       </p>
                     </div>
@@ -355,11 +354,11 @@ export default function ProblemDetailPage({ params }: PageProps) {
                     )}
 
                     {problem.permanent_fix && (
-                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        <h3 className="text-sm font-medium text-blue-800 dark:text-blue-400 mb-2">
+                      <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg border border-brand-200 dark:border-brand-800">
+                        <h3 className="text-sm font-medium text-brand-800 dark:text-brand-400 mb-2">
                           Solução Permanente
                         </h3>
-                        <p className="text-blue-900 dark:text-blue-300 whitespace-pre-wrap">
+                        <p className="text-brand-900 dark:text-brand-300 whitespace-pre-wrap">
                           {problem.permanent_fix}
                         </p>
                       </div>
@@ -371,10 +370,10 @@ export default function ProblemDetailPage({ params }: PageProps) {
                 {activeTab === 'incidents' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900 dark:text-white">
+                      <h3 className="font-medium text-neutral-900 dark:text-white">
                         Incidentes Relacionados
                       </h3>
-                      <button className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                      <button className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200">
                         <PlusIcon className="w-4 h-4" />
                         Vincular Incidente
                       </button>
@@ -382,8 +381,8 @@ export default function ProblemDetailPage({ params }: PageProps) {
 
                     {incidents.length === 0 ? (
                       <div className="text-center py-8">
-                        <LinkIcon className="w-8 h-8 text-gray-400 mx-auto" />
-                        <p className="mt-2 text-gray-500 dark:text-gray-400">
+                        <LinkIcon className="w-8 h-8 text-icon-muted mx-auto" />
+                        <p className="mt-2 text-muted-content">
                           Nenhum incidente vinculado
                         </p>
                       </div>
@@ -393,14 +392,14 @@ export default function ProblemDetailPage({ params }: PageProps) {
                           <Link
                             key={link.id}
                             href={`/tickets/${link.ticket_id}`}
-                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-all duration-200"
                           >
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-mono text-sm text-gray-500">
+                                <span className="font-mono text-sm text-muted-content">
                                   {link.ticket?.ticket_number || `#${link.ticket_id}`}
                                 </span>
-                                <span className="px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-200 dark:bg-neutral-600 text-neutral-700 dark:text-neutral-300">
                                   {link.relationship_type === 'caused_by'
                                     ? 'Causado por'
                                     : link.relationship_type === 'related'
@@ -410,11 +409,11 @@ export default function ProblemDetailPage({ params }: PageProps) {
                                     : 'Regressão'}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-900 dark:text-white mt-1">
+                              <p className="text-sm text-neutral-900 dark:text-white mt-1">
                                 {link.ticket?.title}
                               </p>
                             </div>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-content">
                               {link.ticket?.status}
                             </span>
                           </Link>
@@ -434,13 +433,13 @@ export default function ProblemDetailPage({ params }: PageProps) {
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Adicionar comentário interno..."
                         rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white resize-none focus:ring-2 focus:ring-brand-500"
                       />
                       <div className="flex justify-end">
                         <button
                           type="submit"
                           disabled={!newComment.trim() || submitting}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                         >
                           {submitting ? 'Enviando...' : 'Adicionar Comentário'}
                         </button>
@@ -448,11 +447,11 @@ export default function ProblemDetailPage({ params }: PageProps) {
                     </form>
 
                     {/* Activities List */}
-                    <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="space-y-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
                       {activities.map((activity) => (
                         <div key={activity.id} className="flex gap-3">
                           <div className="flex-shrink-0">
-                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center">
                               {activity.user?.avatar_url ? (
                                 <img
                                   src={activity.user.avatar_url}
@@ -460,20 +459,20 @@ export default function ProblemDetailPage({ params }: PageProps) {
                                   className="w-8 h-8 rounded-full"
                                 />
                               ) : (
-                                <UserIcon className="w-4 h-4 text-gray-500" />
+                                <UserIcon className="w-4 h-4 text-muted-content" />
                               )}
                             </div>
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900 dark:text-white">
+                              <span className="font-medium text-neutral-900 dark:text-white">
                                 {activity.user?.name || 'Sistema'}
                               </span>
-                              <span className="text-sm text-gray-500">
+                              <span className="text-sm text-muted-content">
                                 {new Date(activity.created_at).toLocaleString('pt-BR')}
                               </span>
                             </div>
-                            <p className="text-gray-700 dark:text-gray-300 mt-1">
+                            <p className="text-neutral-700 dark:text-neutral-300 mt-1">
                               {activity.description}
                             </p>
                           </div>
@@ -489,58 +488,58 @@ export default function ProblemDetailPage({ params }: PageProps) {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Info Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="font-medium text-gray-900 dark:text-white mb-4">Informações</h3>
+            <div className="glass-panel p-6">
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-4">Informações</h3>
               <dl className="space-y-4">
                 {problem.assignee && (
                   <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400">Responsável</dt>
+                    <dt className="text-sm text-muted-content">Responsável</dt>
                     <dd className="flex items-center gap-2 mt-1">
-                      <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium">
+                      <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-600 flex items-center justify-center text-xs font-medium">
                         {problem.assignee.name.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-gray-900 dark:text-white">{problem.assignee.name}</span>
+                      <span className="text-neutral-900 dark:text-white">{problem.assignee.name}</span>
                     </dd>
                   </div>
                 )}
 
                 {problem.category && (
                   <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400">Categoria</dt>
+                    <dt className="text-sm text-muted-content">Categoria</dt>
                     <dd className="flex items-center gap-2 mt-1">
                       <span
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: problem.category.color || '#6B7280' }}
                       />
-                      <span className="text-gray-900 dark:text-white">{problem.category.name}</span>
+                      <span className="text-neutral-900 dark:text-white">{problem.category.name}</span>
                     </dd>
                   </div>
                 )}
 
                 {problem.priority && (
                   <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400">Prioridade</dt>
+                    <dt className="text-sm text-muted-content">Prioridade</dt>
                     <dd className="flex items-center gap-2 mt-1">
                       <span
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: problem.priority.color || '#6B7280' }}
                       />
-                      <span className="text-gray-900 dark:text-white">{problem.priority.name}</span>
+                      <span className="text-neutral-900 dark:text-white">{problem.priority.name}</span>
                     </dd>
                   </div>
                 )}
 
                 <div>
-                  <dt className="text-sm text-gray-500 dark:text-gray-400">Criado em</dt>
-                  <dd className="text-gray-900 dark:text-white mt-1">
+                  <dt className="text-sm text-muted-content">Criado em</dt>
+                  <dd className="text-neutral-900 dark:text-white mt-1">
                     {new Date(problem.created_at).toLocaleString('pt-BR')}
                   </dd>
                 </div>
 
                 {problem.created_by_user && (
                   <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400">Criado por</dt>
-                    <dd className="text-gray-900 dark:text-white mt-1">
+                    <dt className="text-sm text-muted-content">Criado por</dt>
+                    <dd className="text-neutral-900 dark:text-white mt-1">
                       {problem.created_by_user.name}
                     </dd>
                   </div>
@@ -548,8 +547,8 @@ export default function ProblemDetailPage({ params }: PageProps) {
 
                 {problem.incident_count > 0 && (
                   <div>
-                    <dt className="text-sm text-gray-500 dark:text-gray-400">Incidentes Vinculados</dt>
-                    <dd className="text-gray-900 dark:text-white mt-1">
+                    <dt className="text-sm text-muted-content">Incidentes Vinculados</dt>
+                    <dd className="text-neutral-900 dark:text-white mt-1">
                       {problem.incident_count}
                     </dd>
                   </div>
@@ -578,16 +577,16 @@ export default function ProblemDetailPage({ params }: PageProps) {
             )}
 
             {/* Actions Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="font-medium text-gray-900 dark:text-white mb-4">Ações</h3>
+            <div className="glass-panel p-6">
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-4">Ações</h3>
               <div className="space-y-2">
                 {!problem.known_error && problem.root_cause && (
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200">
                     <ExclamationTriangleIcon className="w-4 h-4" />
                     Criar Erro Conhecido
                   </button>
                 )}
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200">
                   <LinkIcon className="w-4 h-4" />
                   Vincular Incidente
                 </button>

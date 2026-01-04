@@ -182,7 +182,7 @@ export function GaugeWidget({
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: threshold.color }}
                   />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                  <span className="text-xs text-description">
                     {threshold.label || `≥${threshold.value}`}
                   </span>
                 </div>

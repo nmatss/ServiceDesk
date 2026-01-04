@@ -8,6 +8,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { open } from 'sqlite';
 import sqlite3 from 'sqlite3';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting for semantic search
 const semanticSearchRateLimit = createRateLimitMiddleware('semantic-search');
 
@@ -39,6 +40,10 @@ async function getHybridSearch(): Promise<HybridSearchEngine> {
  * Perform semantic search using vector embeddings and hybrid search
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Apply rate limiting
   const rateLimitResult = await semanticSearchRateLimit(request, '/api/search/semantic');
   if (rateLimitResult instanceof Response) {
@@ -181,6 +186,10 @@ export async function POST(request: NextRequest) {
  * Get vector database statistics
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.SEARCH);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

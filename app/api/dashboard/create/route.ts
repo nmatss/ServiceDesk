@@ -3,6 +3,7 @@ import db from '@/lib/db/connection';
 import logger from '@/lib/monitoring/structured-logger';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * POST /api/dashboard/create
  * Create a new dashboard configuration

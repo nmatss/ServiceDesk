@@ -12,6 +12,7 @@ import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateKnownErrorInput } from '@/lib/types/problem';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
@@ -22,7 +23,11 @@ interface RouteParams {
  * GET /api/known-errors/[id]
  * Get known error by ID
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const knownErrorId = parseInt(id, 10);
@@ -106,7 +111,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PUT /api/known-errors/[id]
  * Update known error
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const knownErrorId = parseInt(id, 10);
@@ -212,7 +221,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/known-errors/[id]
  * Delete known error (admin only - usually we just deactivate)
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const { id } = await params;
     const knownErrorId = parseInt(id, 10);

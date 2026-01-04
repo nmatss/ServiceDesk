@@ -9,6 +9,7 @@ import { getConnection } from '@/lib/db/connection';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
 const CreateWorkflowSchema = z.object({
   name: z.string().min(1).max(255),
@@ -217,10 +218,14 @@ const UpdateWorkflowSchema = CreateWorkflowSchema.partial().omit({
  * List all workflow definitions with optional filtering
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
-    if (!authResult.success || !authResult.user) {
+    if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -355,10 +360,14 @@ export async function GET(request: NextRequest) {
  * Create a new workflow definition
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
-    if (!authResult.success || !authResult.user) {
+    if (!authResult.authenticated || !authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -510,10 +519,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const workflowTyped = workflow as Record<string, unknown>
     const parsedWorkflow = {
-      ...workflow,
-      trigger_conditions: JSON.parse(workflow.trigger_conditions || '{}'),
-      steps_json: JSON.parse(workflow.steps_json || '{}')
+      ...workflowTyped,
+      trigger_conditions: JSON.parse((workflowTyped.trigger_conditions as string) || '{}'),
+      steps_json: JSON.parse((workflowTyped.steps_json as string) || '{}')
     };
 
     return NextResponse.json(

@@ -27,7 +27,7 @@ import {
   MagnifyingGlassIcon,
   ShieldExclamationIcon
 } from '@heroicons/react/24/outline';
-import { PersonaType } from '../../../lib/design-system/tokens';
+import { PersonaType } from '@/lib/design-system/tokens';
 
 interface Notification {
   id: string;
@@ -216,25 +216,25 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
   };
 
   const getIconColor = (type: string, priority: string) => {
-    if (priority === 'critical') return 'text-red-600';
-    if (priority === 'high') return 'text-orange-600';
+    if (priority === 'critical') return 'text-error-600 dark:text-error-400';
+    if (priority === 'high') return 'text-warning-600 dark:text-warning-400';
 
     switch (type) {
       case 'sla':
       case 'error':
-        return 'text-red-600';
+        return 'text-error-600 dark:text-error-400';
       case 'warning':
-        return 'text-amber-600';
+        return 'text-warning-600 dark:text-warning-400';
       case 'success':
-        return 'text-green-600';
+        return 'text-success-600 dark:text-success-400';
       case 'ticket':
-        return 'text-blue-600';
+        return 'text-brand-600 dark:text-brand-400';
       case 'user':
-        return 'text-purple-600';
+        return 'text-purple-600 dark:text-purple-400';
       case 'system':
-        return 'text-gray-600';
+        return 'text-description';
       default:
-        return 'text-blue-600';
+        return 'text-brand-600 dark:text-brand-400';
     }
   };
 
@@ -243,13 +243,13 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
     switch (priority) {
       case 'critical':
-        return 'border-l-4 border-red-500';
+        return 'border-l-4 border-error-500 dark:border-error-400';
       case 'high':
-        return 'border-l-4 border-orange-500';
+        return 'border-l-4 border-warning-500 dark:border-warning-400';
       case 'medium':
-        return 'border-l-4 border-blue-500';
+        return 'border-l-4 border-brand-500 dark:border-brand-400';
       default:
-        return 'border-l-4 border-gray-300';
+        return 'border-l-4 border-neutral-300 dark:border-neutral-600';
     }
   };
 
@@ -336,17 +336,16 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
   // Handle click outside
   useEffect(() => {
+    if (!isOpen) return
+
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         onClose();
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-    return undefined;
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
   // Get persona-specific classes
@@ -366,15 +365,15 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
   if (!isOpen) return null;
 
   return createPortal(
-    <div ref={containerRef} className={`fixed top-16 right-4 z-50 ${getPersonaClasses()} bg-white rounded-lg shadow-2xl border border-gray-200 ${className}`}>
+    <div ref={containerRef} className={`glass-panel fixed top-16 right-4 z-50 ${getPersonaClasses()} rounded-lg shadow-2xl border border-neutral-200 dark:border-neutral-700 ${className}`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BellIcon className="h-5 w-5 text-gray-600" />
-            <h3 className="font-semibold text-gray-900">Notifications</h3>
+            <BellIcon className="h-5 w-5 text-description" />
+            <h3 className="font-semibold text-neutral-900 dark:text-white">Notifications</h3>
             {counts.unread > 0 && (
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+              <span className="badge badge-error text-xs">
                 {counts.unread}
               </span>
             )}
@@ -383,8 +382,8 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-1.5 rounded-lg transition-colors ${
-                showFilters ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'
+              className={`btn btn-sm btn-ghost ${
+                showFilters ? 'bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400' : ''
               }`}
             >
               <FunnelIcon className="h-4 w-4" />
@@ -392,7 +391,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
             <button
               onClick={markAllAsRead}
-              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              className="btn btn-sm btn-ghost"
               title="Mark all as read"
             >
               <CheckIcon className="h-4 w-4" />
@@ -400,7 +399,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
             <button
               onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              className="btn btn-sm btn-ghost"
             >
               <XMarkIcon className="h-4 w-4" />
             </button>
@@ -408,7 +407,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
         </div>
 
         {/* Quick stats */}
-        <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+        <div className="flex items-center gap-4 mt-3 text-sm text-muted-content">
           <span>{counts.total} total</span>
           <span>{counts.unread} unread</span>
           <span>{counts.critical} critical</span>
@@ -417,15 +416,15 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
       {/* Filters */}
       {showFilters && (
-        <div className="p-3 border-b border-gray-200 bg-gray-50 space-y-3">
+        <div className="p-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 space-y-3">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search notifications..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input input-sm w-full pl-9"
             />
           </div>
 
@@ -433,7 +432,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
             <select
               value={filter.type || ''}
               onChange={(e) => setFilter(prev => ({ ...prev, type: e.target.value || undefined }))}
-              className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+              className="select select-sm select-bordered"
             >
               <option value="">All Types</option>
               <option value="sla">SLA</option>
@@ -445,7 +444,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
             <select
               value={filter.priority || ''}
               onChange={(e) => setFilter(prev => ({ ...prev, priority: e.target.value || undefined }))}
-              className="text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+              className="select select-sm select-bordered"
             >
               <option value="">All Priorities</option>
               <option value="critical">Critical</option>
@@ -458,23 +457,23 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
           <div className="flex gap-2">
             <button
               onClick={() => setFilter(prev => ({ ...prev, read: false }))}
-              className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                filter.read === false ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              className={`btn btn-xs ${
+                filter.read === false ? 'btn-primary' : 'btn-outline'
               }`}
             >
               Unread Only
             </button>
             <button
               onClick={() => setFilter(prev => ({ ...prev, starred: true }))}
-              className={`px-2 py-1 text-xs rounded-lg transition-colors ${
-                filter.starred === true ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              className={`btn btn-xs ${
+                filter.starred === true ? 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400' : 'btn-outline'
               }`}
             >
               Starred Only
             </button>
             <button
               onClick={() => setFilter({})}
-              className="px-2 py-1 text-xs rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              className="btn btn-xs btn-outline"
             >
               Clear
             </button>
@@ -484,27 +483,27 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
       {/* Bulk actions */}
       {selectedNotifications.length > 0 && (
-        <div className="p-3 border-b border-gray-200 bg-blue-50">
+        <div className="p-3 border-b border-neutral-200 dark:border-neutral-700 bg-brand-50 dark:bg-brand-900/20">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-blue-700 font-medium">
+            <span className="text-sm text-brand-700 dark:text-brand-300 font-medium">
               {selectedNotifications.length} selected
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleBulkAction('markRead')}
-                className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                className="btn btn-xs btn-primary"
               >
                 Mark Read
               </button>
               <button
                 onClick={() => handleBulkAction('delete')}
-                className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                className="btn btn-xs btn-error"
               >
                 Delete
               </button>
               <button
                 onClick={clearSelection}
-                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                className="btn btn-xs btn-outline"
               >
                 Clear
               </button>
@@ -517,19 +516,19 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
       <div className="flex-1 overflow-y-auto">
         {filteredNotifications.length === 0 ? (
           <div className="p-8 text-center">
-            <BellIcon className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-            <div className="text-gray-500 font-medium">No notifications</div>
-            <div className="text-sm text-gray-400">
+            <BellIcon className="h-8 w-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+            <div className="text-muted-content font-medium">No notifications</div>
+            <div className="text-sm text-icon-muted">
               {searchQuery ? 'No notifications match your search' : 'You\'re all caught up!'}
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {filteredNotifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-3 hover:bg-gray-50 transition-colors ${getBorderColor(notification.priority, notification.read)} ${
-                  !notification.read ? 'bg-blue-50/30' : ''
+                className={`p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors ${getBorderColor(notification.priority, notification.read)} ${
+                  !notification.read ? 'bg-brand-50/30 dark:bg-brand-900/10' : ''
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -537,7 +536,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
                     type="checkbox"
                     checked={selectedNotifications.includes(notification.id)}
                     onChange={() => toggleSelection(notification.id)}
-                    className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="checkbox checkbox-sm checkbox-primary mt-1"
                   />
 
                   <div className="flex-shrink-0 mt-0.5">
@@ -548,25 +547,25 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <h4 className={`text-sm font-medium ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
+                          <h4 className={`text-sm font-medium ${notification.read ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-900 dark:text-white'}`}>
                             {notification.title}
                           </h4>
                           {notification.starred && (
-                            <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                            <div className="w-2 h-2 bg-warning-400 rounded-full"></div>
                           )}
                         </div>
-                        <p className={`text-sm mt-1 ${notification.read ? 'text-gray-500' : 'text-gray-700'}`}>
+                        <p className={`text-sm mt-1 ${notification.read ? 'text-muted-content' : 'text-neutral-700 dark:text-neutral-200'}`}>
                           {notification.message}
                         </p>
                         <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-icon-muted">
                             {formatRelativeTime(notification.timestamp)}
                           </span>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-icon-muted">
                             {notification.category}
                           </span>
                           {notification.priority === 'critical' && (
-                            <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded">
+                            <span className="badge badge-error badge-sm">
                               Critical
                             </span>
                           )}
@@ -576,8 +575,8 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
                       <div className="flex items-center gap-1 ml-2">
                         <button
                           onClick={() => toggleStar(notification.id)}
-                          className={`p-1 rounded transition-colors ${
-                            notification.starred ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-500'
+                          className={`btn btn-xs btn-ghost ${
+                            notification.starred ? 'text-warning-500' : 'text-neutral-300 dark:text-neutral-600 hover:text-warning-500'
                           }`}
                         >
                           ★
@@ -585,7 +584,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
                         <button
                           onClick={() => notification.read ? markAsUnread(notification.id) : markAsRead(notification.id)}
-                          className="p-1 text-gray-300 hover:text-gray-600 transition-colors"
+                          className="btn btn-xs btn-ghost"
                           title={notification.read ? 'Mark as unread' : 'Mark as read'}
                         >
                           {notification.read ? <EyeSlashIcon className="h-3 w-3" /> : <EyeIcon className="h-3 w-3" />}
@@ -593,7 +592,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
                         <button
                           onClick={() => deleteNotification(notification.id)}
-                          className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                          className="btn btn-xs btn-ghost hover:text-error-500"
                           title="Delete notification"
                         >
                           <TrashIcon className="h-3 w-3" />
@@ -608,12 +607,12 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
                           <button
                             key={action.id}
                             onClick={action.action}
-                            className={`px-2 py-1 text-xs rounded transition-colors ${
+                            className={`btn btn-xs ${
                               action.type === 'primary'
-                                ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                ? 'btn-primary'
                                 : action.type === 'danger'
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'btn-error'
+                                : 'btn-outline'
                             }`}
                           >
                             {action.label}
@@ -631,17 +630,17 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
 
       {/* Footer */}
       {filteredNotifications.length > 0 && (
-        <div className="p-3 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="p-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
+          <div className="flex items-center justify-between text-xs text-muted-content">
             <button
               onClick={selectAll}
-              className="hover:text-gray-700 transition-colors"
+              className="btn btn-xs btn-ghost"
             >
               Select All
             </button>
             <button
               onClick={clearAll}
-              className="hover:text-red-600 transition-colors"
+              className="btn btn-xs btn-ghost hover:text-error-600"
             >
               Clear All
             </button>

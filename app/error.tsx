@@ -58,12 +58,12 @@ export default function Error({ error, reset }: ErrorProps) {
   }, [error])
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-50 to-neutral-100 dark:from-neutral-900 dark:to-neutral-800 flex items-center justify-center p-4 animate-fade-in">
       <div className="max-w-md w-full">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 text-center">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl p-8 text-center animate-slide-up">
           {/* Icon */}
           <div className="mb-6 flex justify-center">
-            <div className="rounded-full bg-red-100 dark:bg-red-900/20 p-4">
+            <div className="rounded-full bg-red-100 dark:bg-red-900/20 p-4 animate-pulse-soft">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -82,18 +82,18 @@ export default function Error({ error, reset }: ErrorProps) {
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-2">
             Algo deu errado
           </h1>
 
           {/* Description */}
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-description mb-6">
             Ocorreu um erro inesperado. Nossa equipe foi notificada automaticamente e estamos trabalhando para resolver o problema.
           </p>
 
           {/* Error details (dev only) */}
           {process.env.NODE_ENV === 'development' && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg text-left">
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg text-left border border-red-200 dark:border-red-800/30">
               <p className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
                 Detalhes do erro (apenas desenvolvimento):
               </p>
@@ -112,25 +112,25 @@ export default function Error({ error, reset }: ErrorProps) {
           <div className="space-y-3">
             <button
               onClick={reset}
-              className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm"
+              className="w-full px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98]"
             >
               Tentar novamente
             </button>
 
             <a
               href="/"
-              className="block w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium rounded-lg transition-colors duration-200"
+              className="block w-full px-6 py-3 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-900 dark:text-white font-medium rounded-lg transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] active:scale-[0.98]"
             >
               Voltar para o início
             </a>
           </div>
 
           {/* Support link */}
-          <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-6 text-sm text-muted-content">
             Precisa de ajuda?{' '}
             <a
               href="/portal"
-              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+              className="text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium transition-colors duration-200"
             >
               Entre em contato com o suporte
             </a>

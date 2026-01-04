@@ -10,10 +10,15 @@ import { getWhatsAppClient } from '@/lib/integrations/whatsapp/business-api';
 import { createAuditLog } from '@/lib/audit/logger';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * POST - Register all predefined templates
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
@@ -99,6 +104,10 @@ export async function POST(request: NextRequest) {
  * GET - List available predefined templates
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);

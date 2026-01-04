@@ -3,17 +3,21 @@ import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { verifyToken } from '@/lib/auth/sqlite-auth'
 import slugify from 'slugify'
-import { logger } from '@/lib/monitoring/logger';
+import { logger } from '@/lib/monitoring/logger'
+import { jsonWithCache } from '@/lib/api/cache-headers'
+import { cacheInvalidation } from '@/lib/api/cache'
+import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
+    // Get tenant context if available, otherwise use default
     const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const tenantId = tenantContext?.id || 1; // Default to organization ID 1
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -22,9 +26,9 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
-    // Incluir tenant isolation na base da query
-    let whereClause = 'WHERE a.tenant_id = ?'
-    const params: any[] = [tenantContext.id]
+    // Support both single and multi-tenant setups
+    let whereClause = 'WHERE (a.tenant_id = ? OR a.tenant_id IS NULL)'
+    const params: any[] = [tenantId]
 
     // Filtro por status
     if (status) {
@@ -34,8 +38,8 @@ export async function GET(request: NextRequest) {
 
     // Filtro por categoria
     if (category) {
-      whereClause += ' AND c.slug = ? AND c.tenant_id = ?'
-      params.push(category, tenantContext.id)
+      whereClause += ' AND c.slug = ? AND (c.tenant_id = ? OR c.tenant_id IS NULL)'
+      params.push(category, tenantId)
     }
 
     // Filtro por busca
@@ -66,8 +70,8 @@ export async function GET(request: NextRequest) {
         c.color as category_color,
         u.name as author_name
       FROM kb_articles a
-      LEFT JOIN kb_categories c ON a.category_id = c.id AND c.tenant_id = a.tenant_id
-      LEFT JOIN users u ON a.author_id = u.id AND u.tenant_id = a.tenant_id
+      LEFT JOIN kb_categories c ON a.category_id = c.id
+      LEFT JOIN users u ON a.author_id = u.id
       ${whereClause}
       ORDER BY a.featured DESC, a.published_at DESC, a.created_at DESC
       LIMIT ? OFFSET ?
@@ -77,23 +81,23 @@ export async function GET(request: NextRequest) {
     const totalCount = db.prepare(`
       SELECT COUNT(*) as count
       FROM kb_articles a
-      LEFT JOIN kb_categories c ON a.category_id = c.id AND c.tenant_id = a.tenant_id
+      LEFT JOIN kb_categories c ON a.category_id = c.id
       ${whereClause}
     `).get(...params) as { count: number }
 
     // Buscar tags para cada artigo
-    for (const article of articles) {
+    for (const article of (articles as Array<Record<string, unknown>>)) {
       const tags = db.prepare(`
         SELECT t.id, t.name, t.slug, t.color
         FROM kb_tags t
         INNER JOIN kb_article_tags at ON t.id = at.tag_id
         WHERE at.article_id = ?
-      `).all(article.id)
+      `).all(article.id as number)
 
       article.tags = tags
     }
 
-    return NextResponse.json({
+    return jsonWithCache({
       success: true,
       articles,
       pagination: {
@@ -102,7 +106,7 @@ export async function GET(request: NextRequest) {
         total: totalCount.count,
         totalPages: Math.ceil(totalCount.count / limit)
       }
-    })
+    }, 'STATIC') // Cache for 10 minutes
 
   } catch (error) {
     logger.error('Error fetching articles', error)
@@ -114,6 +118,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization')
@@ -134,6 +142,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const body = await request.json()
+
+    // Sanitizar entrada do usuário para prevenir XSS
+    const sanitized = await sanitizeRequestBody(body, {
+      stripFields: ['title', 'meta_title', 'search_keywords'], // Títulos sem HTML
+      htmlFields: ['content', 'summary', 'meta_description'], // Conteúdo pode ter HTML
+    })
+
     const {
       title,
       content,
@@ -146,7 +162,7 @@ export async function POST(request: NextRequest) {
       search_keywords,
       meta_title,
       meta_description
-    } = await request.json()
+    } = sanitized
 
     if (!title || !content) {
       return NextResponse.json(
@@ -199,11 +215,11 @@ export async function POST(request: NextRequest) {
         for (const tagName of tags) {
           // Criar tag se não existir
           const tagSlug = slugify(tagName, { lower: true, strict: true })
-          let tag = db.prepare('SELECT id FROM kb_tags WHERE slug = ?').get(tagSlug)
+          let tag = db.prepare('SELECT id FROM kb_tags WHERE slug = ?').get(tagSlug) as { id: number } | undefined
 
           if (!tag) {
             const tagResult = db.prepare('INSERT INTO kb_tags (name, slug) VALUES (?, ?)').run(tagName, tagSlug)
-            tag = { id: tagResult.lastInsertRowid }
+            tag = { id: Number(tagResult.lastInsertRowid) }
           }
 
           // Associar tag ao artigo
@@ -215,6 +231,9 @@ export async function POST(request: NextRequest) {
     })
 
     const articleId = transaction()
+
+    // Invalidate knowledge cache
+    await cacheInvalidation.knowledgeBase()
 
     return NextResponse.json({
       success: true,

@@ -120,11 +120,11 @@ export function ChartWidget({
               <XAxis
                 dataKey={xAxisKey}
                 tick={{ fontSize: 12 }}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-description"
               />
               <YAxis
                 tick={{ fontSize: 12 }}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-description"
               />
               <Tooltip
                 contentStyle={{
@@ -157,11 +157,11 @@ export function ChartWidget({
               <XAxis
                 dataKey={xAxisKey}
                 tick={{ fontSize: 12 }}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-description"
               />
               <YAxis
                 tick={{ fontSize: 12 }}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-description"
               />
               <Tooltip
                 contentStyle={{
@@ -191,11 +191,11 @@ export function ChartWidget({
               <XAxis
                 dataKey={xAxisKey}
                 tick={{ fontSize: 12 }}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-description"
               />
               <YAxis
                 tick={{ fontSize: 12 }}
-                className="text-gray-600 dark:text-gray-400"
+                className="text-description"
               />
               <Tooltip
                 contentStyle={{

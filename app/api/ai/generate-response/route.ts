@@ -5,6 +5,7 @@ import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 import { verifyToken } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const generateResponseSchema = z.object({
   ticketId: z.number(),
   responseType: z.enum(['initial_response', 'follow_up', 'resolution', 'escalation']).default('initial_response'),
@@ -15,6 +16,10 @@ const generateResponseSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     // Verificar autenticação
@@ -238,6 +243,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');

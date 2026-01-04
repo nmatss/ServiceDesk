@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCSRFToken, CSRF_TOKEN_COOKIE, CSRF_TOKEN_HEADER } from '@/lib/security/csrf';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
  * GET /api/auth/csrf-token
  *
@@ -23,6 +24,10 @@ import { generateCSRFToken, CSRF_TOKEN_COOKIE, CSRF_TOKEN_HEADER } from '@/lib/s
  * @returns CSRF token in cookie and response header
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Generate a session ID for pre-auth CSRF token
     // This will be replaced with actual session ID after authentication

@@ -3,12 +3,17 @@ import { verifyToken } from '@/lib/auth/sqlite-auth'
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting for token verification - use 'api' rate limit (100/15min)
 // This is less restrictive than 'auth' (5/15min) since token verification
 // happens on every page load and is not a security-sensitive operation like login
 const verifyRateLimit = createRateLimitMiddleware('api')
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Aplicar rate limiting
   const rateLimitResult = await verifyRateLimit(request, '/api/auth/verify')
   if (rateLimitResult instanceof Response) {
@@ -71,6 +76,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Aplicar rate limiting
   const rateLimitResult = await verifyRateLimit(request, '/api/auth/verify')
   if (rateLimitResult instanceof Response) {

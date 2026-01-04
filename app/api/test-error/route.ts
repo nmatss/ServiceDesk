@@ -16,6 +16,7 @@ import { captureException, addBreadcrumb } from '@/lib/monitoring/sentry-helpers
 import { withObservability } from '@/lib/monitoring/observability';
 import db from '@/lib/db/connection';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const GET = withObservability(
   async (request: NextRequest) => {
     const { searchParams } = request.nextUrl;

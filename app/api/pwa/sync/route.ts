@@ -8,6 +8,7 @@ import db from '@/lib/db/connection';
 import { verifyAuthToken } from '@/lib/auth/sqlite-auth';
 import logger from '@/lib/monitoring/structured-logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
 
 interface SyncAction {
@@ -33,6 +34,10 @@ interface SyncResult {
  * Sync offline actions
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authHeader = request.headers.get('authorization');
@@ -67,15 +72,15 @@ export async function POST(request: NextRequest) {
 
         switch (action.type) {
           case 'CREATE_TICKET':
-            serverId = await syncCreateTicket(db, user.id, action.data);
+            serverId = await syncCreateTicket(db, String(user.id), action.data);
             break;
 
           case 'ADD_COMMENT':
-            serverId = await syncAddComment(db, user.id, action.data);
+            serverId = await syncAddComment(db, String(user.id), action.data);
             break;
 
           case 'UPDATE_TICKET':
-            const updateResult = await syncUpdateTicket(db, user.id, action.data);
+            const updateResult = await syncUpdateTicket(db, String(user.id), action.data);
             serverId = updateResult.id;
             if (updateResult.conflict) {
               conflicts.push({
@@ -87,7 +92,7 @@ export async function POST(request: NextRequest) {
             break;
 
           case 'UPDATE_STATUS':
-            serverId = await syncUpdateStatus(db, user.id, action.data);
+            serverId = await syncUpdateStatus(db, String(user.id), action.data);
             break;
 
           default:
@@ -123,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     // Get updated data if requested
     const updatedData = lastSyncTime
-      ? await getUpdatedData(db, user.id, lastSyncTime)
+      ? await getUpdatedData(db, String(user.id), lastSyncTime)
       : null;
 
     return NextResponse.json({
@@ -150,6 +155,10 @@ export async function POST(request: NextRequest) {
  * Get sync status
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Verify authentication
     const authHeader = request.headers.get('authorization');
@@ -175,7 +184,7 @@ export async function GET(request: NextRequest) {
            WHERE (created_by = ? OR assigned_to = ?)
            AND updated_at > datetime(?, 'unixepoch', 'localtime')`
         )
-        .get(user.id, user.id, lastSyncTime / 1000),
+        .get(String(user.id), String(user.id), lastSyncTime / 1000),
 
       comments: db
         .prepare(
@@ -184,7 +193,7 @@ export async function GET(request: NextRequest) {
            WHERE (t.created_by = ? OR t.assigned_to = ?)
            AND c.created_at > datetime(?, 'unixepoch', 'localtime')`
         )
-        .get(user.id, user.id, lastSyncTime / 1000),
+        .get(String(user.id), String(user.id), lastSyncTime / 1000),
 
       notifications: db
         .prepare(
@@ -192,7 +201,7 @@ export async function GET(request: NextRequest) {
            WHERE user_id = ?
            AND created_at > datetime(?, 'unixepoch', 'localtime')`
         )
-        .get(user.id, lastSyncTime / 1000),
+        .get(String(user.id), lastSyncTime / 1000),
     };
 
     return NextResponse.json({

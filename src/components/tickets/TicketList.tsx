@@ -12,9 +12,12 @@ import {
 } from '@heroicons/react/24/outline'
 import TicketCard, { TicketData as Ticket } from '../../../components/ui/TicketCard'
 import StatsCard from '@/components/ui/StatsCard'
+import { TicketListSkeleton, StatsCardsSkeleton } from '@/components/ui/loading-states'
+import { LoadingError } from '@/components/ui/error-states'
+import { TicketsEmptyState, FilterEmptyState } from '@/components/ui/empty-state'
 
 interface TicketListProps {
-  userRole?: 'admin' | 'agent' | 'user'
+  userRole?: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin'
   showUserTickets?: boolean
   showFilters?: boolean
   showStats?: boolean
@@ -175,6 +178,10 @@ export default function TicketList({
 
   const renderStats = () => {
     if (!showStats) return null
+
+    if (loading) {
+      return <StatsCardsSkeleton count={6} />
+    }
 
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
@@ -399,60 +406,31 @@ export default function TicketList({
 
   const renderTickets = () => {
     if (loading) {
-      return (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="card animate-pulse">
-              <div className="p-6">
-                <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-3/4 mb-4"></div>
-                <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-1/2 mb-2"></div>
-                <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-2/3"></div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )
+      return <TicketListSkeleton items={limit || 5} />
     }
 
     if (error) {
       return (
-        <div className="card">
-          <div className="p-6 text-center">
-            <p className="text-error-600 dark:text-error-400 mb-4">{error}</p>
-            <button
-              onClick={fetchTickets}
-              className="btn btn-primary"
-            >
-              Tentar Novamente
-            </button>
-          </div>
-        </div>
+        <LoadingError
+          message={error}
+          onRetry={fetchTickets}
+        />
       )
     }
 
     if (tickets.length === 0) {
+      // Check if filters are applied
+      const hasFilters = filters.search || filters.status || filters.priority ||
+                        filters.category || filters.assignedAgent
+
+      if (hasFilters) {
+        return <FilterEmptyState onClearFilters={clearFilters} />
+      }
+
       return (
-        <div className="card">
-          <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ListBulletIcon className="h-8 w-8 text-neutral-400" />
-            </div>
-            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
-              Nenhum ticket encontrado
-            </h3>
-            <p className="text-neutral-600 dark:text-neutral-400 mb-6">
-              {showUserTickets
-                ? 'Você ainda não criou nenhum ticket.'
-                : 'Não há tickets que correspondam aos filtros aplicados.'}
-            </p>
-            <button
-              onClick={() => router.push('/tickets/new')}
-              className="btn btn-primary"
-            >
-              Criar Novo Ticket
-            </button>
-          </div>
-        </div>
+        <TicketsEmptyState
+          onCreateTicket={() => router.push('/tickets/new')}
+        />
       )
     }
 
@@ -472,7 +450,7 @@ export default function TicketList({
             ticket={ticket}
             compact={compact}
             showActions={userRole === 'admin' || userRole === 'agent'}
-            onClick={() => handleTicketClick(ticket.id)}
+            onClick={() => handleTicketClick(Number(ticket.id))}
           />
         ))}
       </div>

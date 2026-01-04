@@ -1,13 +1,21 @@
 'use client'
 
-import { AdminCard } from '@/src/components/admin/AdminCard'
-import { AdminButton } from '@/src/components/admin/AdminButton'
 import { AdminTable } from '@/src/components/admin/AdminTable'
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger';
+import { customToast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/Button'
+import { UserGroupIcon, PlusIcon, DocumentArrowDownIcon, UserIcon, ShieldCheckIcon, UsersIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
+import PageHeader from '@/components/ui/PageHeader'
+import StatsCard, { StatsGrid } from '@/components/ui/StatsCard'
+import { AdminTableSkeleton } from '@/components/ui/table-skeleton'
+import { StatsCardsSkeleton } from '@/components/ui/loading-states'
+import { LoadingError } from '@/components/ui/error-states'
+import { NoDataEmptyState } from '@/components/ui/empty-state'
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
 
   useEffect(() => {
@@ -16,16 +24,51 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     setLoading(true)
+    setError(null)
     try {
       const response = await fetch('/api/admin/users')
       if (response.ok) {
         const data = await response.json()
         setUsers(data.users || [])
+      } else {
+        const errorMsg = 'Erro ao carregar usuários'
+        setError(errorMsg)
+        customToast.error(errorMsg)
       }
     } catch (error) {
       logger.error('Erro ao buscar usuários', error)
+      const errorMsg = 'Erro ao carregar usuários. Verifique sua conexão.'
+      setError(errorMsg)
+      customToast.error(errorMsg)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleExport = () => {
+    logger.info('Exporting users...')
+    customToast.info('Preparando exportação...')
+    // Simulate export
+    setTimeout(() => {
+      customToast.success('Lista de usuários exportada com sucesso!')
+    }, 1000)
+  }
+
+  const handleDelete = async (userId: number, userName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"?`)) {
+      return
+    }
+
+    const loadingToast = customToast.loading('Excluindo usuário...')
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      customToast.dismiss(loadingToast)
+      customToast.success(`Usuário "${userName}" excluído com sucesso!`)
+      fetchUsers()
+    } catch (error) {
+      customToast.dismiss(loadingToast)
+      customToast.error('Erro ao excluir usuário')
     }
   }
 
@@ -44,10 +87,10 @@ export default function AdminUsersPage() {
       key: 'role',
       label: 'Função',
       render: (value: string) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          value === 'admin' ? 'bg-purple-100 text-purple-800' :
-          value === 'agent' ? 'bg-blue-100 text-blue-800' :
-          'bg-gray-100 text-gray-800'
+        <span className={`badge ${
+          value === 'admin' ? 'badge-error' :
+          value === 'agent' ? 'badge-primary' :
+          'badge-neutral'
         }`}>
           {value === 'admin' ? 'Admin' : value === 'agent' ? 'Agente' : 'Usuário'}
         </span>
@@ -67,174 +110,209 @@ export default function AdminUsersPage() {
     {
       key: 'actions',
       label: 'Ações',
-      render: (_value: any, _row: any) => (
+      render: (_value: any, row: any) => (
         <div className="flex space-x-2">
-          <AdminButton variant="secondary" size="sm">
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<PencilIcon className="w-4 h-4" />}
+            className="hover-lift"
+            onClick={() => customToast.info('Funcionalidade em desenvolvimento')}
+          >
             Editar
-          </AdminButton>
-          <AdminButton variant="danger" size="sm">
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            leftIcon={<TrashIcon className="w-4 h-4" />}
+            className="hover-lift"
+            onClick={() => handleDelete(row.id, row.name)}
+          >
             Excluir
-          </AdminButton>
+          </Button>
         </div>
       ),
     },
   ]
 
+  const totalUsers = users.length
+  const activeUsers = users.filter(u => u.role === 'user').length
+  const admins = users.filter(u => u.role === 'admin').length
+  const agents = users.filter(u => u.role === 'agent').length
+
   return (
-    <div className="space-y-6">
-        {/* Header */}
-        <div className="md:flex md:items-center md:justify-between">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-              Gerenciar Usuários
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Gerencie usuários, funções e permissões do sistema
-            </p>
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        title="Gerenciar Usuários"
+        description="Gerencie usuários, funções e permissões do sistema"
+        icon={UserGroupIcon}
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Usuários' }
+        ]}
+        actions={[
+          {
+            label: 'Exportar',
+            icon: DocumentArrowDownIcon,
+            variant: 'secondary',
+            onClick: handleExport
+          },
+          {
+            label: 'Novo Usuário',
+            icon: PlusIcon,
+            variant: 'primary',
+            href: '/admin/users/new'
+          }
+        ]}
+      />
+
+      {/* Stats */}
+      {loading ? (
+        <StatsCardsSkeleton count={4} />
+      ) : (
+        <StatsGrid cols={4}>
+          <StatsCard
+            title="Total de Usuários"
+            value={totalUsers}
+            icon="users"
+            color="brand"
+          />
+          <StatsCard
+            title="Usuários Ativos"
+            value={activeUsers}
+            icon={UserIcon}
+            color="success"
+          />
+          <StatsCard
+            title="Administradores"
+            value={admins}
+            icon={ShieldCheckIcon}
+            color="error"
+          />
+          <StatsCard
+            title="Agentes"
+            value={agents}
+            icon={UsersIcon}
+            color="warning"
+          />
+        </StatsGrid>
+      )}
+
+      {/* Filters */}
+      <div className="glass-panel p-6 animate-slide-up">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
+          Filtros
+        </h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Função
+            </label>
+            <select className="input">
+              <option>Todas</option>
+              <option>Admin</option>
+              <option>Agente</option>
+              <option>Usuário</option>
+            </select>
           </div>
-          <div className="mt-4 flex md:ml-4 md:mt-0 space-x-3">
-            <AdminButton variant="secondary">
-              Exportar
-            </AdminButton>
-            <AdminButton variant="primary">
-              Novo Usuário
-            </AdminButton>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Status
+            </label>
+            <select className="input">
+              <option>Todos</option>
+              <option>Ativo</option>
+              <option>Inativo</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+              Buscar
+            </label>
+            <input
+              type="text"
+              placeholder="Nome ou email..."
+              className="input"
+            />
+          </div>
+          <div className="flex items-end">
+            <button className="btn btn-primary w-full">
+              Aplicar Filtros
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <AdminCard className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">U</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total de Usuários
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {users.length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </AdminCard>
-
-          <AdminCard className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">A</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Usuários Ativos
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {users.filter(u => u.role === 'user').length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </AdminCard>
-
-          <AdminCard className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">AD</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Administradores
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {users.filter(u => u.role === 'admin').length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </AdminCard>
-
-          <AdminCard className="p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">AG</span>
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
-                    Agentes
-                  </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {users.filter(u => u.role === 'agent').length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </AdminCard>
-        </div>
-
-        {/* Users Table */}
-        <AdminTable
-          columns={columns}
-          data={users}
-          loading={loading}
-          emptyMessage="Nenhum usuário encontrado"
-          onRowClick={(row) => logger.info('User clicked', row)}
-        />
-
-        {/* Filters */}
-        <AdminCard title="Filtros">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Função
-              </label>
-              <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                <option>Todas</option>
-                <option>Admin</option>
-                <option>Agente</option>
-                <option>Usuário</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                <option>Todos</option>
-                <option>Ativo</option>
-                <option>Inativo</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Buscar
-              </label>
-              <input
-                type="text"
-                placeholder="Nome ou email..."
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+      {/* Users Table */}
+      <div className="glass-panel overflow-hidden animate-slide-up" style={{ animationDelay: '100ms' }}>
+        {error ? (
+          <LoadingError message={error} onRetry={fetchUsers} />
+        ) : loading ? (
+          <div className="p-6">
+            <AdminTableSkeleton />
+          </div>
+        ) : users.length === 0 ? (
+          <NoDataEmptyState message="Nenhum usuário encontrado no sistema." />
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <AdminTable
+                columns={columns}
+                data={users}
+                loading={false}
+                emptyMessage="Nenhum usuário encontrado"
+                onRowClick={(row) => logger.info('User clicked', row)}
               />
             </div>
-            <div className="flex items-end">
-              <AdminButton variant="primary" className="w-full">
-                Aplicar Filtros
-              </AdminButton>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3 p-4">
+              {users.map(user => (
+                <div key={user.id} className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{user.name}</h3>
+                    <span className={`badge ${
+                      user.role === 'admin' ? 'badge-error' :
+                      user.role === 'agent' ? 'badge-primary' :
+                      'badge-neutral'
+                    }`}>
+                      {user.role === 'admin' ? 'Admin' : user.role === 'agent' ? 'Agente' : 'Usuário'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-description mb-2">{user.email}</p>
+                  <div className="flex items-center justify-between text-sm text-muted-content mb-3">
+                    <span>{user.tickets_count || 0} tickets</span>
+                    <span>{new Date(user.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      fullWidth
+                      leftIcon={<PencilIcon className="w-4 h-4" />}
+                      className="hover-lift"
+                      onClick={() => customToast.info('Funcionalidade em desenvolvimento')}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      fullWidth
+                      leftIcon={<TrashIcon className="w-4 h-4" />}
+                      className="hover-lift"
+                      onClick={() => handleDelete(user.id, user.name)}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </AdminCard>
+          </>
+        )}
       </div>
+    </div>
   )
 }

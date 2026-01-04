@@ -8,6 +8,7 @@ import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: Promise<{
     id: string;
@@ -18,6 +19,10 @@ interface RouteParams {
  * Submit article review
  */
 export async function POST(request: NextRequest, context: RouteParams) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request);
     if (!auth.user) {

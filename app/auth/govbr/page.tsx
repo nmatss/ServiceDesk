@@ -38,31 +38,33 @@ export default function GovBrAuthPage() {
   }, [searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-50 via-brand-50/30 to-neutral-100 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950 p-4 animate-fade-in">
+      <div className="max-w-md w-full glass-panel rounded-2xl shadow-xl p-8 animate-slide-up">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Login com Gov.br</h1>
-          <p className="text-gray-600 text-sm">Autenticação segura do governo federal</p>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">Login com Gov.br</h1>
+          <p className="text-description text-sm">Autenticação segura do governo federal</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
 
         <button
           onClick={handleGovBrLogin}
           disabled={isLoading}
-          className={`w-full px-6 py-4 rounded-lg font-semibold text-white ${
-            isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
+          className={`w-full px-6 py-4 rounded-lg font-semibold text-white transition-colors shadow-lg ${
+            isLoading
+              ? 'bg-brand-400 dark:bg-brand-600 cursor-not-allowed'
+              : 'bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 shadow-brand-600/20 dark:shadow-brand-500/20'
           }`}
         >
           {isLoading ? 'Conectando...' : 'Entrar com Gov.br'}
         </button>
 
         <div className="mt-6 text-center">
-          <Link href="/auth/login" className="text-sm text-gray-600 hover:text-gray-900">
+          <Link href="/auth/login" className="text-sm text-description hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
             Voltar para login tradicional
           </Link>
         </div>

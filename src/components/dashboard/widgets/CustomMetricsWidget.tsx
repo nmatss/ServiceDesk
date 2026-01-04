@@ -53,7 +53,7 @@ export function CustomMetricsWidget({
         {metrics.map(metric => (
           <div key={metric.key} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <span className="text-sm font-medium text-description">
                 {metric.label}
               </span>
               {metric.trend && getTrendIcon(metric.trend)}

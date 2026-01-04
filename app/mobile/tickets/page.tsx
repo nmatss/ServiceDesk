@@ -84,21 +84,21 @@ export default function MobileTicketsPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'critical': return 'text-red-600 bg-red-50 dark:bg-red-900/20'
-      case 'high': return 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'
-      case 'medium': return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20'
-      case 'low': return 'text-green-600 bg-green-50 dark:bg-green-900/20'
-      default: return 'text-neutral-600 bg-neutral-50 dark:bg-neutral-800'
+      case 'critical': return 'text-priority-critical bg-priority-critical/10 dark:bg-priority-critical/20'
+      case 'high': return 'text-priority-high bg-priority-high/10 dark:bg-priority-high/20'
+      case 'medium': return 'text-priority-medium bg-priority-medium/10 dark:bg-priority-medium/20'
+      case 'low': return 'text-priority-low bg-priority-low/10 dark:bg-priority-low/20'
+      default: return 'text-description bg-neutral-50 dark:bg-neutral-800'
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20'
-      case 'in-progress': return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20'
-      case 'resolved': return 'text-green-600 bg-green-50 dark:bg-green-900/20'
-      case 'closed': return 'text-neutral-600 bg-neutral-50 dark:bg-neutral-800'
-      default: return 'text-neutral-600 bg-neutral-50 dark:bg-neutral-800'
+      case 'open': return 'text-status-open bg-status-open/10 dark:bg-status-open/20'
+      case 'in-progress': return 'text-status-progress bg-status-progress/10 dark:bg-status-progress/20'
+      case 'resolved': return 'text-status-resolved bg-status-resolved/10 dark:bg-status-resolved/20'
+      case 'closed': return 'text-description bg-neutral-50 dark:bg-neutral-800'
+      default: return 'text-description bg-neutral-50 dark:bg-neutral-800'
     }
   }
 
@@ -110,7 +110,7 @@ export default function MobileTicketsPage() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
             My Tickets
           </h1>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+          <p className="text-sm text-description mt-1">
             {tickets.length} active tickets
           </p>
         </div>
@@ -151,19 +151,19 @@ export default function MobileTicketsPage() {
               ]}
               className="rounded-lg overflow-hidden shadow-sm"
             >
-              <div className="p-4 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg">
+              <div className="p-4 glass-panel border border-neutral-200 dark:border-neutral-700 rounded-lg transition-all hover:shadow-md">
                 {/* Ticket Header */}
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 flex-1 pr-2">
                     {ticket.subject}
                   </h3>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(ticket.priority)}`}>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(ticket.priority)} animate-fade-in`}>
                     {ticket.priority}
                   </span>
                 </div>
 
                 {/* Ticket Meta */}
-                <div className="flex items-center space-x-3 text-sm text-neutral-600 dark:text-neutral-400 mb-2">
+                <div className="flex items-center space-x-3 text-sm text-description mb-2 flex-wrap gap-1">
                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(ticket.status)}`}>
                     {ticket.status}
                   </span>

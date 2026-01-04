@@ -38,12 +38,12 @@ export default function DistributionCharts({
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-gray-900">
+        <div className="glass-panel p-3 shadow-xl">
+          <p className="font-semibold text-neutral-900 dark:text-neutral-100">
             {data.status || data.category || data.priority || data.name}
           </p>
-          <p className="text-sm text-gray-600">
-            {payload[0].value} ticket(s)
+          <p className="text-sm font-medium text-description">
+            <span className="font-bold">{payload[0].value}</span> ticket(s)
           </p>
         </div>
       )
@@ -73,17 +73,17 @@ export default function DistributionCharts({
 
   return (
     <div
-      className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8"
+      className="grid grid-cols-1 lg:grid-cols-3 gap-6"
       role="region"
       aria-label="Gráficos de distribuição de tickets"
     >
       {/* Status Distribution */}
       <div
-        className="bg-white rounded-lg border border-gray-200 p-6"
+        className="glass-panel p-6"
         role="region"
         aria-labelledby="status-chart-title"
       >
-        <h3 id="status-chart-title" className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 id="status-chart-title" className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
           Distribuição por Status
         </h3>
         <div
@@ -97,9 +97,9 @@ export default function DistributionCharts({
                 data={formatStatusData}
                 cx="50%"
                 cy="50%"
-                innerRadius={40}
-                outerRadius={80}
-                paddingAngle={2}
+                innerRadius={50}
+                outerRadius={90}
+                paddingAngle={3}
                 dataKey="value"
               >
                 {formatStatusData.map((entry, index) => (
@@ -112,16 +112,16 @@ export default function DistributionCharts({
         </div>
         <div className="mt-4 space-y-2" role="list" aria-label="Legenda do gráfico de status">
           {formatStatusData.map((item, index) => (
-            <div key={index} className="flex items-center justify-between text-sm" role="listitem">
+            <div key={index} className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors" role="listitem">
               <div className="flex items-center space-x-2">
                 <div
-                  className="w-3 h-3 rounded"
+                  className="w-3 h-3 rounded-full shadow-sm"
                   style={{ backgroundColor: item.color }}
                   aria-hidden="true"
                 />
-                <span className="text-gray-700">{item.name}</span>
+                <span className="text-neutral-700 dark:text-neutral-300">{item.name}</span>
               </div>
-              <span className="font-medium text-gray-900" aria-label={`${item.value} tickets`}>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100" aria-label={`${item.value} tickets`}>
                 {item.value}
               </span>
             </div>
@@ -131,11 +131,11 @@ export default function DistributionCharts({
 
       {/* Category Distribution */}
       <div
-        className="bg-white rounded-lg border border-gray-200 p-6"
+        className="glass-panel p-6"
         role="region"
         aria-labelledby="category-chart-title"
       >
-        <h3 id="category-chart-title" className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 id="category-chart-title" className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
           Tickets por Categoria
         </h3>
         <div
@@ -153,7 +153,7 @@ export default function DistributionCharts({
                 bottom: 5,
               }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-neutral-700" />
               <XAxis
                 dataKey="name"
                 axisLine={false}
@@ -169,7 +169,7 @@ export default function DistributionCharts({
                 tick={{ fontSize: 12, fill: '#6b7280' }}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -177,11 +177,11 @@ export default function DistributionCharts({
 
       {/* Priority Distribution */}
       <div
-        className="bg-white rounded-lg border border-gray-200 p-6"
+        className="glass-panel p-6"
         role="region"
         aria-labelledby="priority-chart-title"
       >
-        <h3 id="priority-chart-title" className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 id="priority-chart-title" className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
           Tickets por Prioridade
         </h3>
         <div
@@ -200,7 +200,7 @@ export default function DistributionCharts({
                 bottom: 5,
               }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-neutral-700" />
               <XAxis
                 type="number"
                 axisLine={false}
@@ -216,7 +216,7 @@ export default function DistributionCharts({
                 width={80}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

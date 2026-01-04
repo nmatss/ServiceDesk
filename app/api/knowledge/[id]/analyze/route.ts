@@ -9,13 +9,18 @@ import { contentAnalyzer } from '@/lib/knowledge/content-analyzer';
 import { logger } from '@/lib/monitoring/logger';
 import { verifyAuth } from '@/lib/auth/sqlite-auth';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: {
     id: string;
   };
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+ params }: RouteParams) {
   try {
     const auth = await verifyAuth(request);
     if (!auth.user || !['admin', 'agent', 'manager'].includes(auth.user.role)) {
@@ -86,6 +91,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Analyze article draft (without ID)
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const auth = await verifyAuth(request);
     if (!auth.user) {

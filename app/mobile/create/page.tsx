@@ -75,7 +75,7 @@ export default function MobileCreateTicketPage() {
           </h1>
           <button
             onClick={() => router.back()}
-            className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 min-h-[44px] min-w-[44px]"
+            className="p-2 text-description hover:text-neutral-900 dark:hover:text-neutral-100 min-h-[44px] min-w-[44px]"
             aria-label="Close"
           >
             <XMarkIcon className="w-6 h-6" />
@@ -96,7 +96,7 @@ export default function MobileCreateTicketPage() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Brief description of the issue"
-            className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+            className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent min-h-[44px] transition-all"
             required
           />
         </div>
@@ -110,7 +110,7 @@ export default function MobileCreateTicketPage() {
             id="priority"
             value={priority}
             onChange={(e) => setPriority(e.target.value)}
-            className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+            className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent min-h-[44px] transition-all"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -128,7 +128,7 @@ export default function MobileCreateTicketPage() {
             id="category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+            className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent min-h-[44px] transition-all"
           >
             <option value="">Select category</option>
             <option value="technical">Technical Issue</option>
@@ -147,7 +147,7 @@ export default function MobileCreateTicketPage() {
             <button
               type="button"
               onClick={() => setShowVoiceInput(!showVoiceInput)}
-              className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors min-h-[44px] min-w-[44px]"
+              className="p-2 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-colors min-h-[44px] min-w-[44px]"
               aria-label="Toggle voice input"
             >
               <MicrophoneIcon className="w-5 h-5" />
@@ -160,7 +160,7 @@ export default function MobileCreateTicketPage() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Detailed description of the issue"
             rows={6}
-            className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent resize-none transition-all"
             required
           />
 
@@ -184,8 +184,8 @@ export default function MobileCreateTicketPage() {
 
           <div className="flex items-center space-x-2">
             {/* Camera Capture */}
-            <label className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors cursor-pointer min-h-[44px]">
-              <PhotoIcon className="w-5 h-5" />
+            <label className="flex items-center space-x-2 px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:border-brand-500 dark:hover:border-brand-600 transition-all cursor-pointer min-h-[44px] group">
+              <PhotoIcon className="w-5 h-5 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
               <span className="text-sm font-medium">Camera</span>
               <input
                 type="file"
@@ -197,8 +197,8 @@ export default function MobileCreateTicketPage() {
             </label>
 
             {/* File Upload */}
-            <label className="flex items-center space-x-2 px-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors cursor-pointer min-h-[44px]">
-              <PaperClipIcon className="w-5 h-5" />
+            <label className="flex items-center space-x-2 px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:border-brand-500 dark:hover:border-brand-600 transition-all cursor-pointer min-h-[44px] group">
+              <PaperClipIcon className="w-5 h-5 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
               <span className="text-sm font-medium">Files</span>
               <input
                 type="file"
@@ -215,7 +215,7 @@ export default function MobileCreateTicketPage() {
               {attachments.map((file, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg"
+                  className="flex items-center justify-between p-3 glass-panel border border-neutral-200 dark:border-neutral-700 rounded-lg animate-slide-up"
                 >
                   <span className="text-sm text-neutral-700 dark:text-neutral-300 truncate flex-1">
                     {file.name}
@@ -223,7 +223,7 @@ export default function MobileCreateTicketPage() {
                   <button
                     type="button"
                     onClick={() => removeAttachment(index)}
-                    className="ml-2 p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded min-h-[36px] min-w-[36px]"
+                    className="ml-2 p-1 text-priority-critical hover:bg-priority-critical/10 dark:hover:bg-priority-critical/20 rounded min-h-[36px] min-w-[36px] transition-all"
                     aria-label="Remove attachment"
                   >
                     <XMarkIcon className="w-4 h-4" />
@@ -238,7 +238,7 @@ export default function MobileCreateTicketPage() {
         <button
           type="submit"
           disabled={isSubmitting || !subject || !description}
-          className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 text-white font-semibold rounded-lg transition-colors disabled:cursor-not-allowed min-h-[52px]"
+          className="w-full px-6 py-4 bg-gradient-brand hover:opacity-90 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-all disabled:cursor-not-allowed min-h-[52px] shadow-lg hover:shadow-xl"
         >
           {isSubmitting ? 'Creating Ticket...' : 'Create Ticket'}
         </button>

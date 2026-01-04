@@ -3,7 +3,16 @@ import db from '@/lib/db/connection'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+// Enable caching for this route - static lookup data
+export const dynamic = 'force-static'
+export const revalidate = 1800 // 30 minutes
+
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const tenantContext = getTenantContextFromRequest(request)
     if (!tenantContext) {
@@ -20,10 +29,15 @@ export async function GET(request: NextRequest) {
       ORDER BY level
     `).all(tenantContext.id)
 
-    return NextResponse.json({
+    // Add cache control headers
+    const response = NextResponse.json({
       success: true,
       priorities
     })
+
+    response.headers.set('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600')
+
+    return response
   } catch (error) {
     logger.error('Error fetching priorities', error)
     return NextResponse.json(

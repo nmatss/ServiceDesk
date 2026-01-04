@@ -36,6 +36,10 @@ const ExecuteWorkflowSchema = z.object({
  * Execute a workflow with given trigger data
  */
 export async function POST(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_EXECUTE);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
 
@@ -46,7 +50,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid request',
-          details: validationResult.error.errors,
+          details: validationResult.error.issues,
         },
         { status: 400 }
       );
@@ -178,6 +182,10 @@ export async function POST(request: NextRequest) {
  * Get execution status and progress
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_EXECUTE);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { searchParams } = new URL(request.url);
     const executionId = searchParams.get('executionId');
@@ -226,6 +234,10 @@ export async function GET(request: NextRequest) {
  * Cancel a running execution
  */
 export async function DELETE(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_EXECUTE);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const { searchParams } = new URL(request.url);
     const executionId = searchParams.get('executionId');
@@ -269,6 +281,7 @@ import { WorkflowPersistenceAdapter } from '@/lib/workflow/persistence-adapter';
 import { WorkflowQueueManager } from '@/lib/workflow/queue-manager';
 import { WorkflowMetricsCollector } from '@/lib/workflow/metrics-collector';
 
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 async function getWorkflowById(workflowId: number): Promise<WorkflowDefinition | null> {
   try {
     return dbGetWorkflowById(workflowId);
@@ -302,7 +315,7 @@ async function initializeWorkflowEngine(): Promise<WorkflowEngine> {
 
   return new WorkflowEngine(
     persistenceAdapter,
-    queueManager,
+    queueManager as any,
     metricsCollector
   );
 }

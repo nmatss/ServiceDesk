@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline'
-import { logger } from '@/lib/monitoring/logger';
+import { logger } from '@/lib/monitoring/logger'
+import { PageHeader } from '@/components/ui/PageHeader'
 
 interface Ticket {
   id: number
@@ -184,10 +185,15 @@ export default function EditTicketPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900 flex items-center justify-center">
+        <div className="glass-panel p-8 text-center animate-fade-in">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-neutral-200 dark:border-neutral-700 border-t-brand-600 dark:border-t-brand-400 mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-8 w-8 bg-brand-100 dark:bg-brand-900/30 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+          <p className="mt-6 text-description font-medium">Carregando...</p>
         </div>
       </div>
     )
@@ -195,16 +201,19 @@ export default function EditTicketPage() {
 
   if (error || !ticket) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Erro</h1>
-          <p className="text-gray-600 mb-4">{error || 'Ticket não encontrado'}</p>
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900 flex items-center justify-center">
+        <div className="glass-panel p-10 text-center max-w-md animate-fade-in">
+          <div className="w-20 h-20 bg-gradient-to-br from-danger-100 to-danger-200 dark:from-danger-900/30 dark:to-danger-800/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">⚠️</span>
+          </div>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-3">Erro</h1>
+          <p className="text-description mb-6">{error || 'Ticket não encontrado'}</p>
           <button
             onClick={() => router.back()}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+            className="btn-primary inline-flex items-center space-x-2"
           >
-            Voltar
+            <ArrowLeftIcon className="h-4 w-4" />
+            <span>Voltar</span>
           </button>
         </div>
       </div>
@@ -212,27 +221,24 @@ export default function EditTicketPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <ArrowLeftIcon className="h-5 w-5 mr-2" />
-            Voltar
-          </button>
-          
-          <h1 className="text-3xl font-bold text-gray-900">Editar Ticket #{ticket.id}</h1>
-        </div>
+        {/* Header with Breadcrumbs */}
+        <PageHeader
+          title={`Editar Ticket #${ticket.id}`}
+          breadcrumbs={[
+            { label: 'Tickets', href: '/tickets' },
+            { label: `#${ticket.id}`, href: `/tickets/${ticket.id}` },
+            { label: 'Editar' }
+          ]}
+        />
 
         {/* Formulário */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="glass-panel animate-fade-in">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Título */}
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="animate-slide-up">
+              <label htmlFor="title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Título *
               </label>
               <input
@@ -241,14 +247,14 @@ export default function EditTicketPage() {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500"
                 required
               />
             </div>
 
             {/* Descrição */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="animate-slide-up" style={{ animationDelay: '50ms' }}>
+              <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Descrição *
               </label>
               <textarea
@@ -257,15 +263,15 @@ export default function EditTicketPage() {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={6}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all resize-none text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500"
                 required
               />
             </div>
 
             {/* Categoria e Prioridade */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
               <div>
-                <label htmlFor="category_id" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="category_id" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Categoria *
                 </label>
                 <select
@@ -273,7 +279,7 @@ export default function EditTicketPage() {
                   name="category_id"
                   value={formData.category_id}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white"
                   required
                 >
                   <option value={0}>Selecione uma categoria</option>
@@ -286,7 +292,7 @@ export default function EditTicketPage() {
               </div>
 
               <div>
-                <label htmlFor="priority_id" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="priority_id" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Prioridade *
                 </label>
                 <select
@@ -294,7 +300,7 @@ export default function EditTicketPage() {
                   name="priority_id"
                   value={formData.priority_id}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white"
                   required
                 >
                   <option value={0}>Selecione uma prioridade</option>
@@ -308,9 +314,9 @@ export default function EditTicketPage() {
             </div>
 
             {/* Status e Agente */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-up" style={{ animationDelay: '150ms' }}>
               <div>
-                <label htmlFor="status_id" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="status_id" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Status *
                 </label>
                 <select
@@ -318,7 +324,7 @@ export default function EditTicketPage() {
                   name="status_id"
                   value={formData.status_id}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white"
                   required
                 >
                   <option value={0}>Selecione um status</option>
@@ -331,7 +337,7 @@ export default function EditTicketPage() {
               </div>
 
               <div>
-                <label htmlFor="assigned_to" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="assigned_to" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Atribuir a
                 </label>
                 <select
@@ -339,7 +345,7 @@ export default function EditTicketPage() {
                   name="assigned_to"
                   value={formData.assigned_to}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white"
                 >
                   <option value={0}>Nenhum agente</option>
                   {agents.map((agent) => (
@@ -352,28 +358,28 @@ export default function EditTicketPage() {
             </div>
 
             {/* Botões */}
-            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-end space-x-4 pt-6 border-t border-neutral-200 dark:border-neutral-700 animate-slide-up" style={{ animationDelay: '200ms' }}>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="btn-secondary"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary inline-flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Salvando...
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Salvando...</span>
                   </>
                 ) : (
                   <>
-                    <CheckIcon className="h-4 w-4 mr-2" />
-                    Salvar Alterações
+                    <CheckIcon className="h-4 w-4" />
+                    <span>Salvar Alterações</span>
                   </>
                 )}
               </button>
