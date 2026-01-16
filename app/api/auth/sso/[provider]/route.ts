@@ -29,12 +29,11 @@ const COOKIE_NAME = 'servicedesk_token';
  */
 export async function GET(
   request: NextRequest,
-  {
+  { params }: { params: { provider: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { provider: string } }
-) {
   try {
     const { provider } = params;
 
@@ -103,12 +102,11 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  {
+  { params }: { params: { provider: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { provider: string } }
-) {
   try {
     const { provider } = params;
     const body = await request.json();

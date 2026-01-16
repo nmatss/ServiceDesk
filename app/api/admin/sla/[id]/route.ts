@@ -11,11 +11,10 @@ interface Context {
 }
 
 // GET - Buscar política específica
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: Context) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: Context) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -52,11 +51,10 @@ export async function GET(request: NextRequest, {
 }
 
 // PUT - Atualizar política
-export async function PUT(request: NextRequest, {
+export async function PUT(request: NextRequest, { params }: Context) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: Context) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -135,11 +133,10 @@ export async function PUT(request: NextRequest, {
 }
 
 // DELETE - Deletar política
-export async function DELETE(request: NextRequest, {
+export async function DELETE(request: NextRequest, { params }: Context) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: Context) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

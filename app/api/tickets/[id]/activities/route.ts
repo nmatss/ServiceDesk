@@ -18,11 +18,11 @@ interface RouteParams {
 // GET - Get activity history for a ticket
 // ========================================
 
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const ticketId = parseInt(params.id);
     const { searchParams } = new URL(request.url);
@@ -127,11 +127,11 @@ export async function GET(request: NextRequest, {
 // POST - Add a custom activity (for integrations)
 // ========================================
 
-export async function POST(request: NextRequest, {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const ticketId = parseInt(params.id);
     const body = await request.json();

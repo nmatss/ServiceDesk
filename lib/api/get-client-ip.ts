@@ -16,7 +16,7 @@ export function getTrustedClientIP(request: NextRequest): string {
   // Se não confiamos em proxies, usar IP direto
   if (!trustProxy) {
     return request.headers.get('x-real-ip') ||
-           request.ip ||
+           request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
            'unknown';
   }
 
@@ -37,7 +37,7 @@ export function getTrustedClientIP(request: NextRequest): string {
   }
 
   return request.headers.get('x-real-ip') ||
-         request.ip ||
+         request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
          'unknown';
 }
 

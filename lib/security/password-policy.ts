@@ -356,7 +356,7 @@ export function getDaysUntilExpiration(
 }
 
 /**
- * Generate secure random password
+ * Generate secure random password using cryptographically secure random bytes
  */
 export function generateSecurePassword(length: number = 16): string {
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -365,19 +365,35 @@ export function generateSecurePassword(length: number = 16): string {
   const special = '!@#$%^&*()_+-=[]{}|;:,.<>?';
   const all = uppercase + lowercase + numbers + special;
 
+  // Generate cryptographically secure random bytes
+  const randomBytes = crypto.randomBytes(length + 4); // Extra bytes for initial characters
+  let byteIndex = 0;
+
+  // Helper function to get a secure random index for a given character set
+  const getSecureIndex = (charsetLength: number): number => {
+    return randomBytes[byteIndex++] % charsetLength;
+  };
+
   let password = '';
 
-  // Ensure at least one of each type
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += numbers[Math.floor(Math.random() * numbers.length)];
-  password += special[Math.floor(Math.random() * special.length)];
+  // Ensure at least one of each type using secure random
+  password += uppercase[getSecureIndex(uppercase.length)];
+  password += lowercase[getSecureIndex(lowercase.length)];
+  password += numbers[getSecureIndex(numbers.length)];
+  password += special[getSecureIndex(special.length)];
 
-  // Fill the rest randomly
+  // Fill the rest with secure random characters
   for (let i = password.length; i < length; i++) {
-    password += all[Math.floor(Math.random() * all.length)];
+    password += all[getSecureIndex(all.length)];
   }
 
-  // Shuffle the password
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  // Shuffle the password using Fisher-Yates with secure random
+  const shuffleBytes = crypto.randomBytes(length);
+  const chars = password.split('');
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = shuffleBytes[i] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  return chars.join('');
 }

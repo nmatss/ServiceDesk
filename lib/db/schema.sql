@@ -1945,24 +1945,20 @@ CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_success ON webhook_deliveries(
 CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_delivered ON webhook_deliveries(delivered_at);
 
 -- IA e Classificação
-CREATE INDEX IF NOT EXISTS idx_ai_classifications_entity ON ai_classifications(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_ai_classifications_type ON ai_classifications(classification_type);
+CREATE INDEX IF NOT EXISTS idx_ai_classifications_ticket ON ai_classifications(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ai_classifications_model ON ai_classifications(model_name);
 CREATE INDEX IF NOT EXISTS idx_ai_classifications_confidence ON ai_classifications(confidence_score);
+CREATE INDEX IF NOT EXISTS idx_ai_classifications_accepted ON ai_classifications(was_accepted);
 
-CREATE INDEX IF NOT EXISTS idx_ai_suggestions_entity ON ai_suggestions(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_ai_suggestions_ticket ON ai_suggestions(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ai_suggestions_type ON ai_suggestions(suggestion_type);
 CREATE INDEX IF NOT EXISTS idx_ai_suggestions_used ON ai_suggestions(was_used);
-CREATE INDEX IF NOT EXISTS idx_ai_suggestions_helpful ON ai_suggestions(was_helpful);
 
-CREATE INDEX IF NOT EXISTS idx_ai_training_data_dataset ON ai_training_data(dataset_name);
-CREATE INDEX IF NOT EXISTS idx_ai_training_data_entity ON ai_training_data(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_ai_training_data_validated ON ai_training_data(is_validated);
+-- Training data indexes (table may not exist - conditional)
+-- CREATE INDEX IF NOT EXISTS idx_ai_training_data_validated ON ai_training_data(is_validated);
 
--- Vector Embeddings
-CREATE INDEX IF NOT EXISTS idx_vector_embeddings_entity ON vector_embeddings(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_vector_embeddings_model ON vector_embeddings(model_name);
-CREATE INDEX IF NOT EXISTS idx_vector_embeddings_updated ON vector_embeddings(updated_at);
+-- Vector Embeddings (table may not exist - conditional)
+-- CREATE INDEX IF NOT EXISTS idx_vector_embeddings_model ON vector_embeddings(model_name);
 
 -- Workflow Definitions
 CREATE INDEX IF NOT EXISTS idx_workflow_definitions_active ON workflow_definitions(is_active);
@@ -2266,7 +2262,7 @@ WHERE status_id IN (1, 2);
 -- Partial index for SLA tracking on unresolved tickets
 CREATE INDEX IF NOT EXISTS idx_sla_tracking_active_violations
 ON sla_tracking(ticket_id, response_due_at, resolution_due_at)
-WHERE resolved_at IS NULL AND (response_met = 0 OR resolution_met = 0);
+WHERE response_met = 0 OR resolution_met = 0;
 
 -- Composite index for ticket filtering and sorting
 CREATE INDEX IF NOT EXISTS idx_tickets_filter_sort
@@ -2321,8 +2317,8 @@ ON kb_articles(status, visibility, category_id, published_at DESC)
 WHERE status = 'published';
 
 -- Index for analytics date range queries
-CREATE INDEX IF NOT EXISTS idx_analytics_daily_org_date
-ON analytics_daily_metrics(organization_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_daily_date
+ON analytics_daily_metrics(date DESC);
 
 -- Covering index for agent metrics
 CREATE INDEX IF NOT EXISTS idx_analytics_agent_covering
@@ -2379,11 +2375,11 @@ WHERE success = 0;
 
 -- Composite index for AI suggestions relevance
 CREATE INDEX IF NOT EXISTS idx_ai_suggestions_relevance
-ON ai_suggestions(entity_type, entity_id, suggestion_type, confidence_score DESC);
+ON ai_suggestions(ticket_id, suggestion_type, confidence_score DESC);
 
--- Index for vector similarity search preparation
-CREATE INDEX IF NOT EXISTS idx_vector_embeddings_lookup
-ON vector_embeddings(entity_type, entity_id, model_name, updated_at DESC);
+-- Index for vector similarity search preparation (commented - table may not exist)
+-- CREATE INDEX IF NOT EXISTS idx_vector_embeddings_lookup
+-- ON vector_embeddings(entity_type, entity_id, model_name, updated_at DESC);
 
 -- Composite index for organization statistics
 CREATE INDEX IF NOT EXISTS idx_tickets_org_stats
@@ -2393,10 +2389,9 @@ ON tickets(organization_id, status_id, priority_id, DATE(created_at));
 CREATE INDEX IF NOT EXISTS idx_tickets_analytics_time
 ON tickets(organization_id, DATE(created_at), status_id, priority_id);
 
--- Partial index for recently created tickets (hot data)
+-- Index for recently created tickets (hot data)
 CREATE INDEX IF NOT EXISTS idx_tickets_recent
-ON tickets(organization_id, created_at DESC, status_id, priority_id)
-WHERE created_at >= DATE('now', '-7 days');
+ON tickets(created_at DESC, status_id, priority_id);
 
 -- Composite index for agent workload queries
 CREATE INDEX IF NOT EXISTS idx_tickets_agent_workload
@@ -2444,16 +2439,15 @@ ON communication_messages(channel_id, created_at DESC, status);
 
 -- Index for analytics events time-series
 CREATE INDEX IF NOT EXISTS idx_analytics_events_timeseries
-ON analytics_events(event_type, created_at DESC, organization_id);
+ON analytics_events(event_type, created_at DESC);
 
--- Partial index for API usage current period
+-- Index for API usage tracking
 CREATE INDEX IF NOT EXISTS idx_api_usage_current
-ON api_usage_tracking(organization_id, endpoint, timestamp DESC)
-WHERE date >= DATE('now', '-30 days');
+ON api_usage_tracking(organization_id, endpoint, timestamp DESC);
 
 -- Composite index for LGPD consent queries
 CREATE INDEX IF NOT EXISTS idx_lgpd_consents_user_type
-ON lgpd_consents(user_id, consent_type, is_given, granted_at DESC);
+ON lgpd_consents(user_id, consent_type, is_given, created_at DESC);
 
 -- Index for cache table cleanup
 CREATE INDEX IF NOT EXISTS idx_cache_cleanup

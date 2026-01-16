@@ -105,7 +105,8 @@ export interface TicketCardProps extends VariantProps<typeof ticketCardVariants>
   compact?: boolean;
 }
 
-export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
+// Memoized TicketCard to prevent unnecessary re-renders in lists
+export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCardProps>(
   ({
     ticket,
     onClick,
@@ -128,21 +129,23 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
     const [isHovered, setIsHovered] = React.useState(false);
     const [showActionsMenu, setShowActionsMenu] = React.useState(false);
 
+    // Memoize callbacks to prevent child re-renders
+    const handleClick = React.useCallback((e: React.MouseEvent) => {
+      if (e.target instanceof HTMLElement && e.target.closest('[data-action]')) {
+        return;
+      }
+      onClick?.(ticket);
+    }, [onClick, ticket]);
+
+    const handleSelect = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      e.stopPropagation();
+      onSelect?.(ticket, e.target.checked);
+    }, [onSelect, ticket]);
+
     const actualLayout = compact ? 'compact' : layout;
     const isOverdue = ticket.dueDate && new Date() > ticket.dueDate && ticket.status !== 'resolved' && ticket.status !== 'closed';
     const isUrgent = ticket.priority === 'critical' || ticket.priority === 'high';
 
-    const handleCardClick = (e: React.MouseEvent) => {
-      if (e.target instanceof HTMLElement && e.target.closest('[data-action]')) {
-        return; // Don't trigger card click if action button was clicked
-      }
-      onClick?.(ticket);
-    };
-
-    const handleSelectChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      e.stopPropagation();
-      onSelect?.(ticket, e.target.checked);
-    };
 
     const formatTimeAgo = (date: Date) => {
       const now = new Date();
@@ -184,7 +187,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
           isOverdue && 'border-error-300 bg-error-50/20 dark:bg-error-900/10',
           className
         )}
-        onClick={handleCardClick}
+        onClick={handleClick}
         {...props}
       >
         {/* Selection checkbox */}
@@ -193,7 +196,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
             <input
               type="checkbox"
               checked={selected}
-              onChange={handleSelectChange}
+              onChange={handleSelect}
               className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
             />
           </div>
@@ -439,7 +442,7 @@ export const TicketCard = React.forwardRef<HTMLDivElement, TicketCardProps>(
       </motion.div>
     );
   }
-);
+));
 
 TicketCard.displayName = 'TicketCard';
 
@@ -461,7 +464,8 @@ export interface TicketListProps {
   className?: string;
 }
 
-export const TicketList: React.FC<TicketListProps> = ({
+// Memoized TicketList for better performance with large lists
+export const TicketList: React.FC<TicketListProps> = React.memo(({
   tickets,
   persona = 'agent',
   layout = 'grid',
@@ -477,7 +481,8 @@ export const TicketList: React.FC<TicketListProps> = ({
   emptyText = 'No tickets found',
   className,
 }) => {
-  const handleTicketSelect = (ticket: TicketData, selected: boolean) => {
+  // Memoize selection handler
+  const handleTicketSelect = React.useCallback((ticket: TicketData, selected: boolean) => {
     if (!onSelectionChange) return;
 
     const newSelection = selected
@@ -485,7 +490,7 @@ export const TicketList: React.FC<TicketListProps> = ({
       : selectedTickets.filter(id => id !== ticket.id);
 
     onSelectionChange(newSelection);
-  };
+  }, [onSelectionChange, selectedTickets]);
 
   if (loading) {
     return (
@@ -548,6 +553,8 @@ export const TicketList: React.FC<TicketListProps> = ({
       ))}
     </div>
   );
-};
+});
+
+TicketList.displayName = 'TicketList';
 
 export default TicketCard;

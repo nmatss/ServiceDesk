@@ -16,11 +16,11 @@ interface RouteParams {
   };
 }
 
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const auth = await verifyAuth(request);
     if (!auth.user || !['admin', 'agent', 'manager'].includes(auth.user.role)) {

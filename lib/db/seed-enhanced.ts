@@ -119,6 +119,7 @@ export async function seedEnhancedData() {
     }
 
     // Add comments to recent tickets to show activity (only if we added tickets)
+    let commentsInserted = 0;
     if (shouldAddTickets && ticketsInserted > 0) {
       const insertComment = db.prepare(`
         INSERT INTO comments (ticket_id, user_id, content, is_internal, created_at)
@@ -141,7 +142,8 @@ export async function seedEnhancedData() {
       enhancedComments.forEach(([ticketId, userId, content, isInternal, createdAt]) => {
         insertComment.run(ticketId, userId, content, isInternal, createdAt);
       });
-      logger.info(`💬 Added ${enhancedComments.length} comments`);
+      commentsInserted = enhancedComments.length;
+      logger.info(`💬 Added ${commentsInserted} comments`);
     }
 
     // Populate analytics tables with daily metrics for last 30 days
@@ -251,7 +253,7 @@ export async function seedEnhancedData() {
 
     const stats = {
       tickets: ticketsInserted,
-      comments: enhancedComments.length,
+      comments: commentsInserted,
       dailyMetrics: 31,
       agentMetrics: agentIds.length * 31,
       categoryMetrics: 'variable',

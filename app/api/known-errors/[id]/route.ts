@@ -23,11 +23,10 @@ interface RouteParams {
  * GET /api/known-errors/[id]
  * Get known error by ID
  */
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const { id } = await params;
     const knownErrorId = parseInt(id, 10);
@@ -111,11 +110,10 @@ export async function GET(request: NextRequest, {
  * PUT /api/known-errors/[id]
  * Update known error
  */
-export async function PUT(request: NextRequest, {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const { id } = await params;
     const knownErrorId = parseInt(id, 10);
@@ -221,11 +219,10 @@ export async function PUT(request: NextRequest, {
  * DELETE /api/known-errors/[id]
  * Delete known error (admin only - usually we just deactivate)
  */
-export async function DELETE(request: NextRequest, {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const { id } = await params;
     const knownErrorId = parseInt(id, 10);

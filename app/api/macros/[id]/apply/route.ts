@@ -18,11 +18,11 @@ interface RouteParams {
 // POST - Apply macro to ticket
 // ========================================
 
-export async function POST(request: NextRequest, {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const macroId = parseInt(params.id);
     const body = await request.json();

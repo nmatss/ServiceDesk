@@ -65,11 +65,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // POST - Follow a ticket
 // ========================================
 
-export async function POST(request: NextRequest, {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const ticketId = parseInt(params.id);
     const body = await request.json();
@@ -143,11 +142,10 @@ export async function POST(request: NextRequest, {
 // DELETE - Unfollow a ticket
 // ========================================
 
-export async function DELETE(request: NextRequest, {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const ticketId = parseInt(params.id);
     const { searchParams } = new URL(request.url);

@@ -45,10 +45,10 @@ export async function seedDatabase() {
     // Hash da senha padrão 123456
     const defaultPasswordHash = await hashPassword('123456');
 
-    // Inserir usuários com organization_id
+    // Inserir usuários
     const insertUser = db.prepare(`
-      INSERT INTO users (name, email, password_hash, role, organization_id)
-      VALUES (?, ?, ?, ?, 1)
+      INSERT INTO users (name, email, password_hash, role)
+      VALUES (?, ?, ?, ?)
     `);
 
     const users = [
@@ -429,8 +429,8 @@ export async function seedDatabase() {
 
     // Inserir categorias da base de conhecimento
     const insertKBCategory = db.prepare(`
-      INSERT INTO kb_categories (name, slug, description, icon, color, sort_order, is_active, tenant_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      INSERT INTO kb_categories (name, slug, description, icon, color, sort_order, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
     const kbCategories = [
@@ -450,8 +450,8 @@ export async function seedDatabase() {
       INSERT INTO kb_articles (
         title, slug, summary, content, category_id, author_id,
         status, visibility, featured, view_count, helpful_votes, not_helpful_votes,
-        search_keywords, published_at, tenant_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)
+        search_keywords, published_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     `);
 
     // Use articles from kb-seed-data.ts (15+ comprehensive articles)

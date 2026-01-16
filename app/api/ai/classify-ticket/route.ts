@@ -215,11 +215,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  // Aplicar rate limiting
-  const rateLimitResult = await classifyRateLimit(request, '/api/ai/classify-ticket')
-  if (rateLimitResult instanceof Response) {
-    return rateLimitResult // Rate limit exceeded
-  }
+  // SECURITY: Rate limiting para AI
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     // Verificar autenticação

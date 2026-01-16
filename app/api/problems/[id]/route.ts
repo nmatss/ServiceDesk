@@ -23,11 +23,10 @@ interface RouteParams {
  * GET /api/problems/[id]
  * Get problem by ID with full details
  */
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -111,11 +110,10 @@ export async function GET(request: NextRequest, {
  * PUT /api/problems/[id]
  * Update problem
  */
-export async function PUT(request: NextRequest, {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -227,11 +225,10 @@ export async function PUT(request: NextRequest, {
  * DELETE /api/problems/[id]
  * Delete problem (admin only)
  */
-export async function DELETE(request: NextRequest, {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);

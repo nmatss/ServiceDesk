@@ -1,11 +1,93 @@
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import db from '@/lib/db/connection';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+
+// Poll interval for checking new notifications (ms)
+const POLL_INTERVAL = 10000; // 10 seconds
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const MAX_CONNECTION_TIME = 1800000; // 30 minutes (much longer than before)
+
+interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  ticket_id?: number;
+  created_at: string;
+  is_read: boolean;
+}
+
+/**
+ * Fetch real notifications from database for user
+ */
+function fetchUserNotifications(userId: number, tenantId: number, since: string): Notification[] {
+  try {
+    // Check if notifications table exists
+    const tableExists = db.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type='table' AND name='notifications'
+    `).get();
+
+    if (!tableExists) {
+      return [];
+    }
+
+    const notifications = db.prepare(`
+      SELECT id, type, title, message, ticket_id, created_at, is_read
+      FROM notifications
+      WHERE user_id = ?
+        AND tenant_id = ?
+        AND created_at > ?
+        AND is_read = 0
+      ORDER BY created_at DESC
+      LIMIT 50
+    `).all(userId, tenantId, since) as Notification[];
+
+    return notifications;
+  } catch (error) {
+    logger.error('Error fetching notifications', error);
+    return [];
+  }
+}
+
+/**
+ * Get unread notification count
+ */
+function getUnreadCount(userId: number, tenantId: number): number {
+  try {
+    const tableExists = db.prepare(`
+      SELECT name FROM sqlite_master
+      WHERE type='table' AND name='notifications'
+    `).get();
+
+    if (!tableExists) {
+      return 0;
+    }
+
+    const result = db.prepare(`
+      SELECT COUNT(*) as count
+      FROM notifications
+      WHERE user_id = ? AND tenant_id = ? AND is_read = 0
+    `).get(userId, tenantId) as { count: number };
+
+    return result.count;
+  } catch {
+    return 0;
+  }
+}
+
 export async function GET(request: NextRequest) {
-  // SECURITY: Rate limiting
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  // SECURITY: Rate limiting (use a more lenient limit for SSE)
+  const rateLimitResponse = await applyRateLimit(request, {
+    ...RATE_LIMITS.DEFAULT,
+    max: 10, // Max 10 SSE connections per minute per user
+    keyPrefix: 'sse:notifications'
+  });
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
@@ -20,88 +102,113 @@ export async function GET(request: NextRequest) {
     }
 
     const encoder = new TextEncoder()
+    let lastCheck = new Date().toISOString()
 
     const customReadable = new ReadableStream({
       start(controller) {
-        // Heartbeat para manter a conexão viva
-        const keepAlive = setInterval(() => {
-          controller.enqueue(encoder.encode(': heartbeat\n\n'))
-        }, 30000)
+        let isClosed = false;
 
-        // Função para enviar notificação
-        const sendNotification = (data: any) => {
-          const message = `data: ${JSON.stringify(data)}\n\n`
-          controller.enqueue(encoder.encode(message))
+        // Heartbeat to keep connection alive
+        const keepAlive = setInterval(() => {
+          if (!isClosed) {
+            try {
+              controller.enqueue(encoder.encode(': heartbeat\n\n'))
+            } catch {
+              cleanup();
+            }
+          }
+        }, HEARTBEAT_INTERVAL)
+
+        // Send notification helper
+        const sendNotification = (data: unknown) => {
+          if (isClosed) return;
+          try {
+            const message = `data: ${JSON.stringify(data)}\n\n`
+            controller.enqueue(encoder.encode(message))
+          } catch {
+            cleanup();
+          }
         }
 
-        // Enviar notificação de conexão
+        // Send initial connection message with unread count
+        const unreadCount = getUnreadCount(userContext.id, tenantContext.id);
         sendNotification({
           id: Date.now(),
           type: 'connection',
           message: 'Conectado ao sistema de notificações',
           timestamp: new Date().toISOString(),
-          user_id: userContext.id,
-          tenant_id: tenantContext.id
+          unread_count: unreadCount
         })
 
-        // Simular notificações periódicas
-        const notificationInterval = setInterval(() => {
-          const notifications = [
-            {
-              type: 'ticket_created',
-              message: 'Novo ticket criado',
-              title: 'Ticket #123'
-            },
-            {
-              type: 'ticket_updated',
-              message: 'Status do ticket atualizado',
-              title: 'Ticket #124'
-            },
-            {
-              type: 'comment_added',
-              message: 'Novo comentário adicionado',
-              title: 'Ticket #125'
+        // Poll for real notifications
+        const pollNotifications = setInterval(() => {
+          if (isClosed) return;
+
+          const notifications = fetchUserNotifications(
+            userContext.id,
+            tenantContext.id,
+            lastCheck
+          );
+
+          if (notifications.length > 0) {
+            lastCheck = new Date().toISOString();
+
+            // Send each notification
+            for (const notification of notifications) {
+              sendNotification({
+                id: notification.id,
+                type: notification.type,
+                title: notification.title,
+                message: notification.message,
+                ticket_id: notification.ticket_id,
+                timestamp: notification.created_at,
+                is_read: notification.is_read
+              });
             }
-          ]
 
-          const randomNotification = notifications[Math.floor(Math.random() * notifications.length)]
+            // Send updated unread count
+            const newUnreadCount = getUnreadCount(userContext.id, tenantContext.id);
+            sendNotification({
+              type: 'unread_count',
+              count: newUnreadCount,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }, POLL_INTERVAL)
 
-          sendNotification({
-            id: Date.now(),
-            ...randomNotification,
-            timestamp: new Date().toISOString(),
-            user_id: userContext.id,
-            tenant_id: tenantContext.id,
-            is_read: false
-          })
-        }, 120000) // A cada 2 minutos
-
-        // Cleanup quando a conexão é fechada
+        // Cleanup function
         const cleanup = () => {
-          clearInterval(keepAlive)
-          clearInterval(notificationInterval)
+          if (isClosed) return;
+          isClosed = true;
+          clearInterval(keepAlive);
+          clearInterval(pollNotifications);
           try {
-            controller.close()
-          } catch (e) {
-            // Conexão já foi fechada
+            controller.close();
+          } catch {
+            // Connection already closed
           }
         }
 
-        // Escutar sinal de abort
+        // Listen for abort signal
         request.signal.addEventListener('abort', cleanup)
 
-        // Cleanup automático após 5 minutos
-        setTimeout(cleanup, 300000)
+        // Auto cleanup after max connection time (30 min - client should reconnect)
+        setTimeout(cleanup, MAX_CONNECTION_TIME)
       }
     })
+
+    const origin = request.headers.get('origin') || '';
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
 
     return new Response(customReadable, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        'X-Accel-Buffering': 'no', // Disable nginx buffering
+        'Access-Control-Allow-Origin': corsOrigin,
         'Access-Control-Allow-Headers': 'Cache-Control, Authorization, X-Tenant-ID',
+        'Access-Control-Allow-Credentials': 'true',
       },
     })
   } catch (error) {

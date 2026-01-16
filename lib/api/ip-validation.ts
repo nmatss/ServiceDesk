@@ -141,7 +141,7 @@ export function getTrustedClientIP(request: NextRequest): string {
       return normalizeIP(realIp);
     }
 
-    return request.ip || 'unknown';
+    return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   }
 
   // Cloudflare Mode: usar CF-Connecting-IP
@@ -185,8 +185,8 @@ export function getTrustedClientIP(request: NextRequest): string {
     return normalizeIP(realIp);
   }
 
-  // Fallback final: IP direto da conexão
-  return request.ip || 'unknown';
+  // Fallback final: headers ou unknown
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 }
 
 /**
@@ -360,7 +360,7 @@ export function logSpoofingAttempt(request: NextRequest, reason: string): void {
       'x-real-ip': request.headers.get('x-real-ip'),
       'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
     },
-    ip: request.ip,
+    ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
     timestamp: new Date().toISOString(),
   });
 }

@@ -16,7 +16,7 @@ export interface ResponsiveTableProps {
   /** Headers to display in mobile card view */
   headers?: string[]
   /** Show table on mobile instead of cards */
-  forcetableOnMobile?: boolean
+  forceTableOnMobile?: boolean
 }
 
 export function ResponsiveTable({

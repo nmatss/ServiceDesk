@@ -285,7 +285,9 @@ function encryptSSOConfiguration(config: string): string {
   try {
     const ENCRYPTION_KEY = getSSO_ENCRYPTION_KEY();
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(ALGORITHM, ENCRYPTION_KEY);
+    // Derive a proper 32-byte key for AES-256
+    const key = crypto.scryptSync(ENCRYPTION_KEY, 'sso-salt', 32);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
     let encrypted = cipher.update(config, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -316,9 +318,12 @@ function decryptSSOConfiguration(encryptedConfig: string): string {
     }
 
     const ENCRYPTION_KEY = getSSO_ENCRYPTION_KEY();
+    const iv = Buffer.from(ivHex, 'hex');
     const tag = Buffer.from(tagHex, 'hex');
+    // Derive the same 32-byte key for AES-256
+    const key = crypto.scryptSync(ENCRYPTION_KEY, 'sso-salt', 32);
 
-    const decipher = crypto.createDecipher(ALGORITHM, ENCRYPTION_KEY);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');

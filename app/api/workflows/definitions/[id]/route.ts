@@ -16,12 +16,12 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  */
 export async function GET(
   request: NextRequest,
-  {
+  { params }: { params: { id: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { id: string } }
-) {
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
@@ -117,12 +117,12 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  {
+  { params }: { params: { id: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { id: string } }
-) {
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
@@ -314,12 +314,12 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  {
+  { params }: { params: { id: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { id: string } }
-) {
+
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);

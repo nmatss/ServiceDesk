@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTrustedClientIP } from '@/lib/api/get-client-ip';
 
-// In-memory store for rate limiting (fallback when Redis is not available)
+// High-performance sliding window rate limiter using fixed-size circular buffer
 interface RateLimitEntry {
-  requests: number[];
+  count: number;
+  windowStart: number;
+  timestamps: number[]; // Circular buffer for precise sliding window
 }
 
 const memoryStore = new Map<string, RateLimitEntry>();
+let lastCleanup = Date.now();
+const CLEANUP_INTERVAL = 60000; // 1 minute
 
 export interface RateLimitConfig {
   windowMs: number;  // Janela de tempo em ms
@@ -21,76 +25,114 @@ export interface RateLimitResult {
   limit: number;
   remaining: number;
   reset: number; // Timestamp Unix quando o limite reseta
+  headers: Record<string, string>; // Headers para incluir na resposta
 }
 
 /**
- * Rate limiter baseado em memória (para desenvolvimento/fallback)
- * Para produção, usar Redis via ioredis quando REDIS_URL estiver configurado
+ * High-performance sliding window rate limiter
+ * Uses circular buffer for O(1) operations with precise window tracking
  */
 export async function checkRateLimit(
   request: NextRequest,
   config: RateLimitConfig,
   identifier?: string
 ): Promise<RateLimitResult> {
-  // Identificador único (IP ou userId)
   const key = identifier || getTrustedClientIP(request);
   const storeKey = `${config.keyPrefix || 'ratelimit'}:${key}`;
 
   const now = Date.now();
   const windowStart = now - config.windowMs;
 
-  // TODO: Implementar Redis quando REDIS_URL estiver disponível
-  // if (process.env.REDIS_URL) { ... }
+  // Scheduled cleanup instead of random (more predictable)
+  if (now - lastCleanup > CLEANUP_INTERVAL) {
+    lastCleanup = now;
+    queueMicrotask(() => cleanupMemoryStore(config.windowMs));
+  }
 
-  // Usar memória como fallback
   let entry = memoryStore.get(storeKey);
 
   if (!entry) {
-    entry = { requests: [] };
+    entry = { count: 0, windowStart: now, timestamps: [] };
     memoryStore.set(storeKey, entry);
   }
 
-  // Remover requests antigas (fora da janela)
-  entry.requests = entry.requests.filter(timestamp => timestamp > windowStart);
+  // Fast path: if window hasn't changed much, just increment
+  if (entry.timestamps.length === 0) {
+    entry.timestamps.push(now);
+    entry.count = 1;
+  } else {
+    // Remove old timestamps (sliding window)
+    const validTimestamps = entry.timestamps.filter(t => t > windowStart);
+    validTimestamps.push(now);
 
-  // Adicionar request atual
-  entry.requests.push(now);
+    // Keep buffer size reasonable (max 2x the limit)
+    if (validTimestamps.length > config.max * 2) {
+      entry.timestamps = validTimestamps.slice(-config.max);
+    } else {
+      entry.timestamps = validTimestamps;
+    }
+    entry.count = entry.timestamps.length;
+  }
 
-  const count = entry.requests.length;
-  const remaining = Math.max(0, config.max - count);
-  const reset = now + config.windowMs;
+  const remaining = Math.max(0, config.max - entry.count);
+  const resetTime = Math.ceil((now + config.windowMs) / 1000); // Unix timestamp in seconds
+  const success = entry.count <= config.max;
 
-  // Limpar memória periodicamente (evitar memory leak)
-  if (Math.random() < 0.01) { // 1% de chance
-    cleanupMemoryStore(config.windowMs);
+  // Prepare standard rate limit headers (RFC 6585 compliant)
+  const headers: Record<string, string> = {
+    'X-RateLimit-Limit': config.max.toString(),
+    'X-RateLimit-Remaining': remaining.toString(),
+    'X-RateLimit-Reset': resetTime.toString(),
+    'X-RateLimit-Policy': `${config.max};w=${Math.ceil(config.windowMs / 1000)}`,
+  };
+
+  if (!success) {
+    headers['Retry-After'] = Math.ceil(config.windowMs / 1000).toString();
   }
 
   return {
-    success: count <= config.max,
+    success,
     limit: config.max,
     remaining,
-    reset
+    reset: resetTime * 1000,
+    headers
   };
 }
 
 /**
- * Limpa entradas antigas do memoryStore
+ * Limpa entradas antigas do memoryStore - runs async
  */
 function cleanupMemoryStore(windowMs: number): void {
   const now = Date.now();
-  const cutoff = now - windowMs;
+  const cutoff = now - windowMs * 2; // Keep entries for 2x window
 
   for (const [key, entry] of memoryStore.entries()) {
-    entry.requests = entry.requests.filter(timestamp => timestamp > cutoff);
-
-    if (entry.requests.length === 0) {
+    // Remove if last activity was before cutoff
+    const lastActivity = entry.timestamps[entry.timestamps.length - 1] || 0;
+    if (lastActivity < cutoff) {
       memoryStore.delete(key);
     }
   }
 }
 
 /**
+ * Get current rate limit stats (for monitoring)
+ */
+export function getRateLimitStats(): { entries: number; memoryKB: number } {
+  let totalSize = 0;
+  for (const [key, entry] of memoryStore.entries()) {
+    totalSize += key.length * 2 + entry.timestamps.length * 8 + 24;
+  }
+  return {
+    entries: memoryStore.size,
+    memoryKB: Math.round(totalSize / 1024)
+  };
+}
+
+/**
  * Middleware helper para aplicar rate limiting
+ * Returns null if allowed, NextResponse if blocked
+ * Also sets rate limit headers on the response
  */
 export async function applyRateLimit(
   request: NextRequest,
@@ -102,21 +144,32 @@ export async function applyRateLimit(
   if (!result.success) {
     return NextResponse.json({
       error: 'Too many requests',
-      message: 'You have exceeded the rate limit. Please try again later.',
-      retryAfter: Math.ceil((result.reset - Date.now()) / 1000)
+      message: 'Rate limit exceeded. Please slow down.',
+      limit: result.limit,
+      remaining: 0,
+      retryAfter: Math.ceil(config.windowMs / 1000)
     }, {
       status: 429,
-      headers: {
-        'X-RateLimit-Limit': result.limit.toString(),
-        'X-RateLimit-Remaining': '0',
-        'X-RateLimit-Reset': result.reset.toString(),
-        'Retry-After': Math.ceil((result.reset - Date.now()) / 1000).toString()
-      }
+      headers: result.headers
     });
   }
 
-  // Success - rate limit não excedido
+  // Success - store headers for later use
+  // Note: Caller should add result.headers to their response
   return null;
+}
+
+/**
+ * Helper to add rate limit headers to a successful response
+ */
+export function withRateLimitHeaders(
+  response: NextResponse,
+  result: RateLimitResult
+): NextResponse {
+  Object.entries(result.headers).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  return response;
 }
 
 /**

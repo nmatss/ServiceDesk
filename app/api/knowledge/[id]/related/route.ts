@@ -17,11 +17,11 @@ interface RouteParams {
   };
 }
 
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const articleId = parseInt(params.id);
     const { searchParams } = new URL(request.url);

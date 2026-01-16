@@ -73,12 +73,11 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  {
+  { params: { provider: _provider } }: { params: { provider: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
- params: { provider: _provider } }: { params: { provider: string } }
-) {
   const cookieStore = await cookies();
 
   // Clear cookies

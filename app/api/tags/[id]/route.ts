@@ -51,11 +51,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PUT - Update tag
 // ========================================
 
-export async function PUT(request: NextRequest, {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
   try {
     const tagId = parseInt(params.id);
     const body = await request.json();

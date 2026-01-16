@@ -22,11 +22,11 @@ interface RouteParams {
  * GET /api/problems/[id]/activities
  * List activities/timeline for a problem
  */
-export async function GET(request: NextRequest, {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);
@@ -106,11 +106,11 @@ export async function GET(request: NextRequest, {
  * POST /api/problems/[id]/activities
  * Add a comment/activity to a problem
  */
-export async function POST(request: NextRequest, {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: RouteParams) {
+
   try {
     const { id } = await params;
     const problemId = parseInt(id, 10);

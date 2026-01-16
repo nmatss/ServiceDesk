@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db/connection'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { getCachedTicketSearch, cacheTicketSearch } from '@/lib/cache/lru-cache';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+// Maximum limit to prevent DoS attacks
+const MAX_LIMIT = 100;
+
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -27,11 +32,31 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    // SECURITY: Cap limit to prevent DoS
+    const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get('limit') || '10')))
     const offset = (page - 1) * limit
 
-    // Query base considerando tenant isolation
+    // Check cache first
+    const isAdmin = ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)
+    const cacheKey = { page, limit, isAdmin, userId: isAdmin ? 0 : userContext.id }
+    const cached = getCachedTicketSearch<{ tickets: unknown[]; total: number }>(tenantContext.id, cacheKey)
+
+    if (cached) {
+      return NextResponse.json({
+        success: true,
+        tickets: cached.tickets,
+        pagination: {
+          page,
+          limit,
+          total: cached.total,
+          pages: Math.ceil(cached.total / limit)
+        },
+        cached: true
+      })
+    }
+
+    // OPTIMIZED: Single query with COUNT(*) OVER() - eliminates separate count query
     let query = `
       SELECT
         t.id,
@@ -40,9 +65,15 @@ export async function GET(request: NextRequest) {
         t.created_at,
         t.updated_at,
         s.name as status,
+        s.id as status_id,
+        s.color as status_color,
         p.name as priority,
+        p.id as priority_id,
         c.name as category,
-        u.name as user_name
+        c.id as category_id,
+        u.name as user_name,
+        u.id as user_id,
+        COUNT(*) OVER() as total_count
       FROM tickets t
       LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
       LEFT JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
@@ -51,16 +82,16 @@ export async function GET(request: NextRequest) {
       WHERE t.tenant_id = ?
     `
 
-    const params = [
-      tenantContext.id, // statuses tenant_id
-      tenantContext.id, // priorities tenant_id
-      tenantContext.id, // categories tenant_id
-      tenantContext.id, // users tenant_id
-      tenantContext.id  // tickets tenant_id
+    const params: (number | string)[] = [
+      tenantContext.id,
+      tenantContext.id,
+      tenantContext.id,
+      tenantContext.id,
+      tenantContext.id
     ]
 
     // Se não for admin, mostrar apenas tickets do usuário
-    if (!['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)) {
+    if (!isAdmin) {
       query += ' AND t.user_id = ?'
       params.push(userContext.id)
     }
@@ -68,18 +99,32 @@ export async function GET(request: NextRequest) {
     query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?'
     params.push(limit, offset)
 
-    const tickets = db.prepare(query).all(...params)
+    const results = db.prepare(query).all(...params) as Array<{
+      id: number;
+      title: string;
+      description: string;
+      created_at: string;
+      updated_at: string;
+      status: string;
+      status_id: number;
+      status_color: string;
+      priority: string;
+      priority_id: number;
+      category: string;
+      category_id: number;
+      user_name: string;
+      user_id: number;
+      total_count: number;
+    }>
 
-    // Contar total de tickets
-    let countQuery = 'SELECT COUNT(*) as total FROM tickets WHERE tenant_id = ?'
-    let countParams = [tenantContext.id]
+    // Extract total from first row (all rows have same total_count)
+    const total = results.length > 0 ? results[0].total_count : 0
 
-    if (!['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)) {
-      countQuery += ' AND user_id = ?'
-      countParams.push(userContext.id)
-    }
+    // Remove total_count from each ticket object for cleaner response
+    const tickets = results.map(({ total_count, ...ticket }) => ticket)
 
-    const { total } = db.prepare(countQuery).get(...countParams) as { total: number }
+    // Cache the results
+    cacheTicketSearch(tenantContext.id, cacheKey, { tickets, total }, 60)
 
     return NextResponse.json({
       success: true,

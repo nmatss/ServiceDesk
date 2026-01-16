@@ -6,12 +6,12 @@ import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(
   request: NextRequest,
-  {
+  { params }: { params: { slug: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { slug: string } }
-) {
+
   try {
     const { was_helpful, comment } = await request.json()
 
@@ -118,12 +118,12 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  {
+  { params }: { params: { slug: string } }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: { slug: string } }
-) {
+
   try {
     // Buscar artigo
     const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number } | undefined

@@ -48,12 +48,12 @@ const updateCISchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  {
+  { params }: { params: Promise<{ id: string }> }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: Promise<{ id: string }> }
-) {
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {
@@ -160,12 +160,12 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  {
+  { params }: { params: Promise<{ id: string }> }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: Promise<{ id: string }> }
-) {
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {
@@ -276,12 +276,12 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  {
+  { params }: { params: Promise<{ id: string }> }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: Promise<{ id: string }> }
-) {
+
   try {
     const auth = await verifyAuth(request)
     if (!auth.authenticated || !auth.user) {

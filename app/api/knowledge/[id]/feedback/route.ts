@@ -6,12 +6,12 @@ import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(
   request: NextRequest,
-  {
+  { params }: { params: Promise<{ id: string }> }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
- params }: { params: Promise<{ id: string }> }
-) {
+
   try {
     const tenantContext = getTenantContextFromRequest(request)
     if (!tenantContext) {
