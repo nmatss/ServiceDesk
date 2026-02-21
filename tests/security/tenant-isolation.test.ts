@@ -7,7 +7,7 @@
  * CRITICAL SECURITY TESTS - DO NOT SKIP
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getUserContextFromRequest, getTenantContextFromRequest } from '@/lib/auth/context';
 import { generateToken } from '@/lib/auth/sqlite-auth';
@@ -224,11 +224,9 @@ describe('Tenant Isolation Security Tests', () => {
   describe('Cookie-based Authentication', () => {
     it('should extract tenant ID from cookie token', async () => {
       const request = new NextRequest('http://localhost:3000/api/test', {
-        method: 'GET',
-        headers: {
-          'Cookie': `auth_token=${tokenUserA}`
-        }
+        method: 'GET'
       });
+      request.cookies.set('auth_token', tokenUserA);
 
       const userContext = await getUserContextFromRequest(request);
 
@@ -240,10 +238,10 @@ describe('Tenant Isolation Security Tests', () => {
       const request = new NextRequest('http://localhost:3000/api/test', {
         method: 'GET',
         headers: {
-          'Cookie': `auth_token=${tokenUserA}`,
           'Authorization': `Bearer ${tokenUserB}` // Different token in header
         }
       });
+      request.cookies.set('auth_token', tokenUserA);
 
       const userContext = await getUserContextFromRequest(request);
 

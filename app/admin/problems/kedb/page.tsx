@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   BookOpenIcon,
   MagnifyingGlassIcon,
@@ -464,7 +465,7 @@ export default function KEDBPage() {
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(error.workaround)
-                          alert('Workaround copiado para a área de transferência!')
+                          toast.success('Workaround copiado para a área de transferência!')
                         }}
                         className="px-4 py-2 text-sm font-medium text-description bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 rounded-lg flex items-center gap-2 transition-colors"
                       >

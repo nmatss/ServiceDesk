@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -30,10 +30,9 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { id } = await params
     const meetingId = parseInt(id)
@@ -44,12 +43,11 @@ export async function POST(
     const body = await request.json()
     const data = voteSchema.parse(body)
 
-    const db = getDatabase()
-
     // Verify meeting exists and is in progress
-    const meeting = db.prepare(
-      `SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?`
-    ).get(meetingId, auth.user.organization_id) as { status: string } | undefined
+    const meeting = await executeQueryOne<{ status: string }>(
+      `SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?`,
+      [meetingId, organizationId]
+    )
 
     if (!meeting) {
       return NextResponse.json(
@@ -66,11 +64,12 @@ export async function POST(
     }
 
     // Verify user is a CAB member or admin/manager
-    const isCabMember = db.prepare(`
-      SELECT * FROM cab_members WHERE user_id = ? AND organization_id = ? AND is_active = 1
-    `).get(auth.user.id, auth.user.organization_id)
+    const isCabMember = await executeQueryOne<any>(
+      `SELECT * FROM cab_members WHERE user_id = ? AND organization_id = ? AND is_active = 1`,
+      [userId, organizationId]
+    )
 
-    if (!isCabMember && !['admin', 'manager'].includes(auth.user.role)) {
+    if (!isCabMember && !['admin', 'manager'].includes(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas membros do CAB podem votar' },
         { status: 403 }
@@ -78,9 +77,10 @@ export async function POST(
     }
 
     // Verify change request is part of this meeting
-    const changeRequest = db.prepare(
-      `SELECT * FROM change_requests WHERE id = ? AND cab_meeting_id = ?`
-    ).get(data.change_request_id, meetingId)
+    const changeRequest = await executeQueryOne<any>(
+      `SELECT * FROM change_requests WHERE id = ? AND cab_meeting_id = ?`,
+      [data.change_request_id, meetingId]
+    )
 
     if (!changeRequest) {
       return NextResponse.json(
@@ -90,26 +90,28 @@ export async function POST(
     }
 
     // Check if user already voted
-    const existingVote = db.prepare(`
-      SELECT * FROM change_request_approvals
-      WHERE change_request_id = ? AND approver_id = ?
-    `).get(data.change_request_id, auth.user.id)
+    const existingVote = await executeQueryOne<any>(
+      `SELECT * FROM change_request_approvals
+      WHERE change_request_id = ? AND approver_id = ?`,
+      [data.change_request_id, userId]
+    )
 
     if (existingVote) {
       // Update existing vote
-      db.prepare(`
-        UPDATE change_request_approvals
+      await executeRun(
+        `UPDATE change_request_approvals
         SET status = ?, comments = ?, conditions = ?, decided_at = CURRENT_TIMESTAMP
-        WHERE change_request_id = ? AND approver_id = ?
-      `).run(
-        data.vote,
-        data.comments || null,
-        data.conditions || null,
-        data.change_request_id,
-        auth.user.id
+        WHERE change_request_id = ? AND approver_id = ?`,
+        [
+          data.vote,
+          data.comments || null,
+          data.conditions || null,
+          data.change_request_id,
+          userId
+        ]
       )
 
-      logger.info(`CAB vote updated: CR ${data.change_request_id} - ${data.vote} by user ${auth.user.id}`)
+      logger.info(`CAB vote updated: CR ${data.change_request_id} - ${data.vote} by user ${userId}`)
 
       return NextResponse.json({
         success: true,
@@ -118,32 +120,34 @@ export async function POST(
     }
 
     // Create new vote
-    db.prepare(`
-      INSERT INTO change_request_approvals (
+    await executeRun(
+      `INSERT INTO change_request_approvals (
         change_request_id, approval_level, approver_type, approver_id,
         status, comments, conditions, decided_at
-      ) VALUES (?, 1, 'cab', ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).run(
-      data.change_request_id,
-      auth.user.id,
-      data.vote,
-      data.comments || null,
-      data.conditions || null
+      ) VALUES (?, 1, 'cab', ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        data.change_request_id,
+        userId,
+        data.vote,
+        data.comments || null,
+        data.conditions || null
+      ]
     )
 
     // Get vote tally
-    const voteTally = db.prepare(`
-      SELECT
+    const voteTally = await executeQueryOne<any>(
+      `SELECT
         SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
         SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
         SUM(CASE WHEN status = 'abstained' THEN 1 ELSE 0 END) as abstained,
         SUM(CASE WHEN status = 'deferred' THEN 1 ELSE 0 END) as deferred,
         COUNT(*) as total
       FROM change_request_approvals
-      WHERE change_request_id = ?
-    `).get(data.change_request_id)
+      WHERE change_request_id = ?`,
+      [data.change_request_id]
+    )
 
-    logger.info(`CAB vote recorded: CR ${data.change_request_id} - ${data.vote} by user ${auth.user.id}`)
+    logger.info(`CAB vote recorded: CR ${data.change_request_id} - ${data.vote} by user ${userId}`)
 
     return NextResponse.json({
       success: true,
@@ -177,10 +181,9 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId } = guard.auth!
 
     const { id } = await params
     const meetingId = parseInt(id)
@@ -188,12 +191,11 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 })
     }
 
-    const db = getDatabase()
-
     // Verify meeting exists
-    const meeting = db.prepare(
-      `SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?`
-    ).get(meetingId, auth.user.organization_id)
+    const meeting = await executeQueryOne<any>(
+      `SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?`,
+      [meetingId, organizationId]
+    )
 
     if (!meeting) {
       return NextResponse.json(
@@ -203,8 +205,8 @@ export async function GET(
     }
 
     // Get all votes for change requests in this meeting
-    const votes = db.prepare(`
-      SELECT
+    const votes = await executeQuery<any>(
+      `SELECT
         cr.id as change_request_id,
         cr.change_number,
         cr.title,
@@ -218,12 +220,13 @@ export async function GET(
       LEFT JOIN change_request_approvals cra ON cr.id = cra.change_request_id
       LEFT JOIN users u ON cra.approver_id = u.id
       WHERE cr.cab_meeting_id = ?
-      ORDER BY cr.id, cra.decided_at
-    `).all(meetingId)
+      ORDER BY cr.id, cra.decided_at`,
+      [meetingId]
+    )
 
     // Get vote tallies per change request
-    const tallies = db.prepare(`
-      SELECT
+    const tallies = await executeQuery<any>(
+      `SELECT
         cr.id as change_request_id,
         cr.change_number,
         cr.title,
@@ -235,20 +238,22 @@ export async function GET(
       FROM change_requests cr
       LEFT JOIN change_request_approvals cra ON cr.id = cra.change_request_id
       WHERE cr.cab_meeting_id = ?
-      GROUP BY cr.id
-    `).all(meetingId)
+      GROUP BY cr.id`,
+      [meetingId]
+    )
 
     // Get user's votes
-    const userVotes = db.prepare(`
-      SELECT
+    const userVotes = await executeQuery<any>(
+      `SELECT
         cra.change_request_id,
         cra.status as vote,
         cra.comments,
         cra.conditions
       FROM change_request_approvals cra
       LEFT JOIN change_requests cr ON cra.change_request_id = cr.id
-      WHERE cr.cab_meeting_id = ? AND cra.approver_id = ?
-    `).all(meetingId, auth.user.id)
+      WHERE cr.cab_meeting_id = ? AND cra.approver_id = ?`,
+      [meetingId, userId]
+    )
 
     return NextResponse.json({
       success: true,

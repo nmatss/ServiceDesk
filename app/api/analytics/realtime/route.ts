@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -176,86 +176,86 @@ async function getKPISummary(): Promise<KPISummaryData> {
   if (cached) return cached;
 
   // Tickets today
-  const ticketsToday = db.prepare(`
+  const ticketsToday = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM tickets
     WHERE date(created_at) = date('now')
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // Tickets this week
-  const ticketsWeek = db.prepare(`
+  const ticketsWeek = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM tickets
     WHERE date(created_at) >= date('now', '-7 days')
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // Tickets this month
-  const ticketsMonth = db.prepare(`
+  const ticketsMonth = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM tickets
     WHERE date(created_at) >= date('now', 'start of month')
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // Total tickets
-  const totalTickets = db.prepare(`
+  const totalTickets = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count FROM tickets
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // SLA metrics
-  const slaMetrics = db.prepare(`
+  const slaMetrics = await executeQueryOne<{ total: number; response_met: number; resolution_met: number }>(`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END) as response_met,
       SUM(CASE WHEN resolution_sla_met = 1 THEN 1 ELSE 0 END) as resolution_met
     FROM sla_tracking
-  `).get() as { total: number; response_met: number; resolution_met: number };
+  `) || { total: 0, response_met: 0, resolution_met: 0 };
 
   // Average times (in minutes)
-  const avgTimes = db.prepare(`
+  const avgTimes = await executeQueryOne<{ avg_response: number; avg_resolution: number }>(`
     SELECT
       AVG(response_time_minutes) as avg_response,
       AVG(resolution_time_minutes) as avg_resolution
     FROM sla_tracking
     WHERE created_at >= date('now', '-30 days')
-  `).get() as { avg_response: number; avg_resolution: number };
+  `) || { avg_response: 0, avg_resolution: 0 };
 
   // Active agents
-  const activeAgents = db.prepare(`
+  const activeAgents = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(DISTINCT user_id) as count
     FROM user_sessions
     WHERE is_active = 1
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // Open tickets
-  const openTickets = db.prepare(`
+  const openTickets = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM tickets
     WHERE status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // Resolved today
-  const resolvedToday = db.prepare(`
+  const resolvedToday = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM tickets
     WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
       AND date(updated_at) = date('now')
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   // Calculate trends (compare with previous period)
-  const ticketsYesterday = db.prepare(`
+  const ticketsYesterday = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM tickets
     WHERE date(created_at) = date('now', '-1 day')
-  `).get() as { count: number };
+  `) || { count: 0 };
 
-  const slaLastWeek = db.prepare(`
+  const slaLastWeek = await executeQueryOne<{ total: number; response_met: number }>(`
     SELECT
       COUNT(*) as total,
       SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END) as response_met
     FROM sla_tracking
     WHERE created_at >= date('now', '-14 days')
       AND created_at < date('now', '-7 days')
-  `).get() as { total: number; response_met: number };
+  `) || { total: 0, response_met: 0 };
 
   const data: KPISummaryData = {
     tickets_today: ticketsToday.count,
@@ -267,9 +267,9 @@ async function getKPISummary(): Promise<KPISummaryData> {
     total_sla_tracked: slaMetrics.total,
     avg_response_time: avgTimes.avg_response || 0,
     avg_resolution_time: avgTimes.avg_resolution || 0,
-    fcr_rate: 85.5, // Mock - would calculate from actual data
-    csat_score: 4.2, // Mock - would calculate from survey data
-    csat_responses: 150, // Mock
+    fcr_rate: null as any, // TODO: calculate from ticket data (first-contact resolution)
+    csat_score: null as any, // TODO: calculate from satisfaction_surveys table
+    csat_responses: 0, // TODO: count from satisfaction_surveys table
     active_agents: activeAgents.count,
     open_tickets: openTickets.count,
     resolved_today: resolvedToday.count,
@@ -280,8 +280,8 @@ async function getKPISummary(): Promise<KPISummaryData> {
       sla_change: slaLastWeek.total > 0
         ? (((slaMetrics.response_met / slaMetrics.total) - (slaLastWeek.response_met / slaLastWeek.total)) * 100)
         : 0,
-      satisfaction_change: 2.5, // Mock
-      response_time_change: -5.2, // Mock - negative is good
+      satisfaction_change: null as any, // TODO: calculate from satisfaction_surveys trend
+      response_time_change: null as any, // TODO: calculate from sla_tracking trend
     },
   };
 
@@ -294,7 +294,7 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  const data = db.prepare(`
+  const data = await executeQuery<any>(`
     SELECT
       date(st.created_at) as date,
       COUNT(*) as total_tickets,
@@ -306,7 +306,7 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
     WHERE st.created_at >= date('now', '-30 days')
     GROUP BY date(st.created_at)
     ORDER BY date
-  `).all() as any[];
+  `);
 
   const result = data.map((row: any) => ({
     date: row.date,
@@ -328,7 +328,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  const data = db.prepare(`
+  const data = await executeQuery<any>(`
     SELECT
       u.id,
       u.name,
@@ -347,7 +347,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
     WHERE u.role IN ('admin', 'agent')
     GROUP BY u.id, u.name, u.email
     ORDER BY resolved_tickets DESC
-  `).all() as any[];
+  `);
 
   const result = data.map((row: any) => {
     const resolution_rate = row.assigned_tickets > 0
@@ -367,8 +367,8 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
       resolution_rate,
       avg_response_time: row.avg_response_time || 0,
       avg_resolution_time: row.avg_resolution_time || 0,
-      avg_satisfaction: 4.1, // Mock
-      satisfaction_responses: 25, // Mock
+      avg_satisfaction: null as any, // TODO: calculate from satisfaction_surveys per agent
+      satisfaction_responses: 0, // TODO: count from satisfaction_surveys per agent
       efficiency_score: Math.min(100, resolution_rate * 0.6 + (100 - Math.min(row.avg_resolution_time / 10, 100)) * 0.4),
       workload_status,
     };
@@ -383,7 +383,7 @@ async function getVolumeData(): Promise<VolumeData[]> {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  const data = db.prepare(`
+  const data = await executeQuery<any>(`
     SELECT
       date(created_at) as date,
       COUNT(*) as created,
@@ -395,7 +395,7 @@ async function getVolumeData(): Promise<VolumeData[]> {
     WHERE date(created_at) >= date('now', '-30 days')
     GROUP BY date(created_at)
     ORDER BY date
-  `).all() as any[];
+  `);
 
   setCachedData(cacheKey, data);
   return data;
@@ -405,12 +405,12 @@ async function getActiveAlerts(): Promise<AlertData[]> {
   const alerts: AlertData[] = [];
 
   // Check for SLA breaches
-  const slaBreach = db.prepare(`
+  const slaBreach = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM sla_tracking
     WHERE is_violated = 1
       AND created_at >= date('now', '-1 day')
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   if (slaBreach.count > 5) {
     alerts.push({
@@ -425,7 +425,7 @@ async function getActiveAlerts(): Promise<AlertData[]> {
   }
 
   // Check for agent overload
-  const overloadedAgents = db.prepare(`
+  const overloadedAgents = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count
     FROM (
       SELECT assigned_to, COUNT(*) as ticket_count
@@ -435,7 +435,7 @@ async function getActiveAlerts(): Promise<AlertData[]> {
       GROUP BY assigned_to
       HAVING COUNT(*) > 15
     )
-  `).get() as { count: number };
+  `) || { count: 0 };
 
   if (overloadedAgents.count > 0) {
     alerts.push({

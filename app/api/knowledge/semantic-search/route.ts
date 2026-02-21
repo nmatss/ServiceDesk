@@ -4,13 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { logger } from '@/lib/monitoring/logger';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-const vectorDb = new VectorDatabase(db as any);
+const vectorDb = new VectorDatabase();
 const hybridSearch = new HybridSearchEngine(vectorDb);
 
 export async function GET(request: NextRequest) {
@@ -19,6 +20,15 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
     const mode = searchParams.get('mode') || 'hybrid'; // semantic, keyword, hybrid
@@ -59,20 +69,21 @@ export async function GET(request: NextRequest) {
     const enrichedResults = await Promise.all(
       paginatedResults.map(async result => {
         try {
-          const article = db.prepare(`
+          const article = await executeQueryOne<Record<string, unknown>>(`
             SELECT
               a.*,
               c.name as category_name,
               u.name as author_name
             FROM kb_articles a
-            LEFT JOIN categories c ON a.category_id = c.id
+            LEFT JOIN kb_categories c ON a.category_id = c.id
             LEFT JOIN users u ON a.author_id = u.id
-            WHERE a.id = ? AND a.is_published = 1
-          `).get(result.id);
+            WHERE a.id = ? AND a.status = 'published'
+            AND (a.tenant_id = ? OR a.tenant_id IS NULL)
+          `, [result.id, tenantId]);
 
           if (!article) return null;
 
-          const articleTyped = article as Record<string, unknown>
+          const articleTyped = article as Record<string, unknown>;
 
           // Parse tags if JSON
           let parsedTags = [];
@@ -103,10 +114,10 @@ export async function GET(request: NextRequest) {
 
     // Track search analytics
     try {
-      db.prepare(`
-        INSERT INTO search_history (query, results_count, search_mode, created_at)
-        VALUES (?, ?, ?, datetime('now'))
-      `).run(query, validResults.length, mode);
+      await executeRun(`
+        INSERT INTO search_history (query, results_count, search_mode)
+        VALUES (?, ?, ?)
+      `, [query, validResults.length, mode]);
     } catch (error) {
       logger.warn('Failed to track search analytics', error);
     }
@@ -138,6 +149,16 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
+
+    const userContext = getUserContextFromRequest(request)
     const body = await request.json();
     const { query, articleId, position, userId } = body;
 
@@ -148,12 +169,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure clicked article belongs to current tenant context
+    const article = await executeQueryOne<{ id: number }>(
+      `SELECT id
+       FROM kb_articles
+       WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)`,
+      [articleId, tenantId]
+    )
+
+    if (!article) {
+      return NextResponse.json(
+        { error: 'Article not found' },
+        { status: 404 }
+      );
+    }
+
     // Track click in analytics
-    db.prepare(`
+    await executeRun(`
       INSERT INTO search_analytics (
-        query, article_id, position, user_id, created_at
-      ) VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(query, articleId, position || 0, userId || null);
+        query, article_id, position, user_id
+      ) VALUES (?, ?, ?, ?)
+    `, [query, articleId, position || 0, userContext?.id || userId || null]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

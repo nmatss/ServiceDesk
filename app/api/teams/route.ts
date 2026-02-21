@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -10,21 +10,9 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
     const tenantManager = getTenantManager()
     const teams = tenantManager.getTeamsByTenant(tenantContext.id)
@@ -48,29 +36,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
-
-    // Verificar permissões para criar teams
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
-      return NextResponse.json(
-        { error: 'Permissão insuficiente para criar teams' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
     const tenantManager = getTenantManager()
     const data = await request.json()

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
@@ -15,11 +15,8 @@ import {
  */
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await verifyAuth(req);
-
-    if (!authResult.authenticated || !authResult.user) {
-      return new Response('Unauthorized', { status: 401 });
-    }
+    const guard = requireTenantUserContext(req);
+    if (guard.response) return guard.response;
 
     // Create SSE response
     const encoder = new TextEncoder();

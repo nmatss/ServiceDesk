@@ -1,3 +1,4 @@
+import { logger } from '@/lib/monitoring/logger';
 import { NextResponse } from 'next/server'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -93,7 +94,7 @@ export async function GET() {
             return request;
           },
           onComplete: () => {
-            console.log('Swagger UI loaded successfully');
+            logger.info('Swagger UI loaded successfully');
           },
           validatorUrl: null, // Disable validator badge
           docExpansion: 'list',

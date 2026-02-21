@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
-import db from '@/lib/db/connection';
-
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Enable caching for this route - static lookup data
 export const dynamic = 'force-static'
@@ -78,9 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if slug already exists for this tenant
-    const existingType = db.prepare(
-      'SELECT id FROM ticket_types WHERE tenant_id = ? AND slug = ?'
-    ).get(tenantContext.id, data.slug)
+    const existingType = await executeQueryOne('SELECT id FROM ticket_types WHERE tenant_id = ? AND slug = ?', [tenantContext.id, data.slug])
 
     if (existingType) {
       return NextResponse.json(
@@ -90,14 +87,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create ticket type
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO ticket_types (
         tenant_id, name, slug, description, icon, color, workflow_type,
         sla_required, approval_required, escalation_enabled, auto_assignment_enabled,
         customer_visible, sort_order
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      tenantContext.id,
+    `, [tenantContext.id,
       data.name,
       data.slug,
       data.description || null,
@@ -109,13 +105,10 @@ export async function POST(request: NextRequest) {
       data.escalation_enabled !== false ? 1 : 0,
       data.auto_assignment_enabled === true ? 1 : 0,
       data.customer_visible !== false ? 1 : 0,
-      data.sort_order || 999
-    )
+      data.sort_order || 999])
 
     // Get the created ticket type
-    const ticketType = db.prepare(
-      'SELECT * FROM ticket_types WHERE id = ?'
-    ).get(result.lastInsertRowid)
+    const ticketType = await executeQueryOne('SELECT * FROM ticket_types WHERE id = ?', [result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { executeQuery } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -10,29 +11,12 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Verificar autenticação via cookies httpOnly
-    const decoded = await verifyTokenFromCookies(request)
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    // Verificar se é admin
-    const adminRoles = ['admin', 'super_admin', 'tenant_admin', 'team_manager']
-    if (!adminRoles.includes(decoded.role)) {
-      return NextResponse.json(
-        { error: 'Acesso negado' },
-        { status: 403 }
-      )
-    }
-
-    // SECURITY: Get tenant ID from authenticated user
-    const tenantId = decoded.organization_id || 1
+    const guard = requireTenantUserContext(request, { requireRoles: [...ADMIN_ROLES] })
+    if (guard.response) return guard.response
+    const tenantId = guard.auth!.organizationId
 
     // Buscar todos os tickets com informações relacionadas (com tenant isolation)
-    const tickets = db.prepare(`
+    const tickets = await executeQuery(`
       SELECT
         t.id,
         t.title,
@@ -56,9 +40,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users agent ON t.assigned_to = agent.id
-      WHERE t.tenant_id = ? OR t.tenant_id IS NULL
+      WHERE t.tenant_id = ?
       ORDER BY t.created_at DESC
-    `).all(tenantId)
+    `, [tenantId])
 
     return NextResponse.json({
       success: true,
@@ -67,7 +51,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error('Error fetching tickets', error)
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { success: false, error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }

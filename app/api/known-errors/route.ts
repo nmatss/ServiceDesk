@@ -4,14 +4,15 @@
  * POST: Create a new known error
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import type {
-  PermanentFixStatus,
+  KnownErrorStatus,
   CreateKnownErrorInput,
   KnownErrorFilters,
 } from '@/lib/types/problem';
@@ -62,27 +63,16 @@ export async function GET(request: NextRequest) {
     // Build filters
     const filters: KnownErrorFilters = {};
 
-    const isActive = searchParams.get('is_active');
-    if (isActive !== null) {
-      filters.is_active = isActive === 'true';
+    const status = searchParams.get('status');
+    if (status) {
+      filters.status = status.includes(',')
+        ? (status.split(',') as KnownErrorStatus[])
+        : (status as KnownErrorStatus);
     } else {
       // Default to showing only active known errors for regular users
       if (payload.role === 'user') {
-        filters.is_active = true;
-        filters.is_public = true; // Only show public KEs to end users
+        filters.status = 'active';
       }
-    }
-
-    const isPublic = searchParams.get('is_public');
-    if (isPublic !== null) {
-      filters.is_public = isPublic === 'true';
-    }
-
-    const permanentFixStatus = searchParams.get('permanent_fix_status');
-    if (permanentFixStatus) {
-      filters.permanent_fix_status = permanentFixStatus.includes(',')
-        ? (permanentFixStatus.split(',') as PermanentFixStatus[])
-        : (permanentFixStatus as PermanentFixStatus);
     }
 
     const problemId = searchParams.get('problem_id');
@@ -111,7 +101,7 @@ export async function GET(request: NextRequest) {
       data: result,
     });
   } catch (error) {
-    console.error('Error fetching known errors:', error);
+    logger.error('Error fetching known errors:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -195,13 +185,9 @@ export async function POST(request: NextRequest) {
       symptoms: body.symptoms,
       root_cause: body.root_cause,
       workaround: body.workaround,
-      workaround_instructions: body.workaround_instructions,
-      permanent_fix_status: body.permanent_fix_status,
-      permanent_fix_eta: body.permanent_fix_eta,
+      permanent_fix: body.permanent_fix,
+      status: body.status,
       affected_cis: body.affected_cis,
-      affected_services: body.affected_services,
-      affected_versions: body.affected_versions,
-      is_public: body.is_public,
     };
 
     // Create known error
@@ -225,7 +211,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating known error:', error);
+    logger.error('Error creating known error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

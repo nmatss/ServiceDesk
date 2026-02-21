@@ -4,17 +4,43 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import { semanticSearchEngine } from '@/lib/knowledge/semantic-search';
+import * as semanticSearchModule from '@/lib/knowledge/semantic-search';
 import { logger } from '@/lib/monitoring/logger';
+import { executeQuery, getDbType } from '@/lib/db/adapter';
+import { getTenantContextFromRequest } from '@/lib/tenant/context';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+function resolveSemanticSearchEngine() {
+  const moduleAny = semanticSearchModule as Record<string, unknown>
+  if (Object.prototype.hasOwnProperty.call(moduleAny, 'semanticSearchEngine')) {
+    return moduleAny.semanticSearchEngine as any
+  }
+  if (Object.prototype.hasOwnProperty.call(moduleAny, 'semanticSearch')) {
+    return moduleAny.semanticSearch as any
+  }
+  if (Object.prototype.hasOwnProperty.call(moduleAny, 'default')) {
+    return moduleAny.default as any
+  }
+  return null
+}
+
+const semanticSearchEngine = resolveSemanticSearchEngine()
+
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.KNOWLEDGE_SEARCH);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
+
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
     const limit = parseInt(searchParams.get('limit') || '5');
@@ -26,7 +52,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch published articles for suggestions
-    const articles = db.prepare(`
+    const dbType = getDbType();
+    const tagAggregation = dbType === 'postgresql'
+      ? "COALESCE(string_agg(DISTINCT t.name, ','), '') as tags"
+      : "GROUP_CONCAT(DISTINCT t.name) as tags";
+
+    const articles = await executeQuery<Record<string, any>>(`
       SELECT
         a.id,
         a.title,
@@ -40,14 +71,15 @@ export async function GET(request: NextRequest) {
         a.helpful_votes,
         a.created_at,
         a.updated_at,
-        GROUP_CONCAT(DISTINCT t.name) as tags
+        ${tagAggregation}
       FROM kb_articles a
       LEFT JOIN kb_article_tags at ON a.id = at.article_id
       LEFT JOIN kb_tags t ON at.tag_id = t.id
       WHERE a.status = 'published'
+      AND (a.tenant_id = ? OR a.tenant_id IS NULL)
       GROUP BY a.id
       LIMIT 100
-    `).all();
+    `, [tenantId]);
 
     // Convert to proper format
     const kbArticles = articles.map((row: any) => ({
@@ -56,11 +88,16 @@ export async function GET(request: NextRequest) {
     }));
 
     // Get auto-complete suggestions from semantic search engine
-    const suggestions = await semanticSearchEngine.getAutoCompleteSuggestions(
-      query,
-      kbArticles,
-      limit
-    );
+    const suggestions = typeof semanticSearchEngine?.getAutoCompleteSuggestions === 'function'
+      ? await semanticSearchEngine.getAutoCompleteSuggestions(
+        query,
+        kbArticles,
+        limit
+      )
+      : kbArticles
+        .flatMap((article: any) => [article.title, ...(article.tags || [])])
+        .filter((value: string) => value && value.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, limit);
 
     // Format suggestions with type information
     const formattedSuggestions = suggestions.map((text: any) => {

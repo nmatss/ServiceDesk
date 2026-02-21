@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
+import { headers } from 'next/headers'
 import KnowledgePageClient from './knowledge-client'
 
 interface KnowledgeArticle {
@@ -31,18 +32,43 @@ export const metadata: Metadata = {
   description: 'Encontre respostas para suas dúvidas em nossa base de conhecimento',
 }
 
+export const dynamic = 'force-dynamic'
+
+async function resolveRequestContext() {
+  const requestHeaders = await headers()
+  const host = requestHeaders.get('x-forwarded-host') || requestHeaders.get('host')
+  const protocol = requestHeaders.get('x-forwarded-proto') || 'http'
+  const baseUrl =
+    host
+      ? `${protocol}://${host}`
+      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+
+  return {
+    baseUrl,
+    forwardedHeaders: {
+      cookie: requestHeaders.get('cookie') || '',
+      authorization: requestHeaders.get('authorization') || '',
+      'x-tenant-id': requestHeaders.get('x-tenant-id') || '',
+      'x-tenant-slug': requestHeaders.get('x-tenant-slug') || '',
+      'x-tenant-name': requestHeaders.get('x-tenant-name') || ''
+    }
+  }
+}
+
 async function getKnowledgeData(): Promise<KnowledgeData> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const { baseUrl, forwardedHeaders } = await resolveRequestContext()
 
   try {
     const [articlesRes, categoriesRes] = await Promise.all([
       fetch(`${baseUrl}/api/knowledge/articles`, {
+        headers: forwardedHeaders,
         next: {
           revalidate: 300, // 5 minutes
           tags: ['knowledge-articles']
         }
       }),
       fetch(`${baseUrl}/api/knowledge/categories`, {
+        headers: forwardedHeaders,
         next: {
           revalidate: 600, // 10 minutes
           tags: ['knowledge-categories']
@@ -78,7 +104,7 @@ export default async function KnowledgeBasePage() {
 
 function KnowledgeLoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800">
       <div className="glass-panel shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center space-x-4">

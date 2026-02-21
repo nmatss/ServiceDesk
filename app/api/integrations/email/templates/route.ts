@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     query += ' ORDER BY category, name';
 
-    const templates = db.prepare(query).all(...params) as any[];
+    const templates = await executeQuery<any>(query, params);
 
     const result: EmailTemplate[] = templates.map(t => ({
       id: t.id,
@@ -128,10 +128,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if template code already exists
-    const existing = db.prepare(`
+    const existing = await executeQueryOne(`
       SELECT id FROM email_templates
       WHERE code = ? AND language = ? AND tenant_id = ?
-    `).get(data.code, data.language || 'pt-BR', tenantContext.id);
+    `, [data.code, data.language || 'pt-BR', tenantContext.id]);
 
     if (existing) {
       return NextResponse.json(

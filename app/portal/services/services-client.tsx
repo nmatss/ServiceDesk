@@ -8,7 +8,16 @@ import {
   SparklesIcon,
   ClockIcon,
   DocumentTextIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ComputerDesktopIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
+  CurrencyDollarIcon,
+  AcademicCapIcon,
+  WrenchScrewdriverIcon,
+  ShieldCheckIcon,
+  TruckIcon,
+  HeartIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 
@@ -16,7 +25,7 @@ interface ServiceArea {
   id: string
   name: string
   description: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: string
   color: string
   bgColor: string
   services: number
@@ -30,7 +39,7 @@ interface QuickAction {
   title: string
   description: string
   area: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: string
   color: string
   popular?: boolean
 }
@@ -38,6 +47,18 @@ interface QuickAction {
 interface ServicesClientProps {
   serviceAreas: ServiceArea[]
   quickActions: QuickAction[]
+}
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  ComputerDesktopIcon,
+  UserGroupIcon,
+  BuildingOfficeIcon,
+  CurrencyDollarIcon,
+  AcademicCapIcon,
+  WrenchScrewdriverIcon,
+  ShieldCheckIcon,
+  TruckIcon,
+  HeartIcon
 }
 
 export default function ServicesClient({ serviceAreas, quickActions }: ServicesClientProps) {
@@ -70,7 +91,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
   const popularActions = quickActions.filter(a => a.popular)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in">
       <div className="glass-panel shadow-sm border-b sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -113,7 +134,9 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
             Ações Mais Usadas
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {popularActions.map((action) => (
+            {popularActions.map((action) => {
+              const IconComponent = iconMap[action.icon] || SparklesIcon
+              return (
               <button
                 key={action.id}
                 onClick={() => handleQuickAction(action.id)}
@@ -121,7 +144,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
               >
                 {/* Icon with gradient */}
                 <div className={`w-12 h-12 ${action.color} bg-gradient-to-br rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 shadow-md`}>
-                  <action.icon className="w-6 h-6 text-white" />
+                  <IconComponent className="w-6 h-6 text-white" />
                 </div>
 
                 <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 mb-1 transition-colors">
@@ -136,7 +159,8 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
                   <ArrowRightIcon className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
                 </div>
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -175,7 +199,9 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
             Áreas de Atendimento
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredAreas.map((area) => (
+            {filteredAreas.map((area) => {
+              const IconComponent = iconMap[area.icon] || SparklesIcon
+              return (
               <div
                 key={area.id}
                 onClick={() => handleAreaClick(area.id)}
@@ -191,7 +217,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
 
                 {/* Icon with gradient background - improved */}
                 <div className={`h-16 w-16 bg-gradient-to-br ${area.bgColor.replace('bg-', 'from-')}/50 ${area.bgColor.replace('bg-', 'to-')}/80 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg relative`}>
-                  <area.icon className={`w-8 h-8 ${area.color}`} />
+                  <IconComponent className={`w-8 h-8 ${area.color}`} />
                 </div>
 
                 {/* Content */}
@@ -233,7 +259,8 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
                   </span>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

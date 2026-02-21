@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth } from "@/lib/auth/sqlite-auth";
+import { requireTenantUserContext } from "@/lib/tenant/request-guard";
 import { z } from "zod";
 import { logger } from '@/lib/monitoring/structured-logger';
 
@@ -21,25 +21,22 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = authResult.user;
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { userId, role } = guard.auth!;
 
     // Validar entrada
     const body = await request.json();
     const validatedData = requestSchema.parse(body);
 
     // Verificar permissões específicas
-    if (validatedData.action === "delete" && user.role !== 'admin') {
+    if (validatedData.action === "delete" && role !== 'admin') {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Log de auditoria
     logger.info('User action', {
-      userId: user.id,
+      userId,
       action: validatedData.action,
       data: validatedData.data,
       ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'

@@ -3,9 +3,10 @@
  * GET: Get problem and known error statistics
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching problem statistics:', error);
+    logger.error('Error fetching problem statistics:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

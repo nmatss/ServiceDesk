@@ -8,7 +8,8 @@ import { WhatsAppMessage, WhatsAppContact, WhatsAppSession } from '@/lib/types/d
 import { createAuditLog } from '@/lib/audit/logger';
 import { getWhatsAppContact, createWhatsAppContact, getActiveSessionByPhone, createWhatsAppSession, updateWhatsAppSession } from './storage';
 import logger from '@/lib/monitoring/structured-logger';
-import { getDb } from '@/lib/db';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { sqlNow } from '@/lib/db/adapter';
 
 interface WebhookEntry {
   id: string;
@@ -116,7 +117,6 @@ interface WebhookPayload {
 
 export class WhatsAppWebhookHandler {
   private client: WhatsAppBusinessClient;
-  private db = getDb();
   private sessionTimeout = 24 * 60 * 60 * 1000; // 24 horas
 
   constructor(client: WhatsAppBusinessClient) {
@@ -182,10 +182,9 @@ export class WhatsAppWebhookHandler {
 
     if (!whatsappContact) {
       // Busca usuário existente pelo telefone
-      // Try to find existing user by phone
-      const existingUser = this.db.prepare(`
+      const existingUser = await executeQueryOne<{ id: number }>(`
         SELECT id FROM users WHERE phone = ?
-      `).get(phoneNumber) as { id: number } | undefined;
+      `, [phoneNumber]);
 
       whatsappContact = await createWhatsAppContact({
         user_id: existingUser?.id,
@@ -444,18 +443,18 @@ export class WhatsAppWebhookHandler {
     // Determina categoria e prioridade baseado no conteúdo
     const { categoryId, priorityId } = await this.determineTicketClassification(content.text);
 
-    // Create ticket using direct DB query
-    const result = this.db.prepare(`
+    // Create ticket using adapter
+    const result = await executeRun(`
       INSERT INTO tickets (title, description, user_id, category_id, priority_id, status_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(
+      VALUES (?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
+    `, [
       title,
       description,
       contact.user_id || 1,
       categoryId,
       priorityId,
       1
-    );
+    ]);
 
     const ticketId = result.lastInsertRowid as number;
 
@@ -498,11 +497,11 @@ export class WhatsAppWebhookHandler {
   ): Promise<void> {
     const commentContent = this.formatCommentFromWhatsApp(message, content);
 
-    // Create comment using direct DB query
-    this.db.prepare(`
+    // Create comment using adapter
+    await executeRun(`
       INSERT INTO comments (ticket_id, author_id, content, is_internal, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(ticketId, contact.user_id || 1, commentContent, 0);
+      VALUES (?, ?, ?, ?, ${sqlNow()})
+    `, [ticketId, contact.user_id || 1, commentContent, 0]);
 
     // Atualiza mensagem com ID do ticket
     await this.updateWhatsAppMessage({
@@ -511,9 +510,9 @@ export class WhatsAppWebhookHandler {
     });
 
     // Atualiza timestamp do ticket
-    this.db.prepare(`
-      UPDATE tickets SET updated_at = datetime('now') WHERE id = ?
-    `).run(ticketId);
+    await executeRun(`
+      UPDATE tickets SET updated_at = ${sqlNow()} WHERE id = ?
+    `, [ticketId]);
   }
 
   /**

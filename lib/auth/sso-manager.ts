@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import db from '../db/connection';
+import { executeRun, executeQueryOne } from '../db/adapter';
 import { User } from '../types/database';
 import { createUser, getUserByEmail } from './sqlite-auth';
 import logger from '../monitoring/structured-logger';
@@ -391,7 +392,7 @@ class SSOManager {
   async authenticateSSOUser(ssoUser: SSOUser): Promise<User | null> {
     try {
       // Check if user exists
-      let user = getUserByEmail(ssoUser.email);
+      let user: User | undefined = await getUserByEmail(ssoUser.email);
       const provider = this.getProvider(ssoUser.provider);
 
       if (!user && provider?.configuration.autoCreateUsers) {
@@ -410,19 +411,19 @@ class SSOManager {
         }
 
         // Update SSO fields
-        db.prepare(`
+        await executeRun(`
           UPDATE users
           SET sso_provider = ?, sso_user_id = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(ssoUser.provider, ssoUser.externalId, user.id);
+        `, [ssoUser.provider, ssoUser.externalId, user.id]);
       } else if (user) {
         // Update existing user's SSO info if not set
         if (!user.sso_provider) {
-          db.prepare(`
+          await executeRun(`
             UPDATE users
             SET sso_provider = ?, sso_user_id = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-          `).run(ssoUser.provider, ssoUser.externalId, user.id);
+          `, [ssoUser.provider, ssoUser.externalId, user.id]);
         }
       }
 
@@ -431,10 +432,10 @@ class SSOManager {
       }
 
       // Log successful SSO authentication
-      db.prepare(`
+      await executeRun(`
         INSERT INTO login_attempts (user_id, email, ip_address, success, two_factor_required)
         VALUES (?, ?, ?, 1, 0)
-      `).run(user.id, user.email, '127.0.0.1'); // IP will be set by middleware
+      `, [user.id, user.email, '127.0.0.1']); // IP will be set by middleware
 
       return user;
     } catch (error) {
@@ -446,9 +447,9 @@ class SSOManager {
   /**
    * Get user's linked SSO providers
    */
-  getUserSSOProviders(userId: number): string[] {
+  async getUserSSOProviders(userId: number): Promise<string[]> {
     try {
-      const user = db.prepare('SELECT sso_provider FROM users WHERE id = ?').get(userId) as any;
+      const user = await executeQueryOne<{ sso_provider?: string }>('SELECT sso_provider FROM users WHERE id = ?', [userId]);
       return user?.sso_provider ? [user.sso_provider] : [];
     } catch (error) {
       logger.error('Error getting user SSO providers', error);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { verifyToken } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -48,23 +48,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Métricas gerais
-    const totalTickets = db.prepare(`
+    const totalTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE created_at >= ${dateFilter}
-    `).get() as { count: number }
+    `) || { count: 0 }
 
-    const resolvedTickets = db.prepare(`
+    const resolvedTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE resolved_at IS NOT NULL AND resolved_at >= ${dateFilter}
-    `).get() as { count: number }
+    `) || { count: 0 }
 
-    const openTickets = db.prepare(`
+    const openTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       INNER JOIN statuses s ON t.status_id = s.id
       WHERE s.is_final = 0
-    `).get() as { count: number }
+    `) || { count: 0 }
 
-    const overdueTickets = db.prepare(`
+    const overdueTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       INNER JOIN sla_tracking sla ON t.id = sla.ticket_id
       INNER JOIN statuses s ON t.status_id = s.id
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         (sla.response_due_at < datetime('now') AND sla.response_met = 0)
         OR (sla.resolution_due_at < datetime('now') AND sla.resolution_met = 0)
       )
-    `).get() as { count: number }
+    `) || { count: 0 }
 
     // Taxa de resolução
     const resolutionRate = totalTickets.count > 0
@@ -81,21 +81,21 @@ export async function GET(request: NextRequest) {
       : 0
 
     // Tempo médio de primeira resposta (em horas)
-    const avgFirstResponseTime = db.prepare(`
+    const avgFirstResponseTime = await executeQueryOne<{ avg_time: number }>(`
       SELECT AVG(response_time_minutes) as avg_time
       FROM sla_tracking
       WHERE response_met = 1 AND created_at >= ${dateFilter}
-    `).get() as { avg_time: number }
+    `) || { avg_time: 0 }
 
     // Tempo médio de resolução (em horas)
-    const avgResolutionTime = db.prepare(`
+    const avgResolutionTime = await executeQueryOne<{ avg_time: number }>(`
       SELECT AVG(resolution_time_minutes) as avg_time
       FROM sla_tracking
       WHERE resolution_met = 1 AND created_at >= ${dateFilter}
-    `).get() as { avg_time: number }
+    `) || { avg_time: 0 }
 
     // Tickets por status
-    const ticketsByStatus = db.prepare(`
+    const ticketsByStatus = await executeQuery(`
       SELECT
         s.name as status,
         s.color,
@@ -105,10 +105,10 @@ export async function GET(request: NextRequest) {
       WHERE t.created_at >= ${dateFilter} OR t.id IS NULL
       GROUP BY s.id, s.name, s.color
       ORDER BY count DESC
-    `).all()
+    `)
 
     // Tickets por categoria
-    const ticketsByCategory = db.prepare(`
+    const ticketsByCategory = await executeQuery(`
       SELECT
         c.name as category,
         c.color,
@@ -117,10 +117,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN tickets t ON c.id = t.category_id AND t.created_at >= ${dateFilter}
       GROUP BY c.id, c.name, c.color
       ORDER BY count DESC
-    `).all()
+    `)
 
     // Tickets por prioridade
-    const ticketsByPriority = db.prepare(`
+    const ticketsByPriority = await executeQuery(`
       SELECT
         p.name as priority,
         p.level,
@@ -130,10 +130,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN tickets t ON p.id = t.priority_id AND t.created_at >= ${dateFilter}
       GROUP BY p.id, p.name, p.level, p.color
       ORDER BY p.level DESC
-    `).all()
+    `)
 
     // Tendência de tickets (últimos 14 dias)
-    const ticketTrend = db.prepare(`
+    const ticketTrend = await executeQuery(`
       SELECT
         DATE(created_at) as date,
         COUNT(*) as created,
@@ -146,12 +146,12 @@ export async function GET(request: NextRequest) {
       WHERE created_at >= datetime('now', '-14 days')
       GROUP BY DATE(created_at)
       ORDER BY date ASC
-    `).all()
+    `)
 
     // Performance dos agentes (apenas para admins)
     let agentPerformance: any[] = []
     if (user.role === 'admin') {
-      agentPerformance = db.prepare(`
+      agentPerformance = await executeQuery(`
         SELECT
           u.name as agent_name,
           COUNT(t.id) as tickets_assigned,
@@ -165,11 +165,11 @@ export async function GET(request: NextRequest) {
         GROUP BY u.id, u.name
         ORDER BY tickets_resolved DESC
         LIMIT 10
-      `).all()
+      `)
     }
 
     // SLA Performance
-    const slaPerformance = db.prepare(`
+    const slaPerformance = await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total_tickets,
         SUM(CASE WHEN response_met = 1 THEN 1 ELSE 0 END) as response_met,
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
         AVG(resolution_time_minutes) as avg_resolution_time
       FROM sla_tracking
       WHERE created_at >= ${dateFilter}
-    `).get() as any
+    `)
 
     const responseCompliance = slaPerformance.total_tickets > 0
       ? Math.round((slaPerformance.response_met / slaPerformance.total_tickets) * 100)
@@ -188,14 +188,14 @@ export async function GET(request: NextRequest) {
       ? Math.round((slaPerformance.resolution_met / slaPerformance.total_tickets) * 100)
       : 0
 
-    // Satisfação do cliente (mock por enquanto)
-    const customerSatisfaction = db.prepare(`
+    // Customer satisfaction from satisfaction_surveys table
+    const customerSatisfaction = await executeQueryOne<{ avg_rating: number; total_surveys: number }>(`
       SELECT
         AVG(rating) as avg_rating,
         COUNT(*) as total_surveys
       FROM satisfaction_surveys
       WHERE created_at >= ${dateFilter}
-    `).get() as { avg_rating: number; total_surveys: number }
+    `) || { avg_rating: 0, total_surveys: 0 }
 
     return NextResponse.json({
       success: true,

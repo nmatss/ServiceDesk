@@ -5,7 +5,7 @@
  * password management, and token refresh.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { POST as registerPOST } from '@/app/api/auth/register/route';
 import { POST as loginPOST } from '@/app/api/auth/login/route';
 import { POST as logoutPOST } from '@/app/api/auth/logout/route';
@@ -470,6 +470,14 @@ describe('Auth API Integration Tests', () => {
   });
 
   describe('Rate Limiting', () => {
+    beforeEach(() => {
+      process.env.ENABLE_RATE_LIMIT_TESTS = 'true';
+    });
+
+    afterEach(() => {
+      delete process.env.ENABLE_RATE_LIMIT_TESTS;
+    });
+
     it('should rate limit excessive login attempts', async () => {
       const promises = [];
 

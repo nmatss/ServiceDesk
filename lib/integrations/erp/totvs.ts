@@ -4,7 +4,15 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { getSystemSetting } from '@/lib/db/queries';
+import { executeQueryOne } from '@/lib/db/adapter';
+
+async function getSystemSetting(key: string): Promise<string | null> {
+  const row = await executeQueryOne<{ value: string }>(
+    'SELECT value FROM system_settings WHERE key = ? AND organization_id IS NULL LIMIT 1',
+    [key]
+  );
+  return row?.value ?? null;
+}
 import logger from '@/lib/monitoring/structured-logger';
 
 interface TotvsConfig {

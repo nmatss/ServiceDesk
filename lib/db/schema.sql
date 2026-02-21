@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT,
     role TEXT NOT NULL CHECK (role IN ('admin', 'agent', 'user', 'manager', 'read_only', 'api_client')),
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
     is_email_verified BOOLEAN DEFAULT FALSE,
     email_verified_at DATETIME,
@@ -251,6 +253,8 @@ CREATE INDEX IF NOT EXISTS idx_ticket_access_tokens_active ON ticket_access_toke
 -- Tabela de categorias
 CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     name TEXT NOT NULL,
     description TEXT,
     color TEXT NOT NULL DEFAULT '#3B82F6',
@@ -261,6 +265,8 @@ CREATE TABLE IF NOT EXISTS categories (
 -- Tabela de prioridades
 CREATE TABLE IF NOT EXISTS priorities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     name TEXT NOT NULL,
     level INTEGER NOT NULL CHECK (level >= 1 AND level <= 4),
     color TEXT NOT NULL,
@@ -271,6 +277,8 @@ CREATE TABLE IF NOT EXISTS priorities (
 -- Tabela de status
 CREATE TABLE IF NOT EXISTS statuses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     name TEXT NOT NULL,
     description TEXT,
     color TEXT NOT NULL,
@@ -290,6 +298,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     priority_id INTEGER NOT NULL,
     status_id INTEGER NOT NULL,
     organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    sla_policy_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     resolved_at DATETIME,
@@ -297,7 +307,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
     FOREIGN KEY (priority_id) REFERENCES priorities(id) ON DELETE RESTRICT,
-    FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE RESTRICT
+    FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE RESTRICT,
+    FOREIGN KEY (sla_policy_id) REFERENCES sla_policies(id) ON DELETE SET NULL
 );
 
 -- Tabela de comentários
@@ -305,6 +316,8 @@ CREATE TABLE IF NOT EXISTS comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     content TEXT NOT NULL,
     is_internal BOOLEAN NOT NULL DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -313,10 +326,84 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Tabela de atividades de tickets
+CREATE TABLE IF NOT EXISTS ticket_activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    user_id INTEGER,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    activity_type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    metadata TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Tabela de tags
+CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    name TEXT NOT NULL,
+    color TEXT DEFAULT '#3B82F6',
+    description TEXT,
+    usage_count INTEGER DEFAULT 0,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Tabela de relacionamento ticket-tags
+CREATE TABLE IF NOT EXISTS ticket_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
+    added_by INTEGER,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+    FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE(ticket_id, tag_id)
+);
+
+-- Seguidores de tickets
+CREATE TABLE IF NOT EXISTS ticket_followers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(ticket_id, user_id)
+);
+
+-- Relacionamentos entre tickets
+CREATE TABLE IF NOT EXISTS ticket_relationships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_ticket_id INTEGER NOT NULL,
+    target_ticket_id INTEGER NOT NULL,
+    relationship_type TEXT NOT NULL CHECK (
+      relationship_type IN ('parent', 'child', 'related', 'duplicate', 'blocks', 'blocked_by')
+    ),
+    created_by INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (source_ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE(source_ticket_id, target_ticket_id, relationship_type)
+);
+
 -- Tabela de anexos
 CREATE TABLE IF NOT EXISTS attachments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ticket_id INTEGER NOT NULL,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     filename TEXT NOT NULL,
     original_name TEXT NOT NULL,
     mime_type TEXT NOT NULL,
@@ -324,6 +411,34 @@ CREATE TABLE IF NOT EXISTS attachments (
     uploaded_by INTEGER NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Tabela de armazenamento de arquivos (upload genérico multi-tenant)
+CREATE TABLE IF NOT EXISTS file_storage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    original_filename TEXT, -- compatibilidade legado
+    mime_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    file_size INTEGER, -- compatibilidade legado
+    file_path TEXT NOT NULL,
+    storage_path TEXT, -- compatibilidade legado
+    storage_type TEXT DEFAULT 'local' CHECK (storage_type IN ('local', 's3', 'cloudinary')),
+    uploaded_by INTEGER NOT NULL,
+    entity_type TEXT, -- 'ticket', 'comment', 'knowledge_article', 'user_avatar'
+    entity_id INTEGER,
+    is_public BOOLEAN DEFAULT FALSE,
+    virus_scanned BOOLEAN DEFAULT FALSE,
+    virus_scan_result TEXT,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- compatibilidade legado
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
     FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -384,6 +499,7 @@ CREATE TABLE IF NOT EXISTS escalations (
 CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    organization_id INTEGER NOT NULL DEFAULT 1,
     tenant_id INTEGER NOT NULL DEFAULT 1,
     ticket_id INTEGER,
     type TEXT NOT NULL CHECK (type IN ('ticket_assigned', 'ticket_updated', 'ticket_resolved', 'ticket_escalated', 'sla_warning', 'sla_breach', 'escalation', 'comment_added', 'system_alert', 'ticket_created', 'mention')),
@@ -423,6 +539,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     organization_id INTEGER,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     entity_type TEXT NOT NULL, -- 'ticket', 'user', 'category', 'config', 'pii', etc.
     entity_id INTEGER,
     action TEXT NOT NULL, -- 'create', 'update', 'delete', 'view', 'login_success', 'login_failed', 'access_denied', etc.
@@ -510,15 +627,42 @@ CREATE INDEX IF NOT EXISTS idx_tickets_assigned_to ON tickets(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tickets_category_id ON tickets(category_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_priority_id ON tickets(priority_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status_id ON tickets(status_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_tenant_id ON tickets(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_organization_id ON tickets(organization_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
 CREATE INDEX IF NOT EXISTS idx_tickets_updated_at ON tickets(updated_at);
 
 CREATE INDEX IF NOT EXISTS idx_comments_ticket_id ON comments(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_tenant_id ON comments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_comments_organization_id ON comments(organization_id);
 CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_activities_ticket_id ON ticket_activities(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_activities_user_id ON ticket_activities(user_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_activities_tenant_id ON ticket_activities(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_activities_org_id ON ticket_activities(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_activities_created_at ON ticket_activities(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_tags_tenant_id ON tags(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_tags_org_id ON tags(organization_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_tags_ticket_id ON ticket_tags(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_tags_tag_id ON ticket_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_followers_ticket_id ON ticket_followers(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_followers_user_id ON ticket_followers(user_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_relationships_source ON ticket_relationships(source_ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_relationships_target ON ticket_relationships(target_ticket_id);
 
 CREATE INDEX IF NOT EXISTS idx_attachments_ticket_id ON attachments(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_uploaded_by ON attachments(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_attachments_tenant_id ON attachments(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_organization_id ON attachments(organization_id);
+CREATE INDEX IF NOT EXISTS idx_file_storage_tenant ON file_storage(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_file_storage_org ON file_storage(organization_id);
+CREATE INDEX IF NOT EXISTS idx_file_storage_entity ON file_storage(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_file_storage_uploaded_by ON file_storage(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_file_storage_file_path ON file_storage(file_path);
+CREATE INDEX IF NOT EXISTS idx_file_storage_storage_path ON file_storage(storage_path);
 
 -- Índices para SLA e novas tabelas
 CREATE INDEX IF NOT EXISTS idx_sla_policies_priority_id ON sla_policies(priority_id);
@@ -538,6 +682,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_ticket_id ON notifications(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
+CREATE INDEX IF NOT EXISTS idx_notifications_tenant_id ON notifications(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_org_id ON notifications(organization_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
 
 CREATE INDEX IF NOT EXISTS idx_templates_category ON ticket_templates(category_id);
@@ -547,7 +693,12 @@ CREATE INDEX IF NOT EXISTS idx_templates_active ON ticket_templates(is_active);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_org_id ON audit_logs(organization_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+CREATE INDEX IF NOT EXISTS idx_tenants_active ON tenants(is_active);
 
 CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(key);
 CREATE INDEX IF NOT EXISTS idx_system_settings_public ON system_settings(is_public);
@@ -1566,6 +1717,30 @@ CREATE TABLE IF NOT EXISTS organizations (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabela de tenants legada (compatibilidade com rotas/base antiga)
+CREATE TABLE IF NOT EXISTS tenants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    domain TEXT UNIQUE,
+    subdomain TEXT UNIQUE,
+    logo_url TEXT,
+    primary_color TEXT DEFAULT '#3B82F6',
+    secondary_color TEXT DEFAULT '#1F2937',
+    subscription_plan TEXT NOT NULL DEFAULT 'basic',
+    max_users INTEGER DEFAULT 50,
+    max_tickets_per_month INTEGER DEFAULT 1000,
+    features TEXT,
+    settings TEXT,
+    billing_email TEXT,
+    technical_contact_email TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    trial_ends_at DATETIME,
+    subscription_ends_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Tabela de configurações de tenant (multi-tenant)
 CREATE TABLE IF NOT EXISTS tenant_configurations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2406,11 +2581,10 @@ ON tickets(organization_id, category_id, status_id, DATE(created_at));
 CREATE INDEX IF NOT EXISTS idx_sla_tracking_dashboard
 ON sla_tracking(ticket_id, sla_policy_id, response_met, resolution_met, response_due_at, resolution_due_at);
 
--- Partial index for breached SLAs
+-- Partial index for breached SLAs (response_met=0 or resolution_met=0)
 CREATE INDEX IF NOT EXISTS idx_sla_tracking_breached
-ON sla_tracking(ticket_id, sla_policy_id, created_at DESC)
-WHERE (response_met = 0 AND response_due_at < datetime('now'))
-   OR (resolution_met = 0 AND resolution_due_at < datetime('now'));
+ON sla_tracking(ticket_id, sla_policy_id, response_due_at, resolution_due_at)
+WHERE response_met = 0 OR resolution_met = 0;
 
 -- Composite index for attachment queries
 CREATE INDEX IF NOT EXISTS idx_attachments_ticket_uploaded
@@ -2423,7 +2597,7 @@ ON users(is_active, last_login_at DESC, role);
 -- Partial index for locked users (security)
 CREATE INDEX IF NOT EXISTS idx_users_locked
 ON users(locked_until, failed_login_attempts)
-WHERE locked_until IS NOT NULL AND locked_until > datetime('now');
+WHERE locked_until IS NOT NULL;
 
 -- Composite index for department hierarchy queries
 CREATE INDEX IF NOT EXISTS idx_departments_hierarchy
@@ -2452,7 +2626,7 @@ ON lgpd_consents(user_id, consent_type, is_given, created_at DESC);
 -- Index for cache table cleanup
 CREATE INDEX IF NOT EXISTS idx_cache_cleanup
 ON cache(expires_at ASC)
-WHERE expires_at < datetime('now');
+WHERE expires_at IS NOT NULL;
 
 -- PERFORMANCE NOTES:
 -- 1. Covering indexes include all columns needed by a query to avoid table lookups
@@ -2493,3 +2667,730 @@ CREATE TRIGGER IF NOT EXISTS update_scheduled_reports_updated_at
         UPDATE scheduled_reports SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
+-- ========================================
+-- ITIL PROBLEM MANAGEMENT
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS root_cause_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    parent_id INTEGER,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_id) REFERENCES root_cause_categories(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS problems (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    problem_number TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','identified','root_cause_analysis','known_error','resolved','closed')),
+    priority_id INTEGER,
+    category_id INTEGER,
+    assigned_to INTEGER,
+    assigned_team_id INTEGER,
+    root_cause TEXT,
+    root_cause_category_id INTEGER,
+    workaround TEXT,
+    impact TEXT,
+    urgency TEXT DEFAULT 'medium' CHECK(urgency IN ('low','medium','high','critical')),
+    affected_services TEXT, -- JSON array
+    resolution TEXT,
+    resolution_date DATETIME,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (priority_id) REFERENCES priorities(id) ON DELETE SET NULL,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_team_id) REFERENCES teams(id) ON DELETE SET NULL,
+    FOREIGN KEY (root_cause_category_id) REFERENCES root_cause_categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_problems_status ON problems(status);
+CREATE INDEX IF NOT EXISTS idx_problems_priority ON problems(priority_id);
+CREATE INDEX IF NOT EXISTS idx_problems_assigned ON problems(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_problems_org ON problems(organization_id);
+CREATE INDEX IF NOT EXISTS idx_problems_number ON problems(problem_number);
+
+CREATE TRIGGER IF NOT EXISTS update_problems_updated_at
+    AFTER UPDATE ON problems
+    BEGIN
+        UPDATE problems SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS known_errors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ke_number TEXT NOT NULL UNIQUE,
+    problem_id INTEGER,
+    title TEXT NOT NULL,
+    description TEXT,
+    symptoms TEXT,
+    root_cause TEXT,
+    workaround TEXT,
+    permanent_fix TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('proposed','active','retired','superseded')),
+    affected_cis TEXT, -- JSON array
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_known_errors_status ON known_errors(status);
+CREATE INDEX IF NOT EXISTS idx_known_errors_problem ON known_errors(problem_id);
+CREATE INDEX IF NOT EXISTS idx_known_errors_org ON known_errors(organization_id);
+
+CREATE TRIGGER IF NOT EXISTS update_known_errors_updated_at
+    AFTER UPDATE ON known_errors
+    BEGIN
+        UPDATE known_errors SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS problem_incident_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    problem_id INTEGER NOT NULL,
+    ticket_id INTEGER NOT NULL,
+    linked_by INTEGER,
+    link_type TEXT DEFAULT 'related' CHECK(link_type IN ('caused_by','related','duplicate')),
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (linked_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE(problem_id, ticket_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_problem_incident_links_problem ON problem_incident_links(problem_id);
+CREATE INDEX IF NOT EXISTS idx_problem_incident_links_ticket ON problem_incident_links(ticket_id);
+
+CREATE TABLE IF NOT EXISTS problem_activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    problem_id INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('note','status_change','assignment','escalation','rca_update','workaround','resolution','attachment','link')),
+    description TEXT,
+    old_value TEXT,
+    new_value TEXT,
+    user_id INTEGER,
+    is_internal BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_problem_activities_problem ON problem_activities(problem_id);
+CREATE INDEX IF NOT EXISTS idx_problem_activities_created ON problem_activities(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS problem_attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    problem_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    mime_type TEXT,
+    size INTEGER,
+    storage_path TEXT NOT NULL,
+    uploaded_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ========================================
+-- ITIL CHANGE MANAGEMENT
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS change_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    color TEXT DEFAULT '#3B82F6',
+    requires_cab_approval BOOLEAN DEFAULT FALSE,
+    default_risk_level TEXT DEFAULT 'medium' CHECK(default_risk_level IN ('low','medium','high','critical')),
+    lead_time_days INTEGER DEFAULT 5,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS change_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    change_number TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    change_type_id INTEGER,
+    category TEXT NOT NULL DEFAULT 'normal' CHECK(category IN ('standard','normal','emergency')),
+    priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low','medium','high','critical')),
+    risk_level TEXT DEFAULT 'medium' CHECK(risk_level IN ('low','medium','high','critical')),
+    risk_assessment TEXT,
+    impact_assessment TEXT,
+    reason_for_change TEXT,
+    business_justification TEXT,
+    implementation_plan TEXT,
+    backout_plan TEXT,
+    test_plan TEXT,
+    communication_plan TEXT,
+    requested_start_date DATETIME,
+    requested_end_date DATETIME,
+    actual_start_date DATETIME,
+    actual_end_date DATETIME,
+    requester_id INTEGER NOT NULL,
+    owner_id INTEGER,
+    implementer_id INTEGER,
+    cab_meeting_id INTEGER,
+    approval_status TEXT DEFAULT 'pending' CHECK(approval_status IN ('pending','approved','rejected','deferred','withdrawn')),
+    approved_by INTEGER,
+    approved_at DATETIME,
+    approval_notes TEXT,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','submitted','under_review','approved','rejected','pending_assessment','pending_cab','scheduled','in_progress','completed','failed','cancelled','rolled_back')),
+    pir_required BOOLEAN DEFAULT FALSE,
+    pir_completed BOOLEAN DEFAULT FALSE,
+    pir_notes TEXT,
+    pir_success_rating INTEGER CHECK(pir_success_rating >= 1 AND pir_success_rating <= 5),
+    affected_cis TEXT, -- JSON array
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (change_type_id) REFERENCES change_types(id) ON DELETE SET NULL,
+    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (implementer_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_requests_status ON change_requests(status);
+CREATE INDEX IF NOT EXISTS idx_change_requests_approval ON change_requests(approval_status);
+CREATE INDEX IF NOT EXISTS idx_change_requests_requester ON change_requests(requester_id);
+CREATE INDEX IF NOT EXISTS idx_change_requests_org ON change_requests(organization_id);
+CREATE INDEX IF NOT EXISTS idx_change_requests_number ON change_requests(change_number);
+CREATE INDEX IF NOT EXISTS idx_change_requests_schedule ON change_requests(requested_start_date, requested_end_date);
+
+CREATE TRIGGER IF NOT EXISTS update_change_requests_updated_at
+    AFTER UPDATE ON change_requests
+    BEGIN
+        UPDATE change_requests SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS change_request_approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    change_request_id INTEGER NOT NULL,
+    cab_member_id INTEGER,
+    approver_id INTEGER,
+    approval_level INTEGER DEFAULT 1,
+    approver_type TEXT DEFAULT 'user',
+    vote TEXT CHECK(vote IN ('approve','reject','defer','abstain')),
+    status TEXT DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected','abstained','deferred')),
+    voted_at DATETIME,
+    decided_at DATETIME,
+    comments TEXT,
+    conditions TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (change_request_id) REFERENCES change_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (cab_member_id) REFERENCES cab_members(id) ON DELETE CASCADE,
+    FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_approvals_request ON change_request_approvals(change_request_id);
+
+CREATE TABLE IF NOT EXISTS change_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    change_request_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    assignee_id INTEGER,
+    assigned_team_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','in_progress','completed','blocked','cancelled')),
+    task_order INTEGER DEFAULT 0,
+    estimated_minutes INTEGER,
+    actual_minutes INTEGER,
+    started_at DATETIME,
+    completed_at DATETIME,
+    completion_notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (change_request_id) REFERENCES change_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_team_id) REFERENCES teams(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_change_tasks_request ON change_tasks(change_request_id);
+
+CREATE TRIGGER IF NOT EXISTS update_change_tasks_updated_at
+    AFTER UPDATE ON change_tasks
+    BEGIN
+        UPDATE change_tasks SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS change_calendar (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NOT NULL,
+    type TEXT NOT NULL DEFAULT 'blackout' CHECK(type IN ('blackout','freeze','preferred','maintenance')),
+    severity TEXT DEFAULT 'soft' CHECK(severity IN ('soft','hard')),
+    affected_environments TEXT, -- JSON array
+    affected_change_types TEXT, -- JSON array
+    is_recurring BOOLEAN DEFAULT FALSE,
+    recurrence_pattern TEXT, -- JSON
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TRIGGER IF NOT EXISTS update_change_calendar_updated_at
+    AFTER UPDATE ON change_calendar
+    BEGIN
+        UPDATE change_calendar SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+-- ========================================
+-- CMDB (Configuration Management Database)
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS ci_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT DEFAULT 'server',
+    color TEXT DEFAULT '#3B82F6',
+    parent_type_id INTEGER,
+    attributes_schema TEXT, -- JSON schema for custom attributes
+    is_active BOOLEAN DEFAULT TRUE,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_type_id) REFERENCES ci_types(id) ON DELETE SET NULL
+);
+
+CREATE TRIGGER IF NOT EXISTS update_ci_types_updated_at
+    AFTER UPDATE ON ci_types
+    BEGIN
+        UPDATE ci_types SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS ci_statuses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    color TEXT DEFAULT '#3B82F6',
+    is_operational BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ci_relationship_types (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    inverse_name TEXT,
+    color TEXT DEFAULT '#6B7280',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS configuration_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ci_number TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    ci_type_id INTEGER NOT NULL,
+    status_id INTEGER NOT NULL DEFAULT 1,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    owner_id INTEGER,
+    managed_by_team_id INTEGER,
+    vendor TEXT,
+    manufacturer TEXT,
+    location TEXT,
+    environment TEXT DEFAULT 'production' CHECK(environment IN ('production','staging','development','test','dr')),
+    data_center TEXT,
+    rack_position TEXT,
+    purchase_date DATETIME,
+    installation_date DATETIME,
+    warranty_expiry DATETIME,
+    end_of_life_date DATETIME,
+    retirement_date DATETIME,
+    serial_number TEXT,
+    asset_tag TEXT,
+    ip_address TEXT,
+    mac_address TEXT,
+    hostname TEXT,
+    os_version TEXT,
+    business_service TEXT,
+    criticality TEXT DEFAULT 'medium' CHECK(criticality IN ('critical','high','medium','low')),
+    business_impact TEXT,
+    recovery_time_objective INTEGER, -- in minutes
+    recovery_point_objective INTEGER, -- in minutes
+    custom_attributes TEXT, -- JSON
+    created_by INTEGER,
+    updated_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ci_type_id) REFERENCES ci_types(id) ON DELETE RESTRICT,
+    FOREIGN KEY (status_id) REFERENCES ci_statuses(id) ON DELETE RESTRICT,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (managed_by_team_id) REFERENCES teams(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_configuration_items_type ON configuration_items(ci_type_id);
+CREATE INDEX IF NOT EXISTS idx_configuration_items_status ON configuration_items(status_id);
+CREATE INDEX IF NOT EXISTS idx_configuration_items_org ON configuration_items(organization_id);
+CREATE INDEX IF NOT EXISTS idx_configuration_items_number ON configuration_items(ci_number);
+CREATE INDEX IF NOT EXISTS idx_configuration_items_env ON configuration_items(environment);
+CREATE INDEX IF NOT EXISTS idx_configuration_items_criticality ON configuration_items(criticality);
+
+CREATE TRIGGER IF NOT EXISTS update_configuration_items_updated_at
+    AFTER UPDATE ON configuration_items
+    BEGIN
+        UPDATE configuration_items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS ci_relationships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_ci_id INTEGER NOT NULL,
+    target_ci_id INTEGER NOT NULL,
+    relationship_type_id INTEGER NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (source_ci_id) REFERENCES configuration_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_ci_id) REFERENCES configuration_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (relationship_type_id) REFERENCES ci_relationship_types(id) ON DELETE RESTRICT,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE(source_ci_id, target_ci_id, relationship_type_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ci_relationships_source ON ci_relationships(source_ci_id);
+CREATE INDEX IF NOT EXISTS idx_ci_relationships_target ON ci_relationships(target_ci_id);
+
+CREATE TRIGGER IF NOT EXISTS update_ci_relationships_updated_at
+    AFTER UPDATE ON ci_relationships
+    BEGIN
+        UPDATE ci_relationships SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS ci_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ci_id INTEGER NOT NULL,
+    action TEXT NOT NULL CHECK(action IN ('created','updated','deleted','status_changed','relationship_added','relationship_removed')),
+    field_name TEXT,
+    old_value TEXT,
+    new_value TEXT,
+    changed_by INTEGER,
+    change_reason TEXT,
+    related_ticket_id INTEGER,
+    related_change_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ci_id) REFERENCES configuration_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (related_ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+    FOREIGN KEY (related_change_id) REFERENCES change_requests(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ci_history_ci ON ci_history(ci_id);
+CREATE INDEX IF NOT EXISTS idx_ci_history_created ON ci_history(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS ci_ticket_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ci_id INTEGER NOT NULL,
+    ticket_id INTEGER NOT NULL,
+    link_type TEXT DEFAULT 'affected' CHECK(link_type IN ('affected','caused_by','related','changed')),
+    notes TEXT,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ci_id) REFERENCES configuration_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE(ci_id, ticket_id, link_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ci_ticket_links_ci ON ci_ticket_links(ci_id);
+CREATE INDEX IF NOT EXISTS idx_ci_ticket_links_ticket ON ci_ticket_links(ticket_id);
+
+-- ========================================
+-- SERVICE CATALOG
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS service_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    description TEXT,
+    icon TEXT DEFAULT 'folder',
+    color TEXT DEFAULT '#3B82F6',
+    parent_category_id INTEGER,
+    display_order INTEGER DEFAULT 0,
+    is_public BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_category_id) REFERENCES service_categories(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_categories_org ON service_categories(organization_id);
+CREATE INDEX IF NOT EXISTS idx_service_categories_slug ON service_categories(slug);
+
+CREATE TRIGGER IF NOT EXISTS update_service_categories_updated_at
+    AFTER UPDATE ON service_categories
+    BEGIN
+        UPDATE service_categories SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS service_catalog_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    short_description TEXT,
+    description TEXT,
+    category_id INTEGER NOT NULL,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    icon TEXT DEFAULT 'document',
+    image_url TEXT,
+    display_order INTEGER DEFAULT 0,
+    form_schema TEXT, -- JSON schema for dynamic form
+    default_priority_id INTEGER,
+    default_category_id INTEGER,
+    sla_policy_id INTEGER,
+    fulfillment_team_id INTEGER,
+    requires_approval BOOLEAN DEFAULT FALSE,
+    approval_levels INTEGER DEFAULT 1,
+    estimated_time_minutes INTEGER,
+    cost TEXT,
+    is_published BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    request_count INTEGER DEFAULT 0,
+    avg_fulfillment_time REAL,
+    satisfaction_rating REAL,
+    tags TEXT, -- JSON array
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES service_categories(id) ON DELETE RESTRICT,
+    FOREIGN KEY (default_priority_id) REFERENCES priorities(id) ON DELETE SET NULL,
+    FOREIGN KEY (default_category_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (sla_policy_id) REFERENCES sla_policies(id) ON DELETE SET NULL,
+    FOREIGN KEY (fulfillment_team_id) REFERENCES teams(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_catalog_items_category ON service_catalog_items(category_id);
+CREATE INDEX IF NOT EXISTS idx_service_catalog_items_org ON service_catalog_items(organization_id);
+CREATE INDEX IF NOT EXISTS idx_service_catalog_items_slug ON service_catalog_items(slug);
+
+CREATE TRIGGER IF NOT EXISTS update_service_catalog_items_updated_at
+    AFTER UPDATE ON service_catalog_items
+    BEGIN
+        UPDATE service_catalog_items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS service_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_number TEXT NOT NULL UNIQUE,
+    catalog_item_id INTEGER NOT NULL,
+    ticket_id INTEGER,
+    requester_id INTEGER NOT NULL,
+    requester_name TEXT,
+    requester_email TEXT,
+    requester_department TEXT,
+    on_behalf_of_id INTEGER,
+    form_data TEXT NOT NULL DEFAULT '{}', -- JSON
+    justification TEXT,
+    requested_date DATETIME,
+    status TEXT NOT NULL DEFAULT 'submitted' CHECK(status IN ('draft','submitted','pending_approval','approved','rejected','in_progress','fulfilled','cancelled','failed')),
+    approval_status TEXT DEFAULT 'not_required' CHECK(approval_status IN ('pending','approved','rejected','not_required')),
+    approved_by INTEGER,
+    approved_at DATETIME,
+    fulfilled_by INTEGER,
+    fulfilled_at DATETIME,
+    cancelled_by INTEGER,
+    cancelled_at DATETIME,
+    cancellation_reason TEXT,
+    satisfaction_rating INTEGER CHECK(satisfaction_rating >= 1 AND satisfaction_rating <= 5),
+    satisfaction_comment TEXT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (catalog_item_id) REFERENCES service_catalog_items(id) ON DELETE RESTRICT,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL,
+    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (on_behalf_of_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (fulfilled_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (cancelled_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_requests_catalog ON service_requests(catalog_item_id);
+CREATE INDEX IF NOT EXISTS idx_service_requests_requester ON service_requests(requester_id);
+CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
+CREATE INDEX IF NOT EXISTS idx_service_requests_org ON service_requests(organization_id);
+CREATE INDEX IF NOT EXISTS idx_service_requests_number ON service_requests(request_number);
+
+CREATE TRIGGER IF NOT EXISTS update_service_requests_updated_at
+    AFTER UPDATE ON service_requests
+    BEGIN
+        UPDATE service_requests SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS service_request_approvals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_request_id INTEGER NOT NULL,
+    approval_level INTEGER DEFAULT 1,
+    approver_id INTEGER,
+    approver_role TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected','delegated','expired')),
+    decision_at DATETIME,
+    comments TEXT,
+    delegated_to INTEGER,
+    due_date DATETIME,
+    reminded_at DATETIME,
+    reminder_count INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (approver_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (delegated_to) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_request_approvals_request ON service_request_approvals(service_request_id);
+
+CREATE TRIGGER IF NOT EXISTS update_service_request_approvals_updated_at
+    AFTER UPDATE ON service_request_approvals
+    BEGIN
+        UPDATE service_request_approvals SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS service_request_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_request_id INTEGER NOT NULL,
+    task_order INTEGER DEFAULT 0,
+    title TEXT NOT NULL,
+    description TEXT,
+    assigned_to INTEGER,
+    assigned_team_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','in_progress','completed','blocked','cancelled')),
+    started_at DATETIME,
+    completed_at DATETIME,
+    completion_notes TEXT,
+    estimated_minutes INTEGER,
+    actual_minutes INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_team_id) REFERENCES teams(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_request_tasks_request ON service_request_tasks(service_request_id);
+
+CREATE TRIGGER IF NOT EXISTS update_service_request_tasks_updated_at
+    AFTER UPDATE ON service_request_tasks
+    BEGIN
+        UPDATE service_request_tasks SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+-- ========================================
+-- CAB (Change Advisory Board)
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS cab_configurations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    meeting_day TEXT, -- 'monday','tuesday', etc.
+    meeting_time TEXT, -- 'HH:MM'
+    meeting_duration INTEGER DEFAULT 60, -- minutes
+    meeting_location TEXT,
+    meeting_url TEXT,
+    chair_user_id INTEGER,
+    secretary_user_id INTEGER,
+    minimum_members INTEGER DEFAULT 3,
+    quorum_percentage REAL DEFAULT 50.0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (chair_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (secretary_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TRIGGER IF NOT EXISTS update_cab_configurations_updated_at
+    AFTER UPDATE ON cab_configurations
+    BEGIN
+        UPDATE cab_configurations SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TABLE IF NOT EXISTS cab_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cab_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('chair','secretary','member','advisor')),
+    is_voting_member BOOLEAN DEFAULT TRUE,
+    expertise_areas TEXT, -- JSON array
+    is_active BOOLEAN DEFAULT TRUE,
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cab_id) REFERENCES cab_configurations(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(cab_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cab_members_cab ON cab_members(cab_id);
+CREATE INDEX IF NOT EXISTS idx_cab_members_user ON cab_members(user_id);
+
+CREATE TABLE IF NOT EXISTS cab_meetings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cab_id INTEGER,
+    title TEXT NOT NULL,
+    description TEXT,
+    meeting_date DATETIME NOT NULL,
+    scheduled_date TEXT NOT NULL,
+    scheduled_time TEXT,
+    duration_minutes INTEGER DEFAULT 60,
+    location TEXT,
+    meeting_url TEXT,
+    meeting_type TEXT NOT NULL DEFAULT 'regular' CHECK(meeting_type IN ('regular','emergency','virtual','ad_hoc')),
+    status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('scheduled','in_progress','completed','cancelled')),
+    attendees TEXT, -- JSON array of user IDs
+    actual_start_time DATETIME,
+    actual_end_time DATETIME,
+    agenda TEXT,
+    minutes TEXT,
+    notes TEXT,
+    decisions TEXT, -- JSON array
+    action_items TEXT, -- JSON array
+    organizer_id INTEGER,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cab_id) REFERENCES cab_configurations(id) ON DELETE CASCADE,
+    FOREIGN KEY (organizer_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cab_meetings_cab ON cab_meetings(cab_id);
+CREATE INDEX IF NOT EXISTS idx_cab_meetings_date ON cab_meetings(meeting_date);
+CREATE INDEX IF NOT EXISTS idx_cab_meetings_status ON cab_meetings(status);
+
+CREATE TRIGGER IF NOT EXISTS update_cab_meetings_updated_at
+    AFTER UPDATE ON cab_meetings
+    BEGIN
+        UPDATE cab_meetings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;

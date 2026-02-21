@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { CheckIcon, XMarkIcon, UserIcon } from '@heroicons/react/24/outline'
 import { logger } from '@/lib/monitoring/logger'
 import PageHeader from '@/components/ui/PageHeader'
@@ -132,7 +133,7 @@ export default function EditUserPage() {
         if (errorData.error === 'Email já está em uso') {
           setErrors({ email: 'Email já está em uso' })
         } else {
-          alert('Erro ao atualizar usuário: ' + (errorData.error || 'Erro desconhecido'))
+          toast.error('Erro ao atualizar usuário: ' + (errorData.error || 'Erro desconhecido'))
         }
         return
       }
@@ -140,7 +141,7 @@ export default function EditUserPage() {
       router.push('/admin/users')
     } catch (error) {
       logger.error('Erro ao atualizar usuário', error)
-      alert('Erro ao atualizar usuário')
+      toast.error('Erro ao atualizar usuário')
     } finally {
       setSaving(false)
     }

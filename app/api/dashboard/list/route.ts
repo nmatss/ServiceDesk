@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQuery } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -10,14 +10,9 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  */
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await verifyAuth(req);
-
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(req);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     // Get query parameters
     const { searchParams } = new URL(req.url);
@@ -39,7 +34,7 @@ export async function GET(req: NextRequest) {
       WHERE user_id = ?
     `;
 
-    const params: any[] = [authResult.user.id];
+    const params: Array<number> = [userId];
 
     if (includeShared) {
       query += ` OR is_shared = 1`;
@@ -47,18 +42,27 @@ export async function GET(req: NextRequest) {
 
     query += ` ORDER BY is_default DESC, updated_at DESC`;
 
-    const dashboards = db.prepare(query).all(...params);
+    const dashboards = await executeQuery<{
+      id: number
+      name: string
+      description: string | null
+      user_id: number
+      is_default: number | boolean
+      is_shared: number | boolean
+      created_at: string
+      updated_at: string
+    }>(query, params);
 
     // Filter based on options
     let filteredDashboards = dashboards;
 
     if (!includeDefault) {
-      filteredDashboards = filteredDashboards.filter((d: any) => !d.is_default);
+      filteredDashboards = filteredDashboards.filter((d) => !d.is_default);
     }
 
     return NextResponse.json({
       success: true,
-      dashboards: filteredDashboards.map((dashboard: any) => ({
+      dashboards: filteredDashboards.map((dashboard) => ({
         id: dashboard.id,
         name: dashboard.name,
         description: dashboard.description,
@@ -67,7 +71,7 @@ export async function GET(req: NextRequest) {
         is_shared: Boolean(dashboard.is_shared),
         created_at: dashboard.created_at,
         updated_at: dashboard.updated_at,
-        is_owner: dashboard.user_id === authResult.user!.id
+        is_owner: dashboard.user_id === userId
       }))
     });
   } catch (error) {

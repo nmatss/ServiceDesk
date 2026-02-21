@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
@@ -33,14 +33,13 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { userId: currentUserId } = guard.auth!;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-    const userId = String(searchParams.get('userId') || authResult.user!.id);
+    const userId = String(searchParams.get('userId') || currentUserId);
     const period = searchParams.get('period') as 'day' | 'week' | 'month' | 'all-time' || 'month';
     const teamId = searchParams.get('teamId');
     const challengeId = searchParams.get('challengeId');
@@ -100,15 +99,13 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const body = await request.json();
     const { action } = body;
 
-    const currentUserId = String(authResult.user!.id);
+    const currentUserId = String(guard.auth!.userId);
 
     switch (action) {
       case 'award-points':
@@ -149,9 +146,10 @@ export async function POST(request: NextRequest) {
 
 /**
  * Get user achievements
+ * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
  */
 async function getAchievements(userId: string) {
-  // Mock data - replace with actual database queries
+  // Placeholder stats - replace with actual database queries
   const userStats = {
     ticketsResolved: 45,
     fastResolutions: 12,
@@ -193,6 +191,7 @@ async function getAchievements(userId: string) {
   );
 
   return NextResponse.json({
+    _mock: true,
     achievements,
     newlyUnlocked,
     stats: calculatedStats,
@@ -201,12 +200,13 @@ async function getAchievements(userId: string) {
 
 /**
  * Get leaderboard
+ * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
  */
 async function getLeaderboard(
   period: 'day' | 'week' | 'month' | 'all-time',
   teamId?: string | null
 ) {
-  // Mock leaderboard data - replace with actual database queries
+  // Placeholder leaderboard data - replace with actual database queries
   const mockLeaderboard: LeaderboardEntry[] = [
     {
       userId: '1',
@@ -264,6 +264,7 @@ async function getLeaderboard(
   const topPerformers = LeaderboardManager.getTopPerformers(filteredLeaderboard, 10);
 
   return NextResponse.json({
+    _mock: true,
     leaderboard: filteredLeaderboard,
     topPerformers,
     period,
@@ -292,9 +293,10 @@ async function getChallenges(userId: string) {
 
 /**
  * Get challenge detail with progress
+ * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
  */
 async function getChallengeDetail(challengeId: string, userId: string) {
-  // Mock challenge data - replace with actual database queries
+  // Placeholder challenge data - replace with actual database queries
   const challenge: Challenge = {
     id: challengeId,
     title: 'Speed Racer',
@@ -331,6 +333,7 @@ async function getChallengeDetail(challengeId: string, userId: string) {
   const rankedProgresses = ChallengeManager.rankParticipants(progresses);
 
   return NextResponse.json({
+    _mock: true,
     challenge,
     progress: rankedProgresses,
     userProgress: rankedProgresses.find((p) => p.participantId === userId),
@@ -339,9 +342,10 @@ async function getChallengeDetail(challengeId: string, userId: string) {
 
 /**
  * Get points history
+ * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
  */
 async function getPointsHistory(userId: string) {
-  // Mock points transactions - replace with actual database queries
+  // Placeholder points transactions - replace with actual database queries
   const transactions = [
     {
       id: '1',
@@ -366,6 +370,7 @@ async function getPointsHistory(userId: string) {
   const totalPoints = transactions.reduce((sum, t) => sum + t.points, 0);
 
   return NextResponse.json({
+    _mock: true,
     transactions,
     totalPoints,
     redemptionValues: DEFAULT_POINTS_CONFIG.redemptionValues,
@@ -374,10 +379,12 @@ async function getPointsHistory(userId: string) {
 
 /**
  * Get user stats
+ * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
  */
 async function getUserStats(userId: string) {
-  // Mock user stats - replace with actual database queries
+  // Placeholder user stats - replace with actual database queries
   return NextResponse.json({
+    _mock: true,
     userId,
     totalPoints: 845,
     rank: 12,
@@ -402,9 +409,10 @@ async function getUserStats(userId: string) {
 
 /**
  * Get recognition feed
+ * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
  */
 async function getRecognitionFeed() {
-  // Mock recognition data - replace with actual database queries
+  // Placeholder recognition data - replace with actual database queries
   const recognitions = [
     {
       id: '1',
@@ -439,7 +447,7 @@ async function getRecognitionFeed() {
     },
   ];
 
-  return NextResponse.json({ recognitions });
+  return NextResponse.json({ _mock: true, recognitions });
 }
 
 /**
@@ -457,7 +465,7 @@ async function awardPoints(userId: string, data: any) {
     teamMetGoal: data.teamMetGoal || false,
   });
 
-  // Save to database (mock)
+  // TODO: Save to database (placeholder - gamification tables not yet implemented)
   const transaction = {
     id: `txn_${Date.now()}`,
     userId,
@@ -485,7 +493,7 @@ async function unlockAchievement(userId: string, data: { badgeId: string }) {
     return NextResponse.json({ error: 'Badge not found' }, { status: 404 });
   }
 
-  // Save to database (mock)
+  // TODO: Save to database (placeholder - gamification tables not yet implemented)
   const achievement = {
     userId,
     badgeId: badge.id,
@@ -507,7 +515,7 @@ async function unlockAchievement(userId: string, data: { badgeId: string }) {
  * Join challenge
  */
 async function joinChallenge(userId: string, challengeId: string) {
-  // Mock challenge join - replace with actual database operation
+  // TODO: Implement actual database operation when gamification tables exist
   return NextResponse.json({
     success: true,
     challengeId,
@@ -520,7 +528,7 @@ async function joinChallenge(userId: string, challengeId: string) {
  * Leave challenge
  */
 async function leaveChallenge(userId: string, challengeId: string) {
-  // Mock challenge leave - replace with actual database operation
+  // TODO: Implement actual database operation when gamification tables exist
   return NextResponse.json({
     success: true,
     challengeId,
@@ -533,7 +541,7 @@ async function leaveChallenge(userId: string, challengeId: string) {
  * Update leaderboard opt-in preference
  */
 async function updateLeaderboardOptIn(userId: string, optedIn: boolean) {
-  // Save to database (mock)
+  // TODO: Save to database (placeholder - gamification tables not yet implemented)
   return NextResponse.json({
     success: true,
     userId,

@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import { verifyAuthToken } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -40,17 +40,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const authResult = await verifyAuthToken(authHeader.replace('Bearer ', ''));
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const user = authResult.user;
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const user = { id: guard.auth!.userId };
 
     const body: SyncRequest = await request.json();
     const { actions, lastSyncTime } = body;
@@ -72,15 +64,15 @@ export async function POST(request: NextRequest) {
 
         switch (action.type) {
           case 'CREATE_TICKET':
-            serverId = await syncCreateTicket(db, String(user.id), action.data);
+            serverId = await syncCreateTicket(null, String(user.id), action.data);
             break;
 
           case 'ADD_COMMENT':
-            serverId = await syncAddComment(db, String(user.id), action.data);
+            serverId = await syncAddComment(null, String(user.id), action.data);
             break;
 
           case 'UPDATE_TICKET':
-            const updateResult = await syncUpdateTicket(db, String(user.id), action.data);
+            const updateResult = await syncUpdateTicket(null, String(user.id), action.data);
             serverId = updateResult.id;
             if (updateResult.conflict) {
               conflicts.push({
@@ -92,7 +84,7 @@ export async function POST(request: NextRequest) {
             break;
 
           case 'UPDATE_STATUS':
-            serverId = await syncUpdateStatus(db, String(user.id), action.data);
+            serverId = await syncUpdateStatus(null, String(user.id), action.data);
             break;
 
           default:
@@ -128,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     // Get updated data if requested
     const updatedData = lastSyncTime
-      ? await getUpdatedData(db, String(user.id), lastSyncTime)
+      ? await getUpdatedData(null, String(user.id), lastSyncTime)
       : null;
 
     return NextResponse.json({
@@ -161,47 +153,27 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const authResult = await verifyAuthToken(authHeader.replace('Bearer ', ''));
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const user = authResult.user;
+    const guardGet = requireTenantUserContext(request);
+    if (guardGet.response) return guardGet.response;
+    const userGet = { id: guardGet.auth!.userId };
 
     const { searchParams } = new URL(request.url);
     const lastSyncTime = parseInt(searchParams.get('lastSync') || '0', 10);
 
     // Get counts of updated items since last sync
     const updates = {
-      tickets: db
-        .prepare(
-          `SELECT COUNT(*) as count FROM tickets
+      tickets: await executeQueryOne(`SELECT COUNT(*) as count FROM tickets
            WHERE (created_by = ? OR assigned_to = ?)
-           AND updated_at > datetime(?, 'unixepoch', 'localtime')`
-        )
-        .get(String(user.id), String(user.id), lastSyncTime / 1000),
+           AND updated_at > datetime(?, 'unixepoch', 'localtime')`, [String(userGet.id), String(userGet.id), lastSyncTime / 1000]),
 
-      comments: db
-        .prepare(
-          `SELECT COUNT(*) as count FROM comments c
+      comments: await executeQueryOne(`SELECT COUNT(*) as count FROM comments c
            INNER JOIN tickets t ON c.ticket_id = t.id
            WHERE (t.created_by = ? OR t.assigned_to = ?)
-           AND c.created_at > datetime(?, 'unixepoch', 'localtime')`
-        )
-        .get(String(user.id), String(user.id), lastSyncTime / 1000),
+           AND c.created_at > datetime(?, 'unixepoch', 'localtime')`, [String(userGet.id), String(userGet.id), lastSyncTime / 1000]),
 
-      notifications: db
-        .prepare(
-          `SELECT COUNT(*) as count FROM notifications
+      notifications: await executeQueryOne(`SELECT COUNT(*) as count FROM notifications
            WHERE user_id = ?
-           AND created_at > datetime(?, 'unixepoch', 'localtime')`
-        )
-        .get(String(user.id), lastSyncTime / 1000),
+           AND created_at > datetime(?, 'unixepoch', 'localtime')`, [String(userGet.id), lastSyncTime / 1000]),
     };
 
     return NextResponse.json({
@@ -224,43 +196,39 @@ export async function GET(request: NextRequest) {
 
 // Helper functions
 
-async function syncCreateTicket(db: any, userId: string, data: any): Promise<number> {
-  const result = db
-    .prepare(
+async function syncCreateTicket(_db: any, userId: string, data: any): Promise<number> {
+  const result = await executeRun(
       `INSERT INTO tickets (title, description, priority, category_id, created_by)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(
+       VALUES (?, ?, ?, ?, ?)`,
+    [
       data.title,
       data.description,
       data.priority || 'medium',
       data.category_id,
       userId
-    );
+    ]);
 
-  return result.lastInsertRowid;
+  return result.lastInsertRowid as number;
 }
 
-async function syncAddComment(db: any, userId: string, data: any): Promise<number> {
-  const result = db
-    .prepare(
+async function syncAddComment(_db: any, userId: string, data: any): Promise<number> {
+  const result = await executeRun(
       `INSERT INTO comments (ticket_id, user_id, content, is_internal)
-       VALUES (?, ?, ?, ?)`
-    )
-    .run(data.ticketId, userId, data.content, data.isInternal || false);
+       VALUES (?, ?, ?, ?)`,
+    [data.ticketId, userId, data.content, data.isInternal || false]);
 
-  return result.lastInsertRowid;
+  return result.lastInsertRowid as number;
 }
 
 async function syncUpdateTicket(
-  db: any,
+  _db: any,
   _userId: string,
   data: any
 ): Promise<{ id: number; conflict?: any }> {
   // Check for conflicts
-  const current = db
-    .prepare('SELECT updated_at FROM tickets WHERE id = ?')
-    .get(data.id);
+  const current = await executeQueryOne<{ updated_at: string }>(
+    'SELECT updated_at FROM tickets WHERE id = ?',
+    [data.id]);
 
   if (current && data.lastKnownUpdate) {
     const currentTime = new Date(current.updated_at).getTime();
@@ -301,46 +269,38 @@ async function syncUpdateTicket(
 
   if (updateFields.length > 0) {
     updateValues.push(data.id);
-    db.prepare(
-      `UPDATE tickets SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`
-    ).run(...updateValues);
+    await executeRun(`UPDATE tickets SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`, updateValues);
   }
 
   return { id: data.id };
 }
 
-async function syncUpdateStatus(db: any, _userId: string, data: any): Promise<number> {
-  db.prepare(
-    `UPDATE tickets
+async function syncUpdateStatus(_db: any, _userId: string, data: any): Promise<number> {
+  await executeRun(`UPDATE tickets
      SET status = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`
-  ).run(data.status, data.ticketId);
+     WHERE id = ?`, [data.status, data.ticketId]);
 
   return data.ticketId;
 }
 
-async function getUpdatedData(db: any, userId: string, lastSyncTime: number) {
+async function getUpdatedData(_db: any, userId: string, lastSyncTime: number) {
   const sinceDate = new Date(lastSyncTime).toISOString();
 
-  const tickets = db
-    .prepare(
+  const tickets = await executeQuery(
       `SELECT * FROM tickets
        WHERE (created_by = ? OR assigned_to = ?)
        AND updated_at > ?
-       LIMIT 50`
-    )
-    .all(userId, userId, sinceDate);
+       LIMIT 50`,
+    [userId, userId, sinceDate]);
 
-  const notifications = db
-    .prepare(
+  const notifications = await executeQuery(
       `SELECT * FROM notifications
        WHERE user_id = ?
        AND created_at > ?
        ORDER BY created_at DESC
-       LIMIT 20`
-    )
-    .all(userId, sinceDate);
+       LIMIT 20`,
+    [userId, sinceDate]);
 
   return {
     tickets,

@@ -1,9 +1,11 @@
+const path = require('path')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // App directory is enabled by default in Next.js 13+
 
   // Handle the workspace root warning
-  outputFileTracingRoot: "/home/nic20/ProjetosWeb/ServiceDesk",
+  outputFileTracingRoot: path.join(__dirname),
 
   // Force dynamic rendering for all pages
   output: 'standalone',

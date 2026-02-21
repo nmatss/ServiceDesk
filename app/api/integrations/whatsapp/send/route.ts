@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { WhatsAppBusinessClient } from '@/lib/integrations/whatsapp/client';
 import { createWhatsAppMessage } from '@/lib/integrations/whatsapp/storage';
 import { createAuditLog } from '@/lib/audit/logger';
@@ -34,13 +34,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verifica autenticação
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const body = await request.json();
     const validatedData = sendMessageSchema.parse(body);
@@ -146,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     // Log da ação
     await createAuditLog({
-      user_id: authResult.user?.id,
+      user_id: userId,
       action: 'whatsapp_message_sent',
       resource_type: 'whatsapp_message',
       new_values: JSON.stringify({

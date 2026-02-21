@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import emailService from '@/lib/email/service'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get emails from queue
-    const emails = db.prepare(`
+    const emails = await executeQuery(`
       SELECT
         id, to_email, cc_emails, bcc_emails, subject, template_type,
         priority, status, attempts, max_attempts, scheduled_at,
@@ -57,17 +57,17 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...queryParams, limit, offset)
+    `, [...queryParams, limit, offset])
 
     // Get total count
-    const total = (db.prepare(`
+    const total = (await executeQueryOne<any>(`
       SELECT COUNT(*) as count
       FROM email_queue
       ${whereClause}
-    `).get(...queryParams) as any)?.count || 0
+    `, queryParams))?.count || 0
 
     // Get statistics
-    const stats = db.prepare(`
+    const stats = await executeQuery(`
       SELECT
         status,
         priority,
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       FROM email_queue
       WHERE tenant_id = ?
       GROUP BY status, priority
-    `).all(tenantContext.id)
+    `, [tenantContext.id])
 
     return NextResponse.json({
       success: true,
@@ -131,12 +131,12 @@ export async function POST(request: NextRequest) {
 
     if (action === 'clear_failed') {
       // Clear failed emails older than 7 days
-      const result = db.prepare(`
+      const result = await executeRun(`
         DELETE FROM email_queue
         WHERE tenant_id = ?
           AND status = 'failed'
           AND created_at < datetime('now', '-7 days')
-      `).run(tenantContext.id)
+      `, [tenantContext.id])
 
       return NextResponse.json({
         success: true,
@@ -147,13 +147,13 @@ export async function POST(request: NextRequest) {
 
     if (action === 'retry_failed') {
       // Reset failed emails to pending (with attempts reset)
-      const result = db.prepare(`
+      const result = await executeRun(`
         UPDATE email_queue
         SET status = 'pending', attempts = 0, error_message = NULL
         WHERE tenant_id = ?
           AND status = 'failed'
           AND attempts < max_attempts
-      `).run(tenantContext.id)
+      `, [tenantContext.id])
 
       return NextResponse.json({
         success: true,

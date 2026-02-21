@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { logger } from '@/lib/monitoring/logger'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -138,7 +139,7 @@ export default function EditTicketPage() {
     e.preventDefault()
     
     if (!formData.title.trim() || !formData.description.trim()) {
-      alert('Título e descrição são obrigatórios')
+      toast.error('Título e descrição são obrigatórios')
       return
     }
 
@@ -169,7 +170,7 @@ export default function EditTicketPage() {
       router.push(`/tickets/${ticketId}`)
     } catch (error) {
       logger.error('Erro ao atualizar ticket', error)
-      alert('Erro ao atualizar ticket')
+      toast.error('Erro ao atualizar ticket')
     } finally {
       setSaving(false)
     }

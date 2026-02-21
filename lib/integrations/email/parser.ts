@@ -12,7 +12,7 @@
  */
 
 import { simpleParser, Attachment, AddressObject } from 'mailparser';
-import db from '@/lib/db/connection';
+import { executeQueryOne } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
 export interface ParsedEmail {
@@ -321,12 +321,13 @@ export class EmailParser {
    */
   private async findUserByEmail(email: string): Promise<ParsedEmail['senderUser']> {
     try {
-      const user = db.prepare(`
-        SELECT id, email, name, tenant_id
-        FROM users
-        WHERE LOWER(email) = LOWER(?)
-        LIMIT 1
-      `).get(email) as { id: number; email: string; name: string; tenant_id: number } | undefined;
+      const user = await executeQueryOne<{ id: number; email: string; name: string; tenant_id: number }>(
+        `SELECT id, email, name, tenant_id
+         FROM users
+         WHERE LOWER(email) = LOWER(?)
+         LIMIT 1`,
+        [email]
+      );
 
       if (!user) {
         return undefined;

@@ -49,36 +49,62 @@ legacyDb.pragma('auto_vacuum = INCREMENTAL');
 legacyDb.pragma('busy_timeout = 5000');
 
 /**
- * Default export: Legacy direct connection for backward compatibility
- * New code should use the connection pool instead
- */
-export default legacyDb;
-
-/**
- * Named export for db (for consistent imports)
- */
-export const db = legacyDb;
-
-/**
  * Named export for getDb function (for consistent imports)
  */
-export const getDb = () => legacyDb;
+export const getDb = () => {
+  const globalWithTestDb = globalThis as typeof globalThis & {
+    __SERVICEDESK_TEST_DB__?: Database.Database
+  };
+  if (process.env.NODE_ENV === 'test' && globalWithTestDb.__SERVICEDESK_TEST_DB__) {
+    return globalWithTestDb.__SERVICEDESK_TEST_DB__;
+  }
+  return legacyDb;
+};
 
 /**
  * Named export for getDB function (for consistent imports)
  */
-export const getDB = () => legacyDb;
+export const getDB = () => getDb();
 
 /**
  * Named export for getConnection (for consistent imports)
  */
-export const getConnection = () => legacyDb;
+export const getConnection = () => getDb();
 
 /**
  * Named export for getDatabase (for consistent imports)
  * Alias for getDB - added for compatibility with newer API routes
  */
-export const getDatabase = () => legacyDb;
+export const getDatabase = () => getDb();
+
+const dynamicDb = new Proxy(legacyDb as Database.Database, {
+  get(_target, prop) {
+    const activeDb = getDb() as unknown as Record<PropertyKey, unknown>;
+    const value = activeDb[prop];
+
+    if (typeof value === 'function') {
+      return (value as Function).bind(activeDb);
+    }
+
+    return value;
+  },
+  set(_target, prop, value) {
+    const activeDb = getDb() as unknown as Record<PropertyKey, unknown>;
+    activeDb[prop] = value;
+    return true;
+  },
+}) as Database.Database;
+
+/**
+ * Default export: database handle resolved at runtime (test/prod aware)
+ * New code should use getDb()/connection pool where possible.
+ */
+export default dynamicDb;
+
+/**
+ * Named export for db (for consistent imports)
+ */
+export const db = dynamicDb;
 
 /**
  * Recommended: Use connection pool for better performance
@@ -102,4 +128,3 @@ export async function getPooledConnection<T>(
  * Export pool for direct access
  */
 export { pool };
-

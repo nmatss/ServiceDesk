@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getConnection } from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, getDatabase } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -224,10 +224,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -240,10 +238,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
     const offset = (page - 1) * limit;
-
-    const db = getConnection();
-
-    // Build query with filters
+// Build query with filters
     let whereClause = 'WHERE 1=1';
     const params: any[] = [];
 
@@ -274,7 +269,7 @@ export async function GET(request: NextRequest) {
       ${whereClause}
     `;
 
-    const countResult = db.prepare(countQuery).get(...params) as { total: number };
+    const countResult = await executeQueryOne<{ total: number }>(countQuery, params) || { total: 0 };
     const total = countResult.total;
 
     // Get workflows
@@ -304,11 +299,11 @@ export async function GET(request: NextRequest) {
       LIMIT ? OFFSET ?
     `;
 
-    const workflows = db.prepare(query).all(...params, limit, offset);
+    const workflows = await executeQuery(query, [...params, limit, offset]);
 
     // Get workflow steps for each workflow
-    const workflowsWithSteps = workflows.map((workflow: any) => {
-      const steps = db.prepare(`
+    const workflowsWithSteps = await Promise.all(workflows.map(async (workflow: any) => {
+      const steps = await executeQuery(`
         SELECT
           id,
           step_order,
@@ -324,7 +319,7 @@ export async function GET(request: NextRequest) {
         FROM workflow_steps
         WHERE workflow_id = ?
         ORDER BY step_order
-      `).all(workflow.id);
+      `, [workflow.id]);
 
       return {
         ...workflow,
@@ -334,7 +329,7 @@ export async function GET(request: NextRequest) {
           configuration: JSON.parse(step.configuration || '{}')
         }))
       };
-    });
+    }));
 
     return NextResponse.json({
       workflows: workflowsWithSteps,
@@ -366,15 +361,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check permissions
-    if (!['admin', 'agent'].includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'agent'] });
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const body = await request.json();
     const validationResult = CreateWorkflowSchema.safeParse(body);
@@ -390,9 +379,8 @@ export async function POST(request: NextRequest) {
     }
 
     const workflowData = validationResult.data;
-    const db = getConnection();
-
-    // Start transaction
+// Start transaction
+    const db = getDatabase() as any;
     const createWorkflow = db.transaction((data: any) => {
       // Insert workflow
       const workflowResult = db.prepare(`
@@ -420,14 +408,14 @@ export async function POST(request: NextRequest) {
         data.isTemplate ? 1 : 0,
         data.category || 'ticket_automation',
         data.priority || 0,
-        authResult.user!.id
-      );
+        userId);
 
       const workflowId = workflowResult.lastInsertRowid;
 
       // Insert workflow steps (nodes)
       if (data.nodes && data.nodes.length > 0) {
-        const insertStep = db.prepare(`
+        data.nodes.forEach((node: any, index: number) => {
+          db.prepare(`
           INSERT INTO workflow_steps (
             workflow_id,
             step_order,
@@ -441,10 +429,7 @@ export async function POST(request: NextRequest) {
             is_optional,
             parent_step_id
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        data.nodes.forEach((node: any, index: number) => {
-          insertStep.run(
+        `).run(
             workflowId,
             index,
             node.type,
@@ -460,8 +445,7 @@ export async function POST(request: NextRequest) {
             node.retryConfig?.maxAttempts || 3,
             node.retryConfig?.initialDelay ? Math.round(node.retryConfig.initialDelay / 60000) : 5,
             node.isOptional ? 1 : 0,
-            null
-          );
+            null);
         });
       }
 
@@ -492,8 +476,7 @@ export async function POST(request: NextRequest) {
         }),
         data.isActive !== false ? 1 : 0,
         1,
-        authResult.user!.id
-      );
+        userId);
 
       return workflowId;
     });
@@ -501,7 +484,7 @@ export async function POST(request: NextRequest) {
     const workflowId = createWorkflow(workflowData);
 
     // Fetch the created workflow
-    const workflow = db.prepare(`
+    const workflow = await executeQueryOne(`
       SELECT
         w.*,
         wd.steps_json,
@@ -510,7 +493,7 @@ export async function POST(request: NextRequest) {
       LEFT JOIN workflow_definitions wd ON w.id = wd.id
       LEFT JOIN users u ON w.created_by = u.id
       WHERE w.id = ?
-    `).get(workflowId);
+    `, [workflowId]);
 
     if (!workflow) {
       return NextResponse.json(

@@ -9,6 +9,7 @@
  * Auth: Optional (can be configured with API key)
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { getMetrics } from '@/lib/monitoring/metrics';
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error generating metrics:', error);
+    logger.error('Error generating metrics:', error);
     return NextResponse.json(
       {
         error: 'Failed to generate metrics',

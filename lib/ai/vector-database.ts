@@ -1,10 +1,9 @@
 import { openAIClient } from './openai-client';
-import type { Database } from 'sqlite';
-import type * as sqlite3 from 'sqlite3';
 import logger from '../monitoring/structured-logger';
 import { aiCache } from './cache';
 import { cosineSimilarity } from './utils';
 import { createHash } from 'crypto';
+import { getDatabase, type DatabaseAdapter } from '../db/adapter';
 
 export interface SearchResult {
   entityType: string;
@@ -49,15 +48,17 @@ export interface BatchProcessingResult {
   processingTimeMs: number;
 }
 
+type VectorDatabaseClient = Pick<DatabaseAdapter, 'get' | 'all' | 'run'>;
+
 export class VectorDatabase {
   private static readonly DEFAULT_MODEL = 'text-embedding-3-small';
   private static readonly SIMILARITY_THRESHOLD = 0.75;
   private static readonly BATCH_SIZE = 20;
 
-  private db: Database<sqlite3.Database, sqlite3.Statement>;
+  private db: VectorDatabaseClient;
 
-  constructor(database: Database<sqlite3.Database, sqlite3.Statement>) {
-    this.db = database;
+  constructor(database?: VectorDatabaseClient) {
+    this.db = database ?? getDatabase();
   }
 
   /**
@@ -140,7 +141,20 @@ export class VectorDatabase {
           embedding.length
         ]);
 
-        embeddingId = result.lastID!;
+        if (typeof result.lastInsertRowid === 'number') {
+          embeddingId = result.lastInsertRowid;
+        } else {
+          const insertedEmbedding = await this.db.get<{ id: number }>(`
+            SELECT id FROM vector_embeddings
+            WHERE entity_type = ? AND entity_id = ? AND model_name = ?
+          `, [entityType, entityId, modelName]);
+
+          if (!insertedEmbedding) {
+            throw new Error('Failed to resolve inserted embedding id');
+          }
+
+          embeddingId = insertedEmbedding.id;
+        }
       }
 
       return {
@@ -295,7 +309,7 @@ export class VectorDatabase {
         params.push(...excludeEntityIds);
       }
 
-      const embeddings = await this.db.all<Array<{ entity_type: string; entity_id: number; embedding_vector: string }>>(`
+      const embeddings = await this.db.all<{ entity_type: string; entity_id: number; embedding_vector: string }>(`
         SELECT entity_type, entity_id, embedding_vector
         FROM vector_embeddings
         WHERE model_name = ?${whereClause}
@@ -398,7 +412,7 @@ export class VectorDatabase {
         const article = await this.db.get<{ title: string; summary?: string; content?: string }>(`
           SELECT title, summary, content
           FROM kb_articles
-          WHERE id = ? AND is_published = 1
+          WHERE id = ? AND status = 'published'
         `, [result.entityId]);
 
         if (article) {
@@ -489,22 +503,22 @@ export class VectorDatabase {
 
       switch (entityType) {
         case 'ticket':
-          entities = await this.db.all<Array<{ id: number; content: string }>>(`
+          entities = await this.db.all<{ id: number; content: string }>(`
             SELECT id, title || ' ' || description as content
             FROM tickets
           `);
           break;
 
         case 'kb_article':
-          entities = await this.db.all<Array<{ id: number; content: string }>>(`
+          entities = await this.db.all<{ id: number; content: string }>(`
             SELECT id, title || ' ' || COALESCE(summary, '') || ' ' || content as content
             FROM kb_articles
-            WHERE is_published = 1
+            WHERE status = 'published'
           `);
           break;
 
         case 'comment':
-          entities = await this.db.all<Array<{ id: number; content: string }>>(`
+          entities = await this.db.all<{ id: number; content: string }>(`
             SELECT id, content
             FROM comments
           `);
@@ -579,7 +593,7 @@ export class VectorDatabase {
         SELECT COUNT(*) as total FROM vector_embeddings
       `);
 
-      const byTypeResults = await this.db.all<Array<{ entity_type: string; count: number }>>(`
+      const byTypeResults = await this.db.all<{ entity_type: string; count: number }>(`
         SELECT entity_type, COUNT(*) as count
         FROM vector_embeddings
         GROUP BY entity_type
@@ -736,7 +750,7 @@ export class VectorDatabase {
                     ELSE 0.4
                    END) as score
             FROM kb_articles
-            WHERE is_published = 1
+            WHERE status = 'published'
               AND LOWER(title || ' ' || content) LIKE ?
             ORDER BY score DESC
             LIMIT 20
@@ -749,7 +763,7 @@ export class VectorDatabase {
           return [];
       }
 
-      const results = await this.db.all<Array<{ id: number; score: number; title?: string; content?: string; description?: string }>>(searchQuery, params);
+      const results = await this.db.all<{ id: number; score: number; title?: string; content?: string; description?: string }>(searchQuery, params);
 
       return results.map(row => ({
         entityType,

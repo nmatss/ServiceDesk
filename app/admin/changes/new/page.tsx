@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   ArrowPathIcon,
@@ -43,10 +44,45 @@ export default function NewChangePage() {
     e.preventDefault()
     setLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      router.push('/admin/changes')
+      const response = await fetch('/api/changes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          change_type_id: 1, // Default change type ID
+          category: formData.category,
+          priority: formData.priority,
+          risk_level: formData.risk_level <= 2 ? 'low' : formData.risk_level === 3 ? 'medium' : formData.risk_level === 4 ? 'high' : 'very_high',
+          impact: formData.impact_level <= 2 ? 'minor' : formData.impact_level === 3 ? 'moderate' : formData.impact_level === 4 ? 'significant' : 'extensive',
+          urgency: formData.urgency_level <= 2 ? 'low' : formData.urgency_level === 3 ? 'medium' : 'high',
+          justification: formData.justification,
+          implementation_plan: formData.implementation_plan,
+          rollback_plan: formData.rollback_plan,
+          test_plan: formData.test_plan,
+          affected_services: formData.affected_services.join(', '),
+          scheduled_start_date: formData.scheduled_start || null,
+          scheduled_end_date: formData.scheduled_end || null,
+          downtime_required: formData.cab_required
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao criar requisição de mudança')
+      }
+
+      if (data.success) {
+        router.push('/admin/changes')
+      } else {
+        throw new Error(data.error || 'Erro ao criar requisição de mudança')
+      }
     } catch (error) {
       console.error('Error creating change:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar requisição de mudança')
     } finally {
       setLoading(false)
     }
@@ -70,43 +106,39 @@ export default function NewChangePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-purple-50/20 pb-6">
-      {/* Modern Header with Breadcrumbs */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-neutral-200/50 mb-6 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
-          <PageHeader
-            title="Nova Requisição de Mudança (RFC)"
-            description="Submeter uma nova mudança para aprovação pelo CAB"
-            icon={ArrowPathIcon}
-            breadcrumbs={[
-              { label: 'Admin', href: '/admin' },
-              { label: 'Mudanças', href: '/admin/changes' },
-              { label: 'Nova RFC' }
-            ]}
-            actions={[
-              {
-                label: 'Voltar',
-                onClick: () => router.push('/admin/changes'),
-                icon: ArrowLeftIcon,
-                variant: 'ghost'
-              }
-            ]}
-          />
-        </div>
-      </div>
+    <div className="space-y-6 animate-fade-in pb-6">
+      {/* Header */}
+      <PageHeader
+        title="Nova Requisição de Mudança (RFC)"
+        description="Submeter uma nova mudança para aprovação pelo CAB"
+        icon={ArrowPathIcon}
+        breadcrumbs={[
+          { label: 'Admin', href: '/admin' },
+          { label: 'Mudanças', href: '/admin/changes' },
+          { label: 'Nova RFC' }
+        ]}
+        actions={[
+          {
+            label: 'Voltar',
+            onClick: () => router.push('/admin/changes'),
+            icon: ArrowLeftIcon,
+            variant: 'ghost'
+          }
+        ]}
+      />
 
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
+      <div className="max-w-4xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info */}
           <div className="glass-panel">
-            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+            <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <DocumentTextIcon className="w-5 h-5 text-brand-500" />
               Informações Básicas
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Título da Mudança *
                 </label>
                 <input
@@ -114,13 +146,13 @@ export default function NewChangePage() {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Ex: Atualização de segurança do firewall"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Descrição *
                 </label>
                 <textarea
@@ -128,13 +160,13 @@ export default function NewChangePage() {
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Descreva o que será alterado..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Justificativa *
                 </label>
                 <textarea
@@ -142,21 +174,21 @@ export default function NewChangePage() {
                   value={formData.justification}
                   onChange={(e) => setFormData(prev => ({ ...prev, justification: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Por que esta mudança é necessária? Qual problema resolve?"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Categoria *
                   </label>
                   <select
                     required
                     value={formData.category}
                     onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   >
                     <option value="standard">Padrão (pré-aprovada)</option>
                     <option value="normal">Normal (requer CAB)</option>
@@ -165,14 +197,14 @@ export default function NewChangePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Prioridade *
                   </label>
                   <select
                     required
                     value={formData.priority}
                     onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   >
                     <option value="low">Baixa</option>
                     <option value="medium">Média</option>
@@ -183,14 +215,14 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Problema Relacionado (opcional)
                 </label>
                 <input
                   type="text"
                   value={formData.related_problem}
                   onChange={(e) => setFormData(prev => ({ ...prev, related_problem: e.target.value }))}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   placeholder="Ex: PRB-123"
                 />
               </div>
@@ -199,14 +231,14 @@ export default function NewChangePage() {
 
           {/* Risk Assessment */}
           <div className="glass-panel bg-gradient-to-br from-orange-50/50 to-red-50/30">
-            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+            <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
               Avaliação de Risco
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Nível de Risco (1-5)
                 </label>
                 <input
@@ -225,7 +257,7 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Nível de Impacto (1-5)
                 </label>
                 <input
@@ -244,7 +276,7 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Nível de Urgência (1-5)
                 </label>
                 <input
@@ -266,33 +298,33 @@ export default function NewChangePage() {
 
           {/* Schedule */}
           <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-brand-50/30">
-            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+            <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <CalendarDaysIcon className="w-5 h-5 text-brand-500" />
               Agendamento
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Início Planejado
                 </label>
                 <input
                   type="datetime-local"
                   value={formData.scheduled_start}
                   onChange={(e) => setFormData(prev => ({ ...prev, scheduled_start: e.target.value }))}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Fim Planejado
                 </label>
                 <input
                   type="datetime-local"
                   value={formData.scheduled_end}
                   onChange={(e) => setFormData(prev => ({ ...prev, scheduled_end: e.target.value }))}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -314,11 +346,11 @@ export default function NewChangePage() {
 
           {/* Plans */}
           <div className="glass-panel">
-            <h2 className="font-bold text-lg text-neutral-900 mb-4">Planos de Execução</h2>
+            <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4">Planos de Execução</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Plano de Implementação *
                 </label>
                 <textarea
@@ -332,7 +364,7 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Plano de Rollback *
                 </label>
                 <textarea
@@ -346,7 +378,7 @@ export default function NewChangePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Plano de Testes *
                 </label>
                 <textarea
@@ -363,7 +395,7 @@ export default function NewChangePage() {
 
           {/* Affected Services */}
           <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-cyan-50/30">
-            <h2 className="font-bold text-lg text-neutral-900 mb-4 flex items-center gap-2">
+            <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <ServerIcon className="w-5 h-5 text-brand-500" />
               Serviços Afetados
             </h2>
@@ -374,7 +406,7 @@ export default function NewChangePage() {
                 value={newService}
                 onChange={(e) => setNewService(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
-                className="flex-1 px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 placeholder="Nome do serviço"
               />
               <button
@@ -445,7 +477,8 @@ export default function NewChangePage() {
             </button>
             <button
               type="button"
-              className="flex-1 sm:flex-none px-6 py-3 bg-neutral-100 text-neutral-700 rounded-lg font-medium hover:bg-neutral-200"
+              onClick={() => toast.error('Funcionalidade de rascunho ainda não implementada')}
+              className="flex-1 sm:flex-none px-6 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700"
             >
               Salvar Rascunho
             </button>
@@ -461,12 +494,12 @@ export default function NewChangePage() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700 shadow-lg p-3 sm:hidden safe-bottom">
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => router.push('/admin/changes')}
-            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 rounded-lg"
           >
             Cancelar
           </button>

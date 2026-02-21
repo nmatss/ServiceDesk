@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnection from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -14,10 +14,9 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const body = await request.json();
     const { endpoint } = body;
@@ -28,16 +27,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const db = dbConnection;
-
-    // Soft delete - mark as inactive
-    const result = db.prepare(`
+// Soft delete - mark as inactive
+    const result = await executeRun(`
       UPDATE push_subscriptions
       SET is_active = 0,
           updated_at = CURRENT_TIMESTAMP
       WHERE endpoint = ? AND user_id = ?
-    `).run(endpoint, authResult.user.id);
+    `, [endpoint, userId]);
 
     if (result.changes === 0) {
       return NextResponse.json(
@@ -46,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.info(`Push subscription removed for user ${authResult.user.id}`);
+    logger.info(`Push subscription removed for user ${userId}`);
 
     return NextResponse.json({
       success: true,

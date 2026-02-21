@@ -4,9 +4,10 @@
  * Used for AI-powered suggestions when creating/viewing tickets
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 
@@ -93,9 +94,9 @@ export async function GET(request: NextRequest) {
       searchTerms
     );
 
-    // Filter out non-public KEs for end users
+    // Filter out non-active KEs for end users
     const filteredKnownErrors = payload.role === 'user'
-      ? knownErrors.filter((ke) => ke.is_public === 1)
+      ? knownErrors.filter((ke) => ke.status === 'active')
       : knownErrors;
 
     return NextResponse.json({
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
       data: filteredKnownErrors,
     });
   } catch (error) {
-    console.error('Error searching known errors:', error);
+    logger.error('Error searching known errors:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

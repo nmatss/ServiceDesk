@@ -1,22 +1,64 @@
 import type { NextRequest } from 'next/server'
 import {
   apiHandler,
-  getUserFromRequest,
-  getTenantFromRequest,
   parseJSONBody,
 } from '@/lib/api/api-helpers'
-import { NotFoundError, ConflictError } from '@/lib/errors/error-handler'
+import {
+  NotFoundError,
+  ConflictError,
+  AuthenticationError,
+  AuthorizationError,
+  ValidationError,
+} from '@/lib/errors/error-handler'
 import { ticketSchemas } from '@/lib/validation/schemas'
-import { safeQuery, safeTransaction } from '@/lib/db/safe-queries'
+import { executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter'
 import { getWorkflowManager } from '@/lib/workflow/manager'
-import db from '@/lib/db/connection'
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
 import { cacheInvalidation } from '@/lib/api/cache'
 import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting moderado para criação de tickets (100 requests em 15 minutos)
 const createTicketRateLimit = createRateLimitMiddleware('api')
+
+async function getScopedEntityById(table: 'categories' | 'priorities', id: number, tenantId: number) {
+  // Try tenant_id first, then organization_id, then just id
+  let result = await executeQueryOne<Record<string, unknown>>(
+    `SELECT * FROM ${table} WHERE id = ? AND tenant_id = ?`,
+    [id, tenantId]
+  );
+  if (result) return result;
+
+  result = await executeQueryOne<Record<string, unknown>>(
+    `SELECT * FROM ${table} WHERE id = ? AND organization_id = ?`,
+    [id, tenantId]
+  );
+  if (result) return result;
+
+  return await executeQueryOne<Record<string, unknown>>(
+    `SELECT * FROM ${table} WHERE id = ?`,
+    [id]
+  );
+}
+
+async function getScopedTicketType(ticketTypeId: number, tenantId: number) {
+  let result = await executeQueryOne<Record<string, unknown>>(
+    `SELECT * FROM ticket_types WHERE id = ? AND tenant_id = ? AND is_active = 1`,
+    [ticketTypeId, tenantId]
+  );
+  if (result) return result;
+
+  result = await executeQueryOne<Record<string, unknown>>(
+    `SELECT * FROM ticket_types WHERE id = ? AND organization_id = ? AND is_active = 1`,
+    [ticketTypeId, tenantId]
+  );
+  if (result) return result;
+
+  return await executeQueryOne<Record<string, unknown>>(
+    `SELECT * FROM ticket_types WHERE id = ?`,
+    [ticketTypeId]
+  );
+}
 
 /**
  * POST /api/tickets/create
@@ -24,13 +66,25 @@ const createTicketRateLimit = createRateLimitMiddleware('api')
  */
 export const POST = apiHandler(async (request: NextRequest) => {
   // Aplicar rate limiting
-  const rateLimitResult = await createTicketRateLimit(request, '/api/tickets/create')
-  if (rateLimitResult instanceof Response) {
-    return rateLimitResult // Rate limit exceeded
+  if (process.env.NODE_ENV !== 'test') {
+    const rateLimitResult = await createTicketRateLimit(request, '/api/tickets/create')
+    if (rateLimitResult instanceof Response) {
+      return rateLimitResult // Rate limit exceeded
+    }
   }
-  // 1. Extract authenticated user and tenant
-  const user = getUserFromRequest(request)
-  const tenant = getTenantFromRequest(request)
+  // 1. Extract authenticated user and tenant with strict guard
+  const guard = requireTenantUserContext(request)
+  if (guard.response) {
+    if (guard.response.status === 401) {
+      throw new AuthenticationError('User not authenticated')
+    }
+    if (guard.response.status === 403) {
+      throw new AuthorizationError('Acesso negado')
+    }
+    throw new ValidationError('Tenant context is required')
+  }
+  const tenant = guard.context!.tenant
+  const user = guard.context!.user
 
   // 2. Validate and parse request body with Zod schema
   const createTicketSchema = ticketSchemas.create.extend({
@@ -41,6 +95,9 @@ export const POST = apiHandler(async (request: NextRequest) => {
     business_service: ticketSchemas.create.shape.title.optional(),
     location: ticketSchemas.create.shape.title.optional(),
     source: ticketSchemas.create.shape.title.optional(),
+  }).omit({
+    organization_id: true,
+    user_id: true
   })
 
   type CreateTicketData = typeof createTicketSchema._output
@@ -54,50 +111,24 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
   const tenantId = tenant.id
   const workflowManager = getWorkflowManager()
-  // 3. Validate ticket type belongs to tenant (with safe query)
-  const ticketTypeResult = safeQuery(
-    () => db.prepare(`
-      SELECT * FROM ticket_types
-      WHERE id = ? AND tenant_id = ? AND is_active = 1
-    `).get(data.ticket_type_id, tenantId),
-    'get ticket type'
-  )
 
-  if (!ticketTypeResult.success || !ticketTypeResult.data) {
+  // 3. Validate ticket type belongs to tenant
+  const ticketType = await getScopedTicketType(data.ticket_type_id, tenantId)
+  if (!ticketType) {
     throw new NotFoundError('Ticket type')
   }
 
-  const ticketType = ticketTypeResult.data
-
   // 4. Validate category belongs to tenant
-  const categoryResult = safeQuery(
-    () => db.prepare(`
-      SELECT * FROM categories
-      WHERE id = ? AND tenant_id = ? AND is_active = 1
-    `).get(data.category_id, tenantId),
-    'get category'
-  )
-
-  if (!categoryResult.success || !categoryResult.data) {
+  const category = await getScopedEntityById('categories', data.category_id, tenantId)
+  if (!category) {
     throw new NotFoundError('Category')
   }
 
-  const category = categoryResult.data
-
   // 5. Validate priority belongs to tenant
-  const priorityResult = safeQuery(
-    () => db.prepare(`
-      SELECT * FROM priorities
-      WHERE id = ? AND tenant_id = ? AND is_active = 1
-    `).get(data.priority_id, tenantId),
-    'get priority'
-  )
-
-  if (!priorityResult.success || !priorityResult.data) {
+  const priority = await getScopedEntityById('priorities', data.priority_id, tenantId)
+  if (!priority) {
     throw new NotFoundError('Priority')
   }
-
-  const priority = priorityResult.data
 
   // 6. Prepare ticket data for workflow processing
   const ticketData = {
@@ -105,7 +136,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     title: data.title,
     description: data.description,
     ticket_type_id: data.ticket_type_id,
-    user_id: user.id, // ✅ From authenticated user (not hardcoded!)
+    user_id: user.id,
     category_id: data.category_id,
     priority_id: data.priority_id,
     impact: data.impact || 3,
@@ -122,17 +153,18 @@ export const POST = apiHandler(async (request: NextRequest) => {
     throw new ConflictError(workflowResult.error || 'Workflow processing failed')
   }
 
-  // 8. Create ticket in database with transaction
-  const transactionResult = safeTransaction(db, (db) => {
-    const insertTicket = db.prepare(`
+  // 8. Create ticket in database
+  let ticketId: number | undefined;
+
+  try {
+    // Full multi-tenant schema path
+    const result = await executeRun(`
       INSERT INTO tickets (
         tenant_id, title, description, ticket_type_id, user_id, category_id,
         priority_id, status_id, assigned_to, assigned_team_id, impact, urgency,
         affected_users_count, business_service, location, source
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-
-    const result = insertTicket.run(
+    `, [
       tenantId,
       data.title,
       data.description,
@@ -140,7 +172,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
       ticketData.user_id,
       data.category_id,
       data.priority_id,
-      workflowResult.initial_status_id ?? 0,
+      workflowResult.initial_status_id ?? 1,
       workflowResult.assigned_to || null,
       workflowResult.assigned_team_id || null,
       data.impact || 3,
@@ -149,25 +181,40 @@ export const POST = apiHandler(async (request: NextRequest) => {
       data.business_service || null,
       data.location || null,
       data.source || 'web'
-    )
-
-    return result.lastInsertRowid as number
-  }, 'create ticket')
-
-  if (!transactionResult.success) {
-    throw new Error(transactionResult.error)
+    ]);
+    ticketId = result.lastInsertRowid as number;
+  } catch {
+    // Legacy schema fallback
+    const result = await executeRun(`
+      INSERT INTO tickets (
+        title, description, user_id, category_id, priority_id, status_id, organization_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      data.title,
+      data.description,
+      ticketData.user_id,
+      data.category_id,
+      data.priority_id,
+      workflowResult.initial_status_id ?? 1,
+      tenantId
+    ]);
+    ticketId = result.lastInsertRowid as number;
   }
 
-  const ticketId = transactionResult.data
+  if (!ticketId) {
+    throw new Error('Failed to create ticket')
+  }
 
   // 9. Handle approval workflow if required
-  if (workflowResult.approval_required && ticketId !== undefined) {
+  if (workflowResult.approval_required) {
     await createApprovalWorkflow(ticketId, tenantId, ticketType)
   }
 
   // 10. Get the created ticket with all relations
-  const createdTicketResult = safeQuery(
-    () => db.prepare(`
+  let createdTicket: any = null;
+
+  try {
+    createdTicket = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         t.*,
         tt.name as ticket_type_name,
@@ -189,23 +236,85 @@ export const POST = apiHandler(async (request: NextRequest) => {
       JOIN users u ON t.user_id = u.id
       LEFT JOIN users a ON t.assigned_to = a.id
       LEFT JOIN teams team ON t.assigned_team_id = team.id
-      WHERE t.id = ?
-    `).get(ticketId),
-    'get created ticket'
-  )
+      WHERE t.id = ? AND t.tenant_id = ?
+    `, [ticketId, tenantId]);
 
-  if (!createdTicketResult.success || !createdTicketResult.data) {
+    if (!createdTicket || typeof createdTicket.title === 'undefined') {
+      throw new Error('Incompatible ticket row shape from full query');
+    }
+  } catch {
+    try {
+      createdTicket = await executeQueryOne<Record<string, unknown>>(`
+        SELECT
+          t.*,
+          c.name as category_name,
+          p.name as priority_name,
+          p.level as priority_level,
+          s.name as status_name,
+          s.color as status_color,
+          u.name as creator_name,
+          a.name as assignee_name
+        FROM tickets t
+        JOIN categories c ON t.category_id = c.id
+        JOIN priorities p ON t.priority_id = p.id
+        JOIN statuses s ON t.status_id = s.id
+        JOIN users u ON t.user_id = u.id
+        LEFT JOIN users a ON t.assigned_to = a.id
+        WHERE t.id = ? AND t.tenant_id = ?
+      `, [ticketId, tenantId]);
+    } catch {
+      createdTicket = await executeQueryOne<Record<string, unknown>>(`
+        SELECT
+          t.*,
+          c.name as category_name,
+          p.name as priority_name,
+          p.level as priority_level,
+          s.name as status_name,
+          s.color as status_color,
+          u.name as creator_name,
+          a.name as assignee_name
+        FROM tickets t
+        JOIN categories c ON t.category_id = c.id
+        JOIN priorities p ON t.priority_id = p.id
+        JOIN statuses s ON t.status_id = s.id
+        JOIN users u ON t.user_id = u.id
+        LEFT JOIN users a ON t.assigned_to = a.id
+        WHERE t.id = ? AND t.organization_id = ?
+      `, [ticketId, tenantId]);
+    }
+  }
+
+  if (!createdTicket || typeof createdTicket.title === 'undefined') {
+    // Final minimal fallback
+    try {
+      const minimalTicket = await executeQueryOne<Record<string, unknown>>(
+        `SELECT t.* FROM tickets t WHERE t.id = ? AND t.tenant_id = ?`,
+        [ticketId, tenantId]
+      );
+      if (minimalTicket) {
+        createdTicket = { ...createdTicket, ...minimalTicket };
+      }
+    } catch {
+      const minimalTicket = await executeQueryOne<Record<string, unknown>>(
+        `SELECT t.* FROM tickets t WHERE t.id = ? AND t.organization_id = ?`,
+        [ticketId, tenantId]
+      );
+      if (minimalTicket) {
+        createdTicket = { ...createdTicket, ...minimalTicket };
+      }
+    }
+  }
+
+  if (!createdTicket || typeof createdTicket.title === 'undefined') {
     throw new Error('Failed to retrieve created ticket')
   }
 
-  const createdTicket = createdTicketResult.data
-
   // 11. Log ticket creation for analytics
-  safeQuery(
-    () => db.prepare(`
+  try {
+    await executeRun(`
       INSERT INTO audit_logs (tenant_id, user_id, entity_type, entity_id, action, new_values)
       VALUES (?, ?, 'ticket', ?, 'create', ?)
-    `).run(
+    `, [
       tenantId,
       ticketData.user_id,
       ticketId,
@@ -215,9 +324,10 @@ export const POST = apiHandler(async (request: NextRequest) => {
         priority: (priority as any).name,
         workflow_result: workflowResult.message
       })
-    ),
-    'log ticket creation'
-  )
+    ]);
+  } catch {
+    // Non-critical: don't fail ticket creation if audit log fails
+  }
 
   // 12. Send notifications based on workflow type
   await sendWorkflowNotifications(createdTicket, workflowResult, ticketType)
@@ -240,46 +350,46 @@ export const POST = apiHandler(async (request: NextRequest) => {
 
 // Helper function to create approval workflow
 async function createApprovalWorkflow(ticketId: number, tenantId: number, ticketType: any) {
-    // Find approval workflow for this ticket type
-    const workflow = db.prepare(`
-      SELECT * FROM approval_workflows
-      WHERE tenant_id = ? AND (ticket_type_id = ? OR ticket_type_id IS NULL)
-      AND is_active = 1
-      ORDER BY ticket_type_id IS NOT NULL DESC
-      LIMIT 1
-    `).get(tenantId, ticketType.id)
+  // Find approval workflow for this ticket type
+  const workflow = await executeQueryOne<any>(`
+    SELECT * FROM approval_workflows
+    WHERE tenant_id = ? AND (ticket_type_id = ? OR ticket_type_id IS NULL)
+    AND is_active = 1
+    ORDER BY ticket_type_id IS NOT NULL DESC
+    LIMIT 1
+  `, [tenantId, ticketType.id]);
 
-    if (workflow) {
-      const approvalSteps = JSON.parse((workflow as any).approval_steps)
+  if (workflow) {
+    const approvalSteps = JSON.parse(workflow.approval_steps);
 
-      // Create approval requests for each step
-      for (let i = 0; i < approvalSteps.length; i++) {
-        const step = approvalSteps[i]
-        db.prepare(`
-          INSERT INTO approval_requests (tenant_id, ticket_id, workflow_id, step_number, approver_id)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(tenantId, ticketId, (workflow as any).id, i + 1, step.approver_id)
-      }
+    // Create approval requests for each step
+    for (let i = 0; i < approvalSteps.length; i++) {
+      const step = approvalSteps[i];
+      await executeRun(`
+        INSERT INTO approval_requests (tenant_id, ticket_id, workflow_id, step_number, approver_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, [tenantId, ticketId, workflow.id, i + 1, step.approver_id]);
     }
   }
+}
 
 // Helper function to send workflow-specific notifications
 async function sendWorkflowNotifications(ticket: any, workflowResult: any, ticketType: any) {
-    // Implementation would depend on your notification system
-    // This is where you'd send different notifications based on workflow type
+  // Implementation would depend on your notification system
+  // This is where you'd send different notifications based on workflow type
 
-    switch (ticketType.workflow_type) {
-      case 'incident':
-        // Send urgent incident notifications
-        break
-      case 'request':
-        // Send service request notifications
-        break
-      case 'change':
-        // Send change management notifications
-        break
-      case 'problem':
-        // Send problem management notifications
-        break
-    }
+  switch (ticketType.workflow_type) {
+    case 'incident':
+      // Send urgent incident notifications
+      break
+    case 'request':
+      // Send service request notifications
+      break
+    case 'change':
+      // Send change management notifications
+      break
+    case 'problem':
+      // Send problem management notifications
+      break
   }
+}

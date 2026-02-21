@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, type DatabaseAdapter } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+async function awaitMaybe<T>(value: T | Promise<T>): Promise<T> {
+  return value instanceof Promise ? await value : value;
+}
+
+async function txRun(tx: DatabaseAdapter, sql: string, params: any[]): Promise<void> {
+  await awaitMaybe(tx.prepare(sql).run(...params));
+}
+
+async function txGet<T = any>(tx: DatabaseAdapter, sql: string, params: any[]): Promise<T | undefined> {
+  return await awaitMaybe(tx.prepare(sql).get(...params)) as T | undefined;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -13,8 +27,17 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
+
     // Buscar artigo por slug
-    const article = db.prepare(`
+    const article = await executeQueryOne<{ id: number } & Record<string, any>>(`
       SELECT
         a.id,
         a.title,
@@ -46,7 +69,8 @@ export async function GET(
       LEFT JOIN users u ON a.author_id = u.id
       LEFT JOIN users r ON a.reviewer_id = r.id
       WHERE a.slug = ? AND a.status = 'published'
-    `).get(params.slug) as { id: number } | undefined
+      AND (a.tenant_id = ? OR a.tenant_id IS NULL)
+    `, [params.slug, tenantId])
 
     if (!article) {
       return NextResponse.json(
@@ -56,23 +80,23 @@ export async function GET(
     }
 
     // Buscar tags do artigo
-    const tags = db.prepare(`
+    const tags = await executeQuery(`
       SELECT t.id, t.name, t.slug, t.color
       FROM kb_tags t
       INNER JOIN kb_article_tags at ON t.id = at.tag_id
       WHERE at.article_id = ?
-    `).all(article.id)
+    `, [article.id])
 
     // Buscar anexos
-    const attachments = db.prepare(`
+    const attachments = await executeQuery(`
       SELECT id, filename, original_name, mime_type, file_size, alt_text
       FROM kb_article_attachments
       WHERE article_id = ?
       ORDER BY created_at ASC
-    `).all(article.id)
+    `, [article.id])
 
     // Buscar artigos relacionados (mesma categoria)
-    const relatedArticles = db.prepare(`
+    const relatedArticles = await executeQuery(`
       SELECT
         a.id,
         a.title,
@@ -87,34 +111,26 @@ export async function GET(
       )
       AND a.id != ?
       AND a.status = 'published'
+      AND (a.tenant_id = ? OR a.tenant_id IS NULL)
       ORDER BY a.view_count DESC, a.helpful_votes DESC
       LIMIT 5
-    `).all(article.id, article.id)
+    `, [article.id, article.id, tenantId])
 
     // Registrar visualização (audit log)
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
-
-    let userId = null
-    if (token) {
-      try {
-        const user = await verifyToken(token)
-        userId = user?.id
-      } catch (e) {
-        // Ignorar erro de token para permitir visualização anônima
-      }
-    }
+    const userContext = getUserContextFromRequest(request)
+    const userId = userContext?.id || null
 
     // Inserir log de auditoria para incrementar view_count via trigger
-    db.prepare(`
-      INSERT INTO audit_logs (user_id, entity_type, entity_id, action, ip_address, user_agent)
-      VALUES (?, 'kb_article', ?, 'view', ?, ?)
-    `).run(
+    await executeRun(`
+      INSERT INTO audit_logs (tenant_id, user_id, entity_type, entity_id, action, ip_address, user_agent)
+      VALUES (?, ?, 'kb_article', ?, 'view', ?, ?)
+    `, [
+      tenantId,
       userId,
       article.id,
       request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
       request.headers.get('user-agent') || 'unknown'
-    )
+    ])
 
     return NextResponse.json({
       success: true,
@@ -144,26 +160,18 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const user = await verifyToken(token)
-    if (!user || (user.role !== 'admin' && user.role !== 'agent')) {
-      return NextResponse.json(
-        { error: 'Acesso negado' },
-        { status: 403 }
-      )
-    }
     // Verificar se artigo existe
-    const existingArticle = db.prepare('SELECT id, author_id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number; author_id: number } | undefined
+    const existingArticle = await executeQueryOne<{ id: number; author_id: number }>(
+      'SELECT id, author_id FROM kb_articles WHERE slug = ? AND tenant_id = ?',
+      [params.slug, tenantContext.id]
+    )
     if (!existingArticle) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -172,7 +180,8 @@ export async function PUT(
     }
 
     // Verificar permissão (admin ou autor)
-    if (user.role !== 'admin' && user.id !== existingArticle.author_id) {
+    const hasElevatedAccess = ['admin', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!hasElevatedAccess && userContext.id !== existingArticle.author_id) {
       return NextResponse.json(
         { error: 'Você só pode editar seus próprios artigos' },
         { status: 403 }
@@ -193,10 +202,8 @@ export async function PUT(
       meta_description
     } = await request.json()
 
-    // Iniciar transação
-    const transaction = db.transaction(() => {
-      // Atualizar artigo
-      db.prepare(`
+    await executeTransaction(async (tx) => {
+      await txRun(tx, `
         UPDATE kb_articles SET
           title = ?,
           content = ?,
@@ -209,45 +216,47 @@ export async function PUT(
           meta_title = ?,
           meta_description = ?,
           published_at = CASE
-            WHEN status = 'published' AND published_at IS NULL THEN datetime('now')
+            WHEN status = 'published' AND published_at IS NULL THEN CURRENT_TIMESTAMP
             WHEN status != 'published' THEN NULL
             ELSE published_at
           END
-        WHERE id = ?
-      `).run(
+        WHERE id = ? AND tenant_id = ?
+      `, [
         title,
         content,
-        summary,
+        summary ?? null,
         category_id || null,
         status,
         visibility,
-        featured,
-        search_keywords,
-        meta_title,
-        meta_description,
-        existingArticle.id
-      )
+        featured ? 1 : 0,
+        search_keywords ?? null,
+        meta_title ?? null,
+        meta_description ?? null,
+        existingArticle.id,
+        tenantContext.id
+      ])
 
       // Remover tags antigas
-      db.prepare('DELETE FROM kb_article_tags WHERE article_id = ?').run(existingArticle.id)
+      await txRun(tx, 'DELETE FROM kb_article_tags WHERE article_id = ?', [existingArticle.id])
 
       // Adicionar novas tags
       if (tags && Array.isArray(tags)) {
         for (const tagName of tags) {
           const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-          let tag = db.prepare('SELECT id FROM kb_tags WHERE slug = ?').get(tagSlug) as { id: number } | undefined
+          let tag = await txGet<{ id: number }>(tx, 'SELECT id FROM kb_tags WHERE slug = ?', [tagSlug])
 
           if (!tag) {
-            const tagResult = db.prepare('INSERT INTO kb_tags (name, slug) VALUES (?, ?)').run(tagName, tagSlug)
-            tag = { id: Number(tagResult.lastInsertRowid) }
+            await txRun(tx, 'INSERT INTO kb_tags (name, slug) VALUES (?, ?)', [tagName, tagSlug])
+            tag = await txGet<{ id: number }>(tx, 'SELECT id FROM kb_tags WHERE slug = ?', [tagSlug])
+            if (!tag) {
+              throw new Error('Failed to create tag');
+            }
           }
 
-          db.prepare('INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)').run(existingArticle.id, tag.id)
+          await txRun(tx, 'INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)', [existingArticle.id, tag.id])
         }
       }
     })
-
-    transaction()
 
     return NextResponse.json({
       success: true,
@@ -272,26 +281,17 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'super_admin', 'tenant_admin'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const user = await verifyToken(token)
-    if (!user || user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Apenas administradores podem deletar artigos' },
-        { status: 403 }
-      )
-    }
     // Verificar se artigo existe
-    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number } | undefined
+    const article = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM kb_articles WHERE slug = ? AND tenant_id = ?',
+      [params.slug, tenantContext.id]
+    )
     if (!article) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -300,7 +300,7 @@ export async function DELETE(
     }
 
     // Deletar artigo (cascata irá remover tags e feedback relacionados)
-    db.prepare('DELETE FROM kb_articles WHERE id = ?').run(article.id)
+    await executeRun('DELETE FROM kb_articles WHERE id = ? AND tenant_id = ?', [article.id, tenantContext.id])
 
     return NextResponse.json({
       success: true,

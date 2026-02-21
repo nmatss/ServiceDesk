@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { attachmentQueries, ticketQueries } from '@/lib/db/queries';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -16,17 +16,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params;
     const ticketId = parseInt(id);
@@ -35,17 +28,81 @@ export async function GET(
       return NextResponse.json({ error: 'ID do ticket inválido' }, { status: 400 });
     }
 
-    const ticket = ticketQueries.getById(ticketId);
+    const ticket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket não encontrado' }, { status: 404 });
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    if (user.role === 'user' && ticket.user_id !== user.id) {
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const attachments = attachmentQueries.getByTicketId(ticketId, user.organization_id);
+    let attachments: Array<Record<string, unknown>> = []
+    try {
+      attachments = await executeQuery<Record<string, unknown>>(`
+        SELECT
+          a.id,
+          a.ticket_id,
+          a.filename,
+          a.original_name,
+          a.mime_type,
+          a.file_size,
+          a.file_path,
+          a.uploaded_by,
+          a.created_at
+        FROM attachments a
+        LEFT JOIN users uploader ON a.uploaded_by = uploader.id AND uploader.tenant_id = ?
+        WHERE a.ticket_id = ?
+          AND a.tenant_id = ?
+          AND (a.uploaded_by IS NULL OR uploader.id IS NOT NULL)
+        ORDER BY a.created_at ASC
+      `, [tenantContext.id, ticketId, tenantContext.id])
+    } catch {
+      try {
+        attachments = await executeQuery<Record<string, unknown>>(`
+          SELECT
+            a.id,
+            a.ticket_id,
+            a.filename,
+            a.original_name,
+            a.mime_type,
+            a.size as file_size,
+            NULL as file_path,
+            a.uploaded_by,
+            a.created_at
+          FROM attachments a
+          LEFT JOIN users uploader ON a.uploaded_by = uploader.id AND uploader.tenant_id = ?
+          WHERE a.ticket_id = ?
+            AND a.organization_id = ?
+            AND (a.uploaded_by IS NULL OR uploader.id IS NOT NULL)
+          ORDER BY a.created_at ASC
+        `, [tenantContext.id, ticketId, tenantContext.id])
+      } catch {
+        attachments = await executeQuery<Record<string, unknown>>(`
+          SELECT
+            a.id,
+            a.ticket_id,
+            a.filename,
+            a.original_filename as original_name,
+            a.mime_type,
+            a.file_size,
+            a.storage_path as file_path,
+            a.uploaded_by,
+            a.created_at
+          FROM attachments a
+          LEFT JOIN users uploader ON a.uploaded_by = uploader.id AND uploader.tenant_id = ?
+          WHERE a.ticket_id = ?
+            AND (a.uploaded_by IS NULL OR uploader.id IS NOT NULL)
+          ORDER BY a.created_at ASC
+        `, [tenantContext.id, ticketId])
+      }
+    }
+
     return NextResponse.json({ attachments });
   } catch (error) {
     logger.error('Erro ao buscar anexos', error);
@@ -62,17 +119,10 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params;
     const ticketId = parseInt(id);
@@ -81,13 +131,17 @@ export async function POST(
       return NextResponse.json({ error: 'ID do ticket inválido' }, { status: 400 });
     }
 
-    const ticket = ticketQueries.getById(ticketId);
+    const ticket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket não encontrado' }, { status: 404 });
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    if (user.role === 'user' && ticket.user_id !== user.id) {
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -130,15 +184,80 @@ export async function POST(
     const buffer = Buffer.from(bytes);
     await writeFile(filepath, buffer);
 
-    // Salvar informações no banco
-    const attachment = attachmentQueries.create({
-      ticket_id: ticketId,
-      filename,
-      original_name: file.name,
-      mime_type: file.type,
-      size: file.size,
-      uploaded_by: user.id
-    }, user.organization_id);
+    // Salvar informações no banco (schema-compatible fallback)
+    let attachmentId: number | undefined
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO attachments (
+          tenant_id, ticket_id, filename, original_name,
+          mime_type, file_size, file_path, uploaded_by
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `, [
+        tenantContext.id,
+        ticketId,
+        filename,
+        file.name,
+        file.type,
+        file.size,
+        filepath,
+        userContext.id,
+      ])
+      attachmentId = inserted?.id
+    } catch {
+      try {
+        const result = await executeRun(`
+          INSERT INTO attachments (ticket_id, filename, original_name, mime_type, size, uploaded_by)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [ticketId, filename, file.name, file.type, file.size, userContext.id])
+        if (typeof result.lastInsertRowid === 'number') {
+          attachmentId = result.lastInsertRowid
+        }
+      } catch {
+        const result = await executeRun(`
+          INSERT INTO attachments (
+            tenant_id, ticket_id, filename, original_filename,
+            file_size, mime_type, storage_path, uploaded_by
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          tenantContext.id,
+          ticketId,
+          filename,
+          file.name,
+          file.size,
+          file.type,
+          filepath,
+          userContext.id,
+        ])
+        if (typeof result.lastInsertRowid === 'number') {
+          attachmentId = result.lastInsertRowid
+        }
+      }
+    }
+
+    let attachment: Record<string, unknown> | null = null
+    if (attachmentId) {
+      attachment = await executeQueryOne<Record<string, unknown>>(
+        'SELECT * FROM attachments WHERE id = ? AND tenant_id = ?',
+        [attachmentId, tenantContext.id]
+      ) ?? null
+
+      if (!attachment) {
+        attachment = await executeQueryOne<Record<string, unknown>>(
+          'SELECT * FROM attachments WHERE id = ? AND organization_id = ?',
+          [attachmentId, tenantContext.id]
+        ) ?? null
+      }
+
+      if (!attachment) {
+        attachment = await executeQueryOne<Record<string, unknown>>(
+          'SELECT * FROM attachments WHERE id = ?',
+          [attachmentId]
+        ) ?? null
+      }
+    }
 
     return NextResponse.json({ attachment }, { status: 201 });
   } catch (error) {

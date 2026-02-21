@@ -1,7 +1,7 @@
 import { Server as SocketIOServer, Socket as BaseSocket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
 import { getDb } from '@/lib/db'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { verifyToken } from '@/lib/auth/auth-service'
 import { NotificationChannelManager } from './channels'
 import { NotificationBatchingEngine } from './batching'
 import { DeliveryTracker } from './delivery-tracking'

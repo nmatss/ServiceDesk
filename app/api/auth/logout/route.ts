@@ -1,68 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/monitoring/logger';
-import db from '@/lib/db/connection';
-
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { revokeRefreshToken } from '@/lib/auth/token-manager';
+
+function getCookieValue(cookieHeader: string | null, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(`${name}=`)) {
+      return decodeURIComponent(trimmed.slice(name.length + 1));
+    }
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
-  // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Tentar invalidar refresh token no banco se existir
-    const refreshToken = request.cookies.get('refresh_token')?.value;
+    const refreshToken =
+      request.cookies?.get?.('refresh_token')?.value ??
+      getCookieValue(request.headers.get('cookie'), 'refresh_token');
     if (refreshToken) {
       try {
-        db.prepare('DELETE FROM refresh_tokens WHERE token = ?').run(refreshToken);
+        await revokeRefreshToken(refreshToken);
       } catch {
-        // Tabela pode não existir, ignorar
+        // Ignore token revocation failures on logout.
       }
     }
 
-    // Criar resposta de sucesso
     const response = NextResponse.json({
       success: true,
-      message: 'Logout realizado com sucesso'
+      message: 'Logout realizado com sucesso',
     });
 
-    // Limpar TODOS os cookies de autenticação
     response.cookies.set('auth_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 0 // Expira imediatamente
+      maxAge: 0,
     });
 
-    // Limpar refresh token cookie se existir
     response.cookies.set('refresh_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 0
+      maxAge: 0,
     });
 
-    // Limpar tenant context cookie
     response.cookies.set('tenant-context', '', {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 0
+      maxAge: 0,
     });
 
-    // Limpar cookie de sessão se existir
     response.cookies.set('session_id', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 0
+      maxAge: 0,
     });
 
     logger.info('User logged out successfully');
-
     return response;
   } catch (error) {
     logger.error('Erro na API de logout', error);

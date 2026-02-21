@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
-import db from '@/lib/db/connection';
-
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
@@ -25,19 +24,19 @@ interface Notification {
 /**
  * Fetch real notifications from database for user
  */
-function fetchUserNotifications(userId: number, tenantId: number, since: string): Notification[] {
+async function fetchUserNotifications(userId: number, tenantId: number, since: string): Promise<Notification[]> {
   try {
     // Check if notifications table exists
-    const tableExists = db.prepare(`
+    const tableExists = await executeQueryOne(`
       SELECT name FROM sqlite_master
       WHERE type='table' AND name='notifications'
-    `).get();
+    `);
 
     if (!tableExists) {
       return [];
     }
 
-    const notifications = db.prepare(`
+    const notifications = await executeQuery<Notification>(`
       SELECT id, type, title, message, ticket_id, created_at, is_read
       FROM notifications
       WHERE user_id = ?
@@ -46,7 +45,7 @@ function fetchUserNotifications(userId: number, tenantId: number, since: string)
         AND is_read = 0
       ORDER BY created_at DESC
       LIMIT 50
-    `).all(userId, tenantId, since) as Notification[];
+    `, [userId, tenantId, since]);
 
     return notifications;
   } catch (error) {
@@ -58,22 +57,22 @@ function fetchUserNotifications(userId: number, tenantId: number, since: string)
 /**
  * Get unread notification count
  */
-function getUnreadCount(userId: number, tenantId: number): number {
+async function getUnreadCount(userId: number, tenantId: number): Promise<number> {
   try {
-    const tableExists = db.prepare(`
+    const tableExists = await executeQueryOne(`
       SELECT name FROM sqlite_master
       WHERE type='table' AND name='notifications'
-    `).get();
+    `);
 
     if (!tableExists) {
       return 0;
     }
 
-    const result = db.prepare(`
+    const result = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM notifications
       WHERE user_id = ? AND tenant_id = ? AND is_read = 0
-    `).get(userId, tenantId) as { count: number };
+    `, [userId, tenantId]) || { count: 0 };
 
     return result.count;
   } catch {
@@ -105,7 +104,7 @@ export async function GET(request: NextRequest) {
     let lastCheck = new Date().toISOString()
 
     const customReadable = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         let isClosed = false;
 
         // Heartbeat to keep connection alive
@@ -131,7 +130,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Send initial connection message with unread count
-        const unreadCount = getUnreadCount(userContext.id, tenantContext.id);
+        const unreadCount = await getUnreadCount(userContext.id, tenantContext.id);
         sendNotification({
           id: Date.now(),
           type: 'connection',
@@ -141,10 +140,10 @@ export async function GET(request: NextRequest) {
         })
 
         // Poll for real notifications
-        const pollNotifications = setInterval(() => {
+        const pollNotifications = setInterval(async () => {
           if (isClosed) return;
 
-          const notifications = fetchUserNotifications(
+          const notifications = await fetchUserNotifications(
             userContext.id,
             tenantContext.id,
             lastCheck
@@ -167,7 +166,7 @@ export async function GET(request: NextRequest) {
             }
 
             // Send updated unread count
-            const newUnreadCount = getUnreadCount(userContext.id, tenantContext.id);
+            const newUnreadCount = await getUnreadCount(userContext.id, tenantContext.id);
             sendNotification({
               type: 'unread_count',
               count: newUnreadCount,

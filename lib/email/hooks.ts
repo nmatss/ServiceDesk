@@ -1,6 +1,6 @@
 import emailService from './service'
 import { TicketEmailData, UserEmailData } from './templates'
-import db from '@/lib/db/connection'
+import { executeQueryOne } from '@/lib/db/adapter'
 import logger from '../monitoring/structured-logger';
 
 // Interface for ticket database row
@@ -19,9 +19,9 @@ interface TicketRow {
 }
 
 // Helper function to get ticket data for email
-export const getTicketEmailData = (ticketId: number): TicketEmailData | null => {
+export const getTicketEmailData = async (ticketId: number): Promise<TicketEmailData | null> => {
   try {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<TicketRow>(`
       SELECT
         t.id,
         t.ticket_number,
@@ -41,7 +41,7 @@ export const getTicketEmailData = (ticketId: number): TicketEmailData | null => 
       LEFT JOIN users assigned ON t.assigned_to = assigned.id
       LEFT JOIN tenants tenant ON t.tenant_id = tenant.id
       WHERE t.id = ?
-    `).get(ticketId) as TicketRow | undefined
+    `, [ticketId])
 
     if (!ticket) return null
 
@@ -80,9 +80,9 @@ interface UserRow {
 }
 
 // Helper function to get user data for email
-export const getUserEmailData = (userId: number, includePassword = false): UserEmailData | null => {
+export const getUserEmailData = async (userId: number, includePassword = false): Promise<UserEmailData | null> => {
   try {
-    const user = db.prepare(`
+    const user = await executeQueryOne<UserRow>(`
       SELECT
         u.id,
         u.name,
@@ -91,7 +91,7 @@ export const getUserEmailData = (userId: number, includePassword = false): UserE
       FROM users u
       LEFT JOIN tenants tenant ON u.tenant_id = tenant.id
       WHERE u.id = ?
-    `).get(userId) as UserRow | undefined
+    `, [userId])
 
     if (!user) return null
 
@@ -128,7 +128,7 @@ export const emailHooks = {
   // Ticket created
   onTicketCreated: async (ticketId: number): Promise<void> => {
     try {
-      const ticketData = getTicketEmailData(ticketId)
+      const ticketData = await getTicketEmailData(ticketId)
       if (ticketData) {
         await emailService.sendTicketCreatedEmail(ticketData)
         logger.info(`📧 Ticket created email queued for ticket ${ticketData.ticketNumber}`)
@@ -141,7 +141,7 @@ export const emailHooks = {
   // Ticket updated
   onTicketUpdated: async (ticketId: number): Promise<void> => {
     try {
-      const ticketData = getTicketEmailData(ticketId)
+      const ticketData = await getTicketEmailData(ticketId)
       if (ticketData) {
         await emailService.sendTicketUpdatedEmail(ticketData)
         logger.info(`📧 Ticket updated email queued for ticket ${ticketData.ticketNumber}`)
@@ -154,7 +154,7 @@ export const emailHooks = {
   // Ticket resolved
   onTicketResolved: async (ticketId: number): Promise<void> => {
     try {
-      const ticketData = getTicketEmailData(ticketId)
+      const ticketData = await getTicketEmailData(ticketId)
       if (ticketData) {
         await emailService.sendTicketResolvedEmail(ticketData)
         logger.info(`📧 Ticket resolved email queued for ticket ${ticketData.ticketNumber}`)
@@ -167,8 +167,8 @@ export const emailHooks = {
   // Ticket assigned
   onTicketAssigned: async (ticketId: number, assignedUserId: number): Promise<void> => {
     try {
-      const ticketData = getTicketEmailData(ticketId)
-      const userData = getUserEmailData(assignedUserId)
+      const ticketData = await getTicketEmailData(ticketId)
+      const userData = await getUserEmailData(assignedUserId)
 
       if (ticketData && userData) {
         // Send notification to assigned user
@@ -195,7 +195,7 @@ export const emailHooks = {
   // User created
   onUserCreated: async (userId: number, tempPassword?: string): Promise<void> => {
     try {
-      const userData = getUserEmailData(userId, !!tempPassword)
+      const userData = await getUserEmailData(userId, !!tempPassword)
       if (userData) {
         if (tempPassword) {
           userData.password = tempPassword
@@ -211,7 +211,7 @@ export const emailHooks = {
   // Password reset requested
   onPasswordResetRequested: async (userId: number, resetToken: string): Promise<void> => {
     try {
-      const userData = getUserEmailData(userId)
+      const userData = await getUserEmailData(userId)
       if (userData) {
         userData.resetToken = resetToken
         userData.urls.resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
@@ -236,7 +236,7 @@ export const emailHooks = {
       }
 
       // Get comment details
-      const comment = db.prepare(`
+      const comment = await executeQueryOne<CommentRow>(`
         SELECT
           c.content,
           c.is_internal,
@@ -245,13 +245,13 @@ export const emailHooks = {
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
         WHERE c.id = ?
-      `).get(commentId) as CommentRow | undefined
+      `, [commentId])
 
       if (!comment || comment.is_internal) {
         return // Don't send emails for internal comments
       }
 
-      const ticketData = getTicketEmailData(ticketId)
+      const ticketData = await getTicketEmailData(ticketId)
       if (ticketData) {
         // Add comment to the email data
         const emailData: TicketEmailData = {

@@ -8,7 +8,7 @@
  * - Resource optimization recommendations
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 
 // ============================================================================
 // Types & Interfaces
@@ -206,10 +206,11 @@ export class SLAViolationPredictor {
     `;
 
     if (ticketIds && ticketIds.length > 0) {
-      query += ` AND t.id IN (${ticketIds.join(',')})`;
+      query += ` AND t.id IN (${ticketIds.map(() => '?').join(',')})`;
+      return await executeQuery<TicketRecord>(query, ticketIds);
     }
 
-    return db.prepare(query).all() as TicketRecord[];
+    return await executeQuery<TicketRecord>(query);
   }
 
   /**
@@ -217,7 +218,7 @@ export class SLAViolationPredictor {
    */
   private async extractFeatures(ticket: TicketRecord): Promise<Record<string, number>> {
     // Calculate historical performance for this category/priority combination
-    const historicalPerformance = db.prepare(`
+    const historicalPerformance = await executeQueryOne<HistoricalPerformance>(`
       SELECT
         AVG(CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)) as avg_resolution_hours,
         COUNT(*) as total_tickets,
@@ -227,15 +228,19 @@ export class SLAViolationPredictor {
       WHERE t.category_id = ?
         AND t.priority_id = ?
         AND t.status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-    `).get(ticket.category_id, ticket.priority_id) as HistoricalPerformance | undefined;
+    `, [ticket.category_id, ticket.priority_id]);
 
     // Agent workload
-    const agentWorkload = ticket.assigned_to ? db.prepare(`
-      SELECT COUNT(*) as active_tickets
-      FROM tickets
-      WHERE assigned_to = ?
-        AND status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
-    `).get(ticket.assigned_to) as AgentWorkload : { active_tickets: 0 };
+    let workload: AgentWorkload = { active_tickets: 0 };
+    if (ticket.assigned_to) {
+      const agentWorkload = await executeQueryOne<AgentWorkload>(`
+        SELECT COUNT(*) as active_tickets
+        FROM tickets
+        WHERE assigned_to = ?
+          AND status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
+      `, [ticket.assigned_to]);
+      workload = agentWorkload ?? { active_tickets: 0 };
+    }
 
     // Time-based features
     const currentHour = new Date().getHours();
@@ -246,7 +251,7 @@ export class SLAViolationPredictor {
       age_hours: ticket.age_hours || 0,
       priority_level: this.getPriorityLevel(ticket.priority_name),
       category_complexity: this.getCategoryComplexity(ticket.category_name),
-      agent_workload: agentWorkload.active_tickets || 0,
+      agent_workload: workload.active_tickets || 0,
       historical_violation_rate: historicalPerformance
         ? (historicalPerformance.violated_count / historicalPerformance.total_tickets) || 0
         : 0,
@@ -447,7 +452,7 @@ export class DemandForecaster {
    * Get historical ticket data
    */
   private async getHistoricalData(): Promise<HistoricalDataRecord[]> {
-    const data = db.prepare(`
+    const data = await executeQuery<HistoricalDataRecord>(`
       SELECT
         date(created_at) as date,
         COUNT(*) as count,
@@ -459,9 +464,9 @@ export class DemandForecaster {
       WHERE created_at >= date('now', '-90 days')
       GROUP BY date(created_at), p.name, c.name
       ORDER BY date(created_at)
-    `).all();
+    `);
 
-    return data as HistoricalDataRecord[];
+    return data;
   }
 
   /**
@@ -477,7 +482,7 @@ export class DemandForecaster {
 
     const predictedTickets = Math.round(recentAvg * seasonalityFactor * trendFactor);
 
-    // Calculate confidence interval (±20%)
+    // Calculate confidence interval (+-20%)
     const confidence_interval = {
       lower: Math.round(predictedTickets * 0.8),
       upper: Math.round(predictedTickets * 1.2),
@@ -600,7 +605,7 @@ export class AnomalyDetector {
    * Detect volume anomalies
    */
   private async detectVolumeAnomalies(): Promise<AnomalyDetection[]> {
-    const data = db.prepare(`
+    const data = await executeQuery<VolumeDataRecord>(`
       SELECT
         date(created_at) as date,
         COUNT(*) as count
@@ -608,7 +613,7 @@ export class AnomalyDetector {
       WHERE created_at >= date('now', '-30 days')
       GROUP BY date(created_at)
       ORDER BY date
-    `).all() as VolumeDataRecord[];
+    `);
 
     const values = data.map(d => d.count);
     const stats = this.calculateStatistics(values);
@@ -644,22 +649,22 @@ export class AnomalyDetector {
    * Detect resolution time anomalies
    */
   private async detectResolutionTimeAnomalies(): Promise<AnomalyDetection[]> {
-    const data = db.prepare(`
+    const data = await executeQueryOne<ResolutionTimeData>(`
       SELECT
         AVG(CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)) as avg_hours
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
         AND date(updated_at) >= date('now', '-7 days')
-    `).get() as ResolutionTimeData | undefined;
+    `);
 
-    const historical = db.prepare(`
+    const historical = await executeQueryOne<ResolutionTimeData>(`
       SELECT
         AVG(CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)) as avg_hours
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
         AND date(updated_at) >= date('now', '-30 days')
         AND date(updated_at) < date('now', '-7 days')
-    `).get() as ResolutionTimeData | undefined;
+    `);
 
     const anomalies: AnomalyDetection[] = [];
 
@@ -692,22 +697,22 @@ export class AnomalyDetector {
    * Detect SLA anomalies
    */
   private async detectSLAAnomalies(): Promise<AnomalyDetection[]> {
-    const data = db.prepare(`
+    const data = await executeQueryOne<SLATrackingData>(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN is_violated = 1 THEN 1 ELSE 0 END) as violated
       FROM sla_tracking
       WHERE created_at >= date('now', '-7 days')
-    `).get() as SLATrackingData | undefined;
+    `);
 
-    const historical = db.prepare(`
+    const historical = await executeQueryOne<SLATrackingData>(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN is_violated = 1 THEN 1 ELSE 0 END) as violated
       FROM sla_tracking
       WHERE created_at >= date('now', '-30 days')
         AND created_at < date('now', '-7 days')
-    `).get() as SLATrackingData | undefined;
+    `);
 
     const anomalies: AnomalyDetection[] = [];
 
@@ -785,13 +790,13 @@ export class ResourceOptimizer {
   private async analyzeStaffingNeeds(): Promise<ResourceOptimization[]> {
     const recommendations: ResourceOptimization[] = [];
 
-    const workload = db.prepare(`
+    const workload = await executeQueryOne<WorkloadData>(`
       SELECT
         COUNT(*) as total_active,
         (SELECT COUNT(*) FROM users WHERE role IN ('admin', 'agent')) as agent_count
       FROM tickets
       WHERE status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
-    `).get() as WorkloadData | undefined;
+    `);
 
     if (!workload || workload.agent_count === 0) {
       return recommendations;
@@ -823,7 +828,7 @@ export class ResourceOptimizer {
   private async identifyTrainingNeeds(): Promise<ResourceOptimization[]> {
     const recommendations: ResourceOptimization[] = [];
 
-    const agentPerformance = db.prepare(`
+    const agentPerformance = await executeQuery<AgentPerformanceRecord>(`
       SELECT
         u.id,
         u.name,
@@ -837,7 +842,7 @@ export class ResourceOptimizer {
         AND t.created_at >= date('now', '-30 days')
       GROUP BY u.id, u.name
       HAVING COUNT(t.id) > 5
-    `).all() as AgentPerformanceRecord[];
+    `);
 
     const avgResolutionTime = agentPerformance.reduce((sum, a) => sum + a.avg_resolution_time, 0) / agentPerformance.length;
 
@@ -870,7 +875,7 @@ export class ResourceOptimizer {
   private async analyzeWorkloadDistribution(): Promise<ResourceOptimization[]> {
     const recommendations: ResourceOptimization[] = [];
 
-    const distribution = db.prepare(`
+    const distribution = await executeQuery<WorkloadDistribution>(`
       SELECT
         u.id,
         u.name,
@@ -880,7 +885,7 @@ export class ResourceOptimizer {
         AND t.status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
       WHERE u.role IN ('admin', 'agent')
       GROUP BY u.id, u.name
-    `).all() as WorkloadDistribution[];
+    `);
 
     const maxWorkload = Math.max(...distribution.map(d => d.active_tickets));
     const minWorkload = Math.min(...distribution.map(d => d.active_tickets));

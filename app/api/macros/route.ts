@@ -6,9 +6,9 @@
  * @module app/api/macros/route
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ========================================
 // GET - List all macros
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     query += ` ORDER BY m.usage_count DESC, m.name ASC`;
 
-    const macros = db.prepare(query).all(...params);
+    const macros = await executeQuery(query, params);
 
     // Parse JSON fields
     const parsedMacros = macros.map((macro: any) => ({
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(parsedMacros);
   } catch (error) {
-    console.error('Error fetching macros:', error);
+    logger.error('Error fetching macros:', error);
     return NextResponse.json(
       { error: 'Failed to fetch macros' },
       { status: 500 }
@@ -112,24 +112,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO macros (
         organization_id, name, description, content, actions,
         category_id, is_shared, created_by
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      organizationId,
+    `, [organizationId,
       name,
       description,
       content,
       actions ? JSON.stringify(actions) : '[]',
       categoryId || null,
       isShared ? 1 : 0,
-      createdBy
-    );
+      createdBy]);
 
-    const macro = db.prepare(`
+    const macro = await executeQueryOne<any>(`
       SELECT
         m.*,
         u.name as created_by_name,
@@ -138,7 +136,7 @@ export async function POST(request: NextRequest) {
       LEFT JOIN users u ON m.created_by = u.id
       LEFT JOIN categories c ON m.category_id = c.id
       WHERE m.id = ?
-    `).get(result.lastInsertRowid) as any;
+    `, [result.lastInsertRowid]);
 
     if (!macro) {
       return NextResponse.json(
@@ -152,7 +150,7 @@ export async function POST(request: NextRequest) {
       actions: macro.actions ? JSON.parse(macro.actions) : [],
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating macro:', error);
+    logger.error('Error creating macro:', error);
     return NextResponse.json(
       { error: 'Failed to create macro' },
       { status: 500 }

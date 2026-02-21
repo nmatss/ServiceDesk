@@ -4,9 +4,10 @@
  * POST: Create a new problem
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type {
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest) {
       data: result,
     }, 'DYNAMIC'); // Cache for 1 minute
   } catch (error) {
-    console.error('Error fetching problems:', error);
+    logger.error('Error fetching problems:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -229,14 +230,10 @@ export async function POST(request: NextRequest) {
       priority_id: body.priority_id,
       impact: body.impact,
       urgency: body.urgency,
-      source_type: body.source_type,
-      source_incident_id: body.source_incident_id,
       assigned_to: body.assigned_to,
-      assigned_group_id: body.assigned_group_id,
-      symptoms: body.symptoms,
+      assigned_team_id: body.assigned_team_id,
+      root_cause_category_id: body.root_cause_category_id,
       affected_services: body.affected_services,
-      affected_cis: body.affected_cis,
-      business_impact: body.business_impact,
     };
 
     // Create problem
@@ -263,7 +260,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating problem:', error);
+    logger.error('Error creating problem:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

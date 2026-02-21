@@ -6,16 +6,33 @@ export async function GET(_request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://servicedesk.com'
 
   try {
-    // Get published knowledge articles for sitemap
-    const articles = db.prepare(`
-      SELECT
-        id,
-        slug,
-        updated_at
-      FROM knowledge_articles
-      WHERE status = 'published'
-      ORDER BY updated_at DESC
-    `).all()
+    // Get published knowledge articles for sitemap (legacy/new schema fallback)
+    let articles: Array<{ id: number; slug?: string; updated_at?: string }> = []
+    try {
+      articles = db.prepare(`
+        SELECT
+          id,
+          slug,
+          updated_at
+        FROM knowledge_articles
+        WHERE status = 'published'
+        ORDER BY updated_at DESC
+      `).all() as Array<{ id: number; slug?: string; updated_at?: string }>
+    } catch {
+      try {
+        articles = db.prepare(`
+          SELECT
+            id,
+            slug,
+            updated_at
+          FROM kb_articles
+          WHERE status = 'published'
+          ORDER BY updated_at DESC
+        `).all() as Array<{ id: number; slug?: string; updated_at?: string }>
+      } catch {
+        articles = []
+      }
+    }
 
     const staticPages = [
       {
@@ -52,8 +69,8 @@ export async function GET(_request: NextRequest) {
 
     // Add knowledge articles to sitemap
     const articlePages = articles.map((article: any) => ({
-      url: `${baseUrl}/knowledge/${article.slug}`,
-      lastModified: new Date(article.updated_at).toISOString(),
+      url: `${baseUrl}/knowledge/${article.slug || article.id}`,
+      lastModified: new Date(article.updated_at || Date.now()).toISOString(),
       changeFrequency: 'weekly',
       priority: 0.7
     }))

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -18,10 +18,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !['admin', 'manager'].includes(authResult.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] });
+    if (guard.response) return guard.response;
 
     // Get configuration
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTokenFromCookies, verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyTokenFromCookies, verifyToken } from '@/lib/auth/auth-service';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar automações FILTRADAS POR TENANT
-    const automations = db.prepare(`
+    const automations = await executeQuery(`
       SELECT
         a.*,
         u.name as created_by_name,
@@ -69,18 +69,18 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY a.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset);
+    `, [...params, limit, offset]);
 
     // Contar total FILTRADO POR TENANT
-    const { total } = db.prepare(`
+    const { total } = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       ${whereClause}
-    `).get(...params) as { total: number };
+    `, params) || { total: 0 };
 
     // Estatísticas de execução FILTRADAS POR TENANT
-    const stats = db.prepare(`
+    const stats = await executeQueryOne(`
       SELECT
         COUNT(*) as total_automations,
         COUNT(CASE WHEN a.is_active = 1 THEN 1 END) as active_automations,
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
       FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE u.organization_id = ?
-    `).get(tenantId);
+    `, [tenantId]);
 
     return NextResponse.json({
       success: true,
@@ -181,11 +181,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já existe automação com o mesmo nome NO TENANT
-    const existingAutomation = db.prepare(`
+    const existingAutomation = await executeQueryOne(`
       SELECT a.id FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE a.name = ? AND u.organization_id = ?
-    `).get(name, tenantId);
+    `, [name, tenantId]);
 
     if (existingAutomation) {
       return NextResponse.json({
@@ -194,31 +194,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar automação
-    const insertAutomation = db.prepare(`
+    
+
+    const result = await executeRun(`
       INSERT INTO automations (
         name, description, trigger_type, conditions, actions, is_active, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = insertAutomation.run(
-      name,
+    `, [name,
       description || null,
       trigger_type,
       JSON.stringify(conditions),
       JSON.stringify(actions),
       is_active ? 1 : 0,
-      user.id
-    );
+      user.id]);
 
     // Buscar automação criada
-    const newAutomation = db.prepare(`
+    const newAutomation = await executeQueryOne(`
       SELECT
         a.*,
         u.name as created_by_name
       FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE a.id = ?
-    `).get(result.lastInsertRowid);
+    `, [result.lastInsertRowid]);
 
     return NextResponse.json({
       success: true,
@@ -286,11 +284,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verificar se automação existe E PERTENCE AO TENANT
-    const automation = db.prepare(`
+    const automation = await executeQueryOne(`
       SELECT a.* FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE a.id = ? AND u.organization_id = ?
-    `).get(id, tenantId);
+    `, [id, tenantId]);
     if (!automation) {
       return NextResponse.json({ error: 'Automação não encontrada neste tenant' }, { status: 404 });
     }
@@ -317,7 +315,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Atualizar automação
-    const updateQuery = db.prepare(`
+    
+
+    await executeRun(`
       UPDATE automations SET
         name = COALESCE(?, name),
         description = COALESCE(?, description),
@@ -327,27 +327,23 @@ export async function PUT(request: NextRequest) {
         is_active = COALESCE(?, is_active),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
-
-    updateQuery.run(
-      name || null,
+    `, [name || null,
       description || null,
       trigger_type || null,
       conditions ? JSON.stringify(conditions) : null,
       actions ? JSON.stringify(actions) : null,
       is_active !== undefined ? (is_active ? 1 : 0) : null,
-      id
-    );
+      id]);
 
     // Buscar automação atualizada
-    const updatedAutomation = db.prepare(`
+    const updatedAutomation = await executeQueryOne(`
       SELECT
         a.*,
         u.name as created_by_name
       FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE a.id = ?
-    `).get(id);
+    `, [id]);
 
     return NextResponse.json({
       success: true,
@@ -406,17 +402,17 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar se automação existe E PERTENCE AO TENANT
-    const automation = db.prepare(`
+    const automation = await executeQueryOne(`
       SELECT a.* FROM automations a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE a.id = ? AND u.organization_id = ?
-    `).get(parseInt(id), tenantId);
+    `, [parseInt(id), tenantId]);
     if (!automation) {
       return NextResponse.json({ error: 'Automação não encontrada neste tenant' }, { status: 404 });
     }
 
     // Excluir automação (já validado que pertence ao tenant)
-    db.prepare('DELETE FROM automations WHERE id = ?').run(parseInt(id));
+    await executeRun('DELETE FROM automations WHERE id = ?', [parseInt(id)]);
 
     return NextResponse.json({
       success: true,

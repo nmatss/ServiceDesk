@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import AITrainingSystem from '@/lib/ai/training-system';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { createTrainingSystem } from '@/lib/ai/factories';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const trainingSystem = new AITrainingSystem(db);
+    const trainingSystem = createTrainingSystem();
 
     switch (operationType) {
       case 'classification':
@@ -77,28 +77,23 @@ export async function POST(request: NextRequest) {
         );
 
         // Update classification record with feedback
-        db.prepare(
-          `UPDATE ai_classifications SET
+        await executeRun(`UPDATE ai_classifications SET
             was_accepted = ?,
             feedback_by = ?,
             feedback_at = CURRENT_TIMESTAMP,
             corrected_category_id = (
               SELECT id FROM categories WHERE name = ? LIMIT 1
             )
-          WHERE id = ?`
-        ).run(
-          feedback === 'positive' ? 1 : 0,
+          WHERE id = ?`, [feedback === 'positive' ? 1 : 0,
           payload.id,
           correctedCategory || null,
-          operationId
-        );
+          operationId]);
 
         break;
 
       case 'suggestion':
         // Process suggestion feedback
-        db.prepare(
-          `UPDATE ai_suggestions SET
+        await executeRun(`UPDATE ai_suggestions SET
             was_used = ?,
             was_helpful = ?,
             feedback_comment = ?,
@@ -106,27 +101,20 @@ export async function POST(request: NextRequest) {
             feedback_at = CURRENT_TIMESTAMP,
             used_by = ?,
             used_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE used_at END
-          WHERE id = ?`
-        ).run(
-          wasUsed ? 1 : 0,
+          WHERE id = ?`, [wasUsed ? 1 : 0,
           wasHelpful !== undefined ? (wasHelpful ? 1 : 0) : null,
           comment || null,
           payload.id,
           wasUsed ? payload.id : null,
           wasUsed ? 1 : 0,
-          operationId
-        );
+          operationId]);
 
         // If suggestion was not helpful, add to training data
         if (wasHelpful === false) {
-          const suggestion = db.prepare(
-            'SELECT * FROM ai_suggestions WHERE id = ?'
-          ).get(operationId);
+          const suggestion = await executeQueryOne('SELECT * FROM ai_suggestions WHERE id = ?', [operationId]);
 
           if (suggestion && (suggestion as any).ticket_id) {
-            const ticket = db.prepare(
-              'SELECT title, description FROM tickets WHERE id = ?'
-            ).get((suggestion as any).ticket_id);
+            const ticket = await executeQueryOne('SELECT title, description FROM tickets WHERE id = ?', [(suggestion as any).ticket_id]);
 
             if (ticket) {
               await trainingSystem.addTrainingData(
@@ -146,18 +134,14 @@ export async function POST(request: NextRequest) {
 
       case 'sentiment':
         // Process sentiment analysis feedback
-        db.prepare(
-          `INSERT INTO ai_feedback (
+        await executeRun(`INSERT INTO ai_feedback (
             operation_type, operation_id, feedback_type,
             feedback_comment, created_by, created_at
-          ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-        ).run(
-          'sentiment',
+          ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`, ['sentiment',
           operationId,
           feedback,
           comment || null,
-          payload.id
-        );
+          payload.id]);
 
         break;
 
@@ -229,8 +213,7 @@ export async function GET(request: NextRequest) {
     if (!operationType || operationType === 'classification') {
       // Get classification feedback stats
       const params = [dateFrom, dateTo].filter(Boolean);
-      stats = db.prepare(
-        `SELECT
+      stats = await executeQueryOne(`SELECT
           COUNT(*) as total,
           COUNT(CASE WHEN was_accepted = 1 THEN 1 END) as accepted,
           COUNT(CASE WHEN was_accepted = 0 THEN 1 END) as rejected,
@@ -240,12 +223,10 @@ export async function GET(request: NextRequest) {
         FROM ai_classifications
         WHERE 1=1
           ${dateFrom ? 'AND created_at >= ?' : ''}
-          ${dateTo ? 'AND created_at <= ?' : ''}`
-      ).get(...params);
+          ${dateTo ? 'AND created_at <= ?' : ''}`, params);
 
       // Get breakdown by model
-      const byModel = db.prepare(
-        `SELECT
+      const byModel = await executeQuery(`SELECT
           model_name,
           COUNT(*) as total,
           COUNT(CASE WHEN was_accepted = 1 THEN 1 END) as accepted,
@@ -255,8 +236,7 @@ export async function GET(request: NextRequest) {
           ${dateFrom ? 'AND created_at >= ?' : ''}
           ${dateTo ? 'AND created_at <= ?' : ''}
         GROUP BY model_name
-        ORDER BY total DESC`
-      ).all(...params);
+        ORDER BY total DESC`, params);
 
       (stats as any).byModel = byModel;
     }
@@ -264,8 +244,7 @@ export async function GET(request: NextRequest) {
     if (!operationType || operationType === 'suggestion') {
       // Get suggestion feedback stats
       const params = [dateFrom, dateTo].filter(Boolean);
-      const suggestionStats = db.prepare(
-        `SELECT
+      const suggestionStats = await executeQueryOne(`SELECT
           COUNT(*) as total,
           COUNT(CASE WHEN was_used = 1 THEN 1 END) as used,
           COUNT(CASE WHEN was_helpful = 1 THEN 1 END) as helpful,
@@ -274,8 +253,7 @@ export async function GET(request: NextRequest) {
         FROM ai_suggestions
         WHERE 1=1
           ${dateFrom ? 'AND created_at >= ?' : ''}
-          ${dateTo ? 'AND created_at <= ?' : ''}`
-      ).get(...params);
+          ${dateTo ? 'AND created_at <= ?' : ''}`, params);
 
       if (operationType === 'suggestion') {
         stats = suggestionStats;

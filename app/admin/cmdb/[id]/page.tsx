@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   ArrowLeftIcon,
@@ -569,7 +570,10 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
             <div className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Mapa de Relacionamentos</h3>
-                <button className="flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors">
+                <button
+                  onClick={() => toast.error('Adição de relacionamentos ainda não implementada')}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors"
+                >
                   <PlusIcon className="w-4 h-4" />
                   Adicionar Relacionamento
                 </button>
@@ -723,7 +727,10 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
             <div className="space-y-4 animate-fade-in">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Tickets Vinculados</h3>
-                <button className="flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors">
+                <button
+                  onClick={() => toast.error('Vinculação de tickets ainda não implementada')}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/30 transition-colors"
+                >
                   <PlusIcon className="w-4 h-4" />
                   Vincular Ticket
                 </button>

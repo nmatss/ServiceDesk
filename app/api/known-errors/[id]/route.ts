@@ -5,9 +5,10 @@
  * DELETE: Delete known error
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateKnownErrorInput } from '@/lib/types/problem';
@@ -79,26 +80,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Check visibility for end users
-    if (payload.role === 'user' && (!knownError.is_active || !knownError.is_public)) {
+    // Check visibility for end users - only show active known errors
+    if (payload.role === 'user' && knownError.status !== 'active') {
       return NextResponse.json(
         { success: false, error: 'Known error not found' },
         { status: 404 }
       );
     }
 
-    // Increment reference count when viewed
-    await problemQueries.incrementKnownErrorReference(
-      tenant.organizationId,
-      knownErrorId
-    );
-
     return NextResponse.json({
       success: true,
       data: knownError,
     });
   } catch (error) {
-    console.error('Error fetching known error:', error);
+    logger.error('Error fetching known error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -185,15 +180,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.symptoms !== undefined) input.symptoms = body.symptoms;
     if (body.root_cause !== undefined) input.root_cause = body.root_cause;
     if (body.workaround !== undefined) input.workaround = body.workaround;
-    if (body.workaround_instructions !== undefined) input.workaround_instructions = body.workaround_instructions;
-    if (body.permanent_fix_status !== undefined) input.permanent_fix_status = body.permanent_fix_status;
-    if (body.permanent_fix_eta !== undefined) input.permanent_fix_eta = body.permanent_fix_eta;
-    if (body.permanent_fix_notes !== undefined) input.permanent_fix_notes = body.permanent_fix_notes;
+    if (body.permanent_fix !== undefined) input.permanent_fix = body.permanent_fix;
+    if (body.status !== undefined) input.status = body.status;
     if (body.affected_cis !== undefined) input.affected_cis = body.affected_cis;
-    if (body.affected_services !== undefined) input.affected_services = body.affected_services;
-    if (body.affected_versions !== undefined) input.affected_versions = body.affected_versions;
-    if (body.is_active !== undefined) input.is_active = body.is_active;
-    if (body.is_public !== undefined) input.is_public = body.is_public;
 
     // Update known error
     const updatedKnownError = await problemQueries.updateKnownError(
@@ -207,7 +196,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: updatedKnownError,
     });
   } catch (error) {
-    console.error('Error updating known error:', error);
+    logger.error('Error updating known error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -270,19 +259,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Instead of deleting, deactivate the known error
+    // Instead of deleting, retire the known error
     await problemQueries.updateKnownError(
       tenant.organizationId,
       knownErrorId,
-      { is_active: false }
+      { status: 'retired' }
     );
 
     return NextResponse.json({
       success: true,
-      message: 'Known error deactivated successfully',
+      message: 'Known error retired successfully',
     });
   } catch (error) {
-    console.error('Error deleting known error:', error);
+    logger.error('Error deleting known error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

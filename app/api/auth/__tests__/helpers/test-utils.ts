@@ -141,6 +141,24 @@ export async function initTestDatabase() {
     )
   `);
 
+  // Create refresh_tokens table for token-manager flows in auth tests
+  testDb.exec(`
+    CREATE TABLE refresh_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      tenant_id INTEGER,
+      token_hash TEXT NOT NULL,
+      device_fingerprint TEXT,
+      device_info TEXT,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME,
+      revoked_at DATETIME,
+      is_active INTEGER DEFAULT 1,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
   // Insert test organization
   testDb.prepare(`
     INSERT INTO organizations (id, name, slug, is_active)
@@ -181,6 +199,7 @@ export function resetTestData() {
   testDb.exec('DELETE FROM login_attempts');
   testDb.exec('DELETE FROM audit_logs');
   testDb.exec('DELETE FROM rate_limits');
+  testDb.exec('DELETE FROM refresh_tokens');
 
   // Reset user states
   testDb.exec(`
@@ -265,9 +284,25 @@ export async function getResponseJSON(response: Response): Promise<any> {
  * Generate valid JWT token for testing
  */
 export async function generateTestToken(userId: number, role: string = 'user'): Promise<string> {
-  const user = Object.values(TEST_USERS).find(u => u.id === userId);
+  let user = Object.values(TEST_USERS).find(u => u.id === userId);
   if (!user) {
-    throw new Error(`User with ID ${userId} not found`);
+    const dbUser = testDb.prepare(`
+      SELECT id, organization_id, name, email, role
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `).get(userId) as
+      | { id: number; organization_id: number; name: string; email: string; role: string }
+      | undefined;
+
+    if (!dbUser) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+
+    user = {
+      ...dbUser,
+      password: '',
+    };
   }
 
   const token = await new jose.SignJWT({
@@ -293,9 +328,25 @@ export async function generateTestToken(userId: number, role: string = 'user'): 
  * Generate expired JWT token for testing
  */
 export async function generateExpiredToken(userId: number): Promise<string> {
-  const user = Object.values(TEST_USERS).find(u => u.id === userId);
+  let user = Object.values(TEST_USERS).find(u => u.id === userId);
   if (!user) {
-    throw new Error(`User with ID ${userId} not found`);
+    const dbUser = testDb.prepare(`
+      SELECT id, organization_id, name, email, role
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `).get(userId) as
+      | { id: number; organization_id: number; name: string; email: string; role: string }
+      | undefined;
+
+    if (!dbUser) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+
+    user = {
+      ...dbUser,
+      password: '',
+    };
   }
 
   const token = await new jose.SignJWT({

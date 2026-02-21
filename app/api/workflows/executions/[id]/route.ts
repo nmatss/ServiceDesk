@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -23,20 +23,16 @@ export async function GET(
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const executionId = parseInt(params.id);
     if (isNaN(executionId)) {
       return NextResponse.json({ error: 'Invalid execution ID' }, { status: 400 });
     }
 
-    // db is already imported
-
     // Get execution details
-    const execution = db.prepare(`
+    const execution = await executeQueryOne(`
       SELECT
         we.*,
         w.name as workflow_name,
@@ -47,14 +43,14 @@ export async function GET(
       LEFT JOIN workflows w ON we.workflow_id = w.id
       LEFT JOIN users u ON we.trigger_user_id = u.id
       WHERE we.id = ?
-    `).get(executionId);
+    `, [executionId]);
 
     if (!execution) {
       return NextResponse.json({ error: 'Execution not found' }, { status: 404 });
     }
 
     // Get step executions
-    const steps = db.prepare(`
+    const steps = await executeQuery(`
       SELECT
         wse.*,
         ws.name as step_name,
@@ -63,7 +59,7 @@ export async function GET(
       LEFT JOIN workflow_steps ws ON wse.step_id = ws.id
       WHERE wse.execution_id = ?
       ORDER BY wse.started_at
-    `).all(executionId);
+    `, [executionId]);
 
     // Parse JSON fields
     const executionTyped = execution as Record<string, unknown>
@@ -107,10 +103,8 @@ export async function PUT(
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guardPut = requireTenantUserContext(request);
+    if (guardPut.response) return guardPut.response;
 
     const executionId = parseInt(params.id);
     if (isNaN(executionId)) {

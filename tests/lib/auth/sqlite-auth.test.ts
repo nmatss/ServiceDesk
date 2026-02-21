@@ -127,59 +127,59 @@ describe('JWT Token Generation and Verification', () => {
 
 describe('User CRUD Operations', () => {
   describe('getUserByEmail', () => {
-    it('should return null for non-existent email', () => {
-      const user = getUserByEmail('nonexistent@example.com');
-      expect(user).toBeNull();
+    it('should return undefined for non-existent email', async () => {
+      const user = await getUserByEmail('nonexistent@example.com');
+      expect(user).toBeUndefined();
     });
 
-    it('should handle invalid email format gracefully', () => {
-      const user = getUserByEmail('invalid-email');
-      expect(user).toBeNull();
+    it('should handle invalid email format gracefully', async () => {
+      const user = await getUserByEmail('invalid-email');
+      expect(user).toBeUndefined();
     });
 
-    it('should handle empty email', () => {
-      const user = getUserByEmail('');
-      expect(user).toBeNull();
+    it('should handle empty email', async () => {
+      const user = await getUserByEmail('');
+      expect(user).toBeUndefined();
     });
   });
 
   describe('getUserById', () => {
-    it('should return null for non-existent ID', () => {
-      const user = getUserById(99999);
-      expect(user).toBeNull();
+    it('should return undefined for non-existent ID', async () => {
+      const user = await getUserById(99999);
+      expect(user).toBeUndefined();
     });
 
-    it('should handle negative ID', () => {
-      const user = getUserById(-1);
-      expect(user).toBeNull();
+    it('should handle negative ID', async () => {
+      const user = await getUserById(-1);
+      expect(user).toBeUndefined();
     });
 
-    it('should handle zero ID', () => {
-      const user = getUserById(0);
-      expect(user).toBeNull();
+    it('should handle zero ID', async () => {
+      const user = await getUserById(0);
+      expect(user).toBeUndefined();
     });
   });
 
   describe('emailExists', () => {
-    it('should return false for non-existent email', () => {
-      const exists = emailExists('nonexistent@example.com');
+    it('should return false for non-existent email', async () => {
+      const exists = await emailExists('nonexistent@example.com');
       expect(exists).toBe(false);
     });
 
-    it('should handle invalid email format', () => {
-      const exists = emailExists('not-an-email');
+    it('should handle invalid email format', async () => {
+      const exists = await emailExists('not-an-email');
       expect(exists).toBe(false);
     });
 
-    it('should handle empty string', () => {
-      const exists = emailExists('');
+    it('should handle empty string', async () => {
+      const exists = await emailExists('');
       expect(exists).toBe(false);
     });
 
-    it('should be case-insensitive for email check', () => {
+    it('should be case-insensitive for email check', async () => {
       // This tests the behavior, actual result depends on DB state
-      const exists1 = emailExists('TEST@EXAMPLE.COM');
-      const exists2 = emailExists('test@example.com');
+      const exists1 = await emailExists('TEST@EXAMPLE.COM');
+      const exists2 = await emailExists('test@example.com');
       expect(typeof exists1).toBe('boolean');
       expect(typeof exists2).toBe('boolean');
     });
@@ -228,30 +228,30 @@ describe('User CRUD Operations', () => {
   });
 
   describe('updateUser', () => {
-    it('should return false for non-existent user', () => {
-      const result = updateUser(99999, { name: 'New Name' });
+    it('should return false for non-existent user', async () => {
+      const result = await updateUser(99999, { name: 'New Name' });
       expect(result).toBe(false);
     });
 
-    it('should return false for empty updates', () => {
-      const result = updateUser(1, {});
+    it('should return false for empty updates', async () => {
+      const result = await updateUser(1, {});
       expect(result).toBe(false);
     });
 
-    it('should handle invalid user ID', () => {
-      const result = updateUser(-1, { name: 'New Name' });
+    it('should handle invalid user ID', async () => {
+      const result = await updateUser(-1, { name: 'New Name' });
       expect(result).toBe(false);
     });
   });
 
   describe('deleteUser', () => {
-    it('should return false for non-existent user', () => {
-      const result = deleteUser(99999);
+    it('should return false for non-existent user', async () => {
+      const result = await deleteUser(99999);
       expect(result).toBe(false);
     });
 
-    it('should handle invalid user ID', () => {
-      const result = deleteUser(-1);
+    it('should handle invalid user ID', async () => {
+      const result = await deleteUser(-1);
       expect(result).toBe(false);
     });
   });
@@ -270,12 +270,12 @@ describe('Security Tests', () => {
     }
   });
 
-  it('should handle SQL injection in getUserByEmail', () => {
+  it('should handle SQL injection in getUserByEmail', async () => {
     const maliciousEmail = "admin@example.com' OR '1'='1";
-    const result = getUserByEmail(maliciousEmail);
+    const result = await getUserByEmail(maliciousEmail);
 
-    // Should return null or a specific user, not multiple users or throw
-    expect(result === null || typeof result === 'object').toBe(true);
+    // Should return undefined or a specific user, not multiple users or throw
+    expect(result === undefined || typeof result === 'object').toBe(true);
   });
 
   it('should validate JWT secret is configured', async () => {
@@ -286,25 +286,21 @@ describe('Security Tests', () => {
 });
 
 describe('Edge Cases', () => {
-  it('should handle very long email addresses', () => {
+  it('should handle very long email addresses', async () => {
     const longEmail = 'a'.repeat(250) + '@example.com';
-    const user = getUserByEmail(longEmail);
-    expect(user).toBeNull();
+    const user = await getUserByEmail(longEmail);
+    expect(user).toBeUndefined();
   });
 
   it('should handle special characters in name', async () => {
     const specialName = "O'Brien <script>alert('xss')</script>";
     // Should not throw, but sanitize or escape properly
-    expect(() => {
-      updateUser(1, { name: specialName });
-    }).not.toThrow();
+    await expect(updateUser(1, { name: specialName })).resolves.not.toThrow();
   });
 
-  it('should handle unicode characters in user data', () => {
+  it('should handle unicode characters in user data', async () => {
     const unicodeName = '测试用户 🚀';
-    expect(() => {
-      updateUser(1, { name: unicodeName });
-    }).not.toThrow();
+    await expect(updateUser(1, { name: unicodeName })).resolves.not.toThrow();
   });
 
   it('should handle concurrent password updates', async () => {

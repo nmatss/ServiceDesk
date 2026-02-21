@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { WhatsAppTemplateManager, PREDEFINED_TEMPLATES } from '@/lib/integrations/whatsapp/templates';
 import { getWhatsAppClient } from '@/lib/integrations/whatsapp/business-api';
 import { createAuditLog } from '@/lib/audit/logger';
@@ -21,10 +21,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || authResult.user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] });
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '';
     if (!businessAccountId) {
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Log action
     await createAuditLog({
-      user_id: authResult.user?.id,
+      user_id: userId,
       action: 'whatsapp_templates_bulk_registered',
       resource_type: 'whatsapp_template',
       new_values: JSON.stringify({
@@ -110,10 +109,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !['admin', 'manager'].includes(authResult.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guardGet = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] });
+    if (guardGet.response) return guardGet.response;
 
     const templates = Object.entries(PREDEFINED_TEMPLATES).map(([key, template]) => ({
       key,

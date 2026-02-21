@@ -296,8 +296,11 @@ export class DataPortabilityService {
   }> {
     try {
       const dateFilter = startDate && endDate
-        ? `AND created_at BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'`
+        ? `AND created_at BETWEEN ? AND ?`
         : '';
+      const dateParams = startDate && endDate
+        ? [startDate.toISOString(), endDate.toISOString()]
+        : [];
 
       const stats = db.prepare(`
         SELECT
@@ -307,7 +310,7 @@ export class DataPortabilityService {
         FROM audit_advanced
         WHERE entity_type = 'data_export' AND action = 'export_completed'
         ${dateFilter}
-      `).get() as any;
+      `).get(...dateParams) as any;
 
       return {
         totalExports: stats.total || 0,

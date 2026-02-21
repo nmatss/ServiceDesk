@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   ExclamationTriangleIcon,
   DocumentTextIcon,
@@ -12,13 +13,21 @@ import {
 } from '@heroicons/react/24/outline'
 import PageHeader from '@/components/ui/PageHeader'
 
+interface Category {
+  id: number
+  name: string
+  description?: string
+  color?: string
+}
+
 export default function NewProblemPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: '',
+    category_id: '',
     priority: 'medium',
     impact: '',
     affected_services: [] as string[],
@@ -26,15 +35,56 @@ export default function NewProblemPage() {
   })
   const [newService, setNewService] = useState('')
 
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('/api/categories')
+        const data = await response.json()
+        if (data.success && data.categories) {
+          setCategories(data.categories)
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error)
+      }
+    }
+    fetchCategories()
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
-      // API call would go here
-      await new Promise(resolve => setTimeout(resolve, 500))
-      router.push('/admin/problems')
+      // Build the payload according to the API specification
+      const categoryId = formData.category_id ? parseInt(formData.category_id, 10) : undefined
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        category_id: (categoryId && !isNaN(categoryId)) ? categoryId : undefined,
+        priority_id: formData.priority === 'low' ? 1 : formData.priority === 'medium' ? 2 : formData.priority === 'high' ? 3 : 4,
+        impact: formData.impact || undefined,
+        affected_services: formData.affected_services.length > 0 ? formData.affected_services : undefined,
+      }
+
+      const response = await fetch('/api/problems', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to create problem')
+      }
+
+      // Redirect to the created problem or problems list
+      router.push(data.data?.id ? `/admin/problems/${data.data.id}` : '/admin/problems')
     } catch (error) {
       console.error('Error creating problem:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar problema')
     } finally {
       setLoading(false)
     }
@@ -117,19 +167,22 @@ export default function NewProblemPage() {
                   </label>
                   <select
                     required
-                    value={formData.category}
-                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                    value={formData.category_id}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 transition-all"
                   >
                     <option value="">Selecione...</option>
-                    <option value="Performance">Performance</option>
-                    <option value="Disponibilidade">Disponibilidade</option>
-                    <option value="Segurança">Segurança</option>
-                    <option value="Integração">Integração</option>
-                    <option value="Infraestrutura">Infraestrutura</option>
-                    <option value="Aplicação">Aplicação</option>
-                    <option value="Rede">Rede</option>
-                    <option value="Outro">Outro</option>
+                    {categories.length > 0 ? (
+                      categories.map((cat) => (
+                        <option key={cat.id} value={cat.id.toString()}>
+                          {cat.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="" disabled>Carregando categorias...</option>
+                      </>
+                    )}
                   </select>
                 </div>
 

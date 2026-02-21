@@ -6,9 +6,26 @@
  */
 
 import { VectorDatabase, SearchResult } from './vector-database';
-import { searchTickets, searchKnowledgeBase, SearchFilters } from '../search';
 import logger from '../monitoring/structured-logger';
-import db from '../db/connection';
+import { executeQuery } from '../db/adapter';
+
+export interface SearchFilters {
+  query?: string;
+  categories?: number[];
+  priorities?: number[];
+  statuses?: number[];
+  assignedTo?: number[];
+  users?: number[];
+  dateFrom?: string;
+  dateTo?: string;
+  slaStatus?: 'compliant' | 'warning' | 'breach';
+  tags?: string[];
+  hasAttachments?: boolean;
+  sortBy?: 'created_at' | 'updated_at' | 'priority' | 'status' | 'title';
+  sortOrder?: 'ASC' | 'DESC';
+  limit?: number;
+  offset?: number;
+}
 
 export interface HybridSearchOptions {
   query: string;
@@ -196,18 +213,72 @@ export class HybridSearchEngine {
     const results: Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: any }> = [];
 
     try {
+      const searchTerm = `%${query.trim()}%`;
+
       // Search tickets
       if (entityTypes.includes('ticket')) {
-        const ticketResults = searchTickets({
-          query,
-          ...filters,
-          limit: maxResults
-        });
+        const whereConditions: string[] = [
+          `(LOWER(t.title) LIKE LOWER(?) OR LOWER(COALESCE(t.description, '')) LIKE LOWER(?))`
+        ];
+        const params: Array<string | number> = [searchTerm, searchTerm];
 
-        ticketResults.items.forEach((ticket, index) => {
+        if (filters.categories?.length) {
+          whereConditions.push(`t.category_id IN (${filters.categories.map(() => '?').join(',')})`);
+          params.push(...filters.categories);
+        }
+        if (filters.priorities?.length) {
+          whereConditions.push(`t.priority_id IN (${filters.priorities.map(() => '?').join(',')})`);
+          params.push(...filters.priorities);
+        }
+        if (filters.statuses?.length) {
+          whereConditions.push(`t.status_id IN (${filters.statuses.map(() => '?').join(',')})`);
+          params.push(...filters.statuses);
+        }
+        if (filters.assignedTo?.length) {
+          whereConditions.push(`t.assigned_to IN (${filters.assignedTo.map(() => '?').join(',')})`);
+          params.push(...filters.assignedTo);
+        }
+        if (filters.users?.length) {
+          whereConditions.push(`t.user_id IN (${filters.users.map(() => '?').join(',')})`);
+          params.push(...filters.users);
+        }
+        if (filters.dateFrom) {
+          whereConditions.push(`t.created_at >= ?`);
+          params.push(filters.dateFrom);
+        }
+        if (filters.dateTo) {
+          whereConditions.push(`t.created_at <= ?`);
+          params.push(filters.dateTo);
+        }
+
+        const ticketResults = await executeQuery<{
+          id: number;
+          title: string;
+          description: string | null;
+          category_name?: string;
+          priority_name?: string;
+          status_name?: string;
+        }>(`
+          SELECT
+            t.id,
+            t.title,
+            t.description,
+            c.name AS category_name,
+            p.name AS priority_name,
+            s.name AS status_name
+          FROM tickets t
+          LEFT JOIN categories c ON c.id = t.category_id
+          LEFT JOIN priorities p ON p.id = t.priority_id
+          LEFT JOIN statuses s ON s.id = t.status_id
+          WHERE ${whereConditions.join(' AND ')}
+          ORDER BY t.created_at DESC
+          LIMIT ?
+        `, [...params, maxResults]);
+
+        ticketResults.forEach((ticket, index) => {
           // Calculate keyword score based on position and relevance
           const positionScore = 1 - (index / maxResults);
-          const relevanceScore = this.calculateKeywordRelevance(query, ticket.title + ' ' + ticket.description);
+          const relevanceScore = this.calculateKeywordRelevance(query, `${ticket.title} ${ticket.description || ''}`);
 
           results.push({
             entityType: 'ticket',
@@ -216,9 +287,9 @@ export class HybridSearchEngine {
             content: ticket.title,
             metadata: {
               description: ticket.description?.substring(0, 200),
-              category: (ticket as any).category_name,
-              priority: (ticket as any).priority_name,
-              status: (ticket as any).status_name
+              category: ticket.category_name,
+              priority: ticket.priority_name,
+              status: ticket.status_name
             }
           });
         });
@@ -226,15 +297,40 @@ export class HybridSearchEngine {
 
       // Search knowledge base
       if (entityTypes.includes('kb_article')) {
-        const kbResults = searchKnowledgeBase(query, {
-          limit: maxResults
-        });
+        const kbResults = await executeQuery<{
+          id: number;
+          title: string;
+          summary: string | null;
+          content: string | null;
+          category_name?: string;
+          view_count?: number;
+          helpful_count?: number;
+        }>(`
+          SELECT
+            ka.id,
+            ka.title,
+            ka.summary,
+            ka.content,
+            c.name AS category_name,
+            ka.view_count,
+            ka.helpful_count
+          FROM kb_articles ka
+          LEFT JOIN categories c ON c.id = ka.category_id
+          WHERE ka.status = 'published'
+            AND (
+              LOWER(ka.title) LIKE LOWER(?)
+              OR LOWER(COALESCE(ka.summary, '')) LIKE LOWER(?)
+              OR LOWER(COALESCE(ka.content, '')) LIKE LOWER(?)
+            )
+          ORDER BY ka.view_count DESC, ka.updated_at DESC
+          LIMIT ?
+        `, [searchTerm, searchTerm, searchTerm, maxResults]);
 
-        kbResults.items.forEach((article, index) => {
+        kbResults.forEach((article, index) => {
           const positionScore = 1 - (index / maxResults);
           const relevanceScore = this.calculateKeywordRelevance(
             query,
-            article.title + ' ' + (article.summary || '') + ' ' + article.content
+            `${article.title} ${article.summary || ''} ${article.content || ''}`
           );
 
           results.push({
@@ -244,7 +340,7 @@ export class HybridSearchEngine {
             content: article.title,
             metadata: {
               summary: article.summary,
-              category: (article as any).category_name,
+              category: article.category_name,
               viewCount: article.view_count,
               helpfulCount: article.helpful_count
             }
@@ -416,16 +512,16 @@ export class HybridSearchEngine {
   private async generateSuggestions(query: string): Promise<string[]> {
     try {
       // Get common search terms from database
-      const suggestions = db.prepare(`
-        SELECT DISTINCT query
+      const suggestions = await executeQuery<{ query: string }>(`
+        SELECT query, COUNT(*) AS usage_count
         FROM search_history
-        WHERE query LIKE ?
+        WHERE LOWER(query) LIKE LOWER(?)
         GROUP BY query
-        ORDER BY COUNT(*) DESC
+        ORDER BY usage_count DESC
         LIMIT 5
-      `).all(`%${query}%`) as any[];
+      `, [`%${query}%`]);
 
-      return suggestions.map((s: any) => s.query);
+      return suggestions.map((s) => s.query);
 
     } catch (error) {
       logger.error('Error generating suggestions', error);
@@ -456,15 +552,15 @@ export class HybridSearchEngine {
 
       // Get entity matches
       if (entityTypes.includes('ticket')) {
-        const tickets = db.prepare(`
+        const tickets = await executeQuery<{ id: number; title: string }>(`
           SELECT id, title
           FROM tickets
-          WHERE title LIKE ?
+          WHERE LOWER(title) LIKE LOWER(?)
           ORDER BY created_at DESC
           LIMIT ?
-        `).all(`%${query}%`, limit) as any[];
+        `, [`%${query}%`, limit]);
 
-        tickets.forEach((t: any) => {
+        tickets.forEach((t) => {
           entities.push({
             id: t.id,
             type: 'ticket',
@@ -475,15 +571,15 @@ export class HybridSearchEngine {
       }
 
       if (entityTypes.includes('kb_article')) {
-        const articles = db.prepare(`
+        const articles = await executeQuery<{ id: number; title: string }>(`
           SELECT id, title
           FROM kb_articles
-          WHERE is_published = 1 AND title LIKE ?
+          WHERE status = 'published' AND LOWER(title) LIKE LOWER(?)
           ORDER BY view_count DESC
           LIMIT ?
-        `).all(`%${query}%`, limit) as any[];
+        `, [`%${query}%`, limit]);
 
-        articles.forEach((a: any) => {
+        articles.forEach((a) => {
           entities.push({
             id: a.id,
             type: 'kb_article',

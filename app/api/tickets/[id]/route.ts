@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
 import { getFromCache, setCache, invalidateTicketCache } from '@/lib/cache/lru-cache';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ticketSchemas } from '@/lib/validation/schemas';
+import { sanitizeHtml, sanitizeText } from '@/lib/validation/sanitize';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
@@ -10,17 +12,21 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const TICKET_SELECT_QUERY = `
   SELECT
     t.id,
+    t.tenant_id,
     t.title,
     t.description,
     t.created_at,
     t.updated_at,
     t.user_id,
     s.name as status,
+    s.name as status_name,
     s.id as status_id,
     s.color as status_color,
     p.name as priority,
+    p.name as priority_name,
     p.id as priority_id,
     c.name as category,
+    c.name as category_name,
     c.id as category_id,
     u.name as user_name
   FROM tickets t
@@ -41,21 +47,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params
     const ticketId = parseInt(id)
@@ -94,11 +89,11 @@ export async function GET(
       params_array.push(userContext.id)
     }
 
-    const ticket = db.prepare(query).get(...params_array)
+    const ticket = await executeQueryOne(query, params_array)
 
     if (!ticket) {
       return NextResponse.json(
-        { error: 'Ticket não encontrado' },
+        { success: false, error: 'Ticket não encontrado' },
         { status: 404 }
       )
     }
@@ -113,7 +108,7 @@ export async function GET(
   } catch (error) {
     logger.error('Error fetching ticket', error)
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { success: false, error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }
@@ -129,25 +124,28 @@ export async function PATCH(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params
     const ticketId = parseInt(id)
-    const { status_id, priority_id, category_id, title, description } = await request.json()
+
+    // Validate request body with Zod schema
+    const rawBody = await request.json()
+    const parseResult = ticketSchemas.update.omit({ id: true }).safeParse(rawBody)
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { success: false, error: 'Dados inválidos', details: parseResult.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+    const { status_id, priority_id, category_id, title: rawTitle, description: rawDescription } = parseResult.data
+
+    // Sanitize text inputs to prevent XSS
+    const title = rawTitle ? sanitizeText(rawTitle) : rawTitle
+    const description = rawDescription ? sanitizeHtml(rawDescription) : rawDescription
 
     const isAdmin = ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)
 
@@ -160,11 +158,11 @@ export async function PATCH(
       ticketParams.push(userContext.id)
     }
 
-    const existingTicket = db.prepare(ticketQuery).get(...ticketParams)
+    const existingTicket = await executeQueryOne<{ id: number; user_id: number }>(ticketQuery, ticketParams)
 
     if (!existingTicket) {
       return NextResponse.json(
-        { error: 'Ticket não encontrado ou sem permissão' },
+        { success: false, error: 'Ticket não encontrado ou sem permissão' },
         { status: 404 }
       )
     }
@@ -193,16 +191,20 @@ export async function PATCH(
       if (priority_id !== undefined) validationParams.push(priority_id, tenantContext.id)
       if (category_id !== undefined) validationParams.push(category_id, tenantContext.id)
 
-      const validation = db.prepare(validationQuery).get(...validationParams) as Record<string, number | null>
+      const validation = await executeQueryOne<Record<string, number | null>>(validationQuery, validationParams)
+
+      if (!validation) {
+        return NextResponse.json({ success: false, error: 'Falha ao validar relacionamentos do ticket' }, { status: 500 })
+      }
 
       if (status_id !== undefined && !validation.valid_status) {
-        return NextResponse.json({ error: 'Status inválido' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Status inválido' }, { status: 400 })
       }
       if (priority_id !== undefined && !validation.valid_priority) {
-        return NextResponse.json({ error: 'Prioridade inválida' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Prioridade inválida' }, { status: 400 })
       }
       if (category_id !== undefined && !validation.valid_category) {
-        return NextResponse.json({ error: 'Categoria inválida' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Categoria inválida' }, { status: 400 })
       }
     }
 
@@ -237,7 +239,7 @@ export async function PATCH(
 
     if (updates.length === 0) {
       return NextResponse.json(
-        { error: 'Nenhum campo para atualizar' },
+        { success: false, error: 'Nenhum campo para atualizar' },
         { status: 400 }
       )
     }
@@ -248,12 +250,27 @@ export async function PATCH(
     const updateQuery = `UPDATE tickets SET ${updates.join(', ')} WHERE id = ? AND tenant_id = ?`
     updateParams.push(ticketId, tenantContext.id)
 
-    db.prepare(updateQuery).run(...updateParams)
+    await executeRun(updateQuery, updateParams)
+
+    // Best-effort audit trail for ticket updates
+    try {
+      await executeRun(`
+        INSERT INTO audit_logs (tenant_id, user_id, entity_type, entity_id, action, new_values)
+        VALUES (?, ?, 'ticket', ?, 'update', ?)
+      `, [
+        tenantContext.id,
+        userContext.id,
+        ticketId,
+        JSON.stringify({ status_id, priority_id, category_id, title, description })
+      ])
+    } catch {
+      // Ignore audit persistence failures to avoid blocking business operation.
+    }
 
     // Get updated ticket using shared query
-    const updatedTicket = db.prepare(TICKET_SELECT_QUERY).get(
-      tenantContext.id, tenantContext.id, tenantContext.id, tenantContext.id,
-      ticketId, tenantContext.id
+    const updatedTicket = await executeQueryOne(
+      TICKET_SELECT_QUERY,
+      [tenantContext.id, tenantContext.id, tenantContext.id, tenantContext.id, ticketId, tenantContext.id]
     )
 
     // Invalidate caches (targeted, not global)
@@ -266,9 +283,8 @@ export async function PATCH(
   } catch (error) {
     logger.error('Error updating ticket', error)
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { success: false, error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }
 }
-

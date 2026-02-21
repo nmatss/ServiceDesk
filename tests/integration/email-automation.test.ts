@@ -9,13 +9,13 @@ import { templateEngine } from '@/lib/integrations/email/templates';
 // Mock nodemailer before importing emailSender
 vi.mock('nodemailer', () => ({
   default: {
-    createTransporter: vi.fn(() => ({
+    createTransport: vi.fn(() => ({
       sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
       verify: vi.fn().mockResolvedValue(true),
       close: vi.fn(),
     })),
   },
-  createTransporter: vi.fn(() => ({
+  createTransport: vi.fn(() => ({
     sendMail: vi.fn().mockResolvedValue({ messageId: 'test-message-id' }),
     verify: vi.fn().mockResolvedValue(true),
     close: vi.fn(),
@@ -142,8 +142,8 @@ Your message could not be delivered.
         },
       });
 
-      // Should contain formatted date
-      expect(rendered.html).toMatch(/05.*dezembro.*2024/i);
+      // Should contain formatted date (locale may render day without leading zero)
+      expect(rendered.html).toMatch(/5.*dezembro.*2024/i);
     });
 
     it('should generate priority badges', () => {
@@ -191,7 +191,8 @@ Your message could not be delivered.
         priority: 'normal',
       }, 1);
 
-      expect(queueId).toBeGreaterThan(0);
+      expect(typeof queueId).toBe('number');
+      expect((queueId as number)).toBeGreaterThan(0);
     });
 
     it('should get email statistics', async () => {

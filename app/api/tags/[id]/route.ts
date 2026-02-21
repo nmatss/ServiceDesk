@@ -6,9 +6,9 @@
  * @module app/api/tags/[id]/route
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: { id: string };
@@ -22,13 +22,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const tagId = parseInt(params.id);
 
-    const tag = db.prepare(`
+    const tag = await executeQueryOne(`
       SELECT
         t.*,
         (SELECT COUNT(*) FROM ticket_tags tt WHERE tt.tag_id = t.id) as ticket_count
       FROM tags t
       WHERE t.id = ?
-    `).get(tagId);
+    `, [tagId]);
 
     if (!tag) {
       return NextResponse.json(
@@ -39,7 +39,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(tag);
   } catch (error) {
-    console.error('Error fetching tag:', error);
+    logger.error('Error fetching tag:', error);
     return NextResponse.json(
       { error: 'Failed to fetch tag' },
       { status: 500 }
@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { name, color, description } = body;
 
     // Check if tag exists
-    const existing = db.prepare('SELECT id FROM tags WHERE id = ?').get(tagId);
+    const existing = await executeQueryOne('SELECT id FROM tags WHERE id = ?', [tagId]);
     if (!existing) {
       return NextResponse.json(
         { error: 'Tag not found' },
@@ -86,22 +86,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     if (fields.length === 0) {
-      const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(tagId);
+      const tag = await executeQueryOne('SELECT * FROM tags WHERE id = ?', [tagId]);
       return NextResponse.json(tag);
     }
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(tagId);
 
-    db.prepare(`
+    await executeRun(`
       UPDATE tags SET ${fields.join(', ')} WHERE id = ?
-    `).run(...values);
+    `, values);
 
-    const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(tagId);
+    const tag = await executeQueryOne('SELECT * FROM tags WHERE id = ?', [tagId]);
 
     return NextResponse.json(tag);
   } catch (error) {
-    console.error('Error updating tag:', error);
+    logger.error('Error updating tag:', error);
     return NextResponse.json(
       { error: 'Failed to update tag' },
       { status: 500 }
@@ -118,7 +118,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const tagId = parseInt(params.id);
 
     // Check if tag exists
-    const existing = db.prepare('SELECT id FROM tags WHERE id = ?').get(tagId);
+    const existing = await executeQueryOne('SELECT id FROM tags WHERE id = ?', [tagId]);
     if (!existing) {
       return NextResponse.json(
         { error: 'Tag not found' },
@@ -127,11 +127,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete tag (ticket_tags will be cascade deleted)
-    db.prepare('DELETE FROM tags WHERE id = ?').run(tagId);
+    await executeRun('DELETE FROM tags WHERE id = ?', [tagId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting tag:', error);
+    logger.error('Error deleting tag:', error);
     return NextResponse.json(
       { error: 'Failed to delete tag' },
       { status: 500 }

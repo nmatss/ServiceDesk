@@ -8,10 +8,9 @@
  * - Storage analytics
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import fs from 'fs/promises';
-import path from 'path';
 
 /**
  * Default quota configurations (in bytes)
@@ -53,10 +52,10 @@ export interface StorageUsage {
 /**
  * Initialize storage quota tables
  */
-export function initializeStorageQuotaTables(): void {
+export async function initializeStorageQuotaTables(): Promise<void> {
   try {
     // Create storage_quotas table
-    db.prepare(`
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS storage_quotas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -71,27 +70,27 @@ export function initializeStorageQuotaTables(): void {
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
         UNIQUE(user_id, tenant_id)
       )
-    `).run();
+    `);
 
     // Create indexes
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_storage_quotas_user
       ON storage_quotas(user_id, tenant_id)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_storage_quotas_tenant
       ON storage_quotas(tenant_id)
-    `).run();
+    `);
 
     // Create trigger to update timestamp
-    db.prepare(`
+    await executeRun(`
       CREATE TRIGGER IF NOT EXISTS update_storage_quotas_timestamp
       AFTER UPDATE ON storage_quotas
       BEGIN
         UPDATE storage_quotas SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
       END
-    `).run();
+    `);
 
     logger.info('Storage quota tables initialized successfully');
   } catch (error) {
@@ -103,37 +102,37 @@ export function initializeStorageQuotaTables(): void {
 /**
  * Get or create user storage quota
  */
-export function getUserQuota(userId: number, tenantId: number): StorageQuota {
+export async function getUserQuota(userId: number, tenantId: number): Promise<StorageQuota> {
   try {
     // Try to get existing quota
-    let quota = db.prepare(`
+    let quota = await executeQueryOne<StorageQuota>(`
       SELECT * FROM storage_quotas
       WHERE user_id = ? AND tenant_id = ?
-    `).get(userId, tenantId) as StorageQuota | undefined;
+    `, [userId, tenantId]);
 
     // Create if doesn't exist
     if (!quota) {
       // Get user role to determine quota
-      const user = db.prepare(`
+      const user = await executeQueryOne<{ role: string }>(`
         SELECT role FROM users WHERE id = ? AND tenant_id = ?
-      `).get(userId, tenantId) as { role: string } | undefined;
+      `, [userId, tenantId]);
 
       const quotaBytes = user?.role === 'super_admin' || user?.role === 'tenant_admin'
         ? DEFAULT_QUOTAS.SUPER_ADMIN
         : DEFAULT_QUOTAS.USER;
 
-      db.prepare(`
+      await executeRun(`
         INSERT INTO storage_quotas (user_id, tenant_id, quota_bytes)
         VALUES (?, ?, ?)
-      `).run(userId, tenantId, quotaBytes);
+      `, [userId, tenantId, quotaBytes]);
 
-      quota = db.prepare(`
+      quota = await executeQueryOne<StorageQuota>(`
         SELECT * FROM storage_quotas
         WHERE user_id = ? AND tenant_id = ?
-      `).get(userId, tenantId) as StorageQuota;
+      `, [userId, tenantId]);
     }
 
-    return quota;
+    return quota!;
   } catch (error) {
     logger.error('Failed to get user quota', { userId, tenantId, error });
     throw error;
@@ -143,13 +142,13 @@ export function getUserQuota(userId: number, tenantId: number): StorageQuota {
 /**
  * Check if user can upload file
  */
-export function canUploadFile(
+export async function canUploadFile(
   userId: number,
   tenantId: number,
   fileSize: number
-): { allowed: boolean; reason?: string; quota?: StorageQuota } {
+): Promise<{ allowed: boolean; reason?: string; quota?: StorageQuota }> {
   try {
-    const quota = getUserQuota(userId, tenantId);
+    const quota = await getUserQuota(userId, tenantId);
 
     const newUsage = quota.used_bytes + fileSize;
 
@@ -177,18 +176,18 @@ export function canUploadFile(
 /**
  * Record file upload and update quota
  */
-export function recordFileUpload(
+export async function recordFileUpload(
   userId: number,
   tenantId: number,
   fileSize: number
-): void {
+): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       UPDATE storage_quotas
       SET used_bytes = used_bytes + ?,
           file_count = file_count + 1
       WHERE user_id = ? AND tenant_id = ?
-    `).run(fileSize, userId, tenantId);
+    `, [fileSize, userId, tenantId]);
 
     logger.info('File upload recorded', { userId, tenantId, fileSize });
   } catch (error) {
@@ -200,18 +199,18 @@ export function recordFileUpload(
 /**
  * Record file deletion and update quota
  */
-export function recordFileDeletion(
+export async function recordFileDeletion(
   userId: number,
   tenantId: number,
   fileSize: number
-): void {
+): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       UPDATE storage_quotas
       SET used_bytes = MAX(0, used_bytes - ?),
           file_count = MAX(0, file_count - 1)
       WHERE user_id = ? AND tenant_id = ?
-    `).run(fileSize, userId, tenantId);
+    `, [fileSize, userId, tenantId]);
 
     logger.info('File deletion recorded', { userId, tenantId, fileSize });
   } catch (error) {
@@ -222,12 +221,12 @@ export function recordFileDeletion(
 /**
  * Get detailed storage usage for user
  */
-export function getStorageUsage(userId: number, tenantId: number): StorageUsage {
+export async function getStorageUsage(userId: number, tenantId: number): Promise<StorageUsage> {
   try {
-    const quota = getUserQuota(userId, tenantId);
+    const quota = await getUserQuota(userId, tenantId);
 
     // Get file breakdown by type
-    const filesByType = db.prepare(`
+    const filesByType = await executeQuery<{ mime_type: string; total_size: number; file_count: number }>(`
       SELECT
         mime_type,
         SUM(file_size) as total_size,
@@ -236,7 +235,7 @@ export function getStorageUsage(userId: number, tenantId: number): StorageUsage 
       WHERE uploaded_by = ? AND tenant_id = ?
       GROUP BY mime_type
       ORDER BY total_size DESC
-    `).all(userId, tenantId) as Array<{ mime_type: string; total_size: number; file_count: number }>;
+    `, [userId, tenantId]);
 
     const byType: Record<string, { size: number; count: number }> = {};
     for (const row of filesByType) {
@@ -247,13 +246,13 @@ export function getStorageUsage(userId: number, tenantId: number): StorageUsage 
     }
 
     // Get largest files
-    const largestFiles = db.prepare(`
+    const largestFiles = await executeQuery<{ filename: string; size: number; created_at: string }>(`
       SELECT filename, file_size as size, created_at
       FROM attachments
       WHERE uploaded_by = ? AND tenant_id = ?
       ORDER BY file_size DESC
       LIMIT 10
-    `).all(userId, tenantId) as Array<{ filename: string; size: number; created_at: string }>;
+    `, [userId, tenantId]);
 
     const remaining = Math.max(0, quota.quota_bytes - quota.used_bytes);
     const percentage = quota.quota_bytes > 0
@@ -278,22 +277,22 @@ export function getStorageUsage(userId: number, tenantId: number): StorageUsage 
 /**
  * Recalculate storage usage (in case of discrepancies)
  */
-export function recalculateStorageUsage(userId: number, tenantId: number): void {
+export async function recalculateStorageUsage(userId: number, tenantId: number): Promise<void> {
   try {
-    const result = db.prepare(`
+    const result = await executeQueryOne<{ total_size: number; file_count: number }>(`
       SELECT
         COALESCE(SUM(file_size), 0) as total_size,
         COUNT(*) as file_count
       FROM attachments
       WHERE uploaded_by = ? AND tenant_id = ?
-    `).get(userId, tenantId) as { total_size: number; file_count: number };
+    `, [userId, tenantId]);
 
-    db.prepare(`
+    await executeRun(`
       UPDATE storage_quotas
       SET used_bytes = ?,
           file_count = ?
       WHERE user_id = ? AND tenant_id = ?
-    `).run(result.total_size, result.file_count, userId, tenantId);
+    `, [result?.total_size ?? 0, result?.file_count ?? 0, userId, tenantId]);
 
     logger.info('Storage usage recalculated', { userId, tenantId, ...result });
   } catch (error) {
@@ -313,7 +312,13 @@ export async function cleanupOldAttachments(
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const attachmentsToDelete = db.prepare(`
+    const attachmentsToDelete = await executeQuery<{
+      id: number;
+      file_path: string;
+      file_size: number;
+      uploaded_by: number;
+      tenant_id: number;
+    }>(`
       SELECT a.id, a.file_path, a.file_size, a.uploaded_by, a.tenant_id
       FROM attachments a
       LEFT JOIN tickets t ON a.ticket_id = t.id
@@ -322,13 +327,7 @@ export async function cleanupOldAttachments(
         AND (t.id IS NULL OR t.status_id IN (
           SELECT id FROM statuses WHERE is_final = 1
         ))
-    `).all(tenantId, cutoffDate.toISOString()) as Array<{
-      id: number;
-      file_path: string;
-      file_size: number;
-      uploaded_by: number;
-      tenant_id: number;
-    }>;
+    `, [tenantId, cutoffDate.toISOString()]);
 
     let deletedCount = 0;
     let freedBytes = 0;
@@ -339,10 +338,10 @@ export async function cleanupOldAttachments(
         await fs.unlink(attachment.file_path);
 
         // Delete database record
-        db.prepare(`DELETE FROM attachments WHERE id = ?`).run(attachment.id);
+        await executeRun(`DELETE FROM attachments WHERE id = ?`, [attachment.id]);
 
         // Update quota
-        recordFileDeletion(attachment.uploaded_by, attachment.tenant_id, attachment.file_size);
+        await recordFileDeletion(attachment.uploaded_by, attachment.tenant_id, attachment.file_size);
 
         deletedCount++;
         freedBytes += attachment.file_size;
@@ -352,11 +351,11 @@ export async function cleanupOldAttachments(
     }
 
     // Update cleanup timestamp
-    db.prepare(`
+    await executeRun(`
       UPDATE storage_quotas
       SET last_cleanup_at = CURRENT_TIMESTAMP
       WHERE tenant_id = ?
-    `).run(tenantId);
+    `, [tenantId]);
 
     logger.info('Old attachments cleaned up', { tenantId, deletedCount, freedBytes });
 
@@ -370,15 +369,20 @@ export async function cleanupOldAttachments(
 /**
  * Get tenant-wide storage statistics
  */
-export function getTenantStorageStats(tenantId: number): {
+export async function getTenantStorageStats(tenantId: number): Promise<{
   total_quota: number;
   total_used: number;
   total_files: number;
   user_count: number;
   top_users: Array<{ user_id: number; name: string; used_bytes: number; file_count: number }>;
-} {
+}> {
   try {
-    const stats = db.prepare(`
+    const stats = await executeQueryOne<{
+      total_quota: number;
+      total_used: number;
+      total_files: number;
+      user_count: number;
+    }>(`
       SELECT
         SUM(quota_bytes) as total_quota,
         SUM(used_bytes) as total_used,
@@ -386,14 +390,14 @@ export function getTenantStorageStats(tenantId: number): {
         COUNT(*) as user_count
       FROM storage_quotas
       WHERE tenant_id = ?
-    `).get(tenantId) as {
-      total_quota: number;
-      total_used: number;
-      total_files: number;
-      user_count: number;
-    };
+    `, [tenantId]);
 
-    const topUsers = db.prepare(`
+    const topUsers = await executeQuery<{
+      user_id: number;
+      name: string;
+      used_bytes: number;
+      file_count: number;
+    }>(`
       SELECT
         sq.user_id,
         u.name,
@@ -404,15 +408,13 @@ export function getTenantStorageStats(tenantId: number): {
       WHERE sq.tenant_id = ?
       ORDER BY sq.used_bytes DESC
       LIMIT 10
-    `).all(tenantId) as Array<{
-      user_id: number;
-      name: string;
-      used_bytes: number;
-      file_count: number;
-    }>;
+    `, [tenantId]);
 
     return {
-      ...stats,
+      total_quota: stats?.total_quota ?? 0,
+      total_used: stats?.total_used ?? 0,
+      total_files: stats?.total_files ?? 0,
+      user_count: stats?.user_count ?? 0,
       top_users: topUsers,
     };
   } catch (error) {
@@ -437,17 +439,17 @@ export function formatBytes(bytes: number): string {
 /**
  * Update user quota (admin function)
  */
-export function updateUserQuota(
+export async function updateUserQuota(
   userId: number,
   tenantId: number,
   newQuotaBytes: number
-): void {
+): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       UPDATE storage_quotas
       SET quota_bytes = ?
       WHERE user_id = ? AND tenant_id = ?
-    `).run(newQuotaBytes, userId, tenantId);
+    `, [newQuotaBytes, userId, tenantId]);
 
     logger.info('User quota updated', { userId, tenantId, newQuotaBytes });
   } catch (error) {

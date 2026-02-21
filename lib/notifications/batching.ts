@@ -90,6 +90,26 @@ export class NotificationBatchingEngine {
     this.loadCustomBatchConfigs()
   }
 
+  /**
+   * SECURITY: Resolve a grouper name to a predefined function instead of eval()
+   */
+  private resolveGrouper(grouperName: string): ((notification: NotificationPayload) => string) | undefined {
+    const predefinedGroupers: Record<string, (notification: NotificationPayload) => string> = {
+      'by_user': (n) => String(n.authorId ?? 'unknown'),
+      'by_type': (n) => String(n.type ?? 'unknown'),
+      'by_ticket': (n) => String(n.ticketId ?? 'unknown'),
+      'by_priority': (n) => String(n.priority ?? 'normal'),
+      'by_category': (n) => String(n.data?.category ?? 'general'),
+      'by_channel': (n) => String(n.channels?.[0] ?? 'default'),
+    };
+
+    const grouper = predefinedGroupers[grouperName];
+    if (!grouper) {
+      logger.warn(`Unknown custom grouper: "${grouperName}". Available: ${Object.keys(predefinedGroupers).join(', ')}`);
+    }
+    return grouper;
+  }
+
   private loadCustomBatchConfigs() {
     try {
       interface BatchConfigRow {
@@ -110,7 +130,7 @@ export class NotificationBatchingEngine {
           maxWaitTime: config.max_wait_time,
           batchKey: config.batch_key,
           groupBy: config.group_by,
-          customGrouper: config.custom_grouper ? eval(config.custom_grouper) as (notification: NotificationPayload) => string : undefined
+          customGrouper: config.custom_grouper ? this.resolveGrouper(config.custom_grouper) : undefined
         })
       }
     } catch (error) {

@@ -139,6 +139,22 @@ export async function applyRateLimit(
   config: RateLimitConfig,
   identifier?: string
 ): Promise<NextResponse | null> {
+  // Explicit bypass for specific environments/jobs (never in production).
+  if (process.env.BYPASS_RATE_LIMIT === 'true') {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('BYPASS_RATE_LIMIT cannot be used in production');
+      // Don't bypass in production -- fall through to normal rate limiting
+    } else {
+      return null;
+    }
+  }
+
+  // In tests we bypass by default to avoid cross-test pollution.
+  // Dedicated rate-limit tests can opt-in with ENABLE_RATE_LIMIT_TESTS=true.
+  if (process.env.NODE_ENV === 'test' && process.env.ENABLE_RATE_LIMIT_TESTS !== 'true') {
+    return null;
+  }
+
   const result = await checkRateLimit(request, config, identifier);
 
   if (!result.success) {

@@ -1,6 +1,7 @@
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -20,27 +21,14 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
     try {
-        // Verify authentication
-        const authResult = await verifyAuth(request);
-
-        if (!authResult.authenticated || !authResult.user) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Authentication required' },
-                { status: 401 }
-            );
-        }
-
-        // Check if user is admin
-        if (authResult.user.role !== 'admin') {
-            return NextResponse.json(
-                { error: 'Forbidden - Admin access required' },
-                { status: 403 }
-            );
-        }
+        // Verify authentication - admin required
+        const guard = requireTenantUserContext(request, { requireRoles: ['admin'] });
+        if (guard.response) return guard.response;
+        const { userId, organizationId } = guard.auth!;
 
         // Additional super-admin check - verify user has super-admin permissions
         // Super-admins are typically from organization_id = 1 (system organization)
-        const isSuperAdmin = authResult.user.organization_id === 1 && authResult.user.role === 'admin';
+        const isSuperAdmin = organizationId === 1;
 
         if (!isSuperAdmin) {
             return NextResponse.json(
@@ -50,7 +38,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Log the access for audit purposes
-        db.prepare(`
+        await executeRun(`
             INSERT INTO audit_logs (
                 user_id,
                 organization_id,
@@ -60,18 +48,16 @@ export async function GET(request: NextRequest) {
                 ip_address,
                 user_agent
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            authResult.user.id,
-            authResult.user.organization_id,
+        `, [userId,
+            organizationId,
             'organization',
             0,
             'list_all_tenants',
             request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
-            request.headers.get('user-agent') || 'unknown'
-        );
+            request.headers.get('user-agent') || 'unknown']);
 
         // Fetch all organizations
-        const tenants = db.prepare(`
+        const tenants = await executeQuery(`
             SELECT
                 id,
                 name,
@@ -87,7 +73,7 @@ export async function GET(request: NextRequest) {
                 (SELECT COUNT(*) FROM tickets WHERE tickets.organization_id = organizations.id) as ticket_count
             FROM organizations
             ORDER BY created_at DESC
-        `).all();
+        `);
 
         return NextResponse.json({
             success: true,
@@ -96,7 +82,7 @@ export async function GET(request: NextRequest) {
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        console.error('Tenants API error:', error);
+        logger.error('Tenants API error:', error);
         return NextResponse.json(
             { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }

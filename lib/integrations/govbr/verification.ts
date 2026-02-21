@@ -7,7 +7,7 @@
  * @module lib/integrations/govbr/verification
  */
 
-import { getDb } from '@/lib/db';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { captureException } from '@/lib/monitoring/sentry-helpers';
 import type { GovBrUserProfile, GovBrTokens, TrustLevel } from './oauth-client';
@@ -110,8 +110,6 @@ export async function syncGovBrUser(
   tokens: GovBrTokens,
   tenantId: number
 ): Promise<UserSyncResult> {
-  const db = getDb();
-
   try {
     const normalized = normalizeGovBrProfile(profile);
 
@@ -122,18 +120,17 @@ export async function syncGovBrUser(
       };
     }
 
-    let existingUser: any;
+    let existingUser: { id: number; email: string; name: string } | undefined;
 
     if (normalized.cpf) {
-      existingUser = db
-        .prepare(
-          `SELECT id, email, name FROM users WHERE tenant_id = ? AND (email = ? OR metadata LIKE ?)`
-        )
-        .get(
+      existingUser = await executeQueryOne<{ id: number; email: string; name: string }>(
+        `SELECT id, email, name FROM users WHERE tenant_id = ? AND (email = ? OR metadata LIKE ?)`,
+        [
           tenantId,
           normalized.email,
           `%"cpf":"${normalized.cpf}"%`
-        );
+        ]
+      );
     }
 
     let userId: number;
@@ -142,7 +139,7 @@ export async function syncGovBrUser(
     if (existingUser) {
       userId = existingUser.id;
 
-      db.prepare(
+      await executeRun(
         `UPDATE users
          SET name = ?,
              email = ?,
@@ -152,21 +149,22 @@ export async function syncGovBrUser(
              is_email_verified = CASE WHEN ? THEN 1 ELSE is_email_verified END,
              metadata = ?,
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND tenant_id = ?`
-      ).run(
-        normalized.name,
-        normalized.email || existingUser.email,
-        normalized.govbrSub,
-        normalized.email && profile.email_verified ? 1 : 0,
-        normalized.email && profile.email_verified ? 1 : 0,
-        JSON.stringify({
-          cpf: normalized.cpf,
-          cnpj: normalized.cnpj,
-          phone: normalized.phone,
-          govbr_profile: normalized.profileData,
-        }),
-        userId,
-        tenantId
+         WHERE id = ? AND tenant_id = ?`,
+        [
+          normalized.name,
+          normalized.email || existingUser.email,
+          normalized.govbrSub,
+          normalized.email && profile.email_verified ? 1 : 0,
+          normalized.email && profile.email_verified ? 1 : 0,
+          JSON.stringify({
+            cpf: normalized.cpf,
+            cnpj: normalized.cnpj,
+            phone: normalized.phone,
+            govbr_profile: normalized.profileData,
+          }),
+          userId,
+          tenantId
+        ]
       );
 
       logger.info('Updated existing user with Gov.br profile', {
@@ -175,22 +173,20 @@ export async function syncGovBrUser(
         verificationLevel: normalized.verificationLevel,
       });
     } else {
-      const result = db
-        .prepare(
-          `INSERT INTO users (
-            tenant_id,
-            name,
-            email,
-            role,
-            sso_provider,
-            sso_user_id,
-            is_active,
-            is_email_verified,
-            email_verified_at,
-            metadata
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
+      const result = await executeRun(
+        `INSERT INTO users (
+          tenant_id,
+          name,
+          email,
+          role,
+          sso_provider,
+          sso_user_id,
+          is_active,
+          is_email_verified,
+          email_verified_at,
+          metadata
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
           tenantId,
           normalized.name,
           normalized.email || `govbr_${normalized.cpf}@temp.local`,
@@ -206,7 +202,8 @@ export async function syncGovBrUser(
             phone: normalized.phone,
             govbr_profile: normalized.profileData,
           })
-        );
+        ]
+      );
 
       userId = result.lastInsertRowid as number;
       isNewUser = true;
@@ -220,12 +217,13 @@ export async function syncGovBrUser(
 
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-    const existingIntegration = db
-      .prepare(`SELECT id FROM govbr_integrations WHERE user_id = ?`)
-      .get(userId);
+    const existingIntegration = await executeQueryOne<{ id: number }>(
+      `SELECT id FROM govbr_integrations WHERE user_id = ?`,
+      [userId]
+    );
 
     if (existingIntegration) {
-      db.prepare(
+      await executeRun(
         `UPDATE govbr_integrations
          SET cpf = ?,
              cnpj = ?,
@@ -237,19 +235,20 @@ export async function syncGovBrUser(
              last_sync_at = CURRENT_TIMESTAMP,
              is_active = 1,
              updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = ?`
-      ).run(
-        normalized.cpf,
-        normalized.cnpj,
-        tokens.access_token,
-        tokens.refresh_token || null,
-        expiresAt,
-        normalized.profileData,
-        normalized.verificationLevel,
-        userId
+         WHERE user_id = ?`,
+        [
+          normalized.cpf,
+          normalized.cnpj,
+          tokens.access_token,
+          tokens.refresh_token || null,
+          expiresAt,
+          normalized.profileData,
+          normalized.verificationLevel,
+          userId
+        ]
       );
     } else {
-      db.prepare(
+      await executeRun(
         `INSERT INTO govbr_integrations (
           user_id,
           cpf,
@@ -261,20 +260,21 @@ export async function syncGovBrUser(
           verification_level,
           last_sync_at,
           is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)`
-      ).run(
-        userId,
-        normalized.cpf,
-        normalized.cnpj,
-        tokens.access_token,
-        tokens.refresh_token || null,
-        expiresAt,
-        normalized.profileData,
-        normalized.verificationLevel
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 1)`,
+        [
+          userId,
+          normalized.cpf,
+          normalized.cnpj,
+          tokens.access_token,
+          tokens.refresh_token || null,
+          expiresAt,
+          normalized.profileData,
+          normalized.verificationLevel
+        ]
       );
     }
 
-    db.prepare(
+    await executeRun(
       `INSERT INTO audit_logs (
         tenant_id,
         user_id,
@@ -282,19 +282,20 @@ export async function syncGovBrUser(
         entity_id,
         action,
         new_values
-      ) VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(
-      tenantId,
-      userId,
-      'user',
-      userId,
-      isNewUser ? 'govbr_user_created' : 'govbr_user_updated',
-      JSON.stringify({
-        verification_level: normalized.verificationLevel,
-        has_cpf: !!normalized.cpf,
-        has_cnpj: !!normalized.cnpj,
-        email_verified: profile.email_verified,
-      })
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        tenantId,
+        userId,
+        'user',
+        userId,
+        isNewUser ? 'govbr_user_created' : 'govbr_user_updated',
+        JSON.stringify({
+          verification_level: normalized.verificationLevel,
+          has_cpf: !!normalized.cpf,
+          has_cnpj: !!normalized.cnpj,
+          email_verified: profile.email_verified,
+        })
+      ]
     );
 
     return {
@@ -321,17 +322,15 @@ export async function syncGovBrUser(
 export async function refreshGovBrTokens(
   userId: number
 ): Promise<{ success: boolean; tokens?: GovBrTokens; error?: string }> {
-  const db = getDb();
   const client = getGovBrClient();
 
   try {
-    const integration = db
-      .prepare(
-        `SELECT refresh_token, token_expires_at
-         FROM govbr_integrations
-         WHERE user_id = ? AND is_active = 1`
-      )
-      .get(userId) as { refresh_token: string; token_expires_at: string } | undefined;
+    const integration = await executeQueryOne<{ refresh_token: string; token_expires_at: string }>(
+      `SELECT refresh_token, token_expires_at
+       FROM govbr_integrations
+       WHERE user_id = ? AND is_active = 1`,
+      [userId]
+    );
 
     if (!integration || !integration.refresh_token) {
       return {
@@ -360,19 +359,20 @@ export async function refreshGovBrTokens(
 
     const newExpiresAt = new Date(Date.now() + result.tokens.expires_in * 1000).toISOString();
 
-    db.prepare(
+    await executeRun(
       `UPDATE govbr_integrations
        SET access_token = ?,
            refresh_token = ?,
            token_expires_at = ?,
            last_sync_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = ?`
-    ).run(
-      result.tokens.access_token,
-      result.tokens.refresh_token || integration.refresh_token,
-      newExpiresAt,
-      userId
+       WHERE user_id = ?`,
+      [
+        result.tokens.access_token,
+        result.tokens.refresh_token || integration.refresh_token,
+        newExpiresAt,
+        userId
+      ]
     );
 
     logger.info('Gov.br tokens refreshed successfully', { userId });

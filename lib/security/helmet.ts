@@ -43,7 +43,6 @@ const defaultConfig: HelmetConfig = {
       'script-src': [
         "'self'",
         "'unsafe-inline'", // Required for Next.js
-        "'unsafe-eval'", // Required for development
         'https://cdn.jsdelivr.net',
         'https://unpkg.com'
       ],

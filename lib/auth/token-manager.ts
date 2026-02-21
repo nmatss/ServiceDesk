@@ -17,7 +17,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateJWTSecret, isProduction } from '@/lib/config/env';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import logger from '@/lib/monitoring/structured-logger';
-import db from '@/lib/db/connection';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 
 // Token configuration
 const JWT_SECRET = new TextEncoder().encode(validateJWTSecret());
@@ -44,19 +45,23 @@ export interface TokenPayload {
   device_fingerprint?: string;
 }
 
+type TokenPayloadCompat = Partial<TokenPayload> & {
+  id?: number;
+  organization_id?: number;
+};
+
 /**
  * Refresh token record in database
  */
 interface RefreshTokenRecord {
   id: number;
   user_id: number;
-  tenant_id: number;
   token_hash: string;
-  device_fingerprint: string;
   expires_at: string;
   created_at: string;
   last_used_at?: string;
   revoked_at?: string;
+  is_active?: boolean;
 }
 
 /**
@@ -193,20 +198,40 @@ export async function generateRefreshToken(
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     try {
-      db.prepare(`
+      await executeRun(
+        `
         INSERT INTO refresh_tokens (
-          user_id, tenant_id, token_hash, device_fingerprint, expires_at
+          user_id, token_hash, expires_at, device_info, is_active
         ) VALUES (?, ?, ?, ?, ?)
-      `).run(
-        payload.user_id,
-        payload.tenant_id,
-        tokenHash,
-        deviceFingerprint,
-        expiresAt
+        `,
+        [
+          payload.user_id,
+          tokenHash,
+          expiresAt,
+          JSON.stringify({ device_fingerprint: deviceFingerprint }),
+          1,
+        ]
       );
-    } catch (dbError) {
-      logger.error('Failed to store refresh token in database', dbError);
-      // Continue anyway - token is still valid
+    } catch {
+      try {
+        await executeRun(
+          `
+          INSERT INTO refresh_tokens (
+            user_id, tenant_id, token_hash, device_fingerprint, expires_at
+          ) VALUES (?, ?, ?, ?, ?)
+          `,
+          [
+            payload.user_id,
+            payload.tenant_id,
+            tokenHash,
+            deviceFingerprint,
+            expiresAt,
+          ]
+        );
+      } catch (dbError) {
+        logger.error('Failed to store refresh token in database', dbError);
+        // Continue anyway - token is still valid
+      }
     }
 
     return token;
@@ -245,13 +270,21 @@ export async function verifyAccessToken(
       return null;
     }
 
+    const compatPayload = payload as TokenPayloadCompat;
+    const userId = Number(compatPayload.user_id ?? compatPayload.id);
+    const tenantId = Number(compatPayload.tenant_id ?? compatPayload.organization_id);
+
+    if (!Number.isFinite(userId) || !Number.isFinite(tenantId)) {
+      return null;
+    }
+
     return {
-      user_id: payload.user_id as number,
-      tenant_id: payload.tenant_id as number,
-      name: payload.name as string,
-      email: payload.email as string,
-      role: payload.role as string,
-      tenant_slug: payload.tenant_slug as string,
+      user_id: userId,
+      tenant_id: tenantId,
+      name: String(payload.name ?? ''),
+      email: String(payload.email ?? ''),
+      role: String(payload.role ?? ''),
+      tenant_slug: String(payload.tenant_slug ?? ''),
       device_fingerprint: payload.device_fingerprint as string
     };
   } catch (error) {
@@ -289,10 +322,10 @@ export async function verifyRefreshToken(
 
     // Check if token exists and is not revoked in database
     const tokenHash = hashToken(token);
-    const tokenRecord = db.prepare(`
+    const tokenRecord = await executeQueryOne<RefreshTokenRecord>(`
       SELECT * FROM refresh_tokens
       WHERE token_hash = ? AND revoked_at IS NULL
-    `).get(tokenHash) as RefreshTokenRecord | undefined;
+    `, [tokenHash]);
 
     if (!tokenRecord) {
       logger.warn('Refresh token not found or revoked', {
@@ -310,22 +343,51 @@ export async function verifyRefreshToken(
     }
 
     // Update last used timestamp
-    db.prepare(`
-      UPDATE refresh_tokens
-      SET last_used_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(tokenRecord.id);
+    try {
+      await executeRun(
+        `
+        UPDATE refresh_tokens
+        SET last_used_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `,
+        [tokenRecord.id]
+      );
+    } catch {
+      // Column may not exist depending on schema version.
+    }
 
     // Get user data for token payload
-    const user = db.prepare(`
-      SELECT id, name, email, role, tenant_id FROM users WHERE id = ?
-    `).get(payload.user_id) as {
+    let user = await executeQueryOne<{
       id: number;
       name: string;
       email: string;
       role: string;
       tenant_id: number;
-    } | undefined;
+    }>(
+      `
+      SELECT id, name, email, role, organization_id AS tenant_id
+      FROM users
+      WHERE id = ?
+      `,
+      [payload.user_id]
+    );
+
+    if (!user) {
+      user = await executeQueryOne<{
+        id: number;
+        name: string;
+        email: string;
+        role: string;
+        tenant_id: number;
+      }>(
+        `
+        SELECT id, name, email, role, tenant_id
+        FROM users
+        WHERE id = ?
+        `,
+        [payload.user_id]
+      );
+    }
 
     if (!user) {
       logger.warn('User not found for refresh token', {
@@ -335,9 +397,17 @@ export async function verifyRefreshToken(
     }
 
     // Get tenant slug
-    const tenant = db.prepare(`
-      SELECT slug FROM tenants WHERE id = ?
-    `).get(user.tenant_id) as { slug: string } | undefined;
+    let tenant = await executeQueryOne<{ slug: string }>(
+      `SELECT slug FROM organizations WHERE id = ?`,
+      [user.tenant_id]
+    );
+
+    if (!tenant) {
+      tenant = await executeQueryOne<{ slug: string }>(
+        `SELECT slug FROM tenants WHERE id = ?`,
+        [user.tenant_id]
+      );
+    }
 
     if (!tenant) {
       logger.warn('Tenant not found for refresh token', {
@@ -364,14 +434,14 @@ export async function verifyRefreshToken(
 /**
  * Revoke refresh token
  */
-export function revokeRefreshToken(token: string): boolean {
+export async function revokeRefreshToken(token: string): Promise<boolean> {
   try {
     const tokenHash = hashToken(token);
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE refresh_tokens
-      SET revoked_at = CURRENT_TIMESTAMP
+      SET revoked_at = CURRENT_TIMESTAMP, is_active = 0
       WHERE token_hash = ? AND revoked_at IS NULL
-    `).run(tokenHash);
+    `, [tokenHash]);
 
     return result.changes > 0;
   } catch (error) {
@@ -383,13 +453,28 @@ export function revokeRefreshToken(token: string): boolean {
 /**
  * Revoke all refresh tokens for a user
  */
-export function revokeAllUserTokens(userId: number, tenantId: number): boolean {
+export async function revokeAllUserTokens(userId: number, tenantId: number): Promise<boolean> {
   try {
-    const result = db.prepare(`
-      UPDATE refresh_tokens
-      SET revoked_at = CURRENT_TIMESTAMP
-      WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
-    `).run(userId, tenantId);
+    let result;
+    try {
+      result = await executeRun(
+        `
+        UPDATE refresh_tokens
+        SET revoked_at = CURRENT_TIMESTAMP, is_active = 0
+        WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
+        `,
+        [userId, tenantId]
+      );
+    } catch {
+      result = await executeRun(
+        `
+        UPDATE refresh_tokens
+        SET revoked_at = CURRENT_TIMESTAMP, is_active = 0
+        WHERE user_id = ? AND revoked_at IS NULL
+        `,
+        [userId]
+      );
+    }
 
     logger.info(`Revoked ${result.changes} tokens for user ${userId}`);
     return true;
@@ -402,13 +487,26 @@ export function revokeAllUserTokens(userId: number, tenantId: number): boolean {
 /**
  * Clean up expired tokens
  */
-export function cleanupExpiredTokens(): void {
+export async function cleanupExpiredTokens(): Promise<void> {
   try {
-    const result = db.prepare(`
-      DELETE FROM refresh_tokens
-      WHERE expires_at < datetime('now')
-      OR revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days')
-    `).run();
+    let result;
+    try {
+      result = await executeRun(
+        `
+        DELETE FROM refresh_tokens
+        WHERE expires_at < CURRENT_TIMESTAMP
+        OR (revoked_at IS NOT NULL AND revoked_at < CURRENT_TIMESTAMP - INTERVAL '30 days')
+        `
+      );
+    } catch {
+      result = await executeRun(
+        `
+        DELETE FROM refresh_tokens
+        WHERE expires_at < datetime('now')
+        OR (revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days'))
+        `
+      );
+    }
 
     logger.info(`Cleaned up ${result.changes} expired/old refresh tokens`);
   } catch (error) {
@@ -429,7 +527,7 @@ export function setAuthCookies(
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'strict',
+    sameSite: 'Lax' as any,
     maxAge: COOKIE_MAX_AGE_ACCESS,
     path: '/'
   });
@@ -438,7 +536,7 @@ export function setAuthCookies(
   response.cookies.set(REFRESH_TOKEN_COOKIE, refreshToken, {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'strict',
+    sameSite: 'Lax' as any,
     maxAge: COOKIE_MAX_AGE_REFRESH,
     path: '/'
   });
@@ -447,7 +545,7 @@ export function setAuthCookies(
   response.cookies.set(DEVICE_ID_COOKIE, deviceId, {
     httpOnly: false,
     secure: isProduction(),
-    sameSite: 'strict',
+    sameSite: 'Lax' as any,
     maxAge: 365 * 24 * 60 * 60, // 1 year
     path: '/'
   });
@@ -460,7 +558,7 @@ export function clearAuthCookies(response: NextResponse): void {
   response.cookies.set(ACCESS_TOKEN_COOKIE, '', {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'strict',
+    sameSite: 'Lax' as any,
     maxAge: 0,
     path: '/'
   });
@@ -468,7 +566,7 @@ export function clearAuthCookies(response: NextResponse): void {
   response.cookies.set(REFRESH_TOKEN_COOKIE, '', {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'strict',
+    sameSite: 'Lax' as any,
     maxAge: 0,
     path: '/'
   });
@@ -492,9 +590,15 @@ export function extractTokensFromRequest(request: NextRequest): {
 /**
  * Initialize refresh_tokens table if it doesn't exist
  */
-export function initializeTokensTable(): void {
+export async function initializeTokensTable(): Promise<void> {
   try {
-    db.prepare(`
+    // PostgreSQL schema should be managed by migrations/init scripts.
+    if (getDatabaseType() === 'postgresql') {
+      logger.info('Refresh tokens table initialization skipped for PostgreSQL');
+      return;
+    }
+
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS refresh_tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -508,23 +612,23 @@ export function initializeTokensTable(): void {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
       )
-    `).run();
+    `);
 
     // Create indexes for performance
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash
       ON refresh_tokens(token_hash)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user
       ON refresh_tokens(user_id, tenant_id)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires
       ON refresh_tokens(expires_at)
-    `).run();
+    `);
 
     logger.info('Refresh tokens table initialized successfully');
   } catch (error) {

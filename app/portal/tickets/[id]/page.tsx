@@ -217,7 +217,7 @@ export default function TicketDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
       </div>
     )
@@ -225,7 +225,7 @@ export default function TicketDetailPage() {
 
   if (!ticket) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in flex items-center justify-center">
         <div className="text-center">
           <ExclamationTriangleIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-neutral-900 mb-2">Ticket não encontrado</h2>
@@ -241,7 +241,7 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in">
       {/* Header */}
       <div className="glass-panel shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

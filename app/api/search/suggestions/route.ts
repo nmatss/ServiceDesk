@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { verifyToken } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger';
+import { executeQuery } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     // Buscar tickets se type for 'all' ou 'tickets'
     if (type === 'all' || type === 'tickets') {
-      const ticketSuggestions = db.prepare(`
+      const ticketSuggestions = await executeQuery<any>(`
         SELECT
           'ticket' as type,
           id,
@@ -72,12 +72,12 @@ export async function GET(request: NextRequest) {
           END,
           created_at DESC
         LIMIT ?
-      `).all(
+      `, [
         `%${query}%`, `%${query}%`, `%${query}%`,
         user.role, user.id, user.id,
         `${query}%`, `${query}%`,
         Math.floor(limit / 2)
-      )
+      ])
 
       suggestions.push(...ticketSuggestions.map((ticket: any) => ({
         type: 'ticket',
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 
     // Buscar usuários se type for 'all' ou 'users' e user for admin
     if ((type === 'all' || type === 'users') && user.role === 'admin') {
-      const userSuggestions = db.prepare(`
+      const userSuggestions = await executeQuery<any>(`
         SELECT
           'user' as type,
           id,
@@ -112,11 +112,11 @@ export async function GET(request: NextRequest) {
           END,
           name ASC
         LIMIT ?
-      `).all(
+      `, [
         `%${query}%`, `%${query}%`,
         `${query}%`, `${query}%`,
         Math.floor(limit / 4)
-      )
+      ])
 
       suggestions.push(...userSuggestions.map((user: any) => ({
         type: 'user',
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     // Buscar categorias se type for 'all' ou 'categories'
     if (type === 'all' || type === 'categories') {
-      const categorySuggestions = db.prepare(`
+      const categorySuggestions = await executeQuery<any>(`
         SELECT
           'category' as type,
           id,
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
           CASE WHEN name LIKE ? THEN 1 ELSE 2 END,
           name ASC
         LIMIT ?
-      `).all(`%${query}%`, `${query}%`, Math.floor(limit / 4))
+      `, [`%${query}%`, `${query}%`, Math.floor(limit / 4)])
 
       suggestions.push(...categorySuggestions.map((category: any) => ({
         type: 'category',
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
 
     // Buscar artigos da base de conhecimento se type for 'all' ou 'knowledge'
     if (type === 'all' || type === 'knowledge') {
-      const knowledgeSuggestions = db.prepare(`
+      const knowledgeSuggestions = await executeQuery<any>(`
         SELECT
           'knowledge' as type,
           id,
@@ -175,11 +175,11 @@ export async function GET(request: NextRequest) {
           CASE WHEN title LIKE ? THEN 1 ELSE 2 END,
           title ASC
         LIMIT ?
-      `).all(
+      `, [
         `%${query}%`, `%${query}%`, `%${query}%`,
         `${query}%`,
         Math.floor(limit / 4)
-      )
+      ])
 
       suggestions.push(...knowledgeSuggestions.map((article: any) => ({
         type: 'knowledge',
@@ -209,19 +209,20 @@ export async function GET(request: NextRequest) {
     // Buscar termos relacionados/histórico se não houver muitos resultados
     const relatedTerms: string[] = []
     if (suggestions.length < 5) {
-      const recentSearches = db.prepare(`
+      const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const recentSearches = await executeQuery<{ term?: string }>(`
         SELECT DISTINCT details->>'search_query' as term
         FROM audit_logs
         WHERE action = 'SEARCH_PERFORMED'
-        AND created_at > datetime('now', '-30 days')
+        AND created_at > ?
         AND details->>'search_query' LIKE ?
         ORDER BY created_at DESC
         LIMIT 3
-      `).all(`%${query}%`)
+      `, [cutoffDate, `%${query}%`])
 
       relatedTerms.push(...recentSearches
-        .map((row: any) => row.term)
-        .filter((term: any) => term && term !== query)
+        .map((row) => row.term)
+        .filter((term): term is string => Boolean(term) && term !== query)
       )
     }
 

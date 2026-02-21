@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify } from 'jose';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 import { User } from '../types/database';
 import { validateJWTSecret } from '@/lib/config/env';
 import { captureDatabaseError, captureAuthError } from '@/lib/monitoring/sentry-helpers';
@@ -48,66 +48,69 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 /**
  * Busca usuário por email
  */
-export function getUserByEmail(email: string): User | null {
+export async function getUserByEmail(email: string): Promise<User | undefined> {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User;
-    return user || null;
+    return await executeQueryOne<User>('SELECT * FROM users WHERE email = ?', [email]);
   } catch (error) {
     captureDatabaseError(error, 'SELECT * FROM users WHERE email = ?', [email]);
-    return null;
+    return undefined;
   }
 }
 
 /**
  * Busca organização por ID e retorna o slug
  */
-export function getOrganizationById(orgId: number): { id: number; slug: string; name: string } | null {
+export async function getOrganizationById(orgId: number): Promise<{ id: number; slug: string; name: string } | undefined> {
   try {
-    const org = db.prepare('SELECT id, slug, name FROM organizations WHERE id = ?').get(orgId) as { id: number; slug: string; name: string };
-    return org || null;
+    return await executeQueryOne<{ id: number; slug: string; name: string }>(
+      'SELECT id, slug, name FROM organizations WHERE id = ?',
+      [orgId]
+    );
   } catch (error) {
     captureDatabaseError(error, 'SELECT id, slug, name FROM organizations WHERE id = ?', [orgId]);
-    return null;
+    return undefined;
   }
 }
 
 /**
  * Busca usuário por ID
  */
-export function getUserById(id: number): User | null {
+export async function getUserById(id: number): Promise<User | undefined> {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User;
-    return user || null;
+    return await executeQueryOne<User>('SELECT * FROM users WHERE id = ?', [id]);
   } catch (error) {
     captureDatabaseError(error, 'SELECT * FROM users WHERE id = ?', [id]);
-    return null;
+    return undefined;
   }
 }
 
 /**
  * Cria um novo usuário
  */
-export async function createUser(userData: RegisterData): Promise<User | null> {
+export async function createUser(userData: RegisterData): Promise<User | undefined> {
   try {
     const hashedPassword = await hashPassword(userData.password);
 
-    const insertUser = db.prepare(`
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    const result = insertUser.run(
-      userData.name,
-      userData.email,
-      hashedPassword,
-      userData.role || 'user'
+    const result = await executeRun(
+      `INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)`,
+      [userData.name, userData.email, hashedPassword, userData.role || 'user']
     );
 
-    const newUser = getUserById(result.lastInsertRowid as number);
-    return newUser;
+    const newUserId = result.lastInsertRowid;
+    if (typeof newUserId !== 'number') {
+      // Fallback: query by email to find the newly created user
+      const inserted = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM users WHERE email = ? ORDER BY created_at DESC LIMIT 1',
+        [userData.email]
+      );
+      if (!inserted) return undefined;
+      return await getUserById(inserted.id);
+    }
+
+    return await getUserById(newUserId);
   } catch (error) {
     captureDatabaseError(error, 'INSERT INTO users', [userData.name, userData.email, '***', userData.role]);
-    return null;
+    return undefined;
   }
 }
 
@@ -117,7 +120,7 @@ export async function createUser(userData: RegisterData): Promise<User | null> {
  */
 export async function authenticateUser(credentials: LoginCredentials): Promise<AuthUser | null> {
   try {
-    const user = getUserByEmail(credentials.email);
+    const user = await getUserByEmail(credentials.email);
 
     // SECURITY FIX: Always run bcrypt.compare to prevent timing attacks
     // Use a dummy hash when user doesn't exist to ensure constant-time execution
@@ -132,7 +135,7 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
     }
 
     // Buscar informações da organização
-    const organization = getOrganizationById(user.organization_id || 1);
+    const organization = await getOrganizationById(user.organization_id || 1);
     if (!organization) {
       captureAuthError(new Error('Organization not found for user'), { username: user.email });
       return null;
@@ -161,13 +164,12 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
 export async function updateUserPassword(userId: number, newPassword: string): Promise<boolean> {
   try {
     const hashedPassword = await hashPassword(newPassword);
-    
-    const updatePassword = db.prepare(`
-      UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP 
-      WHERE id = ?
-    `);
-    
-    const result = updatePassword.run(hashedPassword, userId);
+
+    const result = await executeRun(
+      `UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [hashedPassword, userId]
+    );
+
     return result.changes > 0;
   } catch (error) {
     captureDatabaseError(error, 'UPDATE users SET password_hash = ?', [userId]);
@@ -178,9 +180,9 @@ export async function updateUserPassword(userId: number, newPassword: string): P
 /**
  * Verifica se email já existe
  */
-export function emailExists(email: string): boolean {
+export async function emailExists(email: string): Promise<boolean> {
   try {
-    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const user = await executeQueryOne<{ id: number }>('SELECT id FROM users WHERE email = ?', [email]);
     return !!user;
   } catch (error) {
     captureDatabaseError(error, 'SELECT id FROM users WHERE email = ?', [email]);
@@ -191,10 +193,9 @@ export function emailExists(email: string): boolean {
 /**
  * Lista todos os usuários (para admin)
  */
-export function getAllUsers(): User[] {
+export async function getAllUsers(): Promise<User[]> {
   try {
-    const users = db.prepare('SELECT * FROM users ORDER BY created_at DESC').all() as User[];
-    return users;
+    return await executeQuery<User>('SELECT * FROM users ORDER BY created_at DESC');
   } catch (error) {
     captureDatabaseError(error, 'SELECT * FROM users ORDER BY created_at DESC');
     return [];
@@ -204,7 +205,7 @@ export function getAllUsers(): User[] {
 /**
  * Atualiza dados do usuário
  */
-export function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 'email' | 'role'>>): boolean {
+export async function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 'email' | 'role'>>): Promise<boolean> {
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -231,11 +232,11 @@ export function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(userId);
 
-    const updateUser = db.prepare(`
-      UPDATE users SET ${fields.join(', ')} WHERE id = ?
-    `);
+    const result = await executeRun(
+      `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
 
-    const result = updateUser.run(...values);
     return result.changes > 0;
   } catch (error) {
     captureDatabaseError(error, `UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
@@ -246,10 +247,9 @@ export function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 
 /**
  * Deleta usuário
  */
-export function deleteUser(userId: number): boolean {
+export async function deleteUser(userId: number): Promise<boolean> {
   try {
-    const deleteUser = db.prepare('DELETE FROM users WHERE id = ?');
-    const result = deleteUser.run(userId);
+    const result = await executeRun('DELETE FROM users WHERE id = ?', [userId]);
     return result.changes > 0;
   } catch (error) {
     captureDatabaseError(error, 'DELETE FROM users WHERE id = ?', [userId]);
@@ -305,7 +305,7 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
     }
 
     // Buscar usuário no banco para garantir que ainda existe
-    const user = getUserById(payload.id as number);
+    const user = await getUserById(payload.id as number);
     if (!user) {
       return null;
     }
@@ -320,7 +320,7 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
     }
 
     // Buscar informações da organização
-    const organization = getOrganizationById(user.organization_id || 1);
+    const organization = await getOrganizationById(user.organization_id || 1);
     if (!organization) {
       captureAuthError(new Error('Organization not found for user'), {
         username: user.email,
@@ -405,4 +405,3 @@ export async function verifyTokenFromCookies(request: any): Promise<AuthUser | n
     return null;
   }
 }
-

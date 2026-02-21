@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { WhatsAppTemplateManager } from '@/lib/integrations/whatsapp/templates';
 import { getWhatsAppClient } from '@/lib/integrations/whatsapp/business-api';
 import { createAuditLog } from '@/lib/audit/logger';
@@ -45,10 +45,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !['admin', 'manager'].includes(authResult.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] });
+    if (guard.response) return guard.response;
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') || undefined;
@@ -85,10 +83,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !['admin', 'manager'].includes(authResult.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guardPost = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] });
+    if (guardPost.response) return guardPost.response;
+    const { userId } = guardPost.auth!;
 
     const body = await request.json();
     const validatedData = templateSchema.parse(body);
@@ -106,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // Log action
     await createAuditLog({
-      user_id: authResult.user?.id,
+      user_id: userId,
       action: 'whatsapp_template_registered',
       resource_type: 'whatsapp_template',
       new_values: JSON.stringify({
@@ -146,10 +143,9 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || authResult.user?.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guardDel = requireTenantUserContext(request, { requireRoles: ['admin'] });
+    if (guardDel.response) return guardDel.response;
+    const userIdDel = guardDel.auth!.userId;
 
     const searchParams = request.nextUrl.searchParams;
     const name = searchParams.get('name');
@@ -171,7 +167,7 @@ export async function DELETE(request: NextRequest) {
 
     // Log action
     await createAuditLog({
-      user_id: authResult.user?.id,
+      user_id: userIdDel,
       action: 'whatsapp_template_deleted',
       resource_type: 'whatsapp_template',
       old_values: JSON.stringify({ name, language }),

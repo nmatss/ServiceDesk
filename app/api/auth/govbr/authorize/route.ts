@@ -18,6 +18,20 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const returnUrl = searchParams.get('returnUrl') || '/dashboard';
 
+    if (!process.env.GOVBR_CLIENT_ID || !process.env.GOVBR_CLIENT_SECRET) {
+      if (process.env.NODE_ENV !== 'production') {
+        const fallbackUrl = new URL('/auth/login', request.url);
+        fallbackUrl.searchParams.set('govbr', 'unavailable');
+        fallbackUrl.searchParams.set('reason', 'not_configured');
+        return NextResponse.redirect(fallbackUrl);
+      }
+
+      return NextResponse.json(
+        { error: 'Gov.br authentication is not configured' },
+        { status: 503 }
+      );
+    }
+
     // Cria cliente Gov.br
     const govbrClient = await GovBrAuthClient.createFromSystemSettings();
 
@@ -73,9 +87,16 @@ export async function GET(request: NextRequest) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown'
     });
 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const status = errorMessage.toLowerCase().includes('configuration incomplete') ? 503 : 500;
+
     return NextResponse.json(
-      { error: 'Failed to initiate Gov.br authentication' },
-      { status: 500 }
+      {
+        error: status === 503
+          ? 'Gov.br authentication is not configured'
+          : 'Failed to initiate Gov.br authentication'
+      },
+      { status }
     );
   }
 }

@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -19,56 +19,53 @@ const createChangeSchema = z.object({
   change_type_id: z.number().int().positive(),
   category: z.enum(['standard', 'normal', 'emergency']).default('normal'),
   priority: z.enum(['critical', 'high', 'medium', 'low']).default('medium'),
-  risk_level: z.enum(['very_high', 'high', 'medium', 'low', 'very_low']).default('medium'),
-  impact: z.enum(['extensive', 'significant', 'moderate', 'minor', 'none']).default('moderate'),
-  urgency: z.enum(['critical', 'high', 'medium', 'low']).default('medium'),
-  justification: z.string().optional(),
-  business_case: z.string().optional(),
+  risk_level: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
+  risk_assessment: z.string().optional(),
+  impact_assessment: z.string().optional(),
+  reason_for_change: z.string().optional(),
+  business_justification: z.string().optional(),
   implementation_plan: z.string().optional(),
-  rollback_plan: z.string().optional(),
+  backout_plan: z.string().optional(),
   test_plan: z.string().optional(),
-  affected_services: z.string().optional(),
-  affected_cis: z.array(z.number().int().positive()).optional(),
-  scheduled_start_date: z.string().optional(),
-  scheduled_end_date: z.string().optional(),
-  downtime_required: z.boolean().default(false),
-  downtime_duration: z.number().int().optional(),
-  assignee_id: z.number().int().positive().optional(),
-  assigned_team_id: z.number().int().positive().optional()
+  communication_plan: z.string().optional(),
+  affected_cis: z.string().optional(),
+  requested_start_date: z.string().optional(),
+  requested_end_date: z.string().optional(),
+  owner_id: z.number().int().positive().optional(),
+  implementer_id: z.number().int().positive().optional()
 })
 
 const querySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  status: z.enum(['draft', 'submitted', 'pending_assessment', 'pending_cab', 'approved', 'rejected', 'scheduled', 'in_progress', 'completed', 'failed', 'cancelled']).optional(),
+  status: z.enum(['draft', 'submitted', 'under_review', 'scheduled', 'in_progress', 'completed', 'failed', 'cancelled', 'rolled_back']).optional(),
   category: z.enum(['standard', 'normal', 'emergency']).optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
   requester_id: z.coerce.number().int().positive().optional(),
-  assignee_id: z.coerce.number().int().positive().optional(),
+  owner_id: z.coerce.number().int().positive().optional(),
   my_changes: z.coerce.boolean().optional()
 })
 
 /**
  * Generate unique change number
  */
-function generateChangeNumber(db: ReturnType<typeof getDatabase>): string {
-  const result = db.prepare(
+async function generateChangeNumber(): Promise<string> {
+  const result = await executeQueryOne<{ max_num: number | null }>(
     `SELECT MAX(CAST(SUBSTR(change_number, 4) AS INTEGER)) as max_num
-     FROM change_requests WHERE change_number LIKE 'CR-%'`
-  ).get() as { max_num: number | null }
+     FROM change_requests WHERE change_number LIKE 'CR-%'`,
+    []
+  )
 
   const nextNum = (result?.max_num || 0) + 1
   return `CR-${String(nextNum).padStart(5, '0')}`
 }
 
 /**
- * Calculate risk score based on impact and probability
+ * Calculate risk score based on risk_level
  */
-function calculateRiskScore(impact: string, probability: string): number {
-  const impactScores: Record<string, number> = { extensive: 5, significant: 4, moderate: 3, minor: 2, none: 1 }
-  const probabilityScores: Record<string, number> = { very_high: 5, high: 4, medium: 3, low: 2, very_low: 1 }
-
-  return (impactScores[impact] || 3) * (probabilityScores[probability] || 3)
+function calculateRiskScore(riskLevel: string): number {
+  const riskScores: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 }
+  return riskScores[riskLevel] || 2
 }
 
 /**
@@ -80,25 +77,23 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
 
-    const db = getDatabase()
     const offset = (params.page - 1) * params.limit
 
     // Build query
     let whereClause = 'WHERE cr.organization_id = ?'
-    const queryParams: (string | number)[] = [auth.user.organization_id]
+    const queryParams: (string | number)[] = [organizationId]
 
     // Regular users can only see their own changes
-    if (auth.user.role === 'user' || params.my_changes) {
+    if (role === 'user' || params.my_changes) {
       whereClause += ' AND cr.requester_id = ?'
-      queryParams.push(auth.user.id)
+      queryParams.push(userId)
     }
 
     if (params.status) {
@@ -116,65 +111,66 @@ export async function GET(request: NextRequest) {
       queryParams.push(params.priority)
     }
 
-    if (params.requester_id && auth.user.role !== 'user') {
+    if (params.requester_id && role !== 'user') {
       whereClause += ' AND cr.requester_id = ?'
       queryParams.push(params.requester_id)
     }
 
-    if (params.assignee_id) {
-      whereClause += ' AND cr.assignee_id = ?'
-      queryParams.push(params.assignee_id)
+    if (params.owner_id) {
+      whereClause += ' AND cr.owner_id = ?'
+      queryParams.push(params.owner_id)
     }
 
     // Get total count
-    const countResult = db.prepare(
-      `SELECT COUNT(*) as total FROM change_requests cr ${whereClause}`
-    ).get(...queryParams) as { total: number }
+    const countResult = await executeQueryOne<{ total: number }>(
+      `SELECT COUNT(*) as total FROM change_requests cr ${whereClause}`,
+      queryParams
+    )
 
     // Get change requests with related data
-    const changes = db.prepare(`
+    const changes = await executeQuery<Record<string, unknown>>(`
       SELECT
         cr.*,
         ct.name as change_type_name,
         ct.color as change_type_color,
         u_req.name as requester_name,
         u_req.email as requester_email,
-        u_ass.name as assignee_name,
-        t.name as team_name
+        u_owner.name as owner_name,
+        u_impl.name as implementer_name
       FROM change_requests cr
       LEFT JOIN change_types ct ON cr.change_type_id = ct.id
       LEFT JOIN users u_req ON cr.requester_id = u_req.id
-      LEFT JOIN users u_ass ON cr.assignee_id = u_ass.id
-      LEFT JOIN teams t ON cr.assigned_team_id = t.id
+      LEFT JOIN users u_owner ON cr.owner_id = u_owner.id
+      LEFT JOIN users u_impl ON cr.implementer_id = u_impl.id
       ${whereClause}
       ORDER BY
         CASE cr.category WHEN 'emergency' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
         CASE cr.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
         cr.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...queryParams, params.limit, offset)
+    `, [...queryParams, params.limit, offset])
 
     // Get statistics
-    const stats = db.prepare(`
+    const stats = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'pending_cab' THEN 1 ELSE 0 END) as pending_cab,
+        SUM(CASE WHEN status = 'under_review' THEN 1 ELSE 0 END) as under_review,
         SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
         SUM(CASE WHEN category = 'emergency' THEN 1 ELSE 0 END) as emergency
       FROM change_requests
       WHERE organization_id = ?
-    `).get(auth.user.organization_id)
+    `, [organizationId])
 
     return NextResponse.json({
       success: true,
       change_requests: changes,
       statistics: stats,
       pagination: {
-        total: countResult.total,
+        total: countResult?.total || 0,
         page: params.page,
         limit: params.limit,
-        total_pages: Math.ceil(countResult.total / params.limit)
+        total_pages: Math.ceil((countResult?.total || 0) / params.limit)
       }
     })
   } catch (error) {
@@ -195,42 +191,41 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId } = guard.auth!
 
     const body = await request.json()
     const data = createChangeSchema.parse(body)
 
-    const db = getDatabase()
-    const changeNumber = generateChangeNumber(db)
+    const changeNumber = await generateChangeNumber()
 
     // Calculate risk score
-    const riskScore = calculateRiskScore(data.impact, data.risk_level)
+    const riskScore = calculateRiskScore(data.risk_level)
 
     // Determine initial status based on category
     let initialStatus = 'draft'
     if (data.category === 'standard') {
       // Standard changes can be pre-approved
-      initialStatus = 'approved'
+      initialStatus = 'scheduled'
     } else if (data.category === 'emergency') {
-      // Emergency changes go directly to assessment
-      initialStatus = 'pending_assessment'
+      // Emergency changes go directly to review
+      initialStatus = 'under_review'
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO change_requests (
         change_number, title, description, change_type_id, category, priority,
-        risk_level, impact, urgency, risk_score, justification, business_case,
-        implementation_plan, rollback_plan, test_plan, affected_services,
-        scheduled_start_date, scheduled_end_date, downtime_required, downtime_duration,
-        requester_id, requester_name, requester_email, assignee_id, assigned_team_id,
-        status, organization_id
+        risk_level, risk_assessment, impact_assessment,
+        reason_for_change, business_justification,
+        implementation_plan, backout_plan, test_plan, communication_plan,
+        requested_start_date, requested_end_date,
+        requester_id, owner_id, implementer_id,
+        status, affected_cis, organization_id
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
-    `).run(
+    `, [
       changeNumber,
       data.title,
       data.description,
@@ -238,62 +233,63 @@ export async function POST(request: NextRequest) {
       data.category,
       data.priority,
       data.risk_level,
-      data.impact,
-      data.urgency,
-      riskScore,
-      data.justification || null,
-      data.business_case || null,
+      data.risk_assessment || null,
+      data.impact_assessment || null,
+      data.reason_for_change || null,
+      data.business_justification || null,
       data.implementation_plan || null,
-      data.rollback_plan || null,
+      data.backout_plan || null,
       data.test_plan || null,
-      data.affected_services || null,
-      data.scheduled_start_date || null,
-      data.scheduled_end_date || null,
-      data.downtime_required ? 1 : 0,
-      data.downtime_duration || null,
-      auth.user.id,
-      auth.user.name,
-      auth.user.email,
-      data.assignee_id || null,
-      data.assigned_team_id || null,
+      data.communication_plan || null,
+      data.requested_start_date || null,
+      data.requested_end_date || null,
+      userId,
+      data.owner_id || null,
+      data.implementer_id || null,
       initialStatus,
-      auth.user.organization_id
-    )
+      data.affected_cis || null,
+      organizationId
+    ])
 
-    // Link affected CIs if provided
-    if (data.affected_cis && data.affected_cis.length > 0) {
-      const linkCI = db.prepare(`
-        INSERT INTO ci_ticket_links (ci_id, ticket_id, link_type, linked_by)
-        VALUES (?, ?, 'change', ?)
-      `)
-
-      for (const ciId of data.affected_cis) {
-        try {
-          linkCI.run(ciId, result.lastInsertRowid, auth.user.id)
-        } catch {
-          // Ignore if CI doesn't exist
+    // Link affected CIs if provided (affected_cis is a JSON string of CI IDs)
+    if (data.affected_cis) {
+      try {
+        const ciIds: number[] = JSON.parse(data.affected_cis)
+        if (Array.isArray(ciIds)) {
+          for (const ciId of ciIds) {
+            try {
+              await executeRun(`
+                INSERT INTO ci_ticket_links (ci_id, ticket_id, link_type, linked_by)
+                VALUES (?, ?, 'change', ?)
+              `, [ciId, result.lastInsertRowid, userId])
+            } catch {
+              // Ignore if CI doesn't exist
+            }
+          }
         }
+      } catch {
+        // Ignore if affected_cis is not valid JSON
       }
     }
 
-    // For normal changes, create CAB approval request
-    if (data.category === 'normal' && riskScore >= 9) {
-      db.prepare(`
+    // For normal changes with high/critical risk, create CAB approval request
+    if (data.category === 'normal' && riskScore >= 3) {
+      await executeRun(`
         INSERT INTO change_request_approvals (
           change_request_id, approval_level, approver_type, status
         ) VALUES (?, 1, 'cab', 'pending')
-      `).run(result.lastInsertRowid)
+      `, [result.lastInsertRowid])
     }
 
     // Get created change request
-    const changeRequest = db.prepare(`
+    const changeRequest = await executeQueryOne<Record<string, unknown>>(`
       SELECT cr.*, ct.name as change_type_name
       FROM change_requests cr
       LEFT JOIN change_types ct ON cr.change_type_id = ct.id
       WHERE cr.id = ?
-    `).get(result.lastInsertRowid)
+    `, [result.lastInsertRowid])
 
-    logger.info(`Change request created: ${changeNumber} by user ${auth.user.id}`)
+    logger.info(`Change request created: ${changeNumber} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

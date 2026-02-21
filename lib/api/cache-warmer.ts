@@ -3,7 +3,7 @@
  * Preloads critical caches on server start for optimal performance
  */
 
-import { getDatabase } from '@/lib/db/connection'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger'
 
 /**
@@ -14,13 +14,12 @@ export async function warmCriticalCaches(): Promise<void> {
   logger.info('Starting cache warming...')
 
   try {
-    const db = getDatabase()
     const results: { cache: string; status: string; time?: number }[] = []
 
     // Warm statuses cache
     try {
       const statusStart = Date.now()
-      const statuses = db.prepare('SELECT * FROM statuses WHERE is_active_new = 1').all()
+      const statuses = await executeQuery('SELECT * FROM statuses WHERE is_active_new = 1')
       results.push({
         cache: 'statuses',
         status: 'success',
@@ -35,7 +34,7 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm priorities cache
     try {
       const priorityStart = Date.now()
-      const priorities = db.prepare('SELECT * FROM priorities WHERE is_active = 1').all()
+      const priorities = await executeQuery('SELECT * FROM priorities WHERE is_active = 1')
       results.push({
         cache: 'priorities',
         status: 'success',
@@ -50,7 +49,7 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm categories cache
     try {
       const categoryStart = Date.now()
-      const categories = db.prepare('SELECT * FROM categories WHERE is_active = 1').all()
+      const categories = await executeQuery('SELECT * FROM categories WHERE is_active = 1')
       results.push({
         cache: 'categories',
         status: 'success',
@@ -65,15 +64,13 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm knowledge base articles (published only)
     try {
       const kbStart = Date.now()
-      const articles = db
-        .prepare(
-          `SELECT id, title, slug, summary, status, view_count
-           FROM kb_articles
-           WHERE status = 'published'
-           ORDER BY view_count DESC
-           LIMIT 100`
-        )
-        .all()
+      const articles = await executeQuery(
+        `SELECT id, title, slug, summary, status, view_count
+         FROM kb_articles
+         WHERE status = 'published'
+         ORDER BY view_count DESC
+         LIMIT 100`
+      )
       results.push({
         cache: 'knowledge_articles',
         status: 'success',
@@ -88,13 +85,11 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm service catalog
     try {
       const catalogStart = Date.now()
-      const catalogItems = db
-        .prepare(
-          `SELECT * FROM service_catalog_items
-           WHERE is_active = 1
-           ORDER BY is_featured DESC, display_order ASC`
-        )
-        .all()
+      const catalogItems = await executeQuery(
+        `SELECT * FROM service_catalog_items
+         WHERE is_active = 1
+         ORDER BY is_featured DESC, display_order ASC`
+      )
       results.push({
         cache: 'service_catalog',
         status: 'success',
@@ -109,7 +104,7 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm active teams
     try {
       const teamsStart = Date.now()
-      const teams = db.prepare('SELECT * FROM teams WHERE is_active = 1').all()
+      const teams = await executeQuery('SELECT * FROM teams WHERE is_active = 1')
       results.push({
         cache: 'teams',
         status: 'success',
@@ -143,19 +138,16 @@ export async function warmOrganizationCache(organizationId: number): Promise<voi
   logger.info(`Warming cache for organization ${organizationId}`)
 
   try {
-    const db = getDatabase()
-
     // Warm organization-specific data
-    const tickets = db
-      .prepare(
-        `SELECT COUNT(*) as count FROM tickets
-         WHERE organization_id = ?
-         AND created_at >= datetime('now', '-7 days')`
-      )
-      .get(organizationId)
+    const tickets = await executeQueryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM tickets
+       WHERE organization_id = ?
+       AND created_at >= datetime('now', '-7 days')`,
+      [organizationId]
+    )
 
     logger.info(
-      `Warmed organization ${organizationId} cache: ${(tickets as { count: number }).count} recent tickets`
+      `Warmed organization ${organizationId} cache: ${tickets?.count ?? 0} recent tickets`
     )
   } catch (error) {
     logger.error(`Failed to warm organization ${organizationId} cache`, error)

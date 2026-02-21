@@ -4,9 +4,8 @@
  * Manages dashboard templates - loading, saving, and applying them
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
-import type Database from 'better-sqlite3';
 
 export interface DashboardTemplate {
   id?: number;
@@ -58,7 +57,7 @@ export async function loadDashboardTemplates(
 
     query += ` ORDER BY is_system DESC, display_name ASC`;
 
-    const templates = db.prepare(query).all(...params) as Array<{
+    const templates = await executeQuery<{
       id: number;
       name: string;
       display_name: string;
@@ -70,7 +69,7 @@ export async function loadDashboardTemplates(
       is_active: number;
       created_at: string;
       updated_at: string;
-    }>;
+    }>(query, params);
 
     return templates.map((template) => ({
       ...template,
@@ -89,7 +88,17 @@ export async function loadDashboardTemplates(
  */
 export async function loadDashboardTemplate(name: string): Promise<DashboardTemplate | null> {
   try {
-    const template = db.prepare(`
+    const template = await executeQueryOne<{
+      id: number;
+      name: string;
+      display_name: string;
+      description: string;
+      config: string;
+      category: string;
+      preview_image: string | null;
+      is_system: number;
+      is_active: number;
+    }>(`
       SELECT
         id,
         name,
@@ -102,17 +111,7 @@ export async function loadDashboardTemplate(name: string): Promise<DashboardTemp
         is_active
       FROM dashboard_templates
       WHERE name = ? AND is_active = 1
-    `).get(name) as {
-      id: number;
-      name: string;
-      display_name: string;
-      description: string;
-      config: string;
-      category: string;
-      preview_image: string | null;
-      is_system: number;
-      is_active: number;
-    } | undefined;
+    `, [name]);
 
     if (!template) {
       return null;
@@ -137,7 +136,7 @@ export async function saveDashboardTemplate(
   template: Omit<DashboardTemplate, 'id'>
 ): Promise<DashboardTemplate | null> {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO dashboard_templates (
         name,
         display_name,
@@ -150,7 +149,7 @@ export async function saveDashboardTemplate(
         created_at,
         updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(
+    `, [
       template.name,
       template.display_name,
       template.description,
@@ -159,11 +158,9 @@ export async function saveDashboardTemplate(
       template.preview_image || null,
       template.is_system ? 1 : 0,
       template.is_active !== false ? 1 : 0
-    ) as Database.RunResult;
+    ]);
 
-    const savedTemplate = db.prepare(`
-      SELECT * FROM dashboard_templates WHERE id = ?
-    `).get(result.lastInsertRowid) as {
+    const savedTemplate = await executeQueryOne<{
       id: number;
       name: string;
       display_name: string;
@@ -173,7 +170,9 @@ export async function saveDashboardTemplate(
       preview_image: string | null;
       is_system: number;
       is_active: number;
-    } | undefined;
+    }>(`
+      SELECT * FROM dashboard_templates WHERE id = ?
+    `, [result.lastInsertRowid]);
 
     if (!savedTemplate) {
       return null;
@@ -199,9 +198,9 @@ export async function updateDashboardTemplate(
   updates: Partial<Omit<DashboardTemplate, 'id'>>
 ): Promise<DashboardTemplate | null> {
   try {
-    const existingTemplate = db.prepare(`
+    const existingTemplate = await executeQueryOne<{ is_system: number }>(`
       SELECT is_system FROM dashboard_templates WHERE id = ?
-    `).get(id) as { is_system: number } | undefined;
+    `, [id]);
 
     if (!existingTemplate) {
       throw new Error('Template not found');
@@ -251,21 +250,21 @@ export async function updateDashboardTemplate(
     updateFields.push('updated_at = datetime("now")');
     params.push(id);
 
-    db.prepare(`
+    await executeRun(`
       UPDATE dashboard_templates
       SET ${updateFields.join(', ')}
       WHERE id = ?
-    `).run(...params);
+    `, params);
 
-    const updatedTemplate = db.prepare(`
+    const updatedTemplate = await executeQueryOne<any>(`
       SELECT * FROM dashboard_templates WHERE id = ?
-    `).get(id);
+    `, [id]);
 
     return {
-      ...(updatedTemplate as any),
-      config: JSON.parse((updatedTemplate as any).config),
-      is_system: Boolean((updatedTemplate as any).is_system),
-      is_active: Boolean((updatedTemplate as any).is_active)
+      ...updatedTemplate,
+      config: JSON.parse(updatedTemplate.config),
+      is_system: Boolean(updatedTemplate.is_system),
+      is_active: Boolean(updatedTemplate.is_active)
     };
   } catch (error) {
     logger.error('Error updating dashboard template', error);
@@ -278,9 +277,9 @@ export async function updateDashboardTemplate(
  */
 export async function deleteDashboardTemplate(id: number): Promise<boolean> {
   try {
-    const existingTemplate = db.prepare(`
+    const existingTemplate = await executeQueryOne<{ is_system: number }>(`
       SELECT is_system FROM dashboard_templates WHERE id = ?
-    `).get(id) as { is_system: number } | undefined;
+    `, [id]);
 
     if (!existingTemplate) {
       throw new Error('Template not found');
@@ -290,7 +289,7 @@ export async function deleteDashboardTemplate(id: number): Promise<boolean> {
       throw new Error('Cannot delete system templates');
     }
 
-    db.prepare(`DELETE FROM dashboard_templates WHERE id = ?`).run(id);
+    await executeRun(`DELETE FROM dashboard_templates WHERE id = ?`, [id]);
 
     return true;
   } catch (error) {
@@ -319,7 +318,7 @@ export async function applyTemplate(
     }
 
     // Create dashboard from template
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO dashboards (
         name,
         description,
@@ -330,24 +329,24 @@ export async function applyTemplate(
         created_at,
         updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(
+    `, [
       customizations?.name || template.display_name,
       customizations?.description || template.description,
       JSON.stringify(template.config),
       userId,
       customizations?.is_default ? 1 : 0,
       0 // Not shared by default
-    );
+    ]);
 
-    const dashboard = db.prepare(`
+    const dashboard = await executeQueryOne<any>(`
       SELECT * FROM dashboards WHERE id = ?
-    `).get(result.lastInsertRowid);
+    `, [result.lastInsertRowid]);
 
     return {
-      ...(dashboard as any),
-      config: JSON.parse((dashboard as any).config),
-      is_default: Boolean((dashboard as any).is_default),
-      is_shared: Boolean((dashboard as any).is_shared)
+      ...dashboard,
+      config: JSON.parse(dashboard.config),
+      is_default: Boolean(dashboard.is_default),
+      is_shared: Boolean(dashboard.is_shared)
     };
   } catch (error) {
     logger.error('Error applying dashboard template', error);

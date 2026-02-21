@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(
@@ -13,6 +13,15 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
+
     const { was_helpful, comment } = await request.json()
 
     if (typeof was_helpful !== 'boolean') {
@@ -22,7 +31,10 @@ export async function POST(
       )
     }
     // Buscar artigo
-    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ? AND status = ?').get(params.slug, 'published') as { id: number } | undefined
+    const article = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM kb_articles WHERE slug = ? AND status = ? AND (tenant_id = ? OR tenant_id IS NULL)',
+      [params.slug, 'published', tenantId]
+    )
     if (!article) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -30,21 +42,10 @@ export async function POST(
       )
     }
 
-    // Verificar se usuário está autenticado
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
-
-    let userId = null
+    // Usuário autenticado é opcional para feedback.
+    const userContext = getUserContextFromRequest(request)
+    let userId = userContext?.id || null
     let sessionId = null
-
-    if (token) {
-      try {
-        const user = await verifyToken(token)
-        userId = user?.id
-      } catch (e) {
-        // Continuar como usuário anônimo
-      }
-    }
 
     // Se não autenticado, usar session ID baseado no IP + User Agent
     if (!userId) {
@@ -56,38 +57,44 @@ export async function POST(
     // Verificar se já existe feedback deste usuário/sessão para este artigo
     let existingFeedback: { id: number } | undefined
     if (userId) {
-      existingFeedback = db.prepare('SELECT id FROM kb_article_feedback WHERE article_id = ? AND user_id = ?').get(article.id, userId) as { id: number } | undefined
+      existingFeedback = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM kb_article_feedback WHERE article_id = ? AND user_id = ?',
+        [article.id, userId]
+      )
     } else {
-      existingFeedback = db.prepare('SELECT id FROM kb_article_feedback WHERE article_id = ? AND session_id = ?').get(article.id, sessionId) as { id: number } | undefined
+      existingFeedback = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM kb_article_feedback WHERE article_id = ? AND session_id = ?',
+        [article.id, sessionId]
+      )
     }
 
     if (existingFeedback) {
       // Atualizar feedback existente
-      db.prepare(`
+      await executeRun(`
         UPDATE kb_article_feedback
         SET was_helpful = ?, comment = ?, created_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(was_helpful, comment || null, existingFeedback.id)
+      `, [was_helpful ? 1 : 0, comment || null, existingFeedback.id])
     } else {
       // Criar novo feedback
-      db.prepare(`
+      await executeRun(`
         INSERT INTO kb_article_feedback (
           article_id, user_id, session_id, was_helpful, comment,
           user_agent, ip_address
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         article.id,
         userId,
         sessionId,
-        was_helpful,
+        was_helpful ? 1 : 0,
         comment || null,
         request.headers.get('user-agent') || 'unknown',
         request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-      )
+      ])
     }
 
     // Buscar estatísticas atualizadas
-    const stats = db.prepare(`
+    const stats = await executeQueryOne(`
       SELECT
         helpful_votes,
         not_helpful_votes,
@@ -99,7 +106,7 @@ export async function POST(
         END as helpful_percentage
       FROM kb_articles
       WHERE id = ?
-    `).get(article.id)
+    `, [article.id])
 
     return NextResponse.json({
       success: true,
@@ -125,8 +132,20 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
+
     // Buscar artigo
-    const article = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(params.slug) as { id: number } | undefined
+    const article = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM kb_articles WHERE slug = ? AND (tenant_id = ? OR tenant_id IS NULL)',
+      [params.slug, tenantId]
+    )
     if (!article) {
       return NextResponse.json(
         { error: 'Artigo não encontrado' },
@@ -135,7 +154,7 @@ export async function GET(
     }
 
     // Buscar estatísticas de feedback
-    const stats = db.prepare(`
+    const stats = await executeQueryOne(`
       SELECT
         helpful_votes,
         not_helpful_votes,
@@ -147,34 +166,25 @@ export async function GET(
         END as helpful_percentage
       FROM kb_articles
       WHERE id = ?
-    `).get(article.id)
+    `, [article.id])
 
-    // Buscar comentários de feedback (apenas para admins/agentes)
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
-
+    // Buscar comentários de feedback (apenas para perfis privilegiados)
     let comments: unknown[] = []
-    if (token) {
-      try {
-        const user = await verifyToken(token)
-        if (user && (user.role === 'admin' || user.role === 'agent')) {
-          comments = db.prepare(`
-            SELECT
-              f.was_helpful,
-              f.comment,
-              f.created_at,
-              u.name as user_name,
-              u.email as user_email
-            FROM kb_article_feedback f
-            LEFT JOIN users u ON f.user_id = u.id
-            WHERE f.article_id = ? AND f.comment IS NOT NULL
-            ORDER BY f.created_at DESC
-            LIMIT 50
-          `).all(article.id)
-        }
-      } catch (e) {
-        // Ignorar erro de token
-      }
+    const userContext = getUserContextFromRequest(request)
+    if (userContext && ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+      comments = await executeQuery(`
+        SELECT
+          f.was_helpful,
+          f.comment,
+          f.created_at,
+          u.name as user_name,
+          u.email as user_email
+        FROM kb_article_feedback f
+        LEFT JOIN users u ON f.user_id = u.id
+        WHERE f.article_id = ? AND f.comment IS NOT NULL
+        ORDER BY f.created_at DESC
+        LIMIT 50
+      `, [article.id])
     }
 
     return NextResponse.json({

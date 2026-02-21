@@ -4,10 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
 import { contentAnalyzer } from '@/lib/knowledge/content-analyzer';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQueryOne } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
@@ -22,20 +22,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request);
-    if (!auth.user || !['admin', 'agent', 'manager'].includes(auth.user.role)) {
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+
+    const articleId = parseInt(params.id);
+    if (isNaN(articleId)) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Invalid article id' },
+        { status: 400 }
       );
     }
 
-    const articleId = parseInt(params.id);
-
     // Get article
-    const article = db.prepare(
-      'SELECT * FROM kb_articles WHERE id = ?'
-    ).get(articleId) as any;
+    const article = await executeQueryOne<Record<string, any>>(
+      'SELECT * FROM kb_articles WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)',
+      [articleId, tenantContext.id]
+    );
 
     if (!article) {
       return NextResponse.json(
@@ -96,13 +101,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request);
-    if (!auth.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
 
     const body = await request.json();
     const { title, content, summary, tags } = body;

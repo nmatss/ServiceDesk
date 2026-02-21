@@ -4,10 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import AITrainingSystem from '@/lib/ai/training-system';
-import AIModelManager from '@/lib/ai/model-manager';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { createTrainingSystem, createModelManager } from '@/lib/ai/factories';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -49,8 +48,8 @@ export async function GET(request: NextRequest) {
     const timeWindow = getTimeWindow(period);
 
     // Initialize managers
-    const trainingSystem = new AITrainingSystem(db);
-    const modelManager = new AIModelManager(db);
+    const trainingSystem = createTrainingSystem();
+    const modelManager = createModelManager();
     await modelManager.initialize();
 
     // Get classification metrics
@@ -138,8 +137,7 @@ async function getClassificationMetrics(
 ) {
   const whereClause = buildWhereClause(timeWindow, modelVersion, organizationId);
 
-  const stats = db.prepare(
-    `SELECT
+  const stats = await executeQueryOne<any>(`SELECT
       COUNT(*) as total_classifications,
       COUNT(CASE WHEN was_accepted = 1 THEN 1 END) as accepted,
       COUNT(CASE WHEN was_accepted = 0 THEN 1 END) as rejected,
@@ -149,12 +147,10 @@ async function getClassificationMetrics(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens
     FROM ai_classifications
-    ${whereClause}`
-  ).get() as any;
+    ${whereClause}`);
 
   // Get distribution by category
-  const categoryDistribution = db.prepare(
-    `SELECT
+  const categoryDistribution = await executeQuery(`SELECT
       c.name as category,
       COUNT(*) as count,
       COUNT(CASE WHEN was_accepted = 1 THEN 1 END) as accepted
@@ -163,12 +159,10 @@ async function getClassificationMetrics(
     ${whereClause}
     GROUP BY c.name
     ORDER BY count DESC
-    LIMIT 10`
-  ).all();
+    LIMIT 10`);
 
   // Get distribution by priority
-  const priorityDistribution = db.prepare(
-    `SELECT
+  const priorityDistribution = await executeQuery(`SELECT
       p.name as priority,
       COUNT(*) as count,
       COUNT(CASE WHEN was_accepted = 1 THEN 1 END) as accepted
@@ -176,8 +170,7 @@ async function getClassificationMetrics(
     LEFT JOIN priorities p ON ac.suggested_priority_id = p.id
     ${whereClause}
     GROUP BY p.name
-    ORDER BY count DESC`
-  ).all();
+    ORDER BY count DESC`);
 
   const accuracy = stats.total_classifications > 0
     ? stats.accepted / stats.total_classifications
@@ -213,20 +206,17 @@ async function getSuggestionMetrics(
 ) {
   const whereClause = buildWhereClause(timeWindow, modelVersion, organizationId);
 
-  const stats = db.prepare(
-    `SELECT
+  const stats = await executeQueryOne<any>(`SELECT
       COUNT(*) as total_suggestions,
       COUNT(CASE WHEN was_used = 1 THEN 1 END) as used,
       COUNT(CASE WHEN was_helpful = 1 THEN 1 END) as helpful,
       COUNT(CASE WHEN was_helpful = 0 THEN 1 END) as not_helpful,
       AVG(confidence_score) as avg_confidence
     FROM ai_suggestions
-    ${whereClause}`
-  ).get() as any;
+    ${whereClause}`);
 
   // Get distribution by type
-  const typeDistribution = db.prepare(
-    `SELECT
+  const typeDistribution = await executeQuery(`SELECT
       suggestion_type,
       COUNT(*) as count,
       COUNT(CASE WHEN was_used = 1 THEN 1 END) as used,
@@ -234,8 +224,7 @@ async function getSuggestionMetrics(
     FROM ai_suggestions
     ${whereClause}
     GROUP BY suggestion_type
-    ORDER BY count DESC`
-  ).all();
+    ORDER BY count DESC`);
 
   const usageRate = stats.total_suggestions > 0
     ? stats.used / stats.total_suggestions
@@ -266,8 +255,7 @@ async function getCostMetrics(
 ) {
   const whereClause = buildWhereClause(timeWindow, modelVersion);
 
-  const stats = db.prepare(
-    `SELECT
+  const stats = await executeQueryOne<any>(`SELECT
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens,
       COUNT(*) as total_operations,
@@ -275,8 +263,7 @@ async function getCostMetrics(
       MIN(processing_time_ms) as min_processing_time,
       MAX(processing_time_ms) as max_processing_time
     FROM ai_classifications
-    ${whereClause}`
-  ).get() as any;
+    ${whereClause}`);
 
   // Cost calculation (approximate based on OpenAI pricing)
   const inputCostPer1M = 0.15; // $0.15 per 1M input tokens (gpt-4o)
@@ -443,7 +430,7 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'calculate':
         // Trigger metric calculation
-        const trainingSystem = new AITrainingSystem(db);
+        const trainingSystem = createTrainingSystem();
         const metrics = await trainingSystem.calculatePerformanceMetrics();
 
         return NextResponse.json({

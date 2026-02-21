@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Get default tenant ID (works for both single and multi-tenant setups)
-    const tenantId = 1; // Default organization ID
+    const tenantContext = getTenantContextFromRequest(request)
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
 
     // Buscar todas as categorias ativas
-    const categories = db.prepare(`
+    const categories = await executeQuery(`
       SELECT
         id,
+        tenant_id,
         name,
         slug,
         description,
@@ -31,7 +39,7 @@ export async function GET(_request: NextRequest) {
       FROM kb_categories
       WHERE is_active = 1 AND (tenant_id = ? OR tenant_id IS NULL)
       ORDER BY sort_order ASC, name ASC
-    `).all(tenantId, tenantId)
+    `, [tenantId, tenantId])
 
     return NextResponse.json({
       success: true,
@@ -53,24 +61,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const user = await verifyToken(token)
-    if (!user || (user.role !== 'admin' && user.role !== 'agent')) {
-      return NextResponse.json(
-        { error: 'Acesso negado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
     const { name, description, icon, color, parent_id, sort_order } = await request.json()
 
@@ -86,7 +81,10 @@ export async function POST(request: NextRequest) {
     let counter = 1
 
     while (true) {
-      const existing = db.prepare('SELECT id FROM kb_categories WHERE slug = ?').get(slug)
+      const existing = await executeQueryOne(
+        'SELECT id FROM kb_categories WHERE slug = ? AND (tenant_id = ? OR tenant_id IS NULL)',
+        [slug, tenantContext.id]
+      )
       if (!existing) break
 
       slug = `${baseSlug}-${counter}`
@@ -94,15 +92,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar categoria
-    const result = db.prepare(`
-      INSERT INTO kb_categories (name, slug, description, icon, color, parent_id, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(name, slug, description, icon || 'DocumentTextIcon', color || '#3B82F6', parent_id || null, sort_order || 0)
+    const result = await executeRun(`
+      INSERT INTO kb_categories (tenant_id, name, slug, description, icon, color, parent_id, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [tenantContext.id, name, slug, description, icon || 'DocumentTextIcon', color || '#3B82F6', parent_id || null, sort_order || 0])
+
+    let categoryId = result.lastInsertRowid;
+    if (typeof categoryId !== 'number') {
+      const inserted = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM kb_categories WHERE slug = ? AND (tenant_id = ? OR tenant_id IS NULL)',
+        [slug, tenantContext.id]
+      );
+      categoryId = inserted?.id;
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Categoria criada com sucesso',
-      categoryId: result.lastInsertRowid
+      categoryId
     })
 
   } catch (error) {

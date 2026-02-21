@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import db from '@/lib/db/connection';
+import { executeQuery } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { getUserContextFromRequest } from '@/lib/auth/context';
 import { z } from 'zod';
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     `;
 
     // SECURITY FIX: Use tenantId from JWT token, NOT from request body
-    const recentTickets = db.prepare(query).all(tenantId) as any[];
+    const recentTickets = await executeQuery<any>(query, [tenantId]);
 
     // Calculate similarity scores
     const similarities: Array<{

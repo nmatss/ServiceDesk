@@ -3,8 +3,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -13,18 +13,15 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
-    const db = getDatabase()
-
-    const statuses = db.prepare(`
+    const statuses = await executeQuery<Record<string, unknown>>(`
       SELECT * FROM ci_statuses
       WHERE organization_id = ? OR organization_id IS NULL
       ORDER BY display_order ASC, name ASC
-    `).all(auth.user.organization_id)
+    `, [organizationId])
 
     return NextResponse.json({ success: true, statuses })
   } catch {

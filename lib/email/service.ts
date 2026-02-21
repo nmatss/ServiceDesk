@@ -6,7 +6,8 @@ import {
   TicketEmailData,
   UserEmailData
 } from './templates'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { getDatabaseType } from '@/lib/db/config'
 
 export interface EmailOptions {
   to: string | string[]
@@ -84,14 +85,15 @@ class EmailService {
 
   async queueEmail(email: Partial<QueuedEmail>): Promise<number | null> {
     try {
-      const result = db.prepare(`
+      const createdAt = new Date().toISOString();
+      const result = await executeRun(`
         INSERT INTO email_queue (
           tenant_id, to_email, cc_emails, bcc_emails, subject,
           html_content, text_content, template_type, template_data,
           attachments, priority, scheduled_at, attempts, max_attempts,
           status, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         email.tenant_id,
         email.to_email,
         email.cc_emails || null,
@@ -104,13 +106,25 @@ class EmailService {
         email.attachments || null,
         email.priority || 'medium',
         email.scheduled_at || null,
-        0, // attempts
+        0,
         email.max_attempts || 3,
         'pending',
-        new Date().toISOString()
-      )
+        createdAt
+      ])
 
-      return result.lastInsertRowid as number
+      if (typeof result.lastInsertRowid === 'number') {
+        return result.lastInsertRowid
+      }
+
+      const inserted = await executeQueryOne<{ id: number }>(`
+        SELECT id
+        FROM email_queue
+        WHERE tenant_id = ? AND to_email = ? AND subject = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [email.tenant_id, email.to_email, email.subject])
+
+      return inserted?.id ?? null
     } catch (error) {
       logger.error('Error queueing email', error)
       return null
@@ -119,11 +133,11 @@ class EmailService {
 
   async processEmailQueue(limit: number = 10): Promise<void> {
     try {
-      const pendingEmails = db.prepare(`
+      const pendingEmails = await executeQuery<QueuedEmail>(`
         SELECT * FROM email_queue
         WHERE status = 'pending'
           AND attempts < max_attempts
-          AND (scheduled_at IS NULL OR scheduled_at <= datetime('now'))
+          AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
         ORDER BY
           CASE priority
             WHEN 'high' THEN 1
@@ -132,7 +146,7 @@ class EmailService {
           END,
           created_at ASC
         LIMIT ?
-      `).all(limit) as QueuedEmail[]
+      `, [limit])
 
       for (const email of pendingEmails) {
         await this.processQueuedEmail(email)
@@ -145,11 +159,11 @@ class EmailService {
   private async processQueuedEmail(email: QueuedEmail): Promise<void> {
     try {
       // Update status to sending
-      db.prepare(`
+      await executeRun(`
         UPDATE email_queue
         SET status = 'sending', attempts = attempts + 1
         WHERE id = ?
-      `).run(email.id)
+      `, [email.id])
 
       const emailOptions: EmailOptions = {
         to: email.to_email,
@@ -164,26 +178,26 @@ class EmailService {
       const success = await this.sendEmail(emailOptions)
 
       if (success) {
-        db.prepare(`
+        await executeRun(`
           UPDATE email_queue
-          SET status = 'sent', sent_at = datetime('now')
+          SET status = 'sent', sent_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(email.id)
+        `, [email.id])
       } else {
         const status = email.attempts >= email.max_attempts ? 'failed' : 'pending'
-        db.prepare(`
+        await executeRun(`
           UPDATE email_queue
           SET status = ?, error_message = ?
           WHERE id = ?
-        `).run(status, 'Failed to send email', email.id)
+        `, [status, 'Failed to send email', email.id])
       }
     } catch (error) {
       const status = email.attempts >= email.max_attempts ? 'failed' : 'pending'
-      db.prepare(`
+      await executeRun(`
         UPDATE email_queue
         SET status = ?, error_message = ?
         WHERE id = ?
-      `).run(status, error instanceof Error ? error.message : 'Unknown error', email.id)
+      `, [status, error instanceof Error ? error.message : 'Unknown error', email.id])
     }
   }
 
@@ -304,7 +318,7 @@ class EmailService {
   }
 
   async getEmailStats(tenantId: number = 1): Promise<any> {
-    const stats = db.prepare(`
+    const stats = await executeQueryOne(`
       SELECT
         COUNT(*) as total,
         COUNT(CASE WHEN status = 'sent' THEN 1 END) as sent,
@@ -312,49 +326,82 @@ class EmailService {
         COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending
       FROM email_queue
       WHERE tenant_id = ?
-    `).get(tenantId)
+    `, [tenantId])
 
     return stats
   }
 }
 
-// Create email queue table if it doesn't exist
-try {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS email_queue (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tenant_id INTEGER NOT NULL,
-      to_email TEXT NOT NULL,
-      cc_emails TEXT,
-      bcc_emails TEXT,
-      subject TEXT NOT NULL,
-      html_content TEXT NOT NULL,
-      text_content TEXT NOT NULL,
-      template_type TEXT NOT NULL,
-      template_data TEXT,
-      attachments TEXT,
-      priority TEXT DEFAULT 'medium' CHECK (priority IN ('high', 'medium', 'low')),
-      scheduled_at DATETIME,
-      attempts INTEGER DEFAULT 0,
-      max_attempts INTEGER DEFAULT 3,
-      status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed')),
-      sent_at DATETIME,
-      error_message TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `)
+let emailQueueSchemaInitialized = false
 
-  // Create indexes for performance
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status);
-    CREATE INDEX IF NOT EXISTS idx_email_queue_priority ON email_queue(priority);
-    CREATE INDEX IF NOT EXISTS idx_email_queue_scheduled ON email_queue(scheduled_at);
-    CREATE INDEX IF NOT EXISTS idx_email_queue_tenant ON email_queue(tenant_id);
-  `)
-} catch (error) {
-  logger.error('Error creating email_queue table', error)
+async function ensureEmailQueueSchema() {
+  if (emailQueueSchemaInitialized) return
+
+  try {
+    if (getDatabaseType() === 'postgresql') {
+      await executeRun(`
+        CREATE TABLE IF NOT EXISTS email_queue (
+          id BIGSERIAL PRIMARY KEY,
+          tenant_id BIGINT NOT NULL,
+          to_email TEXT NOT NULL,
+          cc_emails TEXT,
+          bcc_emails TEXT,
+          subject TEXT NOT NULL,
+          html_content TEXT NOT NULL,
+          text_content TEXT NOT NULL,
+          template_type TEXT NOT NULL,
+          template_data TEXT,
+          attachments TEXT,
+          priority TEXT DEFAULT 'medium' CHECK (priority IN ('high', 'medium', 'low')),
+          scheduled_at TIMESTAMP WITH TIME ZONE,
+          attempts INTEGER DEFAULT 0,
+          max_attempts INTEGER DEFAULT 3,
+          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed')),
+          sent_at TIMESTAMP WITH TIME ZONE,
+          error_message TEXT,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+    } else {
+      await executeRun(`
+        CREATE TABLE IF NOT EXISTS email_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tenant_id INTEGER NOT NULL,
+          to_email TEXT NOT NULL,
+          cc_emails TEXT,
+          bcc_emails TEXT,
+          subject TEXT NOT NULL,
+          html_content TEXT NOT NULL,
+          text_content TEXT NOT NULL,
+          template_type TEXT NOT NULL,
+          template_data TEXT,
+          attachments TEXT,
+          priority TEXT DEFAULT 'medium' CHECK (priority IN ('high', 'medium', 'low')),
+          scheduled_at DATETIME,
+          attempts INTEGER DEFAULT 0,
+          max_attempts INTEGER DEFAULT 3,
+          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed')),
+          sent_at DATETIME,
+          error_message TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+    }
+
+    await executeRun('CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status)')
+    await executeRun('CREATE INDEX IF NOT EXISTS idx_email_queue_priority ON email_queue(priority)')
+    await executeRun('CREATE INDEX IF NOT EXISTS idx_email_queue_scheduled ON email_queue(scheduled_at)')
+    await executeRun('CREATE INDEX IF NOT EXISTS idx_email_queue_tenant ON email_queue(tenant_id)')
+
+    emailQueueSchemaInitialized = true
+  } catch (error) {
+    logger.error('Error creating email_queue table', error)
+  }
 }
+
+void ensureEmailQueueSchema()
 
 export const emailService = new EmailService()
 export default emailService

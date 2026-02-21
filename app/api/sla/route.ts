@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger'
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -17,11 +18,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
 
-    // Get tenant ID from authenticated user (fallback to 1 for dev)
-    const tenantId = decoded.organization_id || 1
+    // SECURITY: Get tenant ID from authenticated user - fail if missing
+    const tenantId = decoded.organization_id
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 })
+    }
 
     // Get SLA policies
-    const slaList = db.prepare(`
+    const slaList = await executeQuery(`
       SELECT
         s.id,
         s.name,
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN categories c ON s.category_id = c.id
       WHERE s.tenant_id = ? OR s.tenant_id IS NULL
       ORDER BY s.name
-    `).all(tenantId)
+    `, [tenantId])
 
     return NextResponse.json({
       success: true,
@@ -66,12 +70,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
 
-    // Get tenant ID from authenticated user (fallback to 1 for dev)
-    const tenantId = decoded.organization_id || 1
+    // SECURITY: Get tenant ID from authenticated user - fail if missing
+    const tenantId = decoded.organization_id
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 })
+    }
 
     // Only admin users can create SLA policies
-    const adminRoles = ['admin', 'super_admin', 'tenant_admin', 'team_manager']
-    if (!adminRoles.includes(decoded.role)) {
+    if (!ADMIN_ROLES.includes(decoded.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
@@ -95,30 +101,27 @@ export async function POST(request: NextRequest) {
 
     // Validate priority and category if provided
     if (priority_id) {
-      const priority = db.prepare('SELECT id FROM priorities WHERE id = ?')
-        .get(priority_id)
+      const priority = await executeQueryOne('SELECT id FROM priorities WHERE id = ?', [priority_id])
       if (!priority) {
         return NextResponse.json({ error: 'Prioridade não encontrada' }, { status: 404 })
       }
     }
 
     if (category_id) {
-      const category = db.prepare('SELECT id FROM categories WHERE id = ?')
-        .get(category_id)
+      const category = await executeQueryOne('SELECT id FROM categories WHERE id = ?', [category_id])
       if (!category) {
         return NextResponse.json({ error: 'Categoria não encontrada' }, { status: 404 })
       }
     }
 
     // Create SLA policy
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO sla_policies (name, description, priority_id, category_id,
                                business_hours_only, response_time_minutes,
                                resolution_time_minutes, escalation_time_minutes,
                                is_active, tenant_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      name,
+    `, [name,
       description || null,
       priority_id || null,
       category_id || null,
@@ -127,11 +130,10 @@ export async function POST(request: NextRequest) {
       resolution_time_minutes,
       escalation_time_minutes || null,
       is_active !== false ? 1 : 0,
-      tenantId
-    )
+      tenantId])
 
     // Get created SLA policy with related data
-    const newSlaPolicy = db.prepare(`
+    const newSlaPolicy = await executeQueryOne(`
       SELECT
         s.id,
         s.name,
@@ -151,7 +153,7 @@ export async function POST(request: NextRequest) {
       LEFT JOIN priorities p ON s.priority_id = p.id
       LEFT JOIN categories c ON s.category_id = c.id
       WHERE s.id = ?
-    `).get(result.lastInsertRowid)
+    `, [result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,

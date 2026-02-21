@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
+
+  // SECURITY: Tenant isolation and authentication
+  const guard = requireTenantUserContext(request);
+  if (guard.response) return guard.response;
+  const { auth } = guard;
 
   try {
     const { searchParams } = new URL(request.url)
@@ -17,9 +23,6 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sort_order') || 'desc'
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
-
-    // For now, we'll return mock data since this is a portal endpoint
-    // In a real implementation, this would filter by customer/tenant based on authentication
 
     let query = `
       SELECT
@@ -48,10 +51,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users assigned ON t.assigned_to = assigned.id
       LEFT JOIN categories c ON t.category_id = c.id
-      WHERE 1=1
+      WHERE t.organization_id = ? AND t.user_id = ?
     `
 
-    const params: any[] = []
+    const params: any[] = [auth.organizationId, auth.userId]
 
     // Add search filter
     if (search) {
@@ -92,7 +95,7 @@ export async function GET(request: NextRequest) {
     query += ` LIMIT ? OFFSET ?`
     params.push(limit, offset)
 
-    const tickets = db.prepare(query).all(...params)
+    const tickets = await executeQuery(query, params)
 
     // Get total count for pagination
     let countQuery = `
@@ -100,10 +103,10 @@ export async function GET(request: NextRequest) {
       FROM tickets t
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN priorities p ON t.priority_id = p.id
-      WHERE 1=1
+      WHERE t.organization_id = ? AND t.user_id = ?
     `
 
-    const countParams: any[] = []
+    const countParams: any[] = [auth.organizationId, auth.userId]
 
     if (search) {
       countQuery += ` AND (
@@ -125,7 +128,7 @@ export async function GET(request: NextRequest) {
       countParams.push(priority)
     }
 
-    const { total } = db.prepare(countQuery).get(...countParams) as { total: number }
+    const { total } = await executeQueryOne<{ total: number }>(countQuery, countParams) || { total: 0 }
 
     return NextResponse.json({
       success: true,

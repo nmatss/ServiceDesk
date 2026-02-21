@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentTenantId } from '@/lib/tenant/manager'
-import db from '@/lib/db/connection'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function DELETE(
@@ -13,7 +13,12 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const teamId = parseInt(params.id)
     const userId = parseInt(params.userId)
     if (isNaN(teamId) || isNaN(userId)) {
@@ -24,11 +29,11 @@ export async function DELETE(
     }
 
     // Check if user has assigned tickets in this team
-    const assignedTickets = db.prepare(`
+    const assignedTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND assigned_team_id = ? AND tenant_id = ?
       AND status_id NOT IN (SELECT id FROM statuses WHERE is_final = 1 AND tenant_id = ?)
-    `).get(userId, teamId, tenantId, tenantId) as { count: number } | undefined
+    `, [userId, teamId, tenantId, tenantId])
 
     if (assignedTickets && assignedTickets.count > 0) {
       return NextResponse.json(
@@ -38,13 +43,13 @@ export async function DELETE(
     }
 
     // Remove user from team
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE team_members SET
         is_active = 0,
         left_at = CURRENT_TIMESTAMP
       WHERE team_id = ? AND user_id = ?
       AND team_id IN (SELECT id FROM teams WHERE tenant_id = ?)
-    `).run(teamId, userId, tenantId)
+    `, [teamId, userId, tenantId])
 
     if (result.changes === 0) {
       return NextResponse.json(

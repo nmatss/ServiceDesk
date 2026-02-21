@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { sanitizeHtml } from '@/lib/validation/sanitize';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
       ticketParams.push(userContext.id)
     }
 
-    const ticket = db.prepare(ticketQuery).get(...ticketParams)
+    const ticket = await executeQueryOne(ticketQuery, ticketParams)
 
     if (!ticket) {
       return NextResponse.json(
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get comments with user information
-    const comments = db.prepare(`
+    const comments = await executeQuery(`
       SELECT
         c.id,
         c.content,
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON c.user_id = u.id AND u.tenant_id = ?
       WHERE c.ticket_id = ? AND c.tenant_id = ?
       ORDER BY c.created_at ASC
-    `).all(tenantContext.id, parseInt(ticketId), tenantContext.id)
+    `, [tenantContext.id, parseInt(ticketId), tenantContext.id])
 
     return NextResponse.json({
       success: true,
@@ -111,7 +112,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { ticket_id, content, is_internal, comment_type, time_spent_minutes, visibility } = await request.json()
+    const body = await request.json()
+    const ticket_id = body.ticket_id
+    const content = body.content ? sanitizeHtml(body.content) : body.content
+    const { is_internal, comment_type, time_spent_minutes, visibility } = body
 
     if (!ticket_id || !content) {
       return NextResponse.json(
@@ -130,7 +134,7 @@ export async function POST(request: NextRequest) {
       ticketParams.push(userContext.id)
     }
 
-    const ticket = db.prepare(ticketQuery).get(...ticketParams)
+    const ticket = await executeQueryOne(ticketQuery, ticketParams)
 
     if (!ticket) {
       return NextResponse.json(
@@ -140,23 +144,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create comment
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO comments (ticket_id, user_id, content, is_internal,
                            comment_type, time_spent_minutes, visibility, tenant_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      ticket_id,
+    `, [ticket_id,
       userContext.id,
       content,
       (is_internal || false) ? 1 : 0,
       comment_type || 'comment',
       time_spent_minutes || null,
       visibility || 'all',
-      tenantContext.id
-    )
+      tenantContext.id])
 
     // Get created comment with user info
-    const newComment = db.prepare(`
+    const newComment = await executeQueryOne(`
       SELECT
         c.id,
         c.content,
@@ -172,7 +174,7 @@ export async function POST(request: NextRequest) {
       FROM comments c
       LEFT JOIN users u ON c.user_id = u.id AND u.tenant_id = ?
       WHERE c.id = ?
-    `).get(tenantContext.id, result.lastInsertRowid)
+    `, [tenantContext.id, result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,

@@ -24,6 +24,8 @@ NC='\033[0m' # No Color
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-30}"
 VERBOSE="${VERBOSE:-false}"
+HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://localhost/health}"
+COMPOSE_BIN=""
 
 # ==============================================================================
 # Functions
@@ -52,6 +54,30 @@ print_header() {
     echo ""
 }
 
+compose() {
+    if [ "$COMPOSE_BIN" = "docker-compose" ]; then
+        docker-compose -f "$COMPOSE_FILE" "$@"
+        return
+    fi
+
+    docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+detect_compose_command() {
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_BIN="docker-compose"
+        return
+    fi
+
+    if docker compose version &> /dev/null; then
+        COMPOSE_BIN="docker compose"
+        return
+    fi
+
+    log_error "Docker Compose is not installed"
+    exit 1
+}
+
 check_docker() {
     print_header "Docker Daemon Health"
 
@@ -76,18 +102,27 @@ check_docker() {
 check_services_running() {
     print_header "Service Status"
 
-    if ! docker-compose -f "$COMPOSE_FILE" ps &> /dev/null; then
+    if ! compose ps &> /dev/null; then
         log_warning "No services are running"
         return 1
     fi
 
     # List all services
-    local services=$(docker-compose -f "$COMPOSE_FILE" ps --format json 2>/dev/null | jq -r '.Name' 2>/dev/null || docker-compose -f "$COMPOSE_FILE" ps --services)
+    local services=$(compose ps --services 2>/dev/null)
+    local running_services=$(compose ps --status running --services 2>/dev/null || true)
+
+    if [ -z "$services" ]; then
+        log_warning "No services are running"
+        return 1
+    fi
 
     local all_healthy=true
 
     for service in $services; do
-        local status=$(docker-compose -f "$COMPOSE_FILE" ps "$service" --format json 2>/dev/null | jq -r '.State' 2>/dev/null || echo "unknown")
+        local status="stopped"
+        if echo "$running_services" | grep -qx "$service"; then
+            status="running"
+        fi
 
         if [ "$status" = "running" ]; then
             log_success "Service '$service' is running"
@@ -107,7 +142,7 @@ check_services_running() {
 check_container_health() {
     print_header "Container Health Checks"
 
-    local containers=$(docker-compose -f "$COMPOSE_FILE" ps -q 2>/dev/null)
+    local containers=$(compose ps -q 2>/dev/null)
 
     if [ -z "$containers" ]; then
         log_warning "No containers found"
@@ -159,8 +194,8 @@ check_application_endpoints() {
     print_header "Application Endpoints"
 
     # Check main application
-    log_info "Checking application health endpoint..."
-    if curl -f -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health 2>/dev/null | grep -q "200"; then
+    log_info "Checking application health endpoint: $HEALTHCHECK_URL"
+    if curl -f -s -o /dev/null -w "%{http_code}" "$HEALTHCHECK_URL" 2>/dev/null | grep -q "200"; then
         log_success "Application health endpoint: OK (200)"
     else
         log_error "Application health endpoint: FAILED"
@@ -168,18 +203,18 @@ check_application_endpoints() {
     fi
 
     # Check application response time
-    local response_time=$(curl -s -o /dev/null -w "%{time_total}" http://localhost:3000/api/health 2>/dev/null || echo "0")
+    local response_time=$(curl -s -o /dev/null -w "%{time_total}" "$HEALTHCHECK_URL" 2>/dev/null || echo "0")
     log_info "Response time: ${response_time}s"
 
-    if (( $(echo "$response_time > 5.0" | bc -l) )); then
-        log_warning "Response time is high (>${response_time}s)"
+    if awk "BEGIN {exit !($response_time > 5.0)}"; then
+        log_warning "Response time is high (>5.0s)"
     fi
 }
 
 check_database_connection() {
     print_header "Database Health"
 
-    local postgres_container=$(docker-compose -f "$COMPOSE_FILE" ps -q postgres 2>/dev/null)
+    local postgres_container=$(compose ps -q postgres 2>/dev/null)
 
     if [ -z "$postgres_container" ]; then
         log_warning "PostgreSQL container not found"
@@ -187,7 +222,7 @@ check_database_connection() {
     fi
 
     # Check PostgreSQL is accepting connections
-    if docker exec "$postgres_container" pg_isready -U servicedesk &> /dev/null; then
+    if docker exec "$postgres_container" pg_isready -U "${POSTGRES_USER:-servicedesk}" -d "${POSTGRES_DB:-servicedesk}" &> /dev/null; then
         log_success "PostgreSQL is accepting connections"
     else
         log_error "PostgreSQL is not accepting connections"
@@ -196,11 +231,13 @@ check_database_connection() {
 
     # Check database size
     if [ "$VERBOSE" = "true" ]; then
-        local db_size=$(docker exec "$postgres_container" psql -U servicedesk -t -c "SELECT pg_size_pretty(pg_database_size('servicedesk'));" 2>/dev/null || echo "unknown")
+        local db_size
+        db_size=$(docker exec "$postgres_container" psql -U "${POSTGRES_USER:-servicedesk}" -d "${POSTGRES_DB:-servicedesk}" -t -c "SELECT pg_size_pretty(pg_database_size(current_database()));" 2>/dev/null || echo "unknown")
         log_info "Database size: $db_size"
 
         # Check active connections
-        local connections=$(docker exec "$postgres_container" psql -U servicedesk -t -c "SELECT count(*) FROM pg_stat_activity;" 2>/dev/null || echo "unknown")
+        local connections
+        connections=$(docker exec "$postgres_container" psql -U "${POSTGRES_USER:-servicedesk}" -d "${POSTGRES_DB:-servicedesk}" -t -c "SELECT count(*) FROM pg_stat_activity;" 2>/dev/null || echo "unknown")
         log_info "Active connections: $connections"
     fi
 }
@@ -208,7 +245,7 @@ check_database_connection() {
 check_redis_connection() {
     print_header "Redis Health"
 
-    local redis_container=$(docker-compose -f "$COMPOSE_FILE" ps -q redis 2>/dev/null)
+    local redis_container=$(compose ps -q redis 2>/dev/null)
 
     if [ -z "$redis_container" ]; then
         log_warning "Redis container not found"
@@ -216,7 +253,12 @@ check_redis_connection() {
     fi
 
     # Check Redis is responding
-    if docker exec "$redis_container" redis-cli ping 2>/dev/null | grep -q "PONG"; then
+    local redis_cli_cmd=(redis-cli)
+    if [ -n "${REDIS_PASSWORD:-}" ]; then
+        redis_cli_cmd+=( -a "$REDIS_PASSWORD" )
+    fi
+
+    if docker exec "$redis_container" "${redis_cli_cmd[@]}" ping 2>/dev/null | grep -q "PONG"; then
         log_success "Redis is responding"
     else
         log_error "Redis is not responding"
@@ -225,11 +267,13 @@ check_redis_connection() {
 
     if [ "$VERBOSE" = "true" ]; then
         # Check Redis memory usage
-        local memory_used=$(docker exec "$redis_container" redis-cli info memory 2>/dev/null | grep "used_memory_human" | cut -d: -f2 | tr -d '\r' || echo "unknown")
+        local memory_used
+        memory_used=$(docker exec "$redis_container" "${redis_cli_cmd[@]}" info memory 2>/dev/null | grep "used_memory_human" | cut -d: -f2 | tr -d '\r' || echo "unknown")
         log_info "Redis memory used: $memory_used"
 
         # Check connected clients
-        local clients=$(docker exec "$redis_container" redis-cli info clients 2>/dev/null | grep "connected_clients" | cut -d: -f2 | tr -d '\r' || echo "unknown")
+        local clients
+        clients=$(docker exec "$redis_container" "${redis_cli_cmd[@]}" info clients 2>/dev/null | grep "connected_clients" | cut -d: -f2 | tr -d '\r' || echo "unknown")
         log_info "Connected clients: $clients"
     fi
 }
@@ -237,7 +281,7 @@ check_redis_connection() {
 check_resource_usage() {
     print_header "Resource Usage"
 
-    local containers=$(docker-compose -f "$COMPOSE_FILE" ps -q 2>/dev/null)
+    local containers=$(compose ps -q 2>/dev/null)
 
     if [ -z "$containers" ]; then
         log_warning "No containers found"
@@ -261,7 +305,7 @@ check_resource_usage() {
 check_logs_for_errors() {
     print_header "Recent Errors in Logs"
 
-    local containers=$(docker-compose -f "$COMPOSE_FILE" ps -q 2>/dev/null)
+    local containers=$(compose ps -q 2>/dev/null)
 
     if [ -z "$containers" ]; then
         log_warning "No containers found"
@@ -334,6 +378,7 @@ main() {
 
     local exit_code=0
 
+    detect_compose_command
     check_docker || exit_code=$?
     check_services_running || exit_code=$?
     check_container_health || exit_code=$?

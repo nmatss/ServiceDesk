@@ -7,11 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 type RelationshipType = 'parent' | 'child' | 'related' | 'duplicate' | 'blocks' | 'blocked_by';
@@ -41,12 +43,29 @@ interface RelatedTicket {
 // GET - Get all relationships for a ticket
 // ========================================
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId);
+    let ticket: { id: number; user_id: number } | undefined;
+    try {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    }
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
@@ -54,47 +73,103 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get relationships where this ticket is the source
-    const outgoing = db.prepare(`
-      SELECT
-        tr.id as relationship_id,
-        tr.relationship_type,
-        tr.created_at,
-        t.id,
-        t.ticket_number,
-        t.title,
-        t.status_id,
-        s.name as status_name,
-        t.priority_id,
-        p.name as priority_name
-      FROM ticket_relationships tr
-      JOIN tickets t ON tr.target_ticket_id = t.id
-      LEFT JOIN statuses s ON t.status_id = s.id
-      LEFT JOIN priorities p ON t.priority_id = p.id
-      WHERE tr.source_ticket_id = ?
-      ORDER BY tr.created_at DESC
-    `).all(ticketId) as any[];
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
 
-    // Get relationships where this ticket is the target
-    const incoming = db.prepare(`
-      SELECT
-        tr.id as relationship_id,
-        tr.relationship_type,
-        tr.created_at,
-        t.id,
-        t.ticket_number,
-        t.title,
-        t.status_id,
-        s.name as status_name,
-        t.priority_id,
-        p.name as priority_name
-      FROM ticket_relationships tr
-      JOIN tickets t ON tr.source_ticket_id = t.id
-      LEFT JOIN statuses s ON t.status_id = s.id
-      LEFT JOIN priorities p ON t.priority_id = p.id
-      WHERE tr.target_ticket_id = ?
-      ORDER BY tr.created_at DESC
-    `).all(ticketId) as any[];
+    // Get relationships where this ticket is the source
+    let outgoing: any[];
+    let incoming: any[];
+    try {
+      outgoing = await executeQuery<any>(`
+        SELECT
+          tr.id as relationship_id,
+          tr.relationship_type,
+          tr.created_at,
+          t.id,
+          t.ticket_number,
+          t.title,
+          t.status_id,
+          s.name as status_name,
+          t.priority_id,
+          p.name as priority_name
+        FROM ticket_relationships tr
+        JOIN tickets t ON tr.target_ticket_id = t.id
+        LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
+        LEFT JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
+        WHERE tr.source_ticket_id = ?
+        AND t.tenant_id = ?
+        ORDER BY tr.created_at DESC
+      `, [tenantContext.id, tenantContext.id, ticketId, tenantContext.id]);
+
+      // Get relationships where this ticket is the target
+      incoming = await executeQuery<any>(`
+        SELECT
+          tr.id as relationship_id,
+          tr.relationship_type,
+          tr.created_at,
+          t.id,
+          t.ticket_number,
+          t.title,
+          t.status_id,
+          s.name as status_name,
+          t.priority_id,
+          p.name as priority_name
+        FROM ticket_relationships tr
+        JOIN tickets t ON tr.source_ticket_id = t.id
+        LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
+        LEFT JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
+        WHERE tr.target_ticket_id = ?
+        AND t.tenant_id = ?
+        ORDER BY tr.created_at DESC
+      `, [tenantContext.id, tenantContext.id, ticketId, tenantContext.id]);
+    } catch {
+      outgoing = await executeQuery<any>(`
+        SELECT
+          tr.id as relationship_id,
+          tr.relationship_type,
+          tr.created_at,
+          t.id,
+          CAST(t.id AS TEXT) as ticket_number,
+          t.title,
+          t.status_id,
+          s.name as status_name,
+          t.priority_id,
+          p.name as priority_name
+        FROM ticket_relationships tr
+        JOIN tickets t ON tr.target_ticket_id = t.id
+        LEFT JOIN statuses s ON t.status_id = s.id AND s.organization_id = ?
+        LEFT JOIN priorities p ON t.priority_id = p.id AND p.organization_id = ?
+        WHERE tr.source_ticket_id = ?
+        AND t.organization_id = ?
+        ORDER BY tr.created_at DESC
+      `, [tenantContext.id, tenantContext.id, ticketId, tenantContext.id]);
+
+      incoming = await executeQuery<any>(`
+        SELECT
+          tr.id as relationship_id,
+          tr.relationship_type,
+          tr.created_at,
+          t.id,
+          CAST(t.id AS TEXT) as ticket_number,
+          t.title,
+          t.status_id,
+          s.name as status_name,
+          t.priority_id,
+          p.name as priority_name
+        FROM ticket_relationships tr
+        JOIN tickets t ON tr.source_ticket_id = t.id
+        LEFT JOIN statuses s ON t.status_id = s.id AND s.organization_id = ?
+        LEFT JOIN priorities p ON t.priority_id = p.id AND p.organization_id = ?
+        WHERE tr.target_ticket_id = ?
+        AND t.organization_id = ?
+        ORDER BY tr.created_at DESC
+      `, [tenantContext.id, tenantContext.id, ticketId, tenantContext.id]);
+    }
 
     // Transform incoming relationships to inverse types
     const transformedIncoming = incoming.map(rel => ({
@@ -147,7 +222,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       counts,
     });
   } catch (error) {
-    console.error('Error fetching ticket relationships:', error);
+    logger.error('Error fetching ticket relationships', error);
     return NextResponse.json(
       { error: 'Failed to fetch ticket relationships' },
       { status: 500 }
@@ -164,9 +239,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
     const body = await request.json();
-    const { targetTicketId, relationshipType, userId } = body;
+    const { targetTicketId, relationshipType } = body;
 
     // Validate inputs
     if (!targetTicketId) {
@@ -191,15 +272,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+    // Verify source ticket exists
+    let sourceTicket: { id: number; user_id: number } | undefined;
+    try {
+      sourceTicket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      sourceTicket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, tenantContext.id]
       );
     }
-
-    // Verify source ticket exists
-    const sourceTicket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId);
     if (!sourceTicket) {
       return NextResponse.json(
         { error: 'Source ticket not found' },
@@ -207,8 +292,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && sourceTicket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
     // Verify target ticket exists
-    const targetTicket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(targetTicketId);
+    let targetTicket: { id: number } | undefined;
+    try {
+      targetTicket = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [targetTicketId, tenantContext.id]
+      );
+    } catch {
+      targetTicket = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM tickets WHERE id = ? AND organization_id = ?',
+        [targetTicketId, tenantContext.id]
+      );
+    }
     if (!targetTicket) {
       return NextResponse.json(
         { error: 'Target ticket not found' },
@@ -225,11 +329,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check for existing relationship
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<{ id: number }>(`
       SELECT id FROM ticket_relationships
       WHERE (source_ticket_id = ? AND target_ticket_id = ?)
          OR (source_ticket_id = ? AND target_ticket_id = ?)
-    `).get(ticketId, targetTicketId, targetTicketId, ticketId);
+    `, [ticketId, targetTicketId, targetTicketId, ticketId]);
 
     if (existing) {
       return NextResponse.json(
@@ -255,42 +359,55 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Create relationship
-    const result = db.prepare(`
-      INSERT INTO ticket_relationships (source_ticket_id, target_ticket_id, relationship_type, created_by)
-      VALUES (?, ?, ?, ?)
-    `).run(sourceId, targetId, normalizedType, userId);
+    let createdRelationshipId: number | undefined;
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO ticket_relationships (source_ticket_id, target_ticket_id, relationship_type, created_by)
+        VALUES (?, ?, ?, ?)
+        RETURNING id
+      `, [sourceId, targetId, normalizedType, userContext.id]);
+      createdRelationshipId = inserted?.id;
+    } catch {
+      const result = await executeRun(`
+        INSERT INTO ticket_relationships (source_ticket_id, target_ticket_id, relationship_type, created_by)
+        VALUES (?, ?, ?, ?)
+      `, [sourceId, targetId, normalizedType, userContext.id]);
+      if (typeof result.lastInsertRowid === 'number') {
+        createdRelationshipId = result.lastInsertRowid;
+      }
+    }
 
     // Log activity
-    db.prepare(`
+    await executeRun(`
       INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
       VALUES (?, ?, 'relationship_added', ?, ?)
-    `).run(
+    `, [
       ticketId,
-      userId,
+      userContext.id,
       `Added ${relationshipType} relationship with ticket #${targetTicketId}`,
       JSON.stringify({ targetTicketId, relationshipType })
-    );
+    ]);
 
     // Also log on the target ticket
-    db.prepare(`
+    await executeRun(`
       INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
       VALUES (?, ?, 'relationship_added', ?, ?)
-    `).run(
+    `, [
       targetTicketId,
-      userId,
+      userContext.id,
       `Added ${getInverseRelationType(relationshipType)} relationship with ticket #${ticketId}`,
       JSON.stringify({ sourceTicketId: ticketId, relationshipType: getInverseRelationType(relationshipType) })
-    );
+    ]);
 
     return NextResponse.json({
-      id: result.lastInsertRowid,
+      id: createdRelationshipId,
       sourceTicketId: sourceId,
       targetTicketId: targetId,
       relationshipType: normalizedType,
-      createdBy: userId,
+      createdBy: userContext.id,
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating ticket relationship:', error);
+    logger.error('Error creating ticket relationship', error);
     return NextResponse.json(
       { error: 'Failed to create ticket relationship' },
       { status: 500 }
@@ -307,10 +424,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
     const { searchParams } = new URL(request.url);
     const relationshipId = searchParams.get('relationshipId');
-    const userId = searchParams.get('userId');
 
     if (!relationshipId) {
       return NextResponse.json(
@@ -319,11 +441,33 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const sourceTicket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    )
+    if (!sourceTicket) {
+      return NextResponse.json(
+        { error: 'Ticket not found' },
+        { status: 404 }
+      )
+    }
+
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && sourceTicket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      )
+    }
+
     // Verify relationship exists and involves this ticket
-    const relationship = db.prepare(`
-      SELECT * FROM ticket_relationships
+    const relationship = await executeQueryOne<Relationship>(`
+      SELECT tr.*
+      FROM ticket_relationships tr
+      JOIN tickets ts ON tr.source_ticket_id = ts.id AND ts.tenant_id = ?
+      JOIN tickets tt ON tr.target_ticket_id = tt.id AND tt.tenant_id = ?
       WHERE id = ? AND (source_ticket_id = ? OR target_ticket_id = ?)
-    `).get(parseInt(relationshipId), ticketId, ticketId) as Relationship | undefined;
+    `, [tenantContext.id, tenantContext.id, parseInt(relationshipId, 10), ticketId, ticketId]);
 
     if (!relationship) {
       return NextResponse.json(
@@ -333,38 +477,36 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete relationship
-    db.prepare('DELETE FROM ticket_relationships WHERE id = ?').run(parseInt(relationshipId));
+    await executeRun('DELETE FROM ticket_relationships WHERE id = ?', [parseInt(relationshipId, 10)]);
 
     // Log activity on both tickets
-    if (userId) {
-      const otherTicketId = relationship.source_ticket_id === ticketId
-        ? relationship.target_ticket_id
-        : relationship.source_ticket_id;
+    const otherTicketId = relationship.source_ticket_id === ticketId
+      ? relationship.target_ticket_id
+      : relationship.source_ticket_id;
 
-      db.prepare(`
-        INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
-        VALUES (?, ?, 'relationship_removed', ?, ?)
-      `).run(
-        ticketId,
-        parseInt(userId),
-        `Removed ${relationship.relationship_type} relationship with ticket #${otherTicketId}`,
-        JSON.stringify({ otherTicketId, relationshipType: relationship.relationship_type })
-      );
+    await executeRun(`
+      INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
+      VALUES (?, ?, 'relationship_removed', ?, ?)
+    `, [
+      ticketId,
+      userContext.id,
+      `Removed ${relationship.relationship_type} relationship with ticket #${otherTicketId}`,
+      JSON.stringify({ otherTicketId, relationshipType: relationship.relationship_type })
+    ]);
 
-      db.prepare(`
-        INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
-        VALUES (?, ?, 'relationship_removed', ?, ?)
-      `).run(
-        otherTicketId,
-        parseInt(userId),
-        `Removed ${getInverseRelationType(relationship.relationship_type)} relationship with ticket #${ticketId}`,
-        JSON.stringify({ sourceTicketId: ticketId, relationshipType: getInverseRelationType(relationship.relationship_type) })
-      );
-    }
+    await executeRun(`
+      INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
+      VALUES (?, ?, 'relationship_removed', ?, ?)
+    `, [
+      otherTicketId,
+      userContext.id,
+      `Removed ${getInverseRelationType(relationship.relationship_type)} relationship with ticket #${ticketId}`,
+      JSON.stringify({ sourceTicketId: ticketId, relationshipType: getInverseRelationType(relationship.relationship_type) })
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting ticket relationship:', error);
+    logger.error('Error deleting ticket relationship', error);
     return NextResponse.json(
       { error: 'Failed to delete ticket relationship' },
       { status: 500 }

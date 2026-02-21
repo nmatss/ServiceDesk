@@ -131,6 +131,17 @@ fi
 # ==============================================================================
 print_header "4. Docker Compose Validation"
 
+compose_validate() {
+    local file="$1"
+
+    if command -v docker-compose &> /dev/null; then
+        docker-compose -f "$file" config -q
+        return
+    fi
+
+    docker compose -f "$file" config -q
+}
+
 if [ -f "docker-compose.yml" ]; then
     log_success "docker-compose.yml exists"
 
@@ -150,12 +161,25 @@ if [ -f "docker-compose.yml" ]; then
     if grep -q "restart:" docker-compose.yml; then
         log_success "Restart policy configured ✓"
     fi
+
+    # Validate compose syntax with safe placeholders for required env vars
+    if POSTGRES_PASSWORD=validate REDIS_PASSWORD=validate JWT_SECRET=validate SESSION_SECRET=validate GRAFANA_ADMIN_PASSWORD=validate PGADMIN_PASSWORD=validate compose_validate docker-compose.yml; then
+        log_success "docker-compose.yml syntax valid ✓"
+    else
+        log_error "docker-compose.yml has syntax/config errors"
+    fi
 else
     log_error "docker-compose.yml not found"
 fi
 
 if [ -f "docker-compose.dev.yml" ]; then
     log_success "docker-compose.dev.yml exists"
+
+    if POSTGRES_PASSWORD=validate REDIS_PASSWORD=validate JWT_SECRET=validate SESSION_SECRET=validate compose_validate docker-compose.dev.yml; then
+        log_success "docker-compose.dev.yml syntax valid ✓"
+    else
+        log_error "docker-compose.dev.yml has syntax/config errors"
+    fi
 else
     log_warning "docker-compose.dev.yml not found"
 fi
@@ -254,61 +278,61 @@ total_checks=10
 # Check 1: Multi-stage build
 if grep -q "FROM.*AS" Dockerfile; then
     log_success "✓ Multi-stage build"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 2: Alpine base
 if grep -q "alpine" Dockerfile; then
     log_success "✓ Alpine Linux base"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 3: Non-root user
 if grep -q "USER" Dockerfile; then
     log_success "✓ Non-root user"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 4: .dockerignore
 if [ -f ".dockerignore" ]; then
     log_success "✓ .dockerignore exists"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 5: Health check
 if grep -q "HEALTHCHECK" Dockerfile; then
     log_success "✓ Health check"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 6: Layer caching (package.json before COPY)
 if grep -B5 "npm ci" Dockerfile | grep -q "COPY package"; then
     log_success "✓ Layer caching optimized"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 7: Production dependencies only
 if grep -q "npm ci --only=production" Dockerfile; then
     log_success "✓ Production dependencies only"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 8: Build arguments
 if grep -q "ARG BUILD_DATE" Dockerfile; then
     log_success "✓ Build metadata (ARG)"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 9: Labels
 if grep -q "LABEL" Dockerfile; then
     log_success "✓ OCI labels"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 # Check 10: Tini for signal handling
 if grep -q "tini" Dockerfile; then
     log_success "✓ Tini for signal handling"
-    ((best_practices++))
+    ((++best_practices))
 fi
 
 echo ""
@@ -347,4 +371,4 @@ echo ""
 echo "Next steps:"
 echo "  1. Test build: ./scripts/docker/build.sh"
 echo "  2. Run health check: ./scripts/docker/health-check.sh"
-echo "  3. Start development: docker-compose -f docker-compose.dev.yml up"
+echo "  3. Start development: docker compose -f docker-compose.dev.yml up"

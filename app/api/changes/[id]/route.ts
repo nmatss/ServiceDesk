@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -15,22 +15,21 @@ const updateChangeSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
-  risk_level: z.enum(['very_high', 'high', 'medium', 'low', 'very_low']).optional(),
-  impact: z.enum(['extensive', 'significant', 'moderate', 'minor', 'none']).optional(),
-  urgency: z.enum(['critical', 'high', 'medium', 'low']).optional(),
-  justification: z.string().optional().nullable(),
-  business_case: z.string().optional().nullable(),
+  risk_level: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  risk_assessment: z.string().optional().nullable(),
+  impact_assessment: z.string().optional().nullable(),
+  reason_for_change: z.string().optional().nullable(),
+  business_justification: z.string().optional().nullable(),
   implementation_plan: z.string().optional().nullable(),
-  rollback_plan: z.string().optional().nullable(),
+  backout_plan: z.string().optional().nullable(),
   test_plan: z.string().optional().nullable(),
-  affected_services: z.string().optional().nullable(),
-  scheduled_start_date: z.string().optional().nullable(),
-  scheduled_end_date: z.string().optional().nullable(),
-  downtime_required: z.boolean().optional(),
-  downtime_duration: z.number().int().optional().nullable(),
-  assignee_id: z.number().int().positive().optional().nullable(),
-  assigned_team_id: z.number().int().positive().optional().nullable(),
-  status: z.enum(['draft', 'submitted', 'pending_assessment', 'pending_cab', 'approved', 'rejected', 'scheduled', 'in_progress', 'completed', 'failed', 'cancelled']).optional()
+  communication_plan: z.string().optional().nullable(),
+  requested_start_date: z.string().optional().nullable(),
+  requested_end_date: z.string().optional().nullable(),
+  owner_id: z.number().int().positive().optional().nullable(),
+  implementer_id: z.number().int().positive().optional().nullable(),
+  affected_cis: z.string().optional().nullable(),
+  status: z.enum(['draft', 'submitted', 'under_review', 'scheduled', 'in_progress', 'completed', 'failed', 'cancelled', 'rolled_back']).optional()
 })
 
 /**
@@ -45,10 +44,9 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { id } = await params
     const changeId = parseInt(id)
@@ -56,28 +54,26 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 })
     }
 
-    const db = getDatabase()
-
     // Get change request with related data
-    const change = db.prepare(`
+    const change = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         cr.*,
         ct.name as change_type_name,
         ct.color as change_type_color,
-        ct.requires_cab,
-        ct.requires_manager_approval,
+        ct.requires_cab_approval,
         u_req.name as requester_name,
         u_req.email as requester_email,
-        u_ass.name as assignee_name,
-        u_ass.email as assignee_email,
-        t.name as team_name
+        u_owner.name as owner_name,
+        u_owner.email as owner_email,
+        u_impl.name as implementer_name,
+        u_impl.email as implementer_email
       FROM change_requests cr
       LEFT JOIN change_types ct ON cr.change_type_id = ct.id
       LEFT JOIN users u_req ON cr.requester_id = u_req.id
-      LEFT JOIN users u_ass ON cr.assignee_id = u_ass.id
-      LEFT JOIN teams t ON cr.assigned_team_id = t.id
+      LEFT JOIN users u_owner ON cr.owner_id = u_owner.id
+      LEFT JOIN users u_impl ON cr.implementer_id = u_impl.id
       WHERE cr.id = ? AND cr.organization_id = ?
-    `).get(changeId, auth.user.organization_id) as Record<string, unknown> | undefined
+    `, [changeId, organizationId])
 
     if (!change) {
       return NextResponse.json(
@@ -87,7 +83,7 @@ export async function GET(
     }
 
     // Get approvals
-    const approvals = db.prepare(`
+    const approvals = await executeQuery<Record<string, unknown>>(`
       SELECT
         a.*,
         u.name as approver_name,
@@ -96,10 +92,10 @@ export async function GET(
       LEFT JOIN users u ON a.approver_id = u.id
       WHERE a.change_request_id = ?
       ORDER BY a.approval_level ASC
-    `).all(changeId)
+    `, [changeId])
 
     // Get affected CIs
-    const affectedCIs = db.prepare(`
+    const affectedCIs = await executeQuery<Record<string, unknown>>(`
       SELECT
         ci.id,
         ci.ci_number,
@@ -112,10 +108,10 @@ export async function GET(
       LEFT JOIN ci_types ct ON ci.ci_type_id = ct.id
       LEFT JOIN ci_statuses cs ON ci.status_id = cs.id
       WHERE ctl.ticket_id = ? AND ctl.link_type = 'change'
-    `).all(changeId)
+    `, [changeId])
 
     // Get CAB meeting if scheduled
-    const cabMeeting = db.prepare(`
+    const cabMeeting = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         m.*,
         u.name as organizer_name
@@ -124,10 +120,10 @@ export async function GET(
       WHERE m.id = (
         SELECT cab_meeting_id FROM change_requests WHERE id = ?
       )
-    `).get(changeId)
+    `, [changeId])
 
     // Get history/comments
-    const history = db.prepare(`
+    const history = await executeQuery<Record<string, unknown>>(`
       SELECT
         c.*,
         u.name as author_name
@@ -135,7 +131,7 @@ export async function GET(
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.ticket_id = ?
       ORDER BY c.created_at DESC
-    `).all(changeId)
+    `, [changeId])
 
     return NextResponse.json({
       success: true,
@@ -166,10 +162,9 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { id } = await params
     const changeId = parseInt(id)
@@ -180,12 +175,11 @@ export async function PUT(
     const body = await request.json()
     const data = updateChangeSchema.parse(body)
 
-    const db = getDatabase()
-
     // Check if change exists
-    const existingChange = db.prepare(
-      `SELECT * FROM change_requests WHERE id = ? AND organization_id = ?`
-    ).get(changeId, auth.user.organization_id) as Record<string, unknown> | undefined
+    const existingChange = await executeQueryOne<Record<string, unknown>>(
+      `SELECT * FROM change_requests WHERE id = ? AND organization_id = ?`,
+      [changeId, organizationId]
+    )
 
     if (!existingChange) {
       return NextResponse.json(
@@ -194,11 +188,12 @@ export async function PUT(
       )
     }
 
-    // Check permissions - only requester, assignee, or admin/manager can update
+    // Check permissions - only requester, owner, implementer, or admin/manager can update
     const canUpdate =
-      auth.user.id === existingChange.requester_id ||
-      auth.user.id === existingChange.assignee_id ||
-      ['admin', 'manager'].includes(auth.user.role)
+      userId === existingChange.requester_id ||
+      userId === existingChange.owner_id ||
+      userId === existingChange.implementer_id ||
+      ['admin', 'manager'].includes(role)
 
     if (!canUpdate) {
       return NextResponse.json(
@@ -225,34 +220,22 @@ export async function PUT(
       )
     }
 
-    // Recalculate risk score if impact or risk_level changed
-    if (data.impact || data.risk_level) {
-      const impact = data.impact || existingChange.impact as string
-      const riskLevel = data.risk_level || existingChange.risk_level as string
-
-      const impactScores: Record<string, number> = { extensive: 5, significant: 4, moderate: 3, minor: 2, none: 1 }
-      const riskScores: Record<string, number> = { very_high: 5, high: 4, medium: 3, low: 2, very_low: 1 }
-
-      const riskScore = (impactScores[impact] || 3) * (riskScores[riskLevel] || 3)
-      updates.push('risk_score = ?')
-      values.push(riskScore)
-    }
-
     updates.push('updated_at = CURRENT_TIMESTAMP')
-    values.push(changeId, auth.user.organization_id)
+    values.push(changeId, organizationId)
 
-    db.prepare(`
+    await executeRun(`
       UPDATE change_requests
       SET ${updates.join(', ')}
       WHERE id = ? AND organization_id = ?
-    `).run(...values)
+    `, values)
 
     // Get updated change
-    const updatedChange = db.prepare(
-      `SELECT * FROM change_requests WHERE id = ?`
-    ).get(changeId)
+    const updatedChange = await executeQueryOne<Record<string, unknown>>(
+      `SELECT * FROM change_requests WHERE id = ?`,
+      [changeId]
+    )
 
-    logger.info(`Change request updated: ${changeId} by user ${auth.user.id}`)
+    logger.info(`Change request updated: ${changeId} by user ${userId}`)
 
     return NextResponse.json({
       success: true,
@@ -286,10 +269,9 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { id } = await params
     const changeId = parseInt(id)
@@ -297,12 +279,11 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 })
     }
 
-    const db = getDatabase()
-
     // Check if change exists
-    const change = db.prepare(
-      `SELECT * FROM change_requests WHERE id = ? AND organization_id = ?`
-    ).get(changeId, auth.user.organization_id) as { status: string; requester_id: number; change_number: string } | undefined
+    const change = await executeQueryOne<{ status: string; requester_id: number; change_number: string }>(
+      `SELECT * FROM change_requests WHERE id = ? AND organization_id = ?`,
+      [changeId, organizationId]
+    )
 
     if (!change) {
       return NextResponse.json(
@@ -313,10 +294,10 @@ export async function DELETE(
 
     // Only allow cancellation of draft/submitted changes, or by admin
     const canCancel =
-      ['draft', 'submitted', 'pending_assessment'].includes(change.status) &&
-      (auth.user.id === change.requester_id || auth.user.role === 'admin')
+      ['draft', 'submitted', 'under_review'].includes(change.status) &&
+      (userId === change.requester_id || role === 'admin')
 
-    if (!canCancel && auth.user.role !== 'admin') {
+    if (!canCancel && role !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Apenas mudanças em rascunho ou submetidas podem ser canceladas' },
         { status: 403 }
@@ -324,13 +305,13 @@ export async function DELETE(
     }
 
     // Cancel instead of delete
-    db.prepare(`
+    await executeRun(`
       UPDATE change_requests
-      SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP, cancelled_by = ?, updated_at = CURRENT_TIMESTAMP
+      SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(auth.user.id, changeId)
+    `, [changeId])
 
-    logger.info(`Change request cancelled: ${change.change_number} by user ${auth.user.id}`)
+    logger.info(`Change request cancelled: ${change.change_number} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

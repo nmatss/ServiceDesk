@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -32,9 +32,9 @@ export async function PUT(
     }
 
     // Verify category exists and belongs to tenant
-    const existing = db.prepare(`
+    const existing = await executeQueryOne(`
       SELECT * FROM categories WHERE id = ? AND tenant_id = ?
-    `).get(id, tenantContext.id)
+    `, [id, tenantContext.id])
 
     if (!existing) {
       return NextResponse.json(
@@ -73,15 +73,15 @@ export async function PUT(
     updates.push('updated_at = CURRENT_TIMESTAMP')
     values.push(id, tenantContext.id)
 
-    db.prepare(`
+    await executeRun(`
       UPDATE categories
       SET ${updates.join(', ')}
       WHERE id = ? AND tenant_id = ?
-    `).run(...values)
+    `, values)
 
-    const category = db.prepare(`
+    const category = await executeQueryOne(`
       SELECT * FROM categories WHERE id = ?
-    `).get(id)
+    `, [id])
 
     return NextResponse.json({
       success: true,
@@ -123,11 +123,11 @@ export async function DELETE(
     }
 
     // Check if category has tickets
-    const ticketCount = db.prepare(`
+    const ticketCount = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets
       WHERE category_id = ?
-    `).get(id) as { count: number }
+    `, [id]) || { count: 0 }
 
     if (ticketCount.count > 0) {
       return NextResponse.json(
@@ -136,10 +136,10 @@ export async function DELETE(
       )
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM categories
       WHERE id = ? AND tenant_id = ?
-    `).run(id, tenantContext.id)
+    `, [id, tenantContext.id])
 
     if (result.changes === 0) {
       return NextResponse.json(

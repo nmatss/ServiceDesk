@@ -12,7 +12,7 @@
 
 import { WhatsAppBusinessAPI } from './business-api';
 import logger from '@/lib/monitoring/structured-logger';
-import { getDb } from '@/lib/db';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 
 export interface WhatsAppTemplate {
   id?: number;
@@ -139,8 +139,6 @@ export class WhatsAppTemplateManager {
     language?: string;
   }): Promise<WhatsAppTemplate[]> {
     try {
-      const db = getDb();
-
       let query = 'SELECT * FROM whatsapp_templates WHERE 1=1';
       const params: any[] = [];
 
@@ -161,7 +159,7 @@ export class WhatsAppTemplateManager {
 
       query += ' ORDER BY created_at DESC';
 
-      const templates = db.prepare(query).all(...params) as any[];
+      const templates = await executeQuery<any>(query, params);
 
       return templates.map((t) => ({
         id: t.id,
@@ -186,11 +184,10 @@ export class WhatsAppTemplateManager {
    */
   async getTemplate(name: string, language: string = 'pt_BR'): Promise<WhatsAppTemplate | null> {
     try {
-      const db = getDb();
-
-      const template = db
-        .prepare('SELECT * FROM whatsapp_templates WHERE name = ? AND language = ? LIMIT 1')
-        .get(name, language) as any;
+      const template = await executeQueryOne<any>(
+        'SELECT * FROM whatsapp_templates WHERE name = ? AND language = ? LIMIT 1',
+        [name, language]
+      );
 
       if (!template) {
         return null;
@@ -386,63 +383,39 @@ export class WhatsAppTemplateManager {
    */
   private async saveTemplateToDatabase(template: WhatsAppTemplate): Promise<void> {
     try {
-      const db = getDb();
-
-      // Check if whatsapp_templates table exists, if not create it
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS whatsapp_templates (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          category TEXT NOT NULL,
-          language TEXT NOT NULL,
-          status TEXT DEFAULT 'PENDING',
-          components TEXT NOT NULL,
-          variables TEXT,
-          metadata TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(name, language)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_name ON whatsapp_templates(name);
-        CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_status ON whatsapp_templates(status);
-        CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_category ON whatsapp_templates(category);
-      `);
-
-      const existing = db
-        .prepare('SELECT id FROM whatsapp_templates WHERE name = ? AND language = ?')
-        .get(template.name, template.language);
+      const existing = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM whatsapp_templates WHERE name = ? AND language = ?',
+        [template.name, template.language]
+      );
 
       if (existing) {
-        db.prepare(
-          `
-          UPDATE whatsapp_templates
-          SET category = ?, status = ?, components = ?, variables = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE name = ? AND language = ?
-        `
-        ).run(
-          template.category,
-          template.status,
-          JSON.stringify(template.components),
-          template.variables ? JSON.stringify(template.variables) : null,
-          template.metadata ? JSON.stringify(template.metadata) : null,
-          template.name,
-          template.language
+        await executeRun(
+          `UPDATE whatsapp_templates
+           SET category = ?, status = ?, components = ?, variables = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE name = ? AND language = ?`,
+          [
+            template.category,
+            template.status,
+            JSON.stringify(template.components),
+            template.variables ? JSON.stringify(template.variables) : null,
+            template.metadata ? JSON.stringify(template.metadata) : null,
+            template.name,
+            template.language
+          ]
         );
       } else {
-        db.prepare(
-          `
-          INSERT INTO whatsapp_templates (name, category, language, status, components, variables, metadata)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `
-        ).run(
-          template.name,
-          template.category,
-          template.language,
-          template.status,
-          JSON.stringify(template.components),
-          template.variables ? JSON.stringify(template.variables) : null,
-          template.metadata ? JSON.stringify(template.metadata) : null
+        await executeRun(
+          `INSERT INTO whatsapp_templates (name, category, language, status, components, variables, metadata)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            template.name,
+            template.category,
+            template.language,
+            template.status,
+            JSON.stringify(template.components),
+            template.variables ? JSON.stringify(template.variables) : null,
+            template.metadata ? JSON.stringify(template.metadata) : null
+          ]
         );
       }
     } catch (error) {
@@ -456,15 +429,12 @@ export class WhatsAppTemplateManager {
    */
   async updateTemplateStatus(name: string, language: string, status: string): Promise<void> {
     try {
-      const db = getDb();
-
-      db.prepare(
-        `
-        UPDATE whatsapp_templates
-        SET status = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE name = ? AND language = ?
-      `
-      ).run(status, name, language);
+      await executeRun(
+        `UPDATE whatsapp_templates
+         SET status = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE name = ? AND language = ?`,
+        [status, name, language]
+      );
 
       logger.info('Template status updated', { name, language, status });
     } catch (error) {
@@ -478,10 +448,11 @@ export class WhatsAppTemplateManager {
    */
   async deleteTemplate(name: string, language: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const db = getDb();
-
       // Delete from local database
-      db.prepare('DELETE FROM whatsapp_templates WHERE name = ? AND language = ?').run(name, language);
+      await executeRun(
+        'DELETE FROM whatsapp_templates WHERE name = ? AND language = ?',
+        [name, language]
+      );
 
       // Note: Deleting from WhatsApp API requires the template ID
       // You may want to implement API deletion separately

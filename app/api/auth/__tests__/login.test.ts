@@ -13,7 +13,7 @@
  * - Multi-tenant isolation
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { POST as loginPOST } from '@/app/api/auth/login/route';
 import {
   initTestDatabase,
@@ -503,6 +503,14 @@ describe('POST /api/auth/login', () => {
   });
 
   describe('Rate Limiting', () => {
+    beforeEach(() => {
+      process.env.ENABLE_RATE_LIMIT_TESTS = 'true';
+    });
+
+    afterEach(() => {
+      delete process.env.ENABLE_RATE_LIMIT_TESTS;
+    });
+
     it('should rate limit after 5 login attempts', async () => {
       const requests = [];
 

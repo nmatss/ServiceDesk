@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import AITrainingSystem from '@/lib/ai/training-system';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQueryOne } from '@/lib/db/adapter';
+import { createTrainingSystem } from '@/lib/ai/factories';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, operationType, organizationId, config } = body;
 
-    const trainingSystem = new AITrainingSystem(db, config);
+    const trainingSystem = createTrainingSystem(config);
 
     switch (action) {
       case 'train':
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action');
     const organizationId = searchParams.get('organizationId');
 
-    const trainingSystem = new AITrainingSystem(db);
+    const trainingSystem = createTrainingSystem();
 
     switch (action) {
       case 'metrics':

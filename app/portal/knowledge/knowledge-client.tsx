@@ -105,7 +105,7 @@ export default function KnowledgePageClient({ initialData }: KnowledgePageClient
   }, [selectedCategory, searchQuery, sortBy])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in">
       {/* Header */}
       <div className="glass-panel shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

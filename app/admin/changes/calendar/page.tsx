@@ -46,80 +46,47 @@ export default function ChangeCalendarPage() {
   const fetchChanges = async () => {
     setLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const response = await fetch('/api/changes?page=1&limit=100')
+      const data = await response.json()
 
-      // Generate sample changes for the current month
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao buscar mudanças')
+      }
 
-      setChanges([
-        {
-          id: '456',
-          title: 'Otimização de índices do banco ERP',
-          category: 'normal',
-          status: 'scheduled',
-          scheduled_start: new Date(year, month, 15, 22, 0).toISOString(),
-          scheduled_end: new Date(year, month, 16, 2, 0).toISOString(),
-          assigned_to: 'Pedro Almeida',
-          risk_level: 3,
-          services: ['ERP Financeiro', 'Relatórios']
-        },
-        {
-          id: '457',
-          title: 'Atualização de segurança do firewall',
-          category: 'normal',
-          status: 'scheduled',
-          scheduled_start: new Date(year, month, 18, 23, 0).toISOString(),
-          scheduled_end: new Date(year, month, 19, 1, 0).toISOString(),
-          assigned_to: 'Ana Costa',
-          risk_level: 4,
-          services: ['Firewall', 'VPN']
-        },
-        {
-          id: '458',
-          title: 'Migração de servidor de arquivos',
-          category: 'normal',
-          status: 'scheduled',
-          scheduled_start: new Date(year, month, 20, 20, 0).toISOString(),
-          scheduled_end: new Date(year, month, 21, 6, 0).toISOString(),
-          assigned_to: 'Carlos Silva',
-          risk_level: 3,
-          services: ['File Server', 'Backup']
-        },
-        {
-          id: '459',
-          title: 'Deploy de atualização mensal',
-          category: 'standard',
-          status: 'scheduled',
-          scheduled_start: new Date(year, month, 22, 6, 0).toISOString(),
-          scheduled_end: new Date(year, month, 22, 7, 0).toISOString(),
-          assigned_to: 'DevOps Team',
-          risk_level: 2,
-          services: ['Portal', 'API']
-        },
-        {
-          id: '455',
-          title: 'Atualização do sistema de backup',
-          category: 'standard',
-          status: 'completed',
-          scheduled_start: new Date(year, month, 10, 22, 0).toISOString(),
-          scheduled_end: new Date(year, month, 10, 23, 0).toISOString(),
-          assigned_to: 'João Oliveira',
-          risk_level: 2,
-          services: ['Backup System']
-        },
-        {
-          id: '450',
-          title: 'Hotfix crítico de segurança',
-          category: 'emergency',
-          status: 'completed',
-          scheduled_start: new Date(year, month, 10, 8, 0).toISOString(),
-          scheduled_end: new Date(year, month, 10, 9, 0).toISOString(),
-          assigned_to: 'Security Team',
-          risk_level: 4,
-          services: ['All Systems']
-        }
-      ])
+      if (data.success && data.change_requests) {
+        // Map API data to calendar format
+        const mappedChanges: ScheduledChange[] = data.change_requests
+          .filter((cr: Record<string, unknown>) => cr.scheduled_start_date)
+          .map((cr: Record<string, unknown>) => {
+            // Map risk_level to numeric 1-5 scale
+            const riskLevelMap: Record<string, number> = {
+              'very_low': 1,
+              'low': 2,
+              'medium': 3,
+              'high': 4,
+              'very_high': 5
+            }
+
+            // Parse affected_services
+            const services = cr.affected_services
+              ? (typeof cr.affected_services === 'string' ? cr.affected_services.split(',').map(s => s.trim()) : [])
+              : []
+
+            return {
+              id: String(cr.id),
+              title: cr.title as string || 'Sem título',
+              category: (cr.category as 'standard' | 'normal' | 'emergency') || 'normal',
+              status: (cr.status as 'scheduled' | 'in_progress' | 'completed' | 'failed') || 'scheduled',
+              scheduled_start: cr.scheduled_start_date as string,
+              scheduled_end: cr.scheduled_end_date as string || cr.scheduled_start_date as string,
+              assigned_to: cr.assignee_name as string || 'Não atribuído',
+              risk_level: riskLevelMap[cr.risk_level as string] || 3,
+              services: services.length > 0 ? services : ['N/A']
+            }
+          })
+
+        setChanges(mappedChanges)
+      }
     } catch (error) {
       console.error('Error fetching changes:', error)
     } finally {
@@ -516,6 +483,7 @@ export default function ChangeCalendarPage() {
             CAB
           </button>
           <button
+            onClick={() => router.push('/admin/changes/new')}
             className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg"
           >
             Nova RFC

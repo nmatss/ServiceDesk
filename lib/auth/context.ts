@@ -18,6 +18,33 @@ export interface UserContext {
   tenant_slug: string;
 }
 
+function extractAuthToken(request: NextRequest): string | null {
+  const tokenFromCookie = request.cookies.get('auth_token')?.value;
+  if (tokenFromCookie) {
+    return tokenFromCookie;
+  }
+
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    const cookieToken = cookieHeader
+      .split(';')
+      .map((cookie) => cookie.trim())
+      .find((cookie) => cookie.startsWith('auth_token='))
+      ?.split('=')
+      .slice(1)
+      .join('=');
+
+    if (cookieToken) {
+      return cookieToken;
+    }
+  }
+
+  const authHeader = request.headers.get('authorization');
+  return authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : null;
+}
+
 /**
  * Extrai contexto de tenant do JWT token
  *
@@ -31,16 +58,7 @@ export async function getTenantContextFromRequest(
   request: NextRequest
 ): Promise<TenantContext | null> {
   try {
-    // Try to get token from cookie first (more secure)
-    const tokenFromCookie = request.cookies.get('auth_token')?.value;
-
-    // Fallback to Authorization header
-    const authHeader = request.headers.get('authorization');
-    const tokenFromHeader = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7)
-      : null;
-
-    const token = tokenFromCookie || tokenFromHeader;
+    const token = extractAuthToken(request);
 
     if (!token) {
       return null;
@@ -78,16 +96,7 @@ export async function getUserContextFromRequest(
   request: NextRequest
 ): Promise<UserContext | null> {
   try {
-    // Try to get token from cookie first (more secure)
-    const tokenFromCookie = request.cookies.get('auth_token')?.value;
-
-    // Fallback to Authorization header
-    const authHeader = request.headers.get('authorization');
-    const tokenFromHeader = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7)
-      : null;
-
-    const token = tokenFromCookie || tokenFromHeader;
+    const token = extractAuthToken(request);
 
     if (!token) {
       return null;

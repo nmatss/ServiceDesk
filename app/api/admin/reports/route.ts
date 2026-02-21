@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth';
+import { verifyToken, verifyTokenFromCookies } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/monitoring/logger';
 import { ReportFilters } from '@/lib/reports';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
   getTicketMetrics,
@@ -20,13 +21,20 @@ export async function GET(request: NextRequest) {
 
   try {
     // SECURITY: Verificar autenticação via cookies httpOnly
-    const decoded = await verifyTokenFromCookies(request);
+    let decoded = await verifyTokenFromCookies(request);
+    if (!decoded) {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      if (token) {
+        decoded = await verifyToken(token);
+      }
+    }
     if (!decoded) {
       return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
     }
 
-    // Apenas admins e agentes podem acessar relatórios
-    if (!['admin', 'agent'].includes(decoded.role)) {
+    // Apenas administradores podem acessar relatórios administrativos.
+    if (!ADMIN_ROLES.includes(decoded.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -114,7 +122,8 @@ export async function GET(request: NextRequest) {
       type: reportType,
       period: filters.period,
       generatedAt: new Date().toISOString(),
-      data: reportData
+      data: reportData,
+      reports: reportData
     });
 
   } catch (error) {
@@ -131,7 +140,14 @@ export async function POST(request: NextRequest) {
 
   try {
     // SECURITY: Verificar autenticação via cookies httpOnly
-    const decoded = await verifyTokenFromCookies(request);
+    let decoded = await verifyTokenFromCookies(request);
+    if (!decoded) {
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      if (token) {
+        decoded = await verifyToken(token);
+      }
+    }
     if (!decoded) {
       return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
     }

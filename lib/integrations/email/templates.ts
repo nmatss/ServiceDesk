@@ -13,7 +13,8 @@
  */
 
 import * as Handlebars from 'handlebars';
-import db from '@/lib/db/connection';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { sqlNow } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
 export interface EmailTemplate {
@@ -255,11 +256,7 @@ export class TemplateEngine {
    */
   async loadTemplate(code: string, language: string = 'pt-BR'): Promise<void> {
     try {
-      const template = db.prepare(`
-        SELECT * FROM email_templates
-        WHERE code = ? AND language = ? AND is_active = 1
-        LIMIT 1
-      `).get(code, language) as {
+      const template = await executeQueryOne<{
         id: number;
         name: string;
         code: string;
@@ -272,7 +269,12 @@ export class TemplateEngine {
         description?: string;
         is_active: number;
         tenant_id?: number;
-      } | undefined;
+      }>(
+        `SELECT * FROM email_templates
+         WHERE code = ? AND language = ? AND is_active = 1
+         LIMIT 1`,
+        [code, language]
+      );
 
       if (!template) {
         logger.warn(`Template not found in database: ${code} (${language})`);
@@ -305,26 +307,27 @@ export class TemplateEngine {
    */
   async saveTemplate(template: EmailTemplate): Promise<number> {
     try {
-      const result = db.prepare(`
-        INSERT INTO email_templates (
+      const result = await executeRun(
+        `INSERT INTO email_templates (
           name, code, subject, body_html, body_text, language,
           category, variables, description, is_active, tenant_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        template.name,
-        template.code,
-        template.subject,
-        template.bodyHtml,
-        template.bodyText,
-        template.language,
-        template.category,
-        JSON.stringify(template.variables),
-        template.description || null,
-        template.isActive ? 1 : 0,
-        template.tenantId || null
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          template.name,
+          template.code,
+          template.subject,
+          template.bodyHtml,
+          template.bodyText,
+          template.language,
+          template.category,
+          JSON.stringify(template.variables),
+          template.description || null,
+          template.isActive ? 1 : 0,
+          template.tenantId || null
+        ]
       );
 
-      const templateId = result.lastInsertRowid as number;
+      const templateId = result.lastInsertRowid!;
 
       // Compile and cache the template
       this.compile({ ...template, id: templateId });
@@ -375,14 +378,15 @@ export class TemplateEngine {
 
       values.push(id);
 
-      db.prepare(`
-        UPDATE email_templates
-        SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(...values);
+      await executeRun(
+        `UPDATE email_templates
+         SET ${fields.join(', ')}, updated_at = ${sqlNow()}
+         WHERE id = ?`,
+        values
+      );
 
       // Reload template into cache
-      const template = db.prepare('SELECT * FROM email_templates WHERE id = ?').get(id) as any;
+      const template = await executeQueryOne<any>('SELECT * FROM email_templates WHERE id = ?', [id]);
       if (template) {
         const emailTemplate: EmailTemplate = {
           id: template.id,

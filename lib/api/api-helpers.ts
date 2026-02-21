@@ -3,8 +3,9 @@
  * Utility functions for building secure and consistent API endpoints
  */
 
-import type { NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import jwt, { type JwtPayload } from 'jsonwebtoken'
 import {
   AppError,
   AuthenticationError,
@@ -15,6 +16,8 @@ import {
   validateOrThrow,
 } from '../errors/error-handler'
 import { applyRateLimit, rateLimitConfigs } from '../rate-limit'
+import { validateJWTSecret } from '../config/env'
+import { ADMIN_ROLES } from '../auth/roles'
 
 /**
  * Extract and validate user from request headers
@@ -25,23 +28,126 @@ export interface AuthenticatedUser {
   organization_id: number
   role: string
   email: string
+  tenant_slug?: string
+  name?: string
 }
 
-export function getUserFromRequest(request: NextRequest): AuthenticatedUser {
+function parseHeaderUser(request: NextRequest): AuthenticatedUser | null {
   const userId = request.headers.get('x-user-id')
   const organizationId = request.headers.get('x-organization-id')
   const userRole = request.headers.get('x-user-role')
 
   if (!userId || !organizationId || !userRole) {
-    throw new AuthenticationError('User not authenticated')
+    return null
+  }
+
+  const parsedUserId = Number.parseInt(userId, 10)
+  const parsedOrganizationId = Number.parseInt(organizationId, 10)
+
+  if (
+    Number.isNaN(parsedUserId) ||
+    parsedUserId <= 0 ||
+    Number.isNaN(parsedOrganizationId) ||
+    parsedOrganizationId <= 0
+  ) {
+    throw new AuthenticationError('Invalid authentication headers')
   }
 
   return {
-    id: parseInt(userId, 10),
-    organization_id: parseInt(organizationId, 10),
+    id: parsedUserId,
+    organization_id: parsedOrganizationId,
     role: userRole,
-    email: '', // Not available in headers by default
+    email: request.headers.get('x-user-email') || '',
+    tenant_slug: request.headers.get('x-tenant-slug') || undefined,
+    name: request.headers.get('x-user-name') || undefined,
   }
+}
+
+function getRequestToken(request: NextRequest): string | null {
+  const cookieToken = request.cookies?.get('auth_token')?.value
+  if (cookieToken) {
+    return cookieToken
+  }
+
+  const authHeader = request.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7)
+  }
+
+  return null
+}
+
+function parseTokenUser(token: string): AuthenticatedUser {
+  const payload = jwt.verify(token, validateJWTSecret(), {
+    algorithms: ['HS256'],
+  }) as JwtPayload
+
+  // Accept legacy tokens without iss/aud, but reject explicit mismatches.
+  if (typeof payload.iss === 'string' && payload.iss !== 'servicedesk') {
+    throw new AuthenticationError('Invalid authentication token issuer')
+  }
+
+  const audienceClaim = payload.aud
+  if (typeof audienceClaim === 'string' && audienceClaim !== 'servicedesk-users') {
+    throw new AuthenticationError('Invalid authentication token audience')
+  }
+  if (Array.isArray(audienceClaim) && !audienceClaim.includes('servicedesk-users')) {
+    throw new AuthenticationError('Invalid authentication token audience')
+  }
+
+  const id = typeof payload.id === 'number' ? payload.id : Number(payload.user_id)
+  const organizationId =
+    typeof payload.organization_id === 'number'
+      ? payload.organization_id
+      : Number(payload.tenant_id)
+
+  if (
+    !id ||
+    Number.isNaN(id) ||
+    !organizationId ||
+    Number.isNaN(organizationId) ||
+    typeof payload.role !== 'string' ||
+    typeof payload.email !== 'string'
+  ) {
+    throw new AuthenticationError('Invalid authentication token payload')
+  }
+
+  return {
+    id,
+    organization_id: organizationId,
+    role: payload.role,
+    email: payload.email,
+    tenant_slug:
+      typeof payload.tenant_slug === 'string' ? payload.tenant_slug : undefined,
+    name: typeof payload.name === 'string' ? payload.name : undefined,
+  }
+}
+
+export function getUserFromRequest(request: NextRequest): AuthenticatedUser {
+  const headerUser = parseHeaderUser(request)
+  const token = getRequestToken(request)
+
+  if (!token) {
+    if (process.env.NODE_ENV === 'test' && headerUser) {
+      return headerUser
+    }
+    throw new AuthenticationError('User not authenticated')
+  }
+
+  const tokenUser = parseTokenUser(token)
+
+  // Security: if both JWT and headers are present, they must match
+  if (headerUser) {
+    if (
+      headerUser.id !== tokenUser.id ||
+      headerUser.organization_id !== tokenUser.organization_id ||
+      headerUser.role !== tokenUser.role
+    ) {
+      throw new AuthorizationError('Authentication header mismatch detected')
+    }
+  }
+
+  return tokenUser
 }
 
 /**
@@ -54,28 +160,52 @@ export interface RequestTenant {
 }
 
 export function getTenantFromRequest(request: NextRequest): RequestTenant {
+  const token = getRequestToken(request)
   const tenantId = request.headers.get('x-tenant-id')
   const tenantSlug = request.headers.get('x-tenant-slug')
   const tenantName = request.headers.get('x-tenant-name')
 
-  if (!tenantId || !tenantSlug || !tenantName) {
-    throw new AppError('Tenant context not found', undefined, 400)
+  if (token) {
+    const user = getUserFromRequest(request)
+
+    if (tenantId) {
+      const parsedHeaderTenantId = Number.parseInt(tenantId, 10)
+      if (
+        Number.isNaN(parsedHeaderTenantId) ||
+        parsedHeaderTenantId <= 0 ||
+        parsedHeaderTenantId !== user.organization_id
+      ) {
+        throw new AuthorizationError('Tenant header mismatch detected')
+      }
+    }
+
+    return {
+      id: user.organization_id,
+      slug: user.tenant_slug || tenantSlug || `org-${user.organization_id}`,
+      name: tenantName || `Organization ${user.organization_id}`,
+    }
   }
 
-  return {
-    id: parseInt(tenantId, 10),
-    slug: tenantSlug,
-    name: tenantName,
+  if (process.env.NODE_ENV === 'test' && tenantId && tenantSlug && tenantName) {
+    const parsedTenantId = Number.parseInt(tenantId, 10)
+    if (Number.isNaN(parsedTenantId) || parsedTenantId <= 0) {
+      throw new AppError('Tenant context not found', undefined, 400)
+    }
+    return {
+      id: parsedTenantId,
+      slug: tenantSlug,
+      name: tenantName,
+    }
   }
+
+  throw new AppError('Tenant context not found', undefined, 400)
 }
 
 /**
  * Check if user has admin role
  */
 export function requireAdmin(user: AuthenticatedUser): void {
-  const adminRoles = ['super_admin', 'tenant_admin', 'team_manager', 'admin']
-
-  if (!adminRoles.includes(user.role)) {
+  if (!ADMIN_ROLES.includes(user.role)) {
     throw new AuthorizationError('Admin access required')
   }
 }
@@ -139,7 +269,7 @@ export function parseQueryParams<T>(
 }
 
 /**
- * Build success response
+ * Build success response (plain object, for use with apiHandler)
  */
 export interface SuccessResponse<T = unknown> {
   success: true
@@ -162,6 +292,36 @@ export function successResponse<T>(
 }
 
 /**
+ * Standardized API success response (returns NextResponse)
+ * Use for consistent { success: true, data, meta? } format.
+ */
+export function apiSuccess<T>(
+  data: T,
+  meta?: { page?: number; limit?: number; totalPages?: number; total?: number; [key: string]: unknown },
+  status: number = 200
+): NextResponse {
+  return NextResponse.json(
+    { success: true, data, ...(meta ? { meta } : {}) },
+    { status }
+  )
+}
+
+/**
+ * Standardized API error response (returns NextResponse)
+ * Use for consistent { success: false, error, code? } format.
+ */
+export function apiError(
+  message: string,
+  status: number = 500,
+  code?: string
+): NextResponse {
+  return NextResponse.json(
+    { success: false, error: message, ...(code ? { code } : {}) },
+    { status }
+  )
+}
+
+/**
  * API route handler wrapper with error handling
  */
 export function apiHandler<T = unknown>(
@@ -173,11 +333,28 @@ export function apiHandler<T = unknown>(
   ): Promise<Response> => {
     try {
       const result = await handler(request, context)
+
+      if (result instanceof Response) {
+        return result
+      }
+
       return Response.json(successResponse(result), { status: 200 })
     } catch (error) {
+      let requestPath = '/api/unknown'
+
+      if (request.nextUrl?.pathname) {
+        requestPath = request.nextUrl.pathname
+      } else if (request.url) {
+        try {
+          requestPath = new URL(request.url).pathname
+        } catch {
+          requestPath = request.url
+        }
+      }
+
       return handleAPIError(
         error instanceof Error ? error : new Error('Unknown error'),
-        request.nextUrl.pathname
+        requestPath
       )
     }
   }

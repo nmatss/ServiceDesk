@@ -96,6 +96,47 @@ export function getMimeTypeFromExtension(filename: string): string {
   return mimeTypes[ext] || 'application/octet-stream'
 }
 
+/**
+ * Magic byte signatures for validating file content matches declared MIME type.
+ * Prevents attackers from uploading malicious files with spoofed extensions/MIME types.
+ */
+const MAGIC_BYTES: Record<string, number[]> = {
+  'image/png': [0x89, 0x50, 0x4E, 0x47],
+  'image/jpeg': [0xFF, 0xD8, 0xFF],
+  'image/jpg': [0xFF, 0xD8, 0xFF],
+  'application/pdf': [0x25, 0x50, 0x44, 0x46],
+  'image/gif': [0x47, 0x49, 0x46],
+  'image/webp': [0x52, 0x49, 0x46, 0x46], // RIFF header
+  'application/zip': [0x50, 0x4B, 0x03, 0x04],
+}
+
+/**
+ * Validate that a file's content matches its declared MIME type using magic bytes.
+ * Returns true if the MIME type has no known signature or if the signature matches.
+ */
+export async function validateMagicBytes(file: File): Promise<{ valid: boolean; error?: string }> {
+  const expectedBytes = MAGIC_BYTES[file.type]
+  if (!expectedBytes) {
+    // No known signature for this MIME type -- allow it
+    return { valid: true }
+  }
+
+  const slice = file.slice(0, expectedBytes.length)
+  const buffer = new Uint8Array(await slice.arrayBuffer())
+
+  if (buffer.length < expectedBytes.length) {
+    return { valid: false, error: 'Arquivo corrompido ou vazio' }
+  }
+
+  for (let i = 0; i < expectedBytes.length; i++) {
+    if (buffer[i] !== expectedBytes[i]) {
+      return { valid: false, error: 'O conteúdo do arquivo não corresponde ao tipo declarado' }
+    }
+  }
+
+  return { valid: true }
+}
+
 export function validateFile(
   file: File,
   options: FileUploadOptions = {}

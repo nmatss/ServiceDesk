@@ -4,9 +4,10 @@
  * POST: Link an incident to a problem
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { LinkIncidentInput } from '@/lib/types/problem';
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: incidents,
     });
   } catch (error) {
-    console.error('Error fetching problem incidents:', error);
+    logger.error('Error fetching problem incidents:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    console.error('Error linking incident to problem:', error);
+    logger.error('Error linking incident to problem:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -298,7 +299,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       message: 'Incident unlinked successfully',
     });
   } catch (error) {
-    console.error('Error unlinking incident from problem:', error);
+    logger.error('Error unlinking incident from problem:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

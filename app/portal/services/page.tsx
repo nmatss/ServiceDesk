@@ -1,16 +1,5 @@
 import { Metadata } from 'next'
 import ServicesClient from './services-client'
-import {
-  ComputerDesktopIcon,
-  UserGroupIcon,
-  BuildingOfficeIcon,
-  CurrencyDollarIcon,
-  AcademicCapIcon,
-  WrenchScrewdriverIcon,
-  ShieldCheckIcon,
-  TruckIcon,
-  HeartIcon
-} from '@heroicons/react/24/outline'
 
 export const metadata: Metadata = {
   title: 'Central de Serviços | ServiceDesk',
@@ -27,7 +16,7 @@ interface ServiceArea {
   id: string
   name: string
   description: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: string
   color: string
   bgColor: string
   services: number
@@ -41,7 +30,7 @@ interface QuickAction {
   title: string
   description: string
   area: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: string
   color: string
   popular?: boolean
 }
@@ -52,7 +41,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'ti',
     name: 'Tecnologia da Informação',
     description: 'Suporte técnico, sistemas, infraestrutura e segurança',
-    icon: ComputerDesktopIcon,
+    icon: 'ComputerDesktopIcon',
     color: 'text-brand-600',
     bgColor: 'bg-brand-100',
     services: 45,
@@ -64,7 +53,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'rh',
     name: 'Recursos Humanos',
     description: 'Folha de pagamento, benefícios, férias e admissões',
-    icon: UserGroupIcon,
+    icon: 'UserGroupIcon',
     color: 'text-purple-600',
     bgColor: 'bg-purple-100',
     services: 28,
@@ -75,7 +64,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'facilities',
     name: 'Facilities',
     description: 'Manutenção predial, limpeza, segurança patrimonial',
-    icon: BuildingOfficeIcon,
+    icon: 'BuildingOfficeIcon',
     color: 'text-green-600',
     bgColor: 'bg-green-100',
     services: 22,
@@ -86,7 +75,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'financeiro',
     name: 'Financeiro',
     description: 'Reembolsos, pagamentos, notas fiscais e orçamentos',
-    icon: CurrencyDollarIcon,
+    icon: 'CurrencyDollarIcon',
     color: 'text-warning-600',
     bgColor: 'bg-warning-100',
     services: 18,
@@ -97,7 +86,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'juridico',
     name: 'Jurídico',
     description: 'Contratos, compliance e questões legais',
-    icon: ShieldCheckIcon,
+    icon: 'ShieldCheckIcon',
     color: 'text-red-600',
     bgColor: 'bg-red-100',
     services: 12,
@@ -108,7 +97,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'treinamento',
     name: 'Treinamento',
     description: 'Capacitação, cursos e desenvolvimento profissional',
-    icon: AcademicCapIcon,
+    icon: 'AcademicCapIcon',
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-100',
     services: 15,
@@ -119,7 +108,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'logistica',
     name: 'Logística',
     description: 'Entregas, frota e gestão de materiais',
-    icon: TruckIcon,
+    icon: 'TruckIcon',
     color: 'text-orange-600',
     bgColor: 'bg-orange-100',
     services: 10,
@@ -130,7 +119,7 @@ const serviceAreas: ServiceArea[] = [
     id: 'saude',
     name: 'Saúde e Segurança',
     description: 'Medicina do trabalho, EPIs e segurança ocupacional',
-    icon: HeartIcon,
+    icon: 'HeartIcon',
     color: 'text-pink-600',
     bgColor: 'bg-pink-100',
     services: 8,
@@ -140,12 +129,12 @@ const serviceAreas: ServiceArea[] = [
 ]
 
 const quickActions: QuickAction[] = [
-  { id: 'reset-senha', title: 'Redefinir Senha', description: 'Recupere acesso ao sistema', area: 'ti', icon: ComputerDesktopIcon, color: 'bg-brand-500', popular: true },
-  { id: 'novo-usuario', title: 'Novo Usuário', description: 'Criar acesso para colaborador', area: 'ti', icon: UserGroupIcon, color: 'bg-brand-500', popular: true },
-  { id: 'ferias', title: 'Solicitar Férias', description: 'Agendar período de férias', area: 'rh', icon: UserGroupIcon, color: 'bg-purple-500', popular: true },
-  { id: 'reembolso', title: 'Reembolso', description: 'Solicitar reembolso de despesas', area: 'financeiro', icon: CurrencyDollarIcon, color: 'bg-warning-500', popular: true },
-  { id: 'manutencao', title: 'Manutenção', description: 'Reportar problema predial', area: 'facilities', icon: WrenchScrewdriverIcon, color: 'bg-success-500' },
-  { id: 'equipamento', title: 'Novo Equipamento', description: 'Solicitar computador/periférico', area: 'ti', icon: ComputerDesktopIcon, color: 'bg-brand-500' }
+  { id: 'reset-senha', title: 'Redefinir Senha', description: 'Recupere acesso ao sistema', area: 'ti', icon: 'ComputerDesktopIcon', color: 'bg-brand-500', popular: true },
+  { id: 'novo-usuario', title: 'Novo Usuário', description: 'Criar acesso para colaborador', area: 'ti', icon: 'UserGroupIcon', color: 'bg-brand-500', popular: true },
+  { id: 'ferias', title: 'Solicitar Férias', description: 'Agendar período de férias', area: 'rh', icon: 'UserGroupIcon', color: 'bg-purple-500', popular: true },
+  { id: 'reembolso', title: 'Reembolso', description: 'Solicitar reembolso de despesas', area: 'financeiro', icon: 'CurrencyDollarIcon', color: 'bg-warning-500', popular: true },
+  { id: 'manutencao', title: 'Manutenção', description: 'Reportar problema predial', area: 'facilities', icon: 'WrenchScrewdriverIcon', color: 'bg-success-500' },
+  { id: 'equipamento', title: 'Novo Equipamento', description: 'Solicitar computador/periférico', area: 'ti', icon: 'ComputerDesktopIcon', color: 'bg-brand-500' }
 ]
 
 export default async function MultiServicePortalPage() {

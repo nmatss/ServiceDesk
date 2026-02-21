@@ -10,7 +10,7 @@
 
 import { VectorDatabase, BatchEmbeddingJob, BatchProcessingResult } from './vector-database';
 import logger from '../monitoring/structured-logger';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne } from '../db/adapter';
 
 export interface TextPreprocessingOptions {
   maxLength?: number;
@@ -194,7 +194,11 @@ export async function getEntitiesNeedingEmbeddings(
   try {
     // Get tickets needing embeddings
     if (entityTypes.includes('ticket')) {
-      const tickets = db.prepare(`
+      const tickets = await executeQuery<{
+        id: number;
+        title: string;
+        description: string | null;
+      }>(`
         SELECT t.id, t.title, t.description
         FROM tickets t
         LEFT JOIN vector_embeddings ve ON ve.entity_type = 'ticket'
@@ -203,7 +207,7 @@ export async function getEntitiesNeedingEmbeddings(
           OR ve.updated_at < ?
         ORDER BY t.created_at DESC
         LIMIT ?
-      `).all(cutoffTime, batchSize) as any[];
+      `, [cutoffTime, batchSize]);
 
       for (const ticket of tickets) {
         const content = prepareTicketContent(ticket.title, ticket.description || '');
@@ -222,16 +226,21 @@ export async function getEntitiesNeedingEmbeddings(
 
     // Get knowledge base articles needing embeddings
     if (entityTypes.includes('kb_article')) {
-      const articles = db.prepare(`
+      const articles = await executeQuery<{
+        id: number;
+        title: string;
+        summary: string | null;
+        content: string | null;
+      }>(`
         SELECT ka.id, ka.title, ka.summary, ka.content
         FROM kb_articles ka
         LEFT JOIN vector_embeddings ve ON ve.entity_type = 'kb_article'
           AND ve.entity_id = ka.id
-        WHERE ka.is_published = 1
+        WHERE ka.status = 'published'
           AND (ve.id IS NULL OR ve.updated_at < ?)
         ORDER BY ka.updated_at DESC
         LIMIT ?
-      `).all(cutoffTime, batchSize) as any[];
+      `, [cutoffTime, batchSize]);
 
       for (const article of articles) {
         const content = prepareKnowledgeArticleContent(
@@ -254,7 +263,10 @@ export async function getEntitiesNeedingEmbeddings(
 
     // Get comments needing embeddings (lower priority)
     if (entityTypes.includes('comment')) {
-      const comments = db.prepare(`
+      const comments = await executeQuery<{
+        id: number;
+        content: string;
+      }>(`
         SELECT c.id, c.content
         FROM comments c
         LEFT JOIN vector_embeddings ve ON ve.entity_type = 'comment'
@@ -263,7 +275,7 @@ export async function getEntitiesNeedingEmbeddings(
           OR ve.updated_at < ?
         ORDER BY c.created_at DESC
         LIMIT ?
-      `).all(cutoffTime, Math.floor(batchSize / 2)) as any[]; // Fewer comments
+      `, [cutoffTime, Math.floor(batchSize / 2)]); // Fewer comments
 
       for (const comment of comments) {
         const content = preprocessTextForEmbedding(comment.content);
@@ -345,16 +357,16 @@ export async function updateEmbeddingOnChange(
 
     // Fetch entity content
     if (entityType === 'ticket') {
-      const ticket = db.prepare(
+      const ticket = await executeQueryOne<{ title: string; description: string | null }>(
         'SELECT title, description FROM tickets WHERE id = ?'
-      ).get(entityId) as any;
+      , [entityId]);
       if (ticket) {
         content = prepareTicketContent(ticket.title, ticket.description || '');
       }
     } else if (entityType === 'kb_article') {
-      const article = db.prepare(
+      const article = await executeQueryOne<{ title: string; summary: string | null; content: string | null }>(
         'SELECT title, summary, content FROM kb_articles WHERE id = ?'
-      ).get(entityId) as any;
+      , [entityId]);
       if (article) {
         content = prepareKnowledgeArticleContent(
           article.title,
@@ -363,9 +375,9 @@ export async function updateEmbeddingOnChange(
         );
       }
     } else if (entityType === 'comment') {
-      const comment = db.prepare(
+      const comment = await executeQueryOne<{ content: string }>(
         'SELECT content FROM comments WHERE id = ?'
-      ).get(entityId) as any;
+      , [entityId]);
       if (comment) {
         content = preprocessTextForEmbedding(comment.content);
       }

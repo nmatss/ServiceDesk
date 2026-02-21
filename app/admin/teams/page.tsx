@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger';
+import toast from 'react-hot-toast'
 import {
   UsersIcon,
   PlusIcon,
@@ -499,7 +500,7 @@ export default function TeamsManagementPage() {
                   <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                     Membros da Equipe ({teamMembers.length})
                   </h3>
-                  <button className="btn btn-primary">
+                  <button onClick={() => toast.error('Adição de membros ainda não implementada')} className="btn btn-primary">
                     <UserPlusIcon className="w-4 h-4 mr-2" />
                     Adicionar Membro
                   </button>

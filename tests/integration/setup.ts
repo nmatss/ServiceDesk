@@ -8,6 +8,7 @@ import { beforeAll, afterAll, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { NextRequest } from 'next/server';
 import { hashPassword } from '@/lib/auth/sqlite-auth';
 import * as jose from 'jose';
 
@@ -49,8 +50,10 @@ export const TEST_USERS = {
   }
 };
 
-// JWT secret for testing
-const TEST_JWT_SECRET = new TextEncoder().encode('test-secret-key-for-integration-tests-only');
+// JWT secret for testing (must match api-helpers validation secret)
+const TEST_JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || '9f5c2e7d4a1b8c3f6e0d2c7a4b9e1f5c2d7a8b3e6f1c4a9d2e5b8f0a3c6d1e4f'
+);
 
 /**
  * Initialize test database with schema
@@ -58,6 +61,7 @@ const TEST_JWT_SECRET = new TextEncoder().encode('test-secret-key-for-integratio
 beforeAll(async () => {
   // Create in-memory database
   testDb = new Database(':memory:');
+  (globalThis as typeof globalThis & { __SERVICEDESK_TEST_DB__?: Database.Database }).__SERVICEDESK_TEST_DB__ = testDb;
 
   // Read and execute test schema (simplified for testing)
   const schemaPath = join(process.cwd(), 'tests', 'integration', 'test-schema.sql');
@@ -76,6 +80,7 @@ beforeAll(async () => {
 afterAll(() => {
   if (testDb) {
     testDb.close();
+    delete (globalThis as typeof globalThis & { __SERVICEDESK_TEST_DB__?: Database.Database }).__SERVICEDESK_TEST_DB__;
     console.log('✅ Test database closed');
   }
 });
@@ -86,6 +91,11 @@ afterAll(() => {
 beforeEach(async () => {
   // Clear tables but keep schema
   const tables = [
+    'ticket_tags',
+    'ticket_followers',
+    'ticket_relationships',
+    'ticket_activities',
+    'tags',
     'tickets',
     'comments',
     'attachments',
@@ -93,6 +103,8 @@ beforeEach(async () => {
     'kb_article_tags',
     'notifications',
     'audit_logs',
+    'login_attempts',
+    'refresh_tokens',
     'sla_tracking'
   ];
 
@@ -105,6 +117,12 @@ beforeEach(async () => {
  * Seed test data (tenant, users, categories, priorities, statuses)
  */
 async function seedTestData() {
+  // Insert organization (current auth routes resolve tenant via organizations)
+  testDb.prepare(`
+    INSERT INTO organizations (id, name, slug, is_active)
+    VALUES (?, ?, ?, ?)
+  `).run(TEST_TENANT.id, TEST_TENANT.name, TEST_TENANT.slug, TEST_TENANT.is_active);
+
   // Insert test tenant
   testDb.prepare(`
     INSERT INTO tenants (id, name, slug, is_active)
@@ -115,18 +133,34 @@ async function seedTestData() {
   for (const [key, user] of Object.entries(TEST_USERS)) {
     const passwordHash = await hashPassword(user.password);
     testDb.prepare(`
-      INSERT INTO users (id, tenant_id, name, email, password_hash, role, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, 1)
-    `).run(user.id, user.tenant_id, user.name, user.email, passwordHash, user.role);
+      INSERT INTO users (id, organization_id, tenant_id, name, email, password_hash, role, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+    `).run(user.id, user.tenant_id, user.tenant_id, user.name, user.email, passwordHash, user.role);
   }
+
+  // Insert teams for workflow auto-assignment
+  testDb.prepare(`
+    INSERT INTO teams (id, tenant_id, name, slug, team_type, capabilities, is_active)
+    VALUES
+      (1, 1, 'Service Desk', 'service-desk', 'technical', '["incident_response","problem_analysis"]', 1),
+      (2, 1, 'Change Management', 'change-management', 'management', '["change_approval"]', 1)
+  `).run();
+
+  // Insert team members (agent available for auto-assignment)
+  testDb.prepare(`
+    INSERT INTO team_members (team_id, user_id, workload_percentage, is_active, availability_status)
+    VALUES
+      (1, 2, 10, 1, 'available'),
+      (2, 1, 20, 1, 'available')
+  `).run();
 
   // Insert test categories
   testDb.prepare(`
-    INSERT INTO categories (id, tenant_id, name, description, color, is_active)
+    INSERT INTO categories (id, tenant_id, name, description, default_team_id, requires_approval, color, is_active)
     VALUES
-      (1, 1, 'Technical', 'Technical issues', '#3B82F6', 1),
-      (2, 1, 'Billing', 'Billing questions', '#10B981', 1),
-      (3, 1, 'General', 'General inquiries', '#6B7280', 1)
+      (1, 1, 'Technical', 'Technical issues', 1, 0, '#3B82F6', 1),
+      (2, 1, 'Billing', 'Billing questions', 1, 1, '#10B981', 1),
+      (3, 1, 'General', 'General inquiries', 1, 0, '#6B7280', 1)
   `).run();
 
   // Insert test priorities
@@ -141,21 +175,26 @@ async function seedTestData() {
 
   // Insert test statuses
   testDb.prepare(`
-    INSERT INTO statuses (id, tenant_id, name, description, color, is_final, is_active)
+    INSERT INTO statuses (id, tenant_id, name, description, status_type, is_initial, sort_order, color, is_final, is_active)
     VALUES
-      (1, 1, 'Open', 'Ticket is open', '#3B82F6', 0, 1),
-      (2, 1, 'In Progress', 'Ticket is being worked on', '#F59E0B', 0, 1),
-      (3, 1, 'Resolved', 'Ticket is resolved', '#10B981', 1, 1),
-      (4, 1, 'Closed', 'Ticket is closed', '#6B7280', 1, 1)
+      (1, 1, 'Open', 'Ticket is open', 'open', 1, 1, '#3B82F6', 0, 1),
+      (2, 1, 'In Progress', 'Ticket is being worked on', 'in_progress', 0, 2, '#F59E0B', 0, 1),
+      (3, 1, 'Resolved', 'Ticket is resolved', 'resolved', 0, 3, '#10B981', 1, 1),
+      (4, 1, 'Closed', 'Ticket is closed', 'closed', 0, 4, '#6B7280', 1, 1),
+      (5, 1, 'Waiting Approval', 'Waiting for approval', 'waiting', 0, 5, '#8B5CF6', 0, 1)
   `).run();
 
   // Insert test ticket types
   testDb.prepare(`
-    INSERT INTO ticket_types (id, tenant_id, name, description, workflow_type, color, is_active)
+    INSERT INTO ticket_types (
+      id, tenant_id, name, slug, description, icon, workflow_type, color,
+      sla_required, approval_required, escalation_enabled, auto_assignment_enabled,
+      customer_visible, sort_order, is_active
+    )
     VALUES
-      (1, 1, 'Incident', 'System incident', 'incident', '#EF4444', 1),
-      (2, 1, 'Request', 'Service request', 'request', '#3B82F6', 1),
-      (3, 1, 'Problem', 'Problem investigation', 'problem', '#F59E0B', 1)
+      (1, 1, 'Incident', 'incident', 'System incident', 'alert-circle', 'incident', '#EF4444', 1, 0, 1, 1, 1, 1, 1),
+      (2, 1, 'Request', 'request', 'Service request', 'clipboard-list', 'request', '#3B82F6', 1, 0, 0, 1, 1, 2, 1),
+      (3, 1, 'Problem', 'problem', 'Problem investigation', 'search', 'problem', '#F59E0B', 1, 0, 0, 1, 1, 3, 1)
   `).run();
 
   // Insert KB categories
@@ -185,17 +224,24 @@ export async function generateTestToken(userId: number, role: string = 'user'): 
   }
 
   const tokenPayload = {
+    id: user.id,
     user_id: user.id,
+    organization_id: user.tenant_id,
     tenant_id: user.tenant_id,
     name: user.name,
     email: user.email,
     role: user.role,
-    tenant_slug: TEST_TENANT.slug
+    tenant_slug: TEST_TENANT.slug,
+    tenant_name: TEST_TENANT.name,
+    type: 'access'
   };
 
   return await new jose.SignJWT(tokenPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
+    .setIssuer('servicedesk')
+    .setAudience('servicedesk-users')
+    .setSubject(user.id.toString())
     .setExpirationTime('1h')
     .sign(TEST_JWT_SECRET);
 }
@@ -213,7 +259,8 @@ export async function getAuthHeaders(userId: number): Promise<Record<string, str
   return {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`,
-    'Cookie': `auth_token=${token}; tenant_context=${JSON.stringify(TEST_TENANT)}`,
+    'Cookie': `auth_token=${token}; tenant-context=${encodeURIComponent(JSON.stringify(TEST_TENANT))}; tenant_context=${encodeURIComponent(JSON.stringify(TEST_TENANT))}`,
+    'x-organization-id': TEST_TENANT.id.toString(),
     'x-tenant-id': TEST_TENANT.id.toString(),
     'x-tenant-slug': TEST_TENANT.slug,
     'x-tenant-name': TEST_TENANT.name,
@@ -266,6 +313,7 @@ export function createTestArticle(data: {
   status?: string;
   slug?: string;
 }): number {
+  const uniqueSlug = data.slug || `test-article-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const result = testDb.prepare(`
     INSERT INTO kb_articles (
       tenant_id, title, slug, content, author_id, category_id,
@@ -274,7 +322,7 @@ export function createTestArticle(data: {
   `).run(
     TEST_TENANT.id,
     data.title,
-    data.slug || `test-article-${Date.now()}`,
+    uniqueSlug,
     data.content,
     data.author_id,
     data.category_id || 1,
@@ -295,24 +343,28 @@ export async function createMockRequest(
     userId?: number;
     headers?: Record<string, string>;
   } = {}
-): Promise<Request> {
+): Promise<NextRequest> {
   const { method = 'GET', body, userId, headers = {} } = options;
 
   const authHeaders = userId ? await getAuthHeaders(userId) : {};
+  const requestHeaders = new Headers({
+    ...authHeaders,
+    ...headers
+  });
+  if (body && !requestHeaders.has('Content-Type')) {
+    requestHeaders.set('Content-Type', 'application/json');
+  }
 
   const requestInit: RequestInit = {
     method,
-    headers: {
-      ...authHeaders,
-      ...headers
-    }
+    headers: requestHeaders
   };
 
   if (body) {
     requestInit.body = JSON.stringify(body);
   }
 
-  return new Request(`http://localhost:3000${url}`, requestInit);
+  return new NextRequest(`http://localhost:3000${url}`, requestInit);
 }
 
 /**

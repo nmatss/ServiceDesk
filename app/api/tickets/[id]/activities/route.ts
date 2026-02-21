@@ -6,12 +6,14 @@
  * @module app/api/tickets/[id]/activities/route
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // ========================================
@@ -24,18 +26,50 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
+    if (Number.isNaN(ticketId)) {
+      return NextResponse.json(
+        { error: 'Ticket ID inválido' },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')));
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0'));
     const activityTypes = searchParams.get('types')?.split(',');
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id, ticket_number FROM tickets WHERE id = ?').get(ticketId) as any;
+    let ticket: { id: number; ticket_number: string | null; user_id: number } | undefined;
+    try {
+      ticket = await executeQueryOne<{ id: number; ticket_number: string | null; user_id: number }>(
+        "SELECT id, COALESCE(ticket_number, CAST(id AS TEXT)) as ticket_number, user_id FROM tickets WHERE id = ? AND tenant_id = ?",
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      ticket = await executeQueryOne<{ id: number; ticket_number: string | null; user_id: number }>(
+        "SELECT id, CAST(id AS TEXT) as ticket_number, user_id FROM tickets WHERE id = ? AND organization_id = ?",
+        [ticketId, tenantContext.id]
+      );
+    }
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
         { status: 404 }
+      );
+    }
+
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
       );
     }
 
@@ -54,10 +88,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         u.email as user_email,
         u.avatar_url as user_avatar
       FROM ticket_activities ta
-      LEFT JOIN users u ON ta.user_id = u.id
+      LEFT JOIN users u ON ta.user_id = u.id AND u.tenant_id = ?
       WHERE ta.ticket_id = ?
+        AND (ta.user_id IS NULL OR u.id IS NOT NULL)
     `;
-    const queryParams: (number | string)[] = [ticketId];
+    const queryParams: (number | string)[] = [tenantContext.id, ticketId];
 
     // Filter by activity types
     if (activityTypes && activityTypes.length > 0) {
@@ -68,46 +103,67 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     query += ` ORDER BY ta.created_at DESC LIMIT ? OFFSET ?`;
     queryParams.push(limit, offset);
 
-    const activities = db.prepare(query).all(...queryParams) as any[];
+    const activities = await executeQuery<any>(query, queryParams);
 
     // Parse metadata JSON
-    const parsedActivities = activities.map(activity => ({
-      ...activity,
-      metadata: activity.metadata ? JSON.parse(activity.metadata) : null,
-    }));
+    const parsedActivities = activities.map((activity) => {
+      let parsedMetadata: unknown = null
+      if (activity.metadata) {
+        try {
+          parsedMetadata = JSON.parse(activity.metadata)
+        } catch {
+          parsedMetadata = null
+        }
+      }
+
+      return {
+        ...activity,
+        metadata: parsedMetadata,
+      }
+    });
 
     // Get total count
-    let countQuery = `SELECT COUNT(*) as count FROM ticket_activities WHERE ticket_id = ?`;
-    const countParams: (number | string)[] = [ticketId];
+    let countQuery = `
+      SELECT COUNT(*) as count
+      FROM ticket_activities ta
+      LEFT JOIN users u ON ta.user_id = u.id AND u.tenant_id = ?
+      WHERE ta.ticket_id = ?
+        AND (ta.user_id IS NULL OR u.id IS NOT NULL)
+    `;
+    const countParams: (number | string)[] = [tenantContext.id, ticketId];
 
     if (activityTypes && activityTypes.length > 0) {
       countQuery += ` AND activity_type IN (${activityTypes.map(() => '?').join(',')})`;
       countParams.push(...activityTypes);
     }
 
-    const totalResult = db.prepare(countQuery).get(...countParams) as any;
+    const totalResult = await executeQueryOne<{ count: number }>(countQuery, countParams);
 
     // Get activity type summary
-    const typeSummary = db.prepare(`
-      SELECT activity_type, COUNT(*) as count
-      FROM ticket_activities
-      WHERE ticket_id = ?
-      GROUP BY activity_type
+    const typeSummary = await executeQuery<{ activity_type: string; count: number }>(`
+      SELECT ta.activity_type, COUNT(*) as count
+      FROM ticket_activities ta
+      LEFT JOIN users u ON ta.user_id = u.id AND u.tenant_id = ?
+      WHERE ta.ticket_id = ?
+        AND (ta.user_id IS NULL OR u.id IS NOT NULL)
+      GROUP BY ta.activity_type
       ORDER BY count DESC
-    `).all(ticketId) as any[];
+    `, [tenantContext.id, ticketId]);
+
+    const totalCount = totalResult?.count ?? 0;
 
     return NextResponse.json({
       ticketId,
       ticketNumber: ticket.ticket_number,
       activities: parsedActivities,
       pagination: {
-        total: totalResult.count,
+        total: totalCount,
         limit,
         offset,
-        hasMore: offset + limit < totalResult.count,
+        hasMore: offset + limit < totalCount,
       },
       summary: {
-        total: totalResult.count,
+        total: totalCount,
         byType: typeSummary.reduce((acc: Record<string, number>, item: any) => {
           acc[item.activity_type] = item.count;
           return acc;
@@ -115,7 +171,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('Error fetching ticket activities:', error);
+    logger.error('Error fetching ticket activities:', error);
     return NextResponse.json(
       { error: 'Failed to fetch ticket activities' },
       { status: 500 }
@@ -133,16 +189,47 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
+    if (Number.isNaN(ticketId)) {
+      return NextResponse.json(
+        { error: 'Ticket ID inválido' },
+        { status: 400 }
+      );
+    }
     const body = await request.json();
-    const { activityType, description, userId, oldValue, newValue, metadata } = body;
+    const { activityType, description, oldValue, newValue, metadata } = body;
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId);
+    let ticket: { id: number; user_id: number } | undefined;
+    try {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    }
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
         { status: 404 }
+      );
+    }
+
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
       );
     }
 
@@ -184,30 +271,76 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const result = db.prepare(`
-      INSERT INTO ticket_activities (
-        ticket_id, user_id, activity_type, description,
-        old_value, new_value, metadata
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      ticketId,
-      userId || null,
-      activityType,
-      description,
-      oldValue || null,
-      newValue || null,
-      metadata ? JSON.stringify(metadata) : null
-    );
+    let createdActivityId: number | undefined;
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO ticket_activities (
+          tenant_id, ticket_id, user_id, activity_type, description,
+          old_value, new_value, metadata
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `, [
+        tenantContext.id,
+        ticketId,
+        userContext.id,
+        activityType,
+        description,
+        oldValue || null,
+        newValue || null,
+        metadata ? JSON.stringify(metadata) : null
+      ]);
+      createdActivityId = inserted?.id;
+    } catch {
+      try {
+        const inserted = await executeQueryOne<{ id: number }>(`
+          INSERT INTO ticket_activities (
+            organization_id, ticket_id, user_id, activity_type, description,
+            old_value, new_value, metadata
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          RETURNING id
+        `, [
+          tenantContext.id,
+          ticketId,
+          userContext.id,
+          activityType,
+          description,
+          oldValue || null,
+          newValue || null,
+          metadata ? JSON.stringify(metadata) : null
+        ]);
+        createdActivityId = inserted?.id;
+      } catch {
+        const result = await executeRun(`
+          INSERT INTO ticket_activities (
+            ticket_id, user_id, activity_type, description,
+            old_value, new_value, metadata
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          ticketId,
+          userContext.id,
+          activityType,
+          description,
+          oldValue || null,
+          newValue || null,
+          metadata ? JSON.stringify(metadata) : null
+        ]);
+        if (typeof result.lastInsertRowid === 'number') {
+          createdActivityId = result.lastInsertRowid;
+        }
+      }
+    }
 
     return NextResponse.json({
-      id: result.lastInsertRowid,
+      id: createdActivityId,
       ticketId,
       activityType,
       description,
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating ticket activity:', error);
+    logger.error('Error creating ticket activity:', error);
     return NextResponse.json(
       { error: 'Failed to create ticket activity' },
       { status: 500 }

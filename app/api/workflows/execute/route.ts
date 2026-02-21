@@ -12,6 +12,7 @@ import {
   ExecutionStatus,
 } from '@/lib/types/workflow';
 import { z } from 'zod';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 // Request validation schema
 const ExecuteWorkflowSchema = z.object({
@@ -276,15 +277,80 @@ export async function DELETE(request: NextRequest) {
 
 // Helper functions
 
-import { getWorkflowById as dbGetWorkflowById } from '@/lib/db/queries';
+import { executeQueryOne } from '@/lib/db/adapter';
 import { WorkflowPersistenceAdapter } from '@/lib/workflow/persistence-adapter';
 import { WorkflowQueueManager } from '@/lib/workflow/queue-manager';
 import { WorkflowMetricsCollector } from '@/lib/workflow/metrics-collector';
 
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 async function getWorkflowById(workflowId: number): Promise<WorkflowDefinition | null> {
   try {
-    return dbGetWorkflowById(workflowId);
+    const workflow = await executeQueryOne<any>(`
+      SELECT
+        w.*,
+        wd.steps_json,
+        wd.trigger_conditions as wd_trigger_conditions
+      FROM workflows w
+      LEFT JOIN workflow_definitions wd ON w.id = wd.id
+      WHERE w.id = ?
+    `, [workflowId]);
+
+    if (!workflow) {
+      return null;
+    }
+
+    // Parse JSON fields
+    const triggerConditions = workflow.wd_trigger_conditions
+      ? JSON.parse(workflow.wd_trigger_conditions)
+      : (workflow.trigger_conditions ? JSON.parse(workflow.trigger_conditions) : {});
+
+    const stepsJson = workflow.steps_json ? JSON.parse(workflow.steps_json) : {};
+
+    return {
+      id: workflow.id,
+      name: workflow.name,
+      description: workflow.description || '',
+      version: workflow.version || 1,
+      isActive: Boolean(workflow.is_active),
+      isTemplate: Boolean(workflow.is_template),
+      category: workflow.category || 'ticket_automation',
+      priority: workflow.priority || 0,
+      triggerType: workflow.trigger_type,
+      triggerConditions,
+      nodes: stepsJson.nodes || [],
+      edges: stepsJson.edges || [],
+      variables: stepsJson.variables || [],
+      metadata: stepsJson.metadata || {
+        tags: [],
+        documentation: '',
+        version: '1.0',
+        author: '',
+        lastModifiedBy: '',
+        changeLog: [],
+        dependencies: [],
+        testCases: [],
+        performance: {
+          avgExecutionTime: 0,
+          maxExecutionTime: 0,
+          minExecutionTime: 0,
+          successRate: 0,
+          errorRate: 0,
+          resourceUsage: {
+            memoryMB: 0,
+            cpuPercent: 0,
+            networkKB: 0,
+            storageKB: 0,
+          },
+        },
+      },
+      executionCount: workflow.execution_count || 0,
+      successCount: workflow.success_count || 0,
+      failureCount: workflow.failure_count || 0,
+      lastExecutedAt: workflow.last_executed_at ? new Date(workflow.last_executed_at) : undefined,
+      createdBy: workflow.created_by,
+      updatedBy: workflow.updated_by,
+      createdAt: new Date(workflow.created_at),
+      updatedAt: new Date(workflow.updated_at),
+    };
   } catch (error) {
     logger.error('Error fetching workflow from database', error);
     throw error;

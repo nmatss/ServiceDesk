@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { verifyToken } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -48,32 +48,32 @@ export async function GET(request: NextRequest) {
     }
 
     // Estatísticas gerais da base de conhecimento
-    const totalArticles = db.prepare(`
+    const totalArticles = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM kb_articles
       WHERE status = 'published'
-    `).get() as { count: number }
+    `) || { count: 0 }
 
-    const totalViews = db.prepare(`
+    const totalViews = await executeQueryOne<{ total: number }>(`
       SELECT SUM(view_count) as total FROM kb_articles
       WHERE status = 'published'
-    `).get() as { total: number }
+    `) || { total: 0 }
 
-    const totalFeedback = db.prepare(`
+    const totalFeedback = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM kb_article_feedback
       WHERE created_at >= ${dateFilter}
-    `).get() as { count: number }
+    `) || { count: 0 }
 
-    const helpfulFeedback = db.prepare(`
+    const helpfulFeedback = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM kb_article_feedback
       WHERE was_helpful = 1 AND created_at >= ${dateFilter}
-    `).get() as { count: number }
+    `) || { count: 0 }
 
     const helpfulnessRate = totalFeedback.count > 0
       ? Math.round((helpfulFeedback.count / totalFeedback.count) * 100)
       : 0
 
     // Artigos mais visualizados
-    const mostViewedArticles = db.prepare(`
+    const mostViewedArticles = await executeQuery(`
       SELECT
         a.id,
         a.title,
@@ -88,10 +88,10 @@ export async function GET(request: NextRequest) {
       WHERE a.status = 'published'
       ORDER BY a.view_count DESC
       LIMIT 10
-    `).all()
+    `)
 
     // Artigos mais úteis
-    const mostHelpfulArticles = db.prepare(`
+    const mostHelpfulArticles = await executeQuery(`
       SELECT
         a.id,
         a.title,
@@ -108,10 +108,10 @@ export async function GET(request: NextRequest) {
       AND (a.helpful_votes + a.not_helpful_votes) >= 5 -- Mínimo de 5 avaliações
       ORDER BY helpfulness_rate DESC, a.helpful_votes DESC
       LIMIT 10
-    `).all()
+    `)
 
     // Artigos por categoria
-    const articlesByCategory = db.prepare(`
+    const articlesByCategory = await executeQuery(`
       SELECT
         c.name as category,
         c.color,
@@ -122,10 +122,10 @@ export async function GET(request: NextRequest) {
       LEFT JOIN kb_articles a ON c.id = a.category_id AND a.status = 'published'
       GROUP BY c.id, c.name, c.color
       ORDER BY article_count DESC
-    `).all()
+    `)
 
     // Tendência de visualizações (últimos 14 dias)
-    const viewsTrend = db.prepare(`
+    const viewsTrend = await executeQuery(`
       SELECT
         DATE(al.created_at) as date,
         COUNT(*) as views
@@ -135,10 +135,10 @@ export async function GET(request: NextRequest) {
       AND al.created_at >= datetime('now', '-14 days')
       GROUP BY DATE(al.created_at)
       ORDER BY date ASC
-    `).all()
+    `)
 
     // Artigos que precisam de atenção (baixa avaliação)
-    const articlesNeedingAttention = db.prepare(`
+    const articlesNeedingAttention = await executeQuery(`
       SELECT
         a.id,
         a.title,
@@ -156,16 +156,16 @@ export async function GET(request: NextRequest) {
       AND (a.helpful_votes * 100.0) / (a.helpful_votes + a.not_helpful_votes) < 60 -- Menos de 60% útil
       ORDER BY helpfulness_rate ASC
       LIMIT 10
-    `).all()
+    `)
 
     // Buscas mais populares (últimos 30 dias)
-    const popularSearches = db.prepare(`
+    const popularSearches = await executeQuery(`
       SELECT date, kb_searches_performed
       FROM analytics_daily_metrics
       WHERE date >= date('now', '-30 days')
       AND kb_searches_performed > 0
       ORDER BY date ASC
-    `).all()
+    `)
 
     const totalSearches = (popularSearches as any[]).reduce((sum: number, day: any) => sum + day.kb_searches_performed, 0) as number
 
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       : 0
 
     // Feedback recente
-    const recentFeedback = db.prepare(`
+    const recentFeedback = await executeQuery(`
       SELECT
         f.was_helpful,
         f.comment,
@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
       AND f.comment IS NOT NULL
       ORDER BY f.created_at DESC
       LIMIT 20
-    `).all()
+    `)
 
     return NextResponse.json({
       success: true,

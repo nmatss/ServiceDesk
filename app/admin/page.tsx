@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { Metadata } from 'next'
+import { headers } from 'next/headers'
 import Link from 'next/link'
 import {
   UsersIcon,
@@ -7,8 +8,6 @@ import {
   ChartPieIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
   PlusIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline'
@@ -18,11 +17,25 @@ export const metadata: Metadata = {
   description: 'Visão geral completa do sistema ServiceDesk Pro',
 }
 
+// Esta página depende de dados autenticados internos e não deve ser pré-renderizada em build.
+export const dynamic = 'force-dynamic'
+
 interface DashboardStats {
   totalUsers: number
   totalTickets: number
   openTickets: number
   resolvedTickets: number
+}
+
+interface RecentTicket {
+  id: number
+  title: string
+  status: string
+  status_color: string
+  priority: string
+  priority_color: string
+  assigned_agent_name: string | null
+  created_at: string
 }
 
 interface CategoryStats {
@@ -34,15 +47,35 @@ interface CategoryStats {
   resolution_rate: number
 }
 
+async function resolveRequestContext() {
+  const requestHeaders = await headers()
+  const host = requestHeaders.get('x-forwarded-host') || requestHeaders.get('host')
+  const protocol = requestHeaders.get('x-forwarded-proto') || 'http'
+  const baseUrl =
+    host
+      ? `${protocol}://${host}`
+      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+
+  return {
+    baseUrl,
+    forwardedHeaders: {
+      'Content-Type': 'application/json',
+      cookie: requestHeaders.get('cookie') || '',
+      authorization: requestHeaders.get('authorization') || '',
+      'x-tenant-id': requestHeaders.get('x-tenant-id') || '',
+      'x-tenant-slug': requestHeaders.get('x-tenant-slug') || '',
+      'x-tenant-name': requestHeaders.get('x-tenant-name') || ''
+    }
+  }
+}
+
 // Categories Distribution Component
 async function CategoriesDistribution() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const { baseUrl, forwardedHeaders } = await resolveRequestContext()
 
   try {
     const response = await fetch(`${baseUrl}/api/analytics?type=category-analytics`, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: forwardedHeaders,
       credentials: 'include',
       next: {
         revalidate: 300, // 5 minutes
@@ -136,13 +169,11 @@ async function CategoriesDistribution() {
 
 // Parallel data fetching for optimal performance
 async function getDashboardData(): Promise<DashboardStats> {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const { baseUrl, forwardedHeaders } = await resolveRequestContext()
 
   try {
     const response = await fetch(`${baseUrl}/api/analytics?type=overview`, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: forwardedHeaders,
       credentials: 'include',
       next: {
         revalidate: 60, // 1 minute for dashboard
@@ -154,16 +185,15 @@ async function getDashboardData(): Promise<DashboardStats> {
       const data = await response.json()
       const overview = data?.analytics?.overview ?? {}
       return {
-        totalUsers: overview.totalUsers ?? 125,
+        totalUsers: overview.totalUsers ?? 0,
         totalTickets: overview.totalTickets ?? 0,
         openTickets: overview.openTickets ?? 0,
         resolvedTickets: overview.closedTickets ?? 0
       }
     }
 
-    // Fallback data
     return {
-      totalUsers: 125,
+      totalUsers: 0,
       totalTickets: 0,
       openTickets: 0,
       resolvedTickets: 0
@@ -171,7 +201,7 @@ async function getDashboardData(): Promise<DashboardStats> {
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
     return {
-      totalUsers: 125,
+      totalUsers: 0,
       totalTickets: 0,
       openTickets: 0,
       resolvedTickets: 0
@@ -179,74 +209,66 @@ async function getDashboardData(): Promise<DashboardStats> {
   }
 }
 
+async function getRecentTickets(): Promise<RecentTicket[]> {
+  const { baseUrl, forwardedHeaders } = await resolveRequestContext()
+
+  try {
+    const response = await fetch(`${baseUrl}/api/admin/tickets`, {
+      headers: forwardedHeaders,
+      credentials: 'include',
+      next: {
+        revalidate: 60,
+        tags: ['recent-tickets']
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.success && Array.isArray(data.tickets)) {
+        return data.tickets.slice(0, 5)
+      }
+    }
+    return []
+  } catch (error) {
+    console.error('Error fetching recent tickets:', error)
+    return []
+  }
+}
+
 export default async function AdminPage() {
-  const stats = await getDashboardData()
+  const [stats, recentTickets] = await Promise.all([
+    getDashboardData(),
+    getRecentTickets()
+  ])
 
   const resolutionRate = stats.totalTickets > 0
     ? ((stats.resolvedTickets / stats.totalTickets) * 100).toFixed(1)
     : '0.0'
 
-  const hasRealData = stats.totalTickets > 0 || stats.totalUsers > 0
-
   const statsData = [
     {
       name: 'Total de Usuários',
       value: stats.totalUsers.toString(),
-      change: hasRealData && stats.totalUsers > 0 ? '+12%' : null,
-      changeType: 'positive' as const,
       icon: UsersIcon,
       description: 'Usuários ativos no sistema'
     },
     {
       name: 'Tickets Ativos',
       value: stats.openTickets.toString(),
-      change: hasRealData && stats.openTickets > 0 ? '+5%' : null,
-      changeType: 'positive' as const,
       icon: TicketIcon,
       description: 'Tickets aguardando resolução'
     },
     {
       name: 'Tickets Resolvidos',
       value: stats.resolvedTickets.toString(),
-      change: hasRealData && stats.resolvedTickets > 0 ? '+18%' : null,
-      changeType: 'positive' as const,
       icon: CheckCircleIcon,
       description: 'Tickets finalizados com sucesso'
     },
     {
       name: 'Taxa de Resolução',
       value: `${resolutionRate}%`,
-      change: hasRealData && stats.totalTickets > 0 ? '+2%' : null,
-      changeType: 'positive' as const,
       icon: ChartPieIcon,
       description: 'Percentual de tickets resolvidos'
-    },
-  ]
-
-  const recentTickets = [
-    {
-      id: 'TKT-001',
-      title: 'Problema com login',
-      status: 'Aberto',
-      priority: 'Alta',
-      assignee: 'João Silva',
-      created: '2 horas atrás',
-    },
-    {
-      id: 'TKT-002',
-      title: 'Erro na API',
-      status: 'Em Progresso',
-      priority: 'Média',
-      assignee: 'Maria Santos',
-      created: '4 horas atrás',
-    },
-    {
-      id: 'TKT-003',
-      title: 'Solicitação de recurso',
-      status: 'Fechado',
-      priority: 'Baixa',
-      assignee: 'Pedro Costa',
-      created: '1 dia atrás',
     },
   ]
 
@@ -296,25 +318,6 @@ export default async function AdminPage() {
                 <stat.icon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
               </div>
             </div>
-            {stat.change && (
-              <div className="mt-3 sm:mt-4 flex items-center">
-                {stat.changeType === 'positive' ? (
-                  <ArrowTrendingUpIcon className="h-4 w-4 text-success-600 dark:text-success-400 mr-1" />
-                ) : (
-                  <ArrowTrendingDownIcon className="h-4 w-4 text-error-600 dark:text-error-400 mr-1" />
-                )}
-                <span className={`text-xs sm:text-sm font-medium ${
-                  stat.changeType === 'positive'
-                    ? 'text-success-600 dark:text-success-400'
-                    : 'text-error-600 dark:text-error-400'
-                }`}>
-                  {stat.change}
-                </span>
-                <span className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-500 ml-1 hidden sm:inline">
-                  vs mês anterior
-                </span>
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -357,47 +360,60 @@ export default async function AdminPage() {
               </Link>
             </div>
             <div className="p-4 sm:p-6">
-              <div className="space-y-3">
-                {recentTickets.map((ticket, index) => (
-                  <div
-                    key={ticket.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl gap-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                      <div className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 sm:mt-0 ${
-                        ticket.status === 'Aberto' ? 'bg-error-400' :
-                        ticket.status === 'Em Progresso' ? 'bg-warning-400' :
-                        'bg-success-400'
-                      } animate-pulse-soft`} />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm sm:text-base text-neutral-900 dark:text-neutral-100 line-clamp-1">
-                          {ticket.title}
-                        </p>
-                        <p className="text-xs sm:text-sm text-description truncate">
-                          {ticket.id} • {ticket.assignee} • {ticket.created}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
-                      <span className={`badge ${
-                        ticket.priority === 'Alta' ? 'badge-error' :
-                        ticket.priority === 'Média' ? 'badge-warning' :
-                        'badge-success'
-                      }`}>
-                        {ticket.priority}
-                      </span>
-                      <span className={`badge ${
-                        ticket.status === 'Aberto' ? 'badge-error' :
-                        ticket.status === 'Em Progresso' ? 'badge-warning' :
-                        'badge-success'
-                      }`}>
-                        {ticket.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {recentTickets.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-muted-content text-sm">Nenhum ticket encontrado</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentTickets.map((ticket, index) => {
+                    const statusLower = (ticket.status || '').toLowerCase()
+                    const isOpen = ['aberto', 'novo', 'open', 'new'].includes(statusLower)
+                    const isInProgress = ['em andamento', 'em progresso', 'in_progress'].includes(statusLower)
+
+                    return (
+                      <Link
+                        key={ticket.id}
+                        href={`/admin/tickets/${ticket.id}`}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl gap-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200"
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      >
+                        <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                          <div className={`h-3 w-3 rounded-full flex-shrink-0 mt-1 sm:mt-0 ${
+                            isOpen ? 'bg-error-400' :
+                            isInProgress ? 'bg-warning-400' :
+                            'bg-success-400'
+                          } animate-pulse-soft`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base text-neutral-900 dark:text-neutral-100 line-clamp-1">
+                              {ticket.title}
+                            </p>
+                            <p className="text-xs sm:text-sm text-description truncate">
+                              #{ticket.id} {ticket.assigned_agent_name ? `\u2022 ${ticket.assigned_agent_name}` : ''} {ticket.created_at ? `\u2022 ${new Date(ticket.created_at).toLocaleDateString('pt-BR')}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2 flex-wrap sm:flex-nowrap gap-2">
+                          {ticket.priority && (
+                            <span className="badge badge-warning text-xs">
+                              {ticket.priority}
+                            </span>
+                          )}
+                          {ticket.status && (
+                            <span className={`badge text-xs ${
+                              isOpen ? 'badge-error' :
+                              isInProgress ? 'badge-warning' :
+                              'badge-success'
+                            }`}>
+                              {ticket.status}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -495,8 +511,8 @@ export default async function AdminPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-description">Última Atualização</span>
-                <span className="text-sm text-neutral-900 dark:text-neutral-100">2 min atrás</span>
+                <span className="text-sm text-description">Tickets</span>
+                <span className="text-sm text-neutral-900 dark:text-neutral-100">{stats.totalTickets} total</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-description">Versão</span>
@@ -511,10 +527,12 @@ export default async function AdminPage() {
               Alertas
             </h3>
             <div className="space-y-3">
-              <div className="flex items-center p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200 dark:border-warning-800">
-                <ExclamationTriangleIcon className="h-5 w-5 text-warning-600 dark:text-warning-400 mr-3 flex-shrink-0" />
-                <span className="text-sm text-warning-800 dark:text-warning-300">3 tickets pendentes</span>
-              </div>
+              {stats.openTickets > 0 && (
+                <div className="flex items-center p-3 bg-warning-50 dark:bg-warning-900/20 rounded-lg border border-warning-200 dark:border-warning-800">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-warning-600 dark:text-warning-400 mr-3 flex-shrink-0" />
+                  <span className="text-sm text-warning-800 dark:text-warning-300">{stats.openTickets} ticket{stats.openTickets > 1 ? 's' : ''} aberto{stats.openTickets > 1 ? 's' : ''}</span>
+                </div>
+              )}
               <div className="flex items-center p-3 bg-success-50 dark:bg-success-900/20 rounded-lg border border-success-200 dark:border-success-800">
                 <CheckCircleIcon className="h-5 w-5 text-success-600 dark:text-success-400 mr-3 flex-shrink-0" />
                 <span className="text-sm text-success-800 dark:text-success-300">Sistema funcionando normalmente</span>

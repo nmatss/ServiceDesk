@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import { verifyAuthToken } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -30,17 +30,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const authResult = await verifyAuthToken(authHeader.replace('Bearer ', ''));
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const user = authResult.user;
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const user = { id: guard.auth!.userId };
 
     const body: SubscriptionRequest = await request.json();
     const { subscription, deviceInfo } = body;
@@ -53,27 +45,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if subscription already exists
-    const existing = db
-      .prepare(
+    const existing = await executeQueryOne(
         `SELECT id FROM push_subscriptions
-         WHERE user_id = ? AND endpoint = ?`
-      )
-      .get(user.id, subscription.endpoint);
+         WHERE user_id = ? AND endpoint = ?`,
+      [user.id, subscription.endpoint]);
 
     if (existing) {
       // Update existing subscription
-      db.prepare(
-        `UPDATE push_subscriptions
+      await executeRun(`UPDATE push_subscriptions
          SET subscription_data = ?,
              device_info = ?,
              updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = ? AND endpoint = ?`
-      ).run(
-        JSON.stringify(subscription),
+         WHERE user_id = ? AND endpoint = ?`, [JSON.stringify(subscription),
         JSON.stringify(deviceInfo),
         user.id,
-        subscription.endpoint
-      );
+        subscription.endpoint]);
 
       logger.info('Push subscription updated', {
         userId: user.id,
@@ -81,16 +67,12 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create new subscription
-      db.prepare(
-        `INSERT INTO push_subscriptions
+      await executeRun(`INSERT INTO push_subscriptions
          (user_id, endpoint, subscription_data, device_info)
-         VALUES (?, ?, ?, ?)`
-      ).run(
-        user.id,
+         VALUES (?, ?, ?, ?)`, [user.id,
         subscription.endpoint,
         JSON.stringify(subscription),
-        JSON.stringify(deviceInfo)
-      );
+        JSON.stringify(deviceInfo)]);
 
       logger.info('New push subscription created', {
         userId: user.id,
@@ -125,26 +107,16 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guardGet = requireTenantUserContext(request);
+    if (guardGet.response) return guardGet.response;
+    const userGet = { id: guardGet.auth!.userId };
 
-    const authResult = await verifyAuthToken(authHeader.replace('Bearer ', ''));
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const user = authResult.user;
-
-    const subscriptions = db
-      .prepare(
+    const subscriptions = await executeQuery(
         `SELECT id, endpoint, device_info, created_at, updated_at
          FROM push_subscriptions
          WHERE user_id = ?
-         ORDER BY created_at DESC`
-      )
-      .all(user.id);
+         ORDER BY created_at DESC`,
+      [userGet.id]);
 
     return NextResponse.json({ subscriptions });
   } catch (error) {
@@ -170,39 +142,27 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const authResult = await verifyAuthToken(authHeader.replace('Bearer ', ''));
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const user = authResult.user;
+    const guardDel = requireTenantUserContext(request);
+    if (guardDel.response) return guardDel.response;
+    const userDel = { id: guardDel.auth!.userId };
 
     const { searchParams } = new URL(request.url);
     const endpoint = searchParams.get('endpoint');
 
     if (endpoint) {
       // Delete specific subscription
-      db.prepare(
-        `DELETE FROM push_subscriptions
-         WHERE user_id = ? AND endpoint = ?`
-      ).run(user.id, endpoint);
+      await executeRun(`DELETE FROM push_subscriptions
+         WHERE user_id = ? AND endpoint = ?`, [userDel.id, endpoint]);
 
       logger.info('Push subscription deleted', {
-        userId: user.id,
+        userId: userDel.id,
         endpoint: endpoint.substring(0, 50),
       });
     } else {
       // Delete all subscriptions for user
-      db.prepare(
-        `DELETE FROM push_subscriptions WHERE user_id = ?`
-      ).run(user.id);
+      await executeRun(`DELETE FROM push_subscriptions WHERE user_id = ?`, [userDel.id]);
 
-      logger.info('All push subscriptions deleted', { userId: user.id });
+      logger.info('All push subscriptions deleted', { userId: userDel.id });
     }
 
     return NextResponse.json({

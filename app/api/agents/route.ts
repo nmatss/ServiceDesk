@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const tenantId = tenantContext.id
 
     // Buscar agentes FILTRADOS POR TENANT (organization_id)
-    const agents = db.prepare(`
+    const agents = await executeQuery(`
       SELECT
         id,
         name,
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       AND organization_id = ?
       AND id != ?
       ORDER BY name ASC
-    `).all(tenantId, tenantId, tenantId, tenantId, user.id)
+    `, [tenantId, tenantId, tenantId, tenantId, user.id])
 
     // Formattar dados dos agentes
     const formattedAgents = agents.map((agent: any) => ({
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
       )
     }
     // Verificar se email já existe no tenant
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ? AND organization_id = ?').get(email, tenantId)
+    const existingUser = await executeQueryOne('SELECT id FROM users WHERE email = ? AND organization_id = ?', [email, tenantId])
     if (existingUser) {
       return NextResponse.json(
         { error: 'Email já está em uso neste tenant' },
@@ -181,15 +181,15 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12)
 
     // Inserir novo agente COM organization_id DO TENANT
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO users (name, email, password_hash, role, organization_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(name, email, passwordHash, role, tenantId)
+    `, [name, email, passwordHash, role, tenantId])
 
-    const newAgent = db.prepare(`
+    const newAgent = await executeQueryOne(`
       SELECT id, name, email, role, organization_id, created_at
       FROM users WHERE id = ?
-    `).get(result.lastInsertRowid)
+    `, [result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,

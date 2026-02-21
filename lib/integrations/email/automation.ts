@@ -11,17 +11,44 @@
  * - Email threading and conversation tracking
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { sqlNow } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { emailParser, ParsedEmail } from './parser';
 import { emailSender } from './sender';
-import { ticketQueries, commentQueries } from '@/lib/db/queries';
 
-// Helper aliases for compatibility
-const createTicket = ticketQueries.create;
-const addComment = commentQueries.create;
-const getTicketById = ticketQueries.getById;
-const updateTicket = ticketQueries.update;
+async function createTicket(data: any, organizationId: number) {
+  const result = await executeRun(
+    `INSERT INTO tickets (title, description, user_id, organization_id, category_id, priority_id, status_id, assigned_to, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})`,
+    [data.title, data.description, data.user_id, organizationId, data.category_id, data.priority_id, data.status_id, data.assigned_to || null]
+  );
+  return result.lastInsertRowid ? await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
+}
+
+async function addComment(data: any, _organizationId?: number) {
+  const result = await executeRun(
+    `INSERT INTO comments (ticket_id, user_id, content, is_internal, created_at)
+     VALUES (?, ?, ?, ?, ${sqlNow()})`,
+    [data.ticket_id, data.user_id, data.content, data.is_internal ? 1 : 0]
+  );
+  return result.lastInsertRowid;
+}
+
+async function getTicketById(ticketId: number, _organizationId?: number) {
+  return await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+}
+
+async function updateTicket(data: any, _organizationId: number) {
+  const fields: string[] = [];
+  const values: any[] = [];
+  if (data.status_id !== undefined) { fields.push('status_id = ?'); values.push(data.status_id); }
+  if (data.assigned_to !== undefined) { fields.push('assigned_to = ?'); values.push(data.assigned_to); }
+  if (fields.length > 0) {
+    values.push(data.id);
+    await executeRun(`UPDATE tickets SET ${fields.join(', ')}, updated_at = ${sqlNow()} WHERE id = ?`, values);
+  }
+}
 
 export interface AutomationRule {
   id?: number;
@@ -268,12 +295,13 @@ export class EmailAutomation {
    */
   private async detectCategory(subject: string, tenantId: number): Promise<string | undefined> {
     try {
-      const categories = db.prepare(`
-        SELECT id, name, keywords
-        FROM categories
-        WHERE tenant_id = ? OR tenant_id IS NULL
-        ORDER BY tenant_id DESC
-      `).all(tenantId) as any[];
+      const categories = await executeQuery<any>(
+        `SELECT id, name, keywords
+         FROM categories
+         WHERE tenant_id = ? OR tenant_id IS NULL
+         ORDER BY tenant_id DESC`,
+        [tenantId]
+      );
 
       const lowerSubject = subject.toLowerCase();
 
@@ -299,10 +327,11 @@ export class EmailAutomation {
   private async getOrCreateUser(parsedEmail: ParsedEmail, tenantId: number): Promise<number> {
     try {
       // Check if user exists
-      let user = db.prepare(`
-        SELECT id FROM users
-        WHERE LOWER(email) = LOWER(?) AND tenant_id = ?
-      `).get(parsedEmail.from.email, tenantId) as any;
+      const user = await executeQueryOne<{ id: number }>(
+        `SELECT id FROM users
+         WHERE LOWER(email) = LOWER(?) AND tenant_id = ?`,
+        [parsedEmail.from.email, tenantId]
+      );
 
       if (user) {
         return user.id;
@@ -311,17 +340,18 @@ export class EmailAutomation {
       // Create new user
       const name = parsedEmail.from.name || parsedEmail.from.email.split('@')[0];
 
-      const result = db.prepare(`
-        INSERT INTO users (email, name, role, tenant_id, is_active, created_at)
-        VALUES (?, ?, 'user', ?, 1, datetime('now'))
-      `).run(parsedEmail.from.email, name, tenantId);
+      const result = await executeRun(
+        `INSERT INTO users (email, name, role, tenant_id, is_active, created_at)
+         VALUES (?, ?, 'user', ?, 1, ${sqlNow()})`,
+        [parsedEmail.from.email, name, tenantId]
+      );
 
       logger.info('User created from email', {
         userId: result.lastInsertRowid,
         email: parsedEmail.from.email,
       });
 
-      return result.lastInsertRowid as number;
+      return result.lastInsertRowid!;
     } catch (error) {
       logger.error('Error getting or creating user', error);
       throw new Error('Failed to get or create user');
@@ -333,11 +363,12 @@ export class EmailAutomation {
    */
   private async getActiveRules(tenantId: number, triggerType: string): Promise<AutomationRule[]> {
     try {
-      const rules = db.prepare(`
-        SELECT * FROM email_automation_rules
-        WHERE tenant_id = ? AND trigger_type = ? AND is_active = 1
-        ORDER BY priority DESC, id ASC
-      `).all(tenantId, triggerType) as any[];
+      const rules = await executeQuery<any>(
+        `SELECT * FROM email_automation_rules
+         WHERE tenant_id = ? AND trigger_type = ? AND is_active = 1
+         ORDER BY priority DESC, id ASC`,
+        [tenantId, triggerType]
+      );
 
       return rules.map(rule => ({
         id: rule.id,
@@ -554,7 +585,7 @@ export class EmailAutomation {
     agentId: number
   ): Promise<void> {
     try {
-      const agent = db.prepare('SELECT email, name FROM users WHERE id = ?').get(agentId) as any;
+      const agent = await executeQueryOne<{ email: string; name: string }>('SELECT email, name FROM users WHERE id = ?', [agentId]);
       if (!agent) return;
 
       const ticket = await getTicketById(ticketId);
@@ -594,7 +625,7 @@ export class EmailAutomation {
    */
   private async notifyAgentOfAssignment(ticketId: number, agentId: number): Promise<void> {
     try {
-      const agent = db.prepare('SELECT email, name FROM users WHERE id = ?').get(agentId) as any;
+      const agent = await executeQueryOne<{ email: string; name: string }>('SELECT email, name FROM users WHERE id = ?', [agentId]);
       if (!agent) return;
 
       const ticket = await getTicketById(ticketId);

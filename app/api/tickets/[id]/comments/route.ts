@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { commentQueries, ticketQueries } from '@/lib/db/queries';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -14,17 +14,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params;
     const ticketId = parseInt(id);
@@ -33,17 +26,47 @@ export async function GET(
       return NextResponse.json({ error: 'ID do ticket inválido' }, { status: 400 });
     }
 
-    const ticket = ticketQueries.getById(ticketId);
+    const ticket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket não encontrado' }, { status: 404 });
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    if (user.role === 'user' && ticket.user_id !== user.id) {
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const comments = commentQueries.getByTicketId(ticketId, user.organization_id);
+    let comments: Array<Record<string, unknown>> = []
+    try {
+      comments = await executeQuery<Record<string, unknown>>(`
+        SELECT
+          c.*,
+          u.name as user_name,
+          u.email as user_email,
+          u.role as user_role
+        FROM comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.ticket_id = ? AND c.tenant_id = ?
+        ORDER BY c.created_at ASC
+      `, [ticketId, tenantContext.id])
+    } catch {
+      comments = await executeQuery<Record<string, unknown>>(`
+        SELECT
+          c.*,
+          u.name as user_name,
+          u.email as user_email,
+          u.role as user_role
+        FROM comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.ticket_id = ?
+        ORDER BY c.created_at ASC
+      `, [ticketId])
+    }
+
     return NextResponse.json({ comments });
   } catch (error) {
     logger.error('Erro ao buscar comentários', error);
@@ -60,17 +83,10 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params;
     const ticketId = parseInt(id);
@@ -79,13 +95,17 @@ export async function POST(
       return NextResponse.json({ error: 'ID do ticket inválido' }, { status: 400 });
     }
 
-    const ticket = ticketQueries.getById(ticketId);
+    const ticket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket não encontrado' }, { status: 404 });
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    if (user.role === 'user' && ticket.user_id !== user.id) {
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -103,14 +123,29 @@ export async function POST(
     }
 
     // Apenas agentes e admins podem fazer comentários internos
-    const internalComment = is_internal && (user.role === 'agent' || user.role === 'admin');
+    const internalComment = Boolean(is_internal) && ['agent', 'admin', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role);
 
-    const comment = commentQueries.create({
-      ticket_id: ticketId,
-      user_id: user.id,
-      content: content.trim(),
-      is_internal: internalComment
-    }, user.organization_id);
+    let commentId: number | undefined
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO comments (tenant_id, ticket_id, user_id, content, is_internal)
+        VALUES (?, ?, ?, ?, ?)
+        RETURNING id
+      `, [tenantContext.id, ticketId, userContext.id, content.trim(), internalComment ? 1 : 0])
+      commentId = inserted?.id
+    } catch {
+      const result = await executeRun(`
+        INSERT INTO comments (ticket_id, user_id, content, is_internal)
+        VALUES (?, ?, ?, ?)
+      `, [ticketId, userContext.id, content.trim(), internalComment ? 1 : 0])
+      if (typeof result.lastInsertRowid === 'number') {
+        commentId = result.lastInsertRowid
+      }
+    }
+
+    const comment = commentId
+      ? await executeQueryOne<Record<string, unknown>>('SELECT * FROM comments WHERE id = ?', [commentId])
+      : null
 
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error) {

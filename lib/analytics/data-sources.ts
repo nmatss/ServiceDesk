@@ -4,7 +4,7 @@
  * Provides connectors for various data sources to power dashboard widgets
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface DataSource {
@@ -69,7 +69,7 @@ export const ticketDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(startDate.toISOString(), endDate.toISOString());
+      const rows = await executeQuery(query, [startDate.toISOString(), endDate.toISOString()]);
       return rows;
     } catch (error) {
       logger.error('Error fetching ticket volume', error);
@@ -101,12 +101,12 @@ export const ticketDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(
+      const rows = await executeQuery(query, [
         startDate.toISOString(),
         endDate.toISOString(),
         startDate.toISOString(),
         endDate.toISOString()
-      );
+      ]);
       return rows;
     } catch (error) {
       logger.error('Error fetching tickets by category', error);
@@ -139,7 +139,7 @@ export const ticketDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(startDate.toISOString(), endDate.toISOString());
+      const rows = await executeQuery(query, [startDate.toISOString(), endDate.toISOString()]);
       return rows;
     } catch (error) {
       logger.error('Error fetching tickets by priority', error);
@@ -164,7 +164,7 @@ export const ticketDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all();
+      const rows = await executeQuery(query);
       return rows;
     } catch (error) {
       logger.error('Error fetching tickets by status', error);
@@ -202,7 +202,7 @@ export const slaDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(startDate.toISOString(), endDate.toISOString());
+      const rows = await executeQuery(query, [startDate.toISOString(), endDate.toISOString()]);
       return rows.map((row: any) => ({
         ...row,
         response_sla_rate: row.total_tickets > 0 ? (row.response_met / row.total_tickets) * 100 : 0,
@@ -241,7 +241,7 @@ export const slaDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(startDate.toISOString(), endDate.toISOString());
+      const rows = await executeQuery(query, [startDate.toISOString(), endDate.toISOString()]);
       return rows.map((row: any) => ({
         ...row,
         compliance_rate: row.total > 0 ? (row.met / row.total) * 100 : 0
@@ -300,11 +300,11 @@ export const agentDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(
+      const rows = await executeQuery(query, [
         startDate.toISOString(),
         endDate.toISOString(),
         limit
-      );
+      ]);
 
       return rows.map((row: any) => ({
         ...row,
@@ -342,7 +342,7 @@ export const agentDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all();
+      const rows = await executeQuery(query);
       return rows.map((row: any) => ({
         ...row,
         workload_score: calculateWorkloadScore(row),
@@ -406,13 +406,13 @@ export const customerDataSources = {
     `;
 
     try {
-      const rows = db.prepare(query).all(
+      const rows = await executeQuery(query, [
         startDate.toISOString(),
         endDate.toISOString(),
         startDate.toISOString(),
         endDate.toISOString(),
         limit
-      );
+      ]);
       return rows;
     } catch (error) {
       logger.error('Error fetching customer activity', error);

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useDebounce } from '@/lib/hooks/useDebounce'
 import { logger } from '@/lib/monitoring/logger';
 import {
   MagnifyingGlassIcon,
@@ -51,15 +52,17 @@ export default function KnowledgePage() {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
 
+  const debouncedSearch = useDebounce(search, 300)
+
   useEffect(() => {
     fetchArticles()
-  }, [search, selectedCategory, selectedStatus])
+  }, [debouncedSearch, selectedCategory, selectedStatus])
 
   const fetchArticles = async () => {
     try {
       setError(null)
       const params = new URLSearchParams()
-      if (search) params.append('search', search)
+      if (debouncedSearch) params.append('search', debouncedSearch)
       if (selectedCategory) params.append('category', selectedCategory)
       if (selectedStatus !== 'all') params.append('status', selectedStatus)
 

@@ -1903,6 +1903,8 @@ export interface CABMember {
 export interface CABMeeting {
   id: number;
   cab_id: number;
+  title: string;
+  scheduled_date: string;
   meeting_date: string;
   meeting_type: 'regular' | 'emergency' | 'virtual';
 

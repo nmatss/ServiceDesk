@@ -14,8 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { captureException, addBreadcrumb } from '@/lib/monitoring/sentry-helpers';
 import { withObservability } from '@/lib/monitoring/observability';
-import db from '@/lib/db/connection';
-
+import { executeQueryOne } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const GET = withObservability(
   async (request: NextRequest) => {
@@ -49,7 +48,7 @@ export const GET = withObservability(
 
         case 'database':
           // Intentionally trigger a database error
-          db.prepare('SELECT * FROM non_existent_table').get();
+          await executeQueryOne('SELECT * FROM non_existent_table');
           break;
 
         case 'validation':

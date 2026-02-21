@@ -135,7 +135,7 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
   const featuredItems = filteredItems.filter(item => item.is_featured)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in">
       {/* Header */}
       <div className="glass-panel shadow-sm border-b sticky top-0 z-20 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">

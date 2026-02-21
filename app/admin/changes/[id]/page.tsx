@@ -29,6 +29,7 @@ import {
   UserGroupIcon
 } from '@heroicons/react/24/outline'
 import { ArrowPathIcon as ArrowPathSolid } from '@heroicons/react/24/solid'
+import toast from 'react-hot-toast'
 
 interface Change {
   id: string
@@ -88,85 +89,107 @@ export default function ChangeDetailPage() {
   const fetchChange = async () => {
     setLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const response = await fetch(`/api/changes/${changeId}`)
+      const data = await response.json()
 
-      setChange({
-        id: changeId,
-        title: 'Otimização de índices do banco de dados ERP',
-        description: 'Reconstrução de índices fragmentados e otimização de queries no banco de dados do ERP para resolver problemas de performance identificados no PRB-123.',
-        status: 'scheduled',
-        category: 'normal',
-        priority: 'high',
-        risk_level: 3,
-        impact_level: 4,
-        urgency_level: 3,
-        assigned_to: 'user_3',
-        assigned_name: 'Pedro Almeida',
-        created_by: 'user_2',
-        created_by_name: 'Carlos Silva',
-        created_at: '2024-12-11T14:00:00Z',
-        updated_at: '2024-12-14T10:00:00Z',
-        scheduled_start: '2024-12-15T22:00:00Z',
-        scheduled_end: '2024-12-16T02:00:00Z',
-        actual_start: null,
-        actual_end: null,
-        justification: 'O banco de dados do ERP está apresentando lentidão severa durante horários de pico, afetando aproximadamente 150 usuários do departamento financeiro. A análise de causa raiz (PRB-123) identificou índices fragmentados e queries não otimizadas como a causa principal. Esta mudança visa resolver definitivamente o problema.',
-        implementation_plan: `1. Backup completo do banco de dados (22:00 - 22:30)
-2. Notificar usuários sobre janela de manutenção (22:30)
-3. Parar serviços dependentes do ERP (22:30 - 22:45)
-4. Executar script de reconstrução de índices (22:45 - 00:30)
-5. Aplicar otimizações de queries (00:30 - 01:00)
-6. Executar testes de validação (01:00 - 01:30)
-7. Reiniciar serviços (01:30 - 01:45)
-8. Validação final e monitoramento (01:45 - 02:00)`,
-        rollback_plan: `Em caso de falha:
-1. Interromper imediatamente o processo
-2. Restaurar backup do banco de dados
-3. Reiniciar serviços na configuração anterior
-4. Notificar equipe de suporte
-5. Agendar nova janela para investigação adicional
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao buscar mudança')
+      }
 
-Tempo estimado de rollback: 45 minutos
-Ponto de não retorno: Após início da otimização de queries`,
-        test_plan: `Testes de Validação:
-1. Verificar integridade dos dados (checksum)
-2. Executar queries de benchmark
-3. Testar módulos críticos (Financeiro, Relatórios, Dashboard)
-4. Verificar logs de erro
-5. Comparar tempo de resposta com baseline
-6. Teste de carga simulando horário de pico`,
-        affected_services: ['ERP Financeiro', 'Relatórios Gerenciais', 'BI Dashboard', 'Integração SAP'],
-        affected_cis: [
-          { id: 'ci_1', name: 'SRV-ERP-01', type: 'server' },
-          { id: 'ci_2', name: 'DB-ERP-PROD', type: 'database' },
-          { id: 'ci_3', name: 'ERP-APP-CLUSTER', type: 'application' }
-        ],
-        related_problems: [123],
-        related_incidents: [1234, 1256, 1278, 1290, 1302],
-        cab_required: true,
-        cab_meeting_date: '2024-12-13T14:00:00Z',
-        cab_decision: 'approved',
-        cab_votes: [
-          { user: 'Maria Santos', vote: 'approve', comment: 'Mudança necessária. Planos adequados.', timestamp: '2024-12-13T14:15:00Z' },
-          { user: 'João Oliveira', vote: 'approve', comment: 'Aprovado. Garantir monitoramento durante execução.', timestamp: '2024-12-13T14:20:00Z' },
-          { user: 'Ana Costa', vote: 'approve', comment: 'OK. Validar backup antes de iniciar.', timestamp: '2024-12-13T14:25:00Z' }
-        ],
-        approvals: [
-          { user: 'Maria Santos', role: 'Gerente de TI', status: 'approved', timestamp: '2024-12-13T14:30:00Z' },
-          { user: 'Roberto Lima', role: 'DBA Lead', status: 'approved', timestamp: '2024-12-13T15:00:00Z' },
-          { user: 'Fernanda Silva', role: 'Gerente de Operações', status: 'approved', timestamp: '2024-12-13T16:00:00Z' }
-        ],
-        timeline: [
-          { id: '1', type: 'status_change', content: 'RFC criada', user: 'Carlos Silva', timestamp: '2024-12-11T14:00:00Z' },
-          { id: '2', type: 'status_change', content: 'Status: Submetida para Revisão', user: 'Carlos Silva', timestamp: '2024-12-11T14:30:00Z' },
-          { id: '3', type: 'comment', content: 'Solicitação de revisão pelo CAB agendada', user: 'Sistema', timestamp: '2024-12-12T09:00:00Z' },
-          { id: '4', type: 'cab_vote', content: 'CAB Meeting realizada. Decisão: Aprovada', user: 'CAB', timestamp: '2024-12-13T14:30:00Z' },
-          { id: '5', type: 'approval', content: 'Aprovação: Maria Santos (Gerente de TI)', user: 'Maria Santos', timestamp: '2024-12-13T14:30:00Z' },
-          { id: '6', type: 'approval', content: 'Aprovação: Roberto Lima (DBA Lead)', user: 'Roberto Lima', timestamp: '2024-12-13T15:00:00Z' },
-          { id: '7', type: 'approval', content: 'Aprovação: Fernanda Silva (Gerente de Operações)', user: 'Fernanda Silva', timestamp: '2024-12-13T16:00:00Z' },
-          { id: '8', type: 'status_change', content: 'Status: Agendada para 15/12/2024 22:00', user: 'Pedro Almeida', timestamp: '2024-12-14T10:00:00Z' }
-        ]
-      })
+      if (data.success && data.change_request) {
+        const cr = data.change_request
+
+        // Map numeric risk_level to 1-5 scale
+        const riskLevelMap: Record<string, number> = {
+          'very_low': 1,
+          'low': 2,
+          'medium': 3,
+          'high': 4,
+          'very_high': 5
+        }
+
+        // Map impact to 1-5 scale
+        const impactMap: Record<string, number> = {
+          'none': 1,
+          'minor': 2,
+          'moderate': 3,
+          'significant': 4,
+          'extensive': 5
+        }
+
+        // Map urgency to 1-5 scale
+        const urgencyMap: Record<string, number> = {
+          'low': 2,
+          'medium': 3,
+          'high': 4,
+          'critical': 5
+        }
+
+        // Parse affected_services
+        const affectedServices = cr.affected_services
+          ? (typeof cr.affected_services === 'string' ? cr.affected_services.split(',').map((s: string) => s.trim()) : cr.affected_services)
+          : []
+
+        // Map approvals
+        const approvals = (data.approvals || []).map((a: Record<string, unknown>) => ({
+          user: a.approver_name || 'Desconhecido',
+          role: a.approver_type === 'cab' ? 'CAB Member' : 'Manager',
+          status: a.status,
+          timestamp: a.decided_at || null
+        }))
+
+        // Map affected CIs
+        const affectedCIs = (data.affected_cis || []).map((ci: Record<string, unknown>) => ({
+          id: ci.id,
+          name: ci.name || 'Desconhecido',
+          type: ci.ci_type || 'unknown'
+        }))
+
+        // Map history/timeline from comments
+        const timeline = (data.history || []).map((h: Record<string, unknown>, idx: number) => ({
+          id: String(h.id || idx),
+          type: 'comment' as const,
+          content: h.content || '',
+          user: h.author_name || 'Sistema',
+          timestamp: h.created_at || new Date().toISOString()
+        }))
+
+        setChange({
+          id: String(cr.id),
+          title: cr.title || 'Sem título',
+          description: cr.description || '',
+          status: cr.status || 'draft',
+          category: cr.category || 'normal',
+          priority: cr.priority || 'medium',
+          risk_level: riskLevelMap[cr.risk_level as string] || 3,
+          impact_level: impactMap[cr.impact as string] || 3,
+          urgency_level: urgencyMap[cr.urgency as string] || 3,
+          assigned_to: cr.assignee_id ? String(cr.assignee_id) : null,
+          assigned_name: cr.assignee_name || null,
+          created_by: String(cr.requester_id),
+          created_by_name: cr.requester_name || 'Desconhecido',
+          created_at: cr.created_at || new Date().toISOString(),
+          updated_at: cr.updated_at || new Date().toISOString(),
+          scheduled_start: cr.scheduled_start_date || null,
+          scheduled_end: cr.scheduled_end_date || null,
+          actual_start: cr.actual_start_date || null,
+          actual_end: cr.actual_end_date || null,
+          justification: cr.justification || '',
+          implementation_plan: cr.implementation_plan || '',
+          rollback_plan: cr.rollback_plan || '',
+          test_plan: cr.test_plan || '',
+          affected_services: affectedServices,
+          affected_cis: affectedCIs,
+          related_problems: [],
+          related_incidents: [],
+          cab_required: cr.requires_cab || false,
+          cab_meeting_date: data.cab_meeting?.scheduled_date || null,
+          cab_decision: data.cab_meeting?.status || null,
+          cab_votes: [],
+          approvals,
+          timeline
+        })
+      }
     } catch (error) {
       console.error('Error fetching change:', error)
     } finally {
@@ -295,7 +318,7 @@ Ponto de não retorno: Após início da otimização de queries`,
               },
               {
                 label: 'Editar',
-                onClick: () => {},
+                onClick: () => toast.error('Edição de mudanças ainda não implementada'),
                 icon: PencilIcon,
                 variant: 'secondary'
               }
@@ -819,28 +842,43 @@ Ponto de não retorno: Após início da otimização de queries`,
               <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Ações</h3>
               <div className="space-y-2">
                 {change.status === 'scheduled' && (
-                  <button className="w-full px-4 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => toast.error('Execução de mudanças ainda não implementada')}
+                    className="w-full px-4 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                  >
                     <PlayIcon className="w-4 h-4" />
                     Iniciar Execução
                   </button>
                 )}
                 {change.status === 'in_progress' && (
                   <>
-                    <button className="w-full px-4 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => toast.error('Conclusão de mudanças ainda não implementada')}
+                      className="w-full px-4 py-2 bg-success-600 hover:bg-success-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                    >
                       <CheckCircleIcon className="w-4 h-4" />
                       Concluir com Sucesso
                     </button>
-                    <button className="w-full px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => toast.error('Marcação de falha ainda não implementada')}
+                      className="w-full px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                    >
                       <XCircleIcon className="w-4 h-4" />
                       Marcar como Falha
                     </button>
-                    <button className="w-full px-4 py-2 bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300 rounded-lg text-sm font-medium hover:bg-warning-200 dark:hover:bg-warning-900/50 transition-all flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => toast.error('Rollback ainda não implementado')}
+                      className="w-full px-4 py-2 bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300 rounded-lg text-sm font-medium hover:bg-warning-200 dark:hover:bg-warning-900/50 transition-all flex items-center justify-center gap-2"
+                    >
                       <ArrowUturnLeftIcon className="w-4 h-4" />
                       Executar Rollback
                     </button>
                   </>
                 )}
-                <button className="w-full px-4 py-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg text-sm font-medium hover:bg-brand-200 dark:hover:bg-brand-900/50 transition-all flex items-center justify-center gap-2">
+                <button
+                  onClick={() => toast.error('Edição de mudanças ainda não implementada')}
+                  className="w-full px-4 py-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg text-sm font-medium hover:bg-brand-200 dark:hover:bg-brand-900/50 transition-all flex items-center justify-center gap-2"
+                >
                   <PencilIcon className="w-4 h-4" />
                   Editar RFC
                 </button>
@@ -906,12 +944,18 @@ Ponto de não retorno: Após início da otimização de queries`,
             Voltar
           </button>
           {change.status === 'scheduled' && (
-            <button className="flex-1 py-2.5 text-sm font-medium text-white bg-success-600 hover:bg-success-700 rounded-lg transition-all">
+            <button
+              onClick={() => toast.error('Execução de mudanças ainda não implementada')}
+              className="flex-1 py-2.5 text-sm font-medium text-white bg-success-600 hover:bg-success-700 rounded-lg transition-all"
+            >
               Iniciar
             </button>
           )}
           {change.status !== 'scheduled' && (
-            <button className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all">
+            <button
+              onClick={() => toast.error('Edição de mudanças ainda não implementada')}
+              className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all"
+            >
               Editar
             </button>
           )}

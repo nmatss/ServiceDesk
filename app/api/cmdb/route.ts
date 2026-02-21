@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -59,11 +59,12 @@ const querySchema = z.object({
 /**
  * Generate unique CI number
  */
-function generateCINumber(db: ReturnType<typeof getDatabase>): string {
-  const result = db.prepare(
+async function generateCINumber(): Promise<string> {
+  const result = await executeQueryOne<{ max_num: number | null }>(
     `SELECT MAX(CAST(SUBSTR(ci_number, 4) AS INTEGER)) as max_num
-     FROM configuration_items WHERE ci_number LIKE 'CI-%'`
-  ).get() as { max_num: number | null }
+     FROM configuration_items WHERE ci_number LIKE 'CI-%'`,
+    []
+  )
 
   const nextNum = (result?.max_num || 0) + 1
   return `CI-${String(nextNum).padStart(5, '0')}`
@@ -78,20 +79,18 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
 
-    const db = getDatabase()
     const offset = (params.page - 1) * params.limit
 
     // Build query
     let whereClause = 'WHERE ci.organization_id = ?'
-    const queryParams: (string | number)[] = [auth.user.organization_id]
+    const queryParams: (string | number)[] = [organizationId]
 
     if (params.search) {
       whereClause += ` AND (ci.name LIKE ? OR ci.ci_number LIKE ? OR ci.description LIKE ? OR ci.hostname LIKE ? OR ci.ip_address LIKE ?)`
@@ -130,12 +129,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count
-    const countResult = db.prepare(
-      `SELECT COUNT(*) as total FROM configuration_items ci ${whereClause}`
-    ).get(...queryParams) as { total: number }
+    const countResult = await executeQueryOne<{ total: number }>(
+      `SELECT COUNT(*) as total FROM configuration_items ci ${whereClause}`,
+      queryParams
+    )
 
     // Get CIs with related data
-    const cis = db.prepare(`
+    const cis = await executeQuery<Record<string, unknown>>(`
       SELECT
         ci.*,
         ct.name as ci_type_name,
@@ -154,16 +154,16 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY ci.criticality DESC, ci.updated_at DESC
       LIMIT ? OFFSET ?
-    `).all(...queryParams, params.limit, offset)
+    `, [...queryParams, params.limit, offset])
 
     return NextResponse.json({
       success: true,
       configuration_items: cis,
       pagination: {
-        total: countResult.total,
+        total: countResult?.total || 0,
         page: params.page,
         limit: params.limit,
-        total_pages: Math.ceil(countResult.total / params.limit)
+        total_pages: Math.ceil((countResult?.total || 0) / params.limit)
       }
     })
   } catch (error) {
@@ -184,13 +184,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Check permissions (admin, agent, or manager)
-    if (!['admin', 'agent', 'manager'].includes(auth.user.role)) {
+    if (!['admin', 'agent', 'manager'].includes(role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }
@@ -200,10 +199,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = createCISchema.parse(body)
 
-    const db = getDatabase()
-    const ciNumber = generateCINumber(db)
+    const ciNumber = await generateCINumber()
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO configuration_items (
         ci_number, name, description, ci_type_id, status_id, organization_id,
         owner_id, managed_by_team_id, vendor, manufacturer, location, environment,
@@ -214,13 +212,13 @@ export async function POST(request: NextRequest) {
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
-    `).run(
+    `, [
       ciNumber,
       data.name,
       data.description || null,
       data.ci_type_id,
       data.status_id,
-      auth.user.organization_id,
+      organizationId,
       data.owner_id || null,
       data.managed_by_team_id || null,
       data.vendor || null,
@@ -245,21 +243,22 @@ export async function POST(request: NextRequest) {
       data.warranty_expiry || null,
       data.end_of_life_date || null,
       data.custom_attributes ? JSON.stringify(data.custom_attributes) : '{}',
-      auth.user.id
-    )
+      userId
+    ])
 
     // Log CI creation in history
-    db.prepare(`
+    await executeRun(`
       INSERT INTO ci_history (ci_id, action, changed_by)
       VALUES (?, 'created', ?)
-    `).run(result.lastInsertRowid, auth.user.id)
+    `, [result.lastInsertRowid, userId])
 
     // Get created CI
-    const ci = db.prepare(
-      `SELECT * FROM configuration_items WHERE id = ?`
-    ).get(result.lastInsertRowid)
+    const ci = await executeQueryOne<Record<string, unknown>>(
+      `SELECT * FROM configuration_items WHERE id = ?`,
+      [result.lastInsertRowid]
+    )
 
-    logger.info(`CI created: ${ciNumber} by user ${auth.user.id}`)
+    logger.info(`CI created: ${ciNumber} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
-import db from '@/lib/db/connection';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -35,10 +35,10 @@ export async function GET(
 
     const templateId = parseInt(params.id);
 
-    const template = db.prepare(`
+    const template = await executeQueryOne<any>(`
       SELECT * FROM email_templates
       WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)
-    `).get(templateId, tenantContext.id) as any;
+    `, [templateId, tenantContext.id]);
 
     if (!template) {
       return NextResponse.json({ error: 'Template não encontrado' }, { status: 404 });
@@ -102,10 +102,10 @@ export async function PUT(
     const data = await request.json();
 
     // Check if template exists and belongs to tenant
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<any>(`
       SELECT * FROM email_templates
       WHERE id = ? AND tenant_id = ?
-    `).get(templateId, tenantContext.id) as any;
+    `, [templateId, tenantContext.id]);
 
     if (!existing) {
       return NextResponse.json(
@@ -167,10 +167,10 @@ export async function DELETE(
     const templateId = parseInt(params.id);
 
     // Check if template exists and belongs to tenant
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<any>(`
       SELECT * FROM email_templates
       WHERE id = ? AND tenant_id = ?
-    `).get(templateId, tenantContext.id) as any;
+    `, [templateId, tenantContext.id]);
 
     if (!existing) {
       return NextResponse.json(
@@ -180,11 +180,11 @@ export async function DELETE(
     }
 
     // Soft delete (mark as inactive) instead of hard delete
-    db.prepare(`
+    await executeRun(`
       UPDATE email_templates
       SET is_active = 0, updated_at = datetime('now')
       WHERE id = ?
-    `).run(templateId);
+    `, [templateId]);
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       whereClause += ' AND n.is_read = 0';
     }
 
-    const notifications = db.prepare(`
+    const notifications = await executeQuery(`
       SELECT
         n.*,
         t.title as ticket_title,
@@ -43,23 +43,23 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY n.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(tenantContext.id, ...params, limit, offset);
+    `, [tenantContext.id, ...params, limit, offset]);
 
     // Contar total de notificações
-    const totalQuery = db.prepare(`
+    
+    const { total } = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM notifications n
       ${whereClause}
-    `);
-    const { total } = totalQuery.get(...params) as { total: number };
+    `, params) || { total: 0 };
 
     // Contar não lidas
-    const unreadQuery = db.prepare(`
+
+    const { unread } = await executeQueryOne<{ unread: number }>(`
       SELECT COUNT(*) as unread
       FROM notifications n
       WHERE n.user_id = ? AND n.tenant_id = ? AND n.is_read = 0
-    `);
-    const { unread } = unreadQuery.get(userContext.id, tenantContext.id) as { unread: number };
+    `, [userContext.id, tenantContext.id]) || { unread: 0 };
 
     return NextResponse.json({
       success: true,
@@ -108,18 +108,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se o usuário existe e pertence ao mesmo tenant
-    const targetUser = db.prepare('SELECT id FROM users WHERE id = ? AND tenant_id = ?').get(user_id, tenantContext.id);
+    const targetUser = await executeQueryOne('SELECT id FROM users WHERE id = ? AND tenant_id = ?', [user_id, tenantContext.id]);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado ou não pertence ao tenant' }, { status: 404 });
     }
 
     // Criar notificação com tenant_id
-    const stmt = db.prepare(`
+    
+
+    const result = await executeRun(`
       INSERT INTO notifications (user_id, title, message, type, data, tenant_id)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(user_id, title, message, type, data ? JSON.stringify(data) : null, tenantContext.id);
+    `, [user_id, title, message, type, data ? JSON.stringify(data) : null, tenantContext.id]);
 
     return NextResponse.json({
       id: result.lastInsertRowid,
@@ -152,24 +152,24 @@ export async function PUT(request: NextRequest) {
 
     if (mark_all_read) {
       // Marcar todas as notificações do usuário como lidas (apenas do tenant)
-      const stmt = db.prepare(`
+      
+      const result = await executeRun(`
         UPDATE notifications
         SET is_read = TRUE
         WHERE user_id = ? AND tenant_id = ? AND is_read = FALSE
-      `);
-      const result = stmt.run(userContext.id, tenantContext.id);
+      `, [userContext.id, tenantContext.id]);
 
       return NextResponse.json({
         message: `${result.changes} notificações marcadas como lidas`
       });
     } else if (notification_id) {
       // Marcar notificação específica como lida (verificando tenant)
-      const stmt = db.prepare(`
+      
+      const result = await executeRun(`
         UPDATE notifications
         SET is_read = TRUE
         WHERE id = ? AND user_id = ? AND tenant_id = ?
-      `);
-      const result = stmt.run(notification_id, userContext.id, tenantContext.id);
+      `, [notification_id, userContext.id, tenantContext.id]);
 
       if (result.changes === 0) {
         return NextResponse.json({ error: 'Notificação não encontrada' }, { status: 404 });

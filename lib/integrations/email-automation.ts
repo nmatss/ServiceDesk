@@ -18,14 +18,30 @@ import nodemailer from 'nodemailer';
 import Handlebars from 'handlebars';
 import { ImapFlow } from 'imapflow';
 import { simpleParser, Attachment } from 'mailparser';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import db from '../db/connection';
-import { ticketQueries, commentQueries } from '@/lib/db/queries';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { sqlNow } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
-const createTicket = ticketQueries.create;
-const addComment = commentQueries.create;
-const getTicketById = ticketQueries.getById;
+async function createTicket(data: any, _organizationId?: number) {
+  const result = await executeRun(
+    `INSERT INTO tickets (title, description, requester_id, category_id, priority_id, status_id, channel, metadata, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})`,
+    [data.title, data.description, data.requester_id || data.user_id || 1, data.category_id, data.priority_id, data.status_id, data.channel || null, data.metadata || null]
+  );
+  return result.lastInsertRowid ? await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
+}
+
+async function addComment(data: any, _organizationId?: number) {
+  await executeRun(
+    `INSERT INTO comments (ticket_id, user_id, content, is_internal, metadata, created_at)
+     VALUES (?, ?, ?, ?, ?, ${sqlNow()})`,
+    [data.ticket_id, data.user_id, data.content, data.is_internal ? 1 : 0, data.metadata || null]
+  );
+}
+
+async function getTicketById(ticketId: number, _organizationId: number) {
+  return await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+}
 
 // Email Configuration
 interface EmailConfig {

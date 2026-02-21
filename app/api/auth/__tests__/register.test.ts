@@ -15,7 +15,7 @@
  * - Audit logging
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { POST as registerPOST } from '@/app/api/auth/register/route';
 import {
   initTestDatabase,
@@ -397,7 +397,7 @@ describe('POST /api/auth/register', () => {
 
     it('should accept valid email formats', async () => {
       const validEmails = [
-        'user@test.com',
+        'valid-user@test.com',
         'user.name@test.com',
         'user+tag@test.co.uk',
         'user123@test-domain.com'
@@ -558,6 +558,14 @@ describe('POST /api/auth/register', () => {
   });
 
   describe('Rate Limiting', () => {
+    beforeEach(() => {
+      process.env.ENABLE_RATE_LIMIT_TESTS = 'true';
+    });
+
+    afterEach(() => {
+      delete process.env.ENABLE_RATE_LIMIT_TESTS;
+    });
+
     it('should rate limit excessive registration attempts', async () => {
       const requests = [];
 

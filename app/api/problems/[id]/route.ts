@@ -5,9 +5,10 @@
  * DELETE: Delete problem
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateProblemInput } from '@/lib/types/problem';
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('Error fetching problem:', error);
+    logger.error('Error fetching problem:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -189,16 +190,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.urgency !== undefined) input.urgency = body.urgency;
     if (body.root_cause !== undefined) input.root_cause = body.root_cause;
     if (body.root_cause_category !== undefined) input.root_cause_category = body.root_cause_category;
-    if (body.symptoms !== undefined) input.symptoms = body.symptoms;
     if (body.workaround !== undefined) input.workaround = body.workaround;
-    if (body.workaround_effectiveness !== undefined) input.workaround_effectiveness = body.workaround_effectiveness;
-    if (body.permanent_fix !== undefined) input.permanent_fix = body.permanent_fix;
+    if (body.resolution !== undefined) input.resolution = body.resolution;
     if (body.assigned_to !== undefined) input.assigned_to = body.assigned_to;
     if (body.assigned_group_id !== undefined) input.assigned_group_id = body.assigned_group_id;
-    if (body.business_impact !== undefined) input.business_impact = body.business_impact;
     if (body.affected_services !== undefined) input.affected_services = body.affected_services;
-    if (body.affected_cis !== undefined) input.affected_cis = body.affected_cis;
-    if (body.affected_users_count !== undefined) input.affected_users_count = body.affected_users_count;
 
     // Update problem
     const updatedProblem = await problemQueries.updateProblem(
@@ -213,7 +209,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: updatedProblem,
     });
   } catch (error) {
-    console.error('Error updating problem:', error);
+    logger.error('Error updating problem:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -294,7 +290,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       message: 'Problem deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting problem:', error);
+    logger.error('Error deleting problem:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

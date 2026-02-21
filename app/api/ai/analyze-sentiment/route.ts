@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     let conversationHistory;
 
     if (ticketId) {
-      const ticket = db.prepare(`
+      const ticket = await executeQueryOne<any>(`
         SELECT t.*, c.name as category, p.name as priority, p.level as priority_level,
                CAST((julianday('now') - julianday(t.created_at)) AS INTEGER) as days_open,
                COUNT(e.id) as escalation_level
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         LEFT JOIN escalations e ON t.id = e.ticket_id
         WHERE t.id = ?
         GROUP BY t.id
-      `).get(ticketId) as any;
+      `, [ticketId]);
 
       if (ticket) {
         ticketContext = {
@@ -78,14 +78,14 @@ export async function POST(request: NextRequest) {
 
         // Buscar histórico de conversas se solicitado
         if (includeHistory) {
-          const comments = db.prepare(`
+          const comments = await executeQuery<any>(`
             SELECT content, created_at
             FROM comments
             WHERE ticket_id = ?
               AND is_internal = 0
             ORDER BY created_at DESC
             LIMIT 10
-          `).all(ticketId) as any[];
+          `, [ticketId]);
 
           conversationHistory = comments.map((comment: any) => ({
             message: comment.content,
@@ -103,12 +103,11 @@ export async function POST(request: NextRequest) {
     );
 
     // Salvar análise no banco de dados
-    const analysisResult = db.prepare(`
+    const analysisResult = await executeRun(`
       INSERT INTO ai_suggestions (
         ticket_id, suggestion_type, content, reasoning
       ) VALUES (?, ?, ?, ?)
-    `).run(
-      ticketId || null,
+    `, [ticketId || null,
       'sentiment_analysis',
       JSON.stringify({
         sentiment: sentimentAnalysis.sentiment,
@@ -117,8 +116,7 @@ export async function POST(request: NextRequest) {
         emotionalUrgency: sentimentAnalysis.emotionalUrgency,
         immediateAttentionRequired: sentimentAnalysis.immediateAttentionRequired
       }),
-      `Sentiment analysis: ${sentimentAnalysis.sentiment} (${sentimentAnalysis.sentimentScore})`
-    );
+      `Sentiment analysis: ${sentimentAnalysis.sentiment} (${sentimentAnalysis.sentimentScore})`]);
     const analysisId = analysisResult.lastInsertRowid;
 
     // Auto-ajustar prioridade se solicitado e necessário
@@ -140,28 +138,26 @@ export async function POST(request: NextRequest) {
         }
 
         // Buscar prioridade correspondente
-        const targetPriority = db.prepare(`
+        const targetPriority = await executeQueryOne<any>(`
           SELECT id, name FROM priorities WHERE level = ?
-        `).get(targetPriorityLevel) as any;
+        `, [targetPriorityLevel]);
 
         if (targetPriority && targetPriority.id !== ticketContext?.priority_id) {
           // Atualizar prioridade do ticket
-          db.prepare(`
+          await executeRun(`
             UPDATE tickets SET priority_id = ? WHERE id = ?
-          `).run(targetPriority.id, ticketId);
+          `, [targetPriority.id, ticketId]);
 
           // Criar escalação automática
-          db.prepare(`
+          await executeRun(`
             INSERT INTO escalations (ticket_id, escalation_type, reason)
             VALUES (?, ?, ?)
-          `).run(
-            ticketId,
+          `, [ticketId,
             'sentiment_analysis',
-            `Prioridade ajustada automaticamente devido ao sentimento ${sentimentAnalysis.sentiment} detectado`
-          );
+            `Prioridade ajustada automaticamente devido ao sentimento ${sentimentAnalysis.sentiment} detectado`]);
 
           // Criar notificação para agentes
-          db.prepare(`
+          await executeRun(`
             INSERT INTO notifications (
               user_id, ticket_id, type, title, message
             )
@@ -169,11 +165,9 @@ export async function POST(request: NextRequest) {
             FROM users u
             WHERE u.role IN ('agent', 'admin', 'manager')
               AND u.is_active = 1
-          `).run(
-            ticketId,
+          `, [ticketId,
             'Ticket escalado por análise de sentimento',
-            `O ticket #${ticketId} foi escalado automaticamente devido ao sentimento negativo detectado`
-          );
+            `O ticket #${ticketId} foi escalado automaticamente devido ao sentimento negativo detectado`]);
 
           priorityAdjusted = true;
           newPriority = {
@@ -190,7 +184,7 @@ export async function POST(request: NextRequest) {
     // Criar alerta se atenção imediata for necessária
     if (sentimentAnalysis.immediateAttentionRequired) {
       try {
-        db.prepare(`
+        await executeRun(`
           INSERT INTO notifications (
             user_id, ticket_id, type, title, message
           )
@@ -198,11 +192,9 @@ export async function POST(request: NextRequest) {
           FROM users u
           WHERE u.role IN ('agent', 'admin', 'manager')
             AND u.is_active = 1
-        `).run(
-          ticketId,
+        `, [ticketId,
           'Atenção imediata necessária',
-          `Análise de sentimento detectou urgência emocional crítica no ticket #${ticketId || 'novo'}`
-        );
+          `Análise de sentimento detectou urgência emocional crítica no ticket #${ticketId || 'novo'}`]);
       } catch (error) {
         logger.warn('Failed to create urgent attention notification', error);
       }
@@ -212,13 +204,12 @@ export async function POST(request: NextRequest) {
     logger.info(`Sentiment analysis completed in ${sentimentAnalysis.processingTimeMs}ms`);
 
     // Auditoria
-    db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      user.id,
+    `, [user.id,
       'ai_suggestion',
       analysisId,
       'analyze_sentiment',
@@ -229,8 +220,7 @@ export async function POST(request: NextRequest) {
         priorityAdjusted,
         immediateAttention: sentimentAnalysis.immediateAttentionRequired
       }),
-      request.headers.get('x-forwarded-for') || 'unknown'
-    );
+      request.headers.get('x-forwarded-for') || 'unknown']);
 
     return NextResponse.json({
       success: true,
@@ -310,16 +300,16 @@ export async function GET(request: NextRequest) {
 
     if (ticketId) {
       // Buscar análises de sentimento para um ticket específico
-      const analyses = db.prepare(`
+      const analyses = await executeQuery<any>(`
         SELECT * FROM ai_suggestions
         WHERE ticket_id = ? AND suggestion_type = 'sentiment_analysis'
         ORDER BY created_at DESC
-      `).all(ticketId) as any[];
+      `, [ticketId]);
 
       return NextResponse.json({ analyses });
     } else {
       // Buscar estatísticas de análise de sentimento
-      const stats = db.prepare(`
+      const stats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_analyses,
           COUNT(CASE WHEN content LIKE '%"sentiment":"positive"%' THEN 1 END) as positive_count,
@@ -329,9 +319,9 @@ export async function GET(request: NextRequest) {
         FROM ai_suggestions
         WHERE created_at >= datetime('now', '-' || ? || ' days')
           AND suggestion_type = 'sentiment_analysis'
-      `).get(period) as any;
+      `, [period]);
 
-      const frustrationStats = db.prepare(`
+      const frustrationStats = await executeQuery<any>(`
         SELECT
           CASE
             WHEN content LIKE '%"frustrationLevel":"low"%' THEN 'low'
@@ -346,18 +336,18 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'sentiment_analysis'
         GROUP BY frustration_level
         ORDER BY count DESC
-      `).all(period) as any[];
+      `, [period]);
 
-      const escalationStats = db.prepare(`
+      const escalationStats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_escalations,
           COUNT(CASE WHEN escalation_type = 'sentiment_analysis' THEN 1 END) as sentiment_escalations
         FROM escalations
         WHERE escalated_at >= datetime('now', '-' || ? || ' days')
-      `).get(period) as any;
+      `, [period]);
 
       // Tendência de sentimento ao longo do tempo (últimos 7 dias)
-      const sentimentTrend = db.prepare(`
+      const sentimentTrend = await executeQuery<any>(`
         SELECT
           DATE(created_at) as date,
           COUNT(CASE WHEN content LIKE '%"sentiment":"positive"%' THEN 1 END) as positive,
@@ -368,7 +358,7 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'sentiment_analysis'
         GROUP BY DATE(created_at)
         ORDER BY date DESC
-      `).all() as any[];
+      `);
 
       return NextResponse.json({
         stats: {

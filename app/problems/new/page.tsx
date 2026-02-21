@@ -3,10 +3,9 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeftIcon,
   ExclamationTriangleIcon,
   HomeIcon,
 } from '@heroicons/react/24/outline';
@@ -14,7 +13,6 @@ import PageHeader from '@/components/ui/PageHeader';
 import type {
   ProblemImpact,
   ProblemUrgency,
-  ProblemSourceType,
   CreateProblemInput,
 } from '@/lib/types/problem';
 
@@ -44,8 +42,6 @@ interface User {
 
 export default function NewProblemPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const sourceIncidentId = searchParams.get('incident_id');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,13 +53,8 @@ export default function NewProblemPage() {
   const [priorityId, setPriorityId] = useState<number | ''>('');
   const [impact, setImpact] = useState<ProblemImpact | ''>('');
   const [urgency, setUrgency] = useState<ProblemUrgency | ''>('');
-  const [sourceType, setSourceType] = useState<ProblemSourceType>(
-    sourceIncidentId ? 'incident' : 'proactive'
-  );
   const [assignedTo, setAssignedTo] = useState<number | ''>('');
-  const [assignedGroupId, setAssignedGroupId] = useState<number | ''>('');
-  const [symptoms, setSymptoms] = useState<string[]>(['']);
-  const [businessImpact, setBusinessImpact] = useState('');
+  const [assignedTeamId, setAssignedTeamId] = useState<number | ''>('');
 
   // Options
   const [categories, setCategories] = useState<Category[]>([]);
@@ -116,20 +107,6 @@ export default function NewProblemPage() {
     fetchOptions();
   }, []);
 
-  const handleAddSymptom = () => {
-    setSymptoms([...symptoms, '']);
-  };
-
-  const handleRemoveSymptom = (index: number) => {
-    setSymptoms(symptoms.filter((_, i) => i !== index));
-  };
-
-  const handleSymptomChange = (index: number, value: string) => {
-    const newSymptoms = [...symptoms];
-    newSymptoms[index] = value;
-    setSymptoms(newSymptoms);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -150,12 +127,8 @@ export default function NewProblemPage() {
         priority_id: priorityId || undefined,
         impact: impact || undefined,
         urgency: urgency || undefined,
-        source_type: sourceType,
-        source_incident_id: sourceIncidentId ? parseInt(sourceIncidentId, 10) : undefined,
         assigned_to: assignedTo || undefined,
-        assigned_group_id: assignedGroupId || undefined,
-        symptoms: symptoms.filter((s) => s.trim()),
-        business_impact: businessImpact || undefined,
+        assigned_team_id: assignedTeamId || undefined,
       };
 
       const response = await fetch('/api/problems', {
@@ -238,21 +211,6 @@ export default function NewProblemPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
-                  Origem do Problema
-                </label>
-                <select
-                  value={sourceType}
-                  onChange={(e) => setSourceType(e.target.value as ProblemSourceType)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                >
-                  <option value="incident">Incidente</option>
-                  <option value="proactive">Proativo</option>
-                  <option value="monitoring">Monitoramento</option>
-                  <option value="trend_analysis">Análise de Tendência</option>
-                </select>
-              </div>
             </div>
           </div>
 
@@ -337,48 +295,6 @@ export default function NewProblemPage() {
             </div>
           </div>
 
-          {/* Symptoms */}
-          <div className="glass-panel p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium text-neutral-900 dark:text-white">
-                Sintomas
-              </h2>
-              <button
-                type="button"
-                onClick={handleAddSymptom}
-                className="text-sm text-brand-600 hover:text-brand-700"
-              >
-                + Adicionar Sintoma
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {symptoms.map((symptom, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={symptom}
-                    onChange={(e) => handleSymptomChange(index, e.target.value)}
-                    placeholder={`Sintoma ${index + 1}`}
-                    className="flex-1 px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                  />
-                  {symptoms.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSymptom(index)}
-                      className="p-2 text-neutral-400 hover:text-red-500 transition-all duration-200"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-sm text-muted-content">
-              Liste os sintomas observados que indicam a existência do problema
-            </p>
-          </div>
-
           {/* Assignment */}
           <div className="glass-panel p-6">
             <h2 className="text-lg font-medium text-neutral-900 dark:text-white mb-4">
@@ -391,8 +307,8 @@ export default function NewProblemPage() {
                   Equipe Responsável
                 </label>
                 <select
-                  value={assignedGroupId}
-                  onChange={(e) => setAssignedGroupId(e.target.value ? parseInt(e.target.value, 10) : '')}
+                  value={assignedTeamId}
+                  onChange={(e) => setAssignedTeamId(e.target.value ? parseInt(e.target.value, 10) : '')}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
                   disabled={loadingOptions}
                 >
@@ -424,21 +340,6 @@ export default function NewProblemPage() {
                 </select>
               </div>
             </div>
-          </div>
-
-          {/* Business Impact */}
-          <div className="glass-panel p-6">
-            <h2 className="text-lg font-medium text-neutral-900 dark:text-white mb-4">
-              Impacto no Negócio
-            </h2>
-
-            <textarea
-              value={businessImpact}
-              onChange={(e) => setBusinessImpact(e.target.value)}
-              placeholder="Descreva como este problema afeta as operações do negócio"
-              rows={3}
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white resize-none"
-            />
           </div>
 
           {/* Actions */}

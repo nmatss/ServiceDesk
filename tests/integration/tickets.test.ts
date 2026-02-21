@@ -9,6 +9,11 @@ import { POST as createTicketPOST } from '@/app/api/tickets/create/route';
 import { GET as getTicketsGET } from '@/app/api/tickets/route';
 import { GET as getTicketGET, PATCH as updateTicketPATCH } from '@/app/api/tickets/[id]/route';
 import { POST as createCommentPOST, GET as getCommentsGET } from '@/app/api/tickets/[id]/comments/route';
+import { GET as getTicketAttachmentsGET } from '@/app/api/tickets/[id]/attachments/route';
+import { GET as getTicketActivitiesGET, POST as createTicketActivityPOST } from '@/app/api/tickets/[id]/activities/route';
+import { GET as getTicketTagsGET, POST as addTicketTagsPOST } from '@/app/api/tickets/[id]/tags/route';
+import { GET as getTicketFollowersGET, POST as followTicketPOST } from '@/app/api/tickets/[id]/followers/route';
+import { GET as getTicketRelationshipsGET, POST as createTicketRelationshipPOST } from '@/app/api/tickets/[id]/relationships/route';
 import {
   TEST_USERS,
   TEST_TENANT,
@@ -19,6 +24,60 @@ import {
 } from './setup';
 
 describe('Tickets API Integration Tests', () => {
+  const OTHER_TENANT = {
+    id: 2,
+    slug: 'other-tenant',
+    name: 'Other Organization'
+  };
+
+  const OTHER_USER = {
+    id: 9002,
+    name: 'Other Tenant User',
+    email: 'other-tenant-user@test.com',
+    role: 'user'
+  };
+
+  function ensureOtherTenantData() {
+    const db = getTestDb();
+    db.prepare(`
+      INSERT OR IGNORE INTO tenants (id, name, slug, is_active)
+      VALUES (?, ?, ?, 1)
+    `).run(OTHER_TENANT.id, OTHER_TENANT.name, OTHER_TENANT.slug);
+
+    db.prepare(`
+      INSERT OR IGNORE INTO users (id, tenant_id, name, email, role, is_active)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(OTHER_USER.id, OTHER_TENANT.id, OTHER_USER.name, OTHER_USER.email, OTHER_USER.role);
+  }
+
+  function createOtherTenantTicket(title: string): number {
+    ensureOtherTenantData();
+    const db = getTestDb();
+    const result = db.prepare(`
+      INSERT INTO tickets (
+        tenant_id, organization_id, ticket_number, title, description, user_id,
+        category_id, priority_id, status_id, ticket_type_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      OTHER_TENANT.id,
+      OTHER_TENANT.id,
+      `TKT-OTHER-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title,
+      'Other tenant ticket',
+      OTHER_USER.id,
+      1,
+      2,
+      1,
+      2
+    );
+
+    return result.lastInsertRowid as number;
+  }
+
+  function getPayload(data: any) {
+    return data?.data ?? data;
+  }
+
   describe('POST /api/tickets/create', () => {
     it('should create a new ticket successfully', async () => {
       const request = await createMockRequest('/api/tickets/create', {
@@ -35,12 +94,13 @@ describe('Tickets API Integration Tests', () => {
 
       const response = await createTicketPOST(request as any);
       const data = await getResponseJSON(response);
+      const payload = getPayload(data);
 
       expect(response.status).toBe(200);
-      expect(data.ticket).toBeDefined();
-      expect(data.ticket.title).toBe('Test Ticket');
-      expect(data.ticket.description).toBe('This is a test ticket description');
-      expect(data.ticket.user_id).toBe(TEST_USERS.user.id);
+      expect(payload.ticket).toBeDefined();
+      expect(payload.ticket.title).toBe('Test Ticket');
+      expect(payload.ticket.description).toBe('This is a test ticket description');
+      expect(payload.ticket.user_id).toBe(TEST_USERS.user.id);
 
       // Verify in database
       const db = getTestDb();
@@ -96,9 +156,10 @@ describe('Tickets API Integration Tests', () => {
 
       const response = await createTicketPOST(request as any);
       const data = await getResponseJSON(response);
+      const errorMessage = typeof data.error === 'string' ? data.error : data.error?.message;
 
       expect(response.status).toBe(404);
-      expect(data.error).toContain('Ticket type');
+      expect(errorMessage).toContain('Ticket type');
     });
 
     it('should create audit log entry on ticket creation', async () => {
@@ -141,9 +202,10 @@ describe('Tickets API Integration Tests', () => {
 
       const response = await createTicketPOST(request as any);
       const data = await getResponseJSON(response);
+      const payload = getPayload(data);
 
       expect(response.status).toBe(200);
-      expect(data.workflow_result).toBeDefined();
+      expect(payload.workflow_result).toBeDefined();
     });
   });
 
@@ -475,8 +537,8 @@ describe('Tickets API Integration Tests', () => {
       const response = await createCommentPOST(mockRequest, { params: { id: ticketId.toString() } });
       const data = await getResponseJSON(response);
 
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
+      expect(response.status).toBe(201);
+      expect(data.comment).toBeDefined();
 
       // Verify comment in database
       const db = getTestDb();
@@ -563,6 +625,260 @@ describe('Tickets API Integration Tests', () => {
 
       expect(data.comments[0].user_name).toBeDefined();
       expect(data.comments[0].user_email).toBeDefined();
+    });
+  });
+
+  describe('Ticket Tags Tenant Isolation', () => {
+    it('should reject adding a tag from another tenant by ID', async () => {
+      ensureOtherTenantData();
+      const db = getTestDb();
+      const ticketId = createTestTicket({
+        title: 'Tenant tag isolation test',
+        description: 'Tenant tag isolation test',
+        user_id: TEST_USERS.user.id
+      });
+
+      db.prepare(`
+        INSERT INTO tags (id, tenant_id, organization_id, name, color, created_by)
+        VALUES (2001, 2, 2, 'Cross Tenant Tag', '#EF4444', ?)
+      `).run(OTHER_USER.id);
+
+      const request = await createMockRequest(`/api/tickets/${ticketId}/tags`, {
+        method: 'POST',
+        userId: TEST_USERS.user.id,
+        body: {
+          tagIds: [2001]
+        }
+      });
+
+      const response = await addTicketTagsPOST(request as any, { params: { id: ticketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(200);
+      expect(data.addedCount).toBe(0);
+      expect(Array.isArray(data.errors)).toBe(true);
+      expect(data.errors[0]).toContain('not found');
+    });
+
+    it('should hide cross-tenant tag links when listing ticket tags', async () => {
+      ensureOtherTenantData();
+      const db = getTestDb();
+      const ticketId = createTestTicket({
+        title: 'Tag visibility test',
+        description: 'Tag visibility test',
+        user_id: TEST_USERS.user.id
+      });
+
+      db.prepare(`
+        INSERT INTO tags (id, tenant_id, organization_id, name, color, created_by)
+        VALUES (2101, 1, 1, 'Local Tag', '#10B981', ?)
+      `).run(TEST_USERS.admin.id);
+      db.prepare(`
+        INSERT INTO tags (id, tenant_id, organization_id, name, color, created_by)
+        VALUES (2102, 2, 2, 'Foreign Tag', '#EF4444', ?)
+      `).run(OTHER_USER.id);
+
+      db.prepare(`
+        INSERT INTO ticket_tags (ticket_id, tag_id, added_by)
+        VALUES (?, 2101, ?), (?, 2102, ?)
+      `).run(ticketId, TEST_USERS.admin.id, ticketId, TEST_USERS.admin.id);
+
+      const request = await createMockRequest(`/api/tickets/${ticketId}/tags`, {
+        method: 'GET',
+        userId: TEST_USERS.user.id
+      });
+
+      const response = await getTicketTagsGET(request as any, { params: { id: ticketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(200);
+      expect(data.count).toBe(1);
+      expect(data.tags[0].id).toBe(2101);
+    });
+  });
+
+  describe('Ticket Followers Tenant Isolation', () => {
+    it('should not allow following a ticket from another tenant', async () => {
+      const otherTenantTicketId = createOtherTenantTicket('Foreign follow target');
+
+      const request = await createMockRequest(`/api/tickets/${otherTenantTicketId}/followers`, {
+        method: 'POST',
+        userId: TEST_USERS.user.id,
+        body: {}
+      });
+
+      const response = await followTicketPOST(request as any, { params: { id: otherTenantTicketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(404);
+      expect(data.error).toContain('Ticket not found');
+    });
+
+    it('should not list followers from another tenant', async () => {
+      ensureOtherTenantData();
+      const db = getTestDb();
+      const ticketId = createTestTicket({
+        title: 'Followers visibility test',
+        description: 'Followers visibility test',
+        user_id: TEST_USERS.user.id
+      });
+
+      db.prepare(`
+        INSERT INTO ticket_followers (ticket_id, user_id)
+        VALUES (?, ?), (?, ?)
+      `).run(ticketId, TEST_USERS.user.id, ticketId, OTHER_USER.id);
+
+      const request = await createMockRequest(`/api/tickets/${ticketId}/followers`, {
+        method: 'GET',
+        userId: TEST_USERS.user.id
+      });
+
+      const response = await getTicketFollowersGET(request as any, { params: { id: ticketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(200);
+      expect(data.count).toBe(1);
+      expect(data.followers[0].id).toBe(TEST_USERS.user.id);
+    });
+  });
+
+  describe('Ticket Relationships Tenant Isolation', () => {
+    it('should reject creating relationships to tickets from another tenant', async () => {
+      const sourceTicketId = createTestTicket({
+        title: 'Relationship source',
+        description: 'Relationship source',
+        user_id: TEST_USERS.user.id
+      });
+      const targetTicketId = createOtherTenantTicket('Relationship target from other tenant');
+
+      const request = await createMockRequest(`/api/tickets/${sourceTicketId}/relationships`, {
+        method: 'POST',
+        userId: TEST_USERS.user.id,
+        body: {
+          targetTicketId,
+          relationshipType: 'related'
+        }
+      });
+
+      const response = await createTicketRelationshipPOST(request as any, { params: { id: sourceTicketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(404);
+      expect(data.error).toContain('Target ticket not found');
+    });
+
+    it('should not expose cross-tenant relationships in listing', async () => {
+      const db = getTestDb();
+      const sourceTicketId = createTestTicket({
+        title: 'Relationship listing source',
+        description: 'Relationship listing source',
+        user_id: TEST_USERS.user.id
+      });
+      const targetTicketId = createOtherTenantTicket('Relationship listing target');
+
+      db.prepare(`
+        INSERT INTO ticket_relationships (source_ticket_id, target_ticket_id, relationship_type, created_by)
+        VALUES (?, ?, 'related', ?)
+      `).run(sourceTicketId, targetTicketId, TEST_USERS.admin.id);
+
+      const request = await createMockRequest(`/api/tickets/${sourceTicketId}/relationships`, {
+        method: 'GET',
+        userId: TEST_USERS.user.id
+      });
+
+      const response = await getTicketRelationshipsGET(request as any, { params: { id: sourceTicketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(200);
+      expect(data.counts.total).toBe(0);
+      expect(data.relationships.related.length).toBe(0);
+    });
+  });
+
+  describe('Ticket Attachments Tenant Isolation', () => {
+    it('should hide attachment rows from other tenants in ticket attachments list', async () => {
+      ensureOtherTenantData();
+      const db = getTestDb();
+      const ticketId = createTestTicket({
+        title: 'Attachment isolation test',
+        description: 'Attachment isolation test',
+        user_id: TEST_USERS.user.id
+      });
+
+      db.prepare(`
+        INSERT INTO attachments (
+          id, tenant_id, ticket_id, filename, original_filename,
+          file_size, mime_type, storage_path, uploaded_by
+        ) VALUES
+          (3101, 1, ?, 'local-file.pdf', 'local-file.pdf', 100, 'application/pdf', '/tmp/local-file.pdf', ?),
+          (3102, 2, ?, 'foreign-file.pdf', 'foreign-file.pdf', 100, 'application/pdf', '/tmp/foreign-file.pdf', ?)
+      `).run(ticketId, TEST_USERS.user.id, ticketId, OTHER_USER.id);
+
+      const request = await createMockRequest(`/api/tickets/${ticketId}/attachments`, {
+        method: 'GET',
+        userId: TEST_USERS.user.id
+      });
+
+      const response = await getTicketAttachmentsGET(request as any, { params: { id: ticketId.toString() } as any });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(data.attachments)).toBe(true);
+      expect(data.attachments.length).toBe(1);
+      expect(data.attachments[0].id).toBe(3101);
+    });
+  });
+
+  describe('Ticket Activities Tenant Isolation', () => {
+    it('should hide activity rows linked to users from other tenants', async () => {
+      ensureOtherTenantData();
+      const db = getTestDb();
+      const ticketId = createTestTicket({
+        title: 'Activity isolation test',
+        description: 'Activity isolation test',
+        user_id: TEST_USERS.user.id
+      });
+
+      db.prepare(`
+        INSERT INTO ticket_activities (
+          tenant_id, ticket_id, user_id, activity_type, description, metadata
+        ) VALUES
+          (1, ?, ?, 'custom', 'Local activity', '{"scope":"local"}'),
+          (2, ?, ?, 'custom', 'Foreign activity', '{"scope":"foreign"}')
+      `).run(ticketId, TEST_USERS.user.id, ticketId, OTHER_USER.id);
+
+      const request = await createMockRequest(`/api/tickets/${ticketId}/activities`, {
+        method: 'GET',
+        userId: TEST_USERS.user.id
+      });
+
+      const response = await getTicketActivitiesGET(request as any, { params: { id: ticketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(data.activities)).toBe(true);
+      expect(data.activities.length).toBe(1);
+      expect(data.activities[0].description).toBe('Local activity');
+      expect(data.activities[0].user_id).toBe(TEST_USERS.user.id);
+    });
+
+    it('should reject activity creation when target ticket belongs to another tenant', async () => {
+      const otherTenantTicketId = createOtherTenantTicket('Foreign activity target');
+
+      const request = await createMockRequest(`/api/tickets/${otherTenantTicketId}/activities`, {
+        method: 'POST',
+        userId: TEST_USERS.user.id,
+        body: {
+          activityType: 'custom',
+          description: 'Should not be created'
+        }
+      });
+
+      const response = await createTicketActivityPOST(request as any, { params: { id: otherTenantTicketId.toString() } });
+      const data = await getResponseJSON(response);
+
+      expect(response.status).toBe(404);
+      expect(data.error).toContain('Ticket not found');
     });
   });
 

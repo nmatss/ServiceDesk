@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Revoke old refresh token (token rotation)
-    const revoked = revokeRefreshToken(refreshToken);
+    const revoked = await revokeRefreshToken(refreshToken);
     if (!revoked) {
       logger.warn('Failed to revoke old refresh token during rotation', {
         user_id: payload.user_id

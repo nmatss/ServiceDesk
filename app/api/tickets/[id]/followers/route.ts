@@ -7,7 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
@@ -18,12 +20,20 @@ interface RouteParams {
 // GET - Get all followers of a ticket
 // ========================================
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
     const ticketId = parseInt(params.id);
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId);
+    const ticket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
@@ -31,8 +41,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
     // Get followers with user details
-    const followers = db.prepare(`
+    const followers = await executeQuery(`
       SELECT
         tf.id as follower_id,
         tf.created_at as followed_at,
@@ -42,10 +60,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         u.avatar_url,
         u.role
       FROM ticket_followers tf
-      JOIN users u ON tf.user_id = u.id
+      JOIN users u ON tf.user_id = u.id AND u.tenant_id = ?
       WHERE tf.ticket_id = ?
       ORDER BY tf.created_at DESC
-    `).all(ticketId);
+    `, [tenantContext.id, ticketId]);
 
     return NextResponse.json({
       ticketId,
@@ -53,7 +71,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       count: followers.length,
     });
   } catch (error) {
-    console.error('Error fetching ticket followers:', error);
+    logger.error('Error fetching ticket followers', error);
     return NextResponse.json(
       { error: 'Failed to fetch ticket followers' },
       { status: 500 }
@@ -70,19 +88,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
     const ticketId = parseInt(params.id);
     const body = await request.json();
     const { userId } = body;
 
-    if (!userId) {
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const targetUserId = typeof userId === 'number' ? userId : userContext.id
+    if (!isElevatedRole && targetUserId !== userContext.id) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Acesso negado' },
+        { status: 403 }
       );
     }
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id, ticket_number FROM tickets WHERE id = ?').get(ticketId) as any;
+    const ticket = await executeQueryOne<{ id: number; ticket_number: string; user_id: number }>(
+      'SELECT id, ticket_number, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
@@ -90,8 +118,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
     // Verify user exists
-    const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId) as any;
+    const user = await executeQueryOne<{ id: number; name: string }>(
+      'SELECT id, name FROM users WHERE id = ? AND tenant_id = ?',
+      [targetUserId, tenantContext.id]
+    );
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -100,9 +138,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if already following
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<{ id: number }>(`
       SELECT id FROM ticket_followers WHERE ticket_id = ? AND user_id = ?
-    `).get(ticketId, userId);
+    `, [ticketId, targetUserId]);
 
     if (existing) {
       return NextResponse.json(
@@ -112,25 +150,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Add follower
-    const result = db.prepare(`
-      INSERT INTO ticket_followers (ticket_id, user_id)
-      VALUES (?, ?)
-    `).run(ticketId, userId);
+    let createdFollowerId: number | undefined;
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO ticket_followers (ticket_id, user_id)
+        VALUES (?, ?)
+        RETURNING id
+      `, [ticketId, targetUserId]);
+      createdFollowerId = inserted?.id;
+    } catch {
+      const result = await executeRun(`
+        INSERT INTO ticket_followers (ticket_id, user_id)
+        VALUES (?, ?)
+      `, [ticketId, targetUserId]);
+      if (typeof result.lastInsertRowid === 'number') {
+        createdFollowerId = result.lastInsertRowid;
+      }
+    }
 
     // Log activity
-    db.prepare(`
+    await executeRun(`
       INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description)
       VALUES (?, ?, 'follower_added', ?)
-    `).run(ticketId, userId, `${user.name} started following this ticket`);
+    `, [ticketId, userContext.id, `${user.name} started following this ticket`]);
 
     return NextResponse.json({
-      id: result.lastInsertRowid,
+      id: createdFollowerId,
       ticketId,
-      userId,
+      userId: targetUserId,
       message: `Now following ticket #${ticket.ticket_number}`,
     }, { status: 201 });
   } catch (error) {
-    console.error('Error following ticket:', error);
+    logger.error('Error following ticket', error);
     return NextResponse.json(
       { error: 'Failed to follow ticket' },
       { status: 500 }
@@ -147,23 +198,48 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
     const ticketId = parseInt(params.id);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const queryUserId = searchParams.get('userId');
+    const targetUserId = queryUserId ? parseInt(queryUserId, 10) : userContext.id
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
 
-    if (!userId) {
+    if (!isElevatedRole && targetUserId !== userContext.id) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
+    const ticket = await executeQueryOne<{ id: number; user_id: number }>(
+      'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+      [ticketId, tenantContext.id]
+    );
+    if (!ticket) {
+      return NextResponse.json(
+        { error: 'Ticket not found' },
+        { status: 404 }
+      );
+    }
+
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
       );
     }
 
     // Verify following relationship exists
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<{ id: number; name: string }>(`
       SELECT tf.id, u.name FROM ticket_followers tf
-      JOIN users u ON tf.user_id = u.id
+      JOIN users u ON tf.user_id = u.id AND u.tenant_id = ?
       WHERE tf.ticket_id = ? AND tf.user_id = ?
-    `).get(ticketId, parseInt(userId)) as any;
+    `, [tenantContext.id, ticketId, targetUserId]);
 
     if (!existing) {
       return NextResponse.json(
@@ -173,19 +249,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Remove follower
-    db.prepare(`
+    await executeRun(`
       DELETE FROM ticket_followers WHERE ticket_id = ? AND user_id = ?
-    `).run(ticketId, parseInt(userId));
+    `, [ticketId, targetUserId]);
 
     // Log activity
-    db.prepare(`
+    await executeRun(`
       INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description)
       VALUES (?, ?, 'follower_removed', ?)
-    `).run(ticketId, parseInt(userId), `${existing.name} stopped following this ticket`);
+    `, [ticketId, userContext.id, `${existing.name} stopped following this ticket`]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error unfollowing ticket:', error);
+    logger.error('Error unfollowing ticket', error);
     return NextResponse.json(
       { error: 'Failed to unfollow ticket' },
       { status: 500 }

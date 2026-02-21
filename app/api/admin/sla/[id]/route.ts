@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
-import db from '@/lib/db/connection';
+import { verifyToken } from '@/lib/auth/auth-service';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -28,13 +28,13 @@ export async function GET(request: NextRequest, { params }: Context) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const policy = db.prepare(`
+    const policy = await executeQueryOne(`
       SELECT sp.*, p.name as priority_name, c.name as category_name
       FROM sla_policies sp
       LEFT JOIN priorities p ON sp.priority_id = p.id
       LEFT JOIN categories c ON sp.category_id = c.id
       WHERE sp.id = ?
-    `).get((await params).id);
+    `, [(await params).id]);
 
     if (!policy) {
       return NextResponse.json({ error: 'Política não encontrada' }, { status: 404 });
@@ -81,7 +81,9 @@ export async function PUT(request: NextRequest, { params }: Context) {
       is_active
     } = body;
 
-    const updateQuery = db.prepare(`
+    
+
+    const result = await executeRun(`
       UPDATE sla_policies
       SET
         name = ?,
@@ -95,10 +97,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
         is_active = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
-
-    const result = updateQuery.run(
-      name,
+    `, [name,
       description || null,
       priority_id,
       category_id || null,
@@ -107,20 +106,19 @@ export async function PUT(request: NextRequest, { params }: Context) {
       escalation_time_minutes || null,
       business_hours_only ? 1 : 0,
       is_active ? 1 : 0,
-      (await params).id
-    );
+      (await params).id]);
 
     if (result.changes === 0) {
       return NextResponse.json({ error: 'Política não encontrada' }, { status: 404 });
     }
 
-    const updatedPolicy = db.prepare(`
+    const updatedPolicy = await executeQueryOne(`
       SELECT sp.*, p.name as priority_name, c.name as category_name
       FROM sla_policies sp
       LEFT JOIN priorities p ON sp.priority_id = p.id
       LEFT JOIN categories c ON sp.category_id = c.id
       WHERE sp.id = ?
-    `).get((await params).id);
+    `, [(await params).id]);
 
     return NextResponse.json({
       success: true,
@@ -151,11 +149,11 @@ export async function DELETE(request: NextRequest, { params }: Context) {
     }
 
     // Verifica se há tickets usando esta política
-    const ticketsUsingPolicy = db.prepare(`
+    const ticketsUsingPolicy = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM sla_tracking
       WHERE sla_policy_id = ?
-    `).get((await params).id) as { count: number };
+    `, [(await params).id]) || { count: 0 };
 
     if (ticketsUsingPolicy.count > 0) {
       return NextResponse.json({
@@ -163,8 +161,8 @@ export async function DELETE(request: NextRequest, { params }: Context) {
       }, { status: 400 });
     }
 
-    const deleteQuery = db.prepare('DELETE FROM sla_policies WHERE id = ?');
-    const result = deleteQuery.run((await params).id);
+    
+    const result = await executeRun('DELETE FROM sla_policies WHERE id = ?', [(await params).id]);
 
     if (result.changes === 0) {
       return NextResponse.json({ error: 'Política não encontrada' }, { status: 404 });

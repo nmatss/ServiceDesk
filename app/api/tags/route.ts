@@ -6,9 +6,9 @@
  * @module app/api/tags/route
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ========================================
 // GET - List all tags
@@ -40,11 +40,11 @@ export async function GET(request: NextRequest) {
 
     query += ` ORDER BY t.usage_count DESC, t.name ASC`;
 
-    const tags = db.prepare(query).all(...params);
+    const tags = await executeQuery(query, params);
 
     return NextResponse.json(tags);
   } catch (error) {
-    console.error('Error fetching tags:', error);
+    logger.error('Error fetching tags:', error);
     return NextResponse.json(
       { error: 'Failed to fetch tags' },
       { status: 500 }
@@ -73,9 +73,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if tag already exists
-    const existing = db.prepare(`
+    const existing = await executeQueryOne(`
       SELECT id FROM tags WHERE organization_id = ? AND name = ?
-    `).get(organizationId, name);
+    `, [organizationId, name]);
 
     if (existing) {
       return NextResponse.json(
@@ -84,16 +84,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO tags (organization_id, name, color, description, created_by)
       VALUES (?, ?, ?, ?, ?)
-    `).run(organizationId, name, color || '#6B7280', description, createdBy);
+    `, [organizationId, name, color || '#6B7280', description, createdBy]);
 
-    const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(result.lastInsertRowid);
+    const tag = await executeQueryOne('SELECT * FROM tags WHERE id = ?', [result.lastInsertRowid]);
 
     return NextResponse.json(tag, { status: 201 });
   } catch (error) {
-    console.error('Error creating tag:', error);
+    logger.error('Error creating tag:', error);
     return NextResponse.json(
       { error: 'Failed to create tag' },
       { status: 500 }

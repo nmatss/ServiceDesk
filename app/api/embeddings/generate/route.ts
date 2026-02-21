@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { autoGenerateEmbeddings, updateEmbeddingOnChange } from '@/lib/ai/embedding-utils';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 import { logger } from '@/lib/monitoring/logger';
-import { open } from 'sqlite';
-import sqlite3 from 'sqlite3';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting for embedding generation (more restrictive)
@@ -16,11 +14,7 @@ let vectorDbInstance: VectorDatabase | null = null;
 
 async function getVectorDb(): Promise<VectorDatabase> {
   if (!vectorDbInstance) {
-    const database = await open({
-      filename: './servicedesk.db',
-      driver: sqlite3.Database
-    });
-    vectorDbInstance = new VectorDatabase(database);
+    vectorDbInstance = new VectorDatabase();
   }
   return vectorDbInstance;
 }

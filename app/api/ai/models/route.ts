@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import AIModelManager from '@/lib/ai/model-manager';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQueryOne } from '@/lib/db/adapter';
+import { createModelManager } from '@/lib/ai/factories';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const { action } = body;
 
     // Using imported db connection
-    const modelManager = new AIModelManager(db);
+    const modelManager = createModelManager();
     await modelManager.initialize();
 
     switch (action) {
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action');
 
     // Using imported db connection
-    const modelManager = new AIModelManager(db);
+    const modelManager = createModelManager();
     await modelManager.initialize();
 
     switch (action) {

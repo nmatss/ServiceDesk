@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
     // Buscar notificações não lidas do usuário
     // Note: user_id already provides tenant isolation since users belong to specific organizations
-    const notifications = db.prepare(`
+    const notifications = await executeQuery(`
       SELECT
         id,
         type,
@@ -56,24 +56,24 @@ export async function GET(request: NextRequest) {
       WHERE user_id = ? AND is_read = 0
       ORDER BY created_at DESC
       LIMIT 50
-    `).all(userContext.id)
+    `, [userContext.id])
 
     // Contar total de não lidas
-    const unreadCount = db.prepare(`
+    const unreadCount = await executeQueryOne(`
       SELECT COUNT(*) as count
       FROM notifications
       WHERE user_id = ? AND is_read = 0
-    `).get(userContext.id)
+    `, [userContext.id])
 
     // Contar por tipo
-    const countByType = db.prepare(`
+    const countByType = await executeQuery(`
       SELECT
         type,
         COUNT(*) as count
       FROM notifications
       WHERE user_id = ? AND is_read = 0
       GROUP BY type
-    `).all(userContext.id)
+    `, [userContext.id])
 
     // Formatar notificações
     const formattedNotifications = notifications.map((notification: any) => {
@@ -159,11 +159,11 @@ export async function POST(request: NextRequest) {
     const { notificationIds, markAll = false } = await request.json()
     if (markAll) {
       // Marcar todas como lidas
-      const result = db.prepare(`
+      const result = await executeRun(`
         UPDATE notifications
         SET is_read = 1, updated_at = datetime('now')
         WHERE user_id = ? AND is_read = 0
-      `).run(userContext.id)
+      `, [userContext.id])
 
       return NextResponse.json({
         success: true,
@@ -173,11 +173,11 @@ export async function POST(request: NextRequest) {
     } else if (notificationIds && Array.isArray(notificationIds)) {
       // Marcar notificações específicas como lidas
       const placeholders = notificationIds.map(() => '?').join(',')
-      const result = db.prepare(`
+      const result = await executeRun(`
         UPDATE notifications
         SET is_read = 1, updated_at = datetime('now')
         WHERE id IN (${placeholders}) AND user_id = ?
-      `).run(...notificationIds, userContext.id)
+      `, [...notificationIds, userContext.id])
 
       return NextResponse.json({
         success: true,

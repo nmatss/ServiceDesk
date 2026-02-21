@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import AppLayout from '@/src/components/layout/AppLayout'
 import { baseMetadata } from '@/lib/seo/metadata'
@@ -8,16 +7,6 @@ import { ToastProvider } from '@/components/ui/toast'
 
 // Initialize Sentry for client-side
 import '@/sentry.client.config'
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap', // Optimize font loading - show fallback until font loads
-  preload: true,
-  variable: '--font-inter', // CSS variable for more control
-  // Only load necessary weights to reduce bundle size
-  weight: ['400', '500', '600', '700'],
-  fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-})
 
 export const metadata: Metadata = {
   ...(baseMetadata as Metadata),
@@ -66,7 +55,7 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#0ea5e9" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
       </head>
-      <body className={`${inter.className} antialiased`} suppressHydrationWarning>
+      <body className='antialiased' suppressHydrationWarning>
         {/* Skip navigation link for accessibility */}
         <a
           href="#main-content"

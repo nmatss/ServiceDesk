@@ -249,14 +249,72 @@ export class MLPipeline {
         return String(Math.min(...values));
       });
 
-      // eslint-disable-next-line no-eval
-      const result = eval(formula);
-      return typeof result === 'number' ? result : 0;
+      // SECURITY: Safe math evaluation without eval()
+      // After variable substitution and function replacement, only numeric expression remains
+      const sanitized = formula.replace(/[^0-9+\-*/().,%\s]/g, '');
+      if (!sanitized || sanitized.trim().length === 0) return 0;
+
+      // Parse simple arithmetic: split by + and -, then handle * and /
+      const result = this.safeCalculate(sanitized);
+      return typeof result === 'number' && isFinite(result) ? result : 0;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.warn(`[ML Pipeline] Error calculating derived feature ${config.name}: ${errorMessage}`);
       return 0;
     }
+  }
+
+  /**
+   * SECURITY: Safe arithmetic calculator without eval()
+   * Handles basic arithmetic: +, -, *, /, parentheses
+   */
+  private safeCalculate(expression: string): number {
+    const tokens = expression.replace(/\s/g, '').split('');
+    let pos = 0;
+
+    const parseNumber = (): number => {
+      let numStr = '';
+      while (pos < tokens.length && (tokens[pos] >= '0' && tokens[pos] <= '9' || tokens[pos] === '.')) {
+        numStr += tokens[pos++];
+      }
+      return parseFloat(numStr) || 0;
+    };
+
+    const parseFactor = (): number => {
+      if (tokens[pos] === '(') {
+        pos++; // skip '('
+        const result = parseExpression();
+        pos++; // skip ')'
+        return result;
+      }
+      if (tokens[pos] === '-') {
+        pos++;
+        return -parseFactor();
+      }
+      return parseNumber();
+    };
+
+    const parseTerm = (): number => {
+      let result = parseFactor();
+      while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
+        const op = tokens[pos++];
+        const right = parseFactor();
+        result = op === '*' ? result * right : (right !== 0 ? result / right : 0);
+      }
+      return result;
+    };
+
+    const parseExpression = (): number => {
+      let result = parseTerm();
+      while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
+        const op = tokens[pos++];
+        const right = parseTerm();
+        result = op === '+' ? result + right : result - right;
+      }
+      return result;
+    };
+
+    return parseExpression();
   }
 
   private applyPreprocessing(

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
-import { getCurrentTenantId } from '@/lib/tenant/manager'
-import db from '@/lib/db/connection'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -14,7 +14,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const tenantManager = getTenantManager()
     const teamId = parseInt(params.id)
 
@@ -60,7 +63,12 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const teamId = parseInt(params.id)
     const data = await request.json()
     if (isNaN(teamId)) {
@@ -71,9 +79,10 @@ export async function PUT(
     }
 
     // Verify team belongs to tenant
-    const existingTeam = db.prepare(
-      'SELECT id FROM teams WHERE id = ? AND tenant_id = ?'
-    ).get(teamId, tenantId)
+    const existingTeam = await executeQueryOne(
+      'SELECT id FROM teams WHERE id = ? AND tenant_id = ?',
+      [teamId, tenantId]
+    )
 
     if (!existingTeam) {
       return NextResponse.json(
@@ -83,7 +92,7 @@ export async function PUT(
     }
 
     // Update team
-    const updateTeam = db.prepare(`
+    const updateTeamQuery = `
       UPDATE teams SET
         name = COALESCE(?, name),
         description = COALESCE(?, description),
@@ -102,9 +111,9 @@ export async function PUT(
         contact_phone = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND tenant_id = ?
-    `)
+    `
 
-    updateTeam.run(
+    await executeRun(updateTeamQuery, [
       data.name,
       data.description,
       data.team_type,
@@ -122,7 +131,7 @@ export async function PUT(
       data.contact_phone || null,
       teamId,
       tenantId
-    )
+    ])
 
     // Get updated team
     const tenantManager = getTenantManager()
@@ -151,7 +160,12 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const teamId = parseInt(params.id)
     if (isNaN(teamId)) {
       return NextResponse.json(
@@ -161,9 +175,10 @@ export async function DELETE(
     }
 
     // Check if team has assigned tickets
-    const ticketsCount = db.prepare(
-      'SELECT COUNT(*) as count FROM tickets WHERE assigned_team_id = ? AND tenant_id = ?'
-    ).get(teamId, tenantId) as { count: number } | undefined
+    const ticketsCount = await executeQueryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM tickets WHERE assigned_team_id = ? AND tenant_id = ?',
+      [teamId, tenantId]
+    )
 
     if (ticketsCount && ticketsCount.count > 0) {
       return NextResponse.json(
@@ -173,9 +188,10 @@ export async function DELETE(
     }
 
     // Soft delete team
-    db.prepare(
-      'UPDATE teams SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?'
-    ).run(teamId, tenantId)
+    await executeRun(
+      'UPDATE teams SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?',
+      [teamId, tenantId]
+    )
 
     return NextResponse.json({
       success: true,

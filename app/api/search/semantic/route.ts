@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
-import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
-import { open } from 'sqlite';
-import sqlite3 from 'sqlite3';
+import { executeRun } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting for semantic search
@@ -18,11 +16,7 @@ let hybridSearchInstance: HybridSearchEngine | null = null;
 
 async function getVectorDb(): Promise<VectorDatabase> {
   if (!vectorDbInstance) {
-    const database = await open({
-      filename: './servicedesk.db',
-      driver: sqlite3.Database
-    });
-    vectorDbInstance = new VectorDatabase(database);
+    vectorDbInstance = new VectorDatabase();
   }
   return vectorDbInstance;
 }
@@ -157,10 +151,10 @@ export async function POST(request: NextRequest) {
 
     // Log search for analytics
     try {
-      db.prepare(`
-        INSERT INTO search_history (user_id, query, filters, result_count)
+      await executeRun(`
+        INSERT INTO search_history (user_id, query, results_count, search_mode)
         VALUES (?, ?, ?, ?)
-      `).run(user.id, query, JSON.stringify({ searchType, entityTypes, filters }), results.total);
+      `, [user.id, query, results.total, searchType]);
     } catch (error) {
       logger.warn('Failed to log search history', error);
     }

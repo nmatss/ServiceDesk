@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, type DatabaseAdapter } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 import type {
   Permission,
@@ -20,67 +20,70 @@ import type {
 // FUNÇÕES DE PERMISSÕES
 // ========================================
 
-export function createPermission(permissionData: CreatePermission): Permission | null {
+export async function createPermission(permissionData: CreatePermission): Promise<Permission | null> {
   try {
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO permissions (name, description, resource, action, conditions)
       VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+    `, [
       permissionData.name,
       permissionData.description,
       permissionData.resource,
       permissionData.action,
       permissionData.conditions
-    );
+    ]);
 
-    return getPermissionById(result.lastInsertRowid as number);
+    if (result.lastInsertRowid) {
+      return await getPermissionById(result.lastInsertRowid);
+    }
+    return null;
   } catch (error) {
     logger.error('Error creating permission', error);
     return null;
   }
 }
 
-export function getPermissionById(id: number): Permission | null {
+export async function getPermissionById(id: number): Promise<Permission | null> {
   try {
-    return db.prepare('SELECT * FROM permissions WHERE id = ?').get(id) as Permission || null;
+    const result = await executeQueryOne<Permission>('SELECT * FROM permissions WHERE id = ?', [id]);
+    return result || null;
   } catch (error) {
     logger.error('Error getting permission by ID', error);
     return null;
   }
 }
 
-export function getPermissionByName(name: string): Permission | null {
+export async function getPermissionByName(name: string): Promise<Permission | null> {
   try {
-    return db.prepare('SELECT * FROM permissions WHERE name = ?').get(name) as Permission || null;
+    const result = await executeQueryOne<Permission>('SELECT * FROM permissions WHERE name = ?', [name]);
+    return result || null;
   } catch (error) {
     logger.error('Error getting permission by name', error);
     return null;
   }
 }
 
-export function getAllPermissions(): Permission[] {
+export async function getAllPermissions(): Promise<Permission[]> {
   try {
-    return db.prepare('SELECT * FROM permissions ORDER BY resource, action').all() as Permission[];
+    return await executeQuery<Permission>('SELECT * FROM permissions ORDER BY resource, action', []);
   } catch (error) {
     logger.error('Error getting all permissions', error);
     return [];
   }
 }
 
-export function getPermissionsByResource(resource: string): Permission[] {
+export async function getPermissionsByResource(resource: string): Promise<Permission[]> {
   try {
-    return db.prepare('SELECT * FROM permissions WHERE resource = ? ORDER BY action').all(resource) as Permission[];
+    return await executeQuery<Permission>('SELECT * FROM permissions WHERE resource = ? ORDER BY action', [resource]);
   } catch (error) {
     logger.error('Error getting permissions by resource', error);
     return [];
   }
 }
 
-export function deletePermission(id: number): boolean {
+export async function deletePermission(id: number): Promise<boolean> {
   try {
-    const result = db.prepare('DELETE FROM permissions WHERE id = ?').run(id);
+    const result = await executeRun('DELETE FROM permissions WHERE id = ?', [id]);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error deleting permission', error);
@@ -92,56 +95,59 @@ export function deletePermission(id: number): boolean {
 // FUNÇÕES DE PAPÉIS (ROLES)
 // ========================================
 
-export function createRole(roleData: CreateRole): Role | null {
+export async function createRole(roleData: CreateRole): Promise<Role | null> {
   try {
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO roles (name, display_name, description, is_system, is_active)
       VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+    `, [
       roleData.name,
       roleData.display_name,
       roleData.description,
       roleData.is_system ? 1 : 0,
       roleData.is_active ? 1 : 0
-    );
+    ]);
 
-    return getRoleById(result.lastInsertRowid as number);
+    if (result.lastInsertRowid) {
+      return await getRoleById(result.lastInsertRowid);
+    }
+    return null;
   } catch (error) {
     logger.error('Error creating role', error);
     return null;
   }
 }
 
-export function getRoleById(id: number): Role | null {
+export async function getRoleById(id: number): Promise<Role | null> {
   try {
-    return db.prepare('SELECT * FROM roles WHERE id = ?').get(id) as Role || null;
+    const result = await executeQueryOne<Role>('SELECT * FROM roles WHERE id = ?', [id]);
+    return result || null;
   } catch (error) {
     logger.error('Error getting role by ID', error);
     return null;
   }
 }
 
-export function getRoleByName(name: string): Role | null {
+export async function getRoleByName(name: string): Promise<Role | null> {
   try {
-    return db.prepare('SELECT * FROM roles WHERE name = ?').get(name) as Role || null;
+    const result = await executeQueryOne<Role>('SELECT * FROM roles WHERE name = ?', [name]);
+    return result || null;
   } catch (error) {
     logger.error('Error getting role by name', error);
     return null;
   }
 }
 
-export function getAllRoles(): Role[] {
+export async function getAllRoles(): Promise<Role[]> {
   try {
-    return db.prepare('SELECT * FROM roles WHERE is_active = 1 ORDER BY display_name').all() as Role[];
+    return await executeQuery<Role>('SELECT * FROM roles WHERE is_active = 1 ORDER BY display_name', []);
   } catch (error) {
     logger.error('Error getting all roles', error);
     return [];
   }
 }
 
-export function updateRole(id: number, updates: Partial<Omit<Role, 'id' | 'created_at'>>): boolean {
+export async function updateRole(id: number, updates: Partial<Omit<Role, 'id' | 'created_at'>>): Promise<boolean> {
   try {
     const fields = [];
     const values = [];
@@ -158,8 +164,7 @@ export function updateRole(id: number, updates: Partial<Omit<Role, 'id' | 'creat
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
-    const stmt = db.prepare(`UPDATE roles SET ${fields.join(', ')} WHERE id = ?`);
-    const result = stmt.run(...values);
+    const result = await executeRun(`UPDATE roles SET ${fields.join(', ')} WHERE id = ?`, values);
 
     return result.changes > 0;
   } catch (error) {
@@ -168,15 +173,15 @@ export function updateRole(id: number, updates: Partial<Omit<Role, 'id' | 'creat
   }
 }
 
-export function deleteRole(id: number): boolean {
+export async function deleteRole(id: number): Promise<boolean> {
   try {
     // Não permitir deletar papéis do sistema
-    const role = getRoleById(id);
+    const role = await getRoleById(id);
     if (!role || role.is_system) {
       return false;
     }
 
-    const result = db.prepare('DELETE FROM roles WHERE id = ?').run(id);
+    const result = await executeRun('DELETE FROM roles WHERE id = ?', [id]);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error deleting role', error);
@@ -188,14 +193,13 @@ export function deleteRole(id: number): boolean {
 // FUNÇÕES DE RELACIONAMENTO ROLE-PERMISSION
 // ========================================
 
-export function assignPermissionToRole(roleId: number, permissionId: number, grantedBy?: number): boolean {
+export async function assignPermissionToRole(roleId: number, permissionId: number, grantedBy?: number): Promise<boolean> {
   try {
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_by)
       VALUES (?, ?, ?)
-    `);
+    `, [roleId, permissionId, grantedBy]);
 
-    const result = stmt.run(roleId, permissionId, grantedBy);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error assigning permission to role', error);
@@ -203,12 +207,12 @@ export function assignPermissionToRole(roleId: number, permissionId: number, gra
   }
 }
 
-export function removePermissionFromRole(roleId: number, permissionId: number): boolean {
+export async function removePermissionFromRole(roleId: number, permissionId: number): Promise<boolean> {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM role_permissions
       WHERE role_id = ? AND permission_id = ?
-    `).run(roleId, permissionId);
+    `, [roleId, permissionId]);
 
     return result.changes > 0;
   } catch (error) {
@@ -217,39 +221,35 @@ export function removePermissionFromRole(roleId: number, permissionId: number): 
   }
 }
 
-export function getRolePermissions(roleId: number): Permission[] {
+export async function getRolePermissions(roleId: number): Promise<Permission[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<Permission>(`
       SELECT p.* FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       WHERE rp.role_id = ?
       ORDER BY p.resource, p.action
-    `).all(roleId) as Permission[];
+    `, [roleId]);
   } catch (error) {
     logger.error('Error getting role permissions', error);
     return [];
   }
 }
 
-export function setRolePermissions(roleId: number, permissionIds: number[], grantedBy?: number): boolean {
+export async function setRolePermissions(roleId: number, permissionIds: number[], grantedBy?: number): Promise<boolean> {
   try {
-    // Iniciar transação
-    const transaction = db.transaction(() => {
+    await executeTransaction(async (db) => {
       // Remover todas as permissões existentes
-      db.prepare('DELETE FROM role_permissions WHERE role_id = ?').run(roleId);
+      await db.run('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
 
       // Adicionar novas permissões
-      const insertStmt = db.prepare(`
-        INSERT INTO role_permissions (role_id, permission_id, granted_by)
-        VALUES (?, ?, ?)
-      `);
-
       for (const permissionId of permissionIds) {
-        insertStmt.run(roleId, permissionId, grantedBy);
+        await db.run(`
+          INSERT INTO role_permissions (role_id, permission_id, granted_by)
+          VALUES (?, ?, ?)
+        `, [roleId, permissionId, grantedBy]);
       }
     });
 
-    transaction();
     return true;
   } catch (error) {
     logger.error('Error setting role permissions', error);
@@ -261,19 +261,18 @@ export function setRolePermissions(roleId: number, permissionIds: number[], gran
 // FUNÇÕES DE RELACIONAMENTO USER-ROLE
 // ========================================
 
-export function assignRoleToUser(
+export async function assignRoleToUser(
   userId: number,
   roleId: number,
   grantedBy?: number,
   expiresAt?: string
-): boolean {
+): Promise<boolean> {
   try {
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT OR REPLACE INTO user_roles (user_id, role_id, granted_by, expires_at, is_active)
       VALUES (?, ?, ?, ?, 1)
-    `);
+    `, [userId, roleId, grantedBy, expiresAt]);
 
-    const result = stmt.run(userId, roleId, grantedBy, expiresAt);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error assigning role to user', error);
@@ -281,13 +280,13 @@ export function assignRoleToUser(
   }
 }
 
-export function removeRoleFromUser(userId: number, roleId: number): boolean {
+export async function removeRoleFromUser(userId: number, roleId: number): Promise<boolean> {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE user_roles
       SET is_active = 0
       WHERE user_id = ? AND role_id = ?
-    `).run(userId, roleId);
+    `, [userId, roleId]);
 
     return result.changes > 0;
   } catch (error) {
@@ -296,9 +295,9 @@ export function removeRoleFromUser(userId: number, roleId: number): boolean {
   }
 }
 
-export function getUserRoles(userId: number): Role[] {
+export async function getUserRoles(userId: number): Promise<Role[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<Role>(`
       SELECT r.* FROM roles r
       JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ?
@@ -306,16 +305,16 @@ export function getUserRoles(userId: number): Role[] {
         AND r.is_active = 1
         AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
       ORDER BY r.display_name
-    `).all(userId) as Role[];
+    `, [userId]);
   } catch (error) {
     logger.error('Error getting user roles', error);
     return [];
   }
 }
 
-export function getUserPermissions(userId: number): Permission[] {
+export async function getUserPermissions(userId: number): Promise<Permission[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<Permission>(`
       SELECT DISTINCT p.* FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       JOIN user_roles ur ON rp.role_id = ur.role_id
@@ -323,31 +322,28 @@ export function getUserPermissions(userId: number): Permission[] {
         AND ur.is_active = 1
         AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
       ORDER BY p.resource, p.action
-    `).all(userId) as Permission[];
+    `, [userId]);
   } catch (error) {
     logger.error('Error getting user permissions', error);
     return [];
   }
 }
 
-export function setUserRoles(userId: number, roleIds: number[], grantedBy?: number): boolean {
+export async function setUserRoles(userId: number, roleIds: number[], grantedBy?: number): Promise<boolean> {
   try {
-    const transaction = db.transaction(() => {
+    await executeTransaction(async (db) => {
       // Desativar todas as roles existentes
-      db.prepare('UPDATE user_roles SET is_active = 0 WHERE user_id = ?').run(userId);
+      await db.run('UPDATE user_roles SET is_active = 0 WHERE user_id = ?', [userId]);
 
       // Adicionar novas roles
-      const insertStmt = db.prepare(`
-        INSERT OR REPLACE INTO user_roles (user_id, role_id, granted_by, is_active)
-        VALUES (?, ?, ?, 1)
-      `);
-
       for (const roleId of roleIds) {
-        insertStmt.run(userId, roleId, grantedBy);
+        await db.run(`
+          INSERT OR REPLACE INTO user_roles (user_id, role_id, granted_by, is_active)
+          VALUES (?, ?, ?, 1)
+        `, [userId, roleId, grantedBy]);
       }
     });
 
-    transaction();
     return true;
   } catch (error) {
     logger.error('Error setting user roles', error);
@@ -372,14 +368,14 @@ export interface PermissionContext {
   [key: string]: unknown;
 }
 
-export function hasPermission(
+export async function hasPermission(
   userId: number,
   resource: string,
   action: string,
   context?: PermissionContext
-): boolean {
+): Promise<boolean> {
   try {
-    const permissions = getUserPermissions(userId);
+    const permissions = await getUserPermissions(userId);
 
     // Verificar permissão exata
     const exactPermission = permissions.find(p =>
@@ -418,9 +414,9 @@ export function hasPermission(
   }
 }
 
-export function hasRole(userId: number, roleName: string): boolean {
+export async function hasRole(userId: number, roleName: string): Promise<boolean> {
   try {
-    const roles = getUserRoles(userId);
+    const roles = await getUserRoles(userId);
     return roles.some(role => role.name === roleName);
   } catch (error) {
     logger.error('Error checking role', error);
@@ -428,9 +424,9 @@ export function hasRole(userId: number, roleName: string): boolean {
   }
 }
 
-export function hasAnyRole(userId: number, roleNames: string[]): boolean {
+export async function hasAnyRole(userId: number, roleNames: string[]): Promise<boolean> {
   try {
-    const roles = getUserRoles(userId);
+    const roles = await getUserRoles(userId);
     const userRoleNames = roles.map(role => role.name);
     return roleNames.some(roleName => userRoleNames.includes(roleName));
   } catch (error) {
@@ -439,9 +435,9 @@ export function hasAnyRole(userId: number, roleNames: string[]): boolean {
   }
 }
 
-export function hasAllRoles(userId: number, roleNames: string[]): boolean {
+export async function hasAllRoles(userId: number, roleNames: string[]): Promise<boolean> {
   try {
-    const roles = getUserRoles(userId);
+    const roles = await getUserRoles(userId);
     const userRoleNames = roles.map(role => role.name);
     return roleNames.every(roleName => userRoleNames.includes(roleName));
   } catch (error) {
@@ -531,9 +527,9 @@ function isBusinessHours(): boolean {
 // FUNÇÕES DE INICIALIZAÇÃO DO SISTEMA
 // ========================================
 
-export function initializeDefaultRolesAndPermissions(): boolean {
+export async function initializeDefaultRolesAndPermissions(): Promise<boolean> {
   try {
-    const transaction = db.transaction(() => {
+    await executeTransaction(async (db) => {
       // Criar permissões padrão
       const defaultPermissions: CreatePermission[] = [
         // Tickets
@@ -584,18 +580,16 @@ export function initializeDefaultRolesAndPermissions(): boolean {
       ];
 
       // Inserir permissões se não existem
-      const insertPermissionStmt = db.prepare(`
-        INSERT OR IGNORE INTO permissions (name, description, resource, action)
-        VALUES (?, ?, ?, ?)
-      `);
-
       for (const permission of defaultPermissions) {
-        insertPermissionStmt.run(
+        await db.run(`
+          INSERT OR IGNORE INTO permissions (name, description, resource, action)
+          VALUES (?, ?, ?, ?)
+        `, [
           permission.name,
           permission.description,
           permission.resource,
           permission.action
-        );
+        ]);
       }
 
       // Criar papéis padrão
@@ -645,26 +639,23 @@ export function initializeDefaultRolesAndPermissions(): boolean {
       ];
 
       // Inserir papéis se não existem
-      const insertRoleStmt = db.prepare(`
-        INSERT OR IGNORE INTO roles (name, display_name, description, is_system, is_active)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-
       for (const role of defaultRoles) {
-        insertRoleStmt.run(
+        await db.run(`
+          INSERT OR IGNORE INTO roles (name, display_name, description, is_system, is_active)
+          VALUES (?, ?, ?, ?, ?)
+        `, [
           role.name,
           role.display_name,
           role.description,
           role.is_system ? 1 : 0,
           role.is_active ? 1 : 0
-        );
+        ]);
       }
 
       // Atribuir permissões aos papéis
-      setupDefaultRolePermissions();
+      await setupDefaultRolePermissions(db);
     });
 
-    transaction();
     return true;
   } catch (error) {
     logger.error('Error initializing roles and permissions', error);
@@ -672,16 +663,16 @@ export function initializeDefaultRolesAndPermissions(): boolean {
   }
 }
 
-function setupDefaultRolePermissions(): void {
+async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
   // Admin - todas as permissões
-  const adminRole = getRoleByName('admin');
+  const adminRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['admin']);
   if (adminRole) {
     const adminPermissions = ['admin:manage'];
-    assignPermissionsToRole(adminRole.id, adminPermissions);
+    await assignPermissionsToRoleWithDb(db, adminRole.id, adminPermissions);
   }
 
   // Manager - gerenciamento de equipe e relatórios
-  const managerRole = getRoleByName('manager');
+  const managerRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['manager']);
   if (managerRole) {
     const managerPermissions = [
       'tickets:read', 'tickets:update', 'tickets:assign', 'tickets:close',
@@ -690,58 +681,61 @@ function setupDefaultRolePermissions(): void {
       'knowledge_base:read', 'knowledge_base:create', 'knowledge_base:update',
       'analytics:view', 'analytics:export'
     ];
-    assignPermissionsToRole(managerRole.id, managerPermissions);
+    await assignPermissionsToRoleWithDb(db, managerRole.id, managerPermissions);
   }
 
   // Agent - atendimento de tickets
-  const agentRole = getRoleByName('agent');
+  const agentRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['agent']);
   if (agentRole) {
     const agentPermissions = [
       'tickets:read', 'tickets:update', 'tickets:close',
       'knowledge_base:read', 'knowledge_base:create',
       'users:read'
     ];
-    assignPermissionsToRole(agentRole.id, agentPermissions);
+    await assignPermissionsToRoleWithDb(db, agentRole.id, agentPermissions);
   }
 
   // User - criação e acompanhamento de tickets
-  const userRole = getRoleByName('user');
+  const userRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['user']);
   if (userRole) {
     const userPermissions = [
       'tickets:create', 'tickets:read',
       'knowledge_base:read'
     ];
-    assignPermissionsToRole(userRole.id, userPermissions);
+    await assignPermissionsToRoleWithDb(db, userRole.id, userPermissions);
   }
 
   // Read Only - apenas visualização
-  const readOnlyRole = getRoleByName('read_only');
+  const readOnlyRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['read_only']);
   if (readOnlyRole) {
     const readOnlyPermissions = [
       'tickets:read',
       'knowledge_base:read',
       'reports:view'
     ];
-    assignPermissionsToRole(readOnlyRole.id, readOnlyPermissions);
+    await assignPermissionsToRoleWithDb(db, readOnlyRole.id, readOnlyPermissions);
   }
 
   // API Client - acesso programático
-  const apiClientRole = getRoleByName('api_client');
+  const apiClientRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['api_client']);
   if (apiClientRole) {
     const apiClientPermissions = [
       'tickets:create', 'tickets:read', 'tickets:update',
       'users:read',
       'knowledge_base:read'
     ];
-    assignPermissionsToRole(apiClientRole.id, apiClientPermissions);
+    await assignPermissionsToRoleWithDb(db, apiClientRole.id, apiClientPermissions);
   }
 }
 
-function assignPermissionsToRole(roleId: number, permissionNames: string[]): void {
+async function assignPermissionsToRoleWithDb(db: DatabaseAdapter, roleId: number, permissionNames: string[]): Promise<void> {
   for (const permissionName of permissionNames) {
-    const permission = getPermissionByName(permissionName);
+    const permission = await db.get<Permission>('SELECT * FROM permissions WHERE name = ?', [permissionName]);
     if (permission) {
-      assignPermissionToRole(roleId, permission.id);
+      await db.run(`
+        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_by)
+        VALUES (?, ?, ?)
+      `, [roleId, permission.id, undefined]);
     }
   }
 }
@@ -763,12 +757,12 @@ export interface RolePermissionsExport {
   }>;
 }
 
-export function exportRolePermissions(roleId: number): RolePermissionsExport | null {
+export async function exportRolePermissions(roleId: number): Promise<RolePermissionsExport | null> {
   try {
-    const role = getRoleById(roleId);
+    const role = await getRoleById(roleId);
     if (!role) return null;
 
-    const permissions = getRolePermissions(roleId);
+    const permissions = await getRolePermissions(roleId);
 
     return {
       role,
@@ -785,31 +779,31 @@ export function exportRolePermissions(roleId: number): RolePermissionsExport | n
   }
 }
 
-export function importRolePermissions(roleId: number, data: RolePermissionsExport): boolean {
+export async function importRolePermissions(roleId: number, data: RolePermissionsExport): Promise<boolean> {
   try {
     const { permissions } = data;
     const permissionIds: number[] = [];
 
     for (const permData of permissions) {
-      const permission = getPermissionByName(permData.name);
+      const permission = await getPermissionByName(permData.name);
       if (permission) {
         permissionIds.push(permission.id);
       }
     }
 
-    return setRolePermissions(roleId, permissionIds);
+    return await setRolePermissions(roleId, permissionIds);
   } catch (error) {
     logger.error('Error importing role permissions', error);
     return false;
   }
 }
 
-export function cloneRole(sourceRoleId: number, newRoleName: string, newDisplayName: string): Role | null {
+export async function cloneRole(sourceRoleId: number, newRoleName: string, newDisplayName: string): Promise<Role | null> {
   try {
-    const sourceRole = getRoleById(sourceRoleId);
+    const sourceRole = await getRoleById(sourceRoleId);
     if (!sourceRole) return null;
 
-    const newRole = createRole({
+    const newRole = await createRole({
       name: newRoleName,
       display_name: newDisplayName,
       description: `Cloned from ${sourceRole.display_name}`,
@@ -819,10 +813,10 @@ export function cloneRole(sourceRoleId: number, newRoleName: string, newDisplayN
 
     if (!newRole) return null;
 
-    const sourcePermissions = getRolePermissions(sourceRoleId);
+    const sourcePermissions = await getRolePermissions(sourceRoleId);
     const permissionIds = sourcePermissions.map(p => p.id);
 
-    setRolePermissions(newRole.id, permissionIds);
+    await setRolePermissions(newRole.id, permissionIds);
 
     return newRole;
   } catch (error) {
@@ -862,7 +856,7 @@ export interface MiddlewareResponse {
 export type NextFunction = () => void;
 
 export function requirePermission(resource: string, action: string) {
-  return (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): void => {
+  return async (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): Promise<void> => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -870,7 +864,7 @@ export function requirePermission(resource: string, action: string) {
       return;
     }
 
-    if (!hasPermission(userId, resource, action, req.context)) {
+    if (!(await hasPermission(userId, resource, action, req.context))) {
       res.status(403).json({
         error: 'Insufficient permissions',
         required: `${resource}:${action}`
@@ -883,7 +877,7 @@ export function requirePermission(resource: string, action: string) {
 }
 
 export function requireRole(roleName: string) {
-  return (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): void => {
+  return async (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): Promise<void> => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -891,7 +885,7 @@ export function requireRole(roleName: string) {
       return;
     }
 
-    if (!hasRole(userId, roleName)) {
+    if (!(await hasRole(userId, roleName))) {
       res.status(403).json({
         error: 'Insufficient role',
         required: roleName
@@ -904,7 +898,7 @@ export function requireRole(roleName: string) {
 }
 
 export function requireAnyRole(roleNames: string[]) {
-  return (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): void => {
+  return async (req: AuthenticatedRequest, res: MiddlewareResponse, next: NextFunction): Promise<void> => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -912,7 +906,7 @@ export function requireAnyRole(roleNames: string[]) {
       return;
     }
 
-    if (!hasAnyRole(userId, roleNames)) {
+    if (!(await hasAnyRole(userId, roleNames))) {
       res.status(403).json({
         error: 'Insufficient roles',
         required_any: roleNames

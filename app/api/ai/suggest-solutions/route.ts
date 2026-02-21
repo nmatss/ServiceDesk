@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const suggestSolutionsSchema = z.object({
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const queryText = `${title} ${description}`;
 
     // Busca textual para artigos da knowledge base
-    const knowledgeArticles = db.prepare(`
+    const knowledgeArticles = await executeQuery<any>(`
       SELECT id, title, summary, content
       FROM kb_articles
       WHERE is_published = 1
@@ -71,16 +71,14 @@ export async function POST(request: NextRequest) {
         CASE WHEN LOWER(title) LIKE LOWER(?) THEN 1 ELSE 2 END,
         helpful_votes DESC
       LIMIT ?
-    `).all(
-      `%${queryText}%`,
+    `, [`%${queryText}%`,
       `%${queryText}%`,
       `%${queryText}%`,
       `%${title}%`,
-      maxKnowledgeArticles
-    ) as any[];
+      maxKnowledgeArticles]);
 
     // Buscar tickets similares resolvidos via busca textual
-    const similarTickets = db.prepare(`
+    const similarTickets = await executeQuery<any>(`
       SELECT t.id, t.title, t.description,
              GROUP_CONCAT(c.content, ' | ') as resolution
       FROM tickets t
@@ -96,13 +94,13 @@ export async function POST(request: NextRequest) {
       GROUP BY t.id, t.title, t.description
       ORDER BY t.resolved_at DESC
       LIMIT ?
-    `).all(ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets) as any[];
+    `, [ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets]);
 
     // Buscar contexto do usuário se solicitado
     let userContext;
     if (includeUserContext && user.id) {
       try {
-        const userTickets = db.prepare(`
+        const userTickets = await executeQuery<any>(`
           SELECT c.name as category, COUNT(*) as count
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
@@ -111,7 +109,7 @@ export async function POST(request: NextRequest) {
           GROUP BY c.name
           ORDER BY count DESC
           LIMIT 5
-        `).all(user.id) as any[];
+        `, [user.id]);
 
         userContext = {
           role: user.role,
@@ -131,13 +129,12 @@ export async function POST(request: NextRequest) {
     );
 
     // Salvar sugestão no banco de dados
-    const suggestionId = db.prepare(`
+    const suggestionId = (await executeRun(`
       INSERT INTO ai_suggestions (
         ticket_id, suggestion_type, content, confidence_score,
         model_name, source_type, source_references, reasoning
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      ticketId || null,
+    `, [ticketId || null,
       'solution',
       JSON.stringify(suggestions.primarySolution),
       suggestions.confidenceScore,
@@ -147,20 +144,18 @@ export async function POST(request: NextRequest) {
         knowledgeArticles: suggestions.knowledgeBaseReferences,
         similarTickets: similarTickets.map((t: any) => t.id)
       }),
-      'AI-generated solution based on knowledge base and similar tickets'
-    ).lastInsertRowid;
+      'AI-generated solution based on knowledge base and similar tickets'])).lastInsertRowid;
 
     // Log da operação
     logger.info(`Solution suggestion completed for "${title}" in ${suggestions.processingTimeMs}ms`);
 
     // Auditoria
-    db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      user.id,
+    `, [user.id,
       'ai_suggestion',
       suggestionId,
       'suggest_solution',
@@ -171,8 +166,7 @@ export async function POST(request: NextRequest) {
         knowledgeArticlesCount: knowledgeArticles.length,
         similarTicketsCount: similarTickets.length
       }),
-      request.headers.get('x-forwarded-for') || 'unknown'
-    );
+      request.headers.get('x-forwarded-for') || 'unknown']);
 
     return NextResponse.json({
       success: true,
@@ -249,16 +243,16 @@ export async function GET(request: NextRequest) {
 
     if (ticketId) {
       // Buscar sugestões para um ticket específico
-      const suggestions = db.prepare(`
+      const suggestions = await executeQuery<any>(`
         SELECT * FROM ai_suggestions
         WHERE ticket_id = ?
         ORDER BY created_at DESC
-      `).all(ticketId) as any[];
+      `, [ticketId]);
 
       return NextResponse.json({ suggestions });
     } else {
       // Buscar estatísticas de sugestões
-      const stats = db.prepare(`
+      const stats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_suggestions,
           AVG(confidence_score) as avg_confidence,
@@ -268,9 +262,9 @@ export async function GET(request: NextRequest) {
         FROM ai_suggestions
         WHERE created_at >= datetime('now', '-30 days')
           AND suggestion_type = 'solution'
-      `).get() as any;
+      `);
 
-      const sourceStats = db.prepare(`
+      const sourceStats = await executeQuery<any>(`
         SELECT
           source_type,
           COUNT(*) as count,
@@ -280,7 +274,7 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'solution'
         GROUP BY source_type
         ORDER BY count DESC
-      `).all() as any[];
+      `);
 
       return NextResponse.json({
         stats: {

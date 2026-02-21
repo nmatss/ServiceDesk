@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -20,18 +20,18 @@ export async function GET(request: NextRequest) {
 
     if (!tenantContext) {
       return NextResponse.json(
-        { error: 'Tenant não encontrado' },
+        { success: false, error: 'Tenant não encontrado' },
         { status: 400 }
       )
     }
 
     // Query categories with tenant isolation
-    const categories = db.prepare(`
+    const categories = await executeQuery(`
       SELECT id, name, description, color, created_at, updated_at
       FROM categories
       WHERE tenant_id = ?
       ORDER BY name
-    `).all(tenantContext.id)
+    `, [tenantContext.id])
 
     // Add cache control headers
     const response = NextResponse.json({
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error('Error fetching categories', error)
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { success: false, error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (!tenantContext) {
       return NextResponse.json(
-        { error: 'Tenant não encontrado' },
+        { success: false, error: 'Tenant não encontrado' },
         { status: 400 }
       )
     }
@@ -71,19 +71,19 @@ export async function POST(request: NextRequest) {
 
     if (!name || !color) {
       return NextResponse.json(
-        { error: 'Nome e cor são obrigatórios' },
+        { success: false, error: 'Nome e cor são obrigatórios' },
         { status: 400 }
       )
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO categories (name, description, color, tenant_id)
       VALUES (?, ?, ?, ?)
-    `).run(name, description || null, color, tenantContext.id)
+    `, [name, description || null, color, tenantContext.id])
 
-    const category = db.prepare(`
+    const category = await executeQueryOne(`
       SELECT * FROM categories WHERE id = ?
-    `).get(result.lastInsertRowid)
+    `, [result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Error creating category', error)
     return NextResponse.json(
-      { error: 'Erro ao criar categoria' },
+      { success: false, error: 'Erro ao criar categoria' },
       { status: 500 }
     )
   }

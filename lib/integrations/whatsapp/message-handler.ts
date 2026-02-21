@@ -21,7 +21,7 @@ import {
   updateWhatsAppSession,
   getUserByPhone,
 } from './storage';
-import { getDb } from '@/lib/db';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { WhatsAppBusinessAPI } from './business-api';
 import logger from '@/lib/monitoring/structured-logger';
 import { promises as fs } from 'fs';
@@ -406,32 +406,29 @@ export class WhatsAppMessageHandler {
     organizationId: number
   ): Promise<MessageHandlerResult> {
     try {
-      const db = getDb();
-
       // Get default category and priority
-      const defaultCategory = db
-        .prepare('SELECT id FROM categories WHERE organization_id = ? ORDER BY id LIMIT 1')
-        .get(organizationId) as { id: number } | undefined;
+      const defaultCategory = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM categories WHERE organization_id = ? ORDER BY id LIMIT 1',
+        [organizationId]
+      );
 
-      const defaultPriority = db
-        .prepare('SELECT id FROM priorities WHERE level = 2 LIMIT 1')
-        .get() as { id: number } | undefined;
+      const defaultPriority = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM priorities WHERE level = 2 LIMIT 1',
+        []
+      );
 
-      const openStatus = db
-        .prepare('SELECT id FROM statuses WHERE name = ? OR is_final = 0 ORDER BY id LIMIT 1')
-        .get('Aberto') as { id: number } | undefined;
+      const openStatus = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM statuses WHERE name = ? OR is_final = 0 ORDER BY id LIMIT 1',
+        ['Aberto']
+      );
 
       // Create ticket
-      const ticketResult = db
-        .prepare(
-          `
-        INSERT INTO tickets (
+      const ticketResult = await executeRun(
+        `INSERT INTO tickets (
           title, description, requester_id, category_id, priority_id, status_id,
           channel, organization_id, metadata, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `
-        )
-        .run(
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
           `WhatsApp: ${contact.display_name || contact.phone_number}`,
           content,
           user?.id || contact.user_id || 1,
@@ -446,28 +443,28 @@ export class WhatsAppMessageHandler {
             contactId: contact.id,
             messageId: message.id,
           })
-        );
+        ]
+      );
 
       const ticketId = ticketResult.lastInsertRowid as number;
 
       // Save attachments
       for (const attachment of mediaAttachments) {
         if (attachment.filePath) {
-          db.prepare(
-            `
-            INSERT INTO attachments (
+          await executeRun(
+            `INSERT INTO attachments (
               ticket_id, filename, original_name, mime_type, size,
               uploaded_by, storage_path, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          `
-          ).run(
-            ticketId,
-            attachment.filename,
-            attachment.filename,
-            attachment.mimeType,
-            attachment.size || 0,
-            user?.id || 1,
-            attachment.filePath
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              ticketId,
+              attachment.filename,
+              attachment.filename,
+              attachment.mimeType,
+              attachment.size || 0,
+              user?.id || 1,
+              attachment.filePath
+            ]
           );
         }
       }
@@ -531,12 +528,11 @@ export class WhatsAppMessageHandler {
     organizationId: number
   ): Promise<MessageHandlerResult> {
     try {
-      const db = getDb();
-
       // Verify ticket exists and belongs to organization
-      const ticket = db
-        .prepare('SELECT id, requester_id FROM tickets WHERE id = ? AND organization_id = ?')
-        .get(ticketId, organizationId);
+      const ticket = await executeQueryOne<{ id: number; requester_id: number }>(
+        'SELECT id, requester_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, organizationId]
+      );
 
       if (!ticket) {
         return {
@@ -547,16 +543,12 @@ export class WhatsAppMessageHandler {
       }
 
       // Add comment
-      const commentResult = db
-        .prepare(
-          `
-        INSERT INTO comments (
+      const commentResult = await executeRun(
+        `INSERT INTO comments (
           ticket_id, user_id, content, is_internal,
           metadata, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `
-        )
-        .run(
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
           ticketId,
           contact.user_id || 1,
           content,
@@ -566,29 +558,29 @@ export class WhatsAppMessageHandler {
             phoneNumber: contact.phone_number,
             messageId,
           })
-        );
+        ]
+      );
 
       const commentId = commentResult.lastInsertRowid as number;
 
       // Save attachments
       for (const attachment of mediaAttachments) {
         if (attachment.filePath) {
-          db.prepare(
-            `
-            INSERT INTO attachments (
+          await executeRun(
+            `INSERT INTO attachments (
               ticket_id, comment_id, filename, original_name, mime_type, size,
               uploaded_by, storage_path, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          `
-          ).run(
-            ticketId,
-            commentId,
-            attachment.filename,
-            attachment.filename,
-            attachment.mimeType,
-            attachment.size || 0,
-            contact.user_id || 1,
-            attachment.filePath
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              ticketId,
+              commentId,
+              attachment.filename,
+              attachment.filename,
+              attachment.mimeType,
+              attachment.size || 0,
+              contact.user_id || 1,
+              attachment.filePath
+            ]
           );
         }
       }
@@ -691,8 +683,6 @@ export class WhatsAppMessageHandler {
    */
   private async getTicketsStatus(contact: WhatsAppContactData): Promise<string> {
     try {
-      const db = getDb();
-
       interface TicketStatus {
         id: number;
         title: string;
@@ -700,18 +690,15 @@ export class WhatsAppMessageHandler {
         status_name: string;
       }
 
-      const tickets = db
-        .prepare(
-          `
-        SELECT t.id, t.title, t.created_at, s.name as status_name
-        FROM tickets t
-        JOIN statuses s ON t.status_id = s.id
-        WHERE t.requester_id = ? OR JSON_EXTRACT(t.metadata, '$.phoneNumber') = ?
-        ORDER BY t.created_at DESC
-        LIMIT 5
-      `
-        )
-        .all(contact.user_id || 0, contact.phone_number) as TicketStatus[];
+      const tickets = await executeQuery<TicketStatus>(
+        `SELECT t.id, t.title, t.created_at, s.name as status_name
+         FROM tickets t
+         JOIN statuses s ON t.status_id = s.id
+         WHERE t.requester_id = ? OR JSON_EXTRACT(t.metadata, '$.phoneNumber') = ?
+         ORDER BY t.created_at DESC
+         LIMIT 5`,
+        [contact.user_id || 0, contact.phone_number]
+      );
 
       if (!tickets || tickets.length === 0) {
         return `Você não possui chamados abertos no momento.`;

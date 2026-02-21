@@ -1141,6 +1141,3 @@ export function getWorkflowEngine(): WorkflowEngine {
 
   return workflowEngineInstance;
 }
-
-// Export singleton instance for backward compatibility
-export const workflowEngine = getWorkflowEngine();

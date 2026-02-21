@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -55,10 +55,9 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const { id } = await params
     const ciId = parseInt(id)
@@ -66,10 +65,8 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 })
     }
 
-    const db = getDatabase()
-
     // Get CI with related data
-    const ci = db.prepare(`
+    const ci = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         ci.*,
         ct.name as ci_type_name,
@@ -87,7 +84,7 @@ export async function GET(
       LEFT JOIN users u ON ci.owner_id = u.id
       LEFT JOIN teams t ON ci.managed_by_team_id = t.id
       WHERE ci.id = ? AND ci.organization_id = ?
-    `).get(ciId, auth.user.organization_id) as Record<string, unknown> | undefined
+    `, [ciId, organizationId])
 
     if (!ci) {
       return NextResponse.json(
@@ -97,7 +94,7 @@ export async function GET(
     }
 
     // Get relationships
-    const relationships = db.prepare(`
+    const relationships = await executeQuery<Record<string, unknown>>(`
       SELECT
         r.*,
         rt.name as relationship_type_name,
@@ -111,10 +108,10 @@ export async function GET(
       LEFT JOIN configuration_items ci_parent ON r.parent_ci_id = ci_parent.id
       LEFT JOIN configuration_items ci_child ON r.child_ci_id = ci_child.id
       WHERE r.parent_ci_id = ? OR r.child_ci_id = ?
-    `).all(ciId, ciId)
+    `, [ciId, ciId])
 
     // Get recent history
-    const history = db.prepare(`
+    const history = await executeQuery<Record<string, unknown>>(`
       SELECT
         h.*,
         u.name as changed_by_name
@@ -123,10 +120,10 @@ export async function GET(
       WHERE h.ci_id = ?
       ORDER BY h.changed_at DESC
       LIMIT 20
-    `).all(ciId)
+    `, [ciId])
 
     // Get linked tickets
-    const linkedTickets = db.prepare(`
+    const linkedTickets = await executeQuery<Record<string, unknown>>(`
       SELECT
         ctl.*,
         t.title as ticket_title,
@@ -137,7 +134,7 @@ export async function GET(
       WHERE ctl.ci_id = ?
       ORDER BY ctl.linked_at DESC
       LIMIT 10
-    `).all(ciId)
+    `, [ciId])
 
     return NextResponse.json({
       success: true,
@@ -167,13 +164,12 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Check permissions
-    if (!['admin', 'agent', 'manager'].includes(auth.user.role)) {
+    if (!['admin', 'agent', 'manager'].includes(role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }
@@ -189,12 +185,11 @@ export async function PUT(
     const body = await request.json()
     const data = updateCISchema.parse(body)
 
-    const db = getDatabase()
-
     // Check if CI exists
-    const existingCI = db.prepare(
-      `SELECT * FROM configuration_items WHERE id = ? AND organization_id = ?`
-    ).get(ciId, auth.user.organization_id) as Record<string, unknown> | undefined
+    const existingCI = await executeQueryOne<Record<string, unknown>>(
+      `SELECT * FROM configuration_items WHERE id = ? AND organization_id = ?`,
+      [ciId, organizationId]
+    )
 
     if (!existingCI) {
       return NextResponse.json(
@@ -228,28 +223,29 @@ export async function PUT(
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP')
-    values.push(ciId, auth.user.organization_id)
+    values.push(ciId, organizationId)
 
-    db.prepare(`
+    await executeRun(`
       UPDATE configuration_items
       SET ${updates.join(', ')}
       WHERE id = ? AND organization_id = ?
-    `).run(...values)
+    `, values)
 
     // Log changes in history
     if (Object.keys(changes).length > 0) {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO ci_history (ci_id, action, changes, changed_by)
         VALUES (?, 'updated', ?, ?)
-      `).run(ciId, JSON.stringify(changes), auth.user.id)
+      `, [ciId, JSON.stringify(changes), userId])
     }
 
     // Get updated CI
-    const updatedCI = db.prepare(
-      `SELECT * FROM configuration_items WHERE id = ?`
-    ).get(ciId)
+    const updatedCI = await executeQueryOne<Record<string, unknown>>(
+      `SELECT * FROM configuration_items WHERE id = ?`,
+      [ciId]
+    )
 
-    logger.info(`CI updated: ${ciId} by user ${auth.user.id}`)
+    logger.info(`CI updated: ${ciId} by user ${userId}`)
 
     return NextResponse.json({
       success: true,
@@ -283,13 +279,12 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Only admins can delete CIs
-    if (auth.user.role !== 'admin') {
+    if (role !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Apenas administradores podem excluir itens de configuração' },
         { status: 403 }
@@ -302,12 +297,11 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 })
     }
 
-    const db = getDatabase()
-
     // Check if CI exists
-    const existingCI = db.prepare(
-      `SELECT * FROM configuration_items WHERE id = ? AND organization_id = ?`
-    ).get(ciId, auth.user.organization_id) as { ci_number: string } | undefined
+    const existingCI = await executeQueryOne<{ ci_number: string }>(
+      `SELECT * FROM configuration_items WHERE id = ? AND organization_id = ?`,
+      [ciId, organizationId]
+    )
 
     if (!existingCI) {
       return NextResponse.json(
@@ -317,18 +311,18 @@ export async function DELETE(
     }
 
     // Delete relationships first
-    db.prepare(`DELETE FROM ci_relationships WHERE parent_ci_id = ? OR child_ci_id = ?`).run(ciId, ciId)
+    await executeRun(`DELETE FROM ci_relationships WHERE parent_ci_id = ? OR child_ci_id = ?`, [ciId, ciId])
 
     // Delete ticket links
-    db.prepare(`DELETE FROM ci_ticket_links WHERE ci_id = ?`).run(ciId)
+    await executeRun(`DELETE FROM ci_ticket_links WHERE ci_id = ?`, [ciId])
 
     // Delete history
-    db.prepare(`DELETE FROM ci_history WHERE ci_id = ?`).run(ciId)
+    await executeRun(`DELETE FROM ci_history WHERE ci_id = ?`, [ciId])
 
     // Delete CI
-    db.prepare(`DELETE FROM configuration_items WHERE id = ?`).run(ciId)
+    await executeRun(`DELETE FROM configuration_items WHERE id = ?`, [ciId])
 
-    logger.info(`CI deleted: ${existingCI.ci_number} by user ${auth.user.id}`)
+    logger.info(`CI deleted: ${existingCI.ci_number} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

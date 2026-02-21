@@ -11,16 +11,13 @@
  * - Consistent error handling
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserService } from '@/lib/di/container';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
-import { validateJWTSecret } from '@/lib/config/env';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-import db from '@/lib/db/connection';
-import * as jose from 'jose';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { z } from 'zod';
-
-const JWT_SECRET = new TextEncoder().encode(validateJWTSecret());
 
 /**
  * Login request schema
@@ -59,14 +56,13 @@ export async function POST(request: NextRequest) {
     let tenantContext = getTenantContextFromRequest(request);
 
     if (!tenantContext && tenant_slug) {
-      const org = db
-        .prepare(
-          `
+      const org = await executeQueryOne<{ id: number; name: string; slug: string }>(
+        `
         SELECT id, name, slug FROM organizations
         WHERE slug = ? AND is_active = 1
-      `
-        )
-        .get(tenant_slug) as { id: number; name: string; slug: string } | undefined;
+      `,
+        [tenant_slug]
+      );
 
       if (org) {
         tenantContext = {
@@ -79,14 +75,12 @@ export async function POST(request: NextRequest) {
 
     // Development fallback
     if (!tenantContext && process.env.NODE_ENV !== 'production') {
-      const defaultOrg = db
-        .prepare(
-          `
+      const defaultOrg = await executeQueryOne<{ id: number; name: string; slug: string }>(
+        `
         SELECT id, name, slug FROM organizations
         WHERE is_active = 1 ORDER BY id LIMIT 1
       `
-        )
-        .get() as { id: number; name: string; slug: string } | undefined;
+      );
 
       if (defaultOrg) {
         tenantContext = {
@@ -130,17 +124,30 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 7. Generate JWT token
-      const token = await new jose.SignJWT({
-        id: user.id,
+      // 7. Generate tokens using token-manager (parity with register)
+      const {
+        generateAccessToken,
+        generateRefreshToken,
+        setAuthCookies,
+        generateDeviceFingerprint,
+        getOrCreateDeviceId,
+      } = await import('@/lib/auth/token-manager');
+
+      const deviceFingerprint = generateDeviceFingerprint(request);
+      const deviceId = getOrCreateDeviceId(request);
+
+      const tokenPayload = {
+        user_id: user.id,
+        tenant_id: user.organization_id,
+        name: user.name,
         email: user.email,
         role: user.role,
-        organization_id: user.organization_id,
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setExpirationTime('24h')
-        .setIssuedAt()
-        .sign(JWT_SECRET);
+        tenant_slug: tenantContext.slug,
+        device_fingerprint: deviceFingerprint,
+      };
+
+      const accessToken = await generateAccessToken(tokenPayload);
+      const refreshToken = await generateRefreshToken(tokenPayload, deviceFingerprint);
 
       // 8. Log successful login
       const ipAddress =
@@ -149,15 +156,16 @@ export async function POST(request: NextRequest) {
         'unknown';
       const userAgent = request.headers.get('user-agent') || 'unknown';
 
-      db.prepare(
+      await executeRun(
         `
         INSERT INTO login_attempts (user_id, email, ip_address, user_agent, success, organization_id)
         VALUES (?, ?, ?, ?, 1, ?)
-      `
-      ).run(user.id, email, ipAddress, userAgent, tenantContext.id);
+      `,
+        [user.id, email, ipAddress, userAgent, tenantContext.id]
+      );
 
-      // 9. Return success response
-      return NextResponse.json(
+      // 9. Return success response with cookies
+      const response = NextResponse.json(
         {
           success: true,
           data: {
@@ -168,13 +176,17 @@ export async function POST(request: NextRequest) {
               role: user.role,
               organization_id: user.organization_id,
             },
-            token,
+            token: accessToken,
             tenant: tenantContext,
           },
           message: 'Login successful',
         },
         { status: 200 }
       );
+
+      setAuthCookies(response, accessToken, refreshToken, deviceId);
+
+      return response;
     } catch (error: any) {
       // Service layer throws specific errors for business rule violations
       // (invalid credentials, account locked, etc.)
@@ -186,12 +198,13 @@ export async function POST(request: NextRequest) {
         'unknown';
       const userAgent = request.headers.get('user-agent') || 'unknown';
 
-      db.prepare(
+      await executeRun(
         `
         INSERT INTO login_attempts (email, ip_address, user_agent, success, failure_reason, organization_id)
         VALUES (?, ?, ?, 0, ?, ?)
-      `
-      ).run(email, ipAddress, userAgent, error.message, tenantContext.id);
+      `,
+        [email, ipAddress, userAgent, error.message, tenantContext.id]
+      );
 
       // Determine status code based on error
       let status = 401;
@@ -208,7 +221,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error: any) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
 
     return NextResponse.json(
       {

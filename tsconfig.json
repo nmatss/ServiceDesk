@@ -63,7 +63,6 @@
     "tests",
     "examples",
     "scripts",
-    "src/**",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
@@ -85,6 +84,12 @@
     "lib/notifications/channels.ts",
     "lib/performance/code-splitting.tsx",
     "lib/knowledge",
-    "lib/notifications/channels.ts"
+    "src/components/charts/**",
+    "src/components/dashboard/**",
+    "src/components/workflow/**",
+    "src/components/knowledge/**",
+    "src/components/notifications/**",
+    "src/components/tickets/**",
+    "src/hooks/**"
   ]
 }

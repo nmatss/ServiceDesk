@@ -5,9 +5,10 @@
  * Supports filtering by date range, action type, user, and risk level.
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -16,13 +17,9 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
@@ -31,9 +28,7 @@ export async function GET(request: NextRequest) {
     const action = searchParams.get('action') || 'all'
     const riskLevel = searchParams.get('riskLevel') || 'all'
     const search = searchParams.get('search') || ''
-
-    const db = getDatabase()
-    const offset = (page - 1) * limit
+const offset = (page - 1) * limit
 
     // Calculate date filter
     let dateFilter = ''
@@ -59,7 +54,7 @@ export async function GET(request: NextRequest) {
       `al.organization_id = ?`,
       `al.created_at >= ${dateFilter}`
     ]
-    const params: (string | number)[] = [auth.user.organization_id]
+    const params: (string | number)[] = [organizationId]
 
     if (action !== 'all') {
       conditions.push('al.action = ?')
@@ -86,14 +81,30 @@ export async function GET(request: NextRequest) {
 
     // Try to fetch from audit_logs table, fallback to generated data if table doesn't exist
     try {
-      const countResult = db.prepare(`
+      const countResult = await executeQueryOne<{ total: number }>(`
         SELECT COUNT(*) as total
         FROM audit_logs al
         LEFT JOIN users u ON al.user_id = u.id
         ${whereClause}
-      `).get(...params) as { total: number }
+      `, params) || { total: 0 }
 
-      const logs = db.prepare(`
+      const logs = await executeQuery<{
+        id: string
+        timestamp: string
+        user_id: string
+        user_name: string
+        user_email: string
+        action: string
+        resource_type: string
+        resource_id: string
+        resource_name: string
+        ip_address: string
+        user_agent: string
+        old_values: string | null
+        new_values: string | null
+        status: string
+        risk_level: string
+      }>(`
         SELECT
           al.id,
           al.created_at as timestamp,
@@ -115,23 +126,7 @@ export async function GET(request: NextRequest) {
         ${whereClause}
         ORDER BY al.created_at DESC
         LIMIT ? OFFSET ?
-      `).all(...params, limit, offset) as Array<{
-        id: string
-        timestamp: string
-        user_id: string
-        user_name: string
-        user_email: string
-        action: string
-        resource_type: string
-        resource_id: string
-        resource_name: string
-        ip_address: string
-        user_agent: string
-        old_values: string | null
-        new_values: string | null
-        status: string
-        risk_level: string
-      }>
+      `, [...params, limit, offset])
 
       // Parse JSON fields
       const parsedLogs = logs.map(log => ({
@@ -167,7 +162,7 @@ export async function GET(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('Error fetching audit logs:', error)
+    logger.error('Error fetching audit logs:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao buscar logs de auditoria' },
       { status: 500 }
@@ -181,13 +176,9 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json(
-        { success: false, error: 'Não autorizado' },
-        { status: 401 }
-      )
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, email } = guard.auth!
 
     const body = await request.json()
     const {
@@ -201,19 +192,15 @@ export async function POST(request: NextRequest) {
       user_agent,
       risk_level = 'low'
     } = body
-
-    const db = getDatabase()
-
-    try {
-      const result = db.prepare(`
+try {
+      const result = await executeRun(`
         INSERT INTO audit_logs (
           organization_id, user_id, action, resource_type, resource_id,
           resource_name, ip_address, user_agent, old_values, new_values,
           status, risk_level, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?, datetime('now'))
-      `).run(
-        auth.user.organization_id,
-        auth.user.id,
+      `, [organizationId,
+        userId,
         action,
         resource_type,
         resource_id,
@@ -222,8 +209,7 @@ export async function POST(request: NextRequest) {
         user_agent || '',
         old_values ? JSON.stringify(old_values) : null,
         new_values ? JSON.stringify(new_values) : null,
-        risk_level
-      )
+        risk_level])
 
       return NextResponse.json({
         success: true,
@@ -231,8 +217,8 @@ export async function POST(request: NextRequest) {
       })
     } catch {
       // Table doesn't exist, log to console instead
-      console.log('[AUDIT]', {
-        user: auth.user.email,
+      logger.info('[AUDIT]', {
+        user: email,
         action,
         resource_type,
         resource_id,
@@ -247,7 +233,7 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('Error creating audit log:', error)
+    logger.error('Error creating audit log:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao criar log de auditoria' },
       { status: 500 }

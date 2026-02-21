@@ -8,12 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
-import {
-  systemSettingsQueries,
-  getSystemSetting,
-  setSystemSetting
-} from '@/lib/db/queries';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -32,29 +28,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Token de acesso requerido' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized. Admin access required.' },
-        { status: 403 }
-      );
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get('organizationId')
@@ -63,7 +38,31 @@ export async function GET(request: NextRequest) {
     const includeEncrypted = searchParams.get('includeEncrypted') === 'true';
 
     // Get all settings with metadata
-    const settings = systemSettingsQueries.getAllSettingsWithMetadata(organizationId);
+    let settings: Array<{
+      id: number;
+      key: string;
+      value: string;
+      description: string | null;
+      type: string;
+      is_public: boolean;
+      is_encrypted: boolean;
+      organization_id: number | null;
+      updated_by: number | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+
+    if (organizationId !== undefined) {
+      settings = await executeQuery(
+        `SELECT * FROM system_settings WHERE organization_id = ? OR organization_id IS NULL ORDER BY key`,
+        [organizationId]
+      );
+    } else {
+      settings = await executeQuery(
+        `SELECT * FROM system_settings WHERE organization_id IS NULL ORDER BY key`,
+        []
+      );
+    }
 
     // Filter out encrypted values unless explicitly requested
     const filteredSettings = settings.map(setting => {
@@ -77,7 +76,7 @@ export async function GET(request: NextRequest) {
     });
 
     logger.info('System settings retrieved', {
-      userId: user.id,
+      userId: guard.auth.userId,
       organizationId,
       settingsCount: filteredSettings.length
     });
@@ -115,29 +114,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Token de acesso requerido' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized. Admin access required.' },
-        { status: 403 }
-      );
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    if (guard.response) return guard.response;
 
     const body = await request.json();
     const { settings } = body;
@@ -161,18 +139,21 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const success = setSystemSetting(
-          key,
-          value,
-          organizationId,
-          user.id
+        await executeRun(
+          `INSERT INTO system_settings (key, value, organization_id, updated_by, updated_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(key, organization_id) DO UPDATE SET
+            value = excluded.value,
+            updated_by = excluded.updated_by,
+            updated_at = CURRENT_TIMESTAMP`,
+          [key, value, organizationId ?? null, guard.auth.userId]
         );
 
-        results.push({ key, success });
+        results.push({ key, success: true });
 
         logger.info('System setting updated', {
           key,
-          userId: user.id,
+          userId: guard.auth.userId,
           organizationId
         });
       } catch (err) {
@@ -213,29 +194,8 @@ export async function PUT(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Token de acesso requerido' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized. Admin access required.' },
-        { status: 403 }
-      );
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    if (guard.response) return guard.response;
 
     const body = await request.json();
     const { key, value, organizationId } = body;
@@ -247,34 +207,35 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const success = setSystemSetting(
-      key,
-      value,
-      organizationId,
-      user.id
+    await executeRun(
+      `INSERT INTO system_settings (key, value, organization_id, updated_by, updated_at)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(key, organization_id) DO UPDATE SET
+        value = excluded.value,
+        updated_by = excluded.updated_by,
+        updated_at = CURRENT_TIMESTAMP`,
+      [key, value, organizationId ?? null, guard.auth.userId]
     );
 
-    if (success) {
-      logger.info('System setting updated', {
-        key,
-        userId: user.id,
-        organizationId
-      });
+    logger.info('System setting updated', {
+      key,
+      userId: guard.auth.userId,
+      organizationId
+    });
 
-      // Get the updated value to return
-      const updatedValue = getSystemSetting(key, organizationId);
+    // Get the updated value to return
+    const updatedSetting = await executeQueryOne<{ value: string }>(
+      organizationId !== undefined
+        ? `SELECT value FROM system_settings WHERE key = ? AND organization_id = ? LIMIT 1`
+        : `SELECT value FROM system_settings WHERE key = ? AND organization_id IS NULL LIMIT 1`,
+      organizationId !== undefined ? [key, organizationId] : [key]
+    );
 
-      return NextResponse.json({
-        success: true,
-        key,
-        value: updatedValue
-      });
-    } else {
-      return NextResponse.json(
-        { error: 'Failed to update setting' },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({
+      success: true,
+      key,
+      value: updatedSetting?.value ?? value
+    });
 
   } catch (error) {
     logger.error('Error updating system setting', { error });
@@ -300,29 +261,8 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Token de acesso requerido' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      );
-    }
-
-    if (user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized. Admin access required.' },
-        { status: 403 }
-      );
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
@@ -337,12 +277,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const deleted = systemSettingsQueries.deleteSystemSetting(key, organizationId);
+    const result = await executeRun(
+      `DELETE FROM system_settings
+      WHERE key = ? AND (organization_id = ? OR (organization_id IS NULL AND ? IS NULL))`,
+      [key, organizationId ?? null, organizationId ?? null]
+    );
 
-    if (deleted) {
+    if (result.changes > 0) {
       logger.info('System setting deleted', {
         key,
-        userId: user.id,
+        userId: guard.auth.userId,
         organizationId
       });
 

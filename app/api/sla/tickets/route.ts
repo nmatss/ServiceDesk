@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -17,8 +17,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
 
-    // Get tenant ID from authenticated user (fallback to 1 for dev)
-    const tenantId = decoded.organization_id || 1
+    // SECURITY: Get tenant ID from authenticated user - fail if missing
+    const tenantId = decoded.organization_id
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') // 'at_risk', 'breached', 'on_time'
@@ -53,7 +56,7 @@ export async function GET(request: NextRequest) {
       `
     }
 
-    const tickets = db.prepare(`
+    const tickets = await executeQuery(`
       SELECT
         t.id,
         t.title,
@@ -111,10 +114,10 @@ export async function GET(request: NextRequest) {
         END,
         t.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(tenantId, ...params, limit, offset)
+    `, [tenantId, ...params, limit, offset])
 
     // Get SLA statistics
-    const stats = db.prepare(`
+    const stats = await executeQueryOne<{ total_tickets: number; breached_tickets: number; at_risk_tickets: number; on_time_tickets: number; avg_response_time_minutes: number; avg_resolution_time_minutes: number }>(`
       SELECT
         COUNT(*) as total_tickets,
         SUM(CASE WHEN t.response_breached = 1 OR t.resolution_breached = 1 THEN 1 ELSE 0 END) as breached_tickets,
@@ -143,7 +146,7 @@ export async function GET(request: NextRequest) {
       FROM tickets t
       LEFT JOIN statuses st ON t.status_id = st.id
       WHERE t.tenant_id = ? OR t.tenant_id IS NULL
-    `).get(tenantId) as { total_tickets: number; breached_tickets: number; at_risk_tickets: number; on_time_tickets: number; avg_response_time_minutes: number; avg_resolution_time_minutes: number }
+    `, [tenantId])
 
     return NextResponse.json({
       success: true,

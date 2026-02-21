@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getGovBrClient, syncGovBrProfile } from '@/lib/integrations/govbr/oauth-client';
-import { generateToken, getUserByEmail, createUser } from '@/lib/auth/sqlite-auth';
+import { generateToken, getUserByEmail, createUser } from '@/lib/auth/auth-service';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Find or create user
-    let user = profile.email ? await getUserByEmail(profile.email) : null;
+    let user = profile.email ? await getUserByEmail(profile.email) : undefined;
 
     if (!user) {
       // Create new user from Gov.br profile
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       logger.info('Updated existing user with Gov.br data', user.id);
     }
 
-    // Ensure user is not null
+    // Ensure user exists
     if (!user) {
       logger.error('Failed to create or retrieve user');
       return NextResponse.redirect(

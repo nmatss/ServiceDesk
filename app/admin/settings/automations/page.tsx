@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   CpuChipIcon,
@@ -223,7 +224,7 @@ export default function AutomationsPage() {
     setTestingId(id)
     await new Promise(resolve => setTimeout(resolve, 2000))
     setTestingId(null)
-    alert('Teste executado com sucesso!')
+    toast.success('Teste executado com sucesso!')
   }
 
   const formatLastExecution = (date?: string) => {

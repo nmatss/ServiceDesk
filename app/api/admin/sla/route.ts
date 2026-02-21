@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { getAllSLAPolicies, createSLAPolicy, getSLAMetrics } from '@/lib/sla';
 import { CreateSLAPolicy } from '@/lib/types/database';
 import { logger } from '@/lib/monitoring/logger';
@@ -25,15 +25,23 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
+    const action = searchParams.get('action') || 'metrics';
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
 
-    if (action === 'metrics') {
+    if (action === 'metrics' || action === 'overview') {
       const metrics = getSLAMetrics(startDate || undefined, endDate || undefined);
+      const sla = metrics
+        ? {
+            ...metrics,
+            response_sla_rate: (metrics as any).response_sla_rate ?? metrics.response_compliance_percentage ?? 0,
+            resolution_sla_rate: (metrics as any).resolution_sla_rate ?? metrics.resolution_compliance_percentage ?? 0,
+          }
+        : metrics;
       return NextResponse.json({
         success: true,
-        metrics
+        metrics,
+        sla
       });
     }
 
@@ -42,7 +50,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      policies
+      policies,
+      sla: policies
     });
   } catch (error) {
     logger.error('Error in SLA API', error);
@@ -98,7 +107,7 @@ export async function POST(request: NextRequest) {
       resolution_time_hours: Math.ceil(parseInt(resolution_time_minutes) / 60),
       business_hours_only: business_hours_only === true,
       is_active: is_active !== false,
-      organization_id: organization_id || user.organization_id || 1
+      organization_id: organization_id || user.organization_id
     };
 
     const policy = createSLAPolicy(policyData);

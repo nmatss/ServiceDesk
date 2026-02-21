@@ -6,9 +6,9 @@
  * @module app/api/analytics/detailed/route
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ========================================
 // GET - Get detailed analytics
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     // ========================================
     if (metrics.includes('all') || metrics.includes('tickets')) {
       // Overall ticket stats
-      const ticketStats = db.prepare(`
+      const ticketStats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_tickets,
           SUM(CASE WHEN status_id = (SELECT id FROM statuses WHERE name = 'open' LIMIT 1) THEN 1 ELSE 0 END) as open_tickets,
@@ -72,10 +72,10 @@ export async function GET(request: NextRequest) {
           SUM(CASE WHEN resolved_at >= ? THEN 1 ELSE 0 END) as resolved_in_period
         FROM tickets
         WHERE organization_id = ?
-      `).get(startDateStr, startDateStr, organizationId) as any;
+      `, [startDateStr, startDateStr, organizationId]);
 
       // Tickets by priority
-      const ticketsByPriority = db.prepare(`
+      const ticketsByPriority = await executeQuery(`
         SELECT
           p.name as priority,
           COUNT(*) as count,
@@ -87,10 +87,10 @@ export async function GET(request: NextRequest) {
         WHERE t.organization_id = ?
         GROUP BY p.id
         ORDER BY p.level DESC
-      `).all(organizationId);
+      `, [organizationId]);
 
       // Tickets by category
-      const ticketsByCategory = db.prepare(`
+      const ticketsByCategory = await executeQuery(`
         SELECT
           c.name as category,
           COUNT(*) as count,
@@ -101,10 +101,10 @@ export async function GET(request: NextRequest) {
         GROUP BY c.id
         ORDER BY count DESC
         LIMIT 10
-      `).all(organizationId, organizationId);
+      `, [organizationId, organizationId]);
 
       // Tickets trend (daily)
-      const ticketsTrend = db.prepare(`
+      const ticketsTrend = await executeQuery(`
         SELECT
           DATE(created_at) as date,
           COUNT(*) as created,
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
         WHERE organization_id = ? AND created_at >= ?
         GROUP BY DATE(created_at)
         ORDER BY date
-      `).all(organizationId, startDateStr);
+      `, [organizationId, startDateStr]);
 
       result.tickets = {
         overview: ticketStats,
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     // ========================================
     if (metrics.includes('all') || metrics.includes('sla')) {
       // SLA compliance
-      const slaCompliance = db.prepare(`
+      const slaCompliance = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_tracked,
           SUM(CASE WHEN response_met = 1 THEN 1 ELSE 0 END) as response_met,
@@ -138,10 +138,10 @@ export async function GET(request: NextRequest) {
         FROM sla_tracking st
         JOIN tickets t ON st.ticket_id = t.id
         WHERE t.organization_id = ? AND t.created_at >= ?
-      `).get(organizationId, startDateStr) as any;
+      `, [organizationId, startDateStr]);
 
       // SLA by priority
-      const slaByPriority = db.prepare(`
+      const slaByPriority = await executeQuery(`
         SELECT
           p.name as priority,
           COUNT(*) as total,
@@ -153,10 +153,10 @@ export async function GET(request: NextRequest) {
         WHERE t.organization_id = ? AND t.created_at >= ?
         GROUP BY p.id
         ORDER BY p.level DESC
-      `).all(organizationId, startDateStr);
+      `, [organizationId, startDateStr]);
 
       // Average response/resolution times
-      const slaTimes = db.prepare(`
+      const slaTimes = await executeQueryOne<any>(`
         SELECT
           AVG(CASE WHEN first_response_at IS NOT NULL
             THEN (julianday(first_response_at) - julianday(t.created_at)) * 24
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
         WHERE t.organization_id = ? AND t.created_at >= ?
-      `).get(organizationId, startDateStr) as any;
+      `, [organizationId, startDateStr]);
 
       result.sla = {
         compliance: slaCompliance,
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
     // ========================================
     if (metrics.includes('all') || metrics.includes('agents')) {
       // Agent performance
-      const agentPerformance = db.prepare(`
+      const agentPerformance = await executeQuery(`
         SELECT
           u.id,
           u.name,
@@ -204,10 +204,10 @@ export async function GET(request: NextRequest) {
         GROUP BY u.id
         HAVING total_assigned > 0
         ORDER BY resolved_count DESC
-      `).all(startDateStr, organizationId);
+      `, [startDateStr, organizationId]);
 
       // Team workload distribution
-      const workloadDistribution = db.prepare(`
+      const workloadDistribution = await executeQuery(`
         SELECT
           CASE
             WHEN assigned_to IS NULL THEN 'Unassigned'
@@ -219,7 +219,7 @@ export async function GET(request: NextRequest) {
         WHERE t.organization_id = ? AND t.created_at >= ?
         GROUP BY assigned_to
         ORDER BY ticket_count DESC
-      `).all(organizationId, startDateStr, organizationId, startDateStr);
+      `, [organizationId, startDateStr, organizationId, startDateStr]);
 
       result.agents = {
         performance: agentPerformance,
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
     if (metrics.includes('all') || metrics.includes('satisfaction')) {
       // This would normally come from surveys/feedback
       // For now, we'll calculate based on resolution times and SLA compliance
-      const satisfactionMetrics = db.prepare(`
+      const satisfactionMetrics = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_resolved,
           SUM(CASE WHEN st.resolution_met = 1 THEN 1 ELSE 0 END) as within_sla,
@@ -245,7 +245,7 @@ export async function GET(request: NextRequest) {
         WHERE t.organization_id = ?
           AND t.status_id IN (SELECT id FROM statuses WHERE name IN ('resolved', 'closed'))
           AND t.resolved_at >= ?
-      `).get(organizationId, startDateStr) as any;
+      `, [organizationId, startDateStr]);
 
       // Calculate estimated CSAT based on SLA compliance and resolution time
       const slaRate = satisfactionMetrics?.total_resolved > 0
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
     // KNOWLEDGE BASE METRICS
     // ========================================
     if (metrics.includes('all') || metrics.includes('knowledge')) {
-      const kbMetrics = db.prepare(`
+      const kbMetrics = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_articles,
           SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) as published_articles,
@@ -276,9 +276,9 @@ export async function GET(request: NextRequest) {
             ELSE NULL END) as avg_helpfulness_rate
         FROM kb_articles
         WHERE organization_id = ?
-      `).get(organizationId) as any;
+      `, [organizationId]);
 
-      const topArticles = db.prepare(`
+      const topArticles = await executeQuery(`
         SELECT
           id,
           title,
@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
         WHERE organization_id = ? AND status = 'published'
         ORDER BY views DESC
         LIMIT 10
-      `).all(organizationId);
+      `, [organizationId]);
 
       result.knowledgeBase = {
         overview: kbMetrics,
@@ -302,7 +302,7 @@ export async function GET(request: NextRequest) {
     // CHANNEL METRICS
     // ========================================
     if (metrics.includes('all') || metrics.includes('channels')) {
-      const channelMetrics = db.prepare(`
+      const channelMetrics = await executeQuery(`
         SELECT
           COALESCE(source, 'portal') as channel,
           COUNT(*) as ticket_count,
@@ -314,7 +314,7 @@ export async function GET(request: NextRequest) {
         WHERE organization_id = ? AND created_at >= ?
         GROUP BY source
         ORDER BY ticket_count DESC
-      `).all(organizationId, organizationId, startDateStr);
+      `, [organizationId, organizationId, startDateStr]);
 
       result.channels = channelMetrics;
     }
@@ -324,7 +324,7 @@ export async function GET(request: NextRequest) {
     // ========================================
     if (metrics.includes('all') || metrics.includes('distribution')) {
       // Hourly distribution
-      const hourlyDistribution = db.prepare(`
+      const hourlyDistribution = await executeQuery(`
         SELECT
           CAST(strftime('%H', created_at) AS INTEGER) as hour,
           COUNT(*) as count
@@ -332,10 +332,10 @@ export async function GET(request: NextRequest) {
         WHERE organization_id = ? AND created_at >= ?
         GROUP BY hour
         ORDER BY hour
-      `).all(organizationId, startDateStr);
+      `, [organizationId, startDateStr]);
 
       // Day of week distribution
-      const dayOfWeekDistribution = db.prepare(`
+      const dayOfWeekDistribution = await executeQuery(`
         SELECT
           CAST(strftime('%w', created_at) AS INTEGER) as day_of_week,
           COUNT(*) as count
@@ -343,7 +343,7 @@ export async function GET(request: NextRequest) {
         WHERE organization_id = ? AND created_at >= ?
         GROUP BY day_of_week
         ORDER BY day_of_week
-      `).all(organizationId, startDateStr);
+      `, [organizationId, startDateStr]);
 
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const formattedDayDistribution = (dayOfWeekDistribution as any[]).map(d => ({
@@ -360,7 +360,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error fetching detailed analytics:', error);
+    logger.error('Error fetching detailed analytics:', error);
     return NextResponse.json(
       { error: 'Failed to fetch analytics' },
       { status: 500 }

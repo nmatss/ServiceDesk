@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnection from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -15,10 +15,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const body = await request.json();
     const { endpoint, keys, deviceInfo } = body;
@@ -29,11 +28,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const db = dbConnection;
-
-    // Create push_subscriptions table if it doesn't exist
-    db.exec(`
+// Create push_subscriptions table if it doesn't exist
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS push_subscriptions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -55,13 +51,13 @@ export async function POST(request: NextRequest) {
     `);
 
     // Check if subscription already exists
-    const existingSubscription = db.prepare(`
+    const existingSubscription = await executeQueryOne(`
       SELECT id FROM push_subscriptions WHERE endpoint = ?
-    `).get(endpoint);
+    `, [endpoint]);
 
     if (existingSubscription) {
       // Update existing subscription
-      db.prepare(`
+      await executeRun(`
         UPDATE push_subscriptions
         SET user_id = ?,
             p256dh_key = ?,
@@ -72,17 +68,15 @@ export async function POST(request: NextRequest) {
             updated_at = CURRENT_TIMESTAMP,
             is_active = 1
         WHERE endpoint = ?
-      `).run(
-        authResult.user.id,
+      `, [userId,
         keys.p256dh,
         keys.auth,
         deviceInfo?.userAgent || null,
         deviceInfo?.platform || null,
         deviceInfo?.language || null,
-        endpoint
-      );
+        endpoint]);
 
-      logger.info(`Push subscription updated for user ${authResult.user.id}`);
+      logger.info(`Push subscription updated for user ${userId}`);
 
       return NextResponse.json({
         success: true,
@@ -90,22 +84,20 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Insert new subscription
-      const result = db.prepare(`
+      const result = await executeRun(`
         INSERT INTO push_subscriptions (
           user_id, endpoint, p256dh_key, auth_key,
           user_agent, platform, language
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        authResult.user.id,
+      `, [userId,
         endpoint,
         keys.p256dh,
         keys.auth,
         deviceInfo?.userAgent || null,
         deviceInfo?.platform || null,
-        deviceInfo?.language || null
-      );
+        deviceInfo?.language || null]);
 
-      logger.info(`Push subscription created for user ${authResult.user.id}`);
+      logger.info(`Push subscription created for user ${userId}`);
 
       return NextResponse.json({
         success: true,
@@ -132,14 +124,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const db = dbConnection;
-
-    const subscriptions = db.prepare(`
+    const guardGet = requireTenantUserContext(request);
+    if (guardGet.response) return guardGet.response;
+    const userIdGet = guardGet.auth!.userId;
+const subscriptions = await executeQuery(`
       SELECT
         id,
         endpoint,
@@ -151,7 +139,7 @@ export async function GET(request: NextRequest) {
       FROM push_subscriptions
       WHERE user_id = ? AND is_active = 1
       ORDER BY created_at DESC
-    `).all(authResult.user.id);
+    `, [userIdGet]);
 
     return NextResponse.json({
       subscriptions,

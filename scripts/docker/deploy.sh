@@ -33,6 +33,8 @@ SKIP_HEALTH_CHECK="${SKIP_HEALTH_CHECK:-false}"
 ENABLE_ROLLBACK="${ENABLE_ROLLBACK:-true}"
 HEALTH_CHECK_TIMEOUT="${HEALTH_CHECK_TIMEOUT:-120}"
 
+COMPOSE_BIN=""
+
 # ==============================================================================
 # Functions
 # ==============================================================================
@@ -60,6 +62,15 @@ print_header() {
     echo ""
 }
 
+compose() {
+    if [ "$COMPOSE_BIN" = "docker-compose" ]; then
+        docker-compose -f "$COMPOSE_FILE" "$@"
+        return
+    fi
+
+    docker compose -f "$COMPOSE_FILE" "$@"
+}
+
 check_prerequisites() {
     print_header "Checking Prerequisites"
 
@@ -75,6 +86,13 @@ check_prerequisites() {
         log_error "Docker Compose is not installed"
         exit 1
     fi
+
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_BIN="docker-compose"
+    else
+        COMPOSE_BIN="docker compose"
+    fi
+
     log_success "Docker Compose: Available"
 
     # Check compose file exists
@@ -98,6 +116,10 @@ backup_current_state() {
     if [ "$ENABLE_ROLLBACK" != "true" ]; then
         return
     fi
+    if [ "$DRY_RUN" = "true" ]; then
+        log_warning "[DRY RUN] Would create backup"
+        return
+    fi
 
     print_header "Backing Up Current State"
 
@@ -106,16 +128,41 @@ backup_current_state() {
 
     local timestamp=$(date +"%Y%m%d_%H%M%S")
     local backup_file="${backup_dir}/pre-deploy-${timestamp}.tar.gz"
+    local images_file="${backup_dir}/images-${timestamp}.txt"
+    local db_dump_file="${backup_dir}/db-${timestamp}.sql"
 
     log_info "Creating backup..."
 
-    # Backup volumes and configurations
-    docker-compose -f "$COMPOSE_FILE" exec -T postgres pg_dump -U servicedesk servicedesk > "${backup_dir}/db-${timestamp}.sql" 2>/dev/null || log_warning "Database backup skipped (service may not be running)"
-
     # Save current image tags
-    docker-compose -f "$COMPOSE_FILE" images > "${backup_dir}/images-${timestamp}.txt"
+    compose images > "$images_file"
 
-    log_success "Backup created: ${backup_file}"
+    # Backup database if postgres container is available
+    local postgres_container
+    postgres_container="$(compose ps -q postgres 2>/dev/null || true)"
+    if [ -n "$postgres_container" ]; then
+        compose exec -T postgres pg_dump -U "${POSTGRES_USER:-servicedesk}" "${POSTGRES_DB:-servicedesk}" > "$db_dump_file" 2>/dev/null \
+            || log_warning "Database backup failed"
+    else
+        log_warning "Database backup skipped (postgres service not running)"
+    fi
+
+    # Create a compressed backup artifact
+    local artifacts=("$images_file")
+    if [ -f "$db_dump_file" ]; then
+        artifacts+=("$db_dump_file")
+    fi
+    if [ -f ".env" ]; then
+        artifacts+=(".env")
+    fi
+    if [ -f "$COMPOSE_FILE" ]; then
+        artifacts+=("$COMPOSE_FILE")
+    fi
+
+    if tar -czf "$backup_file" "${artifacts[@]}" 2>/dev/null; then
+        log_success "Backup created: ${backup_file}"
+    else
+        log_warning "Backup archive creation failed; raw artifacts kept in ${backup_dir}"
+    fi
 }
 
 pull_images() {
@@ -128,7 +175,7 @@ pull_images() {
 
     log_info "Pulling images from registry..."
 
-    if docker-compose -f "$COMPOSE_FILE" pull; then
+    if compose pull; then
         log_success "Images pulled successfully"
     else
         log_error "Failed to pull images"
@@ -146,7 +193,7 @@ stop_services() {
 
     log_info "Stopping services gracefully..."
 
-    if docker-compose -f "$COMPOSE_FILE" down --timeout 30; then
+    if compose down --timeout 30; then
         log_success "Services stopped"
     else
         log_warning "Some services may not have stopped cleanly"
@@ -163,7 +210,7 @@ start_services() {
 
     log_info "Starting services..."
 
-    if docker-compose -f "$COMPOSE_FILE" up -d; then
+    if compose up -d; then
         log_success "Services started"
     else
         log_error "Failed to start services"
@@ -206,15 +253,33 @@ wait_for_health() {
             exit 1
         fi
 
-        # Check all service health
-        local unhealthy_services=$(docker-compose -f "$COMPOSE_FILE" ps --format json | jq -r 'select(.Health == "unhealthy" or .Health == "starting") | .Name' 2>/dev/null)
+        local containers
+        containers="$(compose ps -q 2>/dev/null || true)"
+        local unhealthy_services=""
 
-        if [ -z "$unhealthy_services" ]; then
+        for container in $containers; do
+            local name
+            name="$(docker inspect --format='{{.Name}}' "$container" 2>/dev/null | sed 's#^/##')"
+            local state
+            state="$(docker inspect --format='{{.State.Status}}' "$container" 2>/dev/null || echo "unknown")"
+            local health
+            health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>/dev/null || echo "unknown")"
+
+            if [ "$state" != "running" ] || { [ "$health" != "none" ] && [ "$health" != "healthy" ]; }; then
+                unhealthy_services="${unhealthy_services}${name}(${state}/${health}) "
+            fi
+        done
+
+        if [ -n "$containers" ] && [ -z "$unhealthy_services" ]; then
             log_success "All services are healthy ✓"
             break
         fi
 
-        log_info "Waiting for services: ${unhealthy_services}"
+        if [ -z "$containers" ]; then
+            log_info "Waiting for services: no containers found yet"
+        else
+            log_info "Waiting for services: ${unhealthy_services}"
+        fi
         sleep 5
     done
 }
@@ -229,15 +294,16 @@ verify_deployment() {
 
     # Check service status
     log_info "Service status:"
-    docker-compose -f "$COMPOSE_FILE" ps
+    compose ps
 
     # Check app health endpoint
+    local healthcheck_url="${HEALTHCHECK_URL:-http://localhost/health}"
     log_info "Testing health endpoint..."
     local max_retries=10
     local retry=0
 
     while [ $retry -lt $max_retries ]; do
-        if curl -f -s http://localhost:3000/api/health > /dev/null; then
+        if curl -f -s "$healthcheck_url" > /dev/null; then
             log_success "Health endpoint responding ✓"
             break
         fi
@@ -254,7 +320,7 @@ verify_deployment() {
 
     # Check resource usage
     log_info "Resource usage:"
-    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(docker-compose -f "$COMPOSE_FILE" ps -q)
+    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" $(compose ps -q)
 }
 
 rollback_deployment() {
@@ -263,7 +329,7 @@ rollback_deployment() {
     log_warning "Restoring previous state..."
 
     # Stop current services
-    docker-compose -f "$COMPOSE_FILE" down --timeout 30
+    compose down --timeout 30
 
     # Restore from backup
     local latest_backup=$(ls -t backups/db-*.sql 2>/dev/null | head -n1)
@@ -273,7 +339,7 @@ rollback_deployment() {
     fi
 
     # Start previous version
-    docker-compose -f "$COMPOSE_FILE" up -d
+    compose up -d
 
     log_warning "Rollback completed"
 }
@@ -286,7 +352,7 @@ show_logs() {
     fi
 
     log_info "Last 50 lines from application logs:"
-    docker-compose -f "$COMPOSE_FILE" logs --tail=50 app
+    compose logs --tail=50 app
 }
 
 print_summary() {
@@ -310,9 +376,9 @@ print_summary() {
         echo "  - Monitoring:  http://localhost:3001 (Grafana)"
         echo ""
         echo "Useful commands:"
-        echo "  - View logs:    docker-compose -f $COMPOSE_FILE logs -f"
-        echo "  - Stop:         docker-compose -f $COMPOSE_FILE down"
-        echo "  - Restart:      docker-compose -f $COMPOSE_FILE restart"
+        echo "  - View logs:    docker compose -f $COMPOSE_FILE logs -f"
+        echo "  - Stop:         docker compose -f $COMPOSE_FILE down"
+        echo "  - Restart:      docker compose -f $COMPOSE_FILE restart"
     fi
 }
 

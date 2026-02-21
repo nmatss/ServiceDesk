@@ -11,9 +11,25 @@
  * - Status updates
  */
 
-import { ticketQueries, commentQueries } from '@/lib/db/queries';
-const createTicket = ticketQueries.create;
-const addComment = commentQueries.create;
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { sqlNow } from '@/lib/db/adapter';
+
+async function createTicket(data: any, organizationId: number) {
+  const result = await executeRun(
+    `INSERT INTO tickets (title, description, user_id, organization_id, category_id, priority_id, status_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})`,
+    [data.title, data.description, data.user_id, organizationId, data.category_id, data.priority_id, data.status_id]
+  );
+  return result.lastInsertRowid ? await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
+}
+
+async function addComment(data: any, _organizationId?: number) {
+  await executeRun(
+    `INSERT INTO comments (ticket_id, user_id, content, is_internal, created_at)
+     VALUES (?, ?, ?, ?, ${sqlNow()})`,
+    [data.ticket_id, data.user_id, data.content, data.is_internal ? 1 : 0]
+  );
+}
 import logger from '@/lib/monitoring/structured-logger';
 
 // WhatsApp Cloud API Configuration

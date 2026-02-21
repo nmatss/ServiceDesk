@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   CheckIcon,
@@ -98,7 +99,7 @@ export default function NewUserPage() {
         if (errorData.error === 'Email já está em uso') {
           setErrors({ email: 'Email já está em uso' })
         } else {
-          alert('Erro ao criar usuário: ' + (errorData.error || 'Erro desconhecido'))
+          toast.error('Erro ao criar usuário: ' + (errorData.error || 'Erro desconhecido'))
         }
         return
       }
@@ -106,7 +107,7 @@ export default function NewUserPage() {
       router.push('/admin/users')
     } catch (error) {
       logger.error('Erro ao criar usuário', error)
-      alert('Erro ao criar usuário')
+      toast.error('Erro ao criar usuário')
     } finally {
       setLoading(false)
     }

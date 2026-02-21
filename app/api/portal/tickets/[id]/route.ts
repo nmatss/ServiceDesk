@@ -1,8 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger'
-import { validateTicketAccessToken, recordTokenUsage } from '@/lib/db/queries'
 import { z } from 'zod'
+
+interface TicketAccessToken {
+  id: number;
+  ticket_id: number;
+  token: string;
+  is_active: number;
+  revoked_at: string | null;
+  expires_at: string;
+  usage_count: number;
+  last_used_at: string | null;
+  used_at: string | null;
+  metadata: string | null;
+}
+
+async function validateTicketAccessToken(
+  token: string,
+  ticketId?: number
+): Promise<TicketAccessToken | null> {
+  let query = `
+    SELECT * FROM ticket_access_tokens
+    WHERE token = ?
+      AND is_active = 1
+      AND revoked_at IS NULL
+      AND expires_at > datetime('now')
+  `;
+  const params: (string | number)[] = [token];
+
+  if (ticketId !== undefined) {
+    query += ' AND ticket_id = ?';
+    params.push(ticketId);
+  }
+
+  const tokenData = await executeQueryOne<TicketAccessToken>(query, params);
+  return tokenData || null;
+}
+
+async function recordTokenUsage(
+  tokenId: number,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  const metadataJson = metadata ? JSON.stringify(metadata) : null;
+  await executeRun(`
+    UPDATE ticket_access_tokens
+    SET
+      usage_count = usage_count + 1,
+      last_used_at = datetime('now'),
+      used_at = COALESCE(used_at, datetime('now')),
+      metadata = COALESCE(?, metadata)
+    WHERE id = ?
+  `, [metadataJson, tokenId]);
+}
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
@@ -70,7 +120,7 @@ export async function GET(
     }
 
     // 4. VERIFY TOKEN IS VALID AND MATCHES TICKET
-    const tokenData = validateTicketAccessToken(token, ticketId)
+    const tokenData = await validateTicketAccessToken(token, ticketId)
 
     if (!tokenData) {
       logger.warn('Invalid or expired token', {
@@ -89,7 +139,7 @@ export async function GET(
                      'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
-    recordTokenUsage(tokenData.id, {
+    await recordTokenUsage(tokenData.id, {
       ip: clientIp,
       userAgent,
       timestamp: new Date().toISOString()
@@ -97,7 +147,7 @@ export async function GET(
 
     // 6. GET TICKET DETAILS
     // Note: We verify ticket_id matches token to prevent token reuse for other tickets
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<{ created_at?: string; response_due_at?: string; sla_due_at?: string }>(`
       SELECT
         t.id,
         t.ticket_number,
@@ -135,7 +185,7 @@ export async function GET(
       LEFT JOIN ticket_types tt ON t.ticket_type_id = tt.id
       LEFT JOIN tenants tenant ON t.tenant_id = tenant.id
       WHERE t.id = ?
-    `).get(ticketId) as { created_at?: string; response_due_at?: string; sla_due_at?: string } | undefined
+    `, [ticketId])
 
     if (!ticket) {
       logger.warn('Ticket not found for valid token', { ticketId })
@@ -146,7 +196,7 @@ export async function GET(
     }
 
     // Get ticket comments (only public comments for portal)
-    const comments = db.prepare(`
+    const comments = await executeQuery(`
       SELECT
         c.id,
         c.content,
@@ -159,10 +209,10 @@ export async function GET(
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.ticket_id = ? AND c.is_internal = 0
       ORDER BY c.created_at ASC
-    `).all(ticketId)
+    `, [ticketId])
 
     // Get ticket files/attachments
-    const attachments = db.prepare(`
+    const attachments = await executeQuery(`
       SELECT
         f.id,
         f.filename,
@@ -175,10 +225,10 @@ export async function GET(
       LEFT JOIN users u ON f.uploaded_by = u.id
       WHERE f.entity_type = 'ticket' AND f.entity_id = ?
       ORDER BY f.uploaded_at DESC
-    `).all(ticketId)
+    `, [ticketId])
 
     // Get SLA information
-    const slaInfo = db.prepare(`
+    const slaInfo = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         sp.name as sla_policy_name,
         sp.response_time_hours,
@@ -187,7 +237,7 @@ export async function GET(
       FROM tickets t
       LEFT JOIN sla_policies sp ON t.sla_policy_id = sp.id
       WHERE t.id = ?
-    `).get(ticketId) as Record<string, unknown> | undefined
+    `, [ticketId])
 
     // Calculate time metrics
     const timeMetrics: {
@@ -227,7 +277,7 @@ export async function GET(
     }
 
     // Get ticket history/audit trail (public events only)
-    const history = db.prepare(`
+    const history = await executeQuery(`
       SELECT
         al.id,
         al.action,
@@ -242,7 +292,7 @@ export async function GET(
         AND al.action NOT LIKE '%internal%'
       ORDER BY al.created_at DESC
       LIMIT 20
-    `).all(ticketId)
+    `, [ticketId])
 
     return NextResponse.json({
       success: true,
@@ -327,7 +377,7 @@ export async function POST(
     }
 
     // 4. VERIFY TOKEN IS VALID AND MATCHES TICKET
-    const tokenData = validateTicketAccessToken(token, ticketId)
+    const tokenData = await validateTicketAccessToken(token, ticketId)
 
     if (!tokenData) {
       logger.warn('Invalid or expired token in comment request', {
@@ -352,7 +402,7 @@ export async function POST(
     }
 
     // 6. VERIFY TICKET EXISTS
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId) as { id: number } | undefined
+    const ticket = await executeQueryOne<{ id: number }>('SELECT id FROM tickets WHERE id = ?', [ticketId])
     if (!ticket) {
       logger.warn('Ticket not found for comment', { ticketId })
       return NextResponse.json(
@@ -363,7 +413,7 @@ export async function POST(
 
     // 7. ADD COMMENT (public comment, no user_id)
     // SECURITY: Comment is always public (is_internal = 0) for portal access
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO comments (
         ticket_id,
         content,
@@ -371,17 +421,17 @@ export async function POST(
         created_at,
         user_id
       ) VALUES (?, ?, 0, datetime('now'), NULL)
-    `).run(ticketId, content.trim())
+    `, [ticketId, content.trim()])
 
     // 8. UPDATE TICKET TIMESTAMP
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
       SET updated_at = datetime('now')
       WHERE id = ?
-    `).run(ticketId)
+    `, [ticketId])
 
     // 9. LOG THE ACTION
-    db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (
         entity_type,
         entity_id,
@@ -389,8 +439,7 @@ export async function POST(
         details,
         created_at
       ) VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(
-      'ticket',
+    `, ['ticket',
       ticketId,
       'comment_added',
       JSON.stringify({
@@ -399,11 +448,10 @@ export async function POST(
         email: customer_email || 'N/A',
         content_preview: content.substring(0, 100),
         via: 'portal_token'
-      })
-    )
+      })])
 
     // 10. RECORD TOKEN USAGE FOR COMMENT
-    recordTokenUsage(tokenData.id, {
+    await recordTokenUsage(tokenData.id, {
       action: 'comment_added',
       comment_id: result.lastInsertRowid
     })

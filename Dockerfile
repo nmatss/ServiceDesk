@@ -98,11 +98,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copy database initialization files (for SQLite setup)
+# Copy database schema files (for runtime DB initialization)
 COPY --from=builder --chown=nextjs:nodejs /app/lib/db/schema.sql ./lib/db/schema.sql
-COPY --from=builder --chown=nextjs:nodejs /app/lib/db/init.ts ./lib/db/init.ts
+COPY --from=builder --chown=nextjs:nodejs /app/lib/db/schema.postgres.sql ./lib/db/schema.postgres.sql
+COPY --from=builder --chown=nextjs:nodejs /app/lib/db/seed.postgres.sql ./lib/db/seed.postgres.sql
 
-# Create data directories for SQLite and uploads
+# Create data directories for uploads
 RUN mkdir -p /app/data /app/data/uploads \
     && chown -R nextjs:nodejs /app/data
 

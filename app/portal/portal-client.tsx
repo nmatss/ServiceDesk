@@ -137,14 +137,14 @@ export default function PortalClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 animate-fade-in">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in">
       {/* Header - Mobile Optimized */}
       <div className="glass-panel shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">

@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getConnection } from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, getDatabase } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -24,20 +24,15 @@ export async function GET(
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const workflowId = parseInt(params.id);
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
-
-    const db = getConnection();
-
-    // Get workflow with full definition
-    const workflow = db.prepare(`
+// Get workflow with full definition
+    const workflow = await executeQueryOne(`
       SELECT
         w.*,
         wd.steps_json,
@@ -48,14 +43,14 @@ export async function GET(
       LEFT JOIN users u ON w.created_by = u.id
       LEFT JOIN users u2 ON w.updated_by = u2.id
       WHERE w.id = ?
-    `).get(workflowId);
+    `, [workflowId]);
 
     if (!workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }
 
     // Get workflow steps
-    const steps = db.prepare(`
+    const steps = await executeQuery(`
       SELECT
         id,
         step_order,
@@ -73,10 +68,10 @@ export async function GET(
       FROM workflow_steps
       WHERE workflow_id = ?
       ORDER BY step_order
-    `).all(workflowId);
+    `, [workflowId]);
 
     // Get workflow executions summary
-    const executionStats = db.prepare(`
+    const executionStats = await executeQueryOne(`
       SELECT
         COUNT(*) as total_executions,
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_executions,
@@ -87,7 +82,7 @@ export async function GET(
         MAX(started_at) as last_execution_at
       FROM workflow_executions
       WHERE workflow_id = ?
-    `).get(workflowId);
+    `, [workflowId]);
 
     const parsedWorkflow = {
       ...(workflow as Record<string, unknown>),
@@ -125,15 +120,9 @@ export async function PUT(
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check permissions
-    if (!['admin', 'agent'].includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'agent'] });
+    if (guard.response) return guard.response;
+    const { userId, role } = guard.auth!;
 
     const workflowId = parseInt(params.id);
     if (isNaN(workflowId)) {
@@ -141,20 +130,19 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const db = getConnection();
-
-    // Check if workflow exists
-    const existingWorkflow = db.prepare('SELECT id, created_by FROM workflows WHERE id = ?').get(workflowId);
+// Check if workflow exists
+    const existingWorkflow = await executeQueryOne('SELECT id, created_by FROM workflows WHERE id = ?', [workflowId]);
     if (!existingWorkflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }
 
     // Check ownership or admin rights
-    if (authResult.user.role !== 'admin' && (existingWorkflow as any).created_by !== authResult.user.id) {
+    if (role !== 'admin' && (existingWorkflow as any).created_by !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Start transaction
+    const db = getDatabase() as any;
     const updateWorkflow = db.transaction((data: any) => {
       // Update main workflow record
       const updateFields: string[] = [];
@@ -197,7 +185,7 @@ export async function PUT(
 
       if (updateFields.length > 0) {
         updateFields.push('updated_by = ?', 'updated_at = CURRENT_TIMESTAMP');
-        updateParams.push(authResult.user!.id);
+        updateParams.push(userId);
 
         db.prepare(`
           UPDATE workflows
@@ -230,7 +218,8 @@ export async function PUT(
           db.prepare('DELETE FROM workflow_steps WHERE workflow_id = ?').run(workflowId);
 
           // Insert new steps
-          const insertStep = db.prepare(`
+          data.nodes.forEach((node: any, index: number) => {
+            db.prepare(`
             INSERT INTO workflow_steps (
               workflow_id,
               step_order,
@@ -244,10 +233,7 @@ export async function PUT(
               is_optional,
               parent_step_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
-
-          data.nodes.forEach((node: any, index: number) => {
-            insertStep.run(
+          `).run(
               workflowId,
               index,
               node.type,
@@ -263,8 +249,7 @@ export async function PUT(
               node.retryConfig?.maxAttempts || 3,
               node.retryConfig?.initialDelay ? Math.round(node.retryConfig.initialDelay / 60000) : 5,
               node.isOptional ? 1 : 0,
-              null
-            );
+              null);
           });
         }
       }
@@ -275,7 +260,7 @@ export async function PUT(
     updateWorkflow(body);
 
     // Fetch updated workflow
-    const updatedWorkflow = db.prepare(`
+    const updatedWorkflow = await executeQueryOne(`
       SELECT
         w.*,
         wd.steps_json,
@@ -286,7 +271,7 @@ export async function PUT(
       LEFT JOIN users u ON w.created_by = u.id
       LEFT JOIN users u2 ON w.updated_by = u2.id
       WHERE w.id = ?
-    `).get(workflowId);
+    `, [workflowId]);
 
     const parsedWorkflow = {
       ...(updatedWorkflow as Record<string, unknown>),
@@ -322,35 +307,25 @@ export async function DELETE(
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check permissions
-    if (!['admin'].includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guardDel = requireTenantUserContext(request, { requireRoles: ['admin'] });
+    if (guardDel.response) return guardDel.response;
 
     const workflowId = parseInt(params.id);
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
-
-    const db = getConnection();
-
-    // Check if workflow exists
-    const workflow = db.prepare('SELECT id, name FROM workflows WHERE id = ?').get(workflowId) as { id: number; name: string } | undefined;
+// Check if workflow exists
+    const workflow = await executeQueryOne<{ id: number; name: string }>('SELECT id, name FROM workflows WHERE id = ?', [workflowId]);
     if (!workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }
 
     // Check if workflow has active executions
-    const activeExecutions = db.prepare(`
+    const activeExecutions = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM workflow_executions
       WHERE workflow_id = ? AND status IN ('pending', 'running', 'waiting_approval', 'waiting_input', 'paused')
-    `).get(workflowId) as { count: number };
+    `, [workflowId]) || { count: 0 };
 
     if (activeExecutions.count > 0) {
       return NextResponse.json(
@@ -363,14 +338,15 @@ export async function DELETE(
     }
 
     // Start transaction to delete workflow and related data
-    const deleteWorkflow = db.transaction(() => {
+    const dbDel = getDatabase() as any;
+    const deleteWorkflow = dbDel.transaction(() => {
       // Delete in correct order due to foreign key constraints
-      db.prepare('DELETE FROM workflow_step_executions WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)').run(workflowId);
-      db.prepare('DELETE FROM workflow_approvals WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)').run(workflowId);
-      db.prepare('DELETE FROM workflow_executions WHERE workflow_id = ?').run(workflowId);
-      db.prepare('DELETE FROM workflow_steps WHERE workflow_id = ?').run(workflowId);
-      db.prepare('DELETE FROM workflow_definitions WHERE id = ?').run(workflowId);
-      db.prepare('DELETE FROM workflows WHERE id = ?').run(workflowId);
+      dbDel.prepare('DELETE FROM workflow_step_executions WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)').run(workflowId);
+      dbDel.prepare('DELETE FROM workflow_approvals WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)').run(workflowId);
+      dbDel.prepare('DELETE FROM workflow_executions WHERE workflow_id = ?').run(workflowId);
+      dbDel.prepare('DELETE FROM workflow_steps WHERE workflow_id = ?').run(workflowId);
+      dbDel.prepare('DELETE FROM workflow_definitions WHERE id = ?').run(workflowId);
+      dbDel.prepare('DELETE FROM workflows WHERE id = ?').run(workflowId);
     });
 
     deleteWorkflow();

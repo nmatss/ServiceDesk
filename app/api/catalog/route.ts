@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 import { jsonWithCache } from '@/lib/api/cache-headers'
@@ -21,28 +21,20 @@ const catalogItemSchema = z.object({
   short_description: z.string().optional(),
   description: z.string().optional(),
   category_id: z.number().int().positive(),
-  icon: z.string().default('inbox'),
+  icon: z.string().default('document'),
   image_url: z.string().url().optional(),
   display_order: z.number().int().default(0),
   form_schema: z.record(z.string(), z.any()).optional(),
   default_priority_id: z.number().int().positive().optional(),
   default_category_id: z.number().int().positive().optional(),
   sla_policy_id: z.number().int().positive().optional(),
-  estimated_fulfillment_time: z.number().int().positive().optional(),
+  estimated_time_minutes: z.number().int().positive().optional(),
   fulfillment_team_id: z.number().int().positive().optional(),
   requires_approval: z.boolean().default(false),
-  approval_workflow_id: z.number().int().positive().optional(),
-  auto_approve_roles: z.array(z.string()).optional(),
-  cost_type: z.enum(['free', 'fixed', 'variable', 'quote']).default('free'),
-  base_cost: z.number().default(0),
-  cost_currency: z.string().default('BRL'),
-  is_public: z.boolean().default(true),
-  is_featured: z.boolean().default(false),
+  cost: z.string().optional(),
+  is_published: z.boolean().default(true),
   is_active: z.boolean().default(true),
-  available_from: z.string().optional(),
-  available_until: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  keywords: z.string().optional()
 })
 
 const serviceRequestSchema = z.object({
@@ -66,11 +58,12 @@ const querySchema = z.object({
 /**
  * Generate unique service request number
  */
-function generateRequestNumber(db: ReturnType<typeof getDatabase>): string {
-  const result = db.prepare(
+async function generateRequestNumber(): Promise<string> {
+  const result = await executeQueryOne<{ max_num: number | null }>(
     `SELECT MAX(CAST(SUBSTR(request_number, 4) AS INTEGER)) as max_num
-     FROM service_requests WHERE request_number LIKE 'SR-%'`
-  ).get() as { max_num: number | null }
+     FROM service_requests WHERE request_number LIKE 'SR-%'`,
+    []
+  )
 
   const nextNum = (result?.max_num || 0) + 1
   return `SR-${String(nextNum).padStart(5, '0')}`
@@ -85,34 +78,18 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
+
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
 
-    // Check if authenticated (some catalog items may be public)
-    let organizationId = 1 // Default for public access
-    let isAuthenticated = false
-
-    try {
-      const auth = await verifyAuth(request)
-      if (auth.authenticated && auth.user) {
-        organizationId = auth.user.organization_id
-        isAuthenticated = true
-      }
-    } catch {
-      // Continue with public access
-    }
-
-    const db = getDatabase()
     const offset = (params.page - 1) * params.limit
 
     // Build query
     let whereClause = 'WHERE sc.organization_id = ?'
     const queryParams: (string | number | boolean)[] = [organizationId]
-
-    // Non-authenticated users can only see public items
-    if (!isAuthenticated) {
-      whereClause += ' AND sc.is_public = 1 AND sc.is_active = 1'
-    }
 
     if (params.search) {
       whereClause += ` AND (sc.name LIKE ? OR sc.short_description LIKE ? OR sc.keywords LIKE ?)`
@@ -141,13 +118,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count
-    const countResult = db.prepare(
-      `SELECT COUNT(*) as total FROM service_catalog_items sc ${whereClause}`
-    ).get(...queryParams) as { total: number }
+    const countResult = await executeQueryOne<{ total: number }>(
+      `SELECT COUNT(*) as total FROM service_catalog_items sc ${whereClause}`,
+      queryParams
+    )
 
     // Get catalog items with categories
-    const items = db.prepare(`
-      SELECT
+    const items = await executeQuery<any>(
+      `SELECT
         sc.*,
         cat.name as category_name,
         cat.slug as category_slug,
@@ -156,27 +134,29 @@ export async function GET(request: NextRequest) {
       FROM service_catalog_items sc
       LEFT JOIN service_categories cat ON sc.category_id = cat.id
       ${whereClause}
-      ORDER BY sc.is_featured DESC, sc.display_order ASC, sc.name ASC
-      LIMIT ? OFFSET ?
-    `).all(...queryParams, params.limit, offset)
+      ORDER BY sc.display_order ASC, sc.name ASC
+      LIMIT ? OFFSET ?`,
+      [...queryParams, params.limit, offset]
+    )
 
     // Get categories for filtering
-    const categories = db.prepare(`
-      SELECT id, name, slug, icon, color, description
+    const categories = await executeQuery<any>(
+      `SELECT id, name, slug, icon, color, description
       FROM service_categories
       WHERE organization_id = ? AND is_active = 1
-      ORDER BY display_order ASC, name ASC
-    `).all(organizationId)
+      ORDER BY display_order ASC, name ASC`,
+      [organizationId]
+    )
 
     return jsonWithCache({
       success: true,
       catalog_items: items,
       categories,
       pagination: {
-        total: countResult.total,
+        total: countResult?.total || 0,
         page: params.page,
         limit: params.limit,
-        total_pages: Math.ceil(countResult.total / params.limit)
+        total_pages: Math.ceil((countResult?.total || 0) / params.limit)
       }
     }, 'STATIC') // Cache for 10 minutes
   } catch (error) {
@@ -197,13 +177,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Only admins can create catalog items
-    if (auth.user.role !== 'admin') {
+    if (role !== 'admin') {
       return NextResponse.json(
         { success: false, error: 'Apenas administradores podem criar itens do catálogo' },
         { status: 403 }
@@ -213,12 +192,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = catalogItemSchema.parse(body)
 
-    const db = getDatabase()
-
     // Check if slug is unique
-    const existing = db.prepare(
-      `SELECT id FROM service_catalog_items WHERE slug = ? AND organization_id = ?`
-    ).get(data.slug, auth.user.organization_id)
+    const existing = await executeQueryOne<{ id: number }>(
+      `SELECT id FROM service_catalog_items WHERE slug = ? AND organization_id = ?`,
+      [data.slug, organizationId]
+    )
 
     if (existing) {
       return NextResponse.json(
@@ -227,55 +205,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = db.prepare(`
-      INSERT INTO service_catalog_items (
+    const result = await executeRun(
+      `INSERT INTO service_catalog_items (
         name, slug, short_description, description, category_id, organization_id,
         icon, image_url, display_order, form_schema, default_priority_id,
-        default_category_id, sla_policy_id, estimated_fulfillment_time,
-        fulfillment_team_id, requires_approval, approval_workflow_id,
-        auto_approve_roles, cost_type, base_cost, cost_currency, is_public,
-        is_featured, is_active, available_from, available_until, tags, keywords,
-        created_by
+        default_category_id, sla_policy_id, estimated_time_minutes,
+        fulfillment_team_id, requires_approval, cost,
+        is_published, is_active, tags, created_by
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-      )
-    `).run(
-      data.name,
-      data.slug,
-      data.short_description || null,
-      data.description || null,
-      data.category_id,
-      auth.user.organization_id,
-      data.icon,
-      data.image_url || null,
-      data.display_order,
-      data.form_schema ? JSON.stringify(data.form_schema) : null,
-      data.default_priority_id || null,
-      data.default_category_id || null,
-      data.sla_policy_id || null,
-      data.estimated_fulfillment_time || null,
-      data.fulfillment_team_id || null,
-      data.requires_approval ? 1 : 0,
-      data.approval_workflow_id || null,
-      data.auto_approve_roles ? JSON.stringify(data.auto_approve_roles) : null,
-      data.cost_type,
-      data.base_cost,
-      data.cost_currency,
-      data.is_public ? 1 : 0,
-      data.is_featured ? 1 : 0,
-      data.is_active ? 1 : 0,
-      data.available_from || null,
-      data.available_until || null,
-      data.tags ? JSON.stringify(data.tags) : null,
-      data.keywords || null,
-      auth.user.id
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )`,
+      [
+        data.name,
+        data.slug,
+        data.short_description || null,
+        data.description || null,
+        data.category_id,
+        organizationId,
+        data.icon,
+        data.image_url || null,
+        data.display_order,
+        data.form_schema ? JSON.stringify(data.form_schema) : null,
+        data.default_priority_id || null,
+        data.default_category_id || null,
+        data.sla_policy_id || null,
+        data.estimated_time_minutes || null,
+        data.fulfillment_team_id || null,
+        data.requires_approval ? 1 : 0,
+        data.cost || null,
+        data.is_published ? 1 : 0,
+        data.is_active ? 1 : 0,
+        data.tags ? JSON.stringify(data.tags) : null,
+        userId
+      ]
     )
 
-    const item = db.prepare(
-      `SELECT * FROM service_catalog_items WHERE id = ?`
-    ).get(result.lastInsertRowid)
+    const item = await executeQueryOne<any>(
+      `SELECT * FROM service_catalog_items WHERE id = ?`,
+      [result.lastInsertRowid]
+    )
 
-    logger.info(`Catalog item created: ${data.name} by user ${auth.user.id}`)
+    logger.info(`Catalog item created: ${data.name} by user ${userId}`)
 
     // Invalidate catalog cache
     await cacheInvalidation.catalog()

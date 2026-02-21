@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnection from '@/lib/db/connection';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import webpush from 'web-push';
 
@@ -16,15 +16,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only admin and agents can send push notifications
-    if (authResult.user.role !== 'admin' && authResult.user.role !== 'agent') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'agent'] });
+    if (guard.response) return guard.response;
 
     const body = await request.json();
     const { userId, userIds, title, body: messageBody, data, tag, icon, requireInteraction } = body;
@@ -54,10 +47,7 @@ export async function POST(request: NextRequest) {
       vapidPublicKey,
       vapidPrivateKey
     );
-
-    const db = dbConnection;
-
-    // Determine target users
+// Determine target users
     let targetUserIds: number[] = [];
     if (userId) {
       targetUserIds = [userId];
@@ -72,7 +62,13 @@ export async function POST(request: NextRequest) {
 
     // Get active push subscriptions for target users
     const placeholders = targetUserIds.map(() => '?').join(',');
-    const subscriptions = db.prepare(`
+    const subscriptions = await executeQuery<{
+      id: number;
+      user_id: number;
+      endpoint: string;
+      p256dh_key: string;
+      auth_key: string;
+    }>(`
       SELECT
         id,
         user_id,
@@ -82,13 +78,7 @@ export async function POST(request: NextRequest) {
       FROM push_subscriptions
       WHERE user_id IN (${placeholders})
         AND is_active = 1
-    `).all(...targetUserIds) as Array<{
-      id: number;
-      user_id: number;
-      endpoint: string;
-      p256dh_key: string;
-      auth_key: string;
-    }>;
+    `, targetUserIds);
 
     if (subscriptions.length === 0) {
       return NextResponse.json({
@@ -125,11 +115,11 @@ export async function POST(request: NextRequest) {
           await webpush.sendNotification(pushSubscription, payload);
 
           // Update last_used_at
-          db.prepare(`
+          await executeRun(`
             UPDATE push_subscriptions
             SET last_used_at = CURRENT_TIMESTAMP
             WHERE id = ?
-          `).run(subscription.id);
+          `, [subscription.id]);
 
           return { success: true, subscriptionId: subscription.id };
         } catch (error: any) {
@@ -137,12 +127,12 @@ export async function POST(request: NextRequest) {
 
           // If subscription is invalid (410 Gone), mark as inactive
           if (error.statusCode === 410) {
-            db.prepare(`
+            await executeRun(`
               UPDATE push_subscriptions
               SET is_active = 0,
                   updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
-            `).run(subscription.id);
+            `, [subscription.id]);
           }
 
           throw error;

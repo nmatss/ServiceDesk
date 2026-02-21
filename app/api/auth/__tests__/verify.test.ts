@@ -12,7 +12,7 @@
  * - User existence validation
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { GET as verifyGET, POST as verifyPOST } from '@/app/api/auth/verify/route';
 import {
   initTestDatabase,
@@ -259,6 +259,14 @@ describe('Auth Verify Routes', () => {
     });
 
     describe('Rate Limiting', () => {
+      beforeEach(() => {
+        process.env.ENABLE_RATE_LIMIT_TESTS = 'true';
+      });
+
+      afterEach(() => {
+        delete process.env.ENABLE_RATE_LIMIT_TESTS;
+      });
+
       it('should allow reasonable verification requests', async () => {
         const token = await generateTestToken(TEST_USERS.user.id);
 

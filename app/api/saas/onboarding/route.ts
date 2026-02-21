@@ -1,6 +1,7 @@
+import { logger } from '@/lib/monitoring/logger';
 import { NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-import { hashPassword } from '@/lib/auth/sqlite-auth';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { hashPassword } from '@/lib/auth/auth-service';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: Request) {
@@ -14,22 +15,19 @@ export async function POST(request: Request) {
         }
 
         // 2. Check if slug exists
-        const existingOrg = db.prepare('SELECT id FROM organizations WHERE slug = ?').get(slug);
+        const existingOrg = await executeQueryOne('SELECT id FROM organizations WHERE slug = ?', [slug]);
         if (existingOrg) {
             return NextResponse.json({ error: 'Organization slug already taken' }, { status: 409 });
         }
 
         // 3. Check if email exists
-        const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+        const existingUser = await executeQueryOne('SELECT id FROM users WHERE email = ?', [adminEmail]);
         if (existingUser) {
             return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
         }
 
         // 4. Create Organization
-        const insertOrg = db.prepare(`
-      INSERT INTO organizations (name, slug, subscription_plan, subscription_status, max_users, max_tickets_per_month, is_active, settings)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+        
 
         const settings = JSON.stringify({
             branding: {
@@ -37,36 +35,36 @@ export async function POST(request: Request) {
             }
         });
 
-        const orgResult = insertOrg.run(
-            companyName,
+        const orgResult = await executeRun(`
+      INSERT INTO organizations (name, slug, subscription_plan, subscription_status, max_users, max_tickets_per_month, is_active, settings)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [companyName,
             slug,
             'trial', // Default plan
             'active',
             5, // Default max users for trial
             100, // Default max tickets
             1, // Active
-            settings
-        );
+            settings]);
 
         const orgId = orgResult.lastInsertRowid as number;
 
         // 5. Create Admin User
         const hashedPassword = await hashPassword(adminPassword);
 
-        const insertUser = db.prepare(`
+        
+
+        const userResult = await executeRun(`
       INSERT INTO users (name, email, password_hash, role, organization_id, is_active, is_email_verified, failed_login_attempts, two_factor_enabled, timezone, language, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'UTC', 'en', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `);
-
-        const userResult = insertUser.run(
-            adminName,
+    `, [adminName,
             adminEmail,
             hashedPassword,
             'admin',
             orgId,
             1, // Active
             0 // Not verified yet
-        );
+        ]);
 
         return NextResponse.json({
             success: true,
@@ -76,7 +74,7 @@ export async function POST(request: Request) {
         });
 
     } catch (error) {
-        console.error('Onboarding error:', error);
+        logger.error('Onboarding error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

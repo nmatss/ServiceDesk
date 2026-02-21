@@ -4,9 +4,10 @@
  * Provides real-time statistics for the agent workspace.
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQueryOne } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -15,38 +16,35 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
-
-    const db = getDatabase()
-    const today = new Date().toISOString().split('T')[0]
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId } = guard.auth!
+const today = new Date().toISOString().split('T')[0]
 
     // Agent's assigned open tickets
-    const assignedOpen = db.prepare(`
+    const assignedOpen = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND organization_id = ?
       AND status IN ('open', 'in_progress')
-    `).get(auth.user.id, auth.user.organization_id) as { count: number }
+    `, [userId, organizationId]) || { count: 0 }
 
     // Agent's pending tickets
-    const assignedPending = db.prepare(`
+    const assignedPending = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND organization_id = ?
       AND status = 'pending'
-    `).get(auth.user.id, auth.user.organization_id) as { count: number }
+    `, [userId, organizationId]) || { count: 0 }
 
     // Resolved today by agent
-    const resolvedToday = db.prepare(`
+    const resolvedToday = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND organization_id = ?
       AND status IN ('resolved', 'closed')
       AND date(resolved_at) = date('now')
-    `).get(auth.user.id, auth.user.organization_id) as { count: number }
+    `, [userId, organizationId]) || { count: 0 }
 
     // Average response time (last 30 days)
-    const avgResponse = db.prepare(`
+    const avgResponse = await executeQueryOne<{ avg_minutes: number | null }>(`
       SELECT AVG(
         (julianday(first_response_at) - julianday(created_at)) * 24 * 60
       ) as avg_minutes
@@ -54,10 +52,10 @@ export async function GET(request: NextRequest) {
       WHERE assigned_to = ? AND organization_id = ?
       AND first_response_at IS NOT NULL
       AND created_at >= date('now', '-30 days')
-    `).get(auth.user.id, auth.user.organization_id) as { avg_minutes: number | null }
+    `, [userId, organizationId]) || { avg_minutes: null }
 
     // SLA compliance (last 30 days)
-    const slaMetrics = db.prepare(`
+    const slaMetrics = await executeQueryOne<{ total: number; met: number }>(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN response_breach = 0 AND resolution_breach = 0 THEN 1 ELSE 0 END) as met
@@ -65,27 +63,27 @@ export async function GET(request: NextRequest) {
       LEFT JOIN tickets t ON st.ticket_id = t.id
       WHERE t.assigned_to = ? AND t.organization_id = ?
       AND st.created_at >= date('now', '-30 days')
-    `).get(auth.user.id, auth.user.organization_id) as { total: number; met: number }
+    `, [userId, organizationId]) || { total: 0, met: 0 }
 
     const slaCompliance = slaMetrics.total > 0
       ? Math.round((slaMetrics.met / slaMetrics.total) * 100)
       : 100
 
     // Queue stats
-    const unassigned = db.prepare(`
+    const unassigned = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND assigned_to IS NULL
       AND status IN ('open', 'in_progress')
-    `).get(auth.user.organization_id) as { count: number }
+    `, [organizationId]) || { count: 0 }
 
-    const myQueue = db.prepare(`
+    const myQueue = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND organization_id = ?
       AND status IN ('open', 'in_progress', 'pending')
-    `).get(auth.user.id, auth.user.organization_id) as { count: number }
+    `, [userId, organizationId]) || { count: 0 }
 
     // SLA at risk (within 30 minutes of deadline)
-    const slaAtRisk = db.prepare(`
+    const slaAtRisk = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       WHERE t.organization_id = ?
@@ -94,16 +92,16 @@ export async function GET(request: NextRequest) {
         (st.response_deadline IS NOT NULL AND st.response_deadline <= datetime('now', '+30 minutes') AND st.response_breach = 0)
         OR (st.resolution_deadline IS NOT NULL AND st.resolution_deadline <= datetime('now', '+30 minutes') AND st.resolution_breach = 0)
       )
-    `).get(auth.user.organization_id) as { count: number }
+    `, [organizationId]) || { count: 0 }
 
     // Breached SLA
-    const breached = db.prepare(`
+    const breached = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       WHERE t.organization_id = ?
       AND t.status IN ('open', 'in_progress')
       AND (st.response_breach = 1 OR st.resolution_breach = 1)
-    `).get(auth.user.organization_id) as { count: number }
+    `, [organizationId]) || { count: 0 }
 
     return NextResponse.json({
       success: true,
@@ -124,7 +122,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching agent stats:', error)
+    logger.error('Error fetching agent stats:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao buscar estatísticas' },
       { status: 500 }

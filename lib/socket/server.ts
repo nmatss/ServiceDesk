@@ -1,7 +1,7 @@
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
 import { getDb } from '@/lib/db'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { verifyToken } from '@/lib/auth/auth-service'
 import logger from '../monitoring/structured-logger';
 
 // Extended Socket type with custom properties

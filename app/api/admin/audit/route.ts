@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun, RunResult } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -12,12 +12,6 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
-    }
-
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -28,6 +22,12 @@ export async function GET(request: NextRequest) {
     const user = await verifyToken(token);
     if (!user) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
     }
 
     // Apenas admins podem acessar logs de auditoria
@@ -41,19 +41,26 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = tenantContext.id;
+    const auditColumns = await executeQuery<{ name?: string }>(`PRAGMA table_info(audit_logs)`);
+    const hasResourceType = auditColumns.some((column) => column.name === 'resource_type');
+    const hasResourceId = auditColumns.some((column) => column.name === 'resource_id');
+    const resourceTypeExpr = hasResourceType ? 'al.resource_type' : 'al.entity_type';
+    const resourceIdExpr = hasResourceId ? 'al.resource_id' : 'al.entity_id';
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
     const action = searchParams.get('action');
-    const resourceType = searchParams.get('resource_type');
+    const resourceType = searchParams.get('resource_type') || searchParams.get('entity_type');
     const resourceId = searchParams.get('resource_id');
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const explicitOffset = searchParams.get('offset');
+    const page = parseInt(searchParams.get('page') || '1');
+    const offset = explicitOffset ? parseInt(explicitOffset) : Math.max(0, (page - 1) * limit);
 
     // FILTRAR POR TENANT - apenas logs de usuários do tenant
-    let whereClause = 'WHERE u.organization_id = ?';
+    let whereClause = 'WHERE COALESCE(u.organization_id, u.tenant_id) = ?';
     const params: any[] = [tenantId];
 
     // Filtrar por usuário
@@ -70,13 +77,14 @@ export async function GET(request: NextRequest) {
 
     // Filtrar por tipo de recurso
     if (resourceType) {
-      whereClause += ' AND al.resource_type = ?';
+      whereClause += ` AND (${resourceTypeExpr} = ? OR al.entity_type = ?)`;
+      params.push(resourceType);
       params.push(resourceType);
     }
 
     // Filtrar por ID do recurso
     if (resourceId) {
-      whereClause += ' AND al.resource_id = ?';
+      whereClause += ` AND ${resourceIdExpr} = ?`;
       params.push(parseInt(resourceId));
     }
 
@@ -93,7 +101,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar logs de auditoria FILTRADOS POR TENANT
-    const auditLogs = db.prepare(`
+    const auditLogs = await executeQuery(`
       SELECT
         al.*,
         u.name as user_name,
@@ -103,18 +111,18 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY al.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset);
+    `, [...params, limit, offset]);
 
     // Contar total FILTRADO POR TENANT
-    const { total } = db.prepare(`
+    const { total } = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM audit_logs al
       LEFT JOIN users u ON al.user_id = u.id
       ${whereClause}
-    `).get(...params) as { total: number };
+    `, params) || { total: 0 };
 
     // Estatísticas por ação FILTRADAS POR TENANT
-    const actionStats = db.prepare(`
+    const actionStats = await executeQuery(`
       SELECT
         al.action,
         COUNT(*) as count
@@ -123,22 +131,22 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       GROUP BY al.action
       ORDER BY count DESC
-    `).all(...params);
+    `, params);
 
     // Estatísticas por tipo de recurso FILTRADAS POR TENANT
-    const resourceStats = db.prepare(`
+    const resourceStats = await executeQuery(`
       SELECT
-        al.resource_type,
+        ${resourceTypeExpr} as resource_type,
         COUNT(*) as count
       FROM audit_logs al
       LEFT JOIN users u ON al.user_id = u.id
       ${whereClause}
-      GROUP BY al.resource_type
+      GROUP BY ${resourceTypeExpr}
       ORDER BY count DESC
-    `).all(...params);
+    `, params);
 
     // Usuários mais ativos FILTRADOS POR TENANT
-    const activeUsers = db.prepare(`
+    const activeUsers = await executeQuery(`
       SELECT
         u.name,
         u.email,
@@ -149,7 +157,7 @@ export async function GET(request: NextRequest) {
       GROUP BY u.id, u.name, u.email
       ORDER BY action_count DESC
       LIMIT 10
-    `).all(...params);
+    `, params);
 
     return NextResponse.json({
       success: true,
@@ -180,12 +188,6 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
-    }
-
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -196,6 +198,12 @@ export async function POST(request: NextRequest) {
     const user = await verifyToken(token);
     if (!user) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
     }
 
     // Apenas admins podem criar logs manuais
@@ -231,27 +239,39 @@ export async function POST(request: NextRequest) {
                'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Criar log de auditoria
-    const insertQuery = db.prepare(`
-      INSERT INTO audit_logs (
-        user_id, action, resource_type, resource_id,
-        old_values, new_values, ip_address, user_agent
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = insertQuery.run(
-      user.id,
-      action,
-      resource_type,
-      resource_id || null,
-      old_values ? JSON.stringify(old_values) : null,
-      new_values ? JSON.stringify(new_values) : null,
-      ip,
-      userAgent
-    );
+    let result: RunResult;
+    try {
+      result = await executeRun(`
+        INSERT INTO audit_logs (
+          user_id, action, resource_type, resource_id,
+          old_values, new_values, ip_address, user_agent
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [user.id,
+        action,
+        resource_type,
+        resource_id || null,
+        old_values ? JSON.stringify(old_values) : null,
+        new_values ? JSON.stringify(new_values) : null,
+        ip,
+        userAgent]);
+    } catch {
+      result = await executeRun(`
+        INSERT INTO audit_logs (
+          user_id, action, entity_type, entity_id,
+          old_values, new_values, ip_address, user_agent
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [user.id,
+        action,
+        resource_type,
+        resource_id || null,
+        old_values ? JSON.stringify(old_values) : null,
+        new_values ? JSON.stringify(new_values) : null,
+        ip,
+        userAgent]);
+    }
 
     // Buscar log criado
-    const newLog = db.prepare(`
+    const newLog = await executeQueryOne(`
       SELECT
         al.*,
         u.name as user_name,
@@ -259,7 +279,7 @@ export async function POST(request: NextRequest) {
       FROM audit_logs al
       LEFT JOIN users u ON al.user_id = u.id
       WHERE al.id = ?
-    `).get(result.lastInsertRowid);
+    `, [result.lastInsertRowid]);
 
     return NextResponse.json({
       success: true,
@@ -280,12 +300,6 @@ export async function DELETE(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
-    }
-
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -296,6 +310,12 @@ export async function DELETE(request: NextRequest) {
     const user = await verifyToken(token);
     if (!user) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    // Verificar tenant context
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
     }
 
     // Apenas admins podem limpar logs
@@ -325,31 +345,30 @@ export async function DELETE(request: NextRequest) {
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
     // Contar logs que serão excluídos DO TENANT
-    const { count: _count } = db.prepare(`
+    const { count: _count } = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM audit_logs al
       LEFT JOIN users u ON al.user_id = u.id
       WHERE al.created_at < ? AND u.organization_id = ?
-    `).get(cutoffDate.toISOString(), tenantId) as { count: number };
+    `, [cutoffDate.toISOString(), tenantId]) || { count: 0 };
 
     // Excluir logs antigos APENAS DO TENANT
-    const deleteResult = db.prepare(`
+    const deleteResult = await executeRun(`
       DELETE FROM audit_logs
       WHERE id IN (
         SELECT al.id FROM audit_logs al
         LEFT JOIN users u ON al.user_id = u.id
         WHERE al.created_at < ? AND u.organization_id = ?
       )
-    `).run(cutoffDate.toISOString(), tenantId);
+    `, [cutoffDate.toISOString(), tenantId]);
 
     // Registrar a limpeza
-    db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (
         user_id, action, resource_type, resource_id,
         new_values, ip_address, user_agent
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      user.id,
+    `, [user.id,
       'cleanup',
       'audit_logs',
       null,
@@ -359,8 +378,7 @@ export async function DELETE(request: NextRequest) {
         cutoff_date: cutoffDate.toISOString()
       }),
       request.headers.get('x-forwarded-for') || 'unknown',
-      request.headers.get('user-agent') || 'unknown'
-    );
+      request.headers.get('user-agent') || 'unknown']);
 
     return NextResponse.json({
       success: true,

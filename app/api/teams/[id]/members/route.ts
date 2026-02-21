@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
-import { getCurrentTenantId } from '@/lib/tenant/manager'
-import db from '@/lib/db/connection'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -14,7 +14,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const tenantManager = getTenantManager()
     const teamId = parseInt(params.id)
 
@@ -22,6 +25,19 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Invalid team ID' },
         { status: 400 }
+      )
+    }
+
+    // Enforce tenant ownership before reading members list.
+    const team = await executeQueryOne(
+      'SELECT id FROM teams WHERE id = ? AND tenant_id = ?',
+      [teamId, tenantId]
+    )
+
+    if (!team) {
+      return NextResponse.json(
+        { success: false, error: 'Team not found' },
+        { status: 404 }
       )
     }
 
@@ -49,7 +65,12 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const tenantManager = getTenantManager()
     const teamId = parseInt(params.id)
     const data = await request.json()
@@ -68,9 +89,10 @@ export async function POST(
     }
 
     // Verify team belongs to tenant
-    const team = db.prepare(
-      'SELECT id FROM teams WHERE id = ? AND tenant_id = ?'
-    ).get(teamId, tenantId)
+    const team = await executeQueryOne(
+      'SELECT id FROM teams WHERE id = ? AND tenant_id = ?',
+      [teamId, tenantId]
+    )
 
     if (!team) {
       return NextResponse.json(
@@ -80,9 +102,10 @@ export async function POST(
     }
 
     // Verify user belongs to tenant
-    const user = db.prepare(
-      'SELECT id FROM users WHERE id = ? AND tenant_id = ?'
-    ).get(data.user_id, tenantId)
+    const user = await executeQueryOne(
+      'SELECT id FROM users WHERE id = ? AND tenant_id = ?',
+      [data.user_id, tenantId]
+    )
 
     if (!user) {
       return NextResponse.json(
@@ -96,16 +119,16 @@ export async function POST(
 
     // Update user specializations if provided
     if (data.specializations) {
-      db.prepare(`
+      await executeRun(`
         UPDATE team_members SET
           specializations = ?,
           updated_at = CURRENT_TIMESTAMP
         WHERE team_id = ? AND user_id = ?
-      `).run(
+      `, [
         JSON.stringify(data.specializations),
         teamId,
         data.user_id
-      )
+      ])
     }
 
     return NextResponse.json({
@@ -130,7 +153,12 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantId = guard.context!.tenant.id
+
     const teamId = parseInt(params.id)
     const data = await request.json()
     if (isNaN(teamId)) {
@@ -148,7 +176,7 @@ export async function PUT(
     }
 
     // Update team member
-    const updateMember = db.prepare(`
+    const updateMemberQuery = `
       UPDATE team_members SET
         role = COALESCE(?, role),
         specializations = COALESCE(?, specializations),
@@ -156,9 +184,9 @@ export async function PUT(
         workload_percentage = COALESCE(?, workload_percentage)
       WHERE team_id = ? AND user_id = ?
       AND team_id IN (SELECT id FROM teams WHERE tenant_id = ?)
-    `)
+    `
 
-    const result = updateMember.run(
+    const result = await executeRun(updateMemberQuery, [
       data.role,
       data.specializations ? JSON.stringify(data.specializations) : null,
       data.availability_status,
@@ -166,7 +194,7 @@ export async function PUT(
       teamId,
       data.user_id,
       tenantId
-    )
+    ])
 
     if (result.changes === 0) {
       return NextResponse.json(

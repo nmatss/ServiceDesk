@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger'
+import toast from 'react-hot-toast'
 import { TagIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import PageHeader from '@/components/ui/PageHeader'
 import StatsCard, { StatsGrid } from '@/components/ui/StatsCard'
@@ -65,11 +66,11 @@ export default function AdminCategoriesPage() {
         handleCloseModal()
       } else {
         const error = await response.json()
-        alert(error.error || 'Erro ao salvar categoria')
+        toast.error(error.error || 'Erro ao salvar categoria')
       }
     } catch (error) {
       logger.error('Erro ao salvar categoria', error)
-      alert('Erro ao salvar categoria')
+      toast.error('Erro ao salvar categoria')
     }
   }
 
@@ -85,11 +86,11 @@ export default function AdminCategoriesPage() {
         await fetchCategories()
       } else {
         const error = await response.json()
-        alert(error.error || 'Erro ao deletar categoria')
+        toast.error(error.error || 'Erro ao deletar categoria')
       }
     } catch (error) {
       logger.error('Erro ao deletar categoria', error)
-      alert('Erro ao deletar categoria')
+      toast.error('Erro ao deletar categoria')
     }
   }
 

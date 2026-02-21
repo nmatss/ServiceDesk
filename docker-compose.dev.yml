@@ -2,8 +2,6 @@
 # ServiceDesk Development Docker Compose
 # Optimized for local development with hot reload and debugging tools
 # ==============================================================================
-version: '3.8'
-
 services:
   # ==============================================================================
   # PostgreSQL Database (Development)
@@ -19,7 +17,7 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
-      - ./lib/db/migrations:/docker-entrypoint-initdb.d:ro
+      - ./lib/db/schema.postgres.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -37,13 +35,13 @@ services:
     image: redis:7-alpine
     container_name: servicedesk-redis-dev
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass devpassword
     volumes:
       - redis_dev_data:/data
     ports:
       - "${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "devpassword", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,12 +70,13 @@ services:
       # Application
       NODE_ENV: development
       PORT: 3000
+      DB_TYPE: postgresql
 
       # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-servicedesk}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-servicedesk_dev}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-servicedesk}:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/${POSTGRES_DB:-servicedesk_dev}
 
       # Redis
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:devpassword@redis:6379
 
       # Authentication
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
@@ -190,7 +189,7 @@ services:
     depends_on:
       - redis
     environment:
-      REDIS_HOSTS: local:redis:6379
+      REDIS_HOSTS: local:redis:6379:0:devpassword
     ports:
       - "${REDIS_COMMANDER_PORT:-8081}:8081"
     networks:

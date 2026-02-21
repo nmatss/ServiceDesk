@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ssoManager from '@/lib/auth/sso-manager';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**

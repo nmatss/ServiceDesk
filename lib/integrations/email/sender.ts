@@ -14,7 +14,7 @@
 
 import * as nodemailer from 'nodemailer';
 import type { Transporter, SendMailOptions } from 'nodemailer';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun, getDatabase, sqlNow, sqlDateSub } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { templateEngine, TemplateData } from './templates';
 
@@ -226,13 +226,39 @@ export class EmailSender {
         metadata: options.metadata ? JSON.stringify(options.metadata) : undefined,
       };
 
-      const result = db.prepare(`
-        INSERT INTO email_queue (
-          tenant_id, to_email, cc_emails, bcc_emails, subject,
-          html_content, text_content, attachments, priority,
-          attempts, max_attempts, status, metadata, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(
+      // Detect column names dynamically for backwards compatibility
+      const db = getDatabase();
+      const dbType = db.getType();
+      let columnSet: Set<string>;
+
+      if (dbType === 'sqlite') {
+        const tableInfo = await executeQuery<{ name: string }>('PRAGMA table_info(email_queue)');
+        columnSet = new Set(tableInfo.map((column) => column.name).filter(Boolean));
+      } else {
+        const pgCols = await executeQuery<{ column_name: string }>(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = 'email_queue'`
+        );
+        columnSet = new Set(pgCols.map((c) => c.column_name));
+      }
+
+      const toColumn = columnSet.has('to_email') ? 'to_email' : 'to_address';
+      const ccColumn = columnSet.has('cc_emails') ? 'cc_emails' : 'cc_address';
+      const bccColumn = columnSet.has('bcc_emails') ? 'bcc_emails' : 'bcc_address';
+      const hasTemplateType = columnSet.has('template_type');
+      const hasTemplateData = columnSet.has('template_data');
+      const hasMetadata = columnSet.has('metadata');
+
+      const insertColumns = [
+        'tenant_id',
+        toColumn,
+        ccColumn,
+        bccColumn,
+        'subject',
+        'html_content',
+        'text_content',
+      ];
+
+      const insertValues: any[] = [
         emailData.tenantId,
         emailData.to,
         emailData.cc || null,
@@ -240,17 +266,48 @@ export class EmailSender {
         emailData.subject,
         emailData.htmlContent,
         emailData.textContent,
+      ];
+
+      if (hasTemplateType) {
+        insertColumns.push('template_type');
+        insertValues.push('custom');
+      }
+
+      if (hasTemplateData) {
+        insertColumns.push('template_data');
+        insertValues.push(null);
+      }
+
+      insertColumns.push('attachments', 'priority', 'attempts', 'max_attempts', 'status');
+      const priorityValue = hasTemplateType && emailData.priority === 'normal'
+        ? 'medium'
+        : emailData.priority;
+      insertValues.push(
         emailData.attachments || null,
-        emailData.priority,
+        priorityValue,
         emailData.attempts,
         emailData.maxAttempts,
-        emailData.status,
-        emailData.metadata || null
+        emailData.status
       );
+
+      if (hasMetadata) {
+        insertColumns.push('metadata');
+        insertValues.push(emailData.metadata || null);
+      }
+
+      const placeholderSql = insertColumns.map(() => '?').join(', ');
+      const sql = `
+        INSERT INTO email_queue (
+          ${insertColumns.join(', ')},
+          created_at
+        ) VALUES (${placeholderSql}, ${sqlNow()})
+      `;
+
+      const result = await executeRun(sql, insertValues);
 
       logger.debug('Email queued', { queueId: result.lastInsertRowid });
 
-      return result.lastInsertRowid as number;
+      return result.lastInsertRowid ?? null;
     } catch (error) {
       logger.error('Failed to queue email', { error, options });
       return null;
@@ -305,20 +362,21 @@ export class EmailSender {
 
     try {
       // Get pending emails
-      const emails = db.prepare(`
-        SELECT * FROM email_queue
-        WHERE status = 'pending'
-          AND attempts < max_attempts
-          AND (scheduled_at IS NULL OR scheduled_at <= datetime('now'))
-        ORDER BY
-          CASE priority
-            WHEN 'high' THEN 1
-            WHEN 'normal' THEN 2
-            WHEN 'low' THEN 3
-          END,
-          created_at ASC
-        LIMIT ?
-      `).all(limit) as any[];
+      const emails = await executeQuery<any>(
+        `SELECT * FROM email_queue
+         WHERE status = 'pending'
+           AND attempts < max_attempts
+           AND (scheduled_at IS NULL OR scheduled_at <= ${sqlNow()})
+         ORDER BY
+           CASE priority
+             WHEN 'high' THEN 1
+             WHEN 'normal' THEN 2
+             WHEN 'low' THEN 3
+           END,
+           created_at ASC
+         LIMIT ?`,
+        [limit]
+      );
 
       logger.debug(`Processing ${emails.length} queued emails`);
 
@@ -341,17 +399,21 @@ export class EmailSender {
   private async processQueuedEmail(email: any): Promise<void> {
     try {
       // Update status to sending
-      db.prepare(`
-        UPDATE email_queue
-        SET status = 'sending', attempts = attempts + 1, updated_at = datetime('now')
-        WHERE id = ?
-      `).run(email.id);
+      await executeRun(
+        `UPDATE email_queue
+         SET status = 'sending', attempts = attempts + 1, updated_at = ${sqlNow()}
+         WHERE id = ?`,
+        [email.id]
+      );
 
       // Prepare email options
+      const toValue = email.to_email || email.to_address || '';
+      const ccValue = email.cc_emails || email.cc_address;
+      const bccValue = email.bcc_emails || email.bcc_address;
       const options: EmailOptions = {
-        to: email.to_email.split(','),
-        cc: email.cc_emails ? email.cc_emails.split(',') : undefined,
-        bcc: email.bcc_emails ? email.bcc_emails.split(',') : undefined,
+        to: String(toValue).split(','),
+        cc: ccValue ? String(ccValue).split(',') : undefined,
+        bcc: bccValue ? String(bccValue).split(',') : undefined,
         subject: email.subject,
         html: email.html_content,
         text: email.text_content,
@@ -364,22 +426,24 @@ export class EmailSender {
 
       if (result.success) {
         // Mark as sent
-        db.prepare(`
-          UPDATE email_queue
-          SET status = 'sent', sent_at = datetime('now'), updated_at = datetime('now')
-          WHERE id = ?
-        `).run(email.id);
+        await executeRun(
+          `UPDATE email_queue
+           SET status = 'sent', sent_at = ${sqlNow()}, updated_at = ${sqlNow()}
+           WHERE id = ?`,
+          [email.id]
+        );
 
         logger.info('Queued email sent', { queueId: email.id, messageId: result.messageId });
       } else {
         // Check if max attempts reached
         const newStatus = email.attempts >= email.max_attempts ? 'failed' : 'pending';
 
-        db.prepare(`
-          UPDATE email_queue
-          SET status = ?, error_message = ?, updated_at = datetime('now')
-          WHERE id = ?
-        `).run(newStatus, result.error || 'Send failed', email.id);
+        await executeRun(
+          `UPDATE email_queue
+           SET status = ?, error_message = ?, updated_at = ${sqlNow()}
+           WHERE id = ?`,
+          [newStatus, result.error || 'Send failed', email.id]
+        );
 
         logger.warn('Queued email send failed', {
           queueId: email.id,
@@ -393,14 +457,11 @@ export class EmailSender {
       // Mark as failed if max attempts reached
       const newStatus = email.attempts >= email.max_attempts ? 'failed' : 'pending';
 
-      db.prepare(`
-        UPDATE email_queue
-        SET status = ?, error_message = ?, updated_at = datetime('now')
-        WHERE id = ?
-      `).run(
-        newStatus,
-        error instanceof Error ? error.message : 'Unknown error',
-        email.id
+      await executeRun(
+        `UPDATE email_queue
+         SET status = ?, error_message = ?, updated_at = ${sqlNow()}
+         WHERE id = ?`,
+        [newStatus, error instanceof Error ? error.message : 'Unknown error', email.id]
       );
     }
   }
@@ -438,8 +499,8 @@ export class EmailSender {
       const whereClause = tenantId ? 'WHERE tenant_id = ?' : '';
       const params = tenantId ? [tenantId] : [];
 
-      const stats = db.prepare(`
-        SELECT
+      const stats = await executeQueryOne<any>(
+        `SELECT
           COUNT(*) as total,
           COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
           COUNT(CASE WHEN status = 'sending' THEN 1 END) as sending,
@@ -450,8 +511,9 @@ export class EmailSender {
           COUNT(CASE WHEN priority = 'normal' THEN 1 END) as normalPriority,
           COUNT(CASE WHEN priority = 'low' THEN 1 END) as lowPriority
         FROM email_queue
-        ${whereClause}
-      `).get(...params);
+        ${whereClause}`,
+        params
+      );
 
       return stats;
     } catch (error) {
@@ -468,11 +530,12 @@ export class EmailSender {
       const whereClause = tenantId ? 'AND tenant_id = ?' : '';
       const params = tenantId ? [tenantId] : [];
 
-      const result = db.prepare(`
-        UPDATE email_queue
-        SET status = 'pending', attempts = 0, error_message = NULL, updated_at = datetime('now')
-        WHERE status = 'failed' AND attempts < max_attempts ${whereClause}
-      `).run(...params);
+      const result = await executeRun(
+        `UPDATE email_queue
+         SET status = 'pending', attempts = 0, error_message = NULL, updated_at = ${sqlNow()}
+         WHERE status = 'failed' AND attempts < max_attempts ${whereClause}`,
+        params
+      );
 
       logger.info('Failed emails retried', { count: result.changes });
 
@@ -489,14 +552,15 @@ export class EmailSender {
   async clearOld(daysOld: number = 30, tenantId?: number): Promise<number> {
     try {
       const whereClause = tenantId ? 'AND tenant_id = ?' : '';
-      const params = tenantId ? [daysOld, tenantId] : [daysOld];
+      const params = tenantId ? [tenantId] : [];
 
-      const result = db.prepare(`
-        DELETE FROM email_queue
-        WHERE (status = 'sent' OR status = 'failed')
-          AND created_at < datetime('now', '-' || ? || ' days')
-          ${whereClause}
-      `).run(...params);
+      const result = await executeRun(
+        `DELETE FROM email_queue
+         WHERE (status = 'sent' OR status = 'failed')
+           AND created_at < ${sqlDateSub(daysOld)}
+           ${whereClause}`,
+        params
+      );
 
       logger.info('Old emails cleared', { count: result.changes });
 

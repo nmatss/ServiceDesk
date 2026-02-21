@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentTenantId } from '@/lib/tenant/manager'
-import db from '@/lib/db/connection'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -14,7 +14,8 @@ export async function GET(
 
   try {
     const tenantId = getCurrentTenantId()
-    const ticketTypeId = parseInt(params.id)
+    const { id } = await params
+    const ticketTypeId = parseInt(id)
     if (isNaN(ticketTypeId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid ticket type ID' },
@@ -22,10 +23,10 @@ export async function GET(
       )
     }
 
-    const ticketType = db.prepare(`
+    const ticketType = await executeQueryOne(`
       SELECT * FROM ticket_types
       WHERE id = ? AND tenant_id = ?
-    `).get(ticketTypeId, tenantId)
+    `, [ticketTypeId, tenantId])
 
     if (!ticketType) {
       return NextResponse.json(
@@ -49,7 +50,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -57,7 +58,8 @@ export async function PUT(
 
   try {
     const tenantId = getCurrentTenantId()
-    const ticketTypeId = parseInt(params.id)
+    const { id } = await params
+    const ticketTypeId = parseInt(id)
     const data = await request.json()
     if (isNaN(ticketTypeId)) {
       return NextResponse.json(
@@ -67,9 +69,7 @@ export async function PUT(
     }
 
     // Check if ticket type exists and belongs to tenant
-    const existingType = db.prepare(
-      'SELECT id FROM ticket_types WHERE id = ? AND tenant_id = ?'
-    ).get(ticketTypeId, tenantId)
+    const existingType = await executeQueryOne('SELECT id FROM ticket_types WHERE id = ? AND tenant_id = ?', [ticketTypeId, tenantId])
 
     if (!existingType) {
       return NextResponse.json(
@@ -80,9 +80,7 @@ export async function PUT(
 
     // Check if slug is unique (if being updated)
     if (data.slug) {
-      const duplicateSlug = db.prepare(
-        'SELECT id FROM ticket_types WHERE tenant_id = ? AND slug = ? AND id != ?'
-      ).get(tenantId, data.slug, ticketTypeId)
+      const duplicateSlug = await executeQueryOne('SELECT id FROM ticket_types WHERE tenant_id = ? AND slug = ? AND id != ?', [tenantId, data.slug, ticketTypeId])
 
       if (duplicateSlug) {
         return NextResponse.json(
@@ -93,7 +91,9 @@ export async function PUT(
     }
 
     // Update ticket type
-    const updateTicketType = db.prepare(`
+    
+
+    await executeRun(`
       UPDATE ticket_types SET
         name = COALESCE(?, name),
         slug = COALESCE(?, slug),
@@ -109,10 +109,7 @@ export async function PUT(
         sort_order = COALESCE(?, sort_order),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND tenant_id = ?
-    `)
-
-    updateTicketType.run(
-      data.name,
+    `, [data.name,
       data.slug,
       data.description,
       data.icon,
@@ -125,13 +122,10 @@ export async function PUT(
       data.customer_visible !== undefined ? (data.customer_visible ? 1 : 0) : null,
       data.sort_order,
       ticketTypeId,
-      tenantId
-    )
+      tenantId])
 
     // Get updated ticket type
-    const updatedTicketType = db.prepare(
-      'SELECT * FROM ticket_types WHERE id = ?'
-    ).get(ticketTypeId)
+    const updatedTicketType = await executeQueryOne('SELECT * FROM ticket_types WHERE id = ?', [ticketTypeId])
 
     return NextResponse.json({
       success: true,
@@ -149,7 +143,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -157,7 +151,8 @@ export async function DELETE(
 
   try {
     const tenantId = getCurrentTenantId()
-    const ticketTypeId = parseInt(params.id)
+    const { id } = await params
+    const ticketTypeId = parseInt(id)
     if (isNaN(ticketTypeId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid ticket type ID' },
@@ -166,9 +161,7 @@ export async function DELETE(
     }
 
     // Check if there are tickets using this type
-    const ticketsCount = db.prepare(
-      'SELECT COUNT(*) as count FROM tickets WHERE ticket_type_id = ? AND tenant_id = ?'
-    ).get(ticketTypeId, tenantId) as { count: number } | undefined
+    const ticketsCount = await executeQueryOne<{ count: number }>('SELECT COUNT(*) as count FROM tickets WHERE ticket_type_id = ? AND tenant_id = ?', [ticketTypeId, tenantId])
 
     if (ticketsCount && ticketsCount.count > 0) {
       return NextResponse.json(
@@ -178,9 +171,7 @@ export async function DELETE(
     }
 
     // Soft delete ticket type
-    db.prepare(
-      'UPDATE ticket_types SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?'
-    ).run(ticketTypeId, tenantId)
+    await executeRun('UPDATE ticket_types SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?', [ticketTypeId, tenantId])
 
     return NextResponse.json({
       success: true,

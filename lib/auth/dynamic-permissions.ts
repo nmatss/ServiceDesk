@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 import { rbac as rbacEngine } from './rbac-engine';
 
 // AccessContext type for compatibility
@@ -40,6 +40,10 @@ export interface RuleContext extends AccessContext {
     userAgent?: string;
     sessionDuration?: number;
   };
+  tenant: {
+    id: number;
+  };
+  action: string;
 }
 
 export interface DynamicPermissionResult {
@@ -151,11 +155,11 @@ class DynamicPermissionManager {
 
       const ruleId = this.generateRuleId();
 
-      db.prepare(`
+      await executeRun(`
         INSERT INTO dynamic_permission_rules
         (id, name, description, resource, action, condition, priority, is_active, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         ruleId,
         rule.name,
         rule.description,
@@ -165,7 +169,7 @@ class DynamicPermissionManager {
         rule.priority,
         rule.is_active ? 1 : 0,
         rule.created_by
-      );
+      ]);
 
       // Clear cache
       this.clearCache();
@@ -223,13 +227,11 @@ class DynamicPermissionManager {
       fields.push('updated_at = CURRENT_TIMESTAMP');
       values.push(ruleId);
 
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE dynamic_permission_rules
         SET ${fields.join(', ')}
         WHERE id = ?
-      `);
-
-      const result = stmt.run(...values);
+      `, values);
 
       if (result.changes > 0) {
         this.clearCache();
@@ -246,13 +248,11 @@ class DynamicPermissionManager {
   /**
    * Delete a dynamic rule
    */
-  deleteRule(ruleId: string): boolean {
+  async deleteRule(ruleId: string): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         DELETE FROM dynamic_permission_rules WHERE id = ?
-      `);
-
-      const result = stmt.run(ruleId);
+      `, [ruleId]);
 
       if (result.changes > 0) {
         this.clearCache();
@@ -269,12 +269,12 @@ class DynamicPermissionManager {
   /**
    * Get all dynamic rules
    */
-  getAllRules(): DynamicRule[] {
+  async getAllRules(): Promise<DynamicRule[]> {
     try {
-      return db.prepare(`
+      return await executeQuery<DynamicRule>(`
         SELECT * FROM dynamic_permission_rules
         ORDER BY priority DESC, created_at DESC
-      `).all() as DynamicRule[];
+      `, []);
     } catch (error) {
       logger.error('Error getting all dynamic rules', error);
       return [];
@@ -293,13 +293,13 @@ class DynamicPermissionManager {
     }
 
     try {
-      const rules = db.prepare(`
+      const rules = await executeQuery<DynamicRule>(`
         SELECT * FROM dynamic_permission_rules
         WHERE is_active = 1
           AND (resource = ? OR resource = '*')
           AND (action = ? OR action = '*')
         ORDER BY priority DESC
-      `).all(resource, action) as DynamicRule[];
+      `, [resource, action]);
 
       // Update cache
       this.ruleCache.set(cacheKey, rules);
@@ -399,32 +399,97 @@ class DynamicPermissionManager {
    * Safely evaluate JavaScript expressions
    */
   private safeEvaluate(condition: string, context: Record<string, any>): any {
-    // Create a restricted evaluation environment
-    const allowedGlobals = {
-      Math,
-      Date,
-      parseInt,
-      parseFloat,
-      isNaN,
-      isFinite,
-      String,
-      Number,
-      Boolean,
-      Array,
-      Object
+    // SECURITY: Safe expression evaluation without new Function()/eval()
+    // Uses a whitelist-based approach to evaluate simple boolean expressions
+
+    // Supported operators for condition evaluation
+    const safeOperators: Record<string, (a: any, b: any) => boolean> = {
+      '===': (a, b) => a === b,
+      '!==': (a, b) => a !== b,
+      '==': (a, b) => a == b,
+      '!=': (a, b) => a != b,
+      '>=': (a, b) => a >= b,
+      '<=': (a, b) => a <= b,
+      '>': (a, b) => a > b,
+      '<': (a, b) => a < b,
     };
 
-    // Build the evaluation string
-    const contextKeys = Object.keys(context);
-    const contextValues = contextKeys.map(key => context[key]);
+    // Resolve a dotted path like "user.role" from context
+    const resolveValue = (path: string, ctx: Record<string, any>): any => {
+      const trimmed = path.trim();
 
-    const func = new Function(
-      ...contextKeys,
-      ...Object.keys(allowedGlobals),
-      `"use strict"; return (${condition});`
-    );
+      // Handle string literals
+      if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+          (trimmed.startsWith('"') && trimmed.endsWith('"'))) {
+        return trimmed.slice(1, -1);
+      }
 
-    return func(...contextValues, ...Object.values(allowedGlobals));
+      // Handle numeric literals
+      if (!isNaN(Number(trimmed))) return Number(trimmed);
+
+      // Handle boolean literals
+      if (trimmed === 'true') return true;
+      if (trimmed === 'false') return false;
+      if (trimmed === 'null') return null;
+      if (trimmed === 'undefined') return undefined;
+
+      // Handle function calls from context (e.g., isOwner(), isBusinessHours())
+      if (trimmed.endsWith('()')) {
+        const fnName = trimmed.slice(0, -2);
+        const fn = ctx[fnName];
+        if (typeof fn === 'function') return fn();
+        return undefined;
+      }
+
+      // Resolve dotted path (e.g., user.role)
+      const parts = trimmed.split('.');
+      let value: any = ctx;
+      for (const part of parts) {
+        if (value == null) return undefined;
+        value = value[part];
+      }
+      return value;
+    };
+
+    try {
+      // Handle compound expressions with && and ||
+      // Split by || first (lower precedence), then by &&
+      const orParts = condition.split('||').map(s => s.trim());
+
+      for (const orPart of orParts) {
+        const andParts = orPart.split('&&').map(s => s.trim());
+        let andResult = true;
+
+        for (const expr of andParts) {
+          let matched = false;
+          for (const [op, fn] of Object.entries(safeOperators)) {
+            const idx = expr.indexOf(op);
+            if (idx !== -1) {
+              const left = resolveValue(expr.substring(0, idx), context);
+              const right = resolveValue(expr.substring(idx + op.length), context);
+              if (!fn(left, right)) {
+                andResult = false;
+              }
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            // Single value expression (e.g., "isOwner()" or "user.isAdmin")
+            const val = resolveValue(expr, context);
+            if (!val) andResult = false;
+          }
+        }
+
+        if (andResult) return true;
+      }
+
+      return false;
+    } catch (error) {
+      logger.error('Safe expression evaluation failed', error);
+      return false; // Deny by default on evaluation failure
+    }
   }
 
   /**
@@ -444,8 +509,9 @@ class DynamicPermissionManager {
       };
 
       // Try to evaluate with test context
-      this.safeEvaluate(condition, testContext);
-      return true;
+      const result = this.safeEvaluate(condition, testContext);
+      // Validate that the result is a boolean-compatible value
+      return result !== undefined;
     } catch (error) {
       logger.error('Condition validation failed', error);
       return false;
@@ -477,14 +543,14 @@ class DynamicPermissionManager {
   /**
    * Get rule evaluation history for analysis
    */
-  getRuleEvaluationHistory(ruleId: string, limit: number = 100): any[] {
+  async getRuleEvaluationHistory(ruleId: string, limit: number = 100): Promise<any[]> {
     try {
-      return db.prepare(`
+      return await executeQuery<any>(`
         SELECT * FROM dynamic_rule_evaluations
         WHERE rule_id = ?
         ORDER BY evaluated_at DESC
         LIMIT ?
-      `).all(ruleId, limit) as any[];
+      `, [ruleId, limit]);
     } catch (error) {
       logger.error('Error getting rule evaluation history', error);
       return [];
@@ -501,11 +567,13 @@ class DynamicPermissionManager {
     context: RuleContext
   ): void {
     try {
-      db.prepare(`
+      executeRun(`
         INSERT INTO dynamic_rule_evaluations
         (rule_id, user_id, granted, context_data, evaluated_at)
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `).run(ruleId, userId, granted ? 1 : 0, JSON.stringify(context));
+      `, [ruleId, userId, granted ? 1 : 0, JSON.stringify(context)]).catch((error) => {
+        logger.error('Error logging rule evaluation', error);
+      });
     } catch (error) {
       logger.error('Error logging rule evaluation', error);
     }
@@ -560,9 +628,9 @@ class DynamicPermissionManager {
 
     for (const rule of defaultRules) {
       // Check if rule already exists
-      const existing = db.prepare(`
+      const existing = await executeQueryOne<{ id: string }>(`
         SELECT id FROM dynamic_permission_rules WHERE name = ?
-      `).get(rule.name);
+      `, [rule.name]);
 
       if (!existing) {
         await this.createRule(rule);

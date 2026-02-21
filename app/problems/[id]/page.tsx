@@ -33,20 +33,20 @@ import type {
 } from '@/lib/types/problem';
 
 const STATUS_CONFIG: Record<ProblemStatus, { label: string; color: string; bgColor: string; icon: React.ReactNode }> = {
-  new: {
-    label: 'Novo',
+  open: {
+    label: 'Aberto',
     color: 'text-brand-600',
     bgColor: 'bg-brand-100 dark:bg-brand-900/30',
     icon: <ClockIcon className="w-5 h-5" />,
   },
-  investigation: {
-    label: 'Em Investigação',
+  identified: {
+    label: 'Identificado',
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
     icon: <DocumentMagnifyingGlassIcon className="w-5 h-5" />,
   },
-  root_cause_identified: {
-    label: 'Causa Raiz Identificada',
+  root_cause_analysis: {
+    label: 'Análise de Causa Raiz',
     color: 'text-orange-600',
     bgColor: 'bg-orange-100 dark:bg-orange-900/30',
     icon: <LightBulbIcon className="w-5 h-5" />,
@@ -144,7 +144,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          activity_type: 'comment',
+          activity_type: 'note',
           description: newComment,
           is_internal: true,
         }),
@@ -258,9 +258,9 @@ export default function ProblemDetailPage({ params }: PageProps) {
               onChange={(e) => handleStatusChange(e.target.value as ProblemStatus)}
               className="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm transition-all duration-200"
             >
-              <option value="new">Novo</option>
-              <option value="investigation">Em Investigação</option>
-              <option value="root_cause_identified">Causa Identificada</option>
+              <option value="open">Aberto</option>
+              <option value="identified">Identificado</option>
+              <option value="root_cause_analysis">Análise de Causa Raiz</option>
               <option value="known_error">Erro Conhecido</option>
               <option value="resolved">Resolvido</option>
               <option value="closed">Fechado</option>
@@ -340,26 +340,16 @@ export default function ProblemDetailPage({ params }: PageProps) {
                         <p className="text-green-900 dark:text-green-300 whitespace-pre-wrap">
                           {problem.workaround}
                         </p>
-                        {problem.workaround_effectiveness && (
-                          <p className="mt-2 text-sm text-green-700 dark:text-green-400">
-                            Efetividade:{' '}
-                            {problem.workaround_effectiveness === 'full'
-                              ? 'Completa'
-                              : problem.workaround_effectiveness === 'partial'
-                              ? 'Parcial'
-                              : 'Nenhuma'}
-                          </p>
-                        )}
                       </div>
                     )}
 
-                    {problem.permanent_fix && (
+                    {problem.resolution && (
                       <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg border border-brand-200 dark:border-brand-800">
                         <h3 className="text-sm font-medium text-brand-800 dark:text-brand-400 mb-2">
-                          Solução Permanente
+                          Resolução
                         </h3>
                         <p className="text-brand-900 dark:text-brand-300 whitespace-pre-wrap">
-                          {problem.permanent_fix}
+                          {problem.resolution}
                         </p>
                       </div>
                     )}
@@ -400,13 +390,13 @@ export default function ProblemDetailPage({ params }: PageProps) {
                                   {link.ticket?.ticket_number || `#${link.ticket_id}`}
                                 </span>
                                 <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-200 dark:bg-neutral-600 text-neutral-700 dark:text-neutral-300">
-                                  {link.relationship_type === 'caused_by'
+                                  {link.link_type === 'caused_by'
                                     ? 'Causado por'
-                                    : link.relationship_type === 'related'
+                                    : link.link_type === 'related'
                                     ? 'Relacionado'
-                                    : link.relationship_type === 'duplicate'
+                                    : link.link_type === 'duplicate'
                                     ? 'Duplicado'
-                                    : 'Regressão'}
+                                    : link.link_type}
                                 </span>
                               </div>
                               <p className="text-sm text-neutral-900 dark:text-white mt-1">
@@ -545,11 +535,11 @@ export default function ProblemDetailPage({ params }: PageProps) {
                   </div>
                 )}
 
-                {problem.incident_count > 0 && (
+                {incidents.length > 0 && (
                   <div>
                     <dt className="text-sm text-muted-content">Incidentes Vinculados</dt>
                     <dd className="text-neutral-900 dark:text-white mt-1">
-                      {problem.incident_count}
+                      {incidents.length}
                     </dd>
                   </div>
                 )}

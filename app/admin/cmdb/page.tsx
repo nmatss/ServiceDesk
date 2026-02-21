@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useDebounce } from '@/lib/hooks/useDebounce'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   ServerIcon,
@@ -125,6 +126,8 @@ export default function CMDBPage() {
     production: 0
   })
 
+  const debouncedSearch = useDebounce(search, 300)
+
   const fetchCIs = useCallback(async () => {
     try {
       setLoading(true)
@@ -133,7 +136,7 @@ export default function CMDBPage() {
         limit: '20'
       })
 
-      if (search) params.append('search', search)
+      if (debouncedSearch) params.append('search', debouncedSearch)
       if (typeFilter) params.append('ci_type_id', typeFilter)
       if (statusFilter) params.append('status_id', statusFilter)
       if (environmentFilter) params.append('environment', environmentFilter)
@@ -154,7 +157,7 @@ export default function CMDBPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, typeFilter, statusFilter, environmentFilter, criticalityFilter])
+  }, [page, debouncedSearch, typeFilter, statusFilter, environmentFilter, criticalityFilter])
 
   const fetchMetadata = async () => {
     try {

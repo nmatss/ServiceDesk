@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -10,14 +10,9 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  */
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await verifyAuth(req);
-
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(req);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const body = await req.json();
     const {
@@ -45,38 +40,84 @@ export async function POST(req: NextRequest) {
 
     // If setting as default, unset any existing default for this user
     if (is_default) {
-      db.prepare(`
+      await executeRun(`
         UPDATE dashboards
         SET is_default = 0
         WHERE user_id = ? AND is_default = 1
-      `).run(authResult.user.id);
+      `, [userId]);
     }
 
     // Create dashboard
-    const result = db.prepare(`
-      INSERT INTO dashboards (
+    let createdDashboardId: number | undefined;
+    const configJson = JSON.stringify(config);
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO dashboards (
+          name,
+          description,
+          config,
+          user_id,
+          is_default,
+          is_shared,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+      `, [
         name,
-        description,
-        config,
-        user_id,
-        is_default,
-        is_shared,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(
-      name,
-      description || null,
-      JSON.stringify(config),
-      authResult.user.id,
-      is_default ? 1 : 0,
-      is_shared ? 1 : 0
-    );
+        description || null,
+        configJson,
+        userId,
+        is_default ? 1 : 0,
+        is_shared ? 1 : 0
+      ]);
+      createdDashboardId = inserted?.id;
+    } catch {
+      const result = await executeRun(`
+        INSERT INTO dashboards (
+          name,
+          description,
+          config,
+          user_id,
+          is_default,
+          is_shared,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, [
+        name,
+        description || null,
+        configJson,
+        userId,
+        is_default ? 1 : 0,
+        is_shared ? 1 : 0
+      ]);
+      if (typeof result.lastInsertRowid === 'number') {
+        createdDashboardId = result.lastInsertRowid;
+      }
+    }
+
+    if (!createdDashboardId) {
+      return NextResponse.json(
+        { error: 'Failed to create dashboard' },
+        { status: 500 }
+      );
+    }
 
     // Fetch created dashboard
-    const dashboard = db.prepare(`
+    const dashboard = await executeQueryOne<{
+      id: number
+      name: string
+      description: string | null
+      config: string
+      user_id: number
+      is_default: number | boolean
+      is_shared: number | boolean
+      created_at: string
+      updated_at: string
+    }>(`
       SELECT * FROM dashboards WHERE id = ?
-    `).get(result.lastInsertRowid) as any;
+    `, [createdDashboardId]);
 
     if (!dashboard) {
       return NextResponse.json(

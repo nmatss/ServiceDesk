@@ -7,9 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withObservability, getObservabilityHealth } from '@/lib/monitoring/observability';
-import db from '@/lib/db/connection';
-
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { checkDatabaseHealth, checkRedisHealth } from '@/lib/health/dependency-checks';
 /**
  * GET /api/health
  *
@@ -20,18 +18,8 @@ export const GET = withObservability(
     const checks: Record<string, any> = {};
 
     // Check database connectivity
-    try {
-      const result = db.prepare('SELECT 1 as test').get();
-      checks.database = {
-        status: result ? 'ok' : 'error',
-        message: result ? 'Database connection successful' : 'Database query failed',
-      };
-    } catch (error) {
-      checks.database = {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Database connection failed',
-      };
-    }
+    checks.database = await checkDatabaseHealth();
+    checks.redis = await checkRedisHealth();
 
     // Get observability health
     const observability = getObservabilityHealth();
@@ -39,7 +27,9 @@ export const GET = withObservability(
 
     // Determine overall health
     const hasErrors =
-      checks.database.status === 'error' || observability.status === 'unhealthy';
+      checks.database.status === 'error' ||
+      checks.redis.status === 'error' ||
+      observability.status === 'unhealthy';
     const status = hasErrors ? 'unhealthy' : 'healthy';
 
     return NextResponse.json(

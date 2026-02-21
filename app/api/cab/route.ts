@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -49,18 +49,17 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Only admins, managers, and CAB members can view meetings
-    if (!['admin', 'manager'].includes(auth.user.role)) {
+    if (!['admin', 'manager'].includes(role)) {
       // Check if user is a CAB member
-      const db = getDatabase()
-      const isCabMember = db.prepare(`
-        SELECT 1 FROM cab_members WHERE user_id = ? AND is_active = 1
-      `).get(auth.user.id)
+      const isCabMember = await executeQueryOne<{ result: number }>(
+        `SELECT 1 as result FROM cab_members WHERE user_id = ? AND is_active = 1`,
+        [userId]
+      )
 
       if (!isCabMember) {
         return NextResponse.json(
@@ -73,12 +72,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
 
-    const db = getDatabase()
     const offset = (params.page - 1) * params.limit
 
     // Build query
     let whereClause = 'WHERE m.organization_id = ?'
-    const queryParams: (string | number)[] = [auth.user.organization_id]
+    const queryParams: (string | number)[] = [organizationId]
 
     if (params.status) {
       whereClause += ' AND m.status = ?'
@@ -95,13 +93,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count
-    const countResult = db.prepare(
-      `SELECT COUNT(*) as total FROM cab_meetings m ${whereClause}`
-    ).get(...queryParams) as { total: number }
+    const countResult = await executeQueryOne<{ total: number }>(
+      `SELECT COUNT(*) as total FROM cab_meetings m ${whereClause}`,
+      queryParams
+    )
 
     // Get meetings with organizer info
-    const meetings = db.prepare(`
-      SELECT
+    const meetings = await executeQuery<any>(
+      `SELECT
         m.*,
         u.name as organizer_name,
         u.email as organizer_email,
@@ -113,23 +112,25 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON m.organizer_id = u.id
       ${whereClause}
       ORDER BY m.scheduled_date DESC, m.scheduled_time DESC
-      LIMIT ? OFFSET ?
-    `).all(...queryParams, params.limit, offset)
+      LIMIT ? OFFSET ?`,
+      [...queryParams, params.limit, offset]
+    )
 
     // Get CAB configuration
-    const cabConfig = db.prepare(`
-      SELECT * FROM cab_configurations WHERE organization_id = ?
-    `).get(auth.user.organization_id)
+    const cabConfig = await executeQueryOne<any>(
+      `SELECT * FROM cab_configurations WHERE organization_id = ?`,
+      [organizationId]
+    )
 
     return NextResponse.json({
       success: true,
       meetings,
       cab_configuration: cabConfig,
       pagination: {
-        total: countResult.total,
+        total: countResult?.total || 0,
         page: params.page,
         limit: params.limit,
-        total_pages: Math.ceil(countResult.total / params.limit)
+        total_pages: Math.ceil((countResult?.total || 0) / params.limit)
       }
     })
   } catch (error) {
@@ -150,13 +151,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Only admins and managers can create meetings
-    if (!['admin', 'manager'].includes(auth.user.role)) {
+    if (!['admin', 'manager'].includes(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas administradores podem criar reuniões do CAB' },
         { status: 403 }
@@ -166,50 +166,49 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = createMeetingSchema.parse(body)
 
-    const db = getDatabase()
-
     // Create meeting
-    const result = db.prepare(`
-      INSERT INTO cab_meetings (
+    const result = await executeRun(
+      `INSERT INTO cab_meetings (
         title, description, meeting_type, scheduled_date, scheduled_time,
         duration_minutes, location, meeting_url, organizer_id, status, organization_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?)
-    `).run(
-      data.title,
-      data.description || null,
-      data.meeting_type,
-      data.scheduled_date,
-      data.scheduled_time,
-      data.duration_minutes,
-      data.location || null,
-      data.meeting_url || null,
-      auth.user.id,
-      auth.user.organization_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?)`,
+      [
+        data.title,
+        data.description || null,
+        data.meeting_type,
+        data.scheduled_date,
+        data.scheduled_time,
+        data.duration_minutes,
+        data.location || null,
+        data.meeting_url || null,
+        userId,
+        organizationId
+      ]
     )
 
     const meetingId = result.lastInsertRowid
 
     // Link change requests to meeting
     if (data.change_request_ids && data.change_request_ids.length > 0) {
-      const linkChange = db.prepare(`
-        UPDATE change_requests SET cab_meeting_id = ?, status = 'pending_cab'
-        WHERE id = ? AND organization_id = ?
-      `)
-
       for (const changeId of data.change_request_ids) {
-        linkChange.run(meetingId, changeId, auth.user.organization_id)
+        await executeRun(
+          `UPDATE change_requests SET cab_meeting_id = ?, status = 'pending_cab'
+          WHERE id = ? AND organization_id = ?`,
+          [meetingId, changeId, organizationId]
+        )
       }
     }
 
     // Get created meeting
-    const meeting = db.prepare(`
-      SELECT m.*, u.name as organizer_name
+    const meeting = await executeQueryOne<any>(
+      `SELECT m.*, u.name as organizer_name
       FROM cab_meetings m
       LEFT JOIN users u ON m.organizer_id = u.id
-      WHERE m.id = ?
-    `).get(meetingId)
+      WHERE m.id = ?`,
+      [meetingId]
+    )
 
-    logger.info(`CAB meeting created: ${data.title} by user ${auth.user.id}`)
+    logger.info(`CAB meeting created: ${data.title} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { getContactsWithTickets, getWhatsAppStats } from '@/lib/integrations/whatsapp/storage';
 import { createAuditLog } from '@/lib/audit/logger';
 import { logger } from '@/lib/monitoring/logger';
@@ -16,13 +16,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verifica autenticação
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const searchParams = request.nextUrl.searchParams;
     const includeStats = searchParams.get('includeStats') === 'true';
@@ -37,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Log da consulta
     await createAuditLog({
-      user_id: authResult.user?.id,
+      user_id: userId,
       action: 'whatsapp_contacts_viewed',
       resource_type: 'whatsapp_contact',
       new_values: JSON.stringify({

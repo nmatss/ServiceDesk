@@ -4,9 +4,10 @@
  * POST: Add a comment/activity to a problem
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { AddActivityInput } from '@/lib/types/problem';
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       data: activities,
     });
   } catch (error) {
-    console.error('Error fetching problem activities:', error);
+    logger.error('Error fetching problem activities:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -182,11 +183,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const input: AddActivityInput = {
-      activity_type: body.activity_type || 'comment',
+      activity_type: body.activity_type || 'note',
       description: body.description,
       old_value: body.old_value,
       new_value: body.new_value,
-      metadata: body.metadata,
       is_internal: body.is_internal !== false, // Default to internal
     };
 
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error adding problem activity:', error);
+    logger.error('Error adding problem activity:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

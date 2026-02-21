@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -33,11 +33,12 @@ const querySchema = z.object({
 /**
  * Generate unique service request number
  */
-function generateRequestNumber(db: ReturnType<typeof getDatabase>): string {
-  const result = db.prepare(
+async function generateRequestNumber(): Promise<string> {
+  const result = await executeQueryOne<{ max_num: number | null }>(
     `SELECT MAX(CAST(SUBSTR(request_number, 4) AS INTEGER)) as max_num
-     FROM service_requests WHERE request_number LIKE 'SR-%'`
-  ).get() as { max_num: number | null }
+     FROM service_requests WHERE request_number LIKE 'SR-%'`,
+    []
+  )
 
   const nextNum = (result?.max_num || 0) + 1
   return `SR-${String(nextNum).padStart(5, '0')}`
@@ -52,25 +53,23 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
 
-    const db = getDatabase()
     const offset = (params.page - 1) * params.limit
 
     // Build query
     let whereClause = 'WHERE sr.organization_id = ?'
-    const queryParams: (string | number)[] = [auth.user.organization_id]
+    const queryParams: (string | number)[] = [organizationId]
 
     // Regular users can only see their own requests
-    if (auth.user.role === 'user' || params.my_requests) {
+    if (role === 'user' || params.my_requests) {
       whereClause += ' AND (sr.requester_id = ? OR sr.on_behalf_of_id = ?)'
-      queryParams.push(auth.user.id, auth.user.id)
+      queryParams.push(userId, userId)
     }
 
     if (params.status) {
@@ -83,19 +82,20 @@ export async function GET(request: NextRequest) {
       queryParams.push(params.catalog_item_id)
     }
 
-    if (params.requester_id && auth.user.role !== 'user') {
+    if (params.requester_id && role !== 'user') {
       whereClause += ' AND sr.requester_id = ?'
       queryParams.push(params.requester_id)
     }
 
     // Get total count
-    const countResult = db.prepare(
-      `SELECT COUNT(*) as total FROM service_requests sr ${whereClause}`
-    ).get(...queryParams) as { total: number }
+    const countResult = await executeQueryOne<{ total: number }>(
+      `SELECT COUNT(*) as total FROM service_requests sr ${whereClause}`,
+      queryParams
+    )
 
     // Get requests with related data
-    const requests = db.prepare(`
-      SELECT
+    const requests = await executeQuery<any>(
+      `SELECT
         sr.*,
         sc.name as catalog_item_name,
         sc.icon as catalog_item_icon,
@@ -111,17 +111,18 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users ob ON sr.on_behalf_of_id = ob.id
       ${whereClause}
       ORDER BY sr.created_at DESC
-      LIMIT ? OFFSET ?
-    `).all(...queryParams, params.limit, offset)
+      LIMIT ? OFFSET ?`,
+      [...queryParams, params.limit, offset]
+    )
 
     return NextResponse.json({
       success: true,
       service_requests: requests,
       pagination: {
-        total: countResult.total,
+        total: countResult?.total || 0,
         page: params.page,
         limit: params.limit,
-        total_pages: Math.ceil(countResult.total / params.limit)
+        total_pages: Math.ceil((countResult?.total || 0) / params.limit)
       }
     })
   } catch (error) {
@@ -142,20 +143,17 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
+    const userName = guard.auth!.name || ''
+    const userEmail = guard.auth!.email
 
     const body = await request.json()
     const data = createRequestSchema.parse(body)
 
-    const db = getDatabase()
-
     // Get catalog item
-    const catalogItem = db.prepare(`
-      SELECT * FROM service_catalog_items WHERE id = ? AND is_active = 1
-    `).get(data.catalog_item_id) as {
+    const catalogItem = await executeQueryOne<{
       id: number
       name: string
       requires_approval: boolean
@@ -163,7 +161,10 @@ export async function POST(request: NextRequest) {
       sla_policy_id: number | null
       estimated_fulfillment_time: number | null
       fulfillment_team_id: number | null
-    } | undefined
+    }>(
+      `SELECT * FROM service_catalog_items WHERE id = ? AND is_active = 1`,
+      [data.catalog_item_id]
+    )
 
     if (!catalogItem) {
       return NextResponse.json(
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const requestNumber = generateRequestNumber(db)
+    const requestNumber = await generateRequestNumber()
 
     // Check if approval is required
     let approvalStatus: 'pending' | 'not_required' = 'not_required'
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
         ? JSON.parse(catalogItem.auto_approve_roles) as string[]
         : []
 
-      if (autoApproveRoles.includes(auth.user.role)) {
+      if (autoApproveRoles.includes(role)) {
         approvalStatus = 'not_required'
         status = 'submitted'
       } else {
@@ -193,45 +194,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = db.prepare(`
-      INSERT INTO service_requests (
+    const result = await executeRun(
+      `INSERT INTO service_requests (
         request_number, catalog_item_id, requester_id, requester_name, requester_email,
         on_behalf_of_id, form_data, justification, requested_date, status, approval_status,
         organization_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      requestNumber,
-      data.catalog_item_id,
-      auth.user.id,
-      auth.user.name,
-      auth.user.email,
-      data.on_behalf_of_id || null,
-      JSON.stringify(data.form_data),
-      data.justification || null,
-      data.requested_date || null,
-      status,
-      approvalStatus,
-      auth.user.organization_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        requestNumber,
+        data.catalog_item_id,
+        userId,
+        userName,
+        userEmail,
+        data.on_behalf_of_id || null,
+        JSON.stringify(data.form_data),
+        data.justification || null,
+        data.requested_date || null,
+        status,
+        approvalStatus,
+        organizationId
+      ]
     )
 
     // If approval is required, create approval record
     if (approvalStatus === 'pending') {
-      db.prepare(`
-        INSERT INTO service_request_approvals (
+      await executeRun(
+        `INSERT INTO service_request_approvals (
           service_request_id, approval_level, status
-        ) VALUES (?, 1, 'pending')
-      `).run(result.lastInsertRowid)
+        ) VALUES (?, 1, 'pending')`,
+        [result.lastInsertRowid]
+      )
     }
 
     // Get created request
-    const serviceRequest = db.prepare(`
-      SELECT sr.*, sc.name as catalog_item_name
+    const serviceRequest = await executeQueryOne<any>(
+      `SELECT sr.*, sc.name as catalog_item_name
       FROM service_requests sr
       LEFT JOIN service_catalog_items sc ON sr.catalog_item_id = sc.id
-      WHERE sr.id = ?
-    `).get(result.lastInsertRowid)
+      WHERE sr.id = ?`,
+      [result.lastInsertRowid]
+    )
 
-    logger.info(`Service request created: ${requestNumber} by user ${auth.user.id}`)
+    logger.info(`Service request created: ${requestNumber} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

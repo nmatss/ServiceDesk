@@ -23,7 +23,7 @@
  * @module lib/auth/rbac-engine
  */
 
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 import { Permission, Role } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -125,7 +125,7 @@ export class RBACEngine {
       ORDER BY p.resource, p.action
     `;
 
-    return db.prepare(query).all(userId, organizationId, organizationId) as Permission[];
+    return await executeQuery<Permission>(query, [userId, organizationId, organizationId]);
   }
 
   /**
@@ -147,7 +147,7 @@ export class RBACEngine {
       ORDER BY r.name
     `;
 
-    return db.prepare(query).all(userId, organizationId) as Role[];
+    return await executeQuery<Role>(query, [userId, organizationId]);
   }
 
   /**
@@ -173,16 +173,14 @@ export class RBACEngine {
     expiresAt?: string
   ): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      await executeRun(`
         INSERT INTO user_roles (user_id, role_id, organization_id, granted_by, expires_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(user_id, role_id) DO UPDATE SET
           is_active = 1,
           expires_at = excluded.expires_at,
           granted_by = excluded.granted_by
-      `);
-
-      stmt.run(userId, roleId, organizationId, grantedBy, expiresAt || null);
+      `, [userId, roleId, organizationId, grantedBy, expiresAt || null]);
       return true;
     } catch (error) {
       logger.error('Error assigning role', error);
@@ -199,13 +197,12 @@ export class RBACEngine {
     organizationId: number
   ): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE user_roles
         SET is_active = 0
         WHERE user_id = ? AND role_id = ? AND organization_id = ?
-      `);
+      `, [userId, roleId, organizationId]);
 
-      const result = stmt.run(userId, roleId, organizationId);
       return result.changes > 0;
     } catch (error) {
       logger.error('Error revoking role', error);
@@ -232,7 +229,7 @@ export class RBACEngine {
 
       return true;
     } catch {
-      return true; // Se não conseguir avaliar, permite
+      return false; // SECURITY: Deny by default if conditions cannot be evaluated
     }
   }
 
@@ -270,16 +267,16 @@ export class RBACEngine {
     ];
 
     for (const perm of defaultPermissions) {
-      db.prepare(`
+      await executeRun(`
         INSERT OR IGNORE INTO permissions (name, resource, action, description, organization_id)
         VALUES (?, ?, ?, ?, ?)
-      `).run(
+      `, [
         `${perm.resource}:${perm.action}`,
         perm.resource,
         perm.action,
         perm.description,
         organizationId
-      );
+      ]);
     }
   }
 
@@ -384,13 +381,13 @@ export class RBACEngine {
       LIMIT 1
     `;
 
-    const result = db.prepare(query).get(
+    const result = await executeQueryOne<any>(query, [
       userId,
       resourceType,
       resourceId.toString(),
       action,
       organizationId
-    ) as any;
+    ]);
 
     return {
       resourceType,
@@ -486,7 +483,7 @@ export class RBACEngine {
     if (!query) return null;
 
     try {
-      const result = db.prepare(query).get(resourceId) as any;
+      const result = await executeQueryOne<any>(query, [resourceId]);
       return result ? Object.values(result)[0] as string | number : null;
     } catch {
       return null;
@@ -563,12 +560,12 @@ export class RBACEngine {
       ORDER BY priority DESC
     `;
 
-    return db.prepare(query).all(
+    return await executeQuery<RowLevelPolicy>(query, [
       tableName,
       policyType,
       userId,
       ...roleIds
-    ) as RowLevelPolicy[];
+    ]);
   }
 
   /**
@@ -588,15 +585,13 @@ export class RBACEngine {
     } = {}
   ): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      await executeRun(`
         INSERT INTO row_level_policies (
           table_name, policy_name, policy_type, condition,
           organization_id, role_id, user_id, priority, description
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(
+      `, [
         tableName,
         policyName,
         policyType,
@@ -606,7 +601,7 @@ export class RBACEngine {
         options.userId || null,
         options.priority || 0,
         options.description || null
-      );
+      ]);
 
       return true;
     } catch (error) {
@@ -682,13 +677,13 @@ export class RBACEngine {
         )
     `;
 
-    return db.prepare(query).all(
+    return await executeQuery<Permission>(query, [
       userId,
       organizationId,
       dayOfWeek,
       hour,
       hour
-    ) as Permission[];
+    ]);
   }
 
   /**
@@ -705,15 +700,13 @@ export class RBACEngine {
     context?: Record<string, any>
   ): void {
     try {
-      const stmt = db.prepare(`
+      executeRun(`
         INSERT INTO permission_audit_log (
           user_id, resource, action, resource_id,
           granted, reason, context, created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `);
-
-      stmt.run(
+      `, [
         userId,
         resource,
         action,
@@ -721,7 +714,10 @@ export class RBACEngine {
         granted ? 1 : 0,
         reason || null,
         context ? JSON.stringify(context) : null
-      );
+      ]).catch((error) => {
+        // Don't fail on audit errors
+        logger.error('Audit log error', error);
+      });
     } catch (error) {
       // Don't fail on audit errors
       logger.error('Audit log error', error);
@@ -765,7 +761,7 @@ export class RBACEngine {
       query += ' ORDER BY created_at DESC LIMIT ?';
       params.push(limit);
 
-      const results = db.prepare(query).all(...params) as any[];
+      const results = await executeQuery<any>(query, params);
 
       return results.map(r => ({
         userId: r.user_id,
@@ -795,7 +791,7 @@ export class RBACEngine {
     expiresAt?: Date
   ): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      await executeRun(`
         INSERT INTO resource_permissions (
           user_id, resource_type, resource_id, action,
           organization_id, granted_by, expires_at
@@ -807,9 +803,7 @@ export class RBACEngine {
           granted_by = excluded.granted_by,
           expires_at = excluded.expires_at,
           updated_at = CURRENT_TIMESTAMP
-      `);
-
-      stmt.run(
+      `, [
         userId,
         resourceType,
         resourceId.toString(),
@@ -817,7 +811,7 @@ export class RBACEngine {
         organizationId,
         grantedBy,
         expiresAt?.toISOString() || null
-      );
+      ]);
 
       this.auditPermissionCheck(
         grantedBy,
@@ -848,7 +842,7 @@ export class RBACEngine {
     revokedBy: number
   ): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE resource_permissions
         SET is_active = 0, updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
@@ -856,15 +850,13 @@ export class RBACEngine {
           AND resource_id = ?
           AND action = ?
           AND organization_id = ?
-      `);
-
-      const result = stmt.run(
+      `, [
         userId,
         resourceType,
         resourceId.toString(),
         action,
         organizationId
-      );
+      ]);
 
       if (result.changes > 0) {
         this.auditPermissionCheck(

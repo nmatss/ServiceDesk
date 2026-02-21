@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as jose from 'jose'
 import bcrypt from 'bcryptjs'
-import { db } from '@/lib/db'
+import { executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { validateJWTSecret } from '@/lib/config/env'
 import { logger } from '@/lib/monitoring/logger'
 import { passwordPolicyManager } from '@/lib/auth/password-policies';
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '')
     const { payload } = await jose.jwtVerify(token, JWT_SECRET)
     const userId = payload.sub as string
-    const organizationId = payload.organizationId as number | undefined
+    const organizationId = (payload.organization_id ?? payload.organizationId) as number | undefined
 
     const { currentPassword, newPassword } = await request.json()
 
@@ -32,22 +32,17 @@ export async function PUT(request: NextRequest) {
 
     // SECURITY FIX: Buscar usuário com tenant check (organization_id)
     // This prevents users from changing passwords across tenant boundaries
-    const userQuery = organizationId
-      ? db.prepare(`
+    const user = organizationId
+      ? await executeQueryOne<{ id: number; password_hash: string; role: string; organization_id: number }>(`
           SELECT id, password_hash, role, organization_id
           FROM users
           WHERE id = ? AND organization_id = ?
-        `)
-      : db.prepare(`
+        `, [parseInt(userId, 10), organizationId])
+      : await executeQueryOne<{ id: number; password_hash: string; role: string; organization_id: number }>(`
           SELECT id, password_hash, role, organization_id
           FROM users
           WHERE id = ?
-        `);
-
-    const user = (organizationId
-      ? userQuery.get(parseInt(userId), organizationId)
-      : userQuery.get(parseInt(userId))
-    ) as { id: number; password_hash: string; role: string; organization_id: number } | undefined
+        `, [parseInt(userId, 10)])
 
     if (!user) {
       return NextResponse.json({ message: 'Usuário não encontrado' }, { status: 404 })
@@ -79,11 +74,11 @@ export async function PUT(request: NextRequest) {
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds)
 
     // Atualizar senha com timestamp de alteração
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET password_hash = ?, password_changed_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(newPasswordHash, parseInt(userId))
+    `, [newPasswordHash, parseInt(userId, 10)])
 
     // SECURITY FIX: Store password in history to prevent reuse
     await passwordPolicyManager.storePasswordHistory(user.id, newPasswordHash)

@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { getCachedStats, cacheStats } from '@/lib/cache';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+const DB_TYPE = getDatabaseType();
+const IS_POSTGRES = DB_TYPE === 'postgresql';
+const RESOLUTION_HOURS_SQL = IS_POSTGRES
+  ? 'EXTRACT(EPOCH FROM (t.resolved_at - t.created_at)) / 3600.0'
+  : '(julianday(t.resolved_at) - julianday(t.created_at)) * 24';
+const NOW_MINUS_1_HOUR = IS_POSTGRES ? "CURRENT_TIMESTAMP - INTERVAL '1 hour'" : "datetime('now', '-1 hour')";
+const NOW_MINUS_24_HOURS = IS_POSTGRES ? "CURRENT_TIMESTAMP - INTERVAL '24 hours'" : "datetime('now', '-24 hours')";
+const FALSE_SQL = IS_POSTGRES ? 'FALSE' : '0';
+const TRUE_SQL = IS_POSTGRES ? 'TRUE' : '1';
+const IS_FINAL_FALSE_OR_NULL_SQL = IS_POSTGRES
+  ? '(s.is_final = FALSE OR s.is_final IS NULL)'
+  : '(s.is_final = 0 OR s.is_final IS NULL)';
+const IS_FINAL_TRUE_SQL = IS_POSTGRES
+  ? '(s.is_final = TRUE)'
+  : '(s.is_final = 1)';
+
 // GET - Dashboard analytics
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -24,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30';
-    const days = parseInt(period);
+    const days = parseInt(period, 10);
 
     if (isNaN(days) || days < 1) {
       return NextResponse.json({ error: 'Período inválido' }, { status: 400 });
@@ -114,27 +132,27 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
       params.push(user.id);
     }
 
-    const overview = db.prepare(`
+    const overview = await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total_tickets,
-        COUNT(CASE WHEN s.is_final = 0 THEN 1 END) as open_tickets,
-        COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as closed_tickets,
+        COUNT(CASE WHEN ${IS_FINAL_FALSE_OR_NULL_SQL} THEN 1 END) as open_tickets,
+        COUNT(CASE WHEN ${IS_FINAL_TRUE_SQL} THEN 1 END) as closed_tickets,
         COUNT(CASE WHEN t.created_at >= ? THEN 1 END) as tickets_period,
         COUNT(CASE WHEN t.assigned_to IS NULL THEN 1 END) as unassigned_tickets,
         AVG(CASE
           WHEN t.resolved_at IS NOT NULL
-          THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+          THEN ${RESOLUTION_HOURS_SQL}
           ELSE NULL
         END) as avg_resolution_hours
       FROM tickets t
       LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
       ${whereClause}
-    `).get(...params, startDate.toISOString(), tenant.id) as any;
+    `, [startDate.toISOString(), tenant.id, ...params]);
 
     // Estatísticas de usuários (apenas para admin do tenant)
     let userStats = null;
     if (['super_admin', 'tenant_admin'].includes(user.role)) {
-      userStats = db.prepare(`
+      userStats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_users,
           COUNT(CASE WHEN role = 'user' THEN 1 END) as end_users,
@@ -142,17 +160,17 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
           COUNT(CASE WHEN role = 'tenant_admin' THEN 1 END) as admins
         FROM users
         WHERE tenant_id = ?
-      `).get(tenant.id) as any;
+      `, [tenant.id]);
     }
 
     return {
       tickets: {
-        total: overview.total_tickets,
-        open: overview.open_tickets,
-        closed: overview.closed_tickets,
-        period: overview.tickets_period,
-        unassigned: overview.unassigned_tickets,
-        avg_resolution_hours: overview.avg_resolution_hours ? Math.round(overview.avg_resolution_hours * 10) / 10 : 0
+        total: overview?.total_tickets || 0,
+        open: overview?.open_tickets || 0,
+        closed: overview?.closed_tickets || 0,
+        period: overview?.tickets_period || 0,
+        unassigned: overview?.unassigned_tickets || 0,
+        avg_resolution_hours: overview?.avg_resolution_hours ? Math.round(overview.avg_resolution_hours * 10) / 10 : 0
       },
       users: userStats
     };
@@ -174,16 +192,8 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
 
 async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
   try {
-    let whereClause = 'WHERE t.tenant_id = ?';
-    const params: any[] = [tenant.id];
-
-    if (user.role === 'user') {
-      whereClause += ' AND t.user_id = ?';
-      params.push(user.id);
-    }
-
     // Tickets por status
-    const statusStats = db.prepare(`
+    const statusStats = await executeQuery<any>(`
       SELECT
         s.name,
         s.color,
@@ -194,10 +204,10 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
       WHERE s.tenant_id = ? ${user.role === 'user' ? 'AND (t.user_id = ? OR t.user_id IS NULL)' : ''}
       GROUP BY s.id, s.name, s.color, s.is_final
       ORDER BY count DESC
-    `).all(tenant.id, tenant.id, ...(user.role === 'user' ? [user.id] : [])) as any[];
+    `, [tenant.id, tenant.id, ...(user.role === 'user' ? [user.id] : [])]);
 
     // Tickets criados por dia
-    const dailyTickets = db.prepare(`
+    const dailyTickets = await executeQuery<any>(`
       SELECT
         DATE(t.created_at) as date,
         COUNT(*) as count
@@ -205,10 +215,10 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
       WHERE t.tenant_id = ? AND t.created_at >= ? ${user.role === 'user' ? 'AND t.user_id = ?' : ''}
       GROUP BY DATE(t.created_at)
       ORDER BY date ASC
-    `).all(tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])) as any[];
+    `, [tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])]);
 
     // Tickets resolvidos por dia
-    const dailyResolved = db.prepare(`
+    const dailyResolved = await executeQuery<any>(`
       SELECT
         DATE(t.resolved_at) as date,
         COUNT(*) as count
@@ -216,7 +226,7 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
       WHERE t.tenant_id = ? AND t.resolved_at >= ? ${user.role === 'user' ? 'AND t.user_id = ?' : ''}
       GROUP BY DATE(t.resolved_at)
       ORDER BY date ASC
-    `).all(tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])) as any[];
+    `, [tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])]);
 
     return {
       by_status: statusStats,
@@ -235,15 +245,15 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
 
 async function getAgentPerformance(tenant: any, startDate: Date) {
   try {
-    const performance = db.prepare(`
+    const performance = await executeQuery<any>(`
       SELECT
         u.id,
         u.name,
         COUNT(t.id) as tickets_assigned,
-        COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as tickets_resolved,
+        COUNT(CASE WHEN ${IS_FINAL_TRUE_SQL} THEN 1 END) as tickets_resolved,
         AVG(CASE
           WHEN t.resolved_at IS NOT NULL
-          THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+          THEN ${RESOLUTION_HOURS_SQL}
           ELSE NULL
         END) as avg_resolution_hours,
         COUNT(CASE WHEN t.created_at >= ? THEN 1 END) as tickets_period
@@ -253,7 +263,7 @@ async function getAgentPerformance(tenant: any, startDate: Date) {
       WHERE u.tenant_id = ? AND u.role IN ('agent', 'tenant_admin', 'team_manager')
       GROUP BY u.id, u.name
       ORDER BY tickets_resolved DESC, avg_resolution_hours ASC
-    `).all(startDate.toISOString(), tenant.id, tenant.id, tenant.id) as any[];
+    `, [startDate.toISOString(), tenant.id, tenant.id, tenant.id]);
 
     return performance.map(agent => ({
       ...agent,
@@ -264,6 +274,23 @@ async function getAgentPerformance(tenant: any, startDate: Date) {
     logger.error('Error getting agent performance', error);
     return [];
   }
+}
+
+async function ticketColumnExists(columnName: string): Promise<boolean> {
+  if (IS_POSTGRES) {
+    const row = await executeQueryOne<{ exists: boolean }>(
+      `SELECT EXISTS(
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'tickets' AND column_name = ?
+      ) as exists`,
+      [columnName]
+    );
+    return Boolean(row?.exists);
+  }
+
+  const tableInfo = await executeQuery<{ name: string }>('PRAGMA table_info(tickets)');
+  return tableInfo.some((col) => col.name === columnName);
 }
 
 async function getSLAData(user: any, tenant: any, startDate: Date) {
@@ -277,31 +304,31 @@ async function getSLAData(user: any, tenant: any, startDate: Date) {
     }
 
     // Check if required columns exist
-    const tableInfo = db.prepare("PRAGMA table_info(tickets)").all() as any[];
-    const hasResponseBreached = tableInfo.some(col => col.name === 'response_breached');
-    const hasResolutionBreached = tableInfo.some(col => col.name === 'resolution_breached');
+    const [hasResponseBreached, hasResolutionBreached] = await Promise.all([
+      ticketColumnExists('response_breached'),
+      ticketColumnExists('resolution_breached')
+    ]);
 
     if (!hasResponseBreached || !hasResolutionBreached) {
-      // Return mock SLA data if columns don't exist
       return {
-        total_with_sla: 0,
+        total_tracked: 0,
+        response_compliance: 100,
+        resolution_compliance: 100,
         response_compliant: 0,
-        resolution_compliant: 0,
-        response_compliance_rate: 100,
-        resolution_compliance_rate: 100
+        resolution_compliant: 0
       };
     }
 
-    const slaStats = db.prepare(`
+    const slaStats = await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total_with_sla,
-        COUNT(CASE WHEN t.response_breached = 0 OR t.response_breached IS NULL THEN 1 END) as response_compliant,
-        COUNT(CASE WHEN t.resolution_breached = 0 OR t.resolution_breached IS NULL THEN 1 END) as resolution_compliant,
-        COALESCE(AVG(CASE WHEN t.response_breached = 0 OR t.response_breached IS NULL THEN 1.0 ELSE 0.0 END) * 100, 100) as response_compliance_rate,
-        COALESCE(AVG(CASE WHEN t.resolution_breached = 0 OR t.resolution_breached IS NULL THEN 1.0 ELSE 0.0 END) * 100, 100) as resolution_compliance_rate
+        COUNT(CASE WHEN t.response_breached IN (${FALSE_SQL}) OR t.response_breached IS NULL THEN 1 END) as response_compliant,
+        COUNT(CASE WHEN t.resolution_breached IN (${FALSE_SQL}) OR t.resolution_breached IS NULL THEN 1 END) as resolution_compliant,
+        COALESCE(AVG(CASE WHEN t.response_breached IN (${FALSE_SQL}) OR t.response_breached IS NULL THEN 1.0 ELSE 0.0 END) * 100, 100) as response_compliance_rate,
+        COALESCE(AVG(CASE WHEN t.resolution_breached IN (${FALSE_SQL}) OR t.resolution_breached IS NULL THEN 1.0 ELSE 0.0 END) * 100, 100) as resolution_compliance_rate
       FROM tickets t
       WHERE t.created_at >= ? ${whereClause}
-    `).get(startDate.toISOString(), ...params) as any;
+    `, [startDate.toISOString(), ...params]);
 
     return {
       total_tracked: slaStats?.total_with_sla || 0,
@@ -332,7 +359,7 @@ async function getRecentActivity(user: any, tenant: any, limit: number) {
       params.push(user.id);
     }
 
-    const recentTickets = db.prepare(`
+    const recentTickets = await executeQuery<any>(`
       SELECT
         t.id,
         t.title,
@@ -352,7 +379,7 @@ async function getRecentActivity(user: any, tenant: any, limit: number) {
       ${whereClause}
       ORDER BY t.updated_at DESC
       LIMIT ?
-    `).all(tenant.id, tenant.id, tenant.id, tenant.id, ...params, limit) as any[];
+    `, [tenant.id, tenant.id, tenant.id, tenant.id, ...params, limit]);
 
     return recentTickets;
   } catch (error) {
@@ -363,7 +390,6 @@ async function getRecentActivity(user: any, tenant: any, limit: number) {
 
 async function getTrendAnalytics(user: any, tenant: any, startDate: Date, days: number) {
   try {
-    // SECURITY: Always filter by tenant
     let whereClause = 'AND t.tenant_id = ?';
     const params: any[] = [tenant.id];
 
@@ -372,29 +398,30 @@ async function getTrendAnalytics(user: any, tenant: any, startDate: Date, days: 
       params.push(user.id);
     }
 
-    // Comparar com período anterior
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - days);
 
-    const currentPeriod = db.prepare(`
+    const currentPeriod = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets t
       WHERE t.created_at >= ? ${whereClause}
-    `).get(startDate.toISOString(), ...params) as { count: number };
+    `, [startDate.toISOString(), ...params]);
 
-    const previousPeriod = db.prepare(`
+    const previousPeriod = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets t
       WHERE t.created_at >= ? AND t.created_at < ? ${whereClause}
-    `).get(previousStartDate.toISOString(), startDate.toISOString(), ...params) as { count: number };
+    `, [previousStartDate.toISOString(), startDate.toISOString(), ...params]);
 
-    const change = previousPeriod.count > 0
-      ? ((currentPeriod.count - previousPeriod.count) / previousPeriod.count) * 100
+    const currentCount = currentPeriod?.count || 0;
+    const previousCount = previousPeriod?.count || 0;
+    const change = previousCount > 0
+      ? ((currentCount - previousCount) / previousCount) * 100
       : 0;
 
     return {
-      current_period: currentPeriod.count,
-      previous_period: previousPeriod.count,
+      current_period: currentCount,
+      previous_period: previousCount,
       change_percentage: Math.round(change * 10) / 10,
       trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
     };
@@ -411,8 +438,6 @@ async function getTrendAnalytics(user: any, tenant: any, startDate: Date, days: 
 
 async function getCategoryStats(user: any, tenant: any, startDate: Date) {
   try {
-    // SECURITY: Always filter by tenant
-    const baseParams: any[] = [tenant.id, tenant.id];
     let additionalWhere = '';
     const additionalParams: any[] = [];
 
@@ -421,7 +446,7 @@ async function getCategoryStats(user: any, tenant: any, startDate: Date) {
       additionalParams.push(user.id);
     }
 
-    return db.prepare(`
+    return await executeQuery<any>(`
       SELECT
         c.name,
         c.color,
@@ -432,7 +457,7 @@ async function getCategoryStats(user: any, tenant: any, startDate: Date) {
       WHERE c.tenant_id = ?
       GROUP BY c.id, c.name, c.color
       ORDER BY count DESC
-    `).all(startDate.toISOString(), tenant.id, ...additionalParams, tenant.id) as any[];
+    `, [startDate.toISOString(), tenant.id, ...additionalParams, tenant.id]);
   } catch (error) {
     logger.error('Error getting category stats', error);
     return [];
@@ -441,7 +466,6 @@ async function getCategoryStats(user: any, tenant: any, startDate: Date) {
 
 async function getPriorityStats(user: any, tenant: any, startDate: Date) {
   try {
-    // SECURITY: Always filter by tenant
     let additionalWhere = '';
     const additionalParams: any[] = [];
 
@@ -450,7 +474,7 @@ async function getPriorityStats(user: any, tenant: any, startDate: Date) {
       additionalParams.push(user.id);
     }
 
-    return db.prepare(`
+    return await executeQuery<any>(`
       SELECT
         p.name,
         p.color,
@@ -462,7 +486,7 @@ async function getPriorityStats(user: any, tenant: any, startDate: Date) {
       WHERE p.tenant_id = ?
       GROUP BY p.id, p.name, p.color, p.level
       ORDER BY p.level DESC, count DESC
-    `).all(startDate.toISOString(), tenant.id, ...additionalParams, tenant.id) as any[];
+    `, [startDate.toISOString(), tenant.id, ...additionalParams, tenant.id]);
   } catch (error) {
     logger.error('Error getting priority stats', error);
     return [];
@@ -474,15 +498,12 @@ async function getRoleSpecificData(user: any, tenant: any, startDate: Date) {
     const data: any = {};
 
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'tenant_admin') {
-      // Dados específicos para admin
       data.system_health = await getSystemHealthData(tenant);
       data.user_activity = await getUserActivityData(tenant, startDate);
     } else if (user.role === 'agent' || user.role === 'team_manager') {
-      // Dados específicos para agente
       data.my_assignments = await getAgentAssignments(user.id, tenant);
       data.workload = await getAgentWorkload(user.id, tenant);
     } else if (user.role === 'user') {
-      // Dados específicos para usuário final
       data.my_tickets = await getUserTicketsSummary(user.id, tenant, startDate);
     }
 
@@ -501,16 +522,13 @@ async function getRoleSpecificData(user: any, tenant: any, startDate: Date) {
 
 async function getSystemHealthData(tenant: any) {
   try {
-    // SECURITY: Always filter by tenant
-    const health = db.prepare(`
+    return await executeQueryOne<any>(`
       SELECT
-        (SELECT COUNT(*) FROM tickets WHERE tenant_id = ? AND created_at >= datetime('now', '-1 hour')) as tickets_last_hour,
-        (SELECT COUNT(*) FROM users WHERE tenant_id = ? AND created_at >= datetime('now', '-24 hours')) as new_users_today,
-        (SELECT COUNT(*) FROM notifications WHERE tenant_id = ? AND created_at >= datetime('now', '-1 hour') AND is_read = 0) as unread_notifications,
-        (SELECT COUNT(*) FROM sla_tracking st JOIN tickets t ON st.ticket_id = t.id WHERE t.tenant_id = ? AND st.resolution_breached = 1) as sla_breaches
-    `).get(tenant.id, tenant.id, tenant.id, tenant.id) as any;
-
-    return health;
+        (SELECT COUNT(*) FROM tickets WHERE tenant_id = ? AND created_at >= ${NOW_MINUS_1_HOUR}) as tickets_last_hour,
+        (SELECT COUNT(*) FROM users WHERE tenant_id = ? AND created_at >= ${NOW_MINUS_24_HOURS}) as new_users_today,
+        (SELECT COUNT(*) FROM notifications WHERE tenant_id = ? AND created_at >= ${NOW_MINUS_1_HOUR} AND is_read = ${FALSE_SQL}) as unread_notifications,
+        (SELECT COUNT(*) FROM sla_tracking st JOIN tickets t ON st.ticket_id = t.id WHERE t.tenant_id = ? AND st.resolution_breached = ${TRUE_SQL}) as sla_breaches
+    `, [tenant.id, tenant.id, tenant.id, tenant.id]);
   } catch (error) {
     logger.error('Error getting system health data', error);
     return {
@@ -524,8 +542,7 @@ async function getSystemHealthData(tenant: any) {
 
 async function getUserActivityData(tenant: any, startDate: Date) {
   try {
-    // SECURITY: Always filter by tenant
-    return db.prepare(`
+    return await executeQuery<any>(`
       SELECT
         u.name,
         u.role,
@@ -534,10 +551,10 @@ async function getUserActivityData(tenant: any, startDate: Date) {
       LEFT JOIN tickets t ON u.id = t.user_id AND t.tenant_id = ? AND t.created_at >= ?
       WHERE u.tenant_id = ? AND u.role = 'user'
       GROUP BY u.id, u.name, u.role
-      HAVING tickets_created > 0
+      HAVING COUNT(t.id) > 0
       ORDER BY tickets_created DESC
       LIMIT 10
-    `).all(tenant.id, startDate.toISOString(), tenant.id) as any[];
+    `, [tenant.id, startDate.toISOString(), tenant.id]);
   } catch (error) {
     logger.error('Error getting user activity data', error);
     return [];
@@ -546,8 +563,7 @@ async function getUserActivityData(tenant: any, startDate: Date) {
 
 async function getAgentAssignments(agentId: number, tenant: any) {
   try {
-    // SECURITY: Always filter by tenant
-    return db.prepare(`
+    return await executeQuery<any>(`
       SELECT
         t.id,
         t.title,
@@ -558,10 +574,10 @@ async function getAgentAssignments(agentId: number, tenant: any) {
       FROM tickets t
       JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
       JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
-      WHERE t.tenant_id = ? AND t.assigned_to = ? AND s.is_final = 0
+      WHERE t.tenant_id = ? AND t.assigned_to = ? AND ${IS_FINAL_FALSE_OR_NULL_SQL}
       ORDER BY p.level DESC, t.created_at ASC
       LIMIT 10
-    `).all(tenant.id, tenant.id, tenant.id, agentId) as any[];
+    `, [tenant.id, tenant.id, tenant.id, agentId]);
   } catch (error) {
     logger.error('Error getting agent assignments', error);
     return [];
@@ -570,19 +586,18 @@ async function getAgentAssignments(agentId: number, tenant: any) {
 
 async function getAgentWorkload(agentId: number, tenant: any) {
   try {
-    // SECURITY: Always filter by tenant
-    return db.prepare(`
+    return await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total_assigned,
-        COUNT(CASE WHEN s.is_final = 0 THEN 1 END) as open_tickets,
+        COUNT(CASE WHEN ${IS_FINAL_FALSE_OR_NULL_SQL} THEN 1 END) as open_tickets,
         COUNT(CASE WHEN p.level = 4 THEN 1 END) as critical_tickets,
-        COUNT(CASE WHEN st.response_due_at < datetime('now') AND st.first_response_at IS NULL THEN 1 END) as overdue_response
+        COUNT(CASE WHEN st.response_due_at < CURRENT_TIMESTAMP AND st.first_response_at IS NULL THEN 1 END) as overdue_response
       FROM tickets t
       LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
       LEFT JOIN priorities p ON t.priority_id = p.id AND p.tenant_id = ?
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       WHERE t.tenant_id = ? AND t.assigned_to = ?
-    `).get(tenant.id, tenant.id, tenant.id, agentId) as any;
+    `, [tenant.id, tenant.id, tenant.id, agentId]);
   } catch (error) {
     logger.error('Error getting agent workload', error);
     return {
@@ -596,22 +611,21 @@ async function getAgentWorkload(agentId: number, tenant: any) {
 
 async function getUserTicketsSummary(userId: number, tenant: any, startDate: Date) {
   try {
-    // SECURITY: Always filter by tenant
-    return db.prepare(`
+    return await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total_tickets,
-        COUNT(CASE WHEN s.is_final = 0 THEN 1 END) as open_tickets,
-        COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as closed_tickets,
+        COUNT(CASE WHEN ${IS_FINAL_FALSE_OR_NULL_SQL} THEN 1 END) as open_tickets,
+        COUNT(CASE WHEN ${IS_FINAL_TRUE_SQL} THEN 1 END) as closed_tickets,
         COUNT(CASE WHEN t.created_at >= ? THEN 1 END) as tickets_period,
         AVG(CASE
           WHEN t.resolved_at IS NOT NULL
-          THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+          THEN ${RESOLUTION_HOURS_SQL}
           ELSE NULL
         END) as avg_resolution_hours
       FROM tickets t
       LEFT JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
       WHERE t.tenant_id = ? AND t.user_id = ?
-    `).get(startDate.toISOString(), tenant.id, tenant.id, userId) as any;
+    `, [startDate.toISOString(), tenant.id, tenant.id, userId]);
   } catch (error) {
     logger.error('Error getting user tickets summary', error);
     return {

@@ -5,9 +5,10 @@
  * and data protection metrics.
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQueryOne } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface DataSubjectRequest {
@@ -46,28 +47,21 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const section = searchParams.get('section') || 'overview'
-
-    const db = getDatabase()
-
-    // Get data counts from actual tables
+// Get data counts from actual tables
     let dataSubjectCount = 0
     let consentCount = 0
     let anonymizedCount = 0
 
     try {
-      const userCount = db.prepare(`
+      const userCount = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count FROM users WHERE organization_id = ?
-      `).get(auth.user.organization_id) as { count: number }
+      `, [organizationId]) || { count: 0 }
       dataSubjectCount = userCount.count
       consentCount = Math.round(userCount.count * 0.95) // Simulated consent rate
       anonymizedCount = Math.round(userCount.count * 0.66) // Simulated anonymization
@@ -243,7 +237,7 @@ export async function GET(request: NextRequest) {
       consentStats
     })
   } catch (error) {
-    console.error('Error fetching data governance info:', error)
+    logger.error('Error fetching data governance info:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao buscar informações de governança de dados' },
       { status: 500 }
@@ -257,13 +251,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
 
     const body = await request.json()
     const { action, data } = body
@@ -315,7 +304,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
     }
   } catch (error) {
-    console.error('Error processing data governance action:', error)
+    logger.error('Error processing data governance action:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao processar ação de governança de dados' },
       { status: 500 }

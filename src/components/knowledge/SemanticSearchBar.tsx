@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MagnifyingGlassIcon, XMarkIcon, FunnelIcon, ClockIcon, FireIcon } from '@heroicons/react/24/outline';
-import { useDebounce } from '@/hooks/useDebounce';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import { logger } from '@/lib/monitoring/logger';
 
 interface SearchFilter {

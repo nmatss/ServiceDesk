@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { autoGenerator } from '@/lib/knowledge/auto-generator';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: NextRequest) {
@@ -15,14 +15,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verify authentication
-    const auth = await verifyAuth(request);
-    if (!auth.user || !['admin', 'agent'].includes(auth.user.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const userContext = guard.context!.user
 
     const body = await request.json();
     const {
@@ -48,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Optionally save to database
     let articleId: number | undefined;
     if (auto_save) {
-      articleId = await autoGenerator.saveGeneratedArticle(article, auth.user.id);
+      articleId = await autoGenerator.saveGeneratedArticle(article, userContext.id);
     }
 
     return NextResponse.json({
@@ -79,14 +76,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verify authentication
-    const auth = await verifyAuth(request);
-    if (!auth.user || !['admin', 'agent'].includes(auth.user.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
 
     const candidates = await autoGenerator.findGenerationCandidates();
 

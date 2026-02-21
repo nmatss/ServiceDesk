@@ -3,7 +3,7 @@
  * Database integration for workflow engine
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import {
   WorkflowDefinition,
   WorkflowExecution,
@@ -11,30 +11,21 @@ import {
 } from '@/lib/types/workflow';
 import logger from '@/lib/monitoring/structured-logger';
 
-function getConnection() {
-  return db;
-}
-
 export class WorkflowPersistenceAdapter {
-  private db: ReturnType<typeof getConnection>;
-
-  constructor() {
-    this.db = getConnection();
-  }
 
   /**
    * Get workflow definition by ID
    */
   async getWorkflowDefinition(id: number): Promise<WorkflowDefinition | null> {
     try {
-      const workflow = this.db.prepare(`
+      const workflow = await executeQueryOne<any>(`
         SELECT
           w.*,
           wd.steps_json
         FROM workflows w
         LEFT JOIN workflow_definitions wd ON w.id = wd.id
         WHERE w.id = ?
-      `).get(id) as any;
+      `, [id]);
 
       if (!workflow) {
         return null;
@@ -101,7 +92,7 @@ export class WorkflowPersistenceAdapter {
    */
   async createExecution(execution: WorkflowExecution): Promise<WorkflowExecution> {
     try {
-      const result = this.db.prepare(`
+      const result = await executeRun(`
         INSERT INTO workflow_executions (
           workflow_id,
           trigger_entity_type,
@@ -117,7 +108,7 @@ export class WorkflowPersistenceAdapter {
           retry_count,
           metadata
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         execution.workflowId,
         execution.triggerEntityType,
         execution.triggerEntityId || null,
@@ -131,11 +122,23 @@ export class WorkflowPersistenceAdapter {
         JSON.stringify(execution.executionLog),
         execution.retryCount,
         JSON.stringify(execution.metadata)
-      );
+      ]);
+
+      let executionId = result.lastInsertRowid;
+      if (typeof executionId !== 'number') {
+        const inserted = await executeQueryOne<{ id: number }>(`
+          SELECT id
+          FROM workflow_executions
+          WHERE workflow_id = ? AND started_at = ?
+          ORDER BY id DESC
+          LIMIT 1
+        `, [execution.workflowId, execution.startedAt.toISOString()]);
+        executionId = inserted?.id;
+      }
 
       return {
         ...execution,
-        id: Number(result.lastInsertRowid),
+        id: Number(executionId),
       };
     } catch (error) {
       logger.error('Error creating execution', error);
@@ -148,7 +151,7 @@ export class WorkflowPersistenceAdapter {
    */
   async updateExecution(execution: WorkflowExecution): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE workflow_executions
         SET
           status = ?,
@@ -161,7 +164,7 @@ export class WorkflowPersistenceAdapter {
           retry_count = ?,
           metadata = ?
         WHERE id = ?
-      `).run(
+      `, [
         execution.status,
         execution.currentStepId || null,
         execution.progressPercentage,
@@ -172,7 +175,7 @@ export class WorkflowPersistenceAdapter {
         execution.retryCount,
         JSON.stringify(execution.metadata),
         execution.id
-      );
+      ]);
     } catch (error) {
       logger.error('Error updating execution', error);
       throw error;
@@ -184,9 +187,9 @@ export class WorkflowPersistenceAdapter {
    */
   async getExecution(id: number): Promise<WorkflowExecution | null> {
     try {
-      const execution = this.db.prepare(`
+      const execution = await executeQueryOne<any>(`
         SELECT * FROM workflow_executions WHERE id = ?
-      `).get(id) as any;
+      `, [id]);
 
       if (!execution) {
         return null;
@@ -221,7 +224,7 @@ export class WorkflowPersistenceAdapter {
    */
   async createStepExecution(stepExecution: WorkflowStepExecution): Promise<WorkflowStepExecution> {
     try {
-      const result = this.db.prepare(`
+      const result = await executeRun(`
         INSERT INTO workflow_step_executions (
           execution_id,
           step_id,
@@ -234,7 +237,7 @@ export class WorkflowPersistenceAdapter {
           retry_count,
           metadata
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         stepExecution.executionId,
         stepExecution.stepId,
         stepExecution.status,
@@ -245,11 +248,23 @@ export class WorkflowPersistenceAdapter {
         stepExecution.executionTimeMs || null,
         stepExecution.retryCount,
         JSON.stringify(stepExecution.metadata)
-      );
+      ]);
+
+      let stepExecutionId = result.lastInsertRowid;
+      if (typeof stepExecutionId !== 'number') {
+        const inserted = await executeQueryOne<{ id: number }>(`
+          SELECT id
+          FROM workflow_step_executions
+          WHERE execution_id = ? AND step_id = ? AND started_at = ?
+          ORDER BY id DESC
+          LIMIT 1
+        `, [stepExecution.executionId, stepExecution.stepId, stepExecution.startedAt.toISOString()]);
+        stepExecutionId = inserted?.id;
+      }
 
       return {
         ...stepExecution,
-        id: Number(result.lastInsertRowid),
+        id: Number(stepExecutionId),
       };
     } catch (error) {
       logger.error('Error creating step execution', error);
@@ -262,7 +277,7 @@ export class WorkflowPersistenceAdapter {
    */
   async updateStepExecution(stepExecution: WorkflowStepExecution): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE workflow_step_executions
         SET
           status = ?,
@@ -273,7 +288,7 @@ export class WorkflowPersistenceAdapter {
           retry_count = ?,
           metadata = ?
         WHERE id = ?
-      `).run(
+      `, [
         stepExecution.status,
         JSON.stringify(stepExecution.outputData || {}),
         stepExecution.errorMessage || null,
@@ -282,7 +297,7 @@ export class WorkflowPersistenceAdapter {
         stepExecution.retryCount,
         JSON.stringify(stepExecution.metadata),
         stepExecution.id
-      );
+      ]);
     } catch (error) {
       logger.error('Error updating step execution', error);
       throw error;
@@ -294,14 +309,14 @@ export class WorkflowPersistenceAdapter {
    */
   async incrementWorkflowSuccessCount(workflowId: number): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE workflows
         SET
           success_count = success_count + 1,
           execution_count = execution_count + 1,
           last_executed_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(workflowId);
+      `, [workflowId]);
     } catch (error) {
       logger.error('Error incrementing workflow success count', error);
       throw error;
@@ -313,14 +328,14 @@ export class WorkflowPersistenceAdapter {
    */
   async incrementWorkflowFailureCount(workflowId: number): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE workflows
         SET
           failure_count = failure_count + 1,
           execution_count = execution_count + 1,
           last_executed_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(workflowId);
+      `, [workflowId]);
     } catch (error) {
       logger.error('Error incrementing workflow failure count', error);
       throw error;
@@ -336,14 +351,14 @@ export class WorkflowPersistenceAdapter {
     offset: number = 0
   ): Promise<WorkflowExecution[]> {
     try {
-      const executions = this.db.prepare(`
+      const executions = await executeQuery<any>(`
         SELECT * FROM workflow_executions
         WHERE workflow_id = ?
         ORDER BY started_at DESC
         LIMIT ? OFFSET ?
-      `).all(workflowId, limit, offset) as any[];
+      `, [workflowId, limit, offset]);
 
-      return executions.map((execution) => ({
+      return executions.map((execution: any) => ({
         id: execution.id,
         workflowId: execution.workflow_id,
         triggerEntityType: execution.trigger_entity_type,
@@ -372,10 +387,11 @@ export class WorkflowPersistenceAdapter {
    */
   async deleteOldExecutions(olderThanDays: number): Promise<number> {
     try {
-      const result = this.db.prepare(`
+      const cutoffDate = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
+      const result = await executeRun(`
         DELETE FROM workflow_executions
-        WHERE started_at < datetime('now', '-${olderThanDays} days')
-      `).run();
+        WHERE started_at < ?
+      `, [cutoffDate]);
 
       return result.changes;
     } catch (error) {

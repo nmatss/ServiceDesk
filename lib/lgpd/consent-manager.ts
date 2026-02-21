@@ -302,8 +302,11 @@ export class ConsentManager {
   }> {
     try {
       const dateFilter = startDate && endDate
-        ? `AND created_at BETWEEN '${startDate.toISOString()}' AND '${endDate.toISOString()}'`
+        ? `AND created_at BETWEEN ? AND ?`
         : '';
+      const dateParams = startDate && endDate
+        ? [startDate.toISOString(), endDate.toISOString()]
+        : [];
 
       const stats = db.prepare(`
         SELECT
@@ -313,21 +316,21 @@ export class ConsentManager {
           SUM(CASE WHEN expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP THEN 1 ELSE 0 END) as expired
         FROM lgpd_consents
         WHERE 1=1 ${dateFilter}
-      `).get() as any;
+      `).get(...dateParams) as any;
 
       const byPurpose = db.prepare(`
         SELECT consent_type, COUNT(*) as count
         FROM lgpd_consents
         WHERE 1=1 ${dateFilter}
         GROUP BY consent_type
-      `).all() as { consent_type: string; count: number }[];
+      `).all(...dateParams) as { consent_type: string; count: number }[];
 
       const byLegalBasis = db.prepare(`
         SELECT legal_basis, COUNT(*) as count
         FROM lgpd_consents
         WHERE 1=1 ${dateFilter}
         GROUP BY legal_basis
-      `).all() as { legal_basis: string; count: number }[];
+      `).all(...dateParams) as { legal_basis: string; count: number }[];
 
       return {
         totalConsents: stats.total || 0,

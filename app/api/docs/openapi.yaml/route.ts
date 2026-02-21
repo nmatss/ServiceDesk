@@ -1,3 +1,4 @@
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error reading OpenAPI spec:', error)
+    logger.error('Error reading OpenAPI spec:', error)
     return NextResponse.json(
       {
         success: false,

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { VoiceInput } from '@/src/components/mobile/VoiceInput'
 import { MobileNav } from '@/src/components/mobile/MobileNav'
 import {
@@ -40,7 +41,7 @@ export default function MobileCreateTicketPage() {
     e.preventDefault()
 
     if (!subject || !description) {
-      alert('Please fill in subject and description')
+      toast.error('Preencha o assunto e a descrição')
       return
     }
 
@@ -59,7 +60,7 @@ export default function MobileCreateTicketPage() {
       router.push('/mobile/tickets')
     } catch (error) {
       console.error('Error creating ticket:', error)
-      alert('Failed to create ticket')
+      toast.error('Erro ao criar ticket')
     } finally {
       setIsSubmitting(false)
     }

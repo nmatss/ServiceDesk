@@ -27,18 +27,18 @@ import type {
 } from '@/lib/types/problem';
 
 const STATUS_BADGES: Record<ProblemStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  new: {
-    label: 'Novo',
+  open: {
+    label: 'Aberto',
     color: 'bg-brand-100 text-brand-800 dark:bg-brand-900/30 dark:text-brand-400',
     icon: <ClockIcon className="w-4 h-4" />,
   },
-  investigation: {
-    label: 'Investigando',
+  identified: {
+    label: 'Identificado',
     color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
     icon: <DocumentMagnifyingGlassIcon className="w-4 h-4" />,
   },
-  root_cause_identified: {
-    label: 'Causa Identificada',
+  root_cause_analysis: {
+    label: 'Análise de Causa Raiz',
     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
     icon: <LightBulbIcon className="w-4 h-4" />,
   },
@@ -210,9 +210,9 @@ export default function ProblemsPage() {
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200"
                 >
                   <option value="">Todos</option>
-                  <option value="new">Novo</option>
-                  <option value="investigation">Investigando</option>
-                  <option value="root_cause_identified">Causa Identificada</option>
+                  <option value="open">Aberto</option>
+                  <option value="identified">Identificado</option>
+                  <option value="root_cause_analysis">Análise de Causa Raiz</option>
                   <option value="known_error">Erro Conhecido</option>
                   <option value="resolved">Resolvido</option>
                   <option value="closed">Fechado</option>
@@ -323,12 +323,6 @@ export default function ProblemsPage() {
 
                   {/* Metadata */}
                   <div className="flex flex-wrap gap-4 text-sm text-muted-content">
-                    {problem.incident_count > 0 && (
-                      <div className="flex items-center gap-1">
-                        <ExclamationTriangleIcon className="w-4 h-4" />
-                        <span>{problem.incident_count} incidentes</span>
-                      </div>
-                    )}
                     {problem.category && (
                       <div className="flex items-center gap-1">
                         <span

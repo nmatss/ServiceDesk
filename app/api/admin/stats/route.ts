@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { executeQueryOne } from '@/lib/db/adapter';
+import { verifyToken } from '@/lib/auth/auth-service'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const tenantContext = getTenantContextFromRequest(request)
     if (!tenantContext) {
       return NextResponse.json(
-        { error: 'Contexto de tenant não encontrado' },
+        { success: false, error: 'Contexto de tenant não encontrado' },
         { status: 400 }
       )
     }
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
+        { success: false, error: 'Token de autenticação necessário' },
         { status: 401 }
       )
     }
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     if (!decoded) {
       return NextResponse.json(
-        { error: 'Token inválido' },
+        { success: false, error: 'Token inválido' },
         { status: 401 }
       )
     }
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Verificar se é admin
     if (decoded.role !== 'admin' && decoded.role !== 'tenant_admin') {
       return NextResponse.json(
-        { error: 'Acesso negado' },
+        { success: false, error: 'Acesso negado' },
         { status: 403 }
       )
     }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // Verificar se usuário pertence ao tenant
     if (decoded.organization_id !== tenantContext.id) {
       return NextResponse.json(
-        { error: 'Acesso negado a este tenant' },
+        { success: false, error: 'Acesso negado a este tenant' },
         { status: 403 }
       )
     }
@@ -58,25 +58,21 @@ export async function GET(request: NextRequest) {
     const tenantId = tenantContext.id
 
     // Buscar estatísticas FILTRADAS POR TENANT
-    const totalUsers = db.prepare(
-      'SELECT COUNT(*) as count FROM users WHERE organization_id = ?'
-    ).get(tenantId) as { count: number }
+    const totalUsers = await executeQueryOne<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE organization_id = ?', [tenantId])
 
-    const totalTickets = db.prepare(
-      'SELECT COUNT(*) as count FROM tickets WHERE tenant_id = ?'
-    ).get(tenantId) as { count: number }
+    const totalTickets = await executeQueryOne<{ count: number }>('SELECT COUNT(*) as count FROM tickets WHERE tenant_id = ?', [tenantId])
 
-    const openTickets = db.prepare(`
+    const openTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
       WHERE t.tenant_id = ? AND s.is_final = 0
-    `).get(tenantId, tenantId) as { count: number }
+    `, [tenantId, tenantId])
 
-    const resolvedTickets = db.prepare(`
+    const resolvedTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       JOIN statuses s ON t.status_id = s.id AND s.tenant_id = ?
       WHERE t.tenant_id = ? AND s.is_final = 1
-    `).get(tenantId, tenantId) as { count: number }
+    `, [tenantId, tenantId])
 
     const stats = {
       totalUsers: totalUsers?.count ?? 0,
@@ -92,7 +88,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error('Error fetching stats', error)
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { success: false, error: 'Erro interno do servidor' },
       { status: 500 }
     )
   }

@@ -6,7 +6,7 @@ import Database from 'better-sqlite3'
 
 // Set environment variables for tests
 process.env.NODE_ENV = 'test'
-process.env.JWT_SECRET = 'test-jwt-secret-minimum-32-characters-long-for-testing'
+process.env.JWT_SECRET = '9f5c2e7d4a1b8c3f6e0d2c7a4b9e1f5c2d7a8b3e6f1c4a9d2e5b8f0a3c6d1e4f'
 process.env.DATABASE_URL = ':memory:'
 
 // Configuração para ambiente de teste
@@ -20,7 +20,7 @@ export function setupTestDatabase() {
   beforeAll(async () => {
     // Configurar ambiente de teste
     process.env.NODE_ENV = 'test'
-    process.env.JWT_SECRET = 'test-secret-key'
+    process.env.JWT_SECRET = '8d3a6f1c4b9e2d7a5c0f3b8e1a4d9c2f6b0e3a7d1c5f8b2e4a9c6d0f3b7e1a5d'
 
     // Remover banco de teste se existir
     if (fs.existsSync(TEST_DB_PATH)) {

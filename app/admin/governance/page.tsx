@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   ShieldCheckIcon,
@@ -473,7 +474,7 @@ export default function GovernancePage() {
           {
             label: 'Exportar Relatório',
             icon: ArrowDownTrayIcon,
-            onClick: () => {},
+            onClick: () => toast.error('Exportação de relatório de governança ainda não implementada'),
             variant: 'primary'
           }
         ]}
@@ -602,7 +603,10 @@ export default function GovernancePage() {
                               <p className="text-xs text-muted-content">{formatTimestamp(alert.timestamp)}</p>
                             </div>
                           </div>
-                          <button className="text-sm text-description hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors">
+                          <button
+                            onClick={() => toast.error('Reconhecimento de alertas ainda não implementado')}
+                            className="text-sm text-description hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+                          >
                             Reconhecer
                           </button>
                         </div>
@@ -803,7 +807,10 @@ export default function GovernancePage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <button className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
+                              <button
+                                onClick={() => toast.error('Visualização de detalhes do log ainda não implementada')}
+                                className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+                              >
                                 <EyeIcon className="w-5 h-5" />
                               </button>
                             </td>
@@ -923,7 +930,10 @@ export default function GovernancePage() {
                 <div className="glass-panel overflow-hidden">
                   <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
                     <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">Políticas de Acesso</h3>
-                    <button className="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors">
+                    <button
+                      onClick={() => toast.error('Criação de políticas de acesso ainda não implementada')}
+                      className="px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
+                    >
                       Nova Política
                     </button>
                   </div>
@@ -957,7 +967,10 @@ export default function GovernancePage() {
                           <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{policy.users_affected} usuários</p>
                           <p className="text-xs text-muted-content">{policy.scope}</p>
                         </div>
-                        <button className="text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
+                        <button
+                          onClick={() => toast.error('Configuração de política ainda não implementada')}
+                          className="text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                        >
                           <Cog6ToothIcon className="w-5 h-5" />
                         </button>
                       </div>
@@ -1109,7 +1122,10 @@ export default function GovernancePage() {
                 <div className="glass-panel overflow-hidden">
                   <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
                     <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">Solicitações de Titulares (DSAR)</h3>
-                    <button className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">Ver todas</button>
+                    <button
+                      onClick={() => toast.error('Visualização de todas as solicitações DSAR ainda não implementada')}
+                      className="text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
+                    >Ver todas</button>
                   </div>
                   <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {[

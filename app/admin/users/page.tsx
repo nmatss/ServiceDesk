@@ -236,7 +236,7 @@ export default function AdminUsersPage() {
             />
           </div>
           <div className="flex items-end">
-            <button className="btn btn-primary w-full">
+            <button onClick={() => customToast.info('Filtros de usuários ainda não implementados')} className="btn btn-primary w-full">
               Aplicar Filtros
             </button>
           </div>

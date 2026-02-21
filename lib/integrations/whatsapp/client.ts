@@ -5,7 +5,15 @@
 
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import crypto from 'crypto';
-import { getSystemSetting } from '@/lib/db/queries';
+import { executeQueryOne } from '@/lib/db/adapter';
+
+async function getSystemSetting(key: string): Promise<string | null> {
+  const row = await executeQueryOne<{ value: string }>(
+    'SELECT value FROM system_settings WHERE key = ? AND organization_id IS NULL LIMIT 1',
+    [key]
+  );
+  return row?.value ?? null;
+}
 
 interface WhatsAppConfig {
   accessToken: string;

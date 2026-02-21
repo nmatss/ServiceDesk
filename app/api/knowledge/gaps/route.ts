@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, getDbType } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -15,21 +15,18 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verify authentication
-    const auth = await verifyAuth(request);
-    if (!auth.user || !['admin', 'agent', 'manager'].includes(auth.user.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30');
     const minTickets = parseInt(searchParams.get('minTickets') || '5');
 
     // Find topics with many tickets but few articles
-    const gaps = await analyzeContentGaps(days, minTickets);
+    const gaps = await analyzeContentGaps(tenantContext.id, days, minTickets);
 
     return NextResponse.json({
       success: true,
@@ -49,33 +46,40 @@ export async function GET(request: NextRequest) {
 /**
  * Analyze content gaps
  */
-async function analyzeContentGaps(days: number, minTickets: number) {
+async function analyzeContentGaps(tenantId: number, days: number, minTickets: number) {
   try {
     // Get ticket topics without articles
-    const stmt = db.prepare(
-      `
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const dbType = getDbType();
+    const sampleTitlesAgg = dbType === 'postgresql'
+      ? "string_agg(DISTINCT SUBSTRING(t.title, 1, 50), ',')"
+      : "GROUP_CONCAT(DISTINCT SUBSTR(t.title, 1, 50))";
+    const resolutionExpr = "(CASE WHEN s.is_final = 1 OR s.is_final = TRUE THEN 1 ELSE 0 END)";
+
+    const gaps = await executeQuery<any>(`
       SELECT
         c.id as category_id,
         c.name as category,
         COUNT(DISTINCT t.id) as ticket_count,
         COUNT(DISTINCT ka.id) as article_count,
-        GROUP_CONCAT(DISTINCT SUBSTR(t.title, 1, 50)) as sample_titles,
-        AVG(CASE WHEN s.is_final = 1 THEN 1 ELSE 0 END) as resolution_rate,
+        ${sampleTitlesAgg} as sample_titles,
+        AVG(${resolutionExpr}) as resolution_rate,
         AVG(ss.rating) as avg_satisfaction
       FROM categories c
       LEFT JOIN tickets t ON c.id = t.category_id
-        AND t.created_at >= datetime('now', '-' || ? || ' days')
+        AND t.created_at >= ?
+        AND t.tenant_id = ?
       LEFT JOIN kb_articles ka ON c.id = ka.category_id
-        AND ka.is_published = 1
+        AND ka.status = 'published'
+        AND (ka.tenant_id = ? OR ka.tenant_id IS NULL)
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
+      WHERE c.tenant_id = ?
       GROUP BY c.id, c.name
-      HAVING ticket_count >= ?
+      HAVING COUNT(DISTINCT t.id) >= ?
       ORDER BY (ticket_count - article_count) DESC, ticket_count DESC
       LIMIT 20
-      `
-    );
-    const gaps = stmt.all(days, minTickets) as any[];
+      `, [cutoffDate, tenantId, tenantId, tenantId, minTickets]);
 
     // Analyze each gap
     const analyzedGaps = gaps.map((gap: any) => {

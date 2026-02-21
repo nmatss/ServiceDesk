@@ -1,4 +1,4 @@
-import { workflowEngine } from './engine';
+import { getWorkflowEngine } from './engine';
 import db from '../db/connection';
 import logger from '../monitoring/structured-logger';
 
@@ -60,6 +60,7 @@ export class WorkflowScheduler {
    * Verifica workflows que devem ser executados
    */
   private async checkTimeBasedWorkflows(): Promise<void> {
+    const workflowEngine = getWorkflowEngine();
     const workflows = db.prepare(`
       SELECT * FROM workflows
       WHERE is_active = 1 AND trigger_type = 'time_based'
@@ -128,6 +129,7 @@ export class WorkflowScheduler {
    * Verifica SLAs próximos de vencimento
    */
   private async checkSLAWarnings(): Promise<void> {
+    const workflowEngine = getWorkflowEngine();
     // Tickets com SLA de resposta próximo de vencer (< 2h)
     const responseDueSoon = db.prepare(`
       SELECT
@@ -144,7 +146,7 @@ export class WorkflowScheduler {
     `).all() as any[];
 
     for (const sla of responseDueSoon) {
-      await this.triggerSLAWarning(sla, 'response');
+      await this.triggerSLAWarning(sla, 'response', workflowEngine);
     }
 
     // Tickets com SLA de resolução próximo de vencer (< 4h)
@@ -163,14 +165,18 @@ export class WorkflowScheduler {
     `).all() as any[];
 
     for (const sla of resolutionDueSoon) {
-      await this.triggerSLAWarning(sla, 'resolution');
+      await this.triggerSLAWarning(sla, 'resolution', workflowEngine);
     }
   }
 
   /**
    * Dispara workflow de SLA warning
    */
-  private async triggerSLAWarning(sla: any, type: 'response' | 'resolution'): Promise<void> {
+  private async triggerSLAWarning(
+    sla: any,
+    type: 'response' | 'resolution',
+    workflowEngine = getWorkflowEngine()
+  ): Promise<void> {
     // Buscar workflow de SLA warning
     const workflow = db.prepare(`
       SELECT * FROM workflows

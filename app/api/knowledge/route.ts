@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -10,15 +10,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -51,7 +46,7 @@ export async function GET(request: NextRequest) {
       params.push(category)
     }
 
-    const articles = db.prepare(`
+    const articles = await executeQuery(`
       SELECT
         k.id,
         k.title,
@@ -71,24 +66,24 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY k.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(tenantContext.id, ...params, limit, offset)
+    `, [tenantContext.id, ...params, limit, offset])
 
     // Count total articles
-    const totalQuery = db.prepare(`
+    const totalResult = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM knowledge_articles k
       ${whereClause}
-    `)
-    const { total } = totalQuery.get(...params) as { total: number }
+    `, params)
+    const total = totalResult?.total ?? 0
 
     // Get categories
-    const categories = db.prepare(`
+    const categories = await executeQuery(`
       SELECT DISTINCT category, COUNT(*) as count
       FROM knowledge_articles
       WHERE tenant_id = ? AND status = 'published'
       GROUP BY category
       ORDER BY category
-    `).all(tenantContext.id)
+    `, [tenantContext.id])
 
     return NextResponse.json({
       success: true,
@@ -113,15 +108,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     // Only admin users can create articles
     if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
@@ -135,11 +125,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create article
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO knowledge_articles (title, content, excerpt, category, tags,
                                     status, author_id, tenant_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       title,
       content,
       excerpt || null,
@@ -148,10 +138,22 @@ export async function POST(request: NextRequest) {
       status || 'draft',
       userContext.id,
       tenantContext.id
-    )
+    ])
+
+    let articleId = result.lastInsertRowid
+    if (typeof articleId !== 'number') {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        SELECT id
+        FROM knowledge_articles
+        WHERE title = ? AND author_id = ? AND tenant_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [title, userContext.id, tenantContext.id])
+      articleId = inserted?.id
+    }
 
     // Get created article with author info
-    const newArticle = db.prepare(`
+    const newArticle = await executeQueryOne(`
       SELECT
         k.id,
         k.title,
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
       FROM knowledge_articles k
       LEFT JOIN users u ON k.author_id = u.id AND u.tenant_id = ?
       WHERE k.id = ?
-    `).get(tenantContext.id, result.lastInsertRowid)
+    `, [tenantContext.id, articleId])
 
     return NextResponse.json({
       success: true,

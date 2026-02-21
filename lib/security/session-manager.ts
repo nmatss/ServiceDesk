@@ -9,7 +9,7 @@
  * - Session revocation
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import * as crypto from 'crypto';
 
@@ -59,10 +59,10 @@ export interface FailedLoginAttempt {
 /**
  * Initialize session management tables
  */
-export function initializeSessionTables(): void {
+export async function initializeSessionTables(): Promise<void> {
   try {
     // Create user_sessions table
-    db.prepare(`
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS user_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -78,10 +78,10 @@ export function initializeSessionTables(): void {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
       )
-    `).run();
+    `);
 
     // Create failed_login_attempts table
-    db.prepare(`
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS failed_login_attempts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tenant_id INTEGER NOT NULL,
@@ -94,28 +94,28 @@ export function initializeSessionTables(): void {
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
       )
-    `).run();
+    `);
 
     // Create indexes
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_sessions_user
       ON user_sessions(user_id, tenant_id)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_sessions_session_id
       ON user_sessions(session_id)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_failed_logins_email
       ON failed_login_attempts(tenant_id, email)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_failed_logins_ip
       ON failed_login_attempts(ip_address)
-    `).run();
+    `);
 
     logger.info('Session management tables initialized successfully');
   } catch (error) {
@@ -134,46 +134,46 @@ export function generateSessionId(): string {
 /**
  * Create new session
  */
-export function createSession(
+export async function createSession(
   userId: number,
   tenantId: number,
   deviceFingerprint: string,
   ipAddress: string,
   userAgent: string
-): string {
+): Promise<string> {
   try {
     const sessionId = generateSessionId();
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + SESSION_CONFIG.SESSION_TIMEOUT_MINUTES);
 
     // Check concurrent session limit
-    const activeSessions = db.prepare(`
+    const activeSessions = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM user_sessions
       WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
         AND expires_at > datetime('now')
-    `).get(userId, tenantId) as { count: number };
+    `, [userId, tenantId]);
 
-    if (activeSessions.count >= SESSION_CONFIG.MAX_CONCURRENT_SESSIONS) {
+    if ((activeSessions?.count ?? 0) >= SESSION_CONFIG.MAX_CONCURRENT_SESSIONS) {
       // Revoke oldest session
-      const oldestSession = db.prepare(`
+      const oldestSession = await executeQueryOne<{ id: number }>(`
         SELECT id FROM user_sessions
         WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
         ORDER BY created_at ASC
         LIMIT 1
-      `).get(userId, tenantId) as { id: number } | undefined;
+      `, [userId, tenantId]);
 
       if (oldestSession) {
-        revokeSession(oldestSession.id);
+        await revokeSession(oldestSession.id);
       }
     }
 
     // Insert new session
-    db.prepare(`
+    await executeRun(`
       INSERT INTO user_sessions (
         user_id, tenant_id, session_id, device_fingerprint,
         ip_address, user_agent, expires_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       userId,
       tenantId,
       sessionId,
@@ -181,7 +181,7 @@ export function createSession(
       ipAddress,
       userAgent,
       expiresAt.toISOString()
-    );
+    ]);
 
     logger.info('Session created', { userId, tenantId, sessionId });
     return sessionId;
@@ -194,11 +194,11 @@ export function createSession(
 /**
  * Regenerate session ID (call after authentication)
  */
-export function regenerateSessionId(oldSessionId: string): string | null {
+export async function regenerateSessionId(oldSessionId: string): Promise<string | null> {
   try {
-    const session = db.prepare(`
+    const session = await executeQueryOne<Session>(`
       SELECT * FROM user_sessions WHERE session_id = ?
-    `).get(oldSessionId) as Session | undefined;
+    `, [oldSessionId]);
 
     if (!session) {
       return null;
@@ -206,11 +206,11 @@ export function regenerateSessionId(oldSessionId: string): string | null {
 
     const newSessionId = generateSessionId();
 
-    db.prepare(`
+    await executeRun(`
       UPDATE user_sessions
       SET session_id = ?
       WHERE id = ?
-    `).run(newSessionId, session.id);
+    `, [newSessionId, session.id]);
 
     logger.info('Session ID regenerated', { oldSessionId, newSessionId, userId: session.user_id });
     return newSessionId;
@@ -223,14 +223,14 @@ export function regenerateSessionId(oldSessionId: string): string | null {
 /**
  * Validate session
  */
-export function validateSession(sessionId: string): Session | null {
+export async function validateSession(sessionId: string): Promise<Session | null> {
   try {
-    const session = db.prepare(`
+    const session = await executeQueryOne<Session>(`
       SELECT * FROM user_sessions
       WHERE session_id = ?
         AND revoked_at IS NULL
         AND expires_at > datetime('now')
-    `).get(sessionId) as Session | undefined;
+    `, [sessionId]);
 
     if (!session) {
       return null;
@@ -243,16 +243,16 @@ export function validateSession(sessionId: string): Session | null {
 
     if (inactiveMinutes > SESSION_CONFIG.INACTIVITY_TIMEOUT_MINUTES) {
       logger.warn('Session expired due to inactivity', { sessionId, inactiveMinutes });
-      revokeSession(session.id);
+      await revokeSession(session.id);
       return null;
     }
 
     // Update last activity
-    db.prepare(`
+    await executeRun(`
       UPDATE user_sessions
       SET last_activity_at = datetime('now')
       WHERE id = ?
-    `).run(session.id);
+    `, [session.id]);
 
     return session;
   } catch (error) {
@@ -264,14 +264,14 @@ export function validateSession(sessionId: string): Session | null {
 /**
  * Revoke session
  */
-export function revokeSession(sessionId: number | string): boolean {
+export async function revokeSession(sessionId: number | string): Promise<boolean> {
   try {
     const field = typeof sessionId === 'number' ? 'id' : 'session_id';
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE user_sessions
       SET revoked_at = datetime('now')
       WHERE ${field} = ? AND revoked_at IS NULL
-    `).run(sessionId);
+    `, [sessionId]);
 
     logger.info('Session revoked', { sessionId, changes: result.changes });
     return result.changes > 0;
@@ -284,13 +284,13 @@ export function revokeSession(sessionId: number | string): boolean {
 /**
  * Revoke all user sessions
  */
-export function revokeAllUserSessions(userId: number, tenantId: number): number {
+export async function revokeAllUserSessions(userId: number, tenantId: number): Promise<number> {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE user_sessions
       SET revoked_at = datetime('now')
       WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
-    `).run(userId, tenantId);
+    `, [userId, tenantId]);
 
     logger.info('All user sessions revoked', { userId, tenantId, count: result.changes });
     return result.changes;
@@ -303,18 +303,18 @@ export function revokeAllUserSessions(userId: number, tenantId: number): number 
 /**
  * Record failed login attempt
  */
-export function recordFailedLogin(
+export async function recordFailedLogin(
   tenantId: number,
   email: string,
   ipAddress: string,
   userAgent: string
-): { locked: boolean; lockoutMinutes?: number } {
+): Promise<{ locked: boolean; lockoutMinutes?: number }> {
   try {
     // Get existing record
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<FailedLoginAttempt>(`
       SELECT * FROM failed_login_attempts
       WHERE tenant_id = ? AND email = ?
-    `).get(tenantId, email) as FailedLoginAttempt | undefined;
+    `, [tenantId, email]);
 
     const now = new Date();
 
@@ -347,7 +347,7 @@ export function recordFailedLogin(
         });
       }
 
-      db.prepare(`
+      await executeRun(`
         UPDATE failed_login_attempts
         SET attempt_count = ?,
             locked_until = ?,
@@ -355,7 +355,7 @@ export function recordFailedLogin(
             user_agent = ?,
             updated_at = datetime('now')
         WHERE id = ?
-      `).run(newCount, lockedUntil, ipAddress, userAgent, existing.id);
+      `, [newCount, lockedUntil, ipAddress, userAgent, existing.id]);
 
       return {
         locked: lockedUntil !== null,
@@ -363,11 +363,11 @@ export function recordFailedLogin(
       };
     } else {
       // Create new record
-      db.prepare(`
+      await executeRun(`
         INSERT INTO failed_login_attempts (
           tenant_id, email, ip_address, user_agent, attempt_count
         ) VALUES (?, ?, ?, ?, 1)
-      `).run(tenantId, email, ipAddress, userAgent);
+      `, [tenantId, email, ipAddress, userAgent]);
 
       return { locked: false };
     }
@@ -380,12 +380,12 @@ export function recordFailedLogin(
 /**
  * Clear failed login attempts (after successful login)
  */
-export function clearFailedLoginAttempts(tenantId: number, email: string): void {
+export async function clearFailedLoginAttempts(tenantId: number, email: string): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       DELETE FROM failed_login_attempts
       WHERE tenant_id = ? AND email = ?
-    `).run(tenantId, email);
+    `, [tenantId, email]);
 
     logger.info('Failed login attempts cleared', { tenantId, email });
   } catch (error) {
@@ -396,12 +396,12 @@ export function clearFailedLoginAttempts(tenantId: number, email: string): void 
 /**
  * Check if account is locked
  */
-export function isAccountLocked(tenantId: number, email: string): { locked: boolean; minutesRemaining?: number } {
+export async function isAccountLocked(tenantId: number, email: string): Promise<{ locked: boolean; minutesRemaining?: number }> {
   try {
-    const record = db.prepare(`
+    const record = await executeQueryOne<{ locked_until: string }>(`
       SELECT locked_until FROM failed_login_attempts
       WHERE tenant_id = ? AND email = ?
-    `).get(tenantId, email) as { locked_until: string } | undefined;
+    `, [tenantId, email]);
 
     if (!record?.locked_until) {
       return { locked: false };
@@ -425,15 +425,15 @@ export function isAccountLocked(tenantId: number, email: string): { locked: bool
 /**
  * Get active sessions for user
  */
-export function getUserSessions(userId: number, tenantId: number): Session[] {
+export async function getUserSessions(userId: number, tenantId: number): Promise<Session[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<Session>(`
       SELECT * FROM user_sessions
       WHERE user_id = ? AND tenant_id = ?
         AND revoked_at IS NULL
         AND expires_at > datetime('now')
       ORDER BY last_activity_at DESC
-    `).all(userId, tenantId) as Session[];
+    `, [userId, tenantId]);
   } catch (error) {
     logger.error('Failed to get user sessions', { userId, tenantId, error });
     return [];
@@ -443,18 +443,18 @@ export function getUserSessions(userId: number, tenantId: number): Session[] {
 /**
  * Cleanup expired sessions and old failed attempts
  */
-export function cleanupExpiredData(): { sessionsDeleted: number; attemptsDeleted: number } {
+export async function cleanupExpiredData(): Promise<{ sessionsDeleted: number; attemptsDeleted: number }> {
   try {
-    const sessions = db.prepare(`
+    const sessions = await executeRun(`
       DELETE FROM user_sessions
       WHERE expires_at < datetime('now')
         OR revoked_at < datetime('now', '-30 days')
-    `).run();
+    `);
 
-    const attempts = db.prepare(`
+    const attempts = await executeRun(`
       DELETE FROM failed_login_attempts
       WHERE updated_at < datetime('now', '-7 days')
-    `).run();
+    `);
 
     logger.info('Expired data cleaned up', {
       sessionsDeleted: sessions.changes,
@@ -474,33 +474,33 @@ export function cleanupExpiredData(): { sessionsDeleted: number; attemptsDeleted
 /**
  * Get session statistics
  */
-export function getSessionStats(tenantId: number): {
+export async function getSessionStats(tenantId: number): Promise<{
   active_sessions: number;
   failed_attempts_24h: number;
   locked_accounts: number;
   sessions_by_user: Array<{ user_id: number; count: number }>;
-} {
+}> {
   try {
-    const activeSessions = db.prepare(`
+    const activeSessions = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM user_sessions
       WHERE tenant_id = ?
         AND revoked_at IS NULL
         AND expires_at > datetime('now')
-    `).get(tenantId) as { count: number };
+    `, [tenantId]);
 
-    const failedAttempts = db.prepare(`
+    const failedAttempts = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM failed_login_attempts
       WHERE tenant_id = ?
         AND updated_at > datetime('now', '-1 day')
-    `).get(tenantId) as { count: number };
+    `, [tenantId]);
 
-    const lockedAccounts = db.prepare(`
+    const lockedAccounts = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM failed_login_attempts
       WHERE tenant_id = ?
         AND locked_until > datetime('now')
-    `).get(tenantId) as { count: number };
+    `, [tenantId]);
 
-    const sessionsByUser = db.prepare(`
+    const sessionsByUser = await executeQuery<{ user_id: number; count: number }>(`
       SELECT user_id, COUNT(*) as count FROM user_sessions
       WHERE tenant_id = ?
         AND revoked_at IS NULL
@@ -508,12 +508,12 @@ export function getSessionStats(tenantId: number): {
       GROUP BY user_id
       ORDER BY count DESC
       LIMIT 10
-    `).all(tenantId) as Array<{ user_id: number; count: number }>;
+    `, [tenantId]);
 
     return {
-      active_sessions: activeSessions.count,
-      failed_attempts_24h: failedAttempts.count,
-      locked_accounts: lockedAccounts.count,
+      active_sessions: activeSessions?.count ?? 0,
+      failed_attempts_24h: failedAttempts?.count ?? 0,
+      locked_accounts: lockedAccounts?.count ?? 0,
       sessions_by_user: sessionsByUser,
     };
   } catch (error) {

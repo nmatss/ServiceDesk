@@ -10,25 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-/**
- * Check database connectivity
- */
-async function checkDatabase(): Promise<{ status: 'ok' | 'error'; message?: string }> {
-  try {
-    const result = db.prepare('SELECT 1 as health_check').get();
-    return result
-      ? { status: 'ok' }
-      : { status: 'error', message: 'Database query returned no result' };
-  } catch (error) {
-    return {
-      status: 'error',
-      message: error instanceof Error ? error.message : 'Database connection failed',
-    };
-  }
-}
+import { checkDatabaseHealth, checkRedisHealth } from '@/lib/health/dependency-checks';
 
 /**
  * Check file system access
@@ -56,7 +38,8 @@ export async function GET(_request: NextRequest) {
   const checks: Record<string, any> = {};
 
   // Check database
-  checks.database = await checkDatabase();
+  checks.database = await checkDatabaseHealth();
+  checks.redis = await checkRedisHealth();
 
   // Check file system
   checks.filesystem = await checkFileSystem();

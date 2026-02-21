@@ -7,23 +7,126 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
+}
+
+interface TenantTag {
+  id: number;
+  name: string;
+  color?: string | null;
+  description?: string | null;
+}
+
+async function findTagByIdForTenant(tagId: number, tenantId: number): Promise<TenantTag | null> {
+  try {
+    return (await executeQueryOne<TenantTag>(
+      'SELECT id, name, color, description FROM tags WHERE id = ? AND tenant_id = ?',
+      [tagId, tenantId]
+    )) ?? null;
+  } catch {
+    try {
+      return (await executeQueryOne<TenantTag>(
+        'SELECT id, name, color, description FROM tags WHERE id = ? AND organization_id = ?',
+        [tagId, tenantId]
+      )) ?? null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function findTagByNameForTenant(tagName: string, tenantId: number): Promise<TenantTag | null> {
+  try {
+    return (await executeQueryOne<TenantTag>(
+      'SELECT id, name, color, description FROM tags WHERE tenant_id = ? AND LOWER(name) = LOWER(?)',
+      [tenantId, tagName]
+    )) ?? null;
+  } catch {
+    try {
+      return (await executeQueryOne<TenantTag>(
+        'SELECT id, name, color, description FROM tags WHERE organization_id = ? AND LOWER(name) = LOWER(?)',
+        [tenantId, tagName]
+      )) ?? null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+async function createTagForTenant(tagName: string, tenantId: number, userId: number): Promise<number | undefined> {
+  const color = getRandomTagColor();
+  try {
+    const inserted = await executeQueryOne<{ id: number }>(`
+      INSERT INTO tags (tenant_id, name, color, created_by)
+      VALUES (?, ?, ?, ?)
+      RETURNING id
+    `, [tenantId, tagName, color, userId]);
+    return inserted?.id;
+  } catch {
+    try {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        INSERT INTO tags (organization_id, name, color, created_by)
+        VALUES (?, ?, ?, ?)
+        RETURNING id
+      `, [tenantId, tagName, color, userId]);
+      return inserted?.id;
+    } catch {
+      try {
+        const result = await executeRun(`
+          INSERT INTO tags (tenant_id, name, color, created_by)
+          VALUES (?, ?, ?, ?)
+        `, [tenantId, tagName, color, userId]);
+        if (typeof result.lastInsertRowid === 'number') {
+          return result.lastInsertRowid;
+        }
+      } catch {
+        const result = await executeRun(`
+          INSERT INTO tags (organization_id, name, color, created_by)
+          VALUES (?, ?, ?, ?)
+        `, [tenantId, tagName, color, userId]);
+        if (typeof result.lastInsertRowid === 'number') {
+          return result.lastInsertRowid;
+        }
+      }
+    }
+  }
+
+  return undefined;
 }
 
 // ========================================
 // GET - Get all tags for a ticket
 // ========================================
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId);
+    let ticket: { id: number; user_id: number } | undefined;
+    try {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    }
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
@@ -31,21 +134,47 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
     // Get tags
-    const tags = db.prepare(`
-      SELECT
-        t.id,
-        t.name,
-        t.color,
-        t.description,
-        tt.added_at,
-        u.name as added_by_name
-      FROM ticket_tags tt
-      JOIN tags t ON tt.tag_id = t.id
-      LEFT JOIN users u ON tt.added_by = u.id
-      WHERE tt.ticket_id = ?
-      ORDER BY tt.added_at DESC
-    `).all(ticketId);
+    let tags: any[] = [];
+    try {
+      tags = await executeQuery(`
+        SELECT
+          t.id,
+          t.name,
+          t.color,
+          t.description,
+          tt.added_at,
+          u.name as added_by_name
+        FROM ticket_tags tt
+        JOIN tags t ON tt.tag_id = t.id AND t.tenant_id = ?
+        LEFT JOIN users u ON tt.added_by = u.id AND u.tenant_id = ?
+        WHERE tt.ticket_id = ?
+        ORDER BY tt.added_at DESC
+      `, [tenantContext.id, tenantContext.id, ticketId]);
+    } catch {
+      tags = await executeQuery(`
+        SELECT
+          t.id,
+          t.name,
+          t.color,
+          t.description,
+          tt.added_at,
+          u.name as added_by_name
+        FROM ticket_tags tt
+        JOIN tags t ON tt.tag_id = t.id AND t.organization_id = ?
+        LEFT JOIN users u ON tt.added_by = u.id AND u.tenant_id = ?
+        WHERE tt.ticket_id = ?
+        ORDER BY tt.added_at DESC
+      `, [tenantContext.id, tenantContext.id, ticketId]);
+    }
 
     return NextResponse.json({
       ticketId,
@@ -53,7 +182,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       count: tags.length,
     });
   } catch (error) {
-    console.error('Error fetching ticket tags:', error);
+    logger.error('Error fetching ticket tags', error);
     return NextResponse.json(
       { error: 'Failed to fetch ticket tags' },
       { status: 500 }
@@ -70,23 +199,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const ticketId = parseInt(params.id);
-    const body = await request.json();
-    const { tagIds, tagNames, userId } = body;
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
+    const { id } = await params;
+    const ticketId = parseInt(id);
+    const body = await request.json();
+    const { tagIds, tagNames } = body;
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id, organization_id FROM tickets WHERE id = ?').get(ticketId) as any;
+    let ticket: { id: number; user_id: number } | undefined;
+    try {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    }
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
         { status: 404 }
+      );
+    }
+
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
       );
     }
 
@@ -97,16 +244,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (tagIds && Array.isArray(tagIds)) {
       for (const tagId of tagIds) {
         try {
-          const tag = db.prepare('SELECT id, name FROM tags WHERE id = ?').get(tagId) as any;
+          const tag = await findTagByIdForTenant(tagId, tenantContext.id);
           if (!tag) {
             errors.push(`Tag with ID ${tagId} not found`);
             continue;
           }
 
           // Check if already added
-          const existing = db.prepare(`
+          const existing = await executeQueryOne<{ id: number }>(`
             SELECT id FROM ticket_tags WHERE ticket_id = ? AND tag_id = ?
-          `).get(ticketId, tagId);
+          `, [ticketId, tagId]);
 
           if (existing) {
             errors.push(`Tag "${tag.name}" is already on this ticket`);
@@ -114,13 +261,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
 
           // Add tag
-          db.prepare(`
+          await executeRun(`
             INSERT INTO ticket_tags (ticket_id, tag_id, added_by)
             VALUES (?, ?, ?)
-          `).run(ticketId, tagId, userId);
+          `, [ticketId, tagId, userContext.id]);
 
           // Update tag usage count
-          db.prepare('UPDATE tags SET usage_count = usage_count + 1 WHERE id = ?').run(tagId);
+          await executeRun('UPDATE tags SET usage_count = usage_count + 1 WHERE id = ?', [tagId]);
 
           addedTags.push(tag);
         } catch (err) {
@@ -133,24 +280,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (tagNames && Array.isArray(tagNames)) {
       for (const tagName of tagNames) {
         try {
-          let tag = db.prepare(`
-            SELECT id, name FROM tags WHERE organization_id = ? AND LOWER(name) = LOWER(?)
-          `).get(ticket.organization_id, tagName) as any;
+          let tag = await findTagByNameForTenant(tagName, tenantContext.id);
 
           // Create tag if not exists
           if (!tag) {
-            const result = db.prepare(`
-              INSERT INTO tags (organization_id, name, color, created_by)
-              VALUES (?, ?, ?, ?)
-            `).run(ticket.organization_id, tagName, getRandomTagColor(), userId);
+            const createdTagId = await createTagForTenant(tagName, tenantContext.id, userContext.id);
 
-            tag = { id: result.lastInsertRowid, name: tagName };
+            if (!createdTagId) {
+              errors.push(`Error creating tag \"${tagName}\"`);
+              continue;
+            }
+
+            tag = { id: createdTagId, name: tagName };
           }
 
           // Check if already added
-          const existing = db.prepare(`
+          const existing = await executeQueryOne<{ id: number }>(`
             SELECT id FROM ticket_tags WHERE ticket_id = ? AND tag_id = ?
-          `).get(ticketId, tag.id);
+          `, [ticketId, tag.id]);
 
           if (existing) {
             errors.push(`Tag "${tag.name}" is already on this ticket`);
@@ -158,13 +305,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
 
           // Add tag
-          db.prepare(`
+          await executeRun(`
             INSERT INTO ticket_tags (ticket_id, tag_id, added_by)
             VALUES (?, ?, ?)
-          `).run(ticketId, tag.id, userId);
+          `, [ticketId, tag.id, userContext.id]);
 
           // Update tag usage count
-          db.prepare('UPDATE tags SET usage_count = usage_count + 1 WHERE id = ?').run(tag.id);
+          await executeRun('UPDATE tags SET usage_count = usage_count + 1 WHERE id = ?', [tag.id]);
 
           addedTags.push(tag);
         } catch (err) {
@@ -176,18 +323,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Log activity if any tags were added
     if (addedTags.length > 0) {
       const tagNamesList = addedTags.map(t => t.name).join(', ');
-      db.prepare(`
+      await executeRun(`
         INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
         VALUES (?, ?, 'tags_added', ?, ?)
-      `).run(
+      `, [
         ticketId,
-        userId,
+        userContext.id,
         `Added tags: ${tagNamesList}`,
         JSON.stringify({ addedTags: addedTags.map(t => ({ id: t.id, name: t.name })) })
-      );
+      ]);
 
       // Update ticket timestamp
-      db.prepare('UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(ticketId);
+      await executeRun('UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [ticketId]);
     }
 
     return NextResponse.json({
@@ -196,7 +343,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       addedCount: addedTags.length,
     }, { status: addedTags.length > 0 ? 201 : 200 });
   } catch (error) {
-    console.error('Error adding tags to ticket:', error);
+    logger.error('Error adding tags to ticket', error);
     return NextResponse.json(
       { error: 'Failed to add tags to ticket' },
       { status: 500 }
@@ -213,10 +360,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.TICKET_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const ticketId = parseInt(params.id);
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
+
+    const { id } = await params;
+    const ticketId = parseInt(id);
     const { searchParams } = new URL(request.url);
     const tagId = searchParams.get('tagId');
-    const userId = searchParams.get('userId');
 
     if (!tagId) {
       return NextResponse.json(
@@ -226,7 +378,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Verify ticket exists
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(ticketId);
+    let ticket: { id: number; user_id: number } | undefined;
+    try {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    } catch {
+      ticket = await executeQueryOne<{ id: number; user_id: number }>(
+        'SELECT id, user_id FROM tickets WHERE id = ? AND organization_id = ?',
+        [ticketId, tenantContext.id]
+      );
+    }
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
@@ -234,13 +397,28 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    if (!isElevatedRole && ticket.user_id !== userContext.id) {
+      return NextResponse.json(
+        { error: 'Acesso negado' },
+        { status: 403 }
+      );
+    }
+
     // Get tag info for activity log
-    const tag = db.prepare('SELECT name FROM tags WHERE id = ?').get(parseInt(tagId)) as any;
+    const parsedTagId = parseInt(tagId, 10);
+    const tag = await findTagByIdForTenant(parsedTagId, tenantContext.id);
+    if (!tag) {
+      return NextResponse.json(
+        { error: 'Tag not found' },
+        { status: 404 }
+      );
+    }
 
     // Verify tag is on ticket
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<{ id: number }>(`
       SELECT id FROM ticket_tags WHERE ticket_id = ? AND tag_id = ?
-    `).get(ticketId, parseInt(tagId));
+    `, [ticketId, parsedTagId]);
 
     if (!existing) {
       return NextResponse.json(
@@ -250,32 +428,32 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Remove tag
-    db.prepare(`
+    await executeRun(`
       DELETE FROM ticket_tags WHERE ticket_id = ? AND tag_id = ?
-    `).run(ticketId, parseInt(tagId));
+    `, [ticketId, parsedTagId]);
 
     // Update tag usage count
-    db.prepare('UPDATE tags SET usage_count = MAX(0, usage_count - 1) WHERE id = ?').run(parseInt(tagId));
+    await executeRun('UPDATE tags SET usage_count = MAX(0, usage_count - 1) WHERE id = ?', [parsedTagId]);
 
     // Log activity
-    if (userId && tag) {
-      db.prepare(`
+    if (tag) {
+      await executeRun(`
         INSERT INTO ticket_activities (ticket_id, user_id, activity_type, description, metadata)
         VALUES (?, ?, 'tag_removed', ?, ?)
-      `).run(
+      `, [
         ticketId,
-        parseInt(userId),
+        userContext.id,
         `Removed tag: ${tag.name}`,
-        JSON.stringify({ tagId: parseInt(tagId), tagName: tag.name })
-      );
+        JSON.stringify({ tagId: parsedTagId, tagName: tag.name })
+      ]);
 
       // Update ticket timestamp
-      db.prepare('UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(ticketId);
+      await executeRun('UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [ticketId]);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error removing tag from ticket:', error);
+    logger.error('Error removing tag from ticket', error);
     return NextResponse.json(
       { error: 'Failed to remove tag from ticket' },
       { status: 500 }

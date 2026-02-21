@@ -16,8 +16,6 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import {
   apiHandler,
-  getUserFromRequest,
-  getTenantFromRequest,
   parseJSONBody,
 } from '@/lib/api/api-helpers';
 import { ValidationError } from '@/lib/errors/error-handler';
@@ -25,8 +23,8 @@ import { ticketSchemas } from '@/lib/validation/schemas';
 import { getTicketService } from '@/lib/di/container';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 import { cacheInvalidation } from '@/lib/api/cache';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting
 const createTicketRateLimit = createRateLimitMiddleware('api');
 
@@ -37,6 +35,9 @@ const createTicketRequestSchema = ticketSchemas.create.extend({
   category_id: ticketSchemas.create.shape.category_id,
   priority_id: ticketSchemas.create.shape.priority_id,
   status_id: ticketSchemas.create.shape.status_id,
+}).omit({
+  organization_id: true,
+  user_id: true,
 });
 
 type CreateTicketRequest = typeof createTicketRequestSchema._output;
@@ -52,16 +53,21 @@ export const POST = apiHandler(async (request: NextRequest) => {
     return rateLimitResult;
   }
 
-  // 2. Extract authenticated user and tenant
-  const user = getUserFromRequest(request);
-  const tenant = getTenantFromRequest(request);
+  // 2. Extract authenticated user and tenant (strict tenant/user binding)
+  const guard = requireTenantUserContext(request);
+  if (guard.response) {
+    return guard.response;
+  }
+  const tenantContext = guard.context!.tenant;
+  const userContext = guard.context!.user;
 
   // 3. Validate and parse request body
   const data = await parseJSONBody<CreateTicketRequest>(request, createTicketRequestSchema);
 
-  // 4. Validate organization isolation
-  if (user.organization_id !== tenant.id) {
-    throw new ValidationError('User organization mismatch');
+  // 4. Regular users cannot assign tickets on creation.
+  const canAssign = ['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'manager'].includes(userContext.role);
+  if (data.assigned_to && !canAssign) {
+    throw new ValidationError('Only agents and admins can assign tickets');
   }
 
   // 5. Get service from DI container
@@ -73,17 +79,17 @@ export const POST = apiHandler(async (request: NextRequest) => {
     const ticket = await ticketService.createTicket({
       title: data.title,
       description: data.description,
-      user_id: user.id,
+      user_id: userContext.id,
       assigned_to: data.assigned_to,
       category_id: data.category_id,
       priority_id: data.priority_id,
       status_id: data.status_id || 1, // Default to "Open"
-      organization_id: tenant.id,
+      organization_id: tenantContext.id,
     });
 
     // 7. Invalidate caches
     await cacheInvalidation.ticket(ticket.id);
-    await cacheInvalidation.dashboard(String(tenant.id));
+    await cacheInvalidation.dashboard(String(tenantContext.id));
 
     // 8. Get ticket with details for response
     const ticketWithDetails = await ticketService.getTicketById(ticket.id);

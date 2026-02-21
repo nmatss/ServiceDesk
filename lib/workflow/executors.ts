@@ -6,7 +6,7 @@
 import { WorkflowNode } from '@/lib/types/workflow';
 import { ExecutionContext, NodeExecutor } from './engine';
 import logger from '@/lib/monitoring/structured-logger';
-import db from '@/lib/db/connection';
+import { executeRun } from '@/lib/db/adapter';
 
 /**
  * Condition Node Executor
@@ -193,10 +193,10 @@ export class NotificationNodeExecutor extends NodeExecutor {
     const numericUserId = typeof userId === 'string' ? parseInt(userId) : userId;
 
     try {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO notifications (user_id, type, title, message, created_at)
-        VALUES (?, ?, ?, ?, datetime('now'))
-      `).run(numericUserId, 'workflow', title, message);
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [numericUserId, 'workflow', title, message]);
     } catch (error) {
       logger.error('Failed to create in-app notification:', error);
       throw error;
@@ -388,11 +388,11 @@ export class ActionNodeExecutor extends NodeExecutor {
 
     if (setClauses.length > 0) {
       values.push(ticketId);
-      db.prepare(`
+      await executeRun(`
         UPDATE tickets
-        SET ${setClauses.join(', ')}, updated_at = datetime('now')
+        SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(...values);
+      `, values);
     }
 
     return {
@@ -409,11 +409,11 @@ export class ActionNodeExecutor extends NodeExecutor {
       throw new Error('Ticket ID and assignee ID required');
     }
 
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
-      SET assigned_to = ?, updated_at = datetime('now')
+      SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(assigneeId, ticketId);
+    `, [assigneeId, ticketId]);
 
     return {
       action: 'continue' as const,
@@ -428,10 +428,10 @@ export class ActionNodeExecutor extends NodeExecutor {
       throw new Error('Ticket title required');
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO tickets (title, description, category_id, priority_id, requester_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).run(title, description, categoryId, priorityId, requesterId);
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, [title, description, categoryId, priorityId, requesterId]);
 
     return {
       action: 'continue' as const,
@@ -447,10 +447,10 @@ export class ActionNodeExecutor extends NodeExecutor {
       throw new Error('Ticket ID and comment content required');
     }
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO comments (ticket_id, author_id, content, is_internal, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(ticketId, authorId, content, isInternal ? 1 : 0);
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [ticketId, authorId, content, isInternal ? 1 : 0]);
 
     return {
       action: 'continue' as const,
@@ -466,11 +466,11 @@ export class ActionNodeExecutor extends NodeExecutor {
       throw new Error('Ticket ID and status ID required');
     }
 
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
-      SET status_id = ?, updated_at = datetime('now')
+      SET status_id = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(statusId, ticketId);
+    `, [statusId, ticketId]);
 
     return {
       action: 'continue' as const,
@@ -486,11 +486,11 @@ export class ActionNodeExecutor extends NodeExecutor {
       throw new Error('Ticket ID and priority ID required');
     }
 
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
-      SET priority_id = ?, updated_at = datetime('now')
+      SET priority_id = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(priorityId, ticketId);
+    `, [priorityId, ticketId]);
 
     return {
       action: 'continue' as const,
@@ -557,10 +557,10 @@ export class ApprovalNodeExecutor extends NodeExecutor {
     // Create approval requests
     const approvalId = Date.now();
     for (const approverId of approvers) {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO notifications (user_id, type, title, message, created_at)
-        VALUES (?, 'approval_request', 'Approval Required', ?, datetime('now'))
-      `).run(approverId, message || 'Workflow requires your approval');
+        VALUES (?, 'approval_request', 'Approval Required', ?, CURRENT_TIMESTAMP)
+      `, [approverId, message || 'Workflow requires your approval']);
     }
 
     logger.info(`Approval request created for ${approvers.length} approvers`);

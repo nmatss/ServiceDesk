@@ -34,6 +34,7 @@ import { resolveEdgeTenant, toOrganization } from './lib/tenant/edge-resolver'
 import type { EdgeTenantInfo } from './lib/tenant/edge-resolver'
 // Static import for helmet (Edge Runtime compatible)
 import { applyHelmetHeaders } from './lib/security/helmet'
+import { ADMIN_ROLES } from './lib/auth/roles'
 
 /**
  * JWT secret for token verification
@@ -136,7 +137,14 @@ function getCacheControl(pathname: string): string {
 const PUBLIC_ROUTES = [
   '/api/health',
   '/api/status',
-  '/api/auth',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/verify',
+  '/api/auth/refresh',
+  '/api/auth/login-v2',
+  '/api/auth/csrf-token',
+  '/api/auth/sso',
+  '/api/auth/govbr',
   '/api/docs', // API documentation (Swagger UI and OpenAPI spec)
   '/_next',
   '/favicon.ico',
@@ -202,6 +210,7 @@ interface UserInfo {
  * Main middleware handler
  */
 export async function middleware(request: NextRequest) {
+  const requestStart = Date.now()
   const { pathname } = request.nextUrl
   const hostname = request.headers.get('host') || ''
 
@@ -365,7 +374,7 @@ export async function middleware(request: NextRequest) {
   }
 
   response.cookies.set('tenant-context', JSON.stringify(tenantContext), {
-    httpOnly: false,
+    httpOnly: true,
     secure: isProduction(),
     sameSite: 'lax',
     maxAge: 24 * 60 * 60, // 24 hours
@@ -414,7 +423,7 @@ export async function middleware(request: NextRequest) {
 
   // Performance timing headers (only in development)
   if (!isProduction()) {
-    const processingTime = Date.now() - Date.now() // This would need actual start time
+    const processingTime = Date.now() - requestStart
     response.headers.set('X-Response-Time', `${processingTime}ms`)
   }
 
@@ -627,8 +636,7 @@ function checkAdminAccess(user: UserInfo, tenant: EdgeTenantInfo | TenantInfo): 
     return false
   }
 
-  const adminRoles = ['super_admin', 'tenant_admin', 'team_manager', 'admin']
-  return adminRoles.includes(user.role)
+  return ADMIN_ROLES.includes(user.role)
 }
 
 export const config = {

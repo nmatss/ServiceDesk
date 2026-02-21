@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   ExclamationTriangleIcon,
   ArrowLeftIcon,
@@ -74,89 +75,52 @@ export default function ProblemDetailPage() {
   const fetchProblem = async () => {
     setLoading(true)
     try {
-      // Simulated data - would be API call in production
-      await new Promise(resolve => setTimeout(resolve, 300))
+      const response = await fetch(`/api/problems/${problemId}`)
+      const data = await response.json()
 
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to fetch problem')
+      }
+
+      const apiProblem = data.data
+
+      // Map API response to component state structure
+      // API returns ProblemWithRelations: nested objects for category, priority, assignee, etc.
       setProblem({
-        id: problemId,
-        title: 'Lentidão intermitente no sistema ERP',
-        description: 'Usuários relatam lentidão significativa no módulo financeiro do ERP durante horários de pico (9h-11h e 14h-16h). O problema afeta aproximadamente 150 usuários e causa atrasos nas operações diárias.',
-        status: 'root_cause_identified',
-        priority: 'high',
-        category: 'Performance',
-        assigned_to: 'user_2',
-        assigned_name: 'Carlos Silva',
-        created_by: 'user_1',
-        created_by_name: 'Maria Santos',
-        created_at: '2024-12-10T10:30:00Z',
-        updated_at: '2024-12-14T09:15:00Z',
-        resolved_at: null,
-        root_cause: 'Análise identificou que o banco de dados está com índices fragmentados e queries não otimizadas no módulo de relatórios financeiros. Durante horários de pico, o processamento de relatórios concorrentes causa locks extensos nas tabelas principais.',
-        workaround: '1. Executar relatórios pesados fora do horário de pico (antes das 9h ou após as 18h)\n2. Limitar a 5 usuários simultâneos no módulo de relatórios\n3. Usar a versão resumida dos relatórios quando possível',
-        permanent_solution: 'Plano de ação:\n1. Reconstruir índices do banco de dados (agendado para próximo domingo)\n2. Otimizar queries do módulo de relatórios\n3. Implementar cache de consultas frequentes\n4. Considerar separação de banco para relatórios (read replica)',
-        impact: 'Alto impacto no departamento financeiro. Atrasos de 2-3 horas nas operações diárias. Risco de perda de prazos fiscais.',
-        affected_services: ['ERP Financeiro', 'Relatórios Gerenciais', 'BI Dashboard'],
-        related_incidents: [1234, 1256, 1278, 1290, 1302],
-        related_changes: [456],
-        affected_cis: [
-          { id: 'ci_1', name: 'SRV-ERP-01', type: 'server' },
-          { id: 'ci_2', name: 'DB-ERP-PROD', type: 'database' },
-          { id: 'ci_3', name: 'ERP-APP-CLUSTER', type: 'application' }
-        ],
-        timeline: [
-          {
-            id: '1',
-            type: 'status_change',
-            content: 'Problema criado a partir de incidentes recorrentes',
-            user: 'Maria Santos',
-            timestamp: '2024-12-10T10:30:00Z'
-          },
-          {
-            id: '2',
-            type: 'assignment',
-            content: 'Atribuído para Carlos Silva (Especialista em Performance)',
-            user: 'Maria Santos',
-            timestamp: '2024-12-10T11:00:00Z'
-          },
-          {
-            id: '3',
-            type: 'status_change',
-            content: 'Status alterado para: Em Investigação',
-            user: 'Carlos Silva',
-            timestamp: '2024-12-10T14:00:00Z'
-          },
-          {
-            id: '4',
-            type: 'comment',
-            content: 'Iniciando análise de logs e métricas de performance do servidor ERP',
-            user: 'Carlos Silva',
-            timestamp: '2024-12-11T09:00:00Z'
-          },
-          {
-            id: '5',
-            type: 'workaround_added',
-            content: 'Workaround documentado: Limitar uso de relatórios em horário de pico',
-            user: 'Carlos Silva',
-            timestamp: '2024-12-12T15:30:00Z'
-          },
-          {
-            id: '6',
-            type: 'rca_update',
-            content: 'Causa raiz identificada: Índices fragmentados e queries não otimizadas',
-            user: 'Carlos Silva',
-            timestamp: '2024-12-13T11:00:00Z'
-          },
-          {
-            id: '7',
-            type: 'status_change',
-            content: 'Status alterado para: Causa Raiz Identificada',
-            user: 'Carlos Silva',
-            timestamp: '2024-12-13T11:05:00Z'
-          }
-        ]
+        id: apiProblem.id?.toString() || problemId,
+        title: apiProblem.title || '',
+        description: apiProblem.description || '',
+        status: apiProblem.status || 'new',
+        priority: apiProblem.priority?.name?.toLowerCase() || apiProblem.priority_name?.toLowerCase() || 'medium',
+        category: apiProblem.category?.name || apiProblem.category_name || '',
+        assigned_to: apiProblem.assigned_to?.toString() || null,
+        assigned_name: apiProblem.assignee?.name || apiProblem.assigned_to_name || null,
+        created_by: apiProblem.created_by?.toString() || '',
+        created_by_name: apiProblem.created_by_user?.name || apiProblem.created_by_name || '',
+        created_at: apiProblem.created_at || new Date().toISOString(),
+        updated_at: apiProblem.updated_at || new Date().toISOString(),
+        resolved_at: apiProblem.resolved_at || null,
+        root_cause: apiProblem.root_cause || null,
+        workaround: apiProblem.workaround || null,
+        permanent_solution: apiProblem.permanent_fix || null,
+        impact: apiProblem.business_impact || apiProblem.impact || null,
+        affected_services: apiProblem.affected_services ?
+          (typeof apiProblem.affected_services === 'string' ? JSON.parse(apiProblem.affected_services) : apiProblem.affected_services) : [],
+        related_incidents: apiProblem.incidents?.map((inc: any) => inc.ticket_id || inc.id) || [],
+        related_changes: [],
+        affected_cis: apiProblem.affected_cis ?
+          (typeof apiProblem.affected_cis === 'string' ? JSON.parse(apiProblem.affected_cis) : apiProblem.affected_cis) : [],
+        timeline: apiProblem.activities?.map((activity: any) => ({
+          id: activity.id?.toString() || '',
+          type: activity.type || activity.activity_type || 'comment',
+          content: activity.description || activity.notes || '',
+          user: activity.user?.name || activity.user_name || 'System',
+          timestamp: activity.created_at || new Date().toISOString()
+        })) || []
       })
     } catch (error) {
       console.error('Error fetching problem:', error)
+      setProblem(null)
     } finally {
       setLoading(false)
     }
@@ -444,7 +408,10 @@ export default function ProblemDetailPage() {
               <div className="glass-panel animate-slide-up">
                 <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
                   <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">Incidentes Relacionados</h2>
-                  <button className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 transition-colors">
+                  <button
+                    onClick={() => toast.error('Vinculação de incidentes ainda não implementada')}
+                    className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 transition-colors"
+                  >
                     <PlusIcon className="w-4 h-4" />
                     Vincular
                   </button>
@@ -477,7 +444,10 @@ export default function ProblemDetailPage() {
               <div className="glass-panel animate-slide-up">
                 <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
                   <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">Mudanças Relacionadas</h2>
-                  <button className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 transition-colors">
+                  <button
+                    onClick={() => toast.error('Criação de RFC ainda não implementada')}
+                    className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 transition-colors"
+                  >
                     <PlusIcon className="w-4 h-4" />
                     Criar RFC
                   </button>
@@ -507,7 +477,10 @@ export default function ProblemDetailPage() {
                   <div className="p-8 text-center text-muted-content">
                     <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 text-neutral-300 dark:text-neutral-600" />
                     <p>Nenhuma mudança vinculada</p>
-                    <button className="mt-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm transition-colors">
+                    <button
+                      onClick={() => toast.error('Criação de RFC ainda não implementada')}
+                      className="mt-2 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 text-sm transition-colors"
+                    >
                       Criar RFC para este problema
                     </button>
                   </div>
@@ -569,6 +542,7 @@ export default function ProblemDetailPage() {
                     rows={4}
                   />
                   <button
+                    onClick={() => toast.error('Adição de comentários ainda não implementada')}
                     className="mt-3 btn btn-primary"
                   >
                     <PlusIcon className="w-4 h-4 mr-2" />
@@ -585,17 +559,17 @@ export default function ProblemDetailPage() {
             <div className="glass-panel animate-slide-up">
               <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Ações Rápidas</h3>
               <div className="space-y-2">
-                <button className="btn btn-primary w-full justify-center">
+                <button onClick={() => toast.error('Edição de problemas ainda não implementada')} className="btn btn-primary w-full justify-center">
                   <PencilIcon className="w-4 h-4 mr-2" />
                   Editar Problema
                 </button>
                 {problem.status !== 'known_error' && problem.root_cause && (
-                  <button className="btn btn-secondary w-full justify-center bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-900/30">
+                  <button onClick={() => toast.error('Promoção para KEDB ainda não implementada')} className="btn btn-secondary w-full justify-center bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-900/30">
                     <BookOpenIcon className="w-4 h-4 mr-2" />
                     Promover para KEDB
                   </button>
                 )}
-                <button className="btn btn-secondary w-full justify-center">
+                <button onClick={() => toast.error('Criação de RFC ainda não implementada')} className="btn btn-secondary w-full justify-center">
                   <ArrowPathIcon className="w-4 h-4 mr-2" />
                   Criar RFC
                 </button>

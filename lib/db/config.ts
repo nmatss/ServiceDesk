@@ -10,6 +10,69 @@
 
 export type DatabaseType = 'sqlite' | 'postgresql';
 
+const SQLITE_FILE_PATTERNS = ['.db', '.sqlite', '.sqlite3'];
+
+/**
+ * Check if a connection string points to PostgreSQL.
+ */
+export function isPostgresConnectionString(value?: string): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith('postgres://') || normalized.startsWith('postgresql://');
+}
+
+/**
+ * Check if a connection string points to SQLite.
+ */
+export function isSQLiteConnectionString(value?: string): boolean {
+  if (!value) return false;
+
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === ':memory:' ||
+    normalized.startsWith('sqlite:') ||
+    normalized.startsWith('file:')
+  ) {
+    return true;
+  }
+
+  if (
+    normalized.startsWith('./') ||
+    normalized.startsWith('../') ||
+    normalized.startsWith('/')
+  ) {
+    return SQLITE_FILE_PATTERNS.some((suffix) => normalized.endsWith(suffix));
+  }
+
+  return SQLITE_FILE_PATTERNS.some((suffix) => normalized.endsWith(suffix));
+}
+
+/**
+ * Resolve PostgreSQL connection string.
+ * Priority:
+ * 1. DATABASE_URL when it's a postgres URL
+ * 2. PG* environment variables
+ */
+export function getPostgresConnectionString(): string | undefined {
+  if (isPostgresConnectionString(process.env.DATABASE_URL)) {
+    return process.env.DATABASE_URL?.trim();
+  }
+
+  const host = process.env.PGHOST;
+  const user = process.env.PGUSER;
+  const password = process.env.PGPASSWORD;
+  const database = process.env.PGDATABASE;
+  const port = process.env.PGPORT || '5432';
+
+  if (!host || !user || !password || !database) {
+    return undefined;
+  }
+
+  const sslMode = process.env.PGSSLMODE || (process.env.NODE_ENV === 'production' ? 'require' : 'disable');
+  return `postgresql://${user}:${password}@${host}:${port}/${database}?sslmode=${sslMode}`;
+}
+
 export const dbConfig = {
   // Configurações do SQLite (desenvolvimento)
   sqlite: {
@@ -28,7 +91,7 @@ export const dbConfig = {
 
   // Configurações do PostgreSQL/Neon (produção)
   postgresql: {
-    connectionString: process.env.DATABASE_URL,
+    connectionString: getPostgresConnectionString(),
     ssl: process.env.NODE_ENV === 'production',
     pool: {
       max: 20, // máximo de conexões
@@ -86,18 +149,31 @@ export const dbConfig = {
  * 3. Padrão -> SQLite (desenvolvimento)
  */
 export function getDatabaseType(): DatabaseType {
-  // Se DATABASE_URL está definida, usar PostgreSQL
-  if (process.env.DATABASE_URL) {
-    return 'postgresql';
-  }
+  const explicitType = process.env.DB_TYPE?.toLowerCase();
 
   // Se DB_TYPE está explicitamente definido
-  if (process.env.DB_TYPE === 'postgresql' || process.env.DB_TYPE === 'postgres') {
-    if (!process.env.DATABASE_URL) {
-      console.warn('WARNING: DB_TYPE is set to postgresql but DATABASE_URL is not defined. Falling back to SQLite.');
+  if (explicitType === 'postgresql' || explicitType === 'postgres') {
+    if (getPostgresConnectionString()) {
+      return 'postgresql';
+    }
+
+    console.warn('WARNING: DB_TYPE is set to postgresql but no PostgreSQL connection info was found. Falling back to SQLite.');
+    return 'sqlite';
+  }
+
+  if (explicitType === 'sqlite') {
+    return 'sqlite';
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+  if (databaseUrl) {
+    if (isPostgresConnectionString(databaseUrl)) {
+      return 'postgresql';
+    }
+
+    if (isSQLiteConnectionString(databaseUrl)) {
       return 'sqlite';
     }
-    return 'postgresql';
   }
 
   // Padrão: SQLite para desenvolvimento
@@ -142,14 +218,15 @@ export function validateDatabaseConfig(): {
   const dbType = getDatabaseType();
 
   if (dbType === 'postgresql') {
-    if (!process.env.DATABASE_URL) {
-      errors.push('DATABASE_URL is required for PostgreSQL');
+    const connectionString = getPostgresConnectionString();
+    if (!connectionString) {
+      errors.push('PostgreSQL connection info is required (DATABASE_URL postgres://... or PG* variables)');
     } else {
       // Validar formato da URL
       try {
-        new URL(process.env.DATABASE_URL);
-      } catch (e) {
-        errors.push('DATABASE_URL is not a valid URL');
+        new URL(connectionString);
+      } catch {
+        errors.push('PostgreSQL connection string is not a valid URL');
       }
     }
 
@@ -189,7 +266,7 @@ export function printDatabaseInfo(): void {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 
   if (dbType === 'postgresql') {
-    const url = process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':***@') || 'NOT SET';
+    const url = getPostgresConnectionString()?.replace(/:[^:@]+@/, ':***@') || 'NOT SET';
     const pgConfig = config.config as typeof dbConfig.postgresql;
     console.log(`URL: ${url}`);
     console.log(`SSL: ${pgConfig.ssl ? 'Enabled' : 'Disabled'}`);
@@ -212,4 +289,3 @@ export function printDatabaseInfo(): void {
 
   console.log('='.repeat(60) + '\n');
 }
-

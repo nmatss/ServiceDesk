@@ -1,13 +1,14 @@
 /**
  * Ticket Repository Implementation
  *
- * Concrete implementation of ITicketRepository using SQLite.
+ * Concrete implementation of ITicketRepository using the database adapter.
  * Handles all ticket-related database operations with organization isolation.
  *
  * @module lib/repositories/ticket-repository
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import type {
   ITicketRepository,
   TicketFilters,
@@ -16,14 +17,41 @@ import type {
 import type { Ticket, TicketWithDetails } from '@/lib/types/database';
 
 export class TicketRepository implements ITicketRepository {
+  private hasSlaPolicyIdColumn: boolean | null = null;
+
+  private async checkSlaPolicyColumn(): Promise<boolean> {
+    if (this.hasSlaPolicyIdColumn !== null) {
+      return this.hasSlaPolicyIdColumn;
+    }
+
+    try {
+      if (getDatabaseType() === 'postgresql') {
+        const column = await executeQueryOne<{ column_name?: string }>(`
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_name = 'tickets' AND column_name = 'sla_policy_id'
+          LIMIT 1
+        `);
+        this.hasSlaPolicyIdColumn = Boolean(column?.column_name);
+      } else {
+        const columns = await executeQuery<{ name: string }>('PRAGMA table_info(tickets)');
+        this.hasSlaPolicyIdColumn = columns.some((column) => column.name === 'sla_policy_id');
+      }
+    } catch {
+      this.hasSlaPolicyIdColumn = false;
+    }
+
+    return this.hasSlaPolicyIdColumn;
+  }
+
   /**
    * Find ticket by ID
    */
   async findById(id: number): Promise<Ticket | null> {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<Ticket>(`
       SELECT * FROM tickets
       WHERE id = ? AND deleted_at IS NULL
-    `).get(id) as Ticket | undefined;
+    `, [id]);
 
     return ticket || null;
   }
@@ -111,14 +139,14 @@ export class TicketRepository implements ITicketRepository {
       LIMIT ? OFFSET ?
     `;
 
-    return db.prepare(sql).all(...params) as Ticket[];
+    return await executeQuery<Ticket>(sql, params);
   }
 
   /**
    * Find ticket with full details (joined with related entities)
    */
   async findWithDetails(id: number): Promise<TicketWithDetails | null> {
-    const row = db.prepare(`
+    const row = await executeQueryOne<any>(`
       SELECT
         t.*,
         u.id as user_id, u.name as user_name, u.email as user_email, u.role as user_role,
@@ -135,7 +163,7 @@ export class TicketRepository implements ITicketRepository {
       INNER JOIN priorities p ON t.priority_id = p.id
       INNER JOIN statuses s ON t.status_id = s.id
       WHERE t.id = ? AND t.deleted_at IS NULL
-    `).get(id) as any;
+    `, [id]);
 
     if (!row) return null;
 
@@ -215,7 +243,7 @@ export class TicketRepository implements ITicketRepository {
       LIMIT ? OFFSET ?
     `;
 
-    const rows = db.prepare(sql).all(...params) as any[];
+    const rows = await executeQuery<any>(sql, params);
     return rows.map((row) => this.mapToTicketWithDetails(row));
   }
 
@@ -223,24 +251,57 @@ export class TicketRepository implements ITicketRepository {
    * Create a new ticket
    */
   async create(data: Partial<Ticket>): Promise<Ticket> {
-    const result = db.prepare(`
-      INSERT INTO tickets (
-        title, description, user_id, assigned_to, category_id,
-        priority_id, status_id, organization_id, sla_policy_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      data.title,
-      data.description,
-      data.user_id,
-      data.assigned_to || null,
-      data.category_id,
-      data.priority_id,
-      data.status_id,
-      data.organization_id,
-      data.sla_policy_id || null
-    );
+    const supportsSlaPolicyId = await this.checkSlaPolicyColumn();
 
-    const ticket = await this.findById(result.lastInsertRowid as number);
+    const result = supportsSlaPolicyId
+      ? await executeRun(`
+          INSERT INTO tickets (
+            title, description, user_id, assigned_to, category_id,
+            priority_id, status_id, organization_id, sla_policy_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          data.title,
+          data.description,
+          data.user_id,
+          data.assigned_to || null,
+          data.category_id,
+          data.priority_id,
+          data.status_id,
+          data.organization_id,
+          data.sla_policy_id || null
+        ])
+      : await executeRun(`
+          INSERT INTO tickets (
+            title, description, user_id, assigned_to, category_id,
+            priority_id, status_id, organization_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          data.title,
+          data.description,
+          data.user_id,
+          data.assigned_to || null,
+          data.category_id,
+          data.priority_id,
+          data.status_id,
+          data.organization_id
+        ]);
+
+    let ticketId = result.lastInsertRowid;
+    if (typeof ticketId !== 'number') {
+      const inserted = await executeQueryOne<{ id: number }>(`
+        SELECT id FROM tickets
+        WHERE user_id = ? AND title = ? AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [data.user_id, data.title]);
+      ticketId = inserted?.id;
+    }
+
+    if (typeof ticketId !== 'number') {
+      throw new Error('Failed to resolve created ticket id');
+    }
+
+    const ticket = await this.findById(ticketId);
     if (!ticket) {
       throw new Error('Failed to create ticket');
     }
@@ -297,11 +358,11 @@ export class TicketRepository implements ITicketRepository {
     sets.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
       SET ${sets.join(', ')}
       WHERE id = ?
-    `).run(...values);
+    `, values);
 
     const ticket = await this.findById(id);
     if (!ticket) {
@@ -315,29 +376,29 @@ export class TicketRepository implements ITicketRepository {
    * Hard delete (not recommended, use softDelete instead)
    */
   async delete(id: number): Promise<void> {
-    db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+    await executeRun('DELETE FROM tickets WHERE id = ?', [id]);
   }
 
   /**
    * Soft delete a ticket
    */
   async softDelete(id: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
       SET deleted_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(id);
+    `, [id]);
   }
 
   /**
    * Restore a soft-deleted ticket
    */
   async restore(id: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
       SET deleted_at = NULL
       WHERE id = ?
-    `).run(id);
+    `, [id]);
   }
 
   /**
@@ -364,12 +425,12 @@ export class TicketRepository implements ITicketRepository {
       params.push(assigned_to);
     }
 
-    const result = db.prepare(`
+    const result = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE ${where.join(' AND ')}
-    `).get(...params) as { count: number };
+    `, params);
 
-    return result.count;
+    return result?.count ?? 0;
   }
 
   /**
@@ -397,13 +458,13 @@ export class TicketRepository implements ITicketRepository {
    * Count tickets by status
    */
   async countByStatus(organizationId: number): Promise<Record<string, number>> {
-    const rows = db.prepare(`
+    const rows = await executeQuery<{ status: string; count: number }>(`
       SELECT s.name as status, COUNT(*) as count
       FROM tickets t
       INNER JOIN statuses s ON t.status_id = s.id
       WHERE t.organization_id = ? AND t.deleted_at IS NULL
       GROUP BY s.name
-    `).all(organizationId) as { status: string; count: number }[];
+    `, [organizationId]);
 
     return rows.reduce((acc, row) => {
       acc[row.status] = row.count;
@@ -415,13 +476,13 @@ export class TicketRepository implements ITicketRepository {
    * Count tickets by priority
    */
   async countByPriority(organizationId: number): Promise<Record<string, number>> {
-    const rows = db.prepare(`
+    const rows = await executeQuery<{ priority: string; count: number }>(`
       SELECT p.name as priority, COUNT(*) as count
       FROM tickets t
       INNER JOIN priorities p ON t.priority_id = p.id
       WHERE t.organization_id = ? AND t.deleted_at IS NULL
       GROUP BY p.name
-    `).all(organizationId) as { priority: string; count: number }[];
+    `, [organizationId]);
 
     return rows.reduce((acc, row) => {
       acc[row.priority] = row.count;
@@ -445,7 +506,11 @@ export class TicketRepository implements ITicketRepository {
       params.push(dateRange.start, dateRange.end);
     }
 
-    const result = db.prepare(`
+    const resolutionExpression = getDatabaseType() === 'postgresql'
+      ? 'EXTRACT(EPOCH FROM (t.resolved_at - t.created_at)) / 3600.0'
+      : '(julianday(t.resolved_at) - julianday(t.created_at)) * 24';
+
+    const result = await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN s.name = 'Open' THEN 1 ELSE 0 END) as open,
@@ -455,7 +520,7 @@ export class TicketRepository implements ITicketRepository {
         AVG(
           CASE
             WHEN t.resolved_at IS NOT NULL
-            THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+            THEN ${resolutionExpression}
             ELSE NULL
           END
         ) as avg_resolution_time_hours,
@@ -463,16 +528,16 @@ export class TicketRepository implements ITicketRepository {
       FROM tickets t
       INNER JOIN statuses s ON t.status_id = s.id
       WHERE ${where.join(' AND ')}
-    `).get(...params) as any;
+    `, params);
 
     const byPriority = await this.countByPriority(organizationId);
-    const byCategory = db.prepare(`
+    const byCategory = await executeQuery<{ category: string; count: number }>(`
       SELECT c.name as category, COUNT(*) as count
       FROM tickets t
       INNER JOIN categories c ON t.category_id = c.id
       WHERE t.organization_id = ? AND t.deleted_at IS NULL
       GROUP BY c.name
-    `).all(organizationId) as { category: string; count: number }[];
+    `, [organizationId]);
 
     const byCategoryMap = byCategory.reduce((acc, row) => {
       acc[row.category] = row.count;
@@ -516,25 +581,26 @@ export class TicketRepository implements ITicketRepository {
    * Find unassigned tickets
    */
   async findUnassigned(organizationId: number): Promise<Ticket[]> {
-    return db.prepare(`
+    return await executeQuery<Ticket>(`
       SELECT * FROM tickets
       WHERE organization_id = ?
         AND assigned_to IS NULL
         AND deleted_at IS NULL
       ORDER BY created_at DESC
-    `).all(organizationId) as Ticket[];
+    `, [organizationId]);
   }
 
   /**
    * Bulk assign tickets to an agent
    */
   async bulkAssign(ticketIds: number[], assigneeId: number): Promise<void> {
+    if (ticketIds.length === 0) return;
     const placeholders = ticketIds.map(() => '?').join(',');
-    db.prepare(`
+    await executeRun(`
       UPDATE tickets
       SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id IN (${placeholders})
-    `).run(assigneeId, ...ticketIds);
+    `, [assigneeId, ...ticketIds]);
   }
 
   /**

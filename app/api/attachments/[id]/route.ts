@@ -1,11 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { attachmentQueries, ticketQueries } from '@/lib/db/queries';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import {
+  getTenantContextFromRequest,
+  getUserContextFromRequest,
+  validateTenantAccess,
+} from '@/lib/tenant/context';
 import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+type AttachmentRow = {
+  id: number;
+  ticket_id: number;
+  filename: string;
+  original_name: string;
+  mime_type: string;
+  size: number;
+  uploaded_by: number;
+  tenant_id?: number;
+  ticket_owner_id: number;
+};
+
+const TICKET_ELEVATED_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'manager'];
+const ATTACHMENT_DELETE_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin'];
+
+function isPositiveInteger(value: string): boolean {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0;
+}
+
+async function getAttachmentByIdScoped(attachmentId: number, tenantId: number): Promise<AttachmentRow | undefined> {
+  try {
+    return await executeQueryOne<AttachmentRow | undefined>(`
+      SELECT
+        a.id,
+        a.ticket_id,
+        a.filename,
+        a.original_name,
+        a.mime_type,
+        a.size,
+        a.uploaded_by,
+        a.tenant_id,
+        t.user_id as ticket_owner_id
+      FROM attachments a
+      INNER JOIN tickets t ON t.id = a.ticket_id
+      WHERE a.id = ? AND a.tenant_id = ? AND t.tenant_id = ?
+      LIMIT 1
+    `, [attachmentId, tenantId, tenantId]);
+  } catch {
+    return await executeQueryOne<AttachmentRow | undefined>(`
+      SELECT
+        a.id,
+        a.ticket_id,
+        a.filename,
+        a.original_name,
+        a.mime_type,
+        a.size,
+        a.uploaded_by,
+        a.tenant_id,
+        t.user_id as ticket_owner_id
+      FROM attachments a
+      INNER JOIN tickets t ON t.id = a.ticket_id
+      WHERE a.id = ? AND t.organization_id = ?
+      LIMIT 1
+    `, [attachmentId, tenantId]);
+  }
+}
+
+async function deleteAttachmentScoped(attachmentId: number, tenantId: number): Promise<boolean> {
+  try {
+    const result = await executeRun(`
+      DELETE FROM attachments
+      WHERE id = ? AND tenant_id = ?
+    `, [attachmentId, tenantId]);
+    return result.changes > 0;
+  } catch {
+    const result = await executeRun(`
+      DELETE FROM attachments
+      WHERE id = ?
+        AND ticket_id IN (
+          SELECT id FROM tickets WHERE organization_id = ?
+        )
+    `, [attachmentId, tenantId]);
+    return result.changes > 0;
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,46 +96,53 @@ export async function GET(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
     }
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    const userContext = getUserContextFromRequest(request);
+    if (!userContext) {
+      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+    }
+
+    if (!validateTenantAccess(userContext, tenantContext)) {
+      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 });
     }
 
     const { id } = await params;
-    const attachmentId = parseInt(id);
-
-    if (isNaN(attachmentId)) {
+    if (!isPositiveInteger(id)) {
       return NextResponse.json({ error: 'ID do anexo inválido' }, { status: 400 });
     }
+    const attachmentId = Number.parseInt(id, 10);
 
-    const attachment = attachmentQueries.getById(attachmentId, user.organization_id);
+    const attachment = await getAttachmentByIdScoped(attachmentId, tenantContext.id);
     if (!attachment) {
       return NextResponse.json({ error: 'Anexo não encontrado' }, { status: 404 });
     }
 
-    // Verificar se o usuário tem acesso ao ticket
-    const ticket = ticketQueries.getById(attachment.ticket_id);
-    if (!ticket) {
-      return NextResponse.json({ error: 'Ticket não encontrado' }, { status: 404 });
-    }
-
-    if (user.role === 'user' && ticket.user_id !== user.id) {
+    const canAccessTicket =
+      TICKET_ELEVATED_ROLES.includes(userContext.role) ||
+      attachment.ticket_owner_id === userContext.id;
+    if (!canAccessTicket) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
+    const safeFilename = basename(attachment.filename);
+    if (safeFilename !== attachment.filename) {
+      logger.warn('Attachment filename rejected due to unsafe path characters', {
+        attachmentId,
+        tenantId: tenantContext.id,
+      });
+      return NextResponse.json({ error: 'Anexo inválido' }, { status: 400 });
+    }
+
     // Ler arquivo do disco
-    const filepath = join(process.cwd(), 'uploads', 'attachments', attachment.filename);
-    
+    const filepath = join(process.cwd(), 'uploads', 'attachments', safeFilename);
+
     try {
       const fileBuffer = await readFile(filepath);
-      
+
       return new NextResponse(fileBuffer as any, {
         headers: {
           'Content-Type': attachment.mime_type,
@@ -79,36 +168,39 @@ export async function DELETE(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
+    const tenantContext = getTenantContextFromRequest(request);
+    if (!tenantContext) {
+      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
     }
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    const userContext = getUserContextFromRequest(request);
+    if (!userContext) {
+      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
+    }
+
+    if (!validateTenantAccess(userContext, tenantContext)) {
+      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 });
     }
 
     const { id } = await params;
-    const attachmentId = parseInt(id);
-
-    if (isNaN(attachmentId)) {
+    if (!isPositiveInteger(id)) {
       return NextResponse.json({ error: 'ID do anexo inválido' }, { status: 400 });
     }
+    const attachmentId = Number.parseInt(id, 10);
 
-    const attachment = attachmentQueries.getById(attachmentId, user.organization_id);
+    const attachment = await getAttachmentByIdScoped(attachmentId, tenantContext.id);
     if (!attachment) {
       return NextResponse.json({ error: 'Anexo não encontrado' }, { status: 404 });
     }
 
-    // Verificar permissões - apenas quem fez upload ou admin pode deletar
-    if (user.role !== 'admin' && attachment.uploaded_by !== user.id) {
+    const canDelete =
+      attachment.uploaded_by === userContext.id ||
+      ATTACHMENT_DELETE_ROLES.includes(userContext.role);
+    if (!canDelete) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const success = attachmentQueries.delete(attachmentId, user.organization_id);
+    const success = await deleteAttachmentScoped(attachmentId, tenantContext.id);
     if (!success) {
       return NextResponse.json({ error: 'Erro ao deletar anexo' }, { status: 500 });
     }

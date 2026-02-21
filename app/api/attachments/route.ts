@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       ticketParams.push(userContext.id)
     }
 
-    const ticket = db.prepare(ticketQuery).get(...ticketParams)
+    const ticket = await executeQueryOne(ticketQuery, ticketParams)
 
     if (!ticket) {
       return NextResponse.json(
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     attachmentsQuery += ' ORDER BY a.created_at ASC'
 
-    const attachments = db.prepare(attachmentsQuery).all(...queryParams)
+    const attachments = await executeQuery(attachmentsQuery, queryParams)
 
     return NextResponse.json({
       success: true,
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       ticketParams.push(userContext.id)
     }
 
-    const ticket = db.prepare(ticketQuery).get(...ticketParams)
+    const ticket = await executeQueryOne(ticketQuery, ticketParams)
 
     if (!ticket) {
       return NextResponse.json(
@@ -158,9 +158,7 @@ export async function POST(request: NextRequest) {
 
     // If comment_id is provided, verify it exists and belongs to the ticket
     if (comment_id) {
-      const comment = db.prepare(
-        'SELECT id FROM comments WHERE id = ? AND ticket_id = ? AND tenant_id = ?'
-      ).get(comment_id, ticket_id, tenantContext.id)
+      const comment = await executeQueryOne('SELECT id FROM comments WHERE id = ? AND ticket_id = ? AND tenant_id = ?', [comment_id, ticket_id, tenantContext.id])
 
       if (!comment) {
         return NextResponse.json(
@@ -171,13 +169,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Create attachment record
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO attachments (ticket_id, filename, original_name, mime_type,
                               size, uploaded_by, file_path, comment_id,
                               is_public, tenant_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      ticket_id,
+    `, [ticket_id,
       filename,
       original_name,
       mime_type,
@@ -186,11 +183,10 @@ export async function POST(request: NextRequest) {
       file_path || null,
       comment_id || null,
       (is_public || false) ? 1 : 0,
-      tenantContext.id
-    )
+      tenantContext.id])
 
     // Get created attachment with user info
-    const newAttachment = db.prepare(`
+    const newAttachment = await executeQueryOne(`
       SELECT
         a.id,
         a.filename,
@@ -204,7 +200,7 @@ export async function POST(request: NextRequest) {
       FROM attachments a
       LEFT JOIN users u ON a.uploaded_by = u.id AND u.tenant_id = ?
       WHERE a.id = ?
-    `).get(tenantContext.id, result.lastInsertRowid)
+    `, [tenantContext.id, result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,

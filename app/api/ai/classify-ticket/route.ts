@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import TicketClassifier from '@/lib/ai/ticket-classifier';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
+import { verifyToken } from '@/lib/auth/auth-service';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const classifyTicketSchema = z.object({
@@ -45,17 +45,17 @@ export async function POST(request: NextRequest) {
       classifyTicketSchema.parse(body);
 
     // NOTE: Categories and priorities are global (no organization_id filter needed)
-    const categories = db.prepare(`
+    const categories = await executeQuery<{ id: number; name: string; description: string; color: string; created_at: string; updated_at: string }>(`
       SELECT id, name, description, color, created_at, updated_at
       FROM categories
       ORDER BY name
-    `).all() as { id: number; name: string; description: string; color: string; created_at: string; updated_at: string }[];
+    `);
 
-    const priorities = db.prepare(`
+    const priorities = await executeQuery<{ id: number; name: string; level: number; color: string; response_time: number; resolution_time: number; created_at: string; updated_at: string }>(`
       SELECT id, name, level, color, response_time, resolution_time, created_at, updated_at
       FROM priorities
       ORDER BY level
-    `).all() as { id: number; name: string; level: number; color: string; response_time: number; resolution_time: number; created_at: string; updated_at: string }[];
+    `);
 
     if (categories.length === 0 || priorities.length === 0) {
       return NextResponse.json(
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     if (includeHistoricalData) {
       try {
         // Buscar tickets similares recentes
-        const similarTickets = db.prepare(`
+        const similarTickets = await executeQuery<any>(`
           SELECT t.title, c.name as category, p.name as priority
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
@@ -78,12 +78,12 @@ export async function POST(request: NextRequest) {
             AND (LOWER(t.title) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
           ORDER BY t.created_at DESC
           LIMIT 5
-        `).all(`%${title}%`, `%${description}%`) as any[];
+        `, [`%${title}%`, `%${description}%`]);
 
         // Buscar histórico do usuário se fornecido
         let userHistory;
         if (userId) {
-          userHistory = db.prepare(`
+          userHistory = await executeQuery<any>(`
             SELECT c.name as category, p.name as priority,
                    CAST((julianday(COALESCE(t.resolved_at, 'now')) - julianday(t.created_at)) * 24 AS INTEGER) as resolutionTime
             FROM tickets t
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
               AND t.created_at >= datetime('now', '-90 days')
             ORDER BY t.created_at DESC
             LIMIT 10
-          `).all(userId) as any[];
+          `, [userId]);
         }
 
         historicalData = {
@@ -115,15 +115,14 @@ export async function POST(request: NextRequest) {
     );
 
     // Salvar classificação no banco de dados
-    const classificationId = db.prepare(`
+    const classificationId = await executeRun(`
       INSERT INTO ai_classifications (
         ticket_id, suggested_category_id, suggested_priority_id,
         suggested_category, confidence_score, reasoning,
         model_name, model_version, processing_time_ms,
         input_tokens, output_tokens
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      null, // ticket_id será preenchido quando o ticket for criado
+    `, [null, // ticket_id será preenchido quando o ticket for criado
       classification.categoryId,
       classification.priorityId,
       classification.categoryName,
@@ -133,8 +132,7 @@ export async function POST(request: NextRequest) {
       classification.modelVersion,
       classification.processingTimeMs,
       classification.inputTokens,
-      classification.outputTokens
-    );
+      classification.outputTokens]);
 
     // Gerar embedding se solicitado
     let embeddingGenerated = false;
@@ -154,13 +152,12 @@ export async function POST(request: NextRequest) {
     logger.info(`AI Classification completed for "${title}" in ${classification.processingTimeMs}ms`);
 
     // Auditoria
-    db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      user.id,
+    `, [user.id,
       'ai_classification',
       classificationId.lastInsertRowid,
       'classify',
@@ -170,8 +167,7 @@ export async function POST(request: NextRequest) {
         priorityId: classification.priorityId,
         confidence: classification.confidenceScore
       }),
-      request.headers.get('x-forwarded-for') || 'unknown'
-    );
+      request.headers.get('x-forwarded-for') || 'unknown']);
 
     return NextResponse.json({
       success: true,
@@ -243,12 +239,12 @@ export async function GET(request: NextRequest) {
 
     if (ticketId) {
       // Buscar classificação específica de um ticket
-      const classification = db.prepare(`
+      const classification = await executeQueryOne<any>(`
         SELECT * FROM ai_classifications
         WHERE ticket_id = ?
         ORDER BY created_at DESC
         LIMIT 1
-      `).get(ticketId) as any;
+      `, [ticketId]);
 
       if (!classification) {
         return NextResponse.json(
@@ -260,7 +256,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ classification });
     } else {
       // Buscar estatísticas de classificação
-      const stats = db.prepare(`
+      const stats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_classifications,
           AVG(confidence_score) as avg_confidence,
@@ -269,9 +265,9 @@ export async function GET(request: NextRequest) {
           AVG(processing_time_ms) as avg_processing_time
         FROM ai_classifications
         WHERE created_at >= datetime('now', '-30 days')
-      `).get() as any;
+      `);
 
-      const modelStats = db.prepare(`
+      const modelStats = await executeQuery<any>(`
         SELECT
           model_name,
           COUNT(*) as count,
@@ -280,7 +276,7 @@ export async function GET(request: NextRequest) {
         WHERE created_at >= datetime('now', '-30 days')
         GROUP BY model_name
         ORDER BY count DESC
-      `).all() as any[];
+      `);
 
       return NextResponse.json({
         stats: {

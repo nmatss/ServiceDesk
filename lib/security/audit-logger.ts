@@ -11,7 +11,7 @@
  * - API access
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { NextRequest } from 'next/server';
 
@@ -123,9 +123,9 @@ export interface AuditLogEntry {
 /**
  * Initialize audit logs table
  */
-export function initializeAuditLogTable(): void {
+export async function initializeAuditLogTable(): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tenant_id INTEGER NOT NULL,
@@ -146,33 +146,33 @@ export function initializeAuditLogTable(): void {
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
       )
-    `).run();
+    `);
 
     // Create indexes for efficient querying
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant
       ON audit_logs(tenant_id, created_at DESC)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_audit_logs_user
       ON audit_logs(user_id, created_at DESC)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_audit_logs_event_type
       ON audit_logs(event_type, created_at DESC)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_audit_logs_severity
       ON audit_logs(severity, created_at DESC)
-    `).run();
+    `);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_audit_logs_entity
       ON audit_logs(entity_type, entity_id, created_at DESC)
-    `).run();
+    `);
 
     logger.info('Audit logs table initialized successfully');
   } catch (error) {
@@ -184,15 +184,15 @@ export function initializeAuditLogTable(): void {
 /**
  * Log audit event
  */
-export function logAuditEvent(entry: AuditLogEntry): void {
+export async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (
         tenant_id, user_id, event_type, severity, entity_type, entity_id,
         action, old_values, new_values, ip_address, user_agent,
         request_id, session_id, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       entry.tenant_id,
       entry.user_id || null,
       entry.event_type,
@@ -207,7 +207,7 @@ export function logAuditEvent(entry: AuditLogEntry): void {
       entry.request_id || null,
       entry.session_id || null,
       entry.metadata ? JSON.stringify(entry.metadata) : null
-    );
+    ]);
 
     // Also log to structured logger for real-time monitoring
     logger.info('Audit event', {
@@ -244,13 +244,13 @@ export function extractRequestMetadata(request: NextRequest): {
  * Helper functions for common audit events
  */
 
-export function logLoginSuccess(
+export async function logLoginSuccess(
   tenantId: number,
   userId: number,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.LOGIN_SUCCESS,
@@ -260,14 +260,14 @@ export function logLoginSuccess(
   });
 }
 
-export function logLoginFailure(
+export async function logLoginFailure(
   tenantId: number,
   email: string,
   reason: string,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     event_type: AuditEventType.LOGIN_FAILURE,
     severity: AuditSeverity.WARNING,
@@ -277,13 +277,13 @@ export function logLoginFailure(
   });
 }
 
-export function logPasswordChange(
+export async function logPasswordChange(
   tenantId: number,
   userId: number,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.PASSWORD_CHANGE,
@@ -293,16 +293,16 @@ export function logPasswordChange(
   });
 }
 
-export function logRoleChange(
+export async function logRoleChange(
   tenantId: number,
   adminUserId: number,
   targetUserId: number,
   oldRole: string,
   newRole: string,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: adminUserId,
     event_type: AuditEventType.ROLE_CHANGE,
@@ -316,15 +316,15 @@ export function logRoleChange(
   });
 }
 
-export function logDataExport(
+export async function logDataExport(
   tenantId: number,
   userId: number,
   exportType: string,
   recordCount: number,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.DATA_EXPORT,
@@ -335,7 +335,7 @@ export function logDataExport(
   });
 }
 
-export function logFileUpload(
+export async function logFileUpload(
   tenantId: number,
   userId: number,
   filename: string,
@@ -343,9 +343,9 @@ export function logFileUpload(
   entityType: string,
   entityId: number,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.FILE_UPLOAD,
@@ -358,15 +358,15 @@ export function logFileUpload(
   });
 }
 
-export function logSuspiciousActivity(
+export async function logSuspiciousActivity(
   tenantId: number,
   userId: number | undefined,
   activityType: string,
   details: Record<string, unknown>,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.SUSPICIOUS_ACTIVITY,
@@ -377,15 +377,15 @@ export function logSuspiciousActivity(
   });
 }
 
-export function logAccessDenied(
+export async function logAccessDenied(
   tenantId: number,
   userId: number | undefined,
   resource: string,
   reason: string,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.ACCESS_DENIED,
@@ -396,14 +396,14 @@ export function logAccessDenied(
   });
 }
 
-export function logWebhookCall(
+export async function logWebhookCall(
   tenantId: number,
   webhookUrl: string,
   success: boolean,
   responseStatus?: number,
   error?: string
-): void {
-  logAuditEvent({
+): Promise<void> {
+  await logAuditEvent({
     tenant_id: tenantId,
     event_type: success ? AuditEventType.WEBHOOK_CALL : AuditEventType.WEBHOOK_FAILURE,
     severity: success ? AuditSeverity.INFO : AuditSeverity.ERROR,
@@ -414,13 +414,13 @@ export function logWebhookCall(
   });
 }
 
-export function logCSRFViolation(
+export async function logCSRFViolation(
   tenantId: number,
   userId: number | undefined,
   request: NextRequest
-): void {
+): Promise<void> {
   const metadata = extractRequestMetadata(request);
-  logAuditEvent({
+  await logAuditEvent({
     tenant_id: tenantId,
     user_id: userId,
     event_type: AuditEventType.CSRF_VIOLATION,
@@ -450,7 +450,7 @@ export interface AuditLogQuery {
   offset?: number;
 }
 
-export function queryAuditLogs(query: AuditLogQuery): AuditLogEntry[] {
+export async function queryAuditLogs(query: AuditLogQuery): Promise<AuditLogEntry[]> {
   try {
     let sql = 'SELECT * FROM audit_logs WHERE tenant_id = ?';
     const params: unknown[] = [query.tenant_id];
@@ -502,7 +502,7 @@ export function queryAuditLogs(query: AuditLogQuery): AuditLogEntry[] {
       params.push(query.offset);
     }
 
-    const rows = db.prepare(sql).all(...params) as AuditLogEntry[];
+    const rows = await executeQuery<AuditLogEntry>(sql, params as any[]);
 
     // Parse JSON fields
     return rows.map(row => ({
@@ -520,54 +520,54 @@ export function queryAuditLogs(query: AuditLogQuery): AuditLogEntry[] {
 /**
  * Get audit log statistics
  */
-export function getAuditLogStats(
+export async function getAuditLogStats(
   tenantId: number,
   startDate: string,
   endDate: string
-): {
+): Promise<{
   total_events: number;
   by_severity: Record<string, number>;
   by_event_type: Record<string, number>;
   by_user: Array<{ user_id: number; count: number }>;
   timeline: Array<{ date: string; count: number }>;
-} {
+}> {
   try {
-    const total = db.prepare(`
+    const total = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM audit_logs
       WHERE tenant_id = ? AND created_at BETWEEN ? AND ?
-    `).get(tenantId, startDate, endDate) as { count: number };
+    `, [tenantId, startDate, endDate]);
 
-    const bySeverity = db.prepare(`
+    const bySeverity = await executeQuery<{ severity: string; count: number }>(`
       SELECT severity, COUNT(*) as count FROM audit_logs
       WHERE tenant_id = ? AND created_at BETWEEN ? AND ?
       GROUP BY severity
-    `).all(tenantId, startDate, endDate) as Array<{ severity: string; count: number }>;
+    `, [tenantId, startDate, endDate]);
 
-    const byEventType = db.prepare(`
+    const byEventType = await executeQuery<{ event_type: string; count: number }>(`
       SELECT event_type, COUNT(*) as count FROM audit_logs
       WHERE tenant_id = ? AND created_at BETWEEN ? AND ?
       GROUP BY event_type
       ORDER BY count DESC
       LIMIT 20
-    `).all(tenantId, startDate, endDate) as Array<{ event_type: string; count: number }>;
+    `, [tenantId, startDate, endDate]);
 
-    const byUser = db.prepare(`
+    const byUser = await executeQuery<{ user_id: number; count: number }>(`
       SELECT user_id, COUNT(*) as count FROM audit_logs
       WHERE tenant_id = ? AND created_at BETWEEN ? AND ? AND user_id IS NOT NULL
       GROUP BY user_id
       ORDER BY count DESC
       LIMIT 10
-    `).all(tenantId, startDate, endDate) as Array<{ user_id: number; count: number }>;
+    `, [tenantId, startDate, endDate]);
 
-    const timeline = db.prepare(`
+    const timeline = await executeQuery<{ date: string; count: number }>(`
       SELECT DATE(created_at) as date, COUNT(*) as count FROM audit_logs
       WHERE tenant_id = ? AND created_at BETWEEN ? AND ?
       GROUP BY DATE(created_at)
       ORDER BY date
-    `).all(tenantId, startDate, endDate) as Array<{ date: string; count: number }>;
+    `, [tenantId, startDate, endDate]);
 
     return {
-      total_events: total.count,
+      total_events: total?.count ?? 0,
       by_severity: Object.fromEntries(bySeverity.map(r => [r.severity, r.count])),
       by_event_type: Object.fromEntries(byEventType.map(r => [r.event_type, r.count])),
       by_user: byUser,
@@ -582,18 +582,18 @@ export function getAuditLogStats(
 /**
  * Cleanup old audit logs (for compliance retention policies)
  */
-export function cleanupOldAuditLogs(
+export async function cleanupOldAuditLogs(
   tenantId: number,
   retentionDays: number = 365
-): number {
+): Promise<number> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM audit_logs
       WHERE tenant_id = ? AND created_at < ?
-    `).run(tenantId, cutoffDate.toISOString());
+    `, [tenantId, cutoffDate.toISOString()]);
 
     logger.info('Old audit logs cleaned up', {
       tenantId,

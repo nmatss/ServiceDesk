@@ -7,8 +7,9 @@
 
 import { Server as SocketIOServer } from 'socket.io';
 import { createClient } from 'redis';
-import db from '@/lib/db/connection';
 import logger from '../monitoring/structured-logger';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 
 // Re-export types for client usage
 export interface RealtimeMetrics {
@@ -381,64 +382,69 @@ export class RealtimeAnalyticsEngine {
   // ============================================================================
 
   private async calculateActiveTickets(filters?: Record<string, any>): Promise<RealtimeMetric> {
-    const row = db.prepare(`
+    const row = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets
       WHERE status_id IN (
         SELECT id FROM statuses WHERE name IN ('open', 'in_progress')
       )
-    `).get() as { count: number };
+    `);
 
     return {
       type: 'kpi',
       name: 'active_tickets',
-      value: row.count,
+      value: row?.count ?? 0,
       timestamp: new Date(),
       metadata: { filters }
     };
   }
 
   private async calculateSLACompliance(filters?: Record<string, any>): Promise<RealtimeMetric> {
-    const row = db.prepare(`
+    const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const row = await executeQueryOne<{ total: number; compliant: number }>(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN is_violated = 0 THEN 1 ELSE 0 END) as compliant
       FROM sla_tracking
-      WHERE created_at >= datetime('now', '-30 days')
-    `).get() as { total: number; compliant: number };
+      WHERE created_at >= ?
+    `, [cutoffDate]);
 
-    const compliance = row.total > 0 ? (row.compliant / row.total) * 100 : 100;
+    const total = row?.total ?? 0;
+    const compliant = row?.compliant ?? 0;
+    const compliance = total > 0 ? (compliant / total) * 100 : 100;
 
     return {
       type: 'sla',
       name: 'sla_compliance',
       value: Math.round(compliance * 100) / 100,
       timestamp: new Date(),
-      metadata: { total: row.total, compliant: row.compliant, filters }
+      metadata: { total, compliant, filters }
     };
   }
 
   private async calculateAvgResolutionTime(filters?: Record<string, any>): Promise<RealtimeMetric> {
-    const row = db.prepare(`
-      SELECT AVG(
-        CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)
-      ) as avg_hours
+    const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const resolutionExpr = getDatabaseType() === 'postgresql'
+      ? 'CAST((EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600) AS INTEGER)'
+      : 'CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)';
+    const row = await executeQueryOne<{ avg_hours: number | null }>(`
+      SELECT AVG(${resolutionExpr}) as avg_hours
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-        AND updated_at >= datetime('now', '-30 days')
-    `).get() as { avg_hours: number | null };
+        AND updated_at >= ?
+    `, [cutoffDate]);
 
     return {
       type: 'kpi',
       name: 'avg_resolution_time',
-      value: Math.round(row.avg_hours || 0),
+      value: Math.round(row?.avg_hours || 0),
       timestamp: new Date(),
       metadata: { unit: 'hours', filters }
     };
   }
 
   private async calculateAgentWorkload(filters?: Record<string, any>): Promise<RealtimeMetric> {
-    const rows = db.prepare(`
+    const rows = await executeQuery<Array<{ id: number; name: string; active_tickets: number }>[number]>(`
       SELECT
         u.id,
         u.name,
@@ -451,7 +457,7 @@ export class RealtimeAnalyticsEngine {
       WHERE u.role IN ('admin', 'agent')
       GROUP BY u.id, u.name
       ORDER BY active_tickets DESC
-    `).all() as Array<{ id: number; name: string; active_tickets: number }>;
+    `);
 
     return {
       type: 'agent',
@@ -463,16 +469,23 @@ export class RealtimeAnalyticsEngine {
   }
 
   private async calculateTicketVelocity(filters?: Record<string, any>): Promise<RealtimeMetric> {
-    const row = db.prepare(`
-      SELECT
-        COUNT(*) as created_today,
-        (SELECT COUNT(*) FROM tickets WHERE date(created_at) = date('now', '-1 day')) as created_yesterday
-      FROM tickets
-      WHERE date(created_at) = date('now')
-    `).get() as { created_today: number; created_yesterday: number };
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
+    const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 
-    const velocity = row.created_yesterday > 0
-      ? ((row.created_today - row.created_yesterday) / row.created_yesterday) * 100
+    const row = await executeQueryOne<{ created_today: number; created_yesterday: number }>(`
+      SELECT
+        SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END) as created_today,
+        SUM(CASE WHEN created_at >= ? AND created_at < ? THEN 1 ELSE 0 END) as created_yesterday
+      FROM tickets
+      WHERE created_at >= ? AND created_at < ?
+    `, [todayStart, tomorrowStart, yesterdayStart, todayStart, yesterdayStart, tomorrowStart]);
+
+    const createdToday = row?.created_today ?? 0;
+    const createdYesterday = row?.created_yesterday ?? 0;
+    const velocity = createdYesterday > 0
+      ? ((createdToday - createdYesterday) / createdYesterday) * 100
       : 0;
 
     return {
@@ -481,8 +494,8 @@ export class RealtimeAnalyticsEngine {
       value: Math.round(velocity * 100) / 100,
       timestamp: new Date(),
       metadata: {
-        created_today: row.created_today,
-        created_yesterday: row.created_yesterday,
+        created_today: createdToday,
+        created_yesterday: createdYesterday,
         filters
       }
     };
@@ -617,6 +630,7 @@ export class RealtimeAnalyticsEngine {
    */
   async aggregate(config: AggregationConfig): Promise<any[]> {
     const { metric, aggregation, groupBy, timeWindow } = config;
+    const params: any[] = [metric];
 
     let sql = `
       SELECT
@@ -628,7 +642,9 @@ export class RealtimeAnalyticsEngine {
     `;
 
     if (timeWindow) {
-      sql += ` AND date >= datetime('now', '-${timeWindow} seconds')`;
+      const cutoffDate = new Date(Date.now() - timeWindow * 1000).toISOString();
+      sql += ` AND date >= ?`;
+      params.push(cutoffDate);
     }
 
     if (groupBy && groupBy.length > 0) {
@@ -637,7 +653,7 @@ export class RealtimeAnalyticsEngine {
 
     sql += ' ORDER BY date DESC LIMIT 100';
 
-    const rows = db.prepare(sql).all(metric);
+    const rows = await executeQuery(sql, params);
     return rows as any[];
   }
 

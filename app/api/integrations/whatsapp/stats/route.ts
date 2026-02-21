@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { getWhatsAppStats } from '@/lib/integrations/whatsapp/storage';
 import logger from '@/lib/monitoring/structured-logger';
 
@@ -19,10 +19,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.authenticated || !['admin', 'manager', 'agent'].includes(authResult.user?.role || '')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager', 'agent'] });
+    if (guard.response) return guard.response;
 
     const searchParams = request.nextUrl.searchParams;
     const days = parseInt(searchParams.get('days') || '30');

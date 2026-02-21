@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTokenFromCookies } from '@/lib/auth/sqlite-auth';
+import { verifyTokenFromCookies } from '@/lib/auth/auth-service';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar templates FILTRADOS POR TENANT
-    const templates = db.prepare(`
+    const templates = await executeQuery(`
       SELECT
         t.*,
         c.name as category_name,
@@ -73,15 +73,15 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY t.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset);
+    `, [...params, limit, offset]);
 
     // Contar total FILTRADO POR TENANT
-    const { total } = db.prepare(`
+    const { total } = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM templates t
       LEFT JOIN users u ON t.created_by = u.id
       ${whereClause}
-    `).get(...params) as { total: number };
+    `, params) || { total: 0 };
 
     return NextResponse.json({
       success: true,
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar se categoria existe E PERTENCE AO TENANT (se fornecida)
     if (category_id) {
-      const category = db.prepare('SELECT id FROM categories WHERE id = ? AND tenant_id = ?').get(category_id, tenantId);
+      const category = await executeQueryOne('SELECT id FROM categories WHERE id = ? AND tenant_id = ?', [category_id, tenantId]);
       if (!category) {
         return NextResponse.json({
           error: 'Categoria não encontrada neste tenant'
@@ -172,11 +172,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já existe template com o mesmo nome NO TENANT
-    const existingTemplate = db.prepare(`
+    const existingTemplate = await executeQueryOne(`
       SELECT t.id FROM templates t
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.name = ? AND t.type = ? AND u.organization_id = ?
-    `).get(name, type, tenantId);
+    `, [name, type, tenantId]);
 
     if (existingTemplate) {
       return NextResponse.json({
@@ -185,15 +185,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar template
-    const insertTemplate = db.prepare(`
+    
+
+    const result = await executeRun(`
       INSERT INTO templates (
         name, description, type, category_id, title_template,
         content_template, variables, is_active, tags, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = insertTemplate.run(
-      name,
+    `, [name,
       description || null,
       type,
       category_id || null,
@@ -202,11 +201,10 @@ export async function POST(request: NextRequest) {
       variables ? JSON.stringify(variables) : null,
       is_active ? 1 : 0,
       tags.length > 0 ? JSON.stringify(tags) : null,
-      user.id
-    );
+      user.id]);
 
     // Buscar template criado
-    const newTemplate = db.prepare(`
+    const newTemplate = await executeQueryOne(`
       SELECT
         t.*,
         c.name as category_name,
@@ -215,7 +213,7 @@ export async function POST(request: NextRequest) {
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = ?
-    `).get(result.lastInsertRowid);
+    `, [result.lastInsertRowid]);
 
     return NextResponse.json({
       success: true,
@@ -274,11 +272,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verificar se template existe E PERTENCE AO TENANT
-    const template = db.prepare(`
+    const template = await executeQueryOne(`
       SELECT t.* FROM templates t
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = ? AND u.organization_id = ?
-    `).get(id, tenantId);
+    `, [id, tenantId]);
     if (!template) {
       return NextResponse.json({ error: 'Template não encontrado neste tenant' }, { status: 404 });
     }
@@ -289,7 +287,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Atualizar template
-    const updateQuery = db.prepare(`
+    
+
+    await executeRun(`
       UPDATE templates SET
         name = COALESCE(?, name),
         description = COALESCE(?, description),
@@ -301,10 +301,7 @@ export async function PUT(request: NextRequest) {
         tags = COALESCE(?, tags),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
-
-    updateQuery.run(
-      name || null,
+    `, [name || null,
       description || null,
       category_id || null,
       title_template || null,
@@ -312,11 +309,10 @@ export async function PUT(request: NextRequest) {
       variables ? JSON.stringify(variables) : null,
       is_active !== undefined ? (is_active ? 1 : 0) : null,
       tags ? JSON.stringify(tags) : null,
-      id
-    );
+      id]);
 
     // Buscar template atualizado
-    const updatedTemplate = db.prepare(`
+    const updatedTemplate = await executeQueryOne(`
       SELECT
         t.*,
         c.name as category_name,
@@ -325,7 +321,7 @@ export async function PUT(request: NextRequest) {
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = ?
-    `).get(id);
+    `, [id]);
 
     return NextResponse.json({
       success: true,
@@ -373,11 +369,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar se template existe E PERTENCE AO TENANT
-    const template = db.prepare(`
+    const template = await executeQueryOne(`
       SELECT t.* FROM templates t
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = ? AND u.organization_id = ?
-    `).get(parseInt(id), tenantId);
+    `, [parseInt(id), tenantId]);
     if (!template) {
       return NextResponse.json({ error: 'Template não encontrado neste tenant' }, { status: 404 });
     }
@@ -389,11 +385,11 @@ export async function DELETE(request: NextRequest) {
 
     // Verificar se template está sendo usado NO TENANT
     // FIX: Use template ID instead of name for lookup
-    const usageCount = db.prepare(`
+    const usageCount = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets
       WHERE template_id = ? AND tenant_id = ?
-    `).get(parseInt(id), tenantId) as { count: number };
+    `, [parseInt(id), tenantId]) || { count: 0 };
 
     if (usageCount.count > 0) {
       return NextResponse.json({
@@ -403,7 +399,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Excluir template (já validado que pertence ao tenant)
-    db.prepare('DELETE FROM templates WHERE id = ?').run(parseInt(id));
+    await executeRun('DELETE FROM templates WHERE id = ?', [parseInt(id)]);
 
     return NextResponse.json({
       success: true,

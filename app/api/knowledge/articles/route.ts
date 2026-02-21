@@ -1,23 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
-import { verifyToken } from '@/lib/auth/sqlite-auth'
+import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger'
 import { jsonWithCache } from '@/lib/api/cache-headers'
 import { cacheInvalidation } from '@/lib/api/cache'
 import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware'
+import { executeQuery, executeQueryOne, executeTransaction, type DatabaseAdapter } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+async function awaitMaybe<T>(value: T | Promise<T>): Promise<T> {
+  return value instanceof Promise ? await value : value;
+}
+
+async function txRun(tx: DatabaseAdapter, sql: string, params: any[]): Promise<void> {
+  await awaitMaybe(tx.prepare(sql).run(...params));
+}
+
+async function txGet<T = any>(tx: DatabaseAdapter, sql: string, params: any[]): Promise<T | undefined> {
+  return await awaitMaybe(tx.prepare(sql).get(...params)) as T | undefined;
+}
+
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Get tenant context if available, otherwise use default
+    // Resolve tenant from trusted context.
     const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id || 1; // Default to organization ID 1
+    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
+    // Production traffic must always include tenant resolution.
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant não encontrado' },
+        { status: 400 }
+      )
+    }
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -50,7 +70,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar artigos
-    const articles = db.prepare(`
+    const articles = await executeQuery<Record<string, unknown>>(`
       SELECT
         a.id,
         a.title,
@@ -75,24 +95,24 @@ export async function GET(request: NextRequest) {
       ${whereClause}
       ORDER BY a.featured DESC, a.published_at DESC, a.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset)
+    `, [...params, limit, offset])
 
     // Contar total de artigos
-    const totalCount = db.prepare(`
+    const totalCount = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM kb_articles a
       LEFT JOIN kb_categories c ON a.category_id = c.id
       ${whereClause}
-    `).get(...params) as { count: number }
+    `, params)
 
     // Buscar tags para cada artigo
     for (const article of (articles as Array<Record<string, unknown>>)) {
-      const tags = db.prepare(`
+      const tags = await executeQuery(`
         SELECT t.id, t.name, t.slug, t.color
         FROM kb_tags t
         INNER JOIN kb_article_tags at ON t.id = at.tag_id
         WHERE at.article_id = ?
-      `).all(article.id as number)
+      `, [article.id as number])
 
       article.tags = tags
     }
@@ -103,8 +123,8 @@ export async function GET(request: NextRequest) {
       pagination: {
         page,
         limit,
-        total: totalCount.count,
-        totalPages: Math.ceil(totalCount.count / limit)
+        total: totalCount?.count ?? 0,
+        totalPages: Math.ceil((totalCount?.count ?? 0) / limit)
       }
     }, 'STATIC') // Cache for 10 minutes
 
@@ -123,24 +143,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const user = await verifyToken(token)
-    if (!user || (user.role !== 'admin' && user.role !== 'agent')) {
-      return NextResponse.json(
-        { error: 'Acesso negado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const body = await request.json()
 
@@ -176,17 +184,18 @@ export async function POST(request: NextRequest) {
     let counter = 1
 
     while (true) {
-      const existing = db.prepare('SELECT id FROM kb_articles WHERE slug = ?').get(slug)
+      const existing = await executeQueryOne(
+        'SELECT id FROM kb_articles WHERE slug = ? AND tenant_id = ?',
+        [slug, tenantContext.id]
+      )
       if (!existing) break
 
       slug = `${baseSlug}-${counter}`
       counter++
     }
 
-    // Iniciar transação
-    const transaction = db.transaction(() => {
-      // Criar artigo
-      const articleResult = db.prepare(`
+    const articleId = await executeTransaction(async (tx) => {
+      const articleResult = await awaitMaybe(tx.prepare(`
         INSERT INTO kb_articles (
           title, slug, content, summary, category_id, author_id,
           status, visibility, featured, search_keywords, meta_title, meta_description,
@@ -196,41 +205,57 @@ export async function POST(request: NextRequest) {
         title,
         slug,
         content,
-        summary,
+        summary ?? null,
         category_id || null,
-        user.id,
+        userContext.id,
         status,
         visibility,
-        featured,
-        search_keywords,
-        meta_title,
-        meta_description,
+        featured ? 1 : 0,
+        search_keywords ?? null,
+        meta_title ?? null,
+        meta_description ?? null,
         status === 'published' ? new Date().toISOString() : null
-      )
+      ))
 
-      const articleId = articleResult.lastInsertRowid
+      let articleId = articleResult.lastInsertRowid
+      if (typeof articleId !== 'number') {
+        const inserted = await txGet<{ id: number }>(
+          tx,
+          'SELECT id FROM kb_articles WHERE slug = ?',
+          [slug]
+        )
+        articleId = inserted?.id
+      }
+      if (typeof articleId !== 'number') {
+        throw new Error('Failed to resolve inserted article id')
+      }
 
       // Processar tags
       if (tags && Array.isArray(tags)) {
         for (const tagName of tags) {
           // Criar tag se não existir
           const tagSlug = slugify(tagName, { lower: true, strict: true })
-          let tag = db.prepare('SELECT id FROM kb_tags WHERE slug = ?').get(tagSlug) as { id: number } | undefined
+          let tag = await txGet<{ id: number }>(tx, 'SELECT id FROM kb_tags WHERE slug = ?', [tagSlug])
 
           if (!tag) {
-            const tagResult = db.prepare('INSERT INTO kb_tags (name, slug) VALUES (?, ?)').run(tagName, tagSlug)
-            tag = { id: Number(tagResult.lastInsertRowid) }
+            await txRun(tx, 'INSERT INTO kb_tags (name, slug) VALUES (?, ?)', [tagName, tagSlug])
+            tag = await txGet<{ id: number }>(tx, 'SELECT id FROM kb_tags WHERE slug = ?', [tagSlug])
+            if (!tag) {
+              throw new Error('Failed to create tag')
+            }
           }
 
           // Associar tag ao artigo
-          db.prepare('INSERT OR IGNORE INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)').run(articleId, tag.id)
+          await txRun(
+            tx,
+            'INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?) ON CONFLICT(article_id, tag_id) DO NOTHING',
+            [articleId, tag.id]
+          )
         }
       }
 
       return articleId
     })
-
-    const articleId = transaction()
 
     // Invalidate knowledge cache
     await cacheInvalidation.knowledgeBase()

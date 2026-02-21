@@ -6,7 +6,6 @@
 import type { NextResponse } from 'next/server'
 
 export interface SecurityHeadersConfig {
-  enableCSP?: boolean
   enableHSTS?: boolean
   enableXFrameOptions?: boolean
   enableXContentTypeOptions?: boolean
@@ -22,7 +21,6 @@ export function applySecurityHeaders(
   config: SecurityHeadersConfig = {}
 ): NextResponse {
   const {
-    enableCSP = true,
     enableHSTS = process.env.NODE_ENV === 'production',
     enableXFrameOptions = true,
     enableXContentTypeOptions = true,
@@ -58,33 +56,7 @@ export function applySecurityHeaders(
     )
   }
 
-  // Content-Security-Policy
-  if (enableCSP) {
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    // Stricter CSP in production - no unsafe-eval or unsafe-inline
-    const scriptSrc = isProduction
-      ? "script-src 'self'"  // Production: strict - use nonces for inline scripts
-      : "script-src 'self' 'unsafe-eval' 'unsafe-inline'";  // Development only
-
-    const styleSrc = isProduction
-      ? "style-src 'self' https://fonts.googleapis.com"  // Production: strict - use nonces for inline styles
-      : "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com";  // Development
-
-    const csp = [
-      "default-src 'self'",
-      scriptSrc,
-      styleSrc,
-      "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com data:",
-      "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.openai.com wss:",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; ')
-
-    response.headers.set('Content-Security-Policy', csp)
-  }
+  // NOTE: CSP is handled exclusively by lib/security/helmet.ts to avoid conflicts.
 
   // Permissions-Policy (formerly Feature-Policy)
   response.headers.set(

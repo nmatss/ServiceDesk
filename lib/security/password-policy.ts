@@ -10,7 +10,7 @@
  */
 
 import * as crypto from 'crypto';
-import db from '@/lib/db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
 /**
@@ -66,9 +66,9 @@ export interface PasswordValidationResult {
 /**
  * Initialize password_history table
  */
-export function initializePasswordHistoryTable(): void {
+export async function initializePasswordHistoryTable(): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS password_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -78,13 +78,13 @@ export function initializePasswordHistoryTable(): void {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
       )
-    `).run();
+    `);
 
     // Create index for performance
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_password_history_user
       ON password_history(user_id, tenant_id)
-    `).run();
+    `);
 
     logger.info('Password history table initialized successfully');
   } catch (error) {
@@ -182,12 +182,12 @@ async function checkPasswordHistory(
 ): Promise<boolean> {
   try {
     // Get recent password hashes
-    const history = db.prepare(`
+    const history = await executeQuery<{ password_hash: string }>(`
       SELECT password_hash FROM password_history
       WHERE user_id = ? AND tenant_id = ?
       ORDER BY created_at DESC
       LIMIT ?
-    `).all(userId, tenantId, historyCount) as { password_hash: string }[];
+    `, [userId, tenantId, historyCount]);
 
     // Import bcrypt for comparison
     const bcrypt = await import('bcryptjs');
@@ -296,14 +296,14 @@ export async function storePasswordHistory(
   passwordHash: string
 ): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       INSERT INTO password_history (user_id, tenant_id, password_hash)
       VALUES (?, ?, ?)
-    `).run(userId, tenantId, passwordHash);
+    `, [userId, tenantId, passwordHash]);
 
     // Clean up old history (keep only configured amount)
     const policy = DEFAULT_POLICY;
-    db.prepare(`
+    await executeRun(`
       DELETE FROM password_history
       WHERE user_id = ? AND tenant_id = ?
       AND id NOT IN (
@@ -312,7 +312,7 @@ export async function storePasswordHistory(
         ORDER BY created_at DESC
         LIMIT ?
       )
-    `).run(userId, tenantId, userId, tenantId, policy.historyCount);
+    `, [userId, tenantId, userId, tenantId, policy.historyCount]);
   } catch (error) {
     logger.error('Failed to store password history', error);
   }

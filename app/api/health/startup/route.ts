@@ -10,9 +10,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
-import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import {
+  checkDatabaseHealth,
+  checkRedisHealth,
+  checkRequiredTables,
+  listCurrentTables,
+} from '@/lib/health/dependency-checks';
 // Track startup state
 let isStartupComplete = false;
 let startupCheckedAt: Date | null = null;
@@ -26,66 +29,49 @@ async function performStartupChecks(): Promise<{
 }> {
   const checks: Record<string, any> = {};
 
-  // Check database schema
-  try {
-    const tables = db
-      .prepare(
-        `
-      SELECT name FROM sqlite_master
-      WHERE type='table'
-      AND name NOT LIKE 'sqlite_%'
-      ORDER BY name
-    `
-      )
-      .all() as { name: string }[];
+  checks.database = await checkDatabaseHealth();
+  checks.redis = await checkRedisHealth();
 
+  const shouldSkipSchemaChecks = checks.database.status === 'warning';
+  if (shouldSkipSchemaChecks) {
     checks.database_schema = {
-      status: tables.length > 0 ? 'ok' : 'error',
-      tables_count: tables.length,
-      message: tables.length > 0 ? 'Database schema initialized' : 'No tables found',
+      status: 'warning',
+      message: 'Database schema checks skipped in degraded development mode',
     };
-  } catch (error) {
-    checks.database_schema = {
-      status: 'error',
-      message: error instanceof Error ? error.message : 'Failed to check database schema',
+    checks.required_tables = {
+      status: 'warning',
+      message: 'Required tables checks skipped in degraded development mode',
     };
-  }
-
-  // Check critical tables exist
-  const requiredTables = [
-    'users',
-    'tickets',
-    'categories',
-    'priorities',
-    'statuses',
-    'notifications',
-  ];
-  const missingTables: string[] = [];
-
-  for (const table of requiredTables) {
+  } else {
+    // Check database schema
     try {
-      const result = db
-        .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-        .get(table);
-      if (!result) {
-        missingTables.push(table);
-      }
+      const tables = await listCurrentTables();
+      checks.database_schema = {
+        status: tables.length > 0 ? 'ok' : 'error',
+        tables_count: tables.length,
+        message: tables.length > 0 ? 'Database schema initialized' : 'No tables found',
+      };
     } catch (error) {
-      missingTables.push(table);
+      checks.database_schema = {
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Failed to check database schema',
+      };
     }
-  }
 
-  checks.required_tables = {
-    status: missingTables.length === 0 ? 'ok' : 'error',
-    missing: missingTables,
-    message:
-      missingTables.length === 0
-        ? 'All required tables exist'
-        : `Missing tables: ${missingTables.join(', ')}`,
-  };
+    // Check critical tables exist
+    const requiredTables = [
+      'users',
+      'tickets',
+      'categories',
+      'priorities',
+      'statuses',
+      'notifications',
+    ];
+    checks.required_tables = await checkRequiredTables(requiredTables);
+  }
 
   // Check environment variables
-  const requiredEnvVars = ['NODE_ENV'];
+  const requiredEnvVars = ['NODE_ENV', 'JWT_SECRET'];
   const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
 
   checks.environment = {
@@ -99,7 +85,10 @@ async function performStartupChecks(): Promise<{
 
   // Determine if startup is complete
   const complete =
-    checks.database_schema.status === 'ok' && checks.required_tables.status === 'ok';
+    (checks.database.status === 'ok' || checks.database.status === 'warning') &&
+    (checks.redis.status === 'ok' || checks.redis.status === 'skipped' || checks.redis.status === 'warning') &&
+    (checks.database_schema.status === 'ok' || checks.database_schema.status === 'warning') &&
+    (checks.required_tables.status === 'ok' || checks.required_tables.status === 'warning');
 
   return { complete, checks };
 }

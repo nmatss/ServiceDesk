@@ -17,7 +17,7 @@
  * CRITICAL: NO HARDCODED TENANT DATA
  */
 
-import { getPooledConnection } from '@/lib/db/connection';
+import { executeQueryOne } from '@/lib/db/adapter';
 import type { Organization } from '@/lib/types/database';
 import {
   getTenantFromCache,
@@ -120,14 +120,7 @@ async function resolveTenantFromHeaders(
 async function resolveTenantFromSubdomain(
   hostname: string
 ): Promise<TenantResolutionResult | null> {
-  // Extract subdomain (e.g., "acme" from "acme.servicedesk.com")
-  const subdomainMatch = hostname.match(/^([a-z0-9-]+)\./);
-
-  if (!subdomainMatch || subdomainMatch[1] === 'www') {
-    return null;
-  }
-
-  const subdomain = subdomainMatch[1];
+  const subdomain = extractSubdomain(hostname);
 
   if (!subdomain) {
     return null;
@@ -156,6 +149,52 @@ async function resolveTenantFromSubdomain(
   }
 
   return null;
+}
+
+/**
+ * Extract tenant subdomain from hostname.
+ *
+ * Security rules:
+ * - Ignore localhost/IP hosts
+ * - Require at least 3 hostname parts (tenant.base.tld)
+ * - Ignore "www" as tenant
+ */
+function extractSubdomain(hostname: string): string | null {
+  if (!hostname) {
+    return null;
+  }
+
+  const normalizedHost = hostname.toLowerCase().split(':')[0] || '';
+
+  if (!normalizedHost || normalizedHost === 'localhost') {
+    return null;
+  }
+
+  // IPv4
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalizedHost)) {
+    return null;
+  }
+
+  // IPv6 (basic check)
+  if (normalizedHost.includes(':') || (normalizedHost.startsWith('[') && normalizedHost.endsWith(']'))) {
+    return null;
+  }
+
+  const parts = normalizedHost.split('.').filter(Boolean);
+  if (parts.length < 3) {
+    return null;
+  }
+
+  const subdomain = parts[0];
+  if (!subdomain || subdomain === 'www') {
+    return null;
+  }
+
+  if (!/^[a-z0-9-]+$/.test(subdomain)) {
+    return null;
+  }
+
+  return subdomain;
 }
 
 /**
@@ -213,33 +252,30 @@ async function resolveTenantFromPath(
  */
 async function getTenantById(id: number): Promise<Organization | null> {
   try {
-    return await getPooledConnection<Organization | null>((db) => {
-      const stmt = db.prepare(`
-        SELECT
-          id,
-          name,
-          slug,
-          domain,
-          settings,
-          subscription_plan,
-          subscription_status,
-          subscription_expires_at,
-          max_users,
-          max_tickets_per_month,
-          features,
-          billing_email,
-          is_active,
-          created_at,
-          updated_at
-        FROM organizations
-        WHERE id = ?
-          AND is_active = 1
-        LIMIT 1
-      `);
+    const row = await executeQueryOne<Organization>(`
+      SELECT
+        id,
+        name,
+        slug,
+        domain,
+        settings,
+        subscription_plan,
+        subscription_status,
+        subscription_expires_at,
+        max_users,
+        max_tickets_per_month,
+        features,
+        billing_email,
+        is_active,
+        created_at,
+        updated_at
+      FROM organizations
+      WHERE id = ?
+        AND is_active = 1
+      LIMIT 1
+    `, [id]);
 
-      const row = stmt.get(id) as Organization | undefined;
-      return row || null;
-    });
+    return row || null;
   } catch (error) {
     captureException(error, {
       tags: { errorType: 'tenant_query', method: 'id' },
@@ -258,33 +294,30 @@ async function getTenantById(id: number): Promise<Organization | null> {
  */
 async function getTenantBySlug(slug: string): Promise<Organization | null> {
   try {
-    return await getPooledConnection<Organization | null>((db) => {
-      const stmt = db.prepare(`
-        SELECT
-          id,
-          name,
-          slug,
-          domain,
-          settings,
-          subscription_plan,
-          subscription_status,
-          subscription_expires_at,
-          max_users,
-          max_tickets_per_month,
-          features,
-          billing_email,
-          is_active,
-          created_at,
-          updated_at
-        FROM organizations
-        WHERE slug = ?
-          AND is_active = 1
-        LIMIT 1
-      `);
+    const row = await executeQueryOne<Organization>(`
+      SELECT
+        id,
+        name,
+        slug,
+        domain,
+        settings,
+        subscription_plan,
+        subscription_status,
+        subscription_expires_at,
+        max_users,
+        max_tickets_per_month,
+        features,
+        billing_email,
+        is_active,
+        created_at,
+        updated_at
+      FROM organizations
+      WHERE slug = ?
+        AND is_active = 1
+      LIMIT 1
+    `, [slug]);
 
-      const row = stmt.get(slug) as Organization | undefined;
-      return row || null;
-    });
+    return row || null;
   } catch (error) {
     captureException(error, {
       tags: { errorType: 'tenant_query', method: 'slug' },
@@ -303,33 +336,30 @@ async function getTenantBySlug(slug: string): Promise<Organization | null> {
  */
 async function getTenantByDomain(domain: string): Promise<Organization | null> {
   try {
-    return await getPooledConnection<Organization | null>((db) => {
-      const stmt = db.prepare(`
-        SELECT
-          id,
-          name,
-          slug,
-          domain,
-          settings,
-          subscription_plan,
-          subscription_status,
-          subscription_expires_at,
-          max_users,
-          max_tickets_per_month,
-          features,
-          billing_email,
-          is_active,
-          created_at,
-          updated_at
-        FROM organizations
-        WHERE domain = ?
-          AND is_active = 1
-        LIMIT 1
-      `);
+    const row = await executeQueryOne<Organization>(`
+      SELECT
+        id,
+        name,
+        slug,
+        domain,
+        settings,
+        subscription_plan,
+        subscription_status,
+        subscription_expires_at,
+        max_users,
+        max_tickets_per_month,
+        features,
+        billing_email,
+        is_active,
+        created_at,
+        updated_at
+      FROM organizations
+      WHERE domain = ?
+        AND is_active = 1
+      LIMIT 1
+    `, [domain]);
 
-      const row = stmt.get(domain) as Organization | undefined;
-      return row || null;
-    });
+    return row || null;
   } catch (error) {
     captureException(error, {
       tags: { errorType: 'tenant_query', method: 'domain' },
@@ -402,17 +432,44 @@ export async function resolveTenant(
 
   // Strategy 1: Explicit headers (highest priority)
   const headerResult = await resolveTenantFromHeaders(headers);
-  if (headerResult?.tenant) {
-    const validation = validateTenant(headerResult.tenant);
-    if (!validation.valid) {
-      return {
-        tenant: null,
-        method: 'explicit-header',
-        cached: false,
-        error: validation.reason,
-      };
+  if (headerResult) {
+    // Explicit header parsing/validation error must stop resolution.
+    if (headerResult.error) {
+      return headerResult;
     }
-    return headerResult;
+
+    if (headerResult.tenant) {
+      // Defense-in-depth: explicit slug must match DB tenant slug.
+      const explicitSlug = headers['x-tenant-slug'];
+      if (explicitSlug && explicitSlug !== headerResult.tenant.slug) {
+        return {
+          tenant: null,
+          method: 'explicit-header',
+          cached: false,
+          error: 'Tenant slug does not match tenant ID',
+        };
+      }
+
+      const validation = validateTenant(headerResult.tenant);
+      if (!validation.valid) {
+        return {
+          tenant: null,
+          method: 'explicit-header',
+          cached: false,
+          error: validation.reason,
+        };
+      }
+
+      return headerResult;
+    }
+
+    // Explicit tenant context was provided but tenant does not exist.
+    return {
+      tenant: null,
+      method: 'not-found',
+      cached: false,
+      error: 'No tenant found for explicit headers',
+    };
   }
 
   // Strategy 2: Subdomain resolution
@@ -454,34 +511,29 @@ export async function resolveTenant(
   ) {
     // Query first active tenant from database
     try {
-      const defaultTenant = await getPooledConnection<Organization | null>((db) => {
-        const stmt = db.prepare(`
-          SELECT
-            id,
-            name,
-            slug,
-            domain,
-            settings,
-            subscription_plan,
-            subscription_status,
-            subscription_expires_at,
-            max_users,
-            max_tickets_per_month,
-            features,
-            billing_email,
-            is_active,
-            created_at,
-            updated_at
-          FROM organizations
-          WHERE is_active = 1
-            AND subscription_status IN ('active', 'trialing')
-          ORDER BY id ASC
-          LIMIT 1
-        `);
-
-        const row = stmt.get() as Organization | undefined;
-        return row || null;
-      });
+      const defaultTenant = await executeQueryOne<Organization>(`
+        SELECT
+          id,
+          name,
+          slug,
+          domain,
+          settings,
+          subscription_plan,
+          subscription_status,
+          subscription_expires_at,
+          max_users,
+          max_tickets_per_month,
+          features,
+          billing_email,
+          is_active,
+          created_at,
+          updated_at
+        FROM organizations
+        WHERE is_active = 1
+          AND subscription_status IN ('active', 'trialing')
+        ORDER BY id ASC
+        LIMIT 1
+      `);
 
       if (defaultTenant) {
         console.warn(

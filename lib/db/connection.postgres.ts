@@ -1,16 +1,11 @@
 /**
- * PostgreSQL Connection Layer (Neon Serverless)
+ * PostgreSQL Connection Layer
  *
- * Provides connection pooling and query execution for PostgreSQL
- * Compatible with existing SQLite query interface
+ * Provides connection pooling and query execution for local/remote PostgreSQL.
  */
 
-import { neon, neonConfig, Pool } from '@neondatabase/serverless';
-// Note: getDatabaseType not needed here as this file is PostgreSQL-specific
-// import { getDatabaseType } from './config';
-
-// Configure Neon for optimal performance
-neonConfig.fetchConnectionCache = true;
+import { Pool, type PoolClient, type QueryResultRow } from 'pg';
+import { getPostgresConnectionString } from './config';
 
 export interface PostgresQueryResult<T = any> {
   rows: T[];
@@ -18,109 +13,154 @@ export interface PostgresQueryResult<T = any> {
   command: string;
 }
 
+type QueryExecutor = Pool | PoolClient;
+
+function normalizeInsertId(row: any): number | undefined {
+  if (!row || typeof row !== 'object') return undefined;
+
+  if (typeof row.id === 'number') return row.id;
+  if (typeof row.id === 'string') {
+    const parsed = Number(row.id);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+
+  return undefined;
+}
+
 export class PostgresConnection {
-  private sql: ReturnType<typeof neon>;
-  private pool?: Pool;
+  private pool: Pool;
   private connectionString: string;
 
   constructor(connectionString?: string) {
-    this.connectionString = connectionString || process.env.DATABASE_URL || '';
+    this.connectionString = connectionString || getPostgresConnectionString() || '';
 
     if (!this.connectionString) {
-      throw new Error('DATABASE_URL environment variable is required for PostgreSQL');
+      throw new Error('PostgreSQL connection string not found. Set DATABASE_URL=postgresql://... or PG* variables.');
     }
 
-    // Create main SQL executor
-    this.sql = neon(this.connectionString);
+    this.pool = new Pool({
+      connectionString: this.connectionString,
+      max: Number(process.env.DB_POOL_MAX || 20),
+      min: Number(process.env.DB_POOL_MIN || 2),
+      idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_TIMEOUT || 30000),
+      connectionTimeoutMillis: Number(process.env.DB_POOL_ACQUIRE_TIMEOUT || 5000),
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? {
+              rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
+              ca: process.env.DATABASE_CA_CERT || undefined,
+            }
+          : false,
+    });
+  }
 
-    // Create connection pool for transactions
-    this.pool = new Pool({ connectionString: this.connectionString });
+  private async execute<T = any>(
+    sql: string,
+    params: any[] | undefined,
+    executor?: QueryExecutor
+  ): Promise<PostgresQueryResult<T>> {
+    const client = executor || this.pool;
+    const result = await client.query<T & QueryResultRow>(sql, params || []);
 
-    console.log('✓ PostgreSQL connection initialized (Neon Serverless)');
+    return {
+      rows: result.rows,
+      rowCount: result.rowCount ?? 0,
+      command: result.command,
+    };
   }
 
   /**
-   * Execute a simple query
+   * Execute a query and return rows.
    */
   async query<T = any>(sql: string, params?: any[]): Promise<T[]> {
-    try {
-      // Neon SQL expects template strings, so we'll use dynamic SQL execution
-      // We use 'any' type assertion because neon doesn't support parameterized queries in the same way
-      const result = await (this.sql as any)(sql, params || []);
-      return result as T[];
-    } catch (error) {
-      console.error('PostgreSQL query error:', error);
-      throw error;
-    }
+    const result = await this.execute<T>(sql, params);
+    return result.rows;
   }
 
   /**
-   * Execute query and return single row
+   * Execute query and return first row.
    */
   async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
-    const results = await this.query<T>(sql, params);
-    return results[0];
+    const rows = await this.query<T>(sql, params);
+    return rows[0];
   }
 
   /**
-   * Execute query and return all rows
+   * Execute query and return all rows.
    */
   async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
-    return await this.query<T>(sql, params);
+    return this.query<T>(sql, params);
   }
 
   /**
-   * Execute INSERT/UPDATE/DELETE and return affected rows
+   * Execute INSERT/UPDATE/DELETE and return affected rows.
    */
   async run(sql: string, params?: any[]): Promise<{ changes: number; lastInsertRowid?: number }> {
-    try {
-      // For INSERT queries, use RETURNING to get the ID
-      if (sql.trim().toUpperCase().startsWith('INSERT')) {
-        const modifiedSql = sql.includes('RETURNING') ? sql : `${sql} RETURNING id`;
-        const result = await (this.sql as any)(modifiedSql, params || []);
+    const result = await this.execute(sql, params);
+    const firstRow = result.rows[0] as any;
 
-        return {
-          changes: Array.isArray(result) ? result.length : 1,
-          lastInsertRowid: (Array.isArray(result) && result[0] && 'id' in result[0]) ? result[0].id : undefined
-        };
-      }
-
-      // For UPDATE/DELETE
-      const result = await (this.sql as any)(sql, params || []);
-      return {
-        changes: Array.isArray(result) ? result.length : 0
-      };
-    } catch (error) {
-      console.error('PostgreSQL run error:', error);
-      throw error;
-    }
+    return {
+      changes: result.rowCount,
+      lastInsertRowid: normalizeInsertId(firstRow),
+    };
   }
 
   /**
-   * Prepare statement (compatibility layer)
-   * PostgreSQL doesn't need explicit preparation in this context
+   * Prepare statement compatibility layer.
    */
   prepare(sql: string) {
     return {
       get: async (...params: any[]) => this.get(sql, params),
       all: async (...params: any[]) => this.all(sql, params),
-      run: async (...params: any[]) => this.run(sql, params)
+      run: async (...params: any[]) => this.run(sql, params),
     };
   }
 
   /**
-   * Execute transaction
+   * Execute transaction.
    */
   async transaction<T>(callback: (db: PostgresConnection) => Promise<T>): Promise<T> {
-    if (!this.pool) {
-      throw new Error('Connection pool not initialized');
-    }
-
     const client = await this.pool.connect();
+
+    const txDb = {
+      query: async <R = any>(sql: string, params?: any[]) =>
+        (await this.execute<R>(sql, params, client)).rows,
+      get: async <R = any>(sql: string, params?: any[]) => {
+        const rows = (await this.execute<R>(sql, params, client)).rows;
+        return rows[0];
+      },
+      all: async <R = any>(sql: string, params?: any[]) =>
+        (await this.execute<R>(sql, params, client)).rows,
+      run: async (sql: string, params?: any[]) => {
+        const result = await this.execute(sql, params, client);
+        const firstRow = result.rows[0] as any;
+
+        return {
+          changes: result.rowCount,
+          lastInsertRowid: normalizeInsertId(firstRow),
+        };
+      },
+      prepare: (sql: string) => ({
+        get: async (...params: any[]) => {
+          const rows = (await this.execute(sql, params, client)).rows;
+          return rows[0];
+        },
+        all: async (...params: any[]) =>
+          (await this.execute(sql, params, client)).rows,
+        run: async (...params: any[]) => {
+          const result = await this.execute(sql, params, client);
+          const firstRow = result.rows[0] as any;
+          return {
+            changes: result.rowCount,
+            lastInsertRowid: normalizeInsertId(firstRow),
+          };
+        },
+      }),
+    } as unknown as PostgresConnection;
 
     try {
       await client.query('BEGIN');
-      const result = await callback(this);
+      const result = await callback(txDb);
       await client.query('COMMIT');
       return result;
     } catch (error) {
@@ -132,54 +172,46 @@ export class PostgresConnection {
   }
 
   /**
-   * Execute raw SQL (unsafe - use carefully)
+   * Execute raw SQL (unsafe).
    */
   async unsafe(sql: string): Promise<any> {
-    return await this.sql.unsafe(sql);
+    const result = await this.pool.query(sql);
+    return result.rows;
   }
 
   /**
-   * Close connection
+   * Close connection pool.
    */
   async close(): Promise<void> {
-    if (this.pool) {
-      await this.pool.end();
-    }
+    await this.pool.end();
   }
 
   /**
-   * Check if connection is alive
+   * Check if connection is alive.
    */
   async ping(): Promise<boolean> {
     try {
-      await this.sql`SELECT 1`;
+      await this.pool.query('SELECT 1');
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
 
   /**
-   * Get connection info
+   * Get connection info (password masked).
    */
   getConnectionInfo(): { type: string; url: string } {
-    // Hide password in URL
     const url = this.connectionString.replace(/:[^:@]+@/, ':***@');
     return {
       type: 'postgresql',
-      url
+      url,
     };
   }
 }
 
-/**
- * Singleton instance
- */
 let postgresInstance: PostgresConnection | null = null;
 
-/**
- * Get PostgreSQL connection instance
- */
 export function getPostgresConnection(): PostgresConnection {
   if (!postgresInstance) {
     postgresInstance = new PostgresConnection();
@@ -187,16 +219,10 @@ export function getPostgresConnection(): PostgresConnection {
   return postgresInstance;
 }
 
-/**
- * Create new PostgreSQL connection
- */
 export function createPostgresConnection(connectionString?: string): PostgresConnection {
   return new PostgresConnection(connectionString);
 }
 
-/**
- * Close global connection
- */
 export async function closePostgresConnection(): Promise<void> {
   if (postgresInstance) {
     await postgresInstance.close();
@@ -204,9 +230,6 @@ export async function closePostgresConnection(): Promise<void> {
   }
 }
 
-/**
- * Health check for PostgreSQL
- */
 export async function checkPostgresHealth(): Promise<{
   status: 'healthy' | 'unhealthy';
   latency?: number;
@@ -226,7 +249,7 @@ export async function checkPostgresHealth(): Promise<{
   } catch (error) {
     return {
       status: 'unhealthy',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }

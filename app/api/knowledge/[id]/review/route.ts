@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
@@ -24,16 +24,21 @@ export async function POST(request: NextRequest, context: RouteParams) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request);
-    if (!auth.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const params = await context.params;
     const articleId = parseInt(params.id);
+    if (isNaN(articleId)) {
+      return NextResponse.json(
+        { error: 'Invalid article id' },
+        { status: 400 }
+      );
+    }
     const body = await request.json();
     const {
       status, // 'approved' | 'rejected' | 'changes_requested'
@@ -50,7 +55,10 @@ export async function POST(request: NextRequest, context: RouteParams) {
     }
 
     // Check if article exists
-    const article = db.prepare('SELECT * FROM kb_articles WHERE id = ?').get(articleId) as any;
+    const article = await executeQueryOne<Record<string, any>>(
+      'SELECT * FROM kb_articles WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)',
+      [articleId, tenantContext.id]
+    );
 
     if (!article) {
       return NextResponse.json(
@@ -60,41 +68,44 @@ export async function POST(request: NextRequest, context: RouteParams) {
     }
 
     // Create review record
-    const result = db.prepare(
+    const result = await executeRun(
       `INSERT INTO kb_article_reviews (
         article_id, reviewer_id, status, rating,
         comments, suggested_changes, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`
-    ).run(
-      articleId,
-      auth.user.id,
-      status,
-      rating,
-      comments || null,
-      suggested_changes ? JSON.stringify(suggested_changes) : null
+      ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        articleId,
+        userContext.id,
+        status,
+        rating,
+        comments || null,
+        suggested_changes ? JSON.stringify(suggested_changes) : null
+      ]
     );
 
     // Update article status if approved
     if (status === 'approved') {
-      db.prepare(
+      await executeRun(
         `UPDATE kb_articles
-         SET reviewed_by = ?, reviewed_at = datetime('now')
-         WHERE id = ?`
-      ).run(auth.user.id, articleId);
+         SET reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [userContext.id, articleId]
+      );
     }
 
     // Notify article author
     try {
-      db.prepare(
+      await executeRun(
         `INSERT INTO notifications (
           user_id, type, title, message, ticket_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, datetime('now'))`
-      ).run(
-        article.author_id,
-        'article_review',
-        'Article Review Received',
-        `Your article "${article.title}" has been reviewed: ${status}`,
-        null
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [
+          article.author_id,
+          'article_review',
+          'Article Review Received',
+          `Your article "${article.title}" has been reviewed: ${status}`,
+          null
+        ]
       );
     } catch (error) {
       logger.warn('Failed to create notification', error);
@@ -116,21 +127,37 @@ export async function POST(request: NextRequest, context: RouteParams) {
 /**
  * Get article reviews
  */
-export async function GET(_request: NextRequest, context: RouteParams) {
+export async function GET(request: NextRequest, context: RouteParams) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+
     const params = await context.params;
     const articleId = parseInt(params.id);
+    if (isNaN(articleId)) {
+      return NextResponse.json(
+        { error: 'Invalid article id' },
+        { status: 400 }
+      );
+    }
 
-    const reviews = db.prepare(
+    const reviews = await executeQuery<any>(
       `SELECT
         r.*,
         u.name as reviewer_name,
         u.email as reviewer_email
       FROM kb_article_reviews r
       JOIN users u ON r.reviewer_id = u.id
+      JOIN kb_articles a ON a.id = r.article_id
       WHERE r.article_id = ?
+      AND (a.tenant_id = ? OR a.tenant_id IS NULL)
       ORDER BY r.created_at DESC`
-    ).all(articleId) as any[];
+    , [articleId, tenantContext.id]);
 
     // Calculate average rating
     const avgRating = reviews.length > 0

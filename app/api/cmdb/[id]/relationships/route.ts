@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -30,10 +30,9 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const { id } = await params
     const ciId = parseInt(id)
@@ -41,12 +40,11 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 })
     }
 
-    const db = getDatabase()
-
     // Verify CI exists and belongs to organization
-    const ci = db.prepare(
-      `SELECT id FROM configuration_items WHERE id = ? AND organization_id = ?`
-    ).get(ciId, auth.user.organization_id)
+    const ci = await executeQueryOne<{ id: number }>(
+      `SELECT id FROM configuration_items WHERE id = ? AND organization_id = ?`,
+      [ciId, organizationId]
+    )
 
     if (!ci) {
       return NextResponse.json(
@@ -56,7 +54,7 @@ export async function GET(
     }
 
     // Get outgoing relationships (this CI is parent)
-    const outgoing = db.prepare(`
+    const outgoing = await executeQuery<Record<string, unknown>>(`
       SELECT
         r.*,
         rt.name as relationship_type,
@@ -74,10 +72,10 @@ export async function GET(
       LEFT JOIN ci_types ct ON ci.ci_type_id = ct.id
       LEFT JOIN ci_statuses cs ON ci.status_id = cs.id
       WHERE r.parent_ci_id = ?
-    `).all(ciId)
+    `, [ciId])
 
     // Get incoming relationships (this CI is child)
-    const incoming = db.prepare(`
+    const incoming = await executeQuery<Record<string, unknown>>(`
       SELECT
         r.*,
         rt.name as relationship_type,
@@ -95,12 +93,12 @@ export async function GET(
       LEFT JOIN ci_types ct ON ci.ci_type_id = ct.id
       LEFT JOIN ci_statuses cs ON ci.status_id = cs.id
       WHERE r.child_ci_id = ?
-    `).all(ciId)
+    `, [ciId])
 
     // Get available relationship types
-    const relationshipTypes = db.prepare(`
+    const relationshipTypes = await executeQuery<Record<string, unknown>>(`
       SELECT * FROM ci_relationship_types WHERE organization_id = ? OR organization_id IS NULL
-    `).all(auth.user.organization_id)
+    `, [organizationId])
 
     return NextResponse.json({
       success: true,
@@ -129,13 +127,12 @@ export async function POST(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Check permissions
-    if (!['admin', 'agent', 'manager'].includes(auth.user.role)) {
+    if (!['admin', 'agent', 'manager'].includes(role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }
@@ -151,12 +148,11 @@ export async function POST(
     const body = await request.json()
     const data = createRelationshipSchema.parse(body)
 
-    const db = getDatabase()
-
     // Verify parent CI exists
-    const parentCI = db.prepare(
-      `SELECT id FROM configuration_items WHERE id = ? AND organization_id = ?`
-    ).get(parentCiId, auth.user.organization_id)
+    const parentCI = await executeQueryOne<{ id: number }>(
+      `SELECT id FROM configuration_items WHERE id = ? AND organization_id = ?`,
+      [parentCiId, organizationId]
+    )
 
     if (!parentCI) {
       return NextResponse.json(
@@ -166,9 +162,10 @@ export async function POST(
     }
 
     // Verify child CI exists
-    const childCI = db.prepare(
-      `SELECT id FROM configuration_items WHERE id = ? AND organization_id = ?`
-    ).get(data.child_ci_id, auth.user.organization_id)
+    const childCI = await executeQueryOne<{ id: number }>(
+      `SELECT id FROM configuration_items WHERE id = ? AND organization_id = ?`,
+      [data.child_ci_id, organizationId]
+    )
 
     if (!childCI) {
       return NextResponse.json(
@@ -178,10 +175,10 @@ export async function POST(
     }
 
     // Check for duplicate relationship
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<{ id: number }>(`
       SELECT id FROM ci_relationships
       WHERE parent_ci_id = ? AND child_ci_id = ? AND relationship_type_id = ?
-    `).get(parentCiId, data.child_ci_id, data.relationship_type_id)
+    `, [parentCiId, data.child_ci_id, data.relationship_type_id])
 
     if (existing) {
       return NextResponse.json(
@@ -199,30 +196,32 @@ export async function POST(
     }
 
     // Create relationship
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO ci_relationships (
         parent_ci_id, child_ci_id, relationship_type_id, is_critical_path, notes, created_by
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       parentCiId,
       data.child_ci_id,
       data.relationship_type_id,
       data.is_critical_path ? 1 : 0,
       data.notes || null,
-      auth.user.id
-    )
+      userId
+    ])
 
     // Log in history for both CIs
-    const logHistory = db.prepare(`
+    await executeRun(`
       INSERT INTO ci_history (ci_id, action, changes, changed_by)
       VALUES (?, 'relationship_added', ?, ?)
-    `)
+    `, [parentCiId, JSON.stringify({ child_ci_id: data.child_ci_id }), userId])
 
-    logHistory.run(parentCiId, JSON.stringify({ child_ci_id: data.child_ci_id }), auth.user.id)
-    logHistory.run(data.child_ci_id, JSON.stringify({ parent_ci_id: parentCiId }), auth.user.id)
+    await executeRun(`
+      INSERT INTO ci_history (ci_id, action, changes, changed_by)
+      VALUES (?, 'relationship_added', ?, ?)
+    `, [data.child_ci_id, JSON.stringify({ parent_ci_id: parentCiId }), userId])
 
     // Get created relationship
-    const relationship = db.prepare(`
+    const relationship = await executeQueryOne<Record<string, unknown>>(`
       SELECT
         r.*,
         rt.name as relationship_type,
@@ -230,9 +229,9 @@ export async function POST(
       FROM ci_relationships r
       LEFT JOIN ci_relationship_types rt ON r.relationship_type_id = rt.id
       WHERE r.id = ?
-    `).get(result.lastInsertRowid)
+    `, [result.lastInsertRowid])
 
-    logger.info(`CI relationship created: ${parentCiId} -> ${data.child_ci_id} by user ${auth.user.id}`)
+    logger.info(`CI relationship created: ${parentCiId} -> ${data.child_ci_id} by user ${userId}`)
 
     return NextResponse.json({
       success: true,
@@ -266,13 +265,12 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const { userId, organizationId, role } = guard.auth!
 
     // Check permissions
-    if (!['admin', 'agent', 'manager'].includes(auth.user.role)) {
+    if (!['admin', 'agent', 'manager'].includes(role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }
@@ -295,15 +293,13 @@ export async function DELETE(
       )
     }
 
-    const db = getDatabase()
-
     // Get the relationship
-    const relationship = db.prepare(`
+    const relationship = await executeQueryOne<{ parent_ci_id: number; child_ci_id: number; organization_id: number }>(`
       SELECT r.*, ci.organization_id
       FROM ci_relationships r
       LEFT JOIN configuration_items ci ON r.parent_ci_id = ci.id
       WHERE r.id = ? AND (r.parent_ci_id = ? OR r.child_ci_id = ?)
-    `).get(relationshipId, ciId, ciId) as { parent_ci_id: number; child_ci_id: number; organization_id: number } | undefined
+    `, [relationshipId, ciId, ciId])
 
     if (!relationship) {
       return NextResponse.json(
@@ -312,7 +308,7 @@ export async function DELETE(
       )
     }
 
-    if (relationship.organization_id !== auth.user.organization_id) {
+    if (relationship.organization_id !== organizationId) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }
@@ -320,18 +316,20 @@ export async function DELETE(
     }
 
     // Delete relationship
-    db.prepare(`DELETE FROM ci_relationships WHERE id = ?`).run(relationshipId)
+    await executeRun(`DELETE FROM ci_relationships WHERE id = ?`, [relationshipId])
 
     // Log in history
-    const logHistory = db.prepare(`
+    await executeRun(`
       INSERT INTO ci_history (ci_id, action, changes, changed_by)
       VALUES (?, 'relationship_removed', ?, ?)
-    `)
+    `, [relationship.parent_ci_id, JSON.stringify({ child_ci_id: relationship.child_ci_id }), userId])
 
-    logHistory.run(relationship.parent_ci_id, JSON.stringify({ child_ci_id: relationship.child_ci_id }), auth.user.id)
-    logHistory.run(relationship.child_ci_id, JSON.stringify({ parent_ci_id: relationship.parent_ci_id }), auth.user.id)
+    await executeRun(`
+      INSERT INTO ci_history (ci_id, action, changes, changed_by)
+      VALUES (?, 'relationship_removed', ?, ?)
+    `, [relationship.child_ci_id, JSON.stringify({ parent_ci_id: relationship.parent_ci_id }), userId])
 
-    logger.info(`CI relationship deleted: ${relationshipId} by user ${auth.user.id}`)
+    logger.info(`CI relationship deleted: ${relationshipId} by user ${userId}`)
 
     return NextResponse.json({
       success: true,

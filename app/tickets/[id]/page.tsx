@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { logger } from '@/lib/monitoring/logger';
 import {
   ArrowLeftIcon,
@@ -145,7 +146,7 @@ export default function TicketDetailsPage() {
       setIsInternal(false)
     } catch (error) {
       logger.error('Erro ao adicionar comentário', error)
-      alert('Erro ao adicionar comentário')
+      toast.error('Erro ao adicionar comentário')
     } finally {
       setSubmittingComment(false)
     }

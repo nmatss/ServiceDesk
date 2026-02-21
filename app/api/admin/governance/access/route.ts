@@ -4,9 +4,10 @@
  * Manages access policies, roles, permissions, and security settings.
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface AccessPolicy {
@@ -47,25 +48,19 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
-    const db = getDatabase()
-
-    // Get user counts per role
+// Get user counts per role
     let roleCounts: Record<string, number> = { admin: 0, agent: 0, user: 0 }
     try {
-      const counts = db.prepare(`
+      const counts = await executeQuery<{ role: string; count: number }>(`
         SELECT role, COUNT(*) as count
         FROM users
         WHERE organization_id = ?
         GROUP BY role
-      `).all(auth.user.organization_id) as Array<{ role: string; count: number }>
+      `, [organizationId])
 
       counts.forEach(c => {
         roleCounts[c.role] = c.count
@@ -335,7 +330,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error fetching access control data:', error)
+    logger.error('Error fetching access control data:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao buscar dados de controle de acesso' },
       { status: 500 }
@@ -349,13 +344,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
 
     const body = await request.json()
     const { action, data } = body
@@ -418,7 +408,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
     }
   } catch (error) {
-    console.error('Error processing access control action:', error)
+    logger.error('Error processing access control action:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao processar ação de controle de acesso' },
       { status: 500 }
@@ -432,13 +422,8 @@ export async function PUT(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
 
     const body = await request.json()
     const { policy_id, updates } = body
@@ -451,7 +436,7 @@ export async function PUT(request: NextRequest) {
       updates
     })
   } catch (error) {
-    console.error('Error updating access policy:', error)
+    logger.error('Error updating access policy:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao atualizar política de acesso' },
       { status: 500 }

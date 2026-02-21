@@ -6,7 +6,7 @@
 /**
  * Re-export auth utilities
  */
-export * from './sqlite-auth';
+export * from './auth-service';
 export * from './rbac-engine';
 
 /**

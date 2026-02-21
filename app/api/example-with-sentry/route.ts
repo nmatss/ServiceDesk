@@ -12,8 +12,7 @@ import {
   addBreadcrumb,
   setUser,
 } from '@/lib/monitoring/sentry-helpers'
-import db from '@/lib/db/connection'
-
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ========================
 // APPROACH 1: Using withSentry wrapper (Recommended)
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Simulate database query with tracking
     const data = await trackDatabaseQuery(
       'SELECT * FROM tickets LIMIT 10',
-      async () => db.prepare('SELECT * FROM tickets LIMIT 10').all()
+      async () => await executeQuery('SELECT * FROM tickets LIMIT 10')
     )
 
     return NextResponse.json({
@@ -88,17 +87,14 @@ export async function POST(request: NextRequest) {
 
     // Simulate database operation
     try {
-      const result = db.prepare(
-        'INSERT INTO tickets (title, description, user_id, category_id, priority_id, status_id, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      ).run(
-        body.name,
+      const result = await executeRun('INSERT INTO tickets (title, description, user_id, category_id, priority_id, status_id, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [body.name,
         body.description || 'No description',
         1, // user_id
         1, // category_id
         1, // priority_id
         1, // status_id
         1  // tenant_id
-      )
+      ])
 
       return NextResponse.json({
         success: true,
@@ -169,7 +165,7 @@ export async function PUT(request: NextRequest) {
     case 'database':
       // Database error
       try {
-        db.prepare('SELECT * FROM non_existent_table').all()
+        await executeQuery('SELECT * FROM non_existent_table')
       } catch (error) {
         captureException(error, {
           tags: { type: 'database', query: 'SELECT * FROM non_existent_table' },

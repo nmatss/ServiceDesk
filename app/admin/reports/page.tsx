@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger'
+import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
 import StatsCard, { StatsGrid } from '@/components/ui/StatsCard'
 import {
@@ -371,19 +372,19 @@ export default function AdminReportsPage() {
           Ações Rápidas
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <button className="btn btn-secondary w-full group">
+          <button onClick={() => toast.error('Relatório de tickets ainda não implementado')} className="btn btn-secondary w-full group">
             <TicketIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Tickets
           </button>
-          <button className="btn btn-secondary w-full group">
+          <button onClick={() => toast.error('Relatório de usuários ainda não implementado')} className="btn btn-secondary w-full group">
             <UserGroupIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Usuários
           </button>
-          <button className="btn btn-secondary w-full group">
+          <button onClick={() => toast.error('Relatório de performance ainda não implementado')} className="btn btn-secondary w-full group">
             <ChartBarIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Performance
           </button>
-          <button className="btn btn-secondary w-full group">
+          <button onClick={() => toast.error('Relatório de categorias ainda não implementado')} className="btn btn-secondary w-full group">
             <DocumentTextIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Categorias
           </button>

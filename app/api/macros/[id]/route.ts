@@ -6,9 +6,9 @@
  * @module app/api/macros/[id]/route
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
-
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
   params: { id: string };
@@ -22,7 +22,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const macroId = parseInt(params.id);
 
-    const macro = db.prepare(`
+    const macro = await executeQueryOne(`
       SELECT
         m.*,
         u.name as created_by_name,
@@ -31,7 +31,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       LEFT JOIN users u ON m.created_by = u.id
       LEFT JOIN categories c ON m.category_id = c.id
       WHERE m.id = ?
-    `).get(macroId);
+    `, [macroId]);
 
     if (!macro) {
       return NextResponse.json(
@@ -45,7 +45,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       actions: (macro as any).actions ? JSON.parse((macro as any).actions) : [],
     });
   } catch (error) {
-    console.error('Error fetching macro:', error);
+    logger.error('Error fetching macro:', error);
     return NextResponse.json(
       { error: 'Failed to fetch macro' },
       { status: 500 }
@@ -67,7 +67,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { name, description, content, actions, categoryId, isShared, isActive } = body;
 
     // Check if macro exists
-    const existing = db.prepare('SELECT id FROM macros WHERE id = ?').get(macroId);
+    const existing = await executeQueryOne('SELECT id FROM macros WHERE id = ?', [macroId]);
     if (!existing) {
       return NextResponse.json(
         { error: 'Macro not found' },
@@ -108,7 +108,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     if (fields.length === 0) {
-      const macro = db.prepare('SELECT * FROM macros WHERE id = ?').get(macroId) as any;
+      const macro = await executeQueryOne<any>('SELECT * FROM macros WHERE id = ?', [macroId]);
       if (!macro) {
         return NextResponse.json(
           { error: 'Macro not found' },
@@ -124,11 +124,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(macroId);
 
-    db.prepare(`
+    await executeRun(`
       UPDATE macros SET ${fields.join(', ')} WHERE id = ?
-    `).run(...values);
+    `, values);
 
-    const macro = db.prepare(`
+    const macro = await executeQueryOne<any>(`
       SELECT
         m.*,
         u.name as created_by_name,
@@ -137,7 +137,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       LEFT JOIN users u ON m.created_by = u.id
       LEFT JOIN categories c ON m.category_id = c.id
       WHERE m.id = ?
-    `).get(macroId) as any;
+    `, [macroId]);
 
     if (!macro) {
       return NextResponse.json(
@@ -151,7 +151,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       actions: (macro as any).actions ? JSON.parse((macro as any).actions) : [],
     });
   } catch (error) {
-    console.error('Error updating macro:', error);
+    logger.error('Error updating macro:', error);
     return NextResponse.json(
       { error: 'Failed to update macro' },
       { status: 500 }
@@ -168,7 +168,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const macroId = parseInt(params.id);
 
     // Check if macro exists
-    const existing = db.prepare('SELECT id FROM macros WHERE id = ?').get(macroId);
+    const existing = await executeQueryOne('SELECT id FROM macros WHERE id = ?', [macroId]);
     if (!existing) {
       return NextResponse.json(
         { error: 'Macro not found' },
@@ -177,11 +177,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Soft delete by setting is_active to false
-    db.prepare('UPDATE macros SET is_active = 0 WHERE id = ?').run(macroId);
+    await executeRun('UPDATE macros SET is_active = 0 WHERE id = ?', [macroId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting macro:', error);
+    logger.error('Error deleting macro:', error);
     return NextResponse.json(
       { error: 'Failed to delete macro' },
       { status: 500 }

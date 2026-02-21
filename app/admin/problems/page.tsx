@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useDebounce } from '@/lib/hooks/useDebounce'
 import { useRouter } from 'next/navigation'
 import {
   MagnifyingGlassIcon,
@@ -84,6 +85,8 @@ export default function ProblemsPage() {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
 
+  const debouncedSearch = useDebounce(search, 300)
+
   const fetchProblems = useCallback(async () => {
     try {
       setLoading(true)
@@ -92,28 +95,54 @@ export default function ProblemsPage() {
         limit: '20'
       })
 
-      if (search) params.append('search', search)
+      if (debouncedSearch) params.append('search', debouncedSearch)
       if (statusFilter) params.append('status', statusFilter)
       if (priorityFilter) params.append('priority', priorityFilter)
 
-      const response = await fetch(`/api/problems?${params}`)
-      const data = await response.json()
+      // Fetch problems and statistics in parallel
+      const [problemsResponse, statsResponse] = await Promise.all([
+        fetch(`/api/problems?${params}`),
+        fetch('/api/problems/statistics')
+      ])
 
-      if (data.success) {
-        setProblems(data.problems || [])
-        setTotalPages(data.pagination?.total_pages || 1)
-        if (data.statistics) {
-          setStats(data.statistics)
-        }
+      const problemsData = await problemsResponse.json()
+      const statsData = await statsResponse.json()
+
+      if (problemsData.success && problemsData.data) {
+        // API returns { success, data: { data: [...], total, page, limit, totalPages, hasNext, hasPrev } }
+        const paginated = problemsData.data
+        const problemsList = (paginated.data || []).map((p: any) => ({
+          ...p,
+          // Map nested relations to flat fields expected by the component
+          priority: p.priority?.name?.toLowerCase() || '',
+          category_name: p.category?.name || '',
+          assigned_to_name: p.assignee?.name || null,
+          team_name: p.assigned_group?.name || null,
+        }))
+        setProblems(problemsList)
+        setTotalPages(paginated.totalPages || 1)
       } else {
-        setError(data.error)
+        setError(problemsData.error)
+      }
+
+      // Parse statistics from the separate endpoint
+      // API returns { success, data: { problems: { total, by_status, ... }, known_errors: { ... } } }
+      if (statsData.success && statsData.data?.problems) {
+        const problemStats = statsData.data.problems
+        setStats({
+          total: problemStats.total || 0,
+          new: problemStats.by_status?.new || 0,
+          investigation: problemStats.by_status?.investigation || 0,
+          known_error: problemStats.by_status?.known_error || 0,
+          resolved: problemStats.by_status?.resolved || 0,
+        })
       }
     } catch {
       setError('Erro ao carregar problemas')
     } finally {
       setLoading(false)
     }
-  }, [page, search, statusFilter, priorityFilter])
+  }, [page, debouncedSearch, statusFilter, priorityFilter])
 
   useEffect(() => {
     fetchProblems()

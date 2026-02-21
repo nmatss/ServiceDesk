@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db/connection';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyAuth } from '@/lib/auth/sqlite-auth';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -13,19 +13,24 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await verifyAuth(req);
-
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(req);
+    if (guard.response) return guard.response;
+    const { userId } = guard.auth!;
 
     const dashboardId = params.id;
 
     // Fetch dashboard from database
-    const dashboard = db.prepare(`
+    const dashboard = await executeQueryOne<{
+      id: number
+      name: string
+      description: string | null
+      config: string
+      user_id: number
+      is_default: number | boolean
+      is_shared: number | boolean
+      created_at: string
+      updated_at: string
+    }>(`
       SELECT
         id,
         name,
@@ -38,7 +43,7 @@ export async function GET(
         updated_at
       FROM dashboards
       WHERE id = ? AND (user_id = ? OR is_shared = 1)
-    `).get(dashboardId, authResult.user.id);
+    `, [dashboardId, userId]);
 
     if (!dashboard) {
       return NextResponse.json(
@@ -51,7 +56,7 @@ export async function GET(
       success: true,
       dashboard: {
         ...dashboard,
-        config: JSON.parse((dashboard as any).config)
+        config: JSON.parse(dashboard.config)
       }
     });
   } catch (error) {
@@ -72,23 +77,18 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await verifyAuth(req);
-
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(req);
+    if (guard.response) return guard.response;
+    const { userId, role } = guard.auth!;
 
     const dashboardId = params.id;
     const body = await req.json();
     const { name, description, config, is_shared } = body;
 
     // Verify ownership
-    const existingDashboard = db.prepare(`
+    const existingDashboard = await executeQueryOne<{ user_id: number }>(`
       SELECT user_id FROM dashboards WHERE id = ?
-    `).get(dashboardId) as { user_id: number } | undefined;
+    `, [dashboardId]);
 
     if (!existingDashboard) {
       return NextResponse.json(
@@ -97,7 +97,7 @@ export async function PUT(
       );
     }
 
-    if (existingDashboard.user_id !== authResult.user.id && authResult.user.role !== 'admin') {
+    if (existingDashboard.user_id !== userId && role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden: You do not own this dashboard' },
         { status: 403 }
@@ -105,27 +105,37 @@ export async function PUT(
     }
 
     // Update dashboard
-    db.prepare(`
+    await executeRun(`
       UPDATE dashboards
       SET
         name = COALESCE(?, name),
         description = COALESCE(?, description),
         config = COALESCE(?, config),
         is_shared = COALESCE(?, is_shared),
-        updated_at = datetime('now')
+        updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(
+    `, [
       name || null,
       description || null,
       config ? JSON.stringify(config) : null,
       is_shared !== undefined ? (is_shared ? 1 : 0) : null,
       dashboardId
-    );
+    ]);
 
     // Fetch updated dashboard
-    const updatedDashboard = db.prepare(`
+    const updatedDashboard = await executeQueryOne<{
+      id: number
+      name: string
+      description: string | null
+      config: string
+      user_id: number
+      is_default: number | boolean
+      is_shared: number | boolean
+      created_at: string
+      updated_at: string
+    }>(`
       SELECT * FROM dashboards WHERE id = ?
-    `).get(dashboardId) as any;
+    `, [dashboardId]);
 
     if (!updatedDashboard) {
       return NextResponse.json(
@@ -159,21 +169,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await verifyAuth(req);
-
-    if (!authResult.authenticated || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(req);
+    if (guard.response) return guard.response;
+    const { userId, role } = guard.auth!;
 
     const dashboardId = params.id;
 
     // Verify ownership
-    const existingDashboard = db.prepare(`
+    const existingDashboard = await executeQueryOne<{ user_id: number; is_default: number | boolean }>(`
       SELECT user_id, is_default FROM dashboards WHERE id = ?
-    `).get(dashboardId) as { user_id: number; is_default: number } | undefined;
+    `, [dashboardId]);
 
     if (!existingDashboard) {
       return NextResponse.json(
@@ -182,7 +187,7 @@ export async function DELETE(
       );
     }
 
-    if (existingDashboard.user_id !== authResult.user.id && authResult.user.role !== 'admin') {
+    if (existingDashboard.user_id !== userId && role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden: You do not own this dashboard' },
         { status: 403 }
@@ -197,7 +202,7 @@ export async function DELETE(
     }
 
     // Delete dashboard
-    db.prepare(`DELETE FROM dashboards WHERE id = ?`).run(dashboardId);
+    await executeRun(`DELETE FROM dashboards WHERE id = ?`, [dashboardId]);
 
     return NextResponse.json({
       success: true,

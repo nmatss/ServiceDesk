@@ -1,13 +1,13 @@
 /**
  * User Repository Implementation
  *
- * Concrete implementation of IUserRepository using SQLite.
+ * Concrete implementation of IUserRepository using the database adapter.
  * Handles all user-related database operations with security features.
  *
  * @module lib/repositories/user-repository
  */
 
-import db from '@/lib/db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import type { IUserRepository, UserFilters } from '@/lib/interfaces/repositories';
 import type { User } from '@/lib/types/database';
 
@@ -16,9 +16,9 @@ export class UserRepository implements IUserRepository {
    * Find user by ID
    */
   async findById(id: number): Promise<User | null> {
-    const user = db.prepare(`
+    const user = await executeQueryOne<User>(`
       SELECT * FROM users WHERE id = ?
-    `).get(id) as User | undefined;
+    `, [id]);
 
     if (user) {
       // Never expose password hash
@@ -79,7 +79,7 @@ export class UserRepository implements IUserRepository {
       LIMIT ? OFFSET ?
     `;
 
-    const users = db.prepare(sql).all(...params) as User[];
+    const users = await executeQuery<User>(sql, params);
 
     // Never expose password hashes
     return users.map((user) => {
@@ -92,13 +92,13 @@ export class UserRepository implements IUserRepository {
    * Create a new user
    */
   async create(data: Partial<User>): Promise<User> {
-    const result = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO users (
         name, email, password_hash, role, organization_id,
         is_active, is_email_verified, timezone, language,
         two_factor_enabled, failed_login_attempts
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       data.name,
       data.email,
       data.password_hash || null,
@@ -110,9 +110,22 @@ export class UserRepository implements IUserRepository {
       data.language || 'pt-BR',
       data.two_factor_enabled !== undefined ? (data.two_factor_enabled ? 1 : 0) : 0,
       0
-    );
+    ]);
 
-    const user = await this.findById(result.lastInsertRowid as number);
+    let userId = result.lastInsertRowid;
+    if (typeof userId !== 'number') {
+      const inserted = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM users WHERE email = ? ORDER BY created_at DESC LIMIT 1',
+        [data.email]
+      );
+      userId = inserted?.id;
+    }
+
+    if (typeof userId !== 'number') {
+      throw new Error('Failed to resolve created user id');
+    }
+
+    const user = await this.findById(userId);
     if (!user) {
       throw new Error('Failed to create user');
     }
@@ -169,11 +182,11 @@ export class UserRepository implements IUserRepository {
     sets.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET ${sets.join(', ')}
       WHERE id = ?
-    `).run(...values);
+    `, values);
 
     const user = await this.findById(id);
     if (!user) {
@@ -187,7 +200,7 @@ export class UserRepository implements IUserRepository {
    * Delete a user (should be avoided, use is_active instead)
    */
   async delete(id: number): Promise<void> {
-    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    await executeRun('DELETE FROM users WHERE id = ?', [id]);
   }
 
   /**
@@ -219,17 +232,17 @@ export class UserRepository implements IUserRepository {
       ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
     `;
 
-    const result = db.prepare(sql).get(...params) as { count: number };
-    return result.count;
+    const result = await executeQueryOne<{ count: number }>(sql, params);
+    return result?.count ?? 0;
   }
 
   /**
    * Find user by email (without password hash)
    */
   async findByEmail(email: string): Promise<User | null> {
-    const user = db.prepare(`
+    const user = await executeQueryOne<User>(`
       SELECT * FROM users WHERE email = ?
-    `).get(email) as User | undefined;
+    `, [email]);
 
     if (user) {
       delete (user as any).password_hash;
@@ -242,9 +255,9 @@ export class UserRepository implements IUserRepository {
    * Find user by email WITH password hash (for authentication)
    */
   async findByEmailWithPassword(email: string): Promise<User | null> {
-    const user = db.prepare(`
+    const user = await executeQueryOne<User>(`
       SELECT * FROM users WHERE email = ?
-    `).get(email) as User | undefined;
+    `, [email]);
 
     return user || null;
   }
@@ -283,25 +296,25 @@ export class UserRepository implements IUserRepository {
    * Update user password
    */
   async updatePassword(userId: number, passwordHash: string): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET password_hash = ?,
           password_changed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(passwordHash, userId);
+    `, [passwordHash, userId]);
   }
 
   /**
    * Increment failed login attempts
    */
   async incrementFailedLoginAttempts(userId: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET failed_login_attempts = failed_login_attempts + 1,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(userId);
+    `, [userId]);
 
     // Check if we need to lock the account (after 5 failed attempts)
     const user = await this.findById(userId);
@@ -317,77 +330,77 @@ export class UserRepository implements IUserRepository {
    * Reset failed login attempts
    */
   async resetFailedLoginAttempts(userId: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET failed_login_attempts = 0,
           locked_until = NULL,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(userId);
+    `, [userId]);
   }
 
   /**
    * Lock user account
    */
   async lockAccount(userId: number, until: string): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET locked_until = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(until, userId);
+    `, [until, userId]);
   }
 
   /**
    * Unlock user account
    */
   async unlockAccount(userId: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET locked_until = NULL,
           failed_login_attempts = 0,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(userId);
+    `, [userId]);
   }
 
   /**
    * Enable 2FA for user
    */
   async enable2FA(userId: number, secret: string): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET two_factor_enabled = 1,
           two_factor_secret = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(secret, userId);
+    `, [secret, userId]);
   }
 
   /**
    * Disable 2FA for user
    */
   async disable2FA(userId: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET two_factor_enabled = 0,
           two_factor_secret = NULL,
           two_factor_backup_codes = NULL,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(userId);
+    `, [userId]);
   }
 
   /**
    * Update last login timestamp
    */
   async updateLastLogin(userId: number): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET last_login_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(userId);
+    `, [userId]);
   }
 
   /**

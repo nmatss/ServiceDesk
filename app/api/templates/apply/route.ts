@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/sqlite-auth';
-import db from '@/lib/db/connection';
+import { verifyToken } from '@/lib/auth/auth-service';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar template
-    const template = db.prepare(`
+    const template = await executeQueryOne(`
       SELECT * FROM templates
       WHERE id = ? AND is_active = 1
-    `).get(template_id);
+    `, [template_id]);
 
     if (!template) {
       return NextResponse.json({
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     // Buscar dados do ticket se fornecido
     let ticketData: any = null;
     if (ticket_id) {
-      ticketData = db.prepare(`
+      ticketData = await executeQueryOne(`
         SELECT
           t.*,
           u.name as user_name,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         LEFT JOIN statuses s ON t.status_id = s.id
         LEFT JOIN users a ON t.assigned_to = a.id
         WHERE t.id = ?
-      `).get(ticket_id);
+      `, [ticket_id]);
 
       if (!ticketData) {
         return NextResponse.json({
@@ -124,23 +124,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Registrar uso do template
-    db.prepare(`
+    await executeRun(`
       INSERT INTO template_usage (template_id, used_by, ticket_id, used_at)
       VALUES (?, ?, ?, ?)
-    `).run(
-      template_id,
+    `, [template_id,
       user.id,
       ticket_id || null,
-      new Date().toISOString()
-    );
+      new Date().toISOString()]);
 
     // Incrementar contador de uso
-    db.prepare(`
+    await executeRun(`
       UPDATE templates
       SET usage_count = usage_count + 1,
           last_used_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(template_id);
+    `, [template_id]);
 
     return NextResponse.json({
       success: true,
@@ -192,10 +190,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar template
-    const template = db.prepare(`
+    const template = await executeQueryOne(`
       SELECT * FROM templates
       WHERE id = ? AND is_active = 1
-    `).get(parseInt(templateId));
+    `, [parseInt(templateId)]);
 
     if (!template) {
       return NextResponse.json({
@@ -217,7 +215,7 @@ export async function GET(request: NextRequest) {
 
     // Se ticket foi fornecido, buscar dados
     if (ticketId) {
-      const ticketData = db.prepare(`
+      const ticketData = await executeQueryOne(`
         SELECT
           t.*,
           u.name as user_name,
@@ -233,7 +231,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN statuses s ON t.status_id = s.id
         LEFT JOIN users a ON t.assigned_to = a.id
         WHERE t.id = ?
-      `).get(parseInt(ticketId));
+      `, [parseInt(ticketId)]);
 
       if (ticketData) {
         Object.assign(availableVariables, {

@@ -4,9 +4,10 @@
  * Manages compliance controls for COBIT, LGPD, ISO27001, and ITIL frameworks.
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface ComplianceControl {
@@ -27,20 +28,13 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const framework = searchParams.get('framework') || 'all'
-
-    const db = getDatabase()
-
-    try {
+try {
       // Try to fetch from compliance_controls table
       let query = `
         SELECT
@@ -57,7 +51,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN users u ON cc.owner_id = u.id
         WHERE cc.organization_id = ?
       `
-      const params: (string | number)[] = [auth.user.organization_id]
+      const params: (string | number)[] = [organizationId]
 
       if (framework !== 'all') {
         query += ' AND cc.framework = ?'
@@ -66,7 +60,7 @@ export async function GET(request: NextRequest) {
 
       query += ' ORDER BY cc.framework, cc.control_id'
 
-      const controls = db.prepare(query).all(...params) as ComplianceControl[]
+      const controls = await executeQuery<ComplianceControl>(query, params)
 
       // Calculate statistics
       const stats = {
@@ -130,7 +124,7 @@ export async function GET(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error('Error fetching compliance controls:', error)
+    logger.error('Error fetching compliance controls:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao buscar controles de compliance' },
       { status: 500 }
@@ -144,13 +138,9 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const body = await request.json()
     const {
@@ -161,24 +151,19 @@ export async function POST(request: NextRequest) {
       status,
       owner_id
     } = body
-
-    const db = getDatabase()
-
-    try {
-      const result = db.prepare(`
+try {
+      const result = await executeRun(`
         INSERT INTO compliance_controls (
           organization_id, framework, control_id, name, description,
           status, owner_id, last_assessment, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))
-      `).run(
-        auth.user.organization_id,
+      `, [organizationId,
         framework,
         control_id,
         name,
         description,
         status,
-        owner_id
-      )
+        owner_id])
 
       return NextResponse.json({
         success: true,
@@ -191,7 +176,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
   } catch (error) {
-    console.error('Error creating compliance control:', error)
+    logger.error('Error creating compliance control:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao criar controle de compliance' },
       { status: 500 }
@@ -205,25 +190,18 @@ export async function PUT(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user || auth.user.role !== 'admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso não autorizado' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const body = await request.json()
     const { id, status, notes } = body
-
-    const db = getDatabase()
-
-    try {
-      db.prepare(`
+try {
+      await executeRun(`
         UPDATE compliance_controls
         SET status = ?, assessment_notes = ?, last_assessment = datetime('now'), updated_at = datetime('now')
         WHERE id = ? AND organization_id = ?
-      `).run(status, notes, id, auth.user.organization_id)
+      `, [status, notes, id, organizationId])
 
       return NextResponse.json({ success: true })
     } catch {
@@ -233,7 +211,7 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 })
     }
   } catch (error) {
-    console.error('Error updating compliance control:', error)
+    logger.error('Error updating compliance control:', error)
     return NextResponse.json(
       { success: false, error: 'Erro ao atualizar controle de compliance' },
       { status: 500 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger';
+import toast from 'react-hot-toast'
 import {
   ClockIcon,
   ExclamationTriangleIcon,
@@ -358,7 +359,7 @@ export default function SLAPage() {
                       Gerencie suas políticas de acordo de nível de serviço
                     </p>
                   </div>
-                  <button className="btn btn-primary">
+                  <button onClick={() => toast.error('Criação de políticas SLA ainda não implementada')} className="btn btn-primary">
                     <PlusIcon className="h-5 w-5 mr-2" />
                     Adicionar Política
                   </button>
@@ -372,7 +373,7 @@ export default function SLAPage() {
                     <p className="mt-2 text-sm text-description">
                       Comece criando uma nova política de SLA para gerenciar seus acordos.
                     </p>
-                    <button className="mt-6 btn btn-primary">
+                    <button onClick={() => toast.error('Criação de políticas SLA ainda não implementada')} className="mt-6 btn btn-primary">
                       <PlusIcon className="h-5 w-5 mr-2" />
                       Criar Primeira Política
                     </button>

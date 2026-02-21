@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import {
   UserGroupIcon,
   CalendarDaysIcon,
@@ -64,119 +65,98 @@ export default function CABPage() {
   const fetchCABData = async () => {
     setLoading(true)
     try {
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // Fetch CAB meetings from API
+      const response = await fetch('/api/cab')
+      const data = await response.json()
 
-      setMeetings([
-        {
-          id: '1',
-          title: 'CAB Meeting - Semana 51',
-          scheduled_date: '2024-12-18T14:00:00Z',
-          status: 'scheduled',
-          attendees: [
-            { name: 'Maria Santos', role: 'Gerente de TI' },
-            { name: 'João Oliveira', role: 'DBA Lead' },
-            { name: 'Ana Costa', role: 'Security Officer' },
-            { name: 'Pedro Almeida', role: 'DevOps Lead' },
-            { name: 'Fernanda Silva', role: 'Gerente de Operações' }
-          ],
-          changes: [
-            {
-              id: '457',
-              title: 'Atualização de segurança do firewall',
-              category: 'normal',
-              risk_level: 4,
-              decision: null,
-              votes: { approve: 0, reject: 0, abstain: 0 }
-            },
-            {
-              id: '458',
-              title: 'Migração de servidor de arquivos',
-              category: 'normal',
-              risk_level: 3,
-              decision: null,
-              votes: { approve: 0, reject: 0, abstain: 0 }
-            }
-          ],
-          notes: null,
-          meeting_link: 'https://meet.empresa.com/cab-weekly'
-        },
-        {
-          id: '2',
-          title: 'CAB Meeting - Semana 50',
-          scheduled_date: '2024-12-13T14:00:00Z',
-          status: 'completed',
-          attendees: [
-            { name: 'Maria Santos', role: 'Gerente de TI', present: true },
-            { name: 'João Oliveira', role: 'DBA Lead', present: true },
-            { name: 'Ana Costa', role: 'Security Officer', present: true },
-            { name: 'Pedro Almeida', role: 'DevOps Lead', present: false },
-            { name: 'Fernanda Silva', role: 'Gerente de Operações', present: true }
-          ],
-          changes: [
-            {
-              id: '456',
-              title: 'Otimização de índices do banco ERP',
-              category: 'normal',
-              risk_level: 3,
-              decision: 'approved',
-              votes: { approve: 3, reject: 0, abstain: 1 }
-            },
-            {
-              id: '455',
-              title: 'Atualização do sistema de backup',
-              category: 'standard',
-              risk_level: 2,
-              decision: 'approved',
-              votes: { approve: 4, reject: 0, abstain: 0 }
-            }
-          ],
-          notes: 'Todas as mudanças foram aprovadas. CHG-456 agendada para domingo 15/12.',
-          meeting_link: null
-        },
-        {
-          id: '3',
-          title: 'CAB Emergency - CHG-450',
-          scheduled_date: '2024-12-10T08:00:00Z',
-          status: 'completed',
-          attendees: [
-            { name: 'Maria Santos', role: 'Gerente de TI', present: true },
-            { name: 'João Oliveira', role: 'DBA Lead', present: true }
-          ],
-          changes: [
-            {
-              id: '450',
-              title: 'Hotfix crítico de segurança',
-              category: 'emergency',
-              risk_level: 4,
-              decision: 'approved',
-              votes: { approve: 2, reject: 0, abstain: 0 }
-            }
-          ],
-          notes: 'Aprovação emergencial devido a vulnerabilidade crítica. Implementado imediatamente.',
-          meeting_link: null
-        }
-      ])
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao buscar reuniões do CAB')
+      }
 
-      setPendingChanges([
-        {
-          id: '459',
-          title: 'Upgrade do cluster Kubernetes',
-          category: 'normal',
-          risk_level: 4,
-          requester: 'Pedro Almeida',
-          scheduled_date: null
-        },
-        {
-          id: '460',
-          title: 'Implementação de CDN',
-          category: 'normal',
-          risk_level: 2,
-          requester: 'Carlos Silva',
-          scheduled_date: null
+      if (data.success && data.meetings) {
+        // Transform API data to match component interface
+        const transformedMeetings: CABMeeting[] = await Promise.all(
+          data.meetings.map(async (meeting: any) => {
+            // Fetch change requests for this meeting
+            let changes: any[] = []
+            try {
+              const changesRes = await fetch(`/api/changes?cab_meeting_id=${meeting.id}`)
+              const changesData = await changesRes.json()
+              // API returns { success, change_requests: [...] }
+              const changesList = changesData.change_requests || changesData.changes || []
+              if (changesData.success && changesList.length > 0) {
+                const riskLevelMap: Record<string, number> = { very_low: 1, low: 2, medium: 3, high: 4, very_high: 5 }
+                changes = changesList.map((change: any) => ({
+                  id: change.id.toString(),
+                  title: change.title,
+                  category: change.category || 'normal',
+                  risk_level: typeof change.risk_level === 'number' ? change.risk_level : (riskLevelMap[change.risk_level] || 3),
+                  decision: change.cab_decision || null,
+                  votes: {
+                    approve: change.cab_votes_approve || 0,
+                    reject: change.cab_votes_reject || 0,
+                    abstain: change.cab_votes_abstain || 0
+                  }
+                }))
+              }
+            } catch (err) {
+              console.error('Error fetching changes for meeting:', err)
+            }
+
+            // For now, use mock attendees since we don't have attendees in the API response
+            // In production, you would fetch this from a cab_attendees table
+            const attendees = [
+              { name: 'CAB Member 1', role: 'Manager' },
+              { name: 'CAB Member 2', role: 'Technical Lead' }
+            ]
+
+            return {
+              id: meeting.id.toString(),
+              title: meeting.title,
+              scheduled_date: `${meeting.scheduled_date}T${meeting.scheduled_time || '00:00:00'}Z`,
+              status: meeting.status,
+              attendees,
+              changes,
+              notes: meeting.notes || null,
+              meeting_link: meeting.meeting_url || null
+            }
+          })
+        )
+
+        setMeetings(transformedMeetings)
+      }
+
+      // Fetch pending changes (changes without CAB meeting assignment)
+      try {
+        const pendingRes = await fetch('/api/changes?status=pending_cab&limit=50')
+        const pendingData = await pendingRes.json()
+
+        // API returns { success, change_requests: [...] }
+        const pendingChangesList = pendingData.change_requests || pendingData.changes || []
+        if (pendingData.success && pendingChangesList.length > 0) {
+          const transformedPending: UpcomingChange[] = pendingChangesList
+            .filter((c: any) => !c.cab_meeting_id)
+            .map((change: any) => ({
+              id: change.id.toString(),
+              title: change.title,
+              category: change.category || 'normal',
+              risk_level: typeof change.risk_level === 'number' ? change.risk_level : 3,
+              requester: change.requester_name || 'Desconhecido',
+              scheduled_date: change.scheduled_start_date || null
+            }))
+
+          setPendingChanges(transformedPending)
         }
-      ])
+      } catch (err) {
+        console.error('Error fetching pending changes:', err)
+        setPendingChanges([])
+      }
     } catch (error) {
       console.error('Error fetching CAB data:', error)
+      toast.error(error instanceof Error ? error.message : 'Erro ao buscar dados do CAB')
+      // Set empty data on error
+      setMeetings([])
+      setPendingChanges([])
     } finally {
       setLoading(false)
     }
@@ -271,7 +251,7 @@ export default function CABPage() {
               },
               {
                 label: 'Nova Reunião',
-                onClick: () => {},
+                onClick: () => toast.error('Criação de reuniões CAB ainda não implementada'),
                 variant: 'primary',
                 icon: PlusIcon
               }
@@ -442,7 +422,10 @@ export default function CABPage() {
                   <div className="glass-panel p-8 text-center">
                     <CalendarDaysIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
                     <h3 className="font-medium text-neutral-900 dark:text-neutral-100">Nenhuma reunião agendada</h3>
-                    <button className="mt-4 btn btn-primary">
+                    <button
+                      onClick={() => toast.error('Criação de reuniões CAB ainda não implementada')}
+                      className="mt-4 btn btn-primary"
+                    >
                       Agendar Reunião
                     </button>
                   </div>
@@ -569,6 +552,7 @@ export default function CABPage() {
             Mudanças
           </button>
           <button
+            onClick={() => toast.error('Criação de reuniões CAB ainda não implementada')}
             className="flex-1 py-2.5 text-sm font-medium text-white bg-gradient-brand rounded-lg flex items-center justify-center gap-2 hover:shadow-lg transition-all duration-200"
           >
             <PlusIcon className="w-4 h-4" />

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -13,15 +13,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const guard = requireTenantUserContext(request)
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params
     const articleId = parseInt(id)
@@ -35,7 +30,7 @@ export async function GET(
       queryParams.push('published')
     }
 
-    const article = db.prepare(`
+    const article = await executeQueryOne(`
       SELECT
         k.id,
         k.title,
@@ -53,15 +48,14 @@ export async function GET(
       FROM knowledge_articles k
       LEFT JOIN users u ON k.author_id = u.id AND u.tenant_id = ?
       ${whereClause}
-    `).get(tenantContext.id, ...queryParams)
+    `, [tenantContext.id, ...queryParams])
 
     if (!article) {
       return NextResponse.json({ error: 'Artigo não encontrado' }, { status: 404 })
     }
 
     // Increment view count
-    db.prepare('UPDATE knowledge_articles SET view_count = view_count + 1 WHERE id = ?')
-      .run(articleId)
+    await executeRun('UPDATE knowledge_articles SET view_count = view_count + 1 WHERE id = ?', [articleId])
 
     return NextResponse.json({
       success: true,
@@ -82,41 +76,33 @@ export async function PATCH(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    // Only admin users can update articles
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
-      return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
     const { id } = await params
     const articleId = parseInt(id)
     const { title, content, excerpt, category, tags, status } = await request.json()
 
     // Verify article exists and belongs to tenant
-    const existingArticle = db.prepare(
-      'SELECT id FROM knowledge_articles WHERE id = ? AND tenant_id = ?'
-    ).get(articleId, tenantContext.id)
+    const existingArticle = await executeQueryOne(
+      'SELECT id FROM knowledge_articles WHERE id = ? AND tenant_id = ?',
+      [articleId, tenantContext.id]
+    )
 
     if (!existingArticle) {
       return NextResponse.json({ error: 'Artigo não encontrado' }, { status: 404 })
     }
 
     // Update article
-    db.prepare(`
+    await executeRun(`
       UPDATE knowledge_articles
       SET title = ?, content = ?, excerpt = ?, category = ?, tags = ?,
           status = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND tenant_id = ?
-    `).run(
+    `, [
       title,
       content,
       excerpt || null,
@@ -125,10 +111,10 @@ export async function PATCH(
       status || 'draft',
       articleId,
       tenantContext.id
-    )
+    ])
 
     // Get updated article with author info
-    const updatedArticle = db.prepare(`
+    const updatedArticle = await executeQueryOne(`
       SELECT
         k.id,
         k.title,
@@ -146,7 +132,7 @@ export async function PATCH(
       FROM knowledge_articles k
       LEFT JOIN users u ON k.author_id = u.id AND u.tenant_id = ?
       WHERE k.id = ?
-    `).get(tenantContext.id, articleId)
+    `, [tenantContext.id, articleId])
 
     return NextResponse.json({
       success: true,
@@ -167,36 +153,27 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    // Only admin users can delete articles
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
-      return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
-    }
+    const guard = requireTenantUserContext(request, {
+      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+    })
+    if (guard.response) return guard.response
+    const tenantContext = guard.context!.tenant
 
     const { id } = await params
     const articleId = parseInt(id)
 
     // Verify article exists and belongs to tenant
-    const existingArticle = db.prepare(
-      'SELECT id FROM knowledge_articles WHERE id = ? AND tenant_id = ?'
-    ).get(articleId, tenantContext.id)
+    const existingArticle = await executeQueryOne(
+      'SELECT id FROM knowledge_articles WHERE id = ? AND tenant_id = ?',
+      [articleId, tenantContext.id]
+    )
 
     if (!existingArticle) {
       return NextResponse.json({ error: 'Artigo não encontrado' }, { status: 404 })
     }
 
     // Delete article
-    db.prepare('DELETE FROM knowledge_articles WHERE id = ? AND tenant_id = ?')
-      .run(articleId, tenantContext.id)
+    await executeRun('DELETE FROM knowledge_articles WHERE id = ? AND tenant_id = ?', [articleId, tenantContext.id])
 
     return NextResponse.json({
       success: true,

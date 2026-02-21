@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/connection'
-import { verifyAuth } from '@/lib/auth/sqlite-auth'
+import { executeQueryOne } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -60,25 +60,14 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const auth = await verifyAuth(request)
-    if (!auth.authenticated || !auth.user) {
-      return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 })
-    }
-
-    // Only managers and admins can view COBIT metrics
-    if (!['admin', 'manager'].includes(auth.user.role)) {
-      return NextResponse.json(
-        { success: false, error: 'Acesso restrito a gestores' },
-        { status: 403 }
-      )
-    }
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] })
+    if (guard.response) return guard.response
+    const { organizationId } = guard.auth!
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30' // days
     const periodDays = parseInt(period)
-
-    const db = getDatabase()
-    const orgId = auth.user.organization_id
+const orgId = organizationId
 
     // Calculate date range
     const startDate = new Date()
@@ -88,81 +77,81 @@ export async function GET(request: NextRequest) {
     // ========== DSS - Deliver, Service, Support Metrics ==========
 
     // Service Availability (based on uptime - simulated from ticket data)
-    const totalTickets = db.prepare(`
+    const totalTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND created_at >= ?
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
-    const criticalIncidents = db.prepare(`
+    const criticalIncidents = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND created_at >= ?
       AND priority IN ('critical', 'high') AND type = 'incident'
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     // Simulated availability based on critical incidents
     const serviceAvailability = Math.max(95, 100 - (criticalIncidents.count * 0.1))
 
     // Incident Resolution Rate
-    const resolvedIncidents = db.prepare(`
+    const resolvedIncidents = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND created_at >= ?
       AND type = 'incident' AND status IN ('resolved', 'closed')
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
-    const totalIncidents = db.prepare(`
+    const totalIncidents = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND created_at >= ?
       AND type = 'incident'
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     const incidentResolutionRate = totalIncidents.count > 0
       ? Math.round((resolvedIncidents.count / totalIncidents.count) * 100)
       : 100
 
     // First Contact Resolution
-    const fcrTickets = db.prepare(`
+    const fcrTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       WHERE t.organization_id = ? AND t.created_at >= ?
       AND t.status IN ('resolved', 'closed')
       AND (SELECT COUNT(*) FROM comments WHERE ticket_id = t.id) <= 2
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
-    const closedTickets = db.prepare(`
+    const closedTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND created_at >= ?
       AND status IN ('resolved', 'closed')
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     const firstContactResolution = closedTickets.count > 0
       ? Math.round((fcrTickets.count / closedTickets.count) * 100)
       : 0
 
     // SLA Compliance
-    const slaMetTickets = db.prepare(`
+    const slaMetTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM sla_tracking
       WHERE organization_id = ? AND created_at >= ?
       AND (response_breach = 0 OR response_breach IS NULL)
       AND (resolution_breach = 0 OR resolution_breach IS NULL)
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
-    const totalSlaTracked = db.prepare(`
+    const totalSlaTracked = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM sla_tracking
       WHERE organization_id = ? AND created_at >= ?
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     const slaCompliance = totalSlaTracked.count > 0
       ? Math.round((slaMetTickets.count / totalSlaTracked.count) * 100)
       : 100
 
     // MTTR (Mean Time To Resolve) in hours
-    const mttrResult = db.prepare(`
+    const mttrResult = await executeQueryOne<{ avg_hours: number | null }>(`
       SELECT AVG(
         (julianday(resolved_at) - julianday(created_at)) * 24
       ) as avg_hours
       FROM tickets
       WHERE organization_id = ? AND created_at >= ?
       AND resolved_at IS NOT NULL
-    `).get(orgId, startDateStr) as { avg_hours: number | null }
+    `, [orgId, startDateStr]) || { avg_hours: null }
 
     const mttr = Math.round((mttrResult.avg_hours || 0) * 10) / 10
 
@@ -174,17 +163,17 @@ export async function GET(request: NextRequest) {
     // ========== BAI - Build, Acquire, Implement Metrics ==========
 
     // Change Success Rate
-    const successfulChanges = db.prepare(`
+    const successfulChanges = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM change_requests
       WHERE organization_id = ? AND created_at >= ?
       AND status = 'completed'
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
-    const totalChanges = db.prepare(`
+    const totalChanges = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM change_requests
       WHERE organization_id = ? AND created_at >= ?
       AND status IN ('completed', 'failed', 'cancelled')
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     const changeSuccessRate = totalChanges.count > 0
       ? Math.round((successfulChanges.count / totalChanges.count) * 100)
@@ -196,14 +185,14 @@ export async function GET(request: NextRequest) {
       : 0
 
     // Lead Time (average time from change creation to completion) in days
-    const leadTimeResult = db.prepare(`
+    const leadTimeResult = await executeQueryOne<{ avg_days: number | null }>(`
       SELECT AVG(
         julianday(completed_at) - julianday(created_at)
       ) as avg_days
       FROM change_requests
       WHERE organization_id = ? AND created_at >= ?
       AND completed_at IS NOT NULL
-    `).get(orgId, startDateStr) as { avg_days: number | null }
+    `, [orgId, startDateStr]) || { avg_days: null }
 
     const leadTime = Math.round((leadTimeResult.avg_days || 0) * 10) / 10
 
@@ -245,26 +234,26 @@ export async function GET(request: NextRequest) {
     )
 
     // Innovation Rate (new service requests as % of total)
-    const newRequests = db.prepare(`
+    const newRequests = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM service_requests
       WHERE organization_id = ? AND created_at >= ?
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     const innovationRate = totalTickets.count > 0
       ? Math.round((newRequests.count / totalTickets.count) * 100)
       : 0
 
     // Architecture Compliance (CIs with proper relationships)
-    const cisWithRelations = db.prepare(`
+    const cisWithRelations = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(DISTINCT parent_ci_id) + COUNT(DISTINCT child_ci_id) as count
       FROM ci_relationships
       WHERE created_at >= ?
-    `).get(startDateStr) as { count: number }
+    `, [startDateStr]) || { count: 0 }
 
-    const totalCIs = db.prepare(`
+    const totalCIs = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM configuration_items
       WHERE organization_id = ?
-    `).get(orgId) as { count: number }
+    `, [orgId]) || { count: 0 }
 
     const architectureCompliance = totalCIs.count > 0
       ? Math.min(100, Math.round((cisWithRelations.count / totalCIs.count) * 100))
@@ -283,12 +272,12 @@ export async function GET(request: NextRequest) {
     )
 
     // Security Incidents
-    const securityIncidents = db.prepare(`
+    const securityIncidents = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets
       WHERE organization_id = ? AND created_at >= ?
       AND (title LIKE '%segurança%' OR title LIKE '%security%'
            OR description LIKE '%segurança%' OR description LIKE '%security%')
-    `).get(orgId, startDateStr) as { count: number }
+    `, [orgId, startDateStr]) || { count: 0 }
 
     const metrics: COBITMetrics = {
       governance: {
@@ -341,13 +330,13 @@ export async function GET(request: NextRequest) {
     previousStartDate.setDate(previousStartDate.getDate() - periodDays)
     const previousStartDateStr = previousStartDate.toISOString().split('T')[0]
 
-    const previousSLA = db.prepare(`
+    const previousSLA = await executeQueryOne<{ rate: number | null }>(`
       SELECT
         SUM(CASE WHEN response_breach = 0 OR response_breach IS NULL THEN 1 ELSE 0 END) * 100.0 /
         NULLIF(COUNT(*), 0) as rate
       FROM sla_tracking
       WHERE organization_id = ? AND created_at >= ? AND created_at < ?
-    `).get(orgId, previousStartDateStr, startDateStr) as { rate: number | null }
+    `, [orgId, previousStartDateStr, startDateStr]) || { rate: null }
 
     const trends = {
       sla_trend: previousSLA.rate
