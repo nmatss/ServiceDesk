@@ -161,6 +161,7 @@ const TENANT_PUBLIC_ROUTES = [
   '/api/categories',
   '/api/priorities',
   '/api/tickets/create',
+  '/api/portal/tickets',
 ]
 
 // Admin routes that require authentication and tenant admin role
@@ -592,8 +593,11 @@ async function checkAuthentication(
       return { authenticated: false }
     }
 
+    const userId = Number((payload as any).id ?? (payload as any).user_id)
+    const tenantId = Number((payload as any).organization_id ?? (payload as any).tenant_id)
+
     // CRITICAL: Validate tenant matches JWT
-    if (payload.organization_id !== tenant.id) {
+    if (!Number.isFinite(tenantId) || tenantId !== tenant.id) {
       captureAuthError(new Error('Tenant mismatch in JWT'), {
         username: payload.email as string,
         method: 'jwt'
@@ -603,8 +607,8 @@ async function checkAuthentication(
 
     // Validate payload structure
     if (
-      typeof payload.id !== 'number' ||
-      typeof payload.organization_id !== 'number' ||
+      !Number.isFinite(userId) ||
+      !Number.isFinite(tenantId) ||
       typeof payload.role !== 'string' ||
       typeof payload.email !== 'string'
     ) {
@@ -612,8 +616,8 @@ async function checkAuthentication(
     }
 
     const user: UserInfo = {
-      id: payload.id as number,
-      organization_id: payload.organization_id as number,
+      id: userId,
+      organization_id: tenantId,
       tenant_slug: payload.tenant_slug as string,
       role: payload.role as string,
       name: (payload.name as string) || '',

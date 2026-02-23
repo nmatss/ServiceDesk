@@ -178,7 +178,11 @@ export async function GET(
       'Content-Disposition',
       `inline; filename="${safeFilename}"`
     )
-    headers.set('Cache-Control', 'public, max-age=31536000') // 1 year cache
+    if (fileRecord.is_public) {
+      headers.set('Cache-Control', 'public, max-age=31536000') // 1 year cache
+    } else {
+      headers.set('Cache-Control', 'private, no-store')
+    }
 
     return new NextResponse(fileBuffer, { headers })
 

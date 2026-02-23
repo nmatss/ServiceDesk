@@ -12,13 +12,41 @@
  * NOTE: Do NOT import Node.js modules here - this file runs in the browser.
  */
 
-import * as Sentry from '@sentry/nextjs'
-
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
+const SENTRY_ENABLED = process.env.NEXT_PUBLIC_SENTRY_ENABLED === 'true' || process.env.SENTRY_ENABLED === 'true'
 const ENVIRONMENT = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development'
 
 // Initialize Sentry only if DSN is configured
-if (SENTRY_DSN) {
+if (SENTRY_ENABLED && SENTRY_DSN) {
+  // Lazy import to avoid build-time incompatibilities in dev
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const Sentry = eval('require')('@sentry/nextjs')
+  const integrations: any[] = []
+
+  if (typeof Sentry.browserTracingIntegration === 'function') {
+    integrations.push(
+      Sentry.browserTracingIntegration({
+        routingInstrumentation: Sentry.reactRouterV6Instrumentation,
+        tracePropagationTargets: [
+          'localhost',
+          /^https:\/\/[^/]*\.servicedesk\.com/,
+          /^https:\/\/api\.servicedesk\.com/,
+        ],
+      })
+    )
+  }
+
+  if (ENVIRONMENT === 'production' && typeof Sentry.replayIntegration === 'function') {
+    integrations.push(
+      Sentry.replayIntegration({
+        sessionSampleRate: 0.01,
+        errorSampleRate: 0.1,
+        maskAllText: true,
+        blockAllMedia: true,
+      })
+    )
+  }
+
   Sentry.init({
     // Data Source Name - where to send errors
     dsn: SENTRY_DSN,
@@ -96,36 +124,7 @@ if (SENTRY_DSN) {
     // INTEGRATIONS
     // ========================
 
-    integrations: [
-      // Browser tracing for performance monitoring
-      Sentry.browserTracingIntegration({
-        // Trace navigation between pages
-        routingInstrumentation: Sentry.reactRouterV6Instrumentation,
-
-        // Trace specific HTTP requests
-        tracePropagationTargets: [
-          'localhost',
-          /^https:\/\/[^/]*\.servicedesk\.com/,
-          /^https:\/\/api\.servicedesk\.com/,
-        ],
-      }),
-
-      // Replay sessions for debugging
-      // Only in production and for a small percentage of sessions
-      ...(ENVIRONMENT === 'production' ? [
-        Sentry.replayIntegration({
-          // Sample rate for normal sessions
-          sessionSampleRate: 0.01, // 1% of sessions
-
-          // Sample rate for sessions with errors
-          errorSampleRate: 0.1, // 10% of sessions with errors
-
-          // Mask all text and media by default for privacy
-          maskAllText: true,
-          blockAllMedia: true,
-        }),
-      ] : []),
-    ],
+    integrations,
 
     // ========================
     // BREADCRUMBS

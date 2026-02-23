@@ -97,9 +97,9 @@ export const LazyCharts = {
  * Using react-quill-new to fix CVE-2021-3163
  */
 export const LazyRichTextEditor = lazyLoad(
-  () => import('react-quill-new'),
+  () => import('@/components/ui/RichTextFallback'),
   {
-    ssr: false, // Quill doesn't work well with SSR
+    ssr: false,
     loading: () => (
       <div className="border rounded-md p-4 bg-gray-50">
         <div className="animate-pulse space-y-2">

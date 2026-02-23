@@ -120,10 +120,10 @@ export const LazyAreaChart = dynamic(
  * Using react-quill-new to fix CVE-2021-3163
  */
 export const LazyRichTextEditor = dynamic(
-  () => import('react-quill-new').then((mod) => mod.default),
+  () => import('./ui/RichTextFallback').then((mod) => mod.default),
   {
     loading: () => <EditorSkeleton />,
-    ssr: false, // Quill doesn't work with SSR
+    ssr: false,
   }
 )
 

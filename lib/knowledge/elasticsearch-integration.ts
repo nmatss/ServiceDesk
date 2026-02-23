@@ -115,9 +115,8 @@ export class ElasticsearchIntegration {
 
     try {
       // Dynamic import to avoid build-time resolution issues
-      // Using eval to prevent webpack from trying to bundle at build time
-      const importElasticsearch = new Function('return import("@elastic/elasticsearch")');
-      const esModule = await importElasticsearch().catch(() => null);
+      // SECURITY: Avoid eval/new Function by using a guarded dynamic import
+      const esModule = await import(/* webpackIgnore: true */ '@elastic/elasticsearch').catch(() => null);
 
       if (!esModule) {
         logger.warn('Elasticsearch module not available. Install @elastic/elasticsearch to use this feature.');

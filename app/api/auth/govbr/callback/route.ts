@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getGovBrClient, syncGovBrProfile } from '@/lib/integrations/govbr/oauth-client';
-import { generateToken, getUserByEmail, createUser } from '@/lib/auth/auth-service';
+import { getUserByEmail, createUser } from '@/lib/auth/auth-service';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -136,32 +136,58 @@ export async function GET(request: NextRequest) {
     // Sync Gov.br profile (store tokens, etc.)
     await syncGovBrProfile(profile, tokens);
 
-    // Generate JWT for application authentication
-    const jwt = await generateToken({
-      id: user.id,
+    const {
+      generateAccessToken,
+      generateRefreshToken,
+      setAuthCookies,
+      generateDeviceFingerprint,
+      getOrCreateDeviceId,
+    } = await import('@/lib/auth/token-manager');
+
+    const deviceFingerprint = generateDeviceFingerprint(request);
+    const deviceId = getOrCreateDeviceId(request);
+
+    const tokenPayload = {
+      user_id: user.id,
+      tenant_id: user.organization_id,
       name: user.name,
       email: user.email,
       role: user.role,
-      organization_id: user.organization_id,
-      tenant_slug: '',
-      created_at: user.created_at,
-      updated_at: user.updated_at
-    });
+      tenant_slug: user.tenant_slug || `org-${user.organization_id}`,
+      device_fingerprint: deviceFingerprint,
+    };
+
+    const accessToken = await generateAccessToken(tokenPayload);
+    const refreshToken = await generateRefreshToken(tokenPayload, deviceFingerprint);
+
+    // Redirect to return URL or dashboard
+    const response = NextResponse.redirect(new URL(returnUrl, request.url));
 
     // Clear temporary cookies
-    cookieStore.delete('govbr_state');
-    cookieStore.delete('govbr_return_url');
+    response.cookies.delete('govbr_state');
+    response.cookies.delete('govbr_return_url');
 
-    // Set authentication cookie
-    cookieStore.set('auth_token', jwt, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-    });
+    // Set authentication cookies
+    setAuthCookies(response, accessToken, refreshToken, deviceId);
+
+    response.cookies.set(
+      'tenant-context',
+      JSON.stringify({
+        id: user.organization_id,
+        slug: user.tenant_slug || `org-${user.organization_id}`,
+        name: user.tenant_slug || `org-${user.organization_id}`,
+      }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24,
+        path: '/',
+      }
+    );
 
     // Store Gov.br tokens for future API calls (optional)
-    cookieStore.set('govbr_access_token', tokens.access_token, {
+    response.cookies.set('govbr_access_token', tokens.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -169,7 +195,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (tokens.refresh_token) {
-      cookieStore.set('govbr_refresh_token', tokens.refresh_token, {
+      response.cookies.set('govbr_refresh_token', tokens.refresh_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -177,8 +203,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Redirect to return URL or dashboard
-    return NextResponse.redirect(new URL(returnUrl, request.url));
+    return response;
   } catch (error) {
     logger.error('Error processing Gov.br callback', error);
 

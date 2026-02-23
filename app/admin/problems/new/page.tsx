@@ -39,7 +39,7 @@ export default function NewProblemPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/categories')
+        const response = await fetch('/api/categories', { credentials: 'include' })
         const data = await response.json()
         if (data.success && data.categories) {
           setCategories(data.categories)
@@ -71,6 +71,7 @@ export default function NewProblemPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(payload),
       })
 

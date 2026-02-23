@@ -75,7 +75,7 @@ export default function ProblemDetailPage() {
   const fetchProblem = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/problems/${problemId}`)
+      const response = await fetch(`/api/problems/${problemId}`, { credentials: 'include' })
       const data = await response.json()
 
       if (!response.ok || !data.success) {

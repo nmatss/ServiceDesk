@@ -10,14 +10,37 @@
  * - Background job failures
  */
 
-import * as Sentry from '@sentry/nextjs'
 import { logger } from '@/lib/monitoring/logger';
 
 const SENTRY_DSN = process.env.SENTRY_DSN
+const SENTRY_ENABLED = process.env.SENTRY_ENABLED === 'true'
 const ENVIRONMENT = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development'
 
 // Initialize Sentry only if DSN is configured
-if (SENTRY_DSN) {
+if (SENTRY_ENABLED && SENTRY_DSN) {
+  // Lazy import to avoid build-time incompatibilities in dev
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const Sentry = eval('require')('@sentry/nextjs')
+  const integrations: any[] = []
+
+  if (typeof Sentry.httpIntegration === 'function') {
+    integrations.push(
+      Sentry.httpIntegration({
+        tracing: {
+          shouldCreateSpanForRequest: (url: string) => {
+            if (url.includes('/api/health')) return false
+            if (url.includes('/api/ping')) return false
+            return true
+          },
+        },
+      })
+    )
+  }
+
+  if (ENVIRONMENT === 'production' && typeof Sentry.nodeProfilingIntegration === 'function') {
+    integrations.push(Sentry.nodeProfilingIntegration())
+  }
+
   Sentry.init({
     // Data Source Name - where to send errors
     dsn: SENTRY_DSN,
@@ -65,26 +88,7 @@ if (SENTRY_DSN) {
     // INTEGRATIONS
     // ========================
 
-    integrations: [
-      // HTTP integration for tracing
-      Sentry.httpIntegration({
-        // Trace outgoing HTTP requests
-        tracing: {
-          // Don't trace requests to these URLs
-          shouldCreateSpanForRequest: (url) => {
-            // Skip internal healthcheck endpoints
-            if (url.includes('/api/health')) return false
-            if (url.includes('/api/ping')) return false
-            return true
-          },
-        },
-      }),
-
-      // Node.js profiling (only in production)
-      ...(ENVIRONMENT === 'production' ? [
-        Sentry.nodeProfilingIntegration(),
-      ] : []),
-    ],
+    integrations,
 
     // ========================
     // PRIVACY & SECURITY

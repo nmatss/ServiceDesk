@@ -50,6 +50,22 @@ function ensureBootstrapCompatibility(): void {
   ensureColumn('notifications', 'tenant_id', 'INTEGER NOT NULL DEFAULT 1');
   ensureColumn('audit_logs', 'organization_id', 'INTEGER NOT NULL DEFAULT 1');
   ensureColumn('audit_logs', 'tenant_id', 'INTEGER NOT NULL DEFAULT 1');
+  ensureColumn('rate_limits', 'identifier', 'TEXT NOT NULL DEFAULT \"unknown\"');
+  ensureColumn('rate_limits', 'identifier_type', "TEXT NOT NULL DEFAULT 'ip'");
+  ensureColumn('rate_limits', 'endpoint', "TEXT NOT NULL DEFAULT '/unknown'");
+  ensureColumn('rate_limits', 'attempts', 'INTEGER DEFAULT 1');
+  ensureColumn('rate_limits', 'first_attempt_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+  ensureColumn('rate_limits', 'last_attempt_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP');
+  ensureColumn('rate_limits', 'blocked_until', 'DATETIME');
+  ensureColumn('kb_articles', 'visibility', "TEXT NOT NULL DEFAULT 'public'");
+  ensureColumn('kb_articles', 'status', "TEXT NOT NULL DEFAULT 'draft'");
+  ensureColumn('kb_articles', 'published_at', 'DATETIME');
+  ensureColumn('kb_articles', 'helpful_votes', 'INTEGER DEFAULT 0');
+  ensureColumn('kb_articles', 'not_helpful_votes', 'INTEGER DEFAULT 0');
+  ensureColumn('kb_articles', 'content_type', "TEXT DEFAULT 'html'");
+  ensureColumn('kb_articles', 'meta_title', 'TEXT');
+  ensureColumn('kb_articles', 'meta_description', 'TEXT');
+  ensureColumn('refresh_tokens', 'tenant_id', 'INTEGER NOT NULL DEFAULT 1');
 
   if (hasTable('users')) {
     db.exec(`
@@ -271,8 +287,9 @@ export function initializeDatabase() {
       try { db.exec(`DROP INDEX IF EXISTS ${idx}`); } catch { /* ignore */ }
     }
 
-    // Base schema (idempotent — uses CREATE TABLE/INDEX IF NOT EXISTS)
-    applySchemaFile('lib/db/schema.sql');
+    // Base schema (tables only). Indexes/triggers are handled by migrations.
+    applySchemaCreateTablesOnly('lib/db/schema.sql');
+    ensureBootstrapCompatibility();
 
     // Multi-tenant compatibility tables only.
     // We intentionally skip indexes/triggers here because legacy instances

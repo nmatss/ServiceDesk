@@ -85,6 +85,9 @@ function rateMetric(name: MetricName, value: number): 'good' | 'needs-improvemen
 async function sendToAnalytics(metric: WebVitalsMetric): Promise<void> {
   // Don't send in development
   if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NEXT_PUBLIC_WEB_VITALS_LOG !== 'true') {
+      return
+    }
     console.log('[Web Vitals]', metric.name, {
       value: metric.value,
       rating: metric.rating,
@@ -199,7 +202,7 @@ export function reportWebVitals(metric: Metric): void {
   sendToSentry(enhancedMetric)
 
   // Log warnings for poor metrics
-  if (enhancedMetric.rating === 'poor') {
+  if (enhancedMetric.rating === 'poor' && (process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_WEB_VITALS_LOG === 'true')) {
     console.warn(
       `[Web Vitals] Poor ${name} detected:`,
       `${metric.value.toFixed(2)}${name === 'CLS' ? '' : 'ms'}`,
@@ -263,6 +266,7 @@ export function getWebVitalsScores(): Record<MetricName, WebVitalsMetric | null>
 export function monitorLongTasks(): void {
   if (typeof window === 'undefined') return
   if (!('PerformanceObserver' in window)) return
+  if (process.env.NEXT_PUBLIC_WEB_VITALS_LOG !== 'true') return
 
   try {
     const observer = new PerformanceObserver((list) => {
@@ -303,6 +307,7 @@ export function monitorLongTasks(): void {
  */
 export function monitorResourcePerformance(): void {
   if (typeof window === 'undefined') return
+  if (process.env.NEXT_PUBLIC_WEB_VITALS_LOG !== 'true') return
 
   window.addEventListener('load', () => {
     const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[]
@@ -339,6 +344,7 @@ export function monitorResourcePerformance(): void {
  */
 export function initPerformanceMonitoring(): void {
   if (typeof window === 'undefined') return
+  if (process.env.NEXT_PUBLIC_WEB_VITALS_LOG !== 'true') return
 
   // Monitor long tasks
   monitorLongTasks()

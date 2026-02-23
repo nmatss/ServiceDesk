@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS email_threads (
     ticket_id INTEGER,
     message_id VARCHAR(255) NOT NULL UNIQUE,
     in_reply_to VARCHAR(255),
-    references TEXT, -- JSON array of message IDs
+    references_list TEXT, -- JSON array of message IDs
     subject VARCHAR(500),
     from_email VARCHAR(255) NOT NULL,
     from_name VARCHAR(255),

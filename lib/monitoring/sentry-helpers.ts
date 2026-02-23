@@ -7,13 +7,25 @@
  * Updated for Sentry SDK v8+ (using new startSpan API)
  */
 
-import * as Sentry from '@sentry/nextjs'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
  * Error severity levels
  */
 export type SentryLevel = 'fatal' | 'error' | 'warning' | 'info' | 'debug'
+
+function getSentry() {
+  if (process.env.NODE_ENV === 'development') {
+    return null
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    return eval('require')('@sentry/nextjs')
+  } catch {
+    return null
+  }
+}
 
 /**
  * Capture an exception with additional context
@@ -32,6 +44,9 @@ export function captureException(
   }
 ) {
   const { user, tags, extra, level = 'error' } = context || {}
+
+  const Sentry = getSentry()
+  if (!Sentry) return
 
   Sentry.captureException(error, {
     level,
@@ -56,6 +71,9 @@ export function captureMessage(
     extra?: Record<string, unknown>
   }
 ) {
+  const Sentry = getSentry()
+  if (!Sentry) return
+
   Sentry.captureMessage(message, {
     level,
     tags: context?.tags,
@@ -74,6 +92,8 @@ export function setUser(user: {
   username?: string
   [key: string]: unknown
 }) {
+  const Sentry = getSentry()
+  if (!Sentry) return
   Sentry.setUser(user)
 }
 
@@ -81,6 +101,8 @@ export function setUser(user: {
  * Clear user context
  */
 export function clearUser() {
+  const Sentry = getSentry()
+  if (!Sentry) return
   Sentry.setUser(null)
 }
 
@@ -98,6 +120,9 @@ export function addBreadcrumb(
   level: SentryLevel = 'info',
   data?: Record<string, unknown>
 ) {
+  const Sentry = getSentry()
+  if (!Sentry) return
+
   Sentry.addBreadcrumb({
     message,
     category,
@@ -113,6 +138,8 @@ export function addBreadcrumb(
  * @param value - Tag value
  */
 export function setTag(key: string, value: string) {
+  const Sentry = getSentry()
+  if (!Sentry) return
   Sentry.setTag(key, value)
 }
 

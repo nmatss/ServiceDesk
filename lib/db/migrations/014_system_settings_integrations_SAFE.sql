@@ -37,6 +37,20 @@ CREATE TABLE IF NOT EXISTS system_settings_new (
     UNIQUE(key, organization_id)
 );
 
+-- Ensure base table exists before migrating (handles fresh DBs without system_settings)
+CREATE TABLE IF NOT EXISTS system_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    value TEXT,
+    description TEXT,
+    type TEXT DEFAULT 'string',
+    is_public BOOLEAN DEFAULT FALSE,
+    is_encrypted BOOLEAN DEFAULT FALSE,
+    updated_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Step 3: Migrate existing data from old table
 -- Set organization_id to NULL for global settings (backward compatible)
 INSERT INTO system_settings_new (id, key, value, description, type, is_public, is_encrypted, organization_id, updated_by, created_at, updated_at)

@@ -101,8 +101,8 @@ export default function ProblemsPage() {
 
       // Fetch problems and statistics in parallel
       const [problemsResponse, statsResponse] = await Promise.all([
-        fetch(`/api/problems?${params}`),
-        fetch('/api/problems/statistics')
+        fetch(`/api/problems?${params}`, { credentials: 'include' }),
+        fetch('/api/problems/statistics', { credentials: 'include' })
       ])
 
       const problemsData = await problemsResponse.json()

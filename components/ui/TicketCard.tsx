@@ -79,15 +79,37 @@ export interface TicketData {
     name: string;
     avatar?: string;
   };
-  createdAt: Date;
-  updatedAt: Date;
-  dueDate?: Date;
+  createdAt?: Date | string | number | null;
+  updatedAt?: Date | string | number | null;
+  dueDate?: Date | string | number | null;
   commentsCount?: number;
   attachmentsCount?: number;
   tags?: string[];
   estimatedHours?: number;
   actualHours?: number;
   slaStatus?: 'on-track' | 'at-risk' | 'breached';
+}
+
+// Safe date parser that never throws
+function safeParseDate(input: unknown): Date | null {
+  if (!input) return null;
+  try {
+    if (input instanceof Date) {
+      return Number.isNaN(input.getTime()) ? null : input;
+    }
+    if (typeof input === 'string' || typeof input === 'number') {
+      const d = new Date(input);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    const obj = input as { toDate?: () => Date };
+    if (typeof obj.toDate === 'function') {
+      const d = obj.toDate();
+      return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export interface TicketCardProps extends VariantProps<typeof ticketCardVariants> {
@@ -143,14 +165,20 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
     }, [onSelect, ticket]);
 
     const actualLayout = compact ? 'compact' : layout;
-    const isOverdue = ticket.dueDate && new Date() > ticket.dueDate && ticket.status !== 'resolved' && ticket.status !== 'closed';
+    const dueDate = safeParseDate(ticket.dueDate);
+    const isOverdue = !!(
+      dueDate
+      && new Date() > dueDate
+      && ticket.status !== 'resolved'
+      && ticket.status !== 'closed'
+    );
     const isUrgent = ticket.priority === 'critical' || ticket.priority === 'high';
 
-
-    const formatTimeAgo = (date: Date) => {
+    const formatTimeAgo = (input: unknown): string => {
+      const date = safeParseDate(input);
+      if (!date) return 'N/A';
       const now = new Date();
       const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-
       if (diffInHours < 1) return 'Just now';
       if (diffInHours < 24) return `${diffInHours}h ago`;
       if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
@@ -364,7 +392,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                   <span>{formatTimeAgo(ticket.updatedAt)}</span>
                 </div>
 
-                {ticket.dueDate && (
+                {dueDate && (
                   <div className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     <span className={isOverdue ? 'text-error-600' : ''}>

@@ -16,6 +16,33 @@ import { TicketListSkeleton, StatsCardsSkeleton } from '@/components/ui/loading-
 import { LoadingError } from '@/components/ui/error-states'
 import { TicketsEmptyState, FilterEmptyState } from '@/components/ui/empty-state'
 
+// Map database status names to TicketData status values
+function mapStatus(status: string | undefined | null): Ticket['status'] {
+  if (!status) return 'open'
+  const s = status.toLowerCase().replace(/\s+/g, '-')
+  const map: Record<string, Ticket['status']> = {
+    'open': 'open', 'aberto': 'open', 'novo': 'open', 'new': 'open',
+    'in-progress': 'in-progress', 'em-andamento': 'in-progress', 'in-progresso': 'in-progress', 'em-progresso': 'in-progress',
+    'resolved': 'resolved', 'resolvido': 'resolved',
+    'closed': 'closed', 'fechado': 'closed', 'encerrado': 'closed',
+    'cancelled': 'cancelled', 'cancelado': 'cancelled',
+  }
+  return map[s] || 'open'
+}
+
+// Map database priority names to TicketData priority values
+function mapPriority(priority: string | undefined | null): Ticket['priority'] {
+  if (!priority) return 'medium'
+  const p = priority.toLowerCase()
+  const map: Record<string, Ticket['priority']> = {
+    'low': 'low', 'baixa': 'low', 'baixo': 'low',
+    'medium': 'medium', 'média': 'medium', 'medio': 'medium', 'normal': 'medium',
+    'high': 'high', 'alta': 'high', 'alto': 'high',
+    'critical': 'critical', 'crítica': 'critical', 'critica': 'critical', 'urgente': 'critical',
+  }
+  return map[p] || 'medium'
+}
+
 interface TicketListProps {
   userRole?: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin'
   showUserTickets?: boolean
@@ -129,7 +156,29 @@ export default function TicketList({
       }
 
       const data = await response.json()
-      setTickets(data.tickets || [])
+      // Map API snake_case fields to TicketData camelCase format
+      const mapped: Ticket[] = (data.tickets || []).map((t: Record<string, unknown>) => ({
+        id: String(t.id),
+        title: String(t.title || ''),
+        description: t.description ? String(t.description) : undefined,
+        status: mapStatus(t.status as string),
+        priority: mapPriority(t.priority as string),
+        category: t.category ? String(t.category) : undefined,
+        assignee: t.assigned_agent_name
+          ? { id: String(t.assigned_to || ''), name: String(t.assigned_agent_name) }
+          : undefined,
+        requester: t.user_name
+          ? { id: String(t.user_id || ''), name: String(t.user_name) }
+          : undefined,
+        createdAt: t.created_at ? new Date(t.created_at as string) : new Date(),
+        updatedAt: t.updated_at ? new Date(t.updated_at as string) : new Date(),
+        dueDate: t.due_date ? new Date(t.due_date as string) : undefined,
+        commentsCount: typeof t.comments_count === 'number' ? t.comments_count : 0,
+        attachmentsCount: typeof t.attachments_count === 'number' ? t.attachments_count : 0,
+        tags: Array.isArray(t.tags) ? t.tags : undefined,
+        slaStatus: t.sla_status as Ticket['slaStatus'],
+      }))
+      setTickets(mapped)
     } catch (error) {
       logger.error('Erro ao buscar tickets', error)
       setError('Erro ao carregar tickets')

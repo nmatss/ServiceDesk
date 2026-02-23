@@ -338,6 +338,23 @@ CREATE INDEX IF NOT EXISTS idx_analytics_agent_date ON analytics_agent_metrics(a
 CREATE INDEX IF NOT EXISTS idx_analytics_category_date ON analytics_category_metrics(category_id, date DESC);
 
 -- ========================================
+-- SYSTEM SETTINGS TABLE (required for migration metadata)
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL,
+    description TEXT,
+    type TEXT DEFAULT 'string',
+    is_public BOOLEAN DEFAULT FALSE,
+    updated_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ========================================
 -- MIGRATION COMPLETE
 -- ========================================
 

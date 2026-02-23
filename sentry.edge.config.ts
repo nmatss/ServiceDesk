@@ -8,8 +8,6 @@
  * IMPORTANT: Do NOT import Node.js modules here - this file runs in Edge runtime.
  */
 
-import * as Sentry from '@sentry/nextjs'
-
 // Edge-compatible logger (no Node.js dependencies)
 const edgeLogger = {
   error: (message: string, ...args: unknown[]) => console.error(`[SENTRY-EDGE] ${message}`, ...args),
@@ -17,10 +15,15 @@ const edgeLogger = {
 };
 
 const SENTRY_DSN = process.env.SENTRY_DSN
+const SENTRY_ENABLED = process.env.SENTRY_ENABLED === 'true'
 const ENVIRONMENT = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development'
 
 // Initialize Sentry only if DSN is configured
-if (SENTRY_DSN) {
+if (SENTRY_ENABLED && SENTRY_DSN) {
+  // Lazy import to avoid build-time incompatibilities in dev
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval
+  const Sentry = eval('require')('@sentry/nextjs')
+
   Sentry.init({
     // Data Source Name - where to send errors
     dsn: SENTRY_DSN,

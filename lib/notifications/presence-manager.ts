@@ -65,6 +65,7 @@ export class PresenceManager {
   private presenceSettings = new Map<number, PresenceSettings>()
   private presenceTimers = new Map<number, NodeJS.Timeout>()
   private activityTrackers = new Map<number, NodeJS.Timeout>()
+  private hasPresenceSettingsColumn: boolean | null = null
 
   // Default presence settings
   private readonly DEFAULT_SETTINGS: Omit<PresenceSettings, 'userId'> = {
@@ -97,24 +98,69 @@ export class PresenceManager {
 
   constructor(realtimeEngine: any) {
     this.realtimeEngine = realtimeEngine
+    this.ensurePresenceSchema()
     this.loadPresenceData()
     this.setupPresenceTracking()
+  }
+
+  private ensurePresenceSchema() {
+    try {
+      const columns = this.db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>
+      this.hasPresenceSettingsColumn = columns.some((column) => column.name === 'presence_settings')
+      if (!this.hasPresenceSettingsColumn) {
+        this.db.prepare(`ALTER TABLE users ADD COLUMN presence_settings TEXT`).run()
+        this.hasPresenceSettingsColumn = true
+      }
+
+      this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_presence (
+          user_id INTEGER PRIMARY KEY,
+          status TEXT NOT NULL,
+          last_seen DATETIME NOT NULL,
+          device_info TEXT,
+          location_info TEXT,
+          activity_info TEXT,
+          status_message TEXT,
+          available_until DATETIME
+        )
+      `).run()
+
+      this.db.prepare(`
+        CREATE TABLE IF NOT EXISTS presence_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          event TEXT NOT NULL,
+          metadata TEXT,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run()
+
+      this.db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_presence_events_user
+        ON presence_events(user_id, timestamp DESC)
+      `).run()
+    } catch (error) {
+      logger.warn('Presence schema ensure failed', error)
+      this.hasPresenceSettingsColumn = false
+    }
   }
 
   private loadPresenceData() {
     try {
       // Load user presence settings
-      const settings = this.db.prepare(`
-        SELECT user_id, presence_settings FROM users
-        WHERE presence_settings IS NOT NULL
-      `).all() as any[]
+      if (this.hasPresenceSettingsColumn) {
+        const settings = this.db.prepare(`
+          SELECT id as user_id, presence_settings FROM users
+          WHERE presence_settings IS NOT NULL
+        `).all() as any[]
 
-      for (const setting of settings) {
-        try {
-          const presenceSettings = JSON.parse(setting.presence_settings)
-          this.presenceSettings.set(setting.user_id, this.normalizeSettings(presenceSettings, setting.user_id))
-        } catch (error) {
-          logger.error(`Error parsing presence settings for user ${setting.user_id}:`, error)
+        for (const setting of settings) {
+          try {
+            const presenceSettings = JSON.parse(setting.presence_settings)
+            this.presenceSettings.set(setting.user_id, this.normalizeSettings(presenceSettings, setting.user_id))
+          } catch (error) {
+            logger.error(`Error parsing presence settings for user ${setting.user_id}:`, error)
+          }
         }
       }
 

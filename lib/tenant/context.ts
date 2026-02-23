@@ -76,7 +76,14 @@ function extractAuthTokenFromCookieHeader(cookieHeader: string | null): string |
 
 function verifyTokenClaims(token: string): DecodedTokenClaims | null {
   try {
-    return jwt.verify(token, validateJWTSecret(), { algorithms: ['HS256'] }) as DecodedTokenClaims
+    const payload = jwt.verify(token, validateJWTSecret(), { algorithms: ['HS256'] }) as DecodedTokenClaims
+    if (payload && typeof (payload as { type?: string }).type === 'string') {
+      const tokenType = (payload as { type?: string }).type
+      if (tokenType && tokenType !== 'access') {
+        return null
+      }
+    }
+    return payload
   } catch {
     return null
   }

@@ -57,6 +57,10 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        if (publicRoutes.includes(pathname)) {
+          setLoading(false)
+          return
+        }
         // Verify auth using httpOnly cookies
         const response = await fetch('/api/auth/verify', {
           credentials: 'include'
