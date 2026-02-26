@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         logger.error('Tenants API error:', error);
         return NextResponse.json(
-            { error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' },
+            { success: false, error: 'Internal Server Error' },
             { status: 500 }
         );
     }

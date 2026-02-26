@@ -528,7 +528,10 @@ export default function CMDBPage() {
                 <div
                   key={ci.id}
                   onClick={() => handleCIClick(ci)}
-                  className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 p-4 sm:p-5 hover:shadow-xl hover:border-brand-300 dark:hover:border-brand-600 transition-all duration-300 cursor-pointer group bg-white/60 dark:bg-neutral-800/60 backdrop-blur-sm hover:scale-[1.02]"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCIClick(ci) } }}
+                  role="button"
+                  tabIndex={0}
+                  className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 p-4 sm:p-5 hover:shadow-xl hover:border-brand-300 dark:hover:border-brand-600 transition-all duration-300 cursor-pointer group bg-white/60 dark:bg-neutral-800/60 backdrop-blur-sm hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
                 >
                   {/* Header with Icon and Status */}
                   <div className="flex items-start justify-between mb-4">

@@ -1797,6 +1797,29 @@ CREATE TABLE IF NOT EXISTS api_usage_tracking (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Teams (referenced by problems, change_requests, configuration_items, service_request_tasks, etc.)
+CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    organization_id INTEGER NOT NULL DEFAULT 1,
+    lead_id INTEGER,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (lead_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_teams_org ON teams(organization_id);
+
+CREATE TRIGGER IF NOT EXISTS update_teams_updated_at
+AFTER UPDATE ON teams
+FOR EACH ROW
+BEGIN
+    UPDATE teams SET updated_at = datetime('now') WHERE id = NEW.id;
+END;
+
 -- Tabela de departamentos
 CREATE TABLE IF NOT EXISTS departments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2695,7 +2718,7 @@ CREATE TABLE IF NOT EXISTS problems (
     root_cause TEXT,
     root_cause_category_id INTEGER,
     workaround TEXT,
-    impact TEXT,
+    impact TEXT CHECK(impact IS NULL OR impact IN ('low','medium','high','critical')),
     urgency TEXT DEFAULT 'medium' CHECK(urgency IN ('low','medium','high','critical')),
     affected_services TEXT, -- JSON array
     resolution TEXT,

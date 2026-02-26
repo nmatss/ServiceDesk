@@ -377,7 +377,7 @@ export default function KnowledgePage() {
                     {/* Stats */}
                     <div className="flex items-center gap-6 mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
                       <div className="flex items-center gap-2 text-sm">
-                        <EyeIcon className="h-4 w-4 text-info-500" />
+                        <EyeIcon className="h-4 w-4 text-blue-500" />
                         <span className="text-description">{article.view_count}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">

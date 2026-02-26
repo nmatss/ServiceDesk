@@ -1,6 +1,7 @@
-import { executeQuery, executeRun, executeQueryOne } from '../db/adapter';
+import { executeQuery, executeRun } from '../db/adapter';
 import { sqlNow } from '../db/adapter';
 import crypto from 'crypto';
+import logger from '../monitoring/structured-logger';
 
 export class WebhookManager {
   /**
@@ -34,7 +35,7 @@ export class WebhookManager {
         Buffer.from(expectedSignature)
       );
     } catch (error) {
-      console.error('Error verifying webhook signature:', error);
+      logger.error('Error verifying webhook signature', { error: String(error) });
       return false;
     }
   }

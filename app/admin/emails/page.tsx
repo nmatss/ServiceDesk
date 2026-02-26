@@ -160,7 +160,7 @@ export default function EmailsPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'sent': return <CheckCircleIcon className="w-5 h-5 text-success-600 dark:text-success-400" />
-      case 'failed': return <XCircleIcon className="w-5 h-5 text-danger-600 dark:text-danger-400" />
+      case 'failed': return <XCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
       case 'sending': return <ArrowPathIcon className="w-5 h-5 text-brand-600 dark:text-brand-400 animate-spin" />
       default: return <ClockIcon className="w-5 h-5 text-warning-600 dark:text-warning-400" />
     }
@@ -168,7 +168,7 @@ export default function EmailsPage() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-danger-700 bg-danger-100 dark:text-danger-300 dark:bg-danger-950/30'
+      case 'high': return 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/30'
       case 'medium': return 'text-warning-700 bg-warning-100 dark:text-warning-300 dark:bg-warning-950/30'
       case 'low': return 'text-success-700 bg-success-100 dark:text-success-300 dark:bg-success-950/30'
       default: return 'text-neutral-700 bg-neutral-100 dark:text-neutral-300 dark:bg-neutral-800'
@@ -252,10 +252,10 @@ export default function EmailsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-description">Falhados</p>
-              <p className="text-3xl font-bold text-danger-600 dark:text-danger-400 transition-transform duration-300 group-hover:scale-110">{stats.failed}</p>
+              <p className="text-3xl font-bold text-red-600 dark:text-red-400 transition-transform duration-300 group-hover:scale-110">{stats.failed}</p>
             </div>
-            <div className="p-3 bg-danger-100 dark:bg-danger-900/30 rounded-lg group-hover:bg-danger-200 dark:group-hover:bg-danger-900/50 transition-colors duration-300">
-              <XCircleIcon className="w-8 h-8 text-danger-600 dark:text-danger-400 transition-transform duration-300 group-hover:scale-110" />
+            <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors duration-300">
+              <XCircleIcon className="w-8 h-8 text-red-600 dark:text-red-400 transition-transform duration-300 group-hover:scale-110" />
             </div>
           </div>
         </div>
@@ -311,7 +311,7 @@ export default function EmailsPage() {
             <Button
               variant="outline"
               onClick={clearFailed}
-              className="text-danger-600 hover:text-danger-700 dark:text-danger-400 dark:hover:text-danger-300 border-danger-300 hover:border-danger-400 dark:border-danger-600 dark:hover:border-danger-500"
+              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border-red-300 hover:border-red-400 dark:border-red-600 dark:hover:border-red-500"
             >
               <TrashIcon className="w-4 h-4 mr-2" />
               Limpar Falhados
@@ -387,8 +387,8 @@ export default function EmailsPage() {
                         <span>{formatDate(email.created_at)}</span>
                       </div>
                       {email.error_message && (
-                        <div className="mt-2 p-3 bg-danger-50 dark:bg-danger-950/20 border border-danger-200 dark:border-danger-900/30 rounded-lg">
-                          <p className="text-sm text-danger-700 dark:text-danger-300">
+                        <div className="mt-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-lg">
+                          <p className="text-sm text-red-700 dark:text-red-300">
                             <span className="font-semibold">Erro:</span> {email.error_message}
                           </p>
                         </div>

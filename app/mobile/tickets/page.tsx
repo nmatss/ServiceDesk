@@ -54,7 +54,6 @@ export default function MobileTicketsPage() {
   const handleRefresh = useCallback(async () => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('Refreshed tickets')
   }, [])
 
   const handleLoadMore = useCallback(async () => {
@@ -67,19 +66,16 @@ export default function MobileTicketsPage() {
 
   const handleArchive = useCallback((ticketId: number) => {
     setTickets(prev => prev.filter(t => t.id !== ticketId))
-    console.log('Archived ticket:', ticketId)
   }, [])
 
   const handleDelete = useCallback((ticketId: number) => {
     setTickets(prev => prev.filter(t => t.id !== ticketId))
-    console.log('Deleted ticket:', ticketId)
   }, [])
 
   const handleResolve = useCallback((ticketId: number) => {
     setTickets(prev => prev.map(t =>
       t.id === ticketId ? { ...t, status: 'resolved' } : t
     ))
-    console.log('Resolved ticket:', ticketId)
   }, [])
 
   const getPriorityColor = (priority: string) => {

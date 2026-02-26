@@ -380,7 +380,7 @@ export default function ITILDashboardPage() {
           {/* Problem Management */}
           <div className="glass-panel animate-slide-up">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6 flex items-center gap-2">
-              <BugAntIcon className="w-5 h-5 text-info-600 dark:text-info-400" />
+              <BugAntIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               Gestão de Problemas
             </h2>
             <StatsGrid cols={3}>
@@ -399,7 +399,7 @@ export default function ITILDashboardPage() {
           {/* Change Management */}
           <div className="glass-panel animate-slide-up">
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6 flex items-center gap-2">
-              <ArrowsRightLeftIcon className="w-5 h-5 text-info-600 dark:text-info-400" />
+              <ArrowsRightLeftIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               Gestão de Mudanças
             </h2>
             <StatsGrid cols={3}>

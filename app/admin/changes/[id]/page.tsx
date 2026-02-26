@@ -206,7 +206,7 @@ export default function ChangeDetailPage() {
       case 'scheduled': return 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
       case 'in_progress': return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
       case 'completed': return 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300'
-      case 'failed': return 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300'
+      case 'failed': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
       case 'cancelled': return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
       default: return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
     }
@@ -231,7 +231,7 @@ export default function ChangeDetailPage() {
     switch (category) {
       case 'standard': return 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300'
       case 'normal': return 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-      case 'emergency': return 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300'
+      case 'emergency': return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
       default: return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
     }
   }
@@ -453,7 +453,7 @@ export default function ChangeDetailPage() {
                   change.status === 'completed'
                     ? 'bg-success-600 text-white shadow-glow-success'
                     : change.status === 'failed'
-                    ? 'bg-danger-600 text-white shadow-glow-danger'
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-500/25'
                     : 'bg-neutral-200 dark:bg-neutral-700 text-icon-muted'
                 }`}>
                   {change.status === 'failed' ? (
@@ -554,7 +554,7 @@ export default function ChangeDetailPage() {
                           {approval.status === 'approved' ? (
                             <CheckCircleIcon className="w-5 h-5 text-success-500" />
                           ) : approval.status === 'rejected' ? (
-                            <XCircleIcon className="w-5 h-5 text-danger-500" />
+                            <XCircleIcon className="w-5 h-5 text-red-500" />
                           ) : (
                             <ClockIcon className="w-5 h-5 text-icon-muted" />
                           )}
@@ -566,7 +566,7 @@ export default function ChangeDetailPage() {
                         <div className="text-right">
                           <span className={`text-sm font-medium ${
                             approval.status === 'approved' ? 'text-success-600 dark:text-success-400' :
-                            approval.status === 'rejected' ? 'text-danger-600 dark:text-danger-400' :
+                            approval.status === 'rejected' ? 'text-red-600 dark:text-red-400' :
                             'text-muted-content'
                           }`}>
                             {approval.status === 'approved' ? 'Aprovado' :
@@ -625,13 +625,13 @@ export default function ChangeDetailPage() {
                   <>
                     <div className={`glass-panel animate-slide-up ${
                       change.cab_decision === 'approved' ? 'bg-success-50/50 dark:bg-success-900/20 border-success-200 dark:border-success-800' :
-                      change.cab_decision === 'rejected' ? 'bg-danger-50/50 dark:bg-danger-900/20 border-danger-200 dark:border-danger-800' :
+                      change.cab_decision === 'rejected' ? 'bg-red-50/50 dark:bg-red-900/20 border-red-200 dark:border-red-800' :
                       'bg-warning-50/50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-800'
                     }`}>
                       <div className="flex items-center gap-3 mb-3">
                         <UserGroupIcon className={`w-6 h-6 ${
                           change.cab_decision === 'approved' ? 'text-success-600 dark:text-success-400' :
-                          change.cab_decision === 'rejected' ? 'text-danger-600 dark:text-danger-400' :
+                          change.cab_decision === 'rejected' ? 'text-red-600 dark:text-red-400' :
                           'text-warning-600 dark:text-warning-400'
                         }`} />
                         <div>
@@ -643,7 +643,7 @@ export default function ChangeDetailPage() {
                       </div>
                       <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${
                         change.cab_decision === 'approved' ? 'bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-300' :
-                        change.cab_decision === 'rejected' ? 'bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300' :
+                        change.cab_decision === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
                         change.cab_decision === 'deferred' ? 'bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300' :
                         'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
                       }`}>
@@ -663,7 +663,7 @@ export default function ChangeDetailPage() {
                                 {vote.vote === 'approve' ? (
                                   <HandThumbUpIcon className="w-5 h-5 text-success-500" />
                                 ) : vote.vote === 'reject' ? (
-                                  <HandThumbDownIcon className="w-5 h-5 text-danger-500" />
+                                  <HandThumbDownIcon className="w-5 h-5 text-red-500" />
                                 ) : (
                                   <div className="w-5 h-5 rounded-full bg-neutral-300 dark:bg-neutral-600" />
                                 )}
@@ -671,7 +671,7 @@ export default function ChangeDetailPage() {
                               </div>
                               <span className={`text-sm font-medium ${
                                 vote.vote === 'approve' ? 'text-success-600 dark:text-success-400' :
-                                vote.vote === 'reject' ? 'text-danger-600 dark:text-danger-400' :
+                                vote.vote === 'reject' ? 'text-red-600 dark:text-red-400' :
                                 'text-muted-content'
                               }`}>
                                 {vote.vote === 'approve' ? 'Aprova' :
@@ -707,7 +707,7 @@ export default function ChangeDetailPage() {
                   </div>
                   <div className="glass-panel text-center animate-slide-up delay-75">
                     <p className="text-sm text-muted-content mb-1">Impacto</p>
-                    <p className="text-2xl font-bold text-danger-600 dark:text-danger-400">{change.impact_level}/5</p>
+                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">{change.impact_level}/5</p>
                   </div>
                   <div className="glass-panel text-center animate-slide-up delay-150">
                     <p className="text-sm text-muted-content mb-1">Urgência</p>
@@ -719,7 +719,7 @@ export default function ChangeDetailPage() {
                   <h2 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-4">Serviços Afetados</h2>
                   <div className="flex flex-wrap gap-2">
                     {change.affected_services.map((service, index) => (
-                      <span key={index} className="px-3 py-1.5 bg-danger-100 dark:bg-danger-900/30 text-danger-700 dark:text-danger-300 rounded-lg text-sm transition-all hover:shadow-md">
+                      <span key={index} className="px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm transition-all hover:shadow-md">
                         {service}
                       </span>
                     ))}
@@ -861,7 +861,7 @@ export default function ChangeDetailPage() {
                     </button>
                     <button
                       onClick={() => toast.error('Marcação de falha ainda não implementada')}
-                      className="w-full px-4 py-2 bg-danger-600 hover:bg-danger-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2"
+                      className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg flex items-center justify-center gap-2"
                     >
                       <XCircleIcon className="w-4 h-4" />
                       Marcar como Falha
@@ -913,7 +913,7 @@ export default function ChangeDetailPage() {
               <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Métricas</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:shadow-md">
-                  <p className="text-2xl font-bold text-danger-600 dark:text-danger-400">{change.affected_services.length}</p>
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{change.affected_services.length}</p>
                   <p className="text-xs text-muted-content">Serviços</p>
                 </div>
                 <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg transition-all hover:shadow-md">

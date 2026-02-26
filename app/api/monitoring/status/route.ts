@@ -14,10 +14,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getObservabilityHealth } from '@/lib/monitoring/observability';
 import { performanceMonitor } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
+    // SECURITY: Require admin authentication - exposes system internals
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    if (guard.response) return guard.response;
     // Get observability health
     const observabilityHealth = getObservabilityHealth();
 

@@ -50,8 +50,6 @@ export default function MobileCreateTicketPage() {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500))
-      console.log('Ticket created:', { subject, description, priority, category, attachments })
-
       // Haptic feedback
       if (navigator.vibrate) {
         navigator.vibrate([10, 50, 10])

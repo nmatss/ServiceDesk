@@ -1,11 +1,11 @@
-// @ts-nocheck
 /**
  * Sentry Edge Runtime Configuration
  *
  * This file configures Sentry for Edge Runtime (middleware).
  * Edge Runtime runs in V8 isolates and has different capabilities.
  *
- * IMPORTANT: Do NOT import Node.js modules here - this file runs in Edge runtime.
+ * IMPORTANT: Do NOT use eval(), new Function(), or dynamic require() here.
+ * Edge Runtime does not allow dynamic code evaluation.
  */
 
 // Edge-compatible logger (no Node.js dependencies)
@@ -18,68 +18,79 @@ const SENTRY_DSN = process.env.SENTRY_DSN
 const SENTRY_ENABLED = process.env.SENTRY_ENABLED === 'true'
 const ENVIRONMENT = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development'
 
-// Initialize Sentry only if DSN is configured
-if (SENTRY_ENABLED && SENTRY_DSN) {
-  // Lazy import to avoid build-time incompatibilities in dev
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const Sentry = eval('require')('@sentry/nextjs')
+async function initSentryEdge() {
+  if (!SENTRY_ENABLED || !SENTRY_DSN) {
+    return
+  }
 
-  Sentry.init({
-    // Data Source Name - where to send errors
-    dsn: SENTRY_DSN,
+  try {
+    const Sentry = await import('@sentry/nextjs')
 
-    // Environment identification
-    environment: ENVIRONMENT,
+    Sentry.init({
+      // Data Source Name - where to send errors
+      dsn: SENTRY_DSN,
 
-    // Release version
-    release: process.env.SENTRY_RELEASE,
+      // Environment identification
+      environment: ENVIRONMENT,
 
-    // ========================
-    // SAMPLING CONFIGURATION
-    // ========================
+      // Release version
+      release: process.env.SENTRY_RELEASE,
 
-    // Percentage of error events to send
-    sampleRate: parseFloat(process.env.SENTRY_ERROR_SAMPLE_RATE || '1.0'),
+      // ========================
+      // SAMPLING CONFIGURATION
+      // ========================
 
-    // Percentage of transactions to trace
-    tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || '0.05'), // Lower for edge
+      // Percentage of error events to send
+      sampleRate: parseFloat(process.env.SENTRY_ERROR_SAMPLE_RATE || '1.0'),
 
-    // ========================
-    // ERROR FILTERING
-    // ========================
+      // Percentage of transactions to trace
+      tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || '0.05'), // Lower for edge
 
-    ignoreErrors: [
-      // Expected middleware errors
-      'Unauthorized',
-      'Forbidden',
-      'Not Found',
-    ],
+      // ========================
+      // ERROR FILTERING
+      // ========================
 
-    // ========================
-    // PRIVACY & SECURITY
-    // ========================
+      ignoreErrors: [
+        // Expected middleware errors
+        'Unauthorized',
+        'Forbidden',
+        'Not Found',
+      ],
 
-    beforeSend(event, hint) {
-      // Don't send events in development
-      if (ENVIRONMENT === 'development') {
-        edgeLogger.error('Sentry event (edge)', event, hint)
-        return null
-      }
+      // ========================
+      // PRIVACY & SECURITY
+      // ========================
 
-      // Remove sensitive headers
-      if (event.request?.headers) {
-        delete event.request.headers['Authorization']
-        delete event.request.headers['Cookie']
-      }
+      beforeSend(event) {
+        // Don't send events in development
+        if (ENVIRONMENT === 'development') {
+          return null
+        }
 
-      return event
-    },
+        // Remove sensitive headers
+        if (event.request?.headers) {
+          delete event.request.headers['Authorization']
+          delete event.request.headers['Cookie']
+        }
 
-    // ========================
-    // ADDITIONAL OPTIONS
-    // ========================
+        return event
+      },
 
-    attachStacktrace: true,
-    debug: ENVIRONMENT === 'development',
-  })
+      // ========================
+      // ADDITIONAL OPTIONS
+      // ========================
+
+      attachStacktrace: true,
+      debug: ENVIRONMENT === 'development',
+    })
+
+    edgeLogger.info('Sentry Edge initialized successfully')
+  } catch (error) {
+    edgeLogger.error('Failed to initialize Sentry Edge', error)
+  }
 }
+
+initSentryEdge()
+
+// Export to make this a proper ES module (required for dynamic import)
+export {}

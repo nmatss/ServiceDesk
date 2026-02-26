@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -58,11 +58,27 @@ export async function POST(request: NextRequest) {
 
   try {
     const tenantContext = getTenantContextFromRequest(request)
-
     if (!tenantContext) {
       return NextResponse.json(
         { success: false, error: 'Tenant não encontrado' },
         { status: 400 }
+      )
+    }
+
+    // SECURITY: Require authentication for creating categories
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { success: false, error: 'Usuário não autenticado' },
+        { status: 401 }
+      )
+    }
+
+    // Only admins can create categories
+    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Permissão insuficiente' },
+        { status: 403 }
       )
     }
 

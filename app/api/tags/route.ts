@@ -10,6 +10,8 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+
 // ========================================
 // GET - List all tags
 // ========================================
@@ -20,8 +22,12 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication and use tenant from JWT, never from query params
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+
     const { searchParams } = new URL(request.url);
-    const organizationId = parseInt(searchParams.get('organizationId') || '1');
     const search = searchParams.get('search') || '';
 
     let query = `
@@ -42,11 +48,11 @@ export async function GET(request: NextRequest) {
 
     const tags = await executeQuery(query, params);
 
-    return NextResponse.json(tags);
+    return NextResponse.json({ success: true, data: tags });
   } catch (error) {
     logger.error('Error fetching tags:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch tags' },
+      { success: false, error: 'Failed to fetch tags' },
       { status: 500 }
     );
   }
@@ -62,12 +68,18 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication and derive org from JWT
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+    const userId = guard.auth!.userId;
+
     const body = await request.json();
-    const { name, color, description, organizationId = 1, createdBy } = body;
+    const { name, color, description } = body;
 
     if (!name) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { success: false, error: 'Name is required' },
         { status: 400 }
       );
     }
@@ -79,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       return NextResponse.json(
-        { error: 'Tag with this name already exists' },
+        { success: false, error: 'Tag with this name already exists' },
         { status: 409 }
       );
     }
@@ -87,15 +99,15 @@ export async function POST(request: NextRequest) {
     const result = await executeRun(`
       INSERT INTO tags (organization_id, name, color, description, created_by)
       VALUES (?, ?, ?, ?, ?)
-    `, [organizationId, name, color || '#6B7280', description, createdBy]);
+    `, [organizationId, name, color || '#6B7280', description, userId]);
 
     const tag = await executeQueryOne('SELECT * FROM tags WHERE id = ?', [result.lastInsertRowid]);
 
-    return NextResponse.json(tag, { status: 201 });
+    return NextResponse.json({ success: true, data: tag }, { status: 201 });
   } catch (error) {
     logger.error('Error creating tag:', error);
     return NextResponse.json(
-      { error: 'Failed to create tag' },
+      { success: false, error: 'Failed to create tag' },
       { status: 500 }
     );
   }

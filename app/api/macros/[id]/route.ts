@@ -10,17 +10,28 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // ========================================
 // GET - Get macro by ID
 // ========================================
 
-export async function GET(_request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
-    const macroId = parseInt(params.id);
+    // SECURITY: Require authentication and scope by organization
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+
+    const { id } = await params;
+    const macroId = parseInt(id);
 
     const macro = await executeQueryOne(`
       SELECT
@@ -30,8 +41,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       FROM macros m
       LEFT JOIN users u ON m.created_by = u.id
       LEFT JOIN categories c ON m.category_id = c.id
-      WHERE m.id = ?
-    `, [macroId]);
+      WHERE m.id = ? AND m.organization_id = ?
+    `, [macroId, organizationId]);
 
     if (!macro) {
       return NextResponse.json(
@@ -62,12 +73,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const macroId = parseInt(params.id);
+    // SECURITY: Require authentication and scope by organization
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+
+    const { id } = await params;
+    const macroId = parseInt(id);
     const body = await request.json();
     const { name, description, content, actions, categoryId, isShared, isActive } = body;
 
-    // Check if macro exists
-    const existing = await executeQueryOne('SELECT id FROM macros WHERE id = ?', [macroId]);
+    // Check if macro exists and belongs to organization
+    const existing = await executeQueryOne('SELECT id FROM macros WHERE id = ? AND organization_id = ?', [macroId, organizationId]);
     if (!existing) {
       return NextResponse.json(
         { error: 'Macro not found' },
@@ -163,12 +180,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE - Delete macro
 // ========================================
 
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  try {
-    const macroId = parseInt(params.id);
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
 
-    // Check if macro exists
-    const existing = await executeQueryOne('SELECT id FROM macros WHERE id = ?', [macroId]);
+  try {
+    // SECURITY: Require authentication and scope by organization
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+
+    const { id } = await params;
+    const macroId = parseInt(id);
+
+    // Check if macro exists and belongs to organization
+    const existing = await executeQueryOne('SELECT id FROM macros WHERE id = ? AND organization_id = ?', [macroId, organizationId]);
     if (!existing) {
       return NextResponse.json(
         { error: 'Macro not found' },
@@ -177,7 +203,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Soft delete by setting is_active to false
-    await executeRun('UPDATE macros SET is_active = 0 WHERE id = ?', [macroId]);
+    await executeRun('UPDATE macros SET is_active = 0 WHERE id = ? AND organization_id = ?', [macroId, organizationId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

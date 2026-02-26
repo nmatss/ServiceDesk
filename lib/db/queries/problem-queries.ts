@@ -302,11 +302,12 @@ export async function getProblems(
   const whereClause = conditions.join(' AND ');
 
   // Sort mapping
+  // Note: incident_count column does not exist in the problems table,
+  // so we fall back to created_at if someone requests it.
   const sortFieldMap: Record<string, string> = {
     created_at: 'p.created_at',
     updated_at: 'p.updated_at',
     priority: 'pr.level',
-    incident_count: 'p.incident_count',
     status: 'p.status',
   };
   const sortField = sortFieldMap[sort.field] || 'p.created_at';
@@ -898,6 +899,11 @@ export async function searchKnownErrorsBySymptoms(
   organizationId: number,
   searchTerms: string[]
 ): Promise<KnownErrorWithRelations[]> {
+  // Guard against empty arrays producing invalid SQL: AND ()
+  if (searchTerms.length === 0) {
+    return [];
+  }
+
   const conditions = searchTerms.map(() => 'symptoms LIKE ?');
   const params = [
     organizationId,

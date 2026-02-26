@@ -186,7 +186,7 @@ export default function CABPage() {
     switch (category) {
       case 'standard': return 'bg-success-50 text-success-700 dark:bg-success-900/20 dark:text-success-300'
       case 'normal': return 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300'
-      case 'emergency': return 'bg-danger-50 text-danger-700 dark:bg-danger-900/20 dark:text-danger-300'
+      case 'emergency': return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
       default: return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
     }
   }
@@ -194,7 +194,7 @@ export default function CABPage() {
   const getDecisionColor = (decision: string | null) => {
     switch (decision) {
       case 'approved': return 'bg-success-50 text-success-700 dark:bg-success-900/20 dark:text-success-300'
-      case 'rejected': return 'bg-danger-50 text-danger-700 dark:bg-danger-900/20 dark:text-danger-300'
+      case 'rejected': return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
       case 'deferred': return 'bg-warning-50 text-warning-700 dark:bg-warning-900/20 dark:text-warning-300'
       default: return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
     }
@@ -311,7 +311,7 @@ export default function CABPage() {
           </div>
           <div className="glass-panel p-4 hover-lift transition-all duration-200">
             <p className="text-sm text-muted-content">Rejeitadas (30d)</p>
-            <p className="text-2xl font-bold text-danger-600 dark:text-danger-400 mt-1">{stats.rejected}</p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{stats.rejected}</p>
           </div>
         </div>
 
@@ -403,7 +403,7 @@ export default function CABPage() {
                                       level <= change.risk_level
                                         ? change.risk_level <= 2 ? 'bg-success-500 dark:bg-success-400' :
                                           change.risk_level <= 3 ? 'bg-warning-500 dark:bg-warning-400' :
-                                          change.risk_level <= 4 ? 'bg-orange-500 dark:bg-orange-400' : 'bg-danger-500 dark:bg-danger-400'
+                                          change.risk_level <= 4 ? 'bg-orange-500 dark:bg-orange-400' : 'bg-red-500 dark:bg-red-400'
                                         : 'bg-neutral-200 dark:bg-neutral-700'
                                     }`}
                                   />

@@ -4,7 +4,13 @@ import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { hashPassword } from '@/lib/auth/auth-service';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-export async function POST(request: Request) {
+import { NextRequest } from 'next/server';
+
+export async function POST(request: NextRequest) {
+    // SECURITY: Rate limiting for public onboarding endpoint
+    const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_REGISTER);
+    if (rateLimitResponse) return rateLimitResponse;
+
     try {
         const body = await request.json();
         const { companyName, slug, adminName, adminEmail, adminPassword, primaryColor } = body;

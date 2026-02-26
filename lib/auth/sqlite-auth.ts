@@ -269,7 +269,8 @@ export async function generateToken(user: AuthUser): Promise<string> {
     email: user.email,
     role: user.role,
     organization_id: user.organization_id,
-    tenant_slug: user.tenant_slug
+    tenant_slug: user.tenant_slug,
+    type: 'access'
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('servicedesk')

@@ -160,7 +160,8 @@ export async function PUT(
     }
 
     // Apenas admins podem editar usuários
-    if (user.role !== 'admin') {
+    const adminRoles = ['admin', 'super_admin', 'tenant_admin'];
+    if (!adminRoles.includes(user.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -283,7 +284,8 @@ export async function DELETE(
     }
 
     // Apenas admins podem deletar usuários
-    if (user.role !== 'admin') {
+    const deleteAdminRoles = ['admin', 'super_admin', 'tenant_admin'];
+    if (!deleteAdminRoles.includes(user.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 

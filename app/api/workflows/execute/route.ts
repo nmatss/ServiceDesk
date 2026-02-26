@@ -13,6 +13,7 @@ import {
 } from '@/lib/types/workflow';
 import { z } from 'zod';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 // Request validation schema
 const ExecuteWorkflowSchema = z.object({
@@ -42,6 +43,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+
     const body = await request.json();
 
     // Validate request
@@ -188,6 +193,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+
     const { searchParams } = new URL(request.url);
     const executionId = searchParams.get('executionId');
 
@@ -240,6 +249,10 @@ export async function DELETE(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+
     const { searchParams } = new URL(request.url);
     const executionId = searchParams.get('executionId');
     const reason = searchParams.get('reason') || 'User cancelled';

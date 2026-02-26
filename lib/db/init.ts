@@ -77,6 +77,19 @@ function ensureBootstrapCompatibility(): void {
 }
 
 function seedITILReferenceData(): void {
+  // Teams
+  const hasTeams = db.prepare("SELECT 1 FROM teams LIMIT 1").get();
+  if (!hasTeams) {
+    db.exec(`
+      INSERT INTO teams (name, description, organization_id) VALUES
+        ('IT Support', 'General IT support team', 1),
+        ('Infrastructure', 'Infrastructure and operations team', 1),
+        ('Development', 'Software development team', 1),
+        ('Security', 'Information security team', 1),
+        ('Network', 'Network operations team', 1);
+    `);
+  }
+
   // Root Cause Categories
   const hasRCC = db.prepare("SELECT 1 FROM root_cause_categories LIMIT 1").get();
   if (!hasRCC) {

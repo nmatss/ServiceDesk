@@ -11,7 +11,6 @@ export default function AdminTicketsPage() {
 
   const handleExport = () => {
     // TODO: Implement export functionality
-    console.log('Exporting tickets...')
   }
 
   if (loading) {

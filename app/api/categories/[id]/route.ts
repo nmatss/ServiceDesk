@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -23,7 +23,25 @@ export async function PUT(
       )
     }
 
-    const id = parseInt(params.id)
+    // SECURITY: Require authentication for updating categories
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { error: 'Usuário não autenticado' },
+        { status: 401 }
+      )
+    }
+
+    // Only admins can update categories
+    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+      return NextResponse.json(
+        { error: 'Permissão insuficiente' },
+        { status: 403 }
+      )
+    }
+
+    const { id: idParam } = await params
+    const id = parseInt(idParam)
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'ID inválido' },
@@ -98,7 +116,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -114,7 +132,25 @@ export async function DELETE(
       )
     }
 
-    const id = parseInt(params.id)
+    // SECURITY: Require authentication for deleting categories
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { error: 'Usuário não autenticado' },
+        { status: 401 }
+      )
+    }
+
+    // Only admins can delete categories
+    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+      return NextResponse.json(
+        { error: 'Permissão insuficiente' },
+        { status: 403 }
+      )
+    }
+
+    const { id: idParam } = await params
+    const id = parseInt(idParam)
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'ID inválido' },

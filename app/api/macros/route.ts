@@ -10,6 +10,8 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+
 // ========================================
 // GET - List all macros
 // ========================================
@@ -20,9 +22,13 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication and scope by organization
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+    const authUserId = guard.auth!.userId;
+
     const { searchParams } = new URL(request.url);
-    const organizationId = parseInt(searchParams.get('organizationId') || '1');
-    const userId = searchParams.get('userId');
     const categoryId = searchParams.get('categoryId');
     const search = searchParams.get('search') || '';
 
@@ -39,10 +45,8 @@ export async function GET(request: NextRequest) {
     const params: (string | number)[] = [organizationId];
 
     // Filter by visibility (shared or own macros)
-    if (userId) {
-      query += ` AND (m.is_shared = 1 OR m.created_by = ?)`;
-      params.push(parseInt(userId));
-    }
+    query += ` AND (m.is_shared = 1 OR m.created_by = ?)`;
+    params.push(authUserId);
 
     // Filter by category
     if (categoryId) {
@@ -86,6 +90,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication and derive org from JWT
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth!.organizationId;
+    const userId = guard.auth!.userId;
+
     const body = await request.json();
     const {
       name,
@@ -94,20 +104,11 @@ export async function POST(request: NextRequest) {
       actions,
       categoryId,
       isShared = true,
-      organizationId = 1,
-      createdBy,
     } = body;
 
     if (!name || !content) {
       return NextResponse.json(
         { error: 'Name and content are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!createdBy) {
-      return NextResponse.json(
-        { error: 'Created by user is required' },
         { status: 400 }
       );
     }
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
       actions ? JSON.stringify(actions) : '[]',
       categoryId || null,
       isShared ? 1 : 0,
-      createdBy]);
+      userId]);
 
     const macro = await executeQueryOne<any>(`
       SELECT

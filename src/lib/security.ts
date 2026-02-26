@@ -40,14 +40,11 @@ export function sanitizeInput(input: string): string {
     .trim();
 }
 
-// Função para gerar token seguro
+// Função para gerar token seguro usando CSPRNG
 export function generateSecureToken(length: number = 32): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('').slice(0, length * 2);
 }
 
 // Função para validar email

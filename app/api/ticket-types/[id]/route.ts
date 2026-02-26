@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentTenantId } from '@/lib/tenant/manager'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,7 +13,10 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth!.organizationId;
     const { id } = await params
     const ticketTypeId = parseInt(id)
     if (isNaN(ticketTypeId)) {
@@ -57,7 +60,10 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    // SECURITY: Require authentication with admin role
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'tenant_admin'] });
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth!.organizationId;
     const { id } = await params
     const ticketTypeId = parseInt(id)
     const data = await request.json()
@@ -150,7 +156,10 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantId = getCurrentTenantId()
+    // SECURITY: Require authentication with admin role
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'tenant_admin'] });
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth!.organizationId;
     const { id } = await params
     const ticketTypeId = parseInt(id)
     if (isNaN(ticketTypeId)) {

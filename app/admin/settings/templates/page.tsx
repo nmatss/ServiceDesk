@@ -248,9 +248,9 @@ export default function TemplatesPage() {
               {templates.filter(t => t.active).length}
             </div>
           </div>
-          <div className="glass-panel group hover:shadow-lg hover:shadow-info-500/10 transition-all duration-300">
+          <div className="glass-panel group hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300">
             <div className="text-sm text-description">Usos Totais</div>
-            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-info-600 dark:group-hover:text-info-400 transition-colors">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {templates.reduce((sum, t) => sum + t.usage_count, 0).toLocaleString()}
             </div>
           </div>
@@ -333,7 +333,7 @@ export default function TemplatesPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setShowPreview(template)}
-                        className="p-2 text-icon-muted hover:text-info-600 dark:hover:text-info-400 hover:bg-info-50 dark:hover:bg-info-900/20 rounded-lg transition-all"
+                        className="p-2 text-icon-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
                         title="Visualizar"
                       >
                         <EyeIcon className="w-4 h-4" />

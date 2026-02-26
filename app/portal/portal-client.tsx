@@ -157,10 +157,10 @@ export default function PortalClient() {
               />
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-900 leading-tight">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-100 leading-tight">
                 Portal do Cliente
               </h1>
-              <p className="text-sm sm:text-base text-neutral-600 line-clamp-2 sm:line-clamp-none">
+              <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 line-clamp-2 sm:line-clamp-none">
                 Abra tickets, acompanhe chamados e acesse a base de conhecimento
               </p>
             </div>
@@ -181,10 +181,10 @@ export default function PortalClient() {
       <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
         {/* Welcome Section */}
         <div className="text-center mb-6 sm:mb-8 md:mb-12">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 mb-2 sm:mb-4">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2 sm:mb-4">
             Como podemos ajudar você hoje?
           </h2>
-          <p className="text-sm sm:text-base md:text-xl text-neutral-600 max-w-2xl mx-auto px-2">
+          <p className="text-sm sm:text-base md:text-xl text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto px-2">
             Escolha o tipo de solicitação que melhor descreve sua necessidade.
           </p>
         </div>
@@ -198,7 +198,10 @@ export default function PortalClient() {
               <div
                 key={ticketType.id}
                 onClick={() => handleTicketTypeSelect(ticketType)}
-                className={`relative p-4 sm:p-5 md:p-6 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-lg active:scale-[0.98] sm:hover:scale-105 ${getUrgencyColor(ticketType.workflow_type)}`}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTicketTypeSelect(ticketType) } }}
+                role="button"
+                tabIndex={0}
+                className={`relative p-4 sm:p-5 md:p-6 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:shadow-lg active:scale-[0.98] sm:hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${getUrgencyColor(ticketType.workflow_type)}`}
                 style={{
                   borderColor: ticketType.color + '40'
                 }}
@@ -222,25 +225,25 @@ export default function PortalClient() {
                     {getWorkflowIcon(ticketType.icon, ticketType.color)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base sm:text-lg md:text-xl font-semibold text-neutral-900 mb-1 sm:mb-2 truncate">
+                    <h3 className="text-base sm:text-lg md:text-xl font-semibold text-neutral-900 dark:text-neutral-100 mb-1 sm:mb-2 truncate">
                       {ticketType.name}
                     </h3>
-                    <p className="text-xs sm:text-sm text-neutral-600 line-clamp-2 sm:line-clamp-none">
+                    <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 sm:line-clamp-none">
                       {ticketType.description}
                     </p>
                   </div>
                 </div>
 
                 {/* SLA Info */}
-                <div className="flex items-center gap-2 mb-3 sm:mb-4 text-xs sm:text-sm text-neutral-500">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
                   <ClockIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                   <span className="truncate">{workflowInfo.slaInfo}</span>
                 </div>
 
                 {/* Examples - Hidden on very small screens */}
                 <div className="hidden xs:block mb-3 sm:mb-4">
-                  <p className="text-xs sm:text-sm font-medium text-neutral-700 mb-1.5 sm:mb-2">Exemplos:</p>
-                  <ul className="text-xs sm:text-sm text-neutral-600 space-y-0.5 sm:space-y-1">
+                  <p className="text-xs sm:text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5 sm:mb-2">Exemplos:</p>
+                  <ul className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 space-y-0.5 sm:space-y-1">
                     {workflowInfo.examples.slice(0, 2).map((example, index) => (
                       <li key={index} className="flex items-center gap-2">
                         <span className="w-1 h-1 bg-neutral-400 rounded-full flex-shrink-0"></span>
@@ -251,11 +254,11 @@ export default function PortalClient() {
                 </div>
 
                 {/* Action Button */}
-                <div className="flex items-center justify-between pt-2 border-t border-neutral-200/50">
-                  <span className="text-xs sm:text-sm text-neutral-500">
+                <div className="flex items-center justify-between pt-2 border-t border-neutral-200/50 dark:border-neutral-700/50">
+                  <span className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
                     Toque para abrir
                   </span>
-                  <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-400" />
+                  <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-400 dark:text-neutral-500" />
                 </div>
               </div>
             )

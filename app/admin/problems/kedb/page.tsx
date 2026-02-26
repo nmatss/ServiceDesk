@@ -131,7 +131,7 @@ export default function KEDBPage() {
   const getFixStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-500/20 dark:text-neutral-400'
-      case 'planned': return 'bg-info-100 text-info-700 dark:bg-info-500/20 dark:text-info-400'
+      case 'planned': return 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
       case 'in_progress': return 'bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400'
       case 'completed': return 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400'
       case 'wont_fix': return 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-400'
@@ -426,7 +426,7 @@ export default function KEDBPage() {
                     {error.workaround_instructions && (
                       <div className="mt-4">
                         <h4 className="font-semibold text-neutral-900 dark:text-neutral-50 mb-2">Instruções do Workaround</h4>
-                        <div className="bg-info-50 dark:bg-info-500/10 border border-info-200 dark:border-info-500/30 rounded-lg p-3">
+                        <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3">
                           <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{error.workaround_instructions}</p>
                         </div>
                       </div>
@@ -443,7 +443,7 @@ export default function KEDBPage() {
                             </span>
                           )}
                           {error.affected_cis && error.affected_cis.length > 0 && (
-                            <span className="px-3 py-1 bg-info-100 dark:bg-info-700 text-info-700 dark:text-info-300 rounded-lg text-sm">
+                            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-700 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
                               {error.affected_cis.length} CI(s)
                             </span>
                           )}

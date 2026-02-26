@@ -463,7 +463,14 @@ export async function checkRateLimit(
     return !result.allowed
   } catch (error) {
     // Log error but allow request through (fail-open for availability)
-    console.error('Rate limit check failed:', error)
+    if (typeof window === 'undefined') {
+      try {
+        const { structuredLogger } = require('../monitoring/structured-logger')
+        structuredLogger.error('Rate limit check failed', { error: String(error) })
+      } catch {
+        // Fallback if logger unavailable
+      }
+    }
     return false
   }
 }

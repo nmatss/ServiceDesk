@@ -204,7 +204,7 @@ export default function EditTicketPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900 flex items-center justify-center">
         <div className="glass-panel p-10 text-center max-w-md animate-fade-in">
-          <div className="w-20 h-20 bg-gradient-to-br from-danger-100 to-danger-200 dark:from-danger-900/30 dark:to-danger-800/30 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">⚠️</span>
           </div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-3">Erro</h1>

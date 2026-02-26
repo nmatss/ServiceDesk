@@ -256,7 +256,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Only admins can delete problems
-    if (payload.role !== 'admin') {
+    const adminRoles = ['admin', 'super_admin', 'tenant_admin'];
+    if (!adminRoles.includes(payload.role)) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Admin access required' },
         { status: 403 }

@@ -183,14 +183,14 @@ export async function GET(request: NextRequest) {
     if (action === 'global') {
       let users: Array<{ id: number; name: string; email: string; role: string }> = [];
 
-      if (includeUsers && query) {
+      if (includeUsers && query && user.organization_id) {
         users = await executeQuery(
           `SELECT id, name, email, role
            FROM users
-           WHERE LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?)
+           WHERE organization_id = ? AND (LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?))
            ORDER BY name
            LIMIT ?`,
-          [`%${query}%`, `%${query}%`, Math.max(1, Math.floor(limit / 2))]
+          [user.organization_id, `%${query}%`, `%${query}%`, Math.max(1, Math.floor(limit / 2))]
         );
       }
 

@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       name: user.name,
       email: user.email,
       role: user.role,
-      tenant_slug: user.tenant_slug || `org-${user.organization_id}`,
+      tenant_slug: `org-${user.organization_id}`,
       device_fingerprint: deviceFingerprint,
     };
 
@@ -174,8 +174,8 @@ export async function GET(request: NextRequest) {
       'tenant-context',
       JSON.stringify({
         id: user.organization_id,
-        slug: user.tenant_slug || `org-${user.organization_id}`,
-        name: user.tenant_slug || `org-${user.organization_id}`,
+        slug: `org-${user.organization_id}`,
+        name: `org-${user.organization_id}`,
       }),
       {
         httpOnly: true,

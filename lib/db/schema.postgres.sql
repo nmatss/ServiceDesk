@@ -950,6 +950,8 @@ CREATE INDEX idx_user_sessions_active ON user_sessions(is_active, last_activity)
 CREATE TABLE IF NOT EXISTS notification_events (
     id BIGSERIAL PRIMARY KEY,
     event_type VARCHAR(100) NOT NULL,
+    entity_type VARCHAR(50),
+    entity_id BIGINT,
     target_users JSONB,
     payload JSONB NOT NULL,
     processed BOOLEAN DEFAULT FALSE,
@@ -1067,7 +1069,7 @@ CREATE TABLE IF NOT EXISTS problems (
     root_cause TEXT,
     root_cause_category_id BIGINT REFERENCES root_cause_categories(id) ON DELETE SET NULL,
     workaround TEXT,
-    impact TEXT,
+    impact TEXT CHECK(impact IS NULL OR impact IN ('low','medium','high','critical')),
     urgency VARCHAR(20) DEFAULT 'medium' CHECK(urgency IN ('low','medium','high','critical')),
     affected_services JSONB DEFAULT '[]',
     resolution TEXT,
@@ -1623,6 +1625,35 @@ ALTER TABLE change_request_approvals ADD CONSTRAINT fk_change_approvals_cab_memb
 -- MISSING TABLES FROM SQLITE SCHEMA
 -- ========================================
 
+-- Teams (referenced by problems, change_requests, configuration_items, service_request_tasks, etc.)
+CREATE TABLE IF NOT EXISTS teams (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    organization_id BIGINT NOT NULL DEFAULT 1,
+    lead_id BIGINT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE,
+    FOREIGN KEY (lead_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_teams_org ON teams(organization_id);
+
+CREATE OR REPLACE FUNCTION update_teams_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_teams_updated_at ON teams;
+CREATE TRIGGER update_teams_updated_at
+BEFORE UPDATE ON teams
+FOR EACH ROW EXECUTE FUNCTION update_teams_updated_at();
+
 -- Departments
 CREATE TABLE IF NOT EXISTS departments (
     id BIGSERIAL PRIMARY KEY,
@@ -1735,15 +1766,7 @@ CREATE TABLE IF NOT EXISTS notification_batches (
     completed_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS notification_events (
-    id BIGSERIAL PRIMARY KEY,
-    event_type VARCHAR(100) NOT NULL,
-    entity_type VARCHAR(50),
-    entity_id BIGINT,
-    payload JSONB DEFAULT '{}',
-    processed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- (notification_events already defined above, duplicate removed)
 
 -- Analytics enhancements
 CREATE TABLE IF NOT EXISTS analytics_events (

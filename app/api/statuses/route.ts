@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, RunResult } from '@/lib/db/adapter';
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger'
 import { jsonWithCache } from '@/lib/api/cache-headers'
 import { cacheInvalidation } from '@/lib/api/cache'
@@ -86,6 +86,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Tenant não encontrado' },
         { status: 400 }
+      )
+    }
+
+    // SECURITY: Require authentication for creating statuses
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { success: false, error: 'Usuário não autenticado' },
+        { status: 401 }
+      )
+    }
+
+    // Only admins can create statuses
+    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+      return NextResponse.json(
+        { success: false, error: 'Permissão insuficiente' },
+        { status: 403 }
       )
     }
 

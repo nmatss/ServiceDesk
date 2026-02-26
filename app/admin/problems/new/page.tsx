@@ -231,7 +231,7 @@ export default function NewProblemPage() {
           {/* Affected Services */}
           <div className="glass-panel animate-slide-up" style={{ animationDelay: '0.3s' }}>
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6 flex items-center gap-2">
-              <ServerIcon className="w-5 h-5 text-info-500" />
+              <ServerIcon className="w-5 h-5 text-blue-500" />
               Serviços Afetados
             </h2>
 

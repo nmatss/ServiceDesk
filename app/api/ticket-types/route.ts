@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-// Enable caching for this route - static lookup data
-export const dynamic = 'force-static'
-export const revalidate = 1800 // 30 minutes
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -14,13 +11,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth!.organizationId;
 
     const tenantManager = getTenantManager()
     const { searchParams } = new URL(request.url)
@@ -29,10 +23,10 @@ export async function GET(request: NextRequest) {
     let ticketTypes
     if (customerVisible === 'true') {
       // Only return customer-visible ticket types for landing page
-      ticketTypes = tenantManager.getCustomerTicketTypes(tenantContext.id)
+      ticketTypes = tenantManager.getCustomerTicketTypes(tenantId)
     } else {
       // Return all ticket types for admin
-      ticketTypes = tenantManager.getTicketTypesByTenant(tenantContext.id)
+      ticketTypes = tenantManager.getTicketTypesByTenant(tenantId)
     }
 
     // Add cache control headers
@@ -59,13 +53,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    // SECURITY: Require authentication with admin role
+    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'tenant_admin'] });
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth!.organizationId;
 
     const data = await request.json()
     // Validate required fields
@@ -77,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if slug already exists for this tenant
-    const existingType = await executeQueryOne('SELECT id FROM ticket_types WHERE tenant_id = ? AND slug = ?', [tenantContext.id, data.slug])
+    const existingType = await executeQueryOne('SELECT id FROM ticket_types WHERE tenant_id = ? AND slug = ?', [tenantId, data.slug])
 
     if (existingType) {
       return NextResponse.json(
@@ -93,7 +84,7 @@ export async function POST(request: NextRequest) {
         sla_required, approval_required, escalation_enabled, auto_assignment_enabled,
         customer_visible, sort_order
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [tenantContext.id,
+    `, [tenantId,
       data.name,
       data.slug,
       data.description || null,

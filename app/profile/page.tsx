@@ -108,13 +108,8 @@ export default function ProfilePage() {
 
   const fetchUserStats = async () => {
     try {
-      const token = localStorage.getItem('authToken')
-      if (!token) return
-
       const response = await fetch('/api/tickets?limit=1000', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // Use httpOnly cookies
       })
 
       if (response.ok) {

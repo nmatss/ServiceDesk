@@ -197,7 +197,10 @@ export interface RootCauseCategory {
   id: number;
   name: string;
   description: string | null;
+  parent_id: number | null;
   organization_id: number;
+  is_active: number; // SQLite boolean
+  created_at: string;
 }
 
 export interface RootCauseCategoryTree extends RootCauseCategory {
@@ -334,7 +337,7 @@ export interface KnownErrorFilters {
 }
 
 export interface ProblemSortOptions {
-  field: 'created_at' | 'updated_at' | 'priority' | 'incident_count' | 'status';
+  field: 'created_at' | 'updated_at' | 'priority' | 'status';
   direction: 'asc' | 'desc';
 }
 

@@ -342,7 +342,10 @@ export default function ChangesPage() {
                 <div
                   key={change.id}
                   onClick={() => router.push(`/admin/changes/${change.id}`)}
-                  className="glass-panel hover:shadow-large hover:-translate-y-1 cursor-pointer group transition-all duration-300"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/changes/${change.id}`) } }}
+                  role="button"
+                  tabIndex={0}
+                  className="glass-panel hover:shadow-large hover:-translate-y-1 cursor-pointer group transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                     {/* Status Icon */}

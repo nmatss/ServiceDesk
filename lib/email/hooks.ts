@@ -113,12 +113,14 @@ export const getUserEmailData = async (userId: number, includePassword = false):
   }
 }
 
-// Generate temporary password
+// Generate temporary password using CSPRNG
 const generateTempPassword = (): string => {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  const randomBytes = new Uint8Array(12)
+  crypto.getRandomValues(randomBytes)
   let password = ''
-  for (let i = 0; i < 8; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(randomBytes[i] % chars.length)
   }
   return password
 }

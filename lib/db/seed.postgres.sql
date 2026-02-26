@@ -43,6 +43,17 @@ SELECT setval(pg_get_serial_sequence('statuses', 'id'), COALESCE(MAX(id), 1), tr
 -- ITIL REFERENCE DATA
 -- ========================================
 
+-- Teams
+INSERT INTO teams (id, name, description, organization_id) VALUES
+  (1, 'IT Support', 'General IT support team', 1),
+  (2, 'Infrastructure', 'Infrastructure and operations team', 1),
+  (3, 'Development', 'Software development team', 1),
+  (4, 'Security', 'Information security team', 1),
+  (5, 'Network', 'Network operations team', 1)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval(pg_get_serial_sequence('teams', 'id'), COALESCE(MAX(id), 1), true) FROM teams;
+
 -- Root Cause Categories
 INSERT INTO root_cause_categories (id, name, description, organization_id) VALUES
   (1, 'Hardware', 'Hardware-related root causes', 1),

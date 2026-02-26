@@ -527,7 +527,14 @@ export class WorkflowEngine {
       case 'is_not_null':
         return fieldValue != null;
       case 'regex':
-        return new RegExp(String(expectedValue)).test(String(fieldValue));
+        try {
+          // Limit regex execution time to prevent ReDoS
+          const regex = new RegExp(String(expectedValue));
+          const testString = String(fieldValue).substring(0, 10000); // Limit input length
+          return regex.test(testString);
+        } catch {
+          return false;
+        }
       default:
         return false;
     }

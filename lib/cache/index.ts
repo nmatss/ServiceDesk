@@ -377,29 +377,21 @@ export function invalidateStatsCache(): void {
 /**
  * Wrapper para cache de funções
  */
-export function withCache<T>(
+export async function withCache<T>(
   cacheKey: string,
   fn: () => T | Promise<T>,
   ttl: number = config.defaultTTL
 ): Promise<T> {
-  return new Promise(async (resolve) => {
-    // Tentar buscar do cache primeiro
-    const cached = getFromCache<T>(cacheKey);
-    if (cached !== null) {
-      resolve(cached);
-      return;
-    }
+  // Tentar buscar do cache primeiro
+  const cachedValue = getFromCache<T>(cacheKey);
+  if (cachedValue !== null) {
+    return cachedValue;
+  }
 
-    try {
-      // Executar função e cachear resultado
-      const result = await fn();
-      setCache(cacheKey, result, ttl);
-      resolve(result);
-    } catch (error) {
-      logger.error('Error in withCache', error);
-      throw error;
-    }
-  });
+  // Executar função e cachear resultado
+  const result = await fn();
+  setCache(cacheKey, result, ttl);
+  return result;
 }
 
 /**

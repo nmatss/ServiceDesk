@@ -352,8 +352,8 @@ export default function AdminReportsPage() {
                 Tickets no Período
               </div>
             </div>
-            <div className="text-center p-4 rounded-lg bg-info-50 dark:bg-info-900/20 hover:bg-info-100 dark:hover:bg-info-900/30 transition-colors">
-              <div className="text-3xl font-bold text-info-600 dark:text-info-400">
+            <div className="text-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                 {reportData.overview.totalTickets > 0
                   ? Math.round((reportData.overview.closedTickets / reportData.overview.totalTickets) * 100)
                   : 0}%

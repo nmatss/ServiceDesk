@@ -165,7 +165,7 @@ export default function TicketDetailsPage() {
       case 1: return 'bg-gradient-to-r from-success-50 to-success-100 text-success-700 dark:from-success-900/20 dark:to-success-800/20 dark:text-success-300 border border-success-200 dark:border-success-800'
       case 2: return 'bg-gradient-to-r from-warning-50 to-warning-100 text-warning-700 dark:from-warning-900/20 dark:to-warning-800/20 dark:text-warning-300 border border-warning-200 dark:border-warning-800'
       case 3: return 'bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 dark:from-orange-900/20 dark:to-orange-800/20 dark:text-orange-300 border border-orange-200 dark:border-orange-800'
-      case 4: return 'bg-gradient-to-r from-danger-50 to-danger-100 text-danger-700 dark:from-danger-900/20 dark:to-danger-800/20 dark:text-danger-300 border border-danger-200 dark:border-danger-800'
+      case 4: return 'bg-gradient-to-r from-red-50 to-red-100 text-red-700 dark:from-red-900/20 dark:to-red-800/20 dark:text-red-300 border border-red-200 dark:border-red-800'
       default: return 'bg-gradient-to-r from-neutral-50 to-neutral-100 text-neutral-700 dark:from-neutral-900/20 dark:to-neutral-800/20 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800'
     }
   }
@@ -183,7 +183,7 @@ export default function TicketDetailsPage() {
   const getStatusColor = (statusName: string) => {
     const name = statusName.toLowerCase()
     if (name.includes('aberto') || name.includes('novo')) {
-      return 'bg-gradient-to-r from-info-50 to-info-100 text-info-700 dark:from-info-900/20 dark:to-info-800/20 dark:text-info-300 border border-info-200 dark:border-info-800'
+      return 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 dark:from-blue-900/20 dark:to-blue-800/20 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
     } else if (name.includes('progresso') || name.includes('andamento')) {
       return 'bg-gradient-to-r from-warning-50 to-warning-100 text-warning-700 dark:from-warning-900/20 dark:to-warning-800/20 dark:text-warning-300 border border-warning-200 dark:border-warning-800'
     } else if (name.includes('resolvido') || name.includes('concluído')) {
@@ -214,8 +214,8 @@ export default function TicketDetailsPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900 flex items-center justify-center">
         <div className="glass-panel p-10 text-center max-w-md animate-fade-in">
-          <div className="w-20 h-20 bg-gradient-to-br from-danger-100 to-danger-200 dark:from-danger-900/30 dark:to-danger-800/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ExclamationTriangleIcon className="h-10 w-10 text-danger-600 dark:text-danger-400" />
+          <div className="w-20 h-20 bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ExclamationTriangleIcon className="h-10 w-10 text-red-600 dark:text-red-400" />
           </div>
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-3">Erro ao Carregar Ticket</h1>
           <p className="text-description mb-6">{error || 'Ticket não encontrado'}</p>
