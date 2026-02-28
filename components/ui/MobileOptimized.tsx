@@ -164,7 +164,7 @@ export function MobileActionBar({
   className = ''
 }: MobileActionBarProps) {
   return (
-    <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700 p-4 safe-bottom z-40 ${className}`}>
+    <div className={`fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700 p-4 pb-[env(safe-area-inset-bottom)] safe-bottom z-40 ${className}`}>
       <div className="flex items-center space-x-3">
         {children}
       </div>

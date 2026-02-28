@@ -50,15 +50,15 @@ export default function Tooltip({
   const getArrowClasses = () => {
     switch (placement) {
       case 'top':
-        return 'top-full left-1/2 -translate-x-1/2 -mt-1 border-l-transparent border-r-transparent border-b-transparent border-t-neutral-900 dark:border-t-white'
+        return 'top-full left-1/2 -translate-x-1/2 -mt-1 border-l-transparent border-r-transparent border-b-transparent border-t-neutral-900 dark:border-t-neutral-700'
       case 'bottom':
-        return 'bottom-full left-1/2 -translate-x-1/2 -mb-1 border-l-transparent border-r-transparent border-t-transparent border-b-neutral-900 dark:border-b-white'
+        return 'bottom-full left-1/2 -translate-x-1/2 -mb-1 border-l-transparent border-r-transparent border-t-transparent border-b-neutral-900 dark:border-b-neutral-700'
       case 'left':
-        return 'left-full top-1/2 -translate-y-1/2 -ml-1 border-t-transparent border-b-transparent border-r-transparent border-l-neutral-900 dark:border-l-white'
+        return 'left-full top-1/2 -translate-y-1/2 -ml-1 border-t-transparent border-b-transparent border-r-transparent border-l-neutral-900 dark:border-l-neutral-700'
       case 'right':
-        return 'right-full top-1/2 -translate-y-1/2 -mr-1 border-t-transparent border-b-transparent border-l-transparent border-r-neutral-900 dark:border-r-white'
+        return 'right-full top-1/2 -translate-y-1/2 -mr-1 border-t-transparent border-b-transparent border-l-transparent border-r-neutral-900 dark:border-r-neutral-700'
       default:
-        return 'top-full left-1/2 -translate-x-1/2 -mt-1 border-l-transparent border-r-transparent border-b-transparent border-t-neutral-900 dark:border-t-white'
+        return 'top-full left-1/2 -translate-x-1/2 -mt-1 border-l-transparent border-r-transparent border-b-transparent border-t-neutral-900 dark:border-t-neutral-700'
     }
   }
 
@@ -96,8 +96,8 @@ export default function Tooltip({
         >
           <div
             className={`
-              relative px-3 py-2 bg-neutral-900 dark:bg-white
-              text-white dark:text-neutral-900 text-sm rounded-lg shadow-lg
+              relative px-3 py-2 bg-neutral-900 dark:bg-neutral-700
+              text-white dark:text-neutral-100 text-sm rounded-lg shadow-lg
               whitespace-nowrap transition-all duration-200
               opacity-100 scale-100
             `}

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger'
@@ -39,7 +39,7 @@ import {
 interface SidebarProps {
   open: boolean
   setOpen: (open: boolean) => void
-  userRole: 'admin' | 'agent' | 'user'
+  userRole: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
 }
 
 interface MenuItem {
@@ -71,6 +71,24 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
   useEffect(() => {
     fetchTicketCounts()
   }, [])
+
+  // Auto-expand the submenu containing the active page
+  useEffect(() => {
+    const items = getMenuItems()
+    for (const item of items) {
+      if (item.submenu) {
+        const hasActive = item.submenu.some(sub => {
+          if (sub.href === '/admin' && pathname === '/admin') return true
+          if (sub.href !== '/admin') return pathname.startsWith(sub.href.split('?')[0])
+          return false
+        })
+        if (hasActive && !expandedMenus.includes(item.name)) {
+          setExpandedMenus(prev => [...prev, item.name])
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   const fetchTicketCounts = async () => {
     try {
@@ -119,13 +137,13 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
     const baseItems: MenuItem[] = [
       {
         name: 'Dashboard',
-        href: userRole === 'admin' ? '/admin' : '/dashboard',
+        href: ['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(userRole) ? '/admin' : '/dashboard',
         icon: HomeIcon,
         iconSolid: HomeIconSolid
       }
     ]
 
-    if (userRole === 'admin') {
+    if (['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(userRole)) {
       return [
         ...baseItems,
         {
@@ -314,7 +332,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
     }
   }
 
-  const menuItems = getMenuItems()
+  const menuItems = useMemo(() => getMenuItems(), [userRole, ticketCounts])
 
   const isActive = (href: string) => {
     if (href === '/admin' && pathname === '/admin') return true
@@ -333,7 +351,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 px-4 sm:px-6 border-b border-white/10">
+      <div className="flex items-center justify-center h-16 px-4 sm:px-6 border-b border-neutral-200 dark:border-white/10">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-brand rounded-lg flex items-center justify-center">
             <TicketIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
@@ -369,59 +387,46 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
               >
                 {item.submenu ? (
                   <div className="relative">
-                    <Link
-                      href={item.href}
+                    <button
+                      onClick={() => toggleSubmenu(item.name)}
+                      onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
                       className={`
-                        sidebar-item min-h-touch transition-all duration-200
-                        hover:scale-[1.02] active:scale-[0.98] pr-10
+                        sidebar-item min-h-touch transition-colors duration-150
+                        w-full
                         ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''}
                       `}
-                      aria-current={isItemActive ? 'page' : undefined}
-                      aria-label={`Navegar para ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
+                      aria-expanded={shouldExpand}
+                      aria-controls={`submenu-${item.name}`}
+                      aria-label={`${shouldExpand ? 'Fechar' : 'Abrir'} submenu de ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
                     >
-                      <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                      <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" aria-hidden="true" />
                       {open && (
                         <>
                           <span className="ml-3 flex-1 text-left">{item.name}</span>
                           {item.badge && (
-                            <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${item.badge} itens`}>
+                            <span className="ml-2 badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
                               {item.badge}
                             </span>
                           )}
+                          <ChevronDownIcon
+                            className={`h-4 w-4 ml-1 transition-transform duration-200 ${shouldExpand ? 'rotate-180' : ''}`}
+                            aria-hidden="true"
+                          />
                         </>
                       )}
-                    </Link>
-                    {open && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleSubmenu(item.name)
-                        }}
-                        onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-                        aria-expanded={shouldExpand}
-                        aria-controls={`submenu-${item.name}`}
-                        aria-label={`${shouldExpand ? 'Fechar' : 'Abrir'} submenu de ${item.name}`}
-                      >
-                        <ChevronDownIcon
-                          className={`h-4 w-4 transition-transform duration-300 ${shouldExpand ? 'rotate-180' : ''}`}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    )}
+                    </button>
                   </div>
                 ) : (
                   <Link
                     href={item.href}
                     className={`
-                      sidebar-item min-h-touch transition-all duration-200
-                      hover:scale-[1.02] active:scale-[0.98]
+                      sidebar-item min-h-touch transition-colors duration-150
                       ${isItemActive ? 'sidebar-item-active' : ''}
                     `}
                     aria-current={isItemActive ? 'page' : undefined}
                     aria-label={`Navegar para ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
                   >
-                    <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                    <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" aria-hidden="true" />
                     {open && (
                       <>
                         <span className="ml-3">{item.name}</span>
@@ -438,7 +443,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                 {/* Tooltip for collapsed sidebar */}
                 {!open && (
                   <div
-                    className="absolute left-full ml-2 px-2 py-1 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap"
+                    className="absolute left-full ml-2 px-2 py-1 bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap"
                     role="tooltip"
                   >
                     {item.name}
@@ -467,16 +472,16 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                         href={subItem.href}
                         className={`
                           flex items-center px-4 py-2 min-h-touch text-sm rounded-lg
-                          transition-all duration-200 hover:translate-x-1 active:scale-[0.98]
+                          transition-colors duration-150
                           ${isSubItemActive
                             ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                            : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                            : 'text-description hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                           }
                         `}
                         aria-current={isSubItemActive ? 'page' : undefined}
                         aria-label={`Navegar para ${subItem.name}${subItem.badge ? `. ${subItem.badge} itens` : ''}`}
                       >
-                        <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
+                        <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" aria-hidden="true" />
                         <span className="ml-3 flex-1">{subItem.name}</span>
                         {subItem.badge && (
                           <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${subItem.badge} itens`}>
@@ -521,7 +526,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
         id="main-sidebar"
         className={`
           fixed inset-y-0 left-0 z-50 glass-panel
-          transform transition-all duration-300 ease-in-out
+          transform transition-[width,transform] duration-150 ease-out
           ${open ? 'w-64 sm:w-72 translate-x-0' : 'w-20 -translate-x-full lg:translate-x-0'}
           ${open ? 'shadow-xl' : 'shadow-md'}
         `}
@@ -541,7 +546,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
       {/* Spacer for desktop */}
       <div
-        className={`hidden lg:block transition-all duration-300 ease-in-out ${open ? 'w-64' : 'w-20'}`}
+        className={`hidden lg:block transition-[width] duration-150 ease-out ${open ? 'w-64' : 'w-20'}`}
       />
     </>
   )

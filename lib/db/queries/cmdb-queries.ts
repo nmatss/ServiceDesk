@@ -36,23 +36,27 @@ import type {
  * Generate CI number in format CI-YYYY-XXXXX
  */
 export async function generateCINumber(organizationId: number): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `CI-${year}-`;
+  return executeTransaction(async (db) => {
+    const year = new Date().getFullYear();
+    const prefix = `CI-${year}-`;
 
-  const result = await executeQueryOne<{ ci_number: string }>(
-    `SELECT ci_number FROM configuration_items
-     WHERE organization_id = ? AND ci_number LIKE ?
-     ORDER BY id DESC LIMIT 1`,
-    [organizationId, `${prefix}%`]
-  );
+    const result = await db.get<{ ci_number: string }>(
+      `SELECT ci_number FROM configuration_items
+       WHERE organization_id = ? AND ci_number LIKE ?
+       ORDER BY id DESC LIMIT 1`,
+      [organizationId, `${prefix}%`]
+    );
 
-  let nextNumber = 1;
-  if (result?.ci_number) {
-    const currentNumber = parseInt(result.ci_number.replace(prefix, ''), 10);
-    nextNumber = currentNumber + 1;
-  }
+    let nextNumber = 1;
+    if (result?.ci_number) {
+      const currentNumber = parseInt(result.ci_number.replace(prefix, ''), 10);
+      if (!isNaN(currentNumber)) {
+        nextNumber = currentNumber + 1;
+      }
+    }
 
-  return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+    return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+  });
 }
 
 // ============================================
@@ -181,7 +185,9 @@ export async function updateCIType(id: number, input: UpdateCIType): Promise<CIT
 // ============================================
 
 /**
- * List all CI statuses
+ * List all CI statuses.
+ * NOTE: ci_statuses is a global lookup table with no organization_id column.
+ * This is intentional -- statuses are shared across all organizations.
  */
 export async function listCIStatuses(): Promise<CIStatus[]> {
   return executeQuery<CIStatus>(
@@ -218,7 +224,9 @@ export async function createCIStatus(input: CreateCIStatus): Promise<CIStatus> {
 // ============================================
 
 /**
- * List all CI relationship types
+ * List all CI relationship types.
+ * NOTE: ci_relationship_types is a global lookup table with no organization_id column.
+ * This is intentional -- relationship types are shared across all organizations.
  */
 export async function listCIRelationshipTypes(): Promise<CIRelationshipType[]> {
   return executeQuery<CIRelationshipType>(
@@ -767,17 +775,20 @@ export async function addCIRelationship(
 }
 
 /**
- * Remove a relationship between CIs
+ * Remove a relationship between CIs (scoped to organization via configuration_items)
  */
 export async function removeCIRelationship(
+  organizationId: number,
   userId: number,
   relationshipId: number
 ): Promise<boolean> {
   return executeTransaction(async (db) => {
-    // Get relationship details before deleting
+    // Get relationship details before deleting, verify org scope
     const relationship = await db.get<CIRelationship>(
-      `SELECT * FROM ci_relationships WHERE id = ?`,
-      [relationshipId]
+      `SELECT r.* FROM ci_relationships r
+       JOIN configuration_items ci ON r.source_ci_id = ci.id
+       WHERE r.id = ? AND ci.organization_id = ?`,
+      [relationshipId, organizationId]
     );
 
     if (!relationship) return false;
@@ -814,40 +825,51 @@ export async function removeCIRelationship(
  * List all relationships for a CI (both as source and target)
  */
 export async function listCIRelationships(ciId: number): Promise<CIRelationshipWithDetails[]> {
-  const relationships = await executeQuery<CIRelationship>(
-    `SELECT * FROM ci_relationships
-     WHERE (source_ci_id = ? OR target_ci_id = ?) AND is_active = 1`,
+  const rows = await executeQuery<any>(
+    `SELECT r.*,
+       src.id as source__id, src.name as source__name, src.ci_number as source__ci_number,
+       src.ci_type_id as source__ci_type_id, src.status_id as source__status_id,
+       src.organization_id as source__organization_id,
+       tgt.id as target__id, tgt.name as target__name, tgt.ci_number as target__ci_number,
+       tgt.ci_type_id as target__ci_type_id, tgt.status_id as target__status_id,
+       tgt.organization_id as target__organization_id,
+       rt.id as rt__id, rt.name as rt__name, rt.description as rt__description
+     FROM ci_relationships r
+     LEFT JOIN configuration_items src ON r.source_ci_id = src.id
+     LEFT JOIN configuration_items tgt ON r.target_ci_id = tgt.id
+     LEFT JOIN ci_relationship_types rt ON r.relationship_type_id = rt.id
+     WHERE (r.source_ci_id = ? OR r.target_ci_id = ?) AND r.is_active = 1
+     ORDER BY r.created_at DESC`,
     [ciId, ciId]
   );
 
-  // Fetch related data for each relationship
-  const relationshipsWithDetails = await Promise.all(
-    relationships.map(async (rel) => {
-      const [sourceCi, targetCi, relType] = await Promise.all([
-        executeQueryOne<ConfigurationItem>(
-          `SELECT * FROM configuration_items WHERE id = ?`,
-          [rel.source_ci_id]
-        ),
-        executeQueryOne<ConfigurationItem>(
-          `SELECT * FROM configuration_items WHERE id = ?`,
-          [rel.target_ci_id]
-        ),
-        executeQueryOne<CIRelationshipType>(
-          `SELECT * FROM ci_relationship_types WHERE id = ?`,
-          [rel.relationship_type_id]
-        ),
-      ]);
+  return rows.map((row: any) => {
+    const {
+      source__id, source__name, source__ci_number, source__ci_type_id,
+      source__status_id, source__organization_id,
+      target__id, target__name, target__ci_number, target__ci_type_id,
+      target__status_id, target__organization_id,
+      rt__id, rt__name, rt__description,
+      ...relFields
+    } = row;
 
-      return {
-        ...rel,
-        source_ci: sourceCi || undefined,
-        target_ci: targetCi || undefined,
-        relationship_type: relType || undefined,
-      };
-    })
-  );
-
-  return relationshipsWithDetails;
+    return {
+      ...relFields,
+      source_ci: source__id ? {
+        id: source__id, name: source__name, ci_number: source__ci_number,
+        ci_type_id: source__ci_type_id, status_id: source__status_id,
+        organization_id: source__organization_id,
+      } as ConfigurationItem : undefined,
+      target_ci: target__id ? {
+        id: target__id, name: target__name, ci_number: target__ci_number,
+        ci_type_id: target__ci_type_id, status_id: target__status_id,
+        organization_id: target__organization_id,
+      } as ConfigurationItem : undefined,
+      relationship_type: rt__id ? {
+        id: rt__id, name: rt__name, description: rt__description,
+      } as CIRelationshipType : undefined,
+    };
+  });
 }
 
 // ============================================
@@ -855,18 +877,20 @@ export async function listCIRelationships(ciId: number): Promise<CIRelationshipW
 // ============================================
 
 /**
- * Get audit history for a CI
+ * Get audit history for a CI (scoped to organization via configuration_items)
  */
 export async function getCIHistory(
+  organizationId: number,
   ciId: number,
   limit: number = 100
 ): Promise<CIHistory[]> {
   return executeQuery<CIHistory>(
-    `SELECT * FROM ci_history
-     WHERE ci_id = ?
-     ORDER BY created_at DESC
+    `SELECT ch.* FROM ci_history ch
+     JOIN configuration_items ci ON ch.ci_id = ci.id
+     WHERE ch.ci_id = ? AND ci.organization_id = ?
+     ORDER BY ch.created_at DESC
      LIMIT ?`,
-    [ciId, limit]
+    [ciId, organizationId, limit]
   );
 }
 
@@ -903,9 +927,21 @@ export async function addCITicketLink(
 }
 
 /**
- * Remove a CI-ticket link
+ * Remove a CI-ticket link (scoped to organization via configuration_items)
  */
-export async function removeCITicketLink(linkId: number): Promise<boolean> {
+export async function removeCITicketLink(
+  organizationId: number,
+  linkId: number
+): Promise<boolean> {
+  // Verify the link belongs to a CI in the organization before deleting
+  const link = await executeQueryOne<CITicketLink>(
+    `SELECT ctl.* FROM ci_ticket_links ctl
+     JOIN configuration_items ci ON ctl.ci_id = ci.id
+     WHERE ctl.id = ? AND ci.organization_id = ?`,
+    [linkId, organizationId]
+  );
+  if (!link) return false;
+
   const result = await executeRun(
     `DELETE FROM ci_ticket_links WHERE id = ?`,
     [linkId]
@@ -914,14 +950,18 @@ export async function removeCITicketLink(linkId: number): Promise<boolean> {
 }
 
 /**
- * List all ticket links for a CI
+ * List all ticket links for a CI (scoped to organization via configuration_items)
  */
-export async function listCITicketLinks(ciId: number): Promise<CITicketLink[]> {
+export async function listCITicketLinks(
+  organizationId: number,
+  ciId: number
+): Promise<CITicketLink[]> {
   return executeQuery<CITicketLink>(
-    `SELECT * FROM ci_ticket_links
-     WHERE ci_id = ?
-     ORDER BY created_at DESC`,
-    [ciId]
+    `SELECT ctl.* FROM ci_ticket_links ctl
+     JOIN configuration_items ci ON ctl.ci_id = ci.id
+     WHERE ctl.ci_id = ? AND ci.organization_id = ?
+     ORDER BY ctl.created_at DESC`,
+    [ciId, organizationId]
   );
 }
 
@@ -934,6 +974,7 @@ export async function listCITicketLinks(ciId: number): Promise<CITicketLink[]> {
  * Uses recursive graph traversal up to 3 levels deep
  */
 export async function getImpactAnalysis(
+  organizationId: number,
   ciId: number
 ): Promise<{
   ci: ConfigurationItem;
@@ -943,8 +984,8 @@ export async function getImpactAnalysis(
   critical_services: ConfigurationItem[];
 }> {
   const ci = await executeQueryOne<ConfigurationItem>(
-    `SELECT * FROM configuration_items WHERE id = ?`,
-    [ciId]
+    `SELECT * FROM configuration_items WHERE id = ? AND organization_id = ?`,
+    [ciId, organizationId]
   );
 
   if (!ci) {

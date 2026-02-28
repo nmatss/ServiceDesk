@@ -15,7 +15,7 @@ export function sanitizeHTML(dirty: string): string {
       'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'blockquote', 'span', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
     ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id', 'style'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'id'],
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ALLOW_DATA_ATTR: false,
     ALLOW_UNKNOWN_PROTOCOLS: false,

@@ -274,6 +274,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user || !user.password_hash) {
+      // SECURITY: Prevent timing attack — always run bcrypt even when user doesn't exist
+      // This ensures response time is consistent regardless of whether the user exists
+      const dummyHash = '$2b$12$LJ3m4ys3Lk0TSwHkp8/xnuBqRFnwKj2sMfkm0cAmwXH2DzLCHhGy';
+      await verifyPassword(normalizedPassword, dummyHash);
+
       await insertLoginAttempt({
         email: normalizedEmail,
         ipAddress,
@@ -345,11 +350,11 @@ export async function POST(request: NextRequest) {
         organizationId: tenantContext.id,
       });
 
+      // SECURITY: Do not reveal remaining_attempts to prevent user enumeration
       return NextResponse.json(
         {
           success: false,
           error: 'Credenciais inválidas',
-          remaining_attempts: MAX_FAILED_ATTEMPTS - newFailedAttempts,
         },
         { status: 401 }
       );

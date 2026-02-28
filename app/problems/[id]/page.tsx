@@ -320,7 +320,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
                     </div>
 
                     {problem.root_cause && (
-                      <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-800">
                         <h3 className="flex items-center gap-2 text-sm font-medium text-orange-800 dark:text-orange-400 mb-2">
                           <LightBulbIcon className="w-4 h-4" />
                           Causa Raiz Identificada
@@ -332,7 +332,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
                     )}
 
                     {problem.workaround && (
-                      <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
                         <h3 className="flex items-center gap-2 text-sm font-medium text-green-800 dark:text-green-400 mb-2">
                           <CheckCircleIcon className="w-4 h-4" />
                           Solução de Contorno

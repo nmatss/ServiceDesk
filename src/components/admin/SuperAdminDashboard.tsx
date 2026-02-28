@@ -81,7 +81,7 @@ export default function SuperAdminDashboard() {
 
             {/* Recent Tenants Table */}
             <div className="glass-panel rounded-xl overflow-hidden">
-                <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                <div className="p-6 border-b border-neutral-200 dark:border-white/10 flex justify-between items-center">
                     <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Tenants Recentes</h3>
                     <button className="text-sm text-primary hover:text-primary/80">Ver todos</button>
                 </div>

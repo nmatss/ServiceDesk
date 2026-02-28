@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTokenFromCookies } from '@/lib/auth/auth-service';
-import { getTenantContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin, isPrivileged } from '@/lib/auth/roles';
+import { apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -12,24 +13,11 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const user = await verifyTokenFromCookies(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
-    }
-
-    const tenantId = tenantContext.id;
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
@@ -98,7 +86,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error fetching templates', error);
-    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
+    return apiError('Internal server error', 500);
   }
 }
 
@@ -109,29 +97,16 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const user = await verifyTokenFromCookies(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Apenas admins e agentes podem criar templates
-    if (!['admin', 'agent', 'tenant_admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Access denied', code: 'PERMISSION_DENIED' }, { status: 403 });
+    if (!isPrivileged(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
-    }
-
-    const tenantId = tenantContext.id;
+    const tenantId = auth.organizationId;
 
     const body = await request.json();
     const {
@@ -185,8 +160,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar template
-    
-
     const result = await executeRun(`
       INSERT INTO templates (
         name, description, type, category_id, title_template,
@@ -201,7 +174,7 @@ export async function POST(request: NextRequest) {
       variables ? JSON.stringify(variables) : null,
       is_active ? 1 : 0,
       tags.length > 0 ? JSON.stringify(tags) : null,
-      user.id]);
+      auth.userId]);
 
     // Buscar template criado
     const newTemplate = await executeQueryOne(`
@@ -223,7 +196,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error creating template', error);
-    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
+    return apiError('Internal server error', 500);
   }
 }
 
@@ -234,24 +207,11 @@ export async function PUT(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const user = await verifyTokenFromCookies(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
-    }
-
-    const tenantId = tenantContext.id;
+    const tenantId = auth.organizationId;
 
     const body = await request.json();
     const {
@@ -282,13 +242,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verificar permissão
-    if (!['admin', 'agent', 'tenant_admin'].includes(user.role) && (template as any).created_by !== user.id) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!isPrivileged(auth.role) && (template as any).created_by !== auth.userId) {
+      return apiError('Acesso negado', 403);
     }
 
     // Atualizar template
-    
-
     await executeRun(`
       UPDATE templates SET
         name = COALESCE(?, name),
@@ -331,7 +289,7 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error updating template', error);
-    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
+    return apiError('Internal server error', 500);
   }
 }
 
@@ -342,24 +300,11 @@ export async function DELETE(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const user = await verifyTokenFromCookies(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant not found', code: 'TENANT_NOT_FOUND' }, { status: 400 });
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' }, { status: 403 });
-    }
-
-    const tenantId = tenantContext.id;
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -379,12 +324,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar permissão
-    if (user.role !== 'admin' && user.role !== 'tenant_admin' && (template as any).created_by !== user.id) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!isAdmin(auth.role) && (template as any).created_by !== auth.userId) {
+      return apiError('Acesso negado', 403);
     }
 
     // Verificar se template está sendo usado NO TENANT
-    // FIX: Use template ID instead of name for lookup
     const usageCount = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets
@@ -408,6 +352,6 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error deleting template', error);
-    return NextResponse.json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
+    return apiError('Internal server error', 500);
   }
 }

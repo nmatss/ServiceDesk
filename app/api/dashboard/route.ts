@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { getCachedStats, cacheStats } from '@/lib/cache';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
@@ -30,15 +30,13 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth, context } = guard;
 
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    // Map auth/context to the shapes expected by helper functions
+    const userContext = { id: auth.userId, role: auth.role };
+    const tenantContext = { id: auth.organizationId };
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30';
@@ -81,32 +79,30 @@ async function calculateDashboardData(user: any, tenant: any, days: number) {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  // Dados básicos do sistema
-  const systemOverview = await getSystemOverview(user, tenant, startDate);
-
-  // Métricas de tickets
-  const ticketMetrics = await getTicketMetrics(user, tenant, startDate);
-
-  // Performance de agentes (apenas para admin/agent)
-  const agentPerformance = ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(user.role)
-    ? await getAgentPerformance(tenant, startDate)
-    : null;
-
-  // Dados de SLA
-  const slaData = await getSLAData(user, tenant, startDate);
-
-  // Atividade recente
-  const recentActivity = await getRecentActivity(user, tenant, 10);
-
-  // Trends e analytics
-  const trends = await getTrendAnalytics(user, tenant, startDate, days);
-
-  // Top categorias e prioridades
-  const categoryStats = await getCategoryStats(user, tenant, startDate);
-  const priorityStats = await getPriorityStats(user, tenant, startDate);
-
-  // Dados específicos por role
-  const roleSpecificData = await getRoleSpecificData(user, tenant, startDate);
+  // Run all independent queries in parallel
+  const [
+    systemOverview,
+    ticketMetrics,
+    agentPerformance,
+    slaData,
+    recentActivity,
+    trends,
+    categoryStats,
+    priorityStats,
+    roleSpecificData
+  ] = await Promise.all([
+    getSystemOverview(user, tenant, startDate),
+    getTicketMetrics(user, tenant, startDate),
+    ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(user.role)
+      ? getAgentPerformance(tenant, startDate)
+      : Promise.resolve(null),
+    getSLAData(user, tenant, startDate),
+    getRecentActivity(user, tenant, 10),
+    getTrendAnalytics(user, tenant, startDate, days),
+    getCategoryStats(user, tenant, startDate),
+    getPriorityStats(user, tenant, startDate),
+    getRoleSpecificData(user, tenant, startDate)
+  ]);
 
   return {
     overview: systemOverview,
@@ -263,6 +259,7 @@ async function getAgentPerformance(tenant: any, startDate: Date) {
       WHERE u.tenant_id = ? AND u.role IN ('agent', 'tenant_admin', 'team_manager')
       GROUP BY u.id, u.name
       ORDER BY tickets_resolved DESC, avg_resolution_hours ASC
+      LIMIT 10
     `, [startDate.toISOString(), tenant.id, tenant.id, tenant.id]);
 
     return performance.map(agent => ({

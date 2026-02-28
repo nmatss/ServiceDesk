@@ -23,7 +23,7 @@ export interface AuthUser {
   userId?: number;
   name: string;
   email: string;
-  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin';
+  role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user';
   organization_id: number;
   tenant_slug: string;
   created_at: string;
@@ -134,8 +134,14 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       return null;
     }
 
+    // SECURITY: Reject users with no organization_id instead of falling back to 1
+    if (!user.organization_id) {
+      captureAuthError(new Error('User has no organization_id'), { username: user.email });
+      return null;
+    }
+
     // Buscar informações da organização
-    const organization = await getOrganizationById(user.organization_id || 1);
+    const organization = await getOrganizationById(user.organization_id);
     if (!organization) {
       captureAuthError(new Error('Organization not found for user'), { username: user.email });
       return null;
@@ -147,7 +153,7 @@ export async function authenticateUser(credentials: LoginCredentials): Promise<A
       name: user.name,
       email: user.email,
       role: user.role,
-      organization_id: user.organization_id || 1,
+      organization_id: user.organization_id,
       tenant_slug: organization.slug,
       created_at: user.created_at,
       updated_at: user.updated_at
@@ -320,8 +326,17 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
       return null;
     }
 
+    // SECURITY: Reject users with no organization_id instead of falling back to 1
+    if (!user.organization_id) {
+      captureAuthError(new Error('User has no organization_id'), {
+        username: user.email,
+        method: 'jwt'
+      });
+      return null;
+    }
+
     // Buscar informações da organização
-    const organization = await getOrganizationById(user.organization_id || 1);
+    const organization = await getOrganizationById(user.organization_id);
     if (!organization) {
       captureAuthError(new Error('Organization not found for user'), {
         username: user.email,
@@ -335,7 +350,7 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
       name: user.name,
       email: user.email,
       role: user.role,
-      organization_id: user.organization_id || 1,
+      organization_id: user.organization_id,
       tenant_slug: payload.tenant_slug as string,
       created_at: user.created_at,
       updated_at: user.updated_at

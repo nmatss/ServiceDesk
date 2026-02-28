@@ -110,7 +110,7 @@ export const Modal: React.FC<ModalProps> = ({
               <Dialog.Panel
                 className={cn(
                   modalVariants({ size, persona }),
-                  'w-full',
+                  'w-full max-w-[calc(100vw-2rem)]',
                   className
                 )}
               >
@@ -200,7 +200,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
   ...modalProps
 }) => {
   const icons = {
-    info: <Info className="h-6 w-6 text-blue-600" aria-hidden="true" />,
+    info: <Info className="h-6 w-6 text-brand-600 dark:text-brand-400" aria-hidden="true" />,
     success: <CheckCircle className="h-6 w-6 text-success-600" aria-hidden="true" />,
     warning: <AlertTriangle className="h-6 w-6 text-warning-600" aria-hidden="true" />,
     error: <AlertCircle className="h-6 w-6 text-error-600" aria-hidden="true" />,

@@ -578,7 +578,7 @@ export default function TeamsManagementPage() {
 
                   {teamMembers.length === 0 && (
                     <div className="p-8 text-center text-muted-content">
-                      <UsersIcon className="w-12 h-12 mx-auto text-neutral-300 dark:text-neutral-600 mb-4" />
+                      <UsersIcon className="w-12 h-12 mx-auto text-neutral-400 dark:text-neutral-600 mb-4" />
                       <p className="font-medium">Nenhum membro na equipe ainda</p>
                       <p className="text-sm mt-1">Adicione membros para começar</p>
                     </div>

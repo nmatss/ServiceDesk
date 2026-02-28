@@ -13,7 +13,7 @@
 
 import { CacheManager, getCacheManager, CacheOptions } from './cache-manager';
 import logger from '../monitoring/structured-logger';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 
 export interface WarmingStrategy {
   name: string;
@@ -64,7 +64,7 @@ export class CacheWarmer {
 
         try {
           // Categories
-          const categories = db.prepare('SELECT * FROM categories ORDER BY name').all();
+          const categories = await executeQuery<any>('SELECT * FROM categories ORDER BY name', []);
           items.push({
             key: 'categories:all',
             value: categories,
@@ -72,7 +72,7 @@ export class CacheWarmer {
           });
 
           // Priorities
-          const priorities = db.prepare('SELECT * FROM priorities ORDER BY level').all();
+          const priorities = await executeQuery<any>('SELECT * FROM priorities ORDER BY level', []);
           items.push({
             key: 'priorities:all',
             value: priorities,
@@ -80,7 +80,7 @@ export class CacheWarmer {
           });
 
           // Statuses
-          const statuses = db.prepare('SELECT * FROM statuses ORDER BY name').all();
+          const statuses = await executeQuery<any>('SELECT * FROM statuses ORDER BY name', []);
           items.push({
             key: 'statuses:all',
             value: statuses,
@@ -106,14 +106,13 @@ export class CacheWarmer {
 
         try {
           // Get users who logged in within last 24 hours
-          const activeUsers = db
-            .prepare(
-              `SELECT id, email, name, role, tenant_id
-               FROM users
-               WHERE last_login > datetime('now', '-1 day')
-               LIMIT 100`
-            )
-            .all() as Array<{ id: number; email: string; name: string; role: string; tenant_id: number }>;
+          const activeUsers = await executeQuery<{ id: number; email: string; name: string; role: string; tenant_id: number }>(
+            `SELECT id, email, name, role, tenant_id
+             FROM users
+             WHERE last_login > datetime('now', '-1 day')
+             LIMIT 100`,
+            []
+          );
 
           for (const user of activeUsers) {
             items.push({
@@ -142,14 +141,13 @@ export class CacheWarmer {
 
         try {
           // Get recently updated tickets
-          const recentTickets = db
-            .prepare(
-              `SELECT * FROM tickets
-               WHERE updated_at > datetime('now', '-6 hours')
-               ORDER BY updated_at DESC
-               LIMIT 50`
-            )
-            .all() as Array<{ id: number; [key: string]: any }>;
+          const recentTickets = await executeQuery<{ id: number; [key: string]: any }>(
+            `SELECT * FROM tickets
+             WHERE updated_at > datetime('now', '-6 hours')
+             ORDER BY updated_at DESC
+             LIMIT 50`,
+            []
+          );
 
           for (const ticket of recentTickets) {
             items.push({
@@ -178,14 +176,13 @@ export class CacheWarmer {
 
         try {
           // Get most viewed KB articles
-          const popularArticles = db
-            .prepare(
-              `SELECT * FROM kb_articles
-               WHERE is_published = 1
-               ORDER BY views DESC
-               LIMIT 20`
-            )
-            .all() as Array<{ id: number; [key: string]: any }>;
+          const popularArticles = await executeQuery<{ id: number; [key: string]: any }>(
+            `SELECT * FROM kb_articles
+             WHERE is_published = 1
+             ORDER BY views DESC
+             LIMIT 20`,
+            []
+          );
 
           for (const article of popularArticles) {
             items.push({
@@ -214,13 +211,12 @@ export class CacheWarmer {
 
         try {
           // Ticket counts by status
-          const statusCounts = db
-            .prepare(
-              `SELECT status_id, COUNT(*) as count
-               FROM tickets
-               GROUP BY status_id`
-            )
-            .all();
+          const statusCounts = await executeQuery<any>(
+            `SELECT status_id, COUNT(*) as count
+             FROM tickets
+             GROUP BY status_id`,
+            []
+          );
 
           items.push({
             key: 'dashboard:ticket-counts-by-status',
@@ -229,13 +225,12 @@ export class CacheWarmer {
           });
 
           // Ticket counts by priority
-          const priorityCounts = db
-            .prepare(
-              `SELECT priority_id, COUNT(*) as count
-               FROM tickets
-               GROUP BY priority_id`
-            )
-            .all();
+          const priorityCounts = await executeQuery<any>(
+            `SELECT priority_id, COUNT(*) as count
+             FROM tickets
+             GROUP BY priority_id`,
+            []
+          );
 
           items.push({
             key: 'dashboard:ticket-counts-by-priority',
@@ -244,13 +239,12 @@ export class CacheWarmer {
           });
 
           // Today's ticket count
-          const todayCount = db
-            .prepare(
-              `SELECT COUNT(*) as count
-               FROM tickets
-               WHERE DATE(created_at) = DATE('now')`
-            )
-            .get();
+          const todayCount = await executeQueryOne<any>(
+            `SELECT COUNT(*) as count
+             FROM tickets
+             WHERE DATE(created_at) = DATE('now')`,
+            []
+          );
 
           items.push({
             key: 'dashboard:today-ticket-count',

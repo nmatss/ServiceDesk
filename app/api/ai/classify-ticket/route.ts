@@ -3,7 +3,7 @@ import { z } from 'zod';
 import TicketClassifier from '@/lib/ai/ticket-classifier';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const classifyTicketSchema = z.object({
@@ -21,23 +21,10 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
+    const organizationId = auth.organizationId;
 
     // Validar entrada
     const body = await request.json();
@@ -68,32 +55,36 @@ export async function POST(request: NextRequest) {
     let historicalData;
     if (includeHistoricalData) {
       try {
-        // Buscar tickets similares recentes
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+        // Buscar tickets similares recentes (scoped by org)
         const similarTickets = await executeQuery<any>(`
           SELECT t.title, c.name as category, p.name as priority
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
           JOIN priorities p ON t.priority_id = p.id
-          WHERE t.created_at >= datetime('now', '-30 days')
+          WHERE t.created_at >= ?
+            AND t.organization_id = ?
             AND (LOWER(t.title) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
           ORDER BY t.created_at DESC
           LIMIT 5
-        `, [`%${title}%`, `%${description}%`]);
+        `, [thirtyDaysAgo, organizationId, `%${title}%`, `%${description}%`]);
 
-        // Buscar histórico do usuário se fornecido
+        // Buscar histórico do usuário se fornecido (scoped by org)
         let userHistory;
         if (userId) {
           userHistory = await executeQuery<any>(`
-            SELECT c.name as category, p.name as priority,
-                   CAST((julianday(COALESCE(t.resolved_at, 'now')) - julianday(t.created_at)) * 24 AS INTEGER) as resolutionTime
+            SELECT c.name as category, p.name as priority
             FROM tickets t
             JOIN categories c ON t.category_id = c.id
             JOIN priorities p ON t.priority_id = p.id
             WHERE t.user_id = ?
-              AND t.created_at >= datetime('now', '-90 days')
+              AND t.organization_id = ?
+              AND t.created_at >= ?
             ORDER BY t.created_at DESC
             LIMIT 10
-          `, [userId]);
+          `, [userId, organizationId, ninetyDaysAgo]);
         }
 
         historicalData = {
@@ -107,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Classificar ticket
-        const classification = await TicketClassifier.classifyTicket(
+    const classification = await TicketClassifier.classifyTicket(
       { title, description },
       categories,
       priorities,
@@ -157,7 +148,7 @@ export async function POST(request: NextRequest) {
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [user.id,
+    `, [auth.userId,
       'ai_classification',
       classificationId.lastInsertRowid,
       'classify',
@@ -217,25 +208,13 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     if (ticketId) {
       // Buscar classificação específica de um ticket
@@ -264,8 +243,8 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN was_accepted = 0 THEN 1 END) as rejected_count,
           AVG(processing_time_ms) as avg_processing_time
         FROM ai_classifications
-        WHERE created_at >= datetime('now', '-30 days')
-      `);
+        WHERE created_at >= ?
+      `, [thirtyDaysAgo]);
 
       const modelStats = await executeQuery<any>(`
         SELECT
@@ -273,10 +252,10 @@ export async function GET(request: NextRequest) {
           COUNT(*) as count,
           AVG(confidence_score) as avg_confidence
         FROM ai_classifications
-        WHERE created_at >= datetime('now', '-30 days')
+        WHERE created_at >= ?
         GROUP BY model_name
         ORDER BY count DESC
-      `);
+      `, [thirtyDaysAgo]);
 
       return NextResponse.json({
         stats: {

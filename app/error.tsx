@@ -63,7 +63,7 @@ export default function Error({ error, reset }: ErrorProps) {
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl p-8 text-center animate-slide-up">
           {/* Icon */}
           <div className="mb-6 flex justify-center">
-            <div className="rounded-full bg-red-100 dark:bg-red-900/20 p-4 animate-pulse-soft">
+            <div className="rounded-full bg-red-100 dark:bg-red-950 p-4 animate-pulse-soft">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -93,7 +93,7 @@ export default function Error({ error, reset }: ErrorProps) {
 
           {/* Error details (dev only) */}
           {process.env.NODE_ENV === 'development' && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg text-left border border-red-200 dark:border-red-800/30">
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-950 rounded-lg text-left border border-red-200 dark:border-red-800">
               <p className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
                 Detalhes do erro (apenas desenvolvimento):
               </p>

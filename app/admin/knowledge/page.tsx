@@ -390,7 +390,7 @@ export default function KnowledgePage() {
                       </div>
                       {article.helpful_count + article.not_helpful_count > 0 && (
                         <>
-                          <span className="text-neutral-300 dark:text-neutral-600">•</span>
+                          <span className="text-neutral-400 dark:text-neutral-600">•</span>
                           <span className="text-sm text-description">
                             {Math.round((article.helpful_count / (article.helpful_count + article.not_helpful_count)) * 100)}% útil
                           </span>

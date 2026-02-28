@@ -10,23 +10,36 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-interface RouteParams {
-  params: { id: string };
-}
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isPrivileged } from '@/lib/auth/roles';
+import { apiError } from '@/lib/api/api-helpers';
 
 // ========================================
 // POST - Apply macro to ticket
 // ========================================
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const macroId = parseInt(params.id);
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
+
+    // Only agents and admins can apply macros
+    if (!isPrivileged(auth.role)) {
+      return apiError('Acesso negado', 403);
+    }
+
+    const resolvedParams = await params;
+    const macroId = parseInt(resolvedParams.id);
     const body = await request.json();
-    const { ticketId, userId } = body;
+    const { ticketId } = body;
 
     if (!ticketId) {
       return NextResponse.json(
@@ -35,15 +48,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Get macro
-    const macro = await executeQueryOne<any>('SELECT * FROM macros WHERE id = ? AND is_active = 1', [macroId]);
+    // Get macro scoped to organization
+    const macro = await executeQueryOne<any>('SELECT * FROM macros WHERE id = ? AND is_active = 1 AND organization_id = ?', [macroId, auth.organizationId]);
     if (!macro) {
       return NextResponse.json(
         { error: 'Macro not found' },
@@ -51,8 +57,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Check if ticket exists
-    const ticket = await executeQueryOne('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+    // Check if ticket exists and belongs to tenant
+    const ticket = await executeQueryOne('SELECT * FROM tickets WHERE id = ? AND tenant_id = ?', [ticketId, auth.organizationId]);
     if (!ticket) {
       return NextResponse.json(
         { error: 'Ticket not found' },
@@ -90,7 +96,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             // Check if not already added
             const existingTag = await executeQueryOne('SELECT id FROM ticket_tags WHERE ticket_id = ? AND tag_id = ?', [ticketId, tag.id]);
             if (!existingTag) {
-              await executeRun('INSERT INTO ticket_tags (ticket_id, tag_id, added_by) VALUES (?, ?, ?)', [ticketId, tag.id, userId]);
+              await executeRun('INSERT INTO ticket_tags (ticket_id, tag_id, added_by) VALUES (?, ?, ?)', [ticketId, tag.id, auth.userId]);
               executedActions.push(`Tag "${action.value}" added`);
             }
           }
@@ -109,7 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           await executeRun(`
             INSERT INTO comments (ticket_id, user_id, content, is_internal)
             VALUES (?, ?, ?, ?)
-          `, [ticketId, userId, macro.content, isInternal ? 1 : 0]);
+          `, [ticketId, auth.userId, macro.content, isInternal ? 1 : 0]);
           executedActions.push('Comment added');
           break;
       }
@@ -120,7 +126,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await executeRun(`
         INSERT INTO comments (ticket_id, user_id, content, is_internal)
         VALUES (?, ?, ?, 0)
-      `, [ticketId, userId, macro.content]);
+      `, [ticketId, auth.userId, macro.content]);
       executedActions.push('Comment added');
     }
 
@@ -128,7 +134,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await executeRun(`
       INSERT INTO macro_usage (macro_id, ticket_id, used_by)
       VALUES (?, ?, ?)
-    `, [macroId, ticketId, userId]);
+    `, [macroId, ticketId, auth.userId]);
 
     // Update ticket timestamp
     await executeRun('UPDATE tickets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [ticketId]);
@@ -142,9 +148,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     logger.error('Error applying macro:', error);
-    return NextResponse.json(
-      { error: 'Failed to apply macro' },
-      { status: 500 }
-    );
+    return apiError('Failed to apply macro', 500);
   }
 }

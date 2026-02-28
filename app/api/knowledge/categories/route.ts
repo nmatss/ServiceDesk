@@ -8,14 +8,10 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth.organizationId;
 
     // Buscar todas as categorias ativas
     const categories = await executeQuery(`

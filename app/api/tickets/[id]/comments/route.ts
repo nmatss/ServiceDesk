@@ -62,9 +62,9 @@ export async function GET(
           u.role as user_role
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
-        WHERE c.ticket_id = ?
+        WHERE c.ticket_id = ? AND c.ticket_id IN (SELECT id FROM tickets WHERE organization_id = ?)
         ORDER BY c.created_at ASC
-      `, [ticketId])
+      `, [ticketId, tenantContext.id])
     }
 
     return NextResponse.json({ comments });

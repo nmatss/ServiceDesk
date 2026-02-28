@@ -34,6 +34,14 @@
   --shadow-color: 0 0 0;
   --shadow-opacity: 0.1;
 
+  /* Glassmorphism System - Light Mode */
+  --glass-border: 0 0 0;
+  --glass-surface: 255 255 255;
+  --glass-opacity: 0.7;
+  --glass-opacity-heavy: 0.85;
+  --glass-blur: 16px;
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+
   /* Sidebar */
   --sidebar-width: 256px;
   --sidebar-width-collapsed: 80px;
@@ -245,7 +253,7 @@
     }
 
     .text-icon-muted {
-      @apply text-neutral-400 dark:text-neutral-500;
+      @apply text-neutral-500 dark:text-neutral-500;
     }
 
     /* Button variants with enhanced feedback */
@@ -388,7 +396,7 @@
     }
 
     .glass-panel {
-      @apply bg-white/80 dark:bg-neutral-800/80 backdrop-blur-xl border border-neutral-200/50 dark:border-neutral-700/50 rounded-xl shadow-soft;
+      @apply bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-soft;
     }
 
     .card-header {
@@ -524,7 +532,7 @@
 
     /* Glassmorphism effect */
     .glass {
-      @apply backdrop-blur-xl bg-white/60 dark:bg-black/40 border border-white/20 dark:border-white/10 shadow-lg;
+      @apply backdrop-blur-xl bg-white/80 dark:bg-black/40 border border-neutral-200/60 dark:border-white/10 shadow-sm dark:shadow-lg;
       background-image: var(--gradient-surface);
     }
 

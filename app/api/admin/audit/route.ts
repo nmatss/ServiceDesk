@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
-import { getTenantContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin } from '@/lib/auth/roles';
+import { apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, executeRun, RunResult } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -12,35 +13,16 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
-
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Apenas admins podem acessar logs de auditoria
-    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!isAdmin(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
-    }
-
-    const tenantId = tenantContext.id;
+    const tenantId = auth.organizationId;
     const auditColumns = await executeQuery<{ name?: string }>(`PRAGMA table_info(audit_logs)`);
     const hasResourceType = auditColumns.some((column) => column.name === 'resource_type');
     const hasResourceId = auditColumns.some((column) => column.name === 'resource_id');
@@ -177,7 +159,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Erro ao buscar logs de auditoria', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }
 
@@ -188,32 +170,13 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
-
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Apenas admins podem criar logs manuais
-    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
+    if (!isAdmin(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
     const body = await request.json();
@@ -246,7 +209,7 @@ export async function POST(request: NextRequest) {
           user_id, action, resource_type, resource_id,
           old_values, new_values, ip_address, user_agent
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [user.id,
+      `, [auth.userId,
         action,
         resource_type,
         resource_id || null,
@@ -260,7 +223,7 @@ export async function POST(request: NextRequest) {
           user_id, action, entity_type, entity_id,
           old_values, new_values, ip_address, user_agent
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [user.id,
+      `, [auth.userId,
         action,
         resource_type,
         resource_id || null,
@@ -289,7 +252,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Erro ao criar log de auditoria', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }
 
@@ -300,35 +263,16 @@ export async function DELETE(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
-
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Contexto de tenant não encontrado' }, { status: 400 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Apenas admins podem limpar logs
-    if (user.role !== 'admin' && user.role !== 'tenant_admin') {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!isAdmin(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json({ error: 'Acesso negado a este tenant' }, { status: 403 });
-    }
-
-    const tenantId = tenantContext.id;
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const daysOld = parseInt(searchParams.get('days_old') || '90');
@@ -368,7 +312,7 @@ export async function DELETE(request: NextRequest) {
         user_id, action, resource_type, resource_id,
         new_values, ip_address, user_agent
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [user.id,
+    `, [auth.userId,
       'cleanup',
       'audit_logs',
       null,
@@ -389,6 +333,6 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error) {
     logger.error('Erro ao limpar logs de auditoria', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }

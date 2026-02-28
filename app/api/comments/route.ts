@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const ticketId = searchParams.get('ticket_id')
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0'))
 
     if (!ticketId) {
       return NextResponse.json(
@@ -57,6 +59,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Get total count for pagination
+    const totalResult = await executeQueryOne<{ total: number }>(`
+      SELECT COUNT(*) as total
+      FROM comments c
+      WHERE c.ticket_id = ? AND c.tenant_id = ?
+    `, [parseInt(ticketId), tenantContext.id])
+    const total = totalResult?.total ?? 0
+
     // Get comments with user information
     const comments = await executeQuery(`
       SELECT
@@ -75,11 +85,18 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON c.user_id = u.id AND u.tenant_id = ?
       WHERE c.ticket_id = ? AND c.tenant_id = ?
       ORDER BY c.created_at ASC
-    `, [tenantContext.id, parseInt(ticketId), tenantContext.id])
+      LIMIT ? OFFSET ?
+    `, [tenantContext.id, parseInt(ticketId), tenantContext.id, limit, offset])
 
     return NextResponse.json({
       success: true,
-      comments
+      comments,
+      pagination: {
+        total,
+        limit,
+        offset,
+        hasMore: (offset + limit) < total
+      }
     })
   } catch (error) {
     logger.error('Error fetching comments', error)

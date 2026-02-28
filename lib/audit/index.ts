@@ -1,20 +1,18 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { AuditLog, CreateAuditLog, AuditLogWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
 /**
- * Registra uma ação no log de auditoria
+ * Registra uma acao no log de auditoria
  */
-export function logAuditAction(auditData: CreateAuditLog): AuditLog | null {
+export async function logAuditAction(auditData: CreateAuditLog): Promise<AuditLog | null> {
   try {
-    const insertQuery = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO audit_logs (
         user_id, action, resource_type, resource_id,
         old_values, new_values, ip_address, user_agent
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = insertQuery.run(
+    `, [
       auditData.user_id || null,
       auditData.action,
       auditData.resource_type,
@@ -23,11 +21,13 @@ export function logAuditAction(auditData: CreateAuditLog): AuditLog | null {
       auditData.new_values || null,
       auditData.ip_address || null,
       auditData.user_agent || null
-    );
+    ]);
 
     if (result.lastInsertRowid) {
-      return db.prepare('SELECT * FROM audit_logs WHERE id = ?')
-        .get(result.lastInsertRowid) as AuditLog;
+      return await executeQueryOne<AuditLog>(
+        'SELECT * FROM audit_logs WHERE id = ?',
+        [result.lastInsertRowid]
+      ) || null;
     }
 
     return null;
@@ -38,18 +38,18 @@ export function logAuditAction(auditData: CreateAuditLog): AuditLog | null {
 }
 
 /**
- * Registra criação de recurso
+ * Registra criacao de recurso
  */
-export function logCreate(
+export async function logCreate(
   userId: number,
   resourceType: string,
   resourceId: number,
   newValues: any,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'create',
       resource_type: resourceType,
@@ -65,9 +65,9 @@ export function logCreate(
 }
 
 /**
- * Registra atualização de recurso
+ * Registra atualizacao de recurso
  */
-export function logUpdate(
+export async function logUpdate(
   userId: number,
   resourceType: string,
   resourceId: number,
@@ -75,9 +75,9 @@ export function logUpdate(
   newValues: any,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'update',
       resource_type: resourceType,
@@ -94,18 +94,18 @@ export function logUpdate(
 }
 
 /**
- * Registra exclusão de recurso
+ * Registra exclusao de recurso
  */
-export function logDelete(
+export async function logDelete(
   userId: number,
   resourceType: string,
   resourceId: number,
   oldValues: any,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'delete',
       resource_type: resourceType,
@@ -121,17 +121,17 @@ export function logDelete(
 }
 
 /**
- * Registra visualização de recurso sensível
+ * Registra visualizacao de recurso sensivel
  */
-export function logView(
+export async function logView(
   userId: number,
   resourceType: string,
   resourceId: number,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'view',
       resource_type: resourceType,
@@ -146,16 +146,16 @@ export function logView(
 }
 
 /**
- * Registra login do usuário
+ * Registra login do usuario
  */
-export function logLogin(
+export async function logLogin(
   userId: number,
   ipAddress?: string,
   userAgent?: string,
   loginType: 'success' | 'failed' = 'success'
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: `login_${loginType}`,
       resource_type: 'user',
@@ -174,15 +174,15 @@ export function logLogin(
 }
 
 /**
- * Registra logout do usuário
+ * Registra logout do usuario
  */
-export function logLogout(
+export async function logLogout(
   userId: number,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'logout',
       resource_type: 'user',
@@ -200,15 +200,15 @@ export function logLogout(
 }
 
 /**
- * Registra mudança de senha
+ * Registra mudanca de senha
  */
-export function logPasswordChange(
+export async function logPasswordChange(
   userId: number,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'password_change',
       resource_type: 'user',
@@ -228,16 +228,16 @@ export function logPasswordChange(
 /**
  * Registra acesso negado
  */
-export function logAccessDenied(
+export async function logAccessDenied(
   userId: number | undefined,
   resourceType: string,
   resourceId?: number,
   reason?: string,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'access_denied',
       resource_type: resourceType,
@@ -258,7 +258,7 @@ export function logAccessDenied(
 /**
  * Busca logs de auditoria
  */
-export function getAuditLogs(options: {
+export async function getAuditLogs(options: {
   userId?: number;
   action?: string;
   resourceType?: string;
@@ -267,7 +267,7 @@ export function getAuditLogs(options: {
   endDate?: string;
   limit?: number;
   offset?: number;
-} = {}): { logs: AuditLogWithDetails[]; total: number } {
+} = {}): Promise<{ logs: AuditLogWithDetails[]; total: number }> {
   try {
     const {
       userId,
@@ -314,7 +314,7 @@ export function getAuditLogs(options: {
     }
 
     // Buscar logs
-    const logs = db.prepare(`
+    const logs = await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -324,14 +324,15 @@ export function getAuditLogs(options: {
       ${whereClause}
       ORDER BY al.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset) as AuditLogWithDetails[];
+    `, [...params, limit, offset]);
 
     // Contar total
-    const { total } = db.prepare(`
+    const totalResult = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM audit_logs al
       ${whereClause}
-    `).get(...params) as { total: number };
+    `, params);
+    const total = totalResult?.total ?? 0;
 
     return { logs, total };
   } catch (error) {
@@ -341,16 +342,16 @@ export function getAuditLogs(options: {
 }
 
 /**
- * Registra falha de autenticação
+ * Registra falha de autenticacao
  */
-export function logAuthFailure(
+export async function logAuthFailure(
   email: string,
   reason: string,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       action: 'auth_failure',
       resource_type: 'authentication',
       new_values: JSON.stringify({
@@ -368,18 +369,18 @@ export function logAuthFailure(
 }
 
 /**
- * Registra autorização negada
+ * Registra autorizacao negada
  */
-export function logAuthorizationDenied(
+export async function logAuthorizationDenied(
   userId: number,
   resourceType: string,
   resourceId: number | undefined,
   requiredPermission: string,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'authorization_denied',
       resource_type: resourceType,
@@ -399,9 +400,9 @@ export function logAuthorizationDenied(
 }
 
 /**
- * Registra acesso a dados sensíveis (PII)
+ * Registra acesso a dados sensiveis (PII)
  */
-export function logPIIAccess(
+export async function logPIIAccess(
   userId: number,
   resourceType: string,
   resourceId: number,
@@ -409,9 +410,9 @@ export function logPIIAccess(
   purpose: string,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'pii_access',
       resource_type: resourceType,
@@ -432,18 +433,18 @@ export function logPIIAccess(
 }
 
 /**
- * Registra mudança de configuração do sistema
+ * Registra mudanca de configuracao do sistema
  */
-export function logConfigChange(
+export async function logConfigChange(
   userId: number,
   configKey: string,
   oldValue: any,
   newValue: any,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'config_change',
       resource_type: 'system_config',
@@ -466,18 +467,18 @@ export function logConfigChange(
 }
 
 /**
- * Registra violação de segurança
+ * Registra violacao de seguranca
  */
-export function logSecurityViolation(
+export async function logSecurityViolation(
   userId: number | undefined,
   violationType: string,
   severity: 'low' | 'medium' | 'high' | 'critical',
   details: any,
   ipAddress?: string,
   userAgent?: string
-): boolean {
+): Promise<boolean> {
   try {
-    return logAuditAction({
+    return await logAuditAction({
       user_id: userId,
       action: 'security_violation',
       resource_type: 'security',
@@ -497,14 +498,14 @@ export function logSecurityViolation(
 }
 
 /**
- * Busca logs de auditoria de um recurso específico
+ * Busca logs de auditoria de um recurso especifico
  */
-export function getResourceAuditHistory(
+export async function getResourceAuditHistory(
   resourceType: string,
   resourceId: number
-): AuditLogWithDetails[] {
+): Promise<AuditLogWithDetails[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -513,7 +514,7 @@ export function getResourceAuditHistory(
       LEFT JOIN users u ON al.user_id = u.id
       WHERE al.resource_type = ? AND al.resource_id = ?
       ORDER BY al.created_at DESC
-    `).all(resourceType, resourceId) as AuditLogWithDetails[];
+    `, [resourceType, resourceId]);
   } catch (error) {
     logger.error('Error getting resource audit history', error);
     return [];
@@ -521,15 +522,16 @@ export function getResourceAuditHistory(
 }
 
 /**
- * Busca estatísticas de auditoria
+ * Busca estatisticas de auditoria
  */
-export function getAuditStats(days: number = 30): any {
+export async function getAuditStats(days: number = 30): Promise<any> {
   try {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
+    const startDateStr = startDate.toISOString();
 
-    // Total de ações por tipo
-    const actionStats = db.prepare(`
+    // Total de acoes por tipo
+    const actionStats = await executeQuery<any>(`
       SELECT
         action,
         COUNT(*) as count
@@ -537,10 +539,10 @@ export function getAuditStats(days: number = 30): any {
       WHERE created_at >= ?
       GROUP BY action
       ORDER BY count DESC
-    `).all(startDate.toISOString());
+    `, [startDateStr]);
 
-    // Ações por tipo de recurso
-    const resourceStats = db.prepare(`
+    // Acoes por tipo de recurso
+    const resourceStats = await executeQuery<any>(`
       SELECT
         resource_type,
         COUNT(*) as count
@@ -548,10 +550,10 @@ export function getAuditStats(days: number = 30): any {
       WHERE created_at >= ?
       GROUP BY resource_type
       ORDER BY count DESC
-    `).all(startDate.toISOString());
+    `, [startDateStr]);
 
-    // Usuários mais ativos
-    const activeUsers = db.prepare(`
+    // Usuarios mais ativos
+    const activeUsers = await executeQuery<any>(`
       SELECT
         u.name,
         u.email,
@@ -563,10 +565,10 @@ export function getAuditStats(days: number = 30): any {
       GROUP BY u.id, u.name, u.email, u.role
       ORDER BY action_count DESC
       LIMIT 10
-    `).all(startDate.toISOString());
+    `, [startDateStr]);
 
     // Atividade por dia
-    const dailyActivity = db.prepare(`
+    const dailyActivity = await executeQuery<any>(`
       SELECT
         DATE(created_at) as date,
         COUNT(*) as count
@@ -574,21 +576,21 @@ export function getAuditStats(days: number = 30): any {
       WHERE created_at >= ?
       GROUP BY DATE(created_at)
       ORDER BY date ASC
-    `).all(startDate.toISOString());
+    `, [startDateStr]);
 
     // Tentativas de acesso negado
-    const accessDeniedCount = db.prepare(`
+    const accessDeniedResult = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM audit_logs
       WHERE action = 'access_denied' AND created_at >= ?
-    `).get(startDate.toISOString()) as { count: number };
+    `, [startDateStr]);
 
     // Logins falhados
-    const failedLoginsCount = db.prepare(`
+    const failedLoginsResult = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM audit_logs
       WHERE action = 'login_failed' AND created_at >= ?
-    `).get(startDate.toISOString()) as { count: number };
+    `, [startDateStr]);
 
     return {
       period_days: days,
@@ -597,8 +599,8 @@ export function getAuditStats(days: number = 30): any {
       active_users: activeUsers,
       daily_activity: dailyActivity,
       security: {
-        access_denied: accessDeniedCount.count,
-        failed_logins: failedLoginsCount.count
+        access_denied: accessDeniedResult?.count ?? 0,
+        failed_logins: failedLoginsResult?.count ?? 0
       }
     };
   } catch (error) {
@@ -610,7 +612,7 @@ export function getAuditStats(days: number = 30): any {
 /**
  * Limpa logs antigos
  */
-export function cleanupOldAuditLogs(daysOld: number = 90): number {
+export async function cleanupOldAuditLogs(daysOld: number = 90): Promise<number> {
   try {
     if (daysOld < 30) {
       throw new Error('Cannot delete audit logs less than 30 days old');
@@ -619,10 +621,10 @@ export function cleanupOldAuditLogs(daysOld: number = 90): number {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM audit_logs
       WHERE created_at < ?
-    `).run(cutoffDate.toISOString());
+    `, [cutoffDate.toISOString()]);
 
     logger.info(`Cleanup: ${result.changes} audit logs deleted (older than ${daysOld} days)`);
     return result.changes;
@@ -635,7 +637,7 @@ export function cleanupOldAuditLogs(daysOld: number = 90): number {
 /**
  * Exporta logs de auditoria em diferentes formatos
  */
-export function exportAuditLogs(
+export async function exportAuditLogs(
   format: 'csv' | 'json',
   options: {
     userId?: number;
@@ -645,11 +647,11 @@ export function exportAuditLogs(
     endDate?: string;
     limit?: number;
   } = {}
-): string {
+): Promise<string> {
   try {
-    const { logs } = getAuditLogs({
+    const { logs } = await getAuditLogs({
       ...options,
-      limit: options.limit || 10000 // Limite alto para exportação
+      limit: options.limit || 10000 // Limite alto para exportacao
     });
 
     if (format === 'json') {
@@ -686,9 +688,9 @@ export function exportAuditLogs(
     const headers = [
       'ID',
       'Data/Hora',
-      'Usuário',
+      'Usuario',
       'Email',
-      'Ação',
+      'Acao',
       'Tipo de Recurso',
       'ID do Recurso',
       'Valores Antigos',
@@ -726,25 +728,25 @@ export function exportAuditLogs(
 /**
  * Exporta logs de auditoria para CSV (backward compatibility)
  */
-export function exportAuditLogsToCSV(options: {
+export async function exportAuditLogsToCSV(options: {
   userId?: number;
   action?: string;
   resourceType?: string;
   startDate?: string;
   endDate?: string;
-} = {}): string {
+} = {}): Promise<string> {
   return exportAuditLogs('csv', options);
 }
 
 /**
- * Busca logs de auditoria por ação específica
+ * Busca logs de auditoria por acao especifica
  */
-export function getAuditLogsByAction(
+export async function getAuditLogsByAction(
   action: string,
   limit: number = 100
-): AuditLogWithDetails[] {
+): Promise<AuditLogWithDetails[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -754,7 +756,7 @@ export function getAuditLogsByAction(
       WHERE al.action = ?
       ORDER BY al.created_at DESC
       LIMIT ?
-    `).all(action, limit) as AuditLogWithDetails[];
+    `, [action, limit]);
   } catch (error) {
     logger.error('Error getting audit logs by action', error);
     return [];
@@ -762,14 +764,14 @@ export function getAuditLogsByAction(
 }
 
 /**
- * Busca logs de auditoria por usuário
+ * Busca logs de auditoria por usuario
  */
-export function getUserAuditHistory(
+export async function getUserAuditHistory(
   userId: number,
   limit: number = 100
-): AuditLogWithDetails[] {
+): Promise<AuditLogWithDetails[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -779,7 +781,7 @@ export function getUserAuditHistory(
       WHERE al.user_id = ?
       ORDER BY al.created_at DESC
       LIMIT ?
-    `).all(userId, limit) as AuditLogWithDetails[];
+    `, [userId, limit]);
   } catch (error) {
     logger.error('Error getting user audit history', error);
     return [];
@@ -787,13 +789,13 @@ export function getUserAuditHistory(
 }
 
 /**
- * Busca logs de segurança (falhas de auth, acessos negados, violações)
+ * Busca logs de seguranca (falhas de auth, acessos negados, violacoes)
  */
-export function getSecurityAuditLogs(
+export async function getSecurityAuditLogs(
   startDate?: string,
   endDate?: string,
   limit: number = 100
-): AuditLogWithDetails[] {
+): Promise<AuditLogWithDetails[]> {
   try {
     let whereClause = `WHERE (
       al.action IN ('auth_failure', 'authorization_denied', 'security_violation', 'access_denied', 'login_failed')
@@ -812,7 +814,7 @@ export function getSecurityAuditLogs(
       params.push(endDate);
     }
 
-    return db.prepare(`
+    return await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -822,7 +824,7 @@ export function getSecurityAuditLogs(
       ${whereClause}
       ORDER BY al.created_at DESC
       LIMIT ?
-    `).all(...params, limit) as AuditLogWithDetails[];
+    `, [...params, limit]);
   } catch (error) {
     logger.error('Error getting security audit logs', error);
     return [];
@@ -830,13 +832,13 @@ export function getSecurityAuditLogs(
 }
 
 /**
- * Busca logs de acesso a PII (dados sensíveis)
+ * Busca logs de acesso a PII (dados sensiveis)
  */
-export function getPIIAccessLogs(
+export async function getPIIAccessLogs(
   startDate?: string,
   endDate?: string,
   limit: number = 100
-): AuditLogWithDetails[] {
+): Promise<AuditLogWithDetails[]> {
   try {
     let whereClause = `WHERE al.action = 'pii_access'`;
     const params: any[] = [];
@@ -851,7 +853,7 @@ export function getPIIAccessLogs(
       params.push(endDate);
     }
 
-    return db.prepare(`
+    return await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -861,7 +863,7 @@ export function getPIIAccessLogs(
       ${whereClause}
       ORDER BY al.created_at DESC
       LIMIT ?
-    `).all(...params, limit) as AuditLogWithDetails[];
+    `, [...params, limit]);
   } catch (error) {
     logger.error('Error getting PII access logs', error);
     return [];
@@ -869,13 +871,13 @@ export function getPIIAccessLogs(
 }
 
 /**
- * Busca logs de mudanças de configuração
+ * Busca logs de mudancas de configuracao
  */
-export function getConfigChangeLogs(
+export async function getConfigChangeLogs(
   startDate?: string,
   endDate?: string,
   limit: number = 100
-): AuditLogWithDetails[] {
+): Promise<AuditLogWithDetails[]> {
   try {
     let whereClause = `WHERE al.action = 'config_change'`;
     const params: any[] = [];
@@ -890,7 +892,7 @@ export function getConfigChangeLogs(
       params.push(endDate);
     }
 
-    return db.prepare(`
+    return await executeQuery<AuditLogWithDetails>(`
       SELECT
         al.*,
         u.name as user_name,
@@ -900,7 +902,7 @@ export function getConfigChangeLogs(
       ${whereClause}
       ORDER BY al.created_at DESC
       LIMIT ?
-    `).all(...params, limit) as AuditLogWithDetails[];
+    `, [...params, limit]);
   } catch (error) {
     logger.error('Error getting config change logs', error);
     return [];
@@ -908,45 +910,45 @@ export function getConfigChangeLogs(
 }
 
 /**
- * Obtém estatísticas de atividades suspeitas
+ * Obtem estatisticas de atividades suspeitas
  */
-export function getSuspiciousActivityStats(hours: number = 24): {
+export async function getSuspiciousActivityStats(hours: number = 24): Promise<{
   failed_logins: number;
   access_denied: number;
   security_violations: number;
   unusual_activity_users: any[];
-} {
+}> {
   try {
     const startDate = new Date();
     startDate.setHours(startDate.getHours() - hours);
     const startDateStr = startDate.toISOString();
 
     // Contagem de falhas de login
-    const { failed_logins } = db.prepare(`
+    const failedLoginsResult = await executeQueryOne<{ failed_logins: number }>(`
       SELECT COUNT(*) as failed_logins
       FROM audit_logs
       WHERE action IN ('auth_failure', 'login_failed')
       AND created_at >= ?
-    `).get(startDateStr) as { failed_logins: number };
+    `, [startDateStr]);
 
     // Contagem de acessos negados
-    const { access_denied } = db.prepare(`
+    const accessDeniedResult = await executeQueryOne<{ access_denied: number }>(`
       SELECT COUNT(*) as access_denied
       FROM audit_logs
       WHERE action IN ('access_denied', 'authorization_denied')
       AND created_at >= ?
-    `).get(startDateStr) as { access_denied: number };
+    `, [startDateStr]);
 
-    // Contagem de violações de segurança
-    const { security_violations } = db.prepare(`
+    // Contagem de violacoes de seguranca
+    const secViolationsResult = await executeQueryOne<{ security_violations: number }>(`
       SELECT COUNT(*) as security_violations
       FROM audit_logs
       WHERE action = 'security_violation'
       AND created_at >= ?
-    `).get(startDateStr) as { security_violations: number };
+    `, [startDateStr]);
 
-    // Usuários com atividade incomum (muitas ações)
-    const unusual_activity_users = db.prepare(`
+    // Usuarios com atividade incomum (muitas acoes)
+    const unusual_activity_users = await executeQuery<any>(`
       SELECT
         u.id,
         u.name,
@@ -959,12 +961,12 @@ export function getSuspiciousActivityStats(hours: number = 24): {
       GROUP BY u.id, u.name, u.email
       HAVING action_count > 50
       ORDER BY action_count DESC
-    `).all(startDateStr);
+    `, [startDateStr]);
 
     return {
-      failed_logins,
-      access_denied,
-      security_violations,
+      failed_logins: failedLoginsResult?.failed_logins ?? 0,
+      access_denied: accessDeniedResult?.access_denied ?? 0,
+      security_violations: secViolationsResult?.security_violations ?? 0,
       unusual_activity_users
     };
   } catch (error) {
@@ -979,7 +981,7 @@ export function getSuspiciousActivityStats(hours: number = 24): {
 }
 
 /**
- * Configura política de retenção de logs
+ * Configura politica de retencao de logs
  */
 export interface AuditRetentionPolicy {
   action_type: string;
@@ -998,11 +1000,11 @@ const DEFAULT_RETENTION_POLICIES: AuditRetentionPolicy[] = [
 ];
 
 /**
- * Aplica política de retenção de logs
+ * Aplica politica de retencao de logs
  */
-export function applyRetentionPolicy(
+export async function applyRetentionPolicy(
   policies: AuditRetentionPolicy[] = DEFAULT_RETENTION_POLICIES
-): { total_deleted: number; details: any[] } {
+): Promise<{ total_deleted: number; details: any[] }> {
   try {
     const details: any[] = [];
     let total_deleted = 0;
@@ -1013,23 +1015,23 @@ export function applyRetentionPolicy(
 
       let result;
       if (policy.action_type === 'default') {
-        // Delete logs que não se encaixam em outras políticas
+        // Delete logs que nao se encaixam em outras politicas
         const specificActions = policies
           .filter(p => p.action_type !== 'default')
           .map(p => `'${p.action_type}'`)
           .join(',');
 
-        result = db.prepare(`
+        result = await executeRun(`
           DELETE FROM audit_logs
           WHERE created_at < ?
           AND action NOT IN (${specificActions})
-        `).run(cutoffDate.toISOString());
+        `, [cutoffDate.toISOString()]);
       } else {
-        result = db.prepare(`
+        result = await executeRun(`
           DELETE FROM audit_logs
           WHERE created_at < ?
           AND action = ?
-        `).run(cutoffDate.toISOString(), policy.action_type);
+        `, [cutoffDate.toISOString(), policy.action_type]);
       }
 
       if (result.changes > 0) {
@@ -1054,32 +1056,32 @@ export function applyRetentionPolicy(
 /**
  * Verifica integridade dos logs de auditoria
  */
-export function verifyAuditIntegrity(): {
+export async function verifyAuditIntegrity(): Promise<{
   total_logs: number;
   missing_users: number;
   invalid_json: number;
   suspicious_activity: number;
-} {
+}> {
   try {
     // Total de logs
-    const { total_logs } = db.prepare(`
+    const totalResult = await executeQueryOne<{ total_logs: number }>(`
       SELECT COUNT(*) as total_logs FROM audit_logs
-    `).get() as { total_logs: number };
+    `, []);
 
-    // Logs com usuários inexistentes
-    const { missing_users } = db.prepare(`
+    // Logs com usuarios inexistentes
+    const missingResult = await executeQueryOne<{ missing_users: number }>(`
       SELECT COUNT(*) as missing_users
       FROM audit_logs al
       LEFT JOIN users u ON al.user_id = u.id
       WHERE al.user_id IS NOT NULL AND u.id IS NULL
-    `).get() as { missing_users: number };
+    `, []);
 
-    // Logs com JSON inválido
-    const logsWithJson = db.prepare(`
+    // Logs com JSON invalido
+    const logsWithJson = await executeQuery<any>(`
       SELECT id, old_values, new_values
       FROM audit_logs
       WHERE old_values IS NOT NULL OR new_values IS NOT NULL
-    `).all();
+    `, []);
 
     let invalidJson = 0;
     logsWithJson.forEach((log: any) => {
@@ -1091,8 +1093,8 @@ export function verifyAuditIntegrity(): {
       }
     });
 
-    // Atividade suspeita (muitas ações em pouco tempo)
-    const { suspicious_activity } = db.prepare(`
+    // Atividade suspeita (muitas acoes em pouco tempo)
+    const suspiciousResult = await executeQueryOne<{ suspicious_activity: number }>(`
       SELECT COUNT(*) as suspicious_activity
       FROM (
         SELECT
@@ -1103,13 +1105,13 @@ export function verifyAuditIntegrity(): {
         GROUP BY user_id
         HAVING action_count > 100
       )
-    `).get() as { suspicious_activity: number };
+    `, []);
 
     return {
-      total_logs,
-      missing_users,
+      total_logs: totalResult?.total_logs ?? 0,
+      missing_users: missingResult?.missing_users ?? 0,
       invalid_json: invalidJson,
-      suspicious_activity
+      suspicious_activity: suspiciousResult?.suspicious_activity ?? 0
     };
   } catch (error) {
     logger.error('Error verifying audit integrity', error);

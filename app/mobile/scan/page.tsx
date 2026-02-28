@@ -123,9 +123,6 @@ export default function MobileScanPage() {
       navigator.vibrate([10, 50, 10])
     }
 
-    // Process scanned data
-    console.log('Scanned QR Code:', data)
-
     // Navigate based on scanned data
     // For example, if it's an asset ID, go to asset details
     setTimeout(() => {

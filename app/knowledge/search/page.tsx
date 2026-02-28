@@ -110,7 +110,7 @@ export default function KnowledgeSearchPage() {
           newParams.set('category', category)
         }
 
-        router.replace(`/knowledge/search?${newParams}`, { scroll: false })
+        router.push(`/knowledge/search?${newParams}`, { scroll: false })
       }
 
     } catch (error) {

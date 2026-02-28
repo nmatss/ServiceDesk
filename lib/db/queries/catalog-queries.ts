@@ -31,27 +31,29 @@ import type {
 export async function generateRequestNumber(
   organizationId: number
 ): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `SR-${year}-`;
+  return executeTransaction(async (db) => {
+    const year = new Date().getFullYear();
+    const prefix = `SR-${year}-`;
 
-  // Get the latest request number for this year
-  const result = await executeQueryOne<{ request_number: string }>(
-    `SELECT request_number FROM service_requests
-     WHERE organization_id = ?
-       AND request_number LIKE ?
-     ORDER BY id DESC
-     LIMIT 1`,
-    [organizationId, `${prefix}%`]
-  );
+    // Get the latest request number for this year
+    const result = await db.get<{ request_number: string }>(
+      `SELECT request_number FROM service_requests
+       WHERE organization_id = ?
+         AND request_number LIKE ?
+       ORDER BY id DESC
+       LIMIT 1`,
+      [organizationId, `${prefix}%`]
+    );
 
-  let nextNumber = 1;
-  if (result?.request_number) {
-    const currentNumber = parseInt(result.request_number.replace(prefix, ''), 10);
-    if (!isNaN(currentNumber)) {
-      nextNumber = currentNumber + 1;
+    let nextNumber = 1;
+    if (result?.request_number) {
+      const currentNumber = parseInt(result.request_number.replace(prefix, ''), 10);
+      if (!isNaN(currentNumber)) {
+        nextNumber = currentNumber + 1;
+      }
     }
-  }
-  return `${prefix}${String(nextNumber).padStart(5, '0')}`;
+    return `${prefix}${String(nextNumber).padStart(5, '0')}`;
+  });
 }
 
 // ============================================================================

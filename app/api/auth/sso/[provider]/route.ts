@@ -312,10 +312,10 @@ async function handleSAMLCallback(
 }
 
 /**
- * Generate secure state parameter
+ * Generate secure state parameter using cryptographic randomness
  */
 function generateState(): string {
-  return Array.from({ length: 32 }, () =>
-    Math.random().toString(36).charAt(2)
-  ).join('');
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }

@@ -1,10 +1,10 @@
-import db from '../db/connection'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 interface RateLimitConfig {
   windowMs: number // Janela de tempo em ms
-  maxRequests: number // Máximo de requests na janela
-  keyGenerator?: (req: any) => string // Função para gerar chave única
+  maxRequests: number // Maximo de requests na janela
+  keyGenerator?: (req: any) => string // Funcao para gerar chave unica
   skipSuccessfulRequests?: boolean
   skipFailedRequests?: boolean
   message?: string
@@ -17,27 +17,27 @@ interface RateLimitEntry {
   created_at: string
 }
 
-// Configurações padrão por tipo de endpoint
+// Configuracoes padrao por tipo de endpoint
 export const rateLimitConfigs = {
   api: {
     windowMs: 15 * 60 * 1000, // 15 minutos
     maxRequests: 100,
-    message: 'Muitas requisições para API. Tente novamente em 15 minutos.'
+    message: 'Muitas requisicoes para API. Tente novamente em 15 minutos.'
   },
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutos
-    maxRequests: 5, // Máximo 5 tentativas de login em 15 minutos
+    maxRequests: 5, // Maximo 5 tentativas de login em 15 minutos
     message: 'Muitas tentativas de login. Tente novamente em 15 minutos.'
   },
   'auth-strict': {
     windowMs: 60 * 60 * 1000, // 1 hora
-    maxRequests: 3, // Máximo 3 tentativas em 1 hora (mais rigoroso)
-    message: 'Muitas tentativas de autenticação. Conta temporariamente bloqueada por 1 hora.'
+    maxRequests: 3, // Maximo 3 tentativas em 1 hora (mais rigoroso)
+    message: 'Muitas tentativas de autenticacao. Conta temporariamente bloqueada por 1 hora.'
   },
   refresh: {
     windowMs: 5 * 60 * 1000, // 5 minutos
-    maxRequests: 10, // Permite múltiplos refreshes
-    message: 'Muitas requisições de refresh. Tente novamente em 5 minutos.'
+    maxRequests: 10, // Permite multiplos refreshes
+    message: 'Muitas requisicoes de refresh. Tente novamente em 5 minutos.'
   },
   upload: {
     windowMs: 5 * 60 * 1000, // 5 minutos
@@ -52,31 +52,34 @@ export const rateLimitConfigs = {
   'password-reset': {
     windowMs: 60 * 60 * 1000, // 1 hora
     maxRequests: 3,
-    message: 'Muitas solicitações de redefinição de senha. Tente novamente em 1 hora.'
+    message: 'Muitas solicitacoes de redefinicao de senha. Tente novamente em 1 hora.'
   },
   'embedding-generation': {
     windowMs: 5 * 60 * 1000, // 5 minutos
     maxRequests: 20,
-    message: 'Muitas requisições de geração de embeddings. Tente novamente em 5 minutos.'
+    message: 'Muitas requisicoes de geracao de embeddings. Tente novamente em 5 minutos.'
   },
   'semantic-search': {
     windowMs: 1 * 60 * 1000, // 1 minuto
     maxRequests: 50,
-    message: 'Muitas pesquisas semânticas. Tente novamente em 1 minuto.'
+    message: 'Muitas pesquisas semanticas. Tente novamente em 1 minuto.'
   },
   'search-suggest': {
     windowMs: 1 * 60 * 1000, // 1 minuto
     maxRequests: 60,
-    message: 'Muitas requisições de sugestão de pesquisa. Tente novamente em 1 minuto.'
+    message: 'Muitas requisicoes de sugestao de pesquisa. Tente novamente em 1 minuto.'
   }
 }
+
+// Track whether table has been initialized
+let tableInitialized = false;
 
 /**
  * Inicializar tabela de rate limiting
  */
-function initRateLimitTable() {
+async function initRateLimitTable() {
   try {
-    db.exec(`
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS rate_limits (
         key TEXT PRIMARY KEY,
         count INTEGER NOT NULL DEFAULT 1,
@@ -84,20 +87,22 @@ function initRateLimitTable() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
-    `)
+    `, []);
 
-    // Índice para limpeza automática
-    db.exec(`
+    // Indice para limpeza automatica
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_time
       ON rate_limits(reset_time)
-    `)
+    `, []);
+
+    tableInitialized = true;
   } catch (error) {
-    logger.error('Error creating rate_limits table', error)
+    logger.error('Error creating rate_limits table', error);
   }
 }
 
 /**
- * Gerar chave padrão baseada no IP e endpoint
+ * Gerar chave padrao baseada no IP e endpoint
  */
 function defaultKeyGenerator(req: any, endpoint: string): string {
   const ip = req.headers.get('x-forwarded-for') ||
@@ -114,18 +119,32 @@ function defaultKeyGenerator(req: any, endpoint: string): string {
 /**
  * Limpar entradas expiradas
  */
-function cleanupExpiredEntries() {
+async function cleanupExpiredEntries() {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM rate_limits
       WHERE reset_time < datetime('now')
-    `).run()
+    `, []);
 
     if (result.changes > 0) {
       logger.info(`Cleaned up ${result.changes} expired rate limit entries`)
     }
   } catch (error) {
     logger.error('Error cleaning up rate limits', error)
+  }
+}
+
+/**
+ * Ensure table exists
+ */
+async function ensureTable() {
+  if (!tableInitialized) {
+    try {
+      await executeQuery<any>('SELECT 1 FROM rate_limits LIMIT 1', []);
+      tableInitialized = true;
+    } catch {
+      await initRateLimitTable();
+    }
   }
 }
 
@@ -138,19 +157,11 @@ export async function applyRateLimit(
   endpoint: string
 ): Promise<{ allowed: boolean; remaining: number; resetTime: Date; total: number }> {
 
-  // Inicializar tabela se necessário
-  const tableExists = db.prepare(`
-    SELECT name FROM sqlite_master
-    WHERE type='table' AND name='rate_limits'
-  `).get()
+  await ensureTable();
 
-  if (!tableExists) {
-    initRateLimitTable()
-  }
-
-  // Limpeza periódica (chance de 1%)
+  // Limpeza periodica (chance de 1%)
   if (Math.random() < 0.01) {
-    cleanupExpiredEntries()
+    cleanupExpiredEntries();
   }
 
   const key = config.keyGenerator ?
@@ -162,20 +173,20 @@ export async function applyRateLimit(
 
   try {
     // Buscar entrada existente
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<RateLimitEntry>(`
       SELECT * FROM rate_limits
       WHERE key = ? AND reset_time > datetime('now')
-    `).get(key) as RateLimitEntry | undefined
+    `, [key]);
 
     if (existing) {
       // Incrementar contador
       const newCount = existing.count + 1
 
-      db.prepare(`
+      await executeRun(`
         UPDATE rate_limits
         SET count = ?, updated_at = datetime('now')
         WHERE key = ?
-      `).run(newCount, key)
+      `, [newCount, key]);
 
       const remaining = Math.max(0, config.maxRequests - newCount)
       const allowed = newCount <= config.maxRequests
@@ -188,10 +199,10 @@ export async function applyRateLimit(
       }
     } else {
       // Criar nova entrada
-      db.prepare(`
+      await executeRun(`
         INSERT OR REPLACE INTO rate_limits (key, count, reset_time)
         VALUES (?, 1, ?)
-      `).run(key, resetTime.toISOString())
+      `, [key, resetTime.toISOString()]);
 
       return {
         allowed: true,
@@ -202,7 +213,7 @@ export async function applyRateLimit(
     }
   } catch (error) {
     logger.error('Rate limit error', error)
-    // Em caso de erro, permitir a requisição
+    // Em caso de erro, permitir a requisicao
     return {
       allowed: true,
       remaining: config.maxRequests,
@@ -268,10 +279,10 @@ export async function checkRateLimit(
     defaultKeyGenerator(request, endpoint)
 
   try {
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<RateLimitEntry>(`
       SELECT * FROM rate_limits
       WHERE key = ? AND reset_time > datetime('now')
-    `).get(key) as RateLimitEntry | undefined
+    `, [key]);
 
     if (existing) {
       const remaining = Math.max(0, config.maxRequests - existing.count)
@@ -300,15 +311,15 @@ export async function checkRateLimit(
 }
 
 /**
- * Resetar rate limit para uma chave específica
+ * Resetar rate limit para uma chave especifica
  */
-export function resetRateLimit(request: any, endpoint: string): boolean {
+export async function resetRateLimit(request: any, endpoint: string): Promise<boolean> {
   try {
     const key = defaultKeyGenerator(request, endpoint)
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM rate_limits WHERE key = ?
-    `).run(key)
+    `, [key]);
 
     return result.changes > 0
   } catch (error) {
@@ -318,27 +329,27 @@ export function resetRateLimit(request: any, endpoint: string): boolean {
 }
 
 /**
- * Obter estatísticas de rate limiting
+ * Obter estatisticas de rate limiting
  */
-export function getRateLimitStats(): {
+export async function getRateLimitStats(): Promise<{
   totalEntries: number
   activeEntries: number
   expiredEntries: number
-} {
+}> {
   try {
-    const total = db.prepare(`
+    const total = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM rate_limits
-    `).get() as { count: number }
+    `, []);
 
-    const active = db.prepare(`
+    const active = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM rate_limits
       WHERE reset_time > datetime('now')
-    `).get() as { count: number }
+    `, []);
 
     return {
-      totalEntries: total.count,
-      activeEntries: active.count,
-      expiredEntries: total.count - active.count
+      totalEntries: total?.count ?? 0,
+      activeEntries: active?.count ?? 0,
+      expiredEntries: (total?.count ?? 0) - (active?.count ?? 0)
     }
   } catch (error) {
     logger.error('Get rate limit stats error', error)

@@ -95,8 +95,8 @@ const RadioOption = memo(({
         aria-hidden="true"
       ></span>
       <div>
-        <span className="font-medium">{option.label}</span>
-        <span className="text-sm text-neutral-500 ml-2">{option.description}</span>
+        <span className="font-medium dark:text-neutral-200">{option.label}</span>
+        <span className="text-sm text-neutral-500 dark:text-neutral-400 ml-2">{option.description}</span>
       </div>
     </div>
   </label>
@@ -262,7 +262,7 @@ export default function CreateTicketPage() {
         customToast.success('Ticket criado com sucesso!')
         // Small delay to show success message before redirect
         setTimeout(() => {
-          router.push(`/portal/ticket/${data.ticket.id}?created=true`)
+          router.push(`/portal/tickets/${data.ticket.id}?created=true`)
         }, 500)
       } else {
         setErrors({ submit: data.error || 'Erro ao criar ticket' })
@@ -377,10 +377,10 @@ export default function CreateTicketPage() {
 
   if (!ticketType) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 flex items-center justify-center">
         <div className="text-center glass-panel p-8 rounded-xl animate-fade-in">
           <ExclamationCircleIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-neutral-900 mb-2">Tipo de ticket não encontrado</h2>
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Tipo de ticket não encontrado</h2>
           <button
             onClick={() => router.push('/portal')}
             className="text-brand-600 hover:text-brand-700 transition-colors"
@@ -401,13 +401,13 @@ export default function CreateTicketPage() {
           <nav className="flex mb-3" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2 text-sm">
               <li className="flex items-center">
-                <Link href="/portal" className="text-neutral-600 hover:text-brand-600">
+                <Link href="/portal" className="text-neutral-600 dark:text-neutral-400 hover:text-brand-600">
                   Portal
                 </Link>
               </li>
               <li className="flex items-center">
                 <svg
-                  className="h-4 w-4 text-neutral-400 mx-2"
+                  className="h-4 w-4 text-neutral-400 dark:text-neutral-600 mx-2"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                   aria-hidden="true"
@@ -418,7 +418,7 @@ export default function CreateTicketPage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                <span className="text-neutral-900 font-medium">Criar Solicitação</span>
+                <span className="text-neutral-900 dark:text-neutral-100 font-medium">Criar Solicitação</span>
               </li>
             </ol>
           </nav>
@@ -426,7 +426,7 @@ export default function CreateTicketPage() {
           <div className="flex items-center space-x-4 animate-slide-up">
             <button
               onClick={() => router.push('/portal')}
-              className="p-2 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-all duration-200"
+              className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
@@ -438,10 +438,10 @@ export default function CreateTicketPage() {
                 {workflowInfo && <workflowInfo.icon className="w-6 h-6" />}
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-neutral-900">
+                <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                   Criar {ticketType.name}
                 </h1>
-                <p className="text-neutral-600">{ticketType.description}</p>
+                <p className="text-neutral-600 dark:text-neutral-400">{ticketType.description}</p>
               </div>
             </div>
           </div>
@@ -452,24 +452,24 @@ export default function CreateTicketPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Workflow Info */}
         {workflowInfo && (
-          <div className="bg-brand-50 border border-brand-200 rounded-lg p-4 mb-6 animate-slide-up">
+          <div className="bg-brand-50 dark:bg-brand-950 border border-brand-200 dark:border-brand-800 rounded-lg p-4 mb-6 animate-slide-up">
             <div className="flex items-start space-x-3">
-              <InformationCircleIcon className="w-5 h-5 text-brand-600 mt-0.5" />
-              <p className="text-brand-800">{workflowInfo.helpText}</p>
+              <InformationCircleIcon className="w-5 h-5 text-brand-600 dark:text-brand-400 mt-0.5" />
+              <p className="text-brand-800 dark:text-brand-200">{workflowInfo.helpText}</p>
             </div>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6" aria-label="Formulário de criação de ticket">
           {/* Basic Information */}
-          <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
               Informações Básicas
             </h2>
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="ticket-title" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="ticket-title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Título *
                 </label>
                 <input
@@ -493,7 +493,7 @@ export default function CreateTicketPage() {
               </div>
 
               <div>
-                <label htmlFor="ticket-description" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="ticket-description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Descrição Detalhada *
                 </label>
                 <textarea
@@ -518,15 +518,15 @@ export default function CreateTicketPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="category" className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label htmlFor="category" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Categoria *
                   </label>
                   <select
                     id="category"
                     value={formData.category_id}
                     onChange={(e) => updateFormData('category_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
-                      errors.category_id ? 'border-error-300' : 'border-neutral-300'
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                      errors.category_id ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                     }`}
                     required
                     aria-required="true"
@@ -545,15 +545,15 @@ export default function CreateTicketPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Prioridade *
                   </label>
                   <select
                     id="priority"
                     value={formData.priority_id}
                     onChange={(e) => updateFormData('priority_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
-                      errors.priority_id ? 'border-error-300' : 'border-neutral-300'
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                      errors.priority_id ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                     }`}
                     required
                     aria-required="true"
@@ -576,14 +576,14 @@ export default function CreateTicketPage() {
 
           {/* Impact and Urgency (for incidents) */}
           {ticketType.workflow_type === 'incident' && (
-            <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up">
-              <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+            <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 animate-slide-up">
+              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
                 Impacto e Urgência
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-3">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
                     Impacto
                   </label>
                   <div className="space-y-2">
@@ -600,7 +600,7 @@ export default function CreateTicketPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-3">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">
                     Urgência
                   </label>
                   <div className="space-y-2">
@@ -620,14 +620,14 @@ export default function CreateTicketPage() {
           )}
 
           {/* Additional Information */}
-          <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
               Informações Adicionais
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Usuários Afetados
                 </label>
                 <input
@@ -635,32 +635,32 @@ export default function CreateTicketPage() {
                   min="1"
                   value={formData.affected_users_count}
                   onChange={(e) => updateFormData('affected_users_count', parseInt(e.target.value) || 1)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Localização
                 </label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => updateFormData('location', e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Prédio, sala, andar..."
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Serviço de Negócio Afetado
                 </label>
                 <input
                   type="text"
                   value={formData.business_service}
                   onChange={(e) => updateFormData('business_service', e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Sistema, aplicação ou serviço específico"
                 />
               </div>
@@ -668,22 +668,22 @@ export default function CreateTicketPage() {
           </div>
 
           {/* Contact Information */}
-          <div className="glass-panel rounded-lg border border-neutral-200 p-6 animate-slide-up">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 animate-slide-up">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
               Informações de Contato
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Nome Completo *
                 </label>
                 <input
                   type="text"
                   value={formData.contact_name}
                   onChange={(e) => updateFormData('contact_name', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
-                    errors.contact_name ? 'border-error-300' : 'border-neutral-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                    errors.contact_name ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                   }`}
                   placeholder="Seu nome completo"
                 />
@@ -691,15 +691,15 @@ export default function CreateTicketPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Email *
                 </label>
                 <input
                   type="email"
                   value={formData.contact_email}
                   onChange={(e) => updateFormData('contact_email', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 ${
-                    errors.contact_email ? 'border-error-300' : 'border-neutral-300'
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                    errors.contact_email ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                   }`}
                   placeholder="seu.email@empresa.com"
                 />
@@ -707,14 +707,14 @@ export default function CreateTicketPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Telefone
                 </label>
                 <input
                   type="tel"
                   value={formData.contact_phone}
                   onChange={(e) => updateFormData('contact_phone', e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="(11) 99999-9999"
                 />
               </div>

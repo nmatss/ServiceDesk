@@ -46,11 +46,11 @@ const ticketCardVariants = cva(
         comfortable: 'p-6 space-y-4',
       },
       status: {
-        open: 'bg-blue-50/30 dark:bg-blue-900/5',
-        'in-progress': 'bg-warning-50/30 dark:bg-warning-900/5',
-        resolved: 'bg-success-50/30 dark:bg-success-900/5',
-        closed: 'bg-neutral-50/30 dark:bg-neutral-800/50',
-        cancelled: 'bg-error-50/30 dark:bg-error-900/5',
+        open: 'bg-blue-50 dark:bg-blue-900/10',
+        'in-progress': 'bg-amber-50 dark:bg-amber-900/10',
+        resolved: 'bg-green-50 dark:bg-green-900/10',
+        closed: 'bg-neutral-50 dark:bg-neutral-800/50',
+        cancelled: 'bg-red-50 dark:bg-red-900/10',
       },
     },
     defaultVariants: {
@@ -263,7 +263,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                           onClick?.(ticket);
                           setShowActionsMenu(false);
                         }}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
                       >
                         <Eye className="h-4 w-4" />
                         View
@@ -275,7 +275,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                             onEdit(ticket);
                             setShowActionsMenu(false);
                           }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
                         >
                           <Edit className="h-4 w-4" />
                           Edit
@@ -288,7 +288,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                             onAssign(ticket);
                             setShowActionsMenu(false);
                           }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
                         >
                           <User className="h-4 w-4" />
                           Assign

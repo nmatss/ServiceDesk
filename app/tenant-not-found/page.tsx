@@ -8,7 +8,7 @@ export default function TenantNotFoundPage() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-neutral-800 py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 animate-slide-up">
           <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 animate-pulse-soft">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-950 animate-pulse-soft">
               <svg
                 className="h-6 w-6 text-red-600 dark:text-red-400"
                 fill="none"
@@ -34,7 +34,7 @@ export default function TenantNotFoundPage() {
           </div>
 
           <div className="mt-6">
-            <div className="rounded-md bg-yellow-50 dark:bg-yellow-900/20 p-4 border border-yellow-200 dark:border-yellow-800/30">
+            <div className="rounded-md bg-yellow-50 dark:bg-yellow-950 p-4 border border-yellow-200 dark:border-yellow-800">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg

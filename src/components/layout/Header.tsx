@@ -22,7 +22,7 @@ interface HeaderProps {
     id: number
     name: string
     email: string
-    role: 'admin' | 'agent' | 'user'
+    role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
   }
 }
 
@@ -73,7 +73,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
   return (
     <>
       <header
-        className="sticky top-0 z-40 glass border-b border-white/10 safe-top"
+        className="sticky top-0 z-40 glass border-b border-neutral-200 dark:border-white/10 safe-top"
         role="banner"
       >
         <div className="flex items-center justify-between h-14 sm:h-16 px-3 sm:px-6 lg:px-8">

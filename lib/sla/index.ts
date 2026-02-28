@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { SLAPolicy, SLATracking, CreateSLAPolicy } from '../types/database';
 import logger from '../monitoring/structured-logger';
 import { triggerSLABreach, triggerSLAWarning } from '../automations';
@@ -37,7 +37,7 @@ interface SLAMetrics {
   resolution_compliance_percentage: number;
 }
 
-// Tipos para configuração de SLA
+// Tipos para configuracao de SLA
 interface BusinessConfig {
   startHour: number;
   endHour: number;
@@ -50,7 +50,7 @@ interface SLAConfig {
   holidays: string[];
 }
 
-// Cache simples em memória para evitar hits excessivos no banco
+// Cache simples em memoria para evitar hits excessivos no banco
 let configCache: {
   data: SLAConfig;
   expiresAt: number;
@@ -58,7 +58,7 @@ let configCache: {
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
-// Configuração padrão (Fallback)
+// Configuracao padrao (Fallback)
 const DEFAULT_BUSINESS_CONFIG = {
   startHour: 9,
   endHour: 18,
@@ -67,21 +67,27 @@ const DEFAULT_BUSINESS_CONFIG = {
 };
 
 const DEFAULT_HOLIDAYS = [
-  '2024-01-01', '2024-12-25' // Minimo de feriados padrão
+  '2024-01-01', '2024-12-25' // Minimo de feriados padrao
 ];
 
 /**
- * Carrega configurações do SLA do banco (system_settings)
+ * Carrega configuracoes do SLA do banco (system_settings)
  */
-function getSLAConfig(): SLAConfig {
+async function getSLAConfig(): Promise<SLAConfig> {
   const now = Date.now();
   if (configCache && configCache.expiresAt > now) {
     return configCache.data;
   }
 
   try {
-    const businessConfigRow = db.prepare("SELECT value FROM system_settings WHERE key = 'sla_business_hours'").get() as { value: string } | undefined;
-    const holidaysRow = db.prepare("SELECT value FROM system_settings WHERE key = 'sla_holidays'").get() as { value: string } | undefined;
+    const businessConfigRow = await executeQueryOne<{ value: string }>(
+      "SELECT value FROM system_settings WHERE key = 'sla_business_hours'",
+      []
+    );
+    const holidaysRow = await executeQueryOne<{ value: string }>(
+      "SELECT value FROM system_settings WHERE key = 'sla_holidays'",
+      []
+    );
 
     const businessConfig: BusinessConfig = businessConfigRow ? JSON.parse(businessConfigRow.value) : DEFAULT_BUSINESS_CONFIG;
     const holidays: string[] = holidaysRow ? JSON.parse(holidaysRow.value) : DEFAULT_HOLIDAYS;
@@ -100,70 +106,70 @@ function getSLAConfig(): SLAConfig {
   }
 }
 
-function isHoliday(date: Date): boolean {
-  const { holidays } = getSLAConfig();
+async function isHoliday(date: Date): Promise<boolean> {
+  const { holidays } = await getSLAConfig();
   const dateString = date.toISOString().split('T')[0] || '';
   return holidays.includes(dateString);
 }
 
 /**
- * Verifica se estamos dentro do horário comercial
+ * Verifica se estamos dentro do horario comercial
  */
-export function isBusinessHours(date: Date = new Date()): boolean {
-  const { businessConfig } = getSLAConfig();
+export async function isBusinessHours(date: Date = new Date()): Promise<boolean> {
+  const { businessConfig } = await getSLAConfig();
   const hour = date.getHours();
   const day = date.getDay();
 
   const isWorkDay = businessConfig.workDays.includes(day);
   const isBusinessHour = hour >= businessConfig.startHour && hour < businessConfig.endHour;
-  const isNotHoliday = !isHoliday(date);
+  const isNotHoliday = !await isHoliday(date);
 
   return isWorkDay && isBusinessHour && isNotHoliday;
 }
 
 /**
- * Calcula o próximo horário comercial
+ * Calcula o proximo horario comercial
  */
-export function getNextBusinessHour(date: Date = new Date()): Date {
-  const { businessConfig } = getSLAConfig();
+export async function getNextBusinessHour(date: Date = new Date()): Promise<Date> {
+  const { businessConfig } = await getSLAConfig();
   let nextDate = new Date(date);
 
-  // Avança até encontrar um dia útil
+  // Avanca ate encontrar um dia util
   while (true) {
     const day = nextDate.getDay();
     const isWorkDay = businessConfig.workDays.includes(day);
-    const isNotHoliday = !isHoliday(nextDate);
+    const isNotHoliday = !await isHoliday(nextDate);
 
-    // Se é dia útil e não é feriado
+    // Se e dia util e nao e feriado
     if (isWorkDay && isNotHoliday) {
-      // Se for antes do início do expediente, ajusta para o início
+      // Se for antes do inicio do expediente, ajusta para o inicio
       if (nextDate.getHours() < businessConfig.startHour) {
         nextDate.setHours(businessConfig.startHour, 0, 0, 0);
         return nextDate;
       }
-      // Se for durante o expediente, retorna a própria data (se não foi modificado pelo loop)
+      // Se for durante o expediente, retorna a propria data (se nao foi modificado pelo loop)
       if (nextDate.getHours() < businessConfig.endHour) {
         return nextDate;
       }
-      // Se passou do expediente, vai para o próximo dia (loop continua)
+      // Se passou do expediente, vai para o proximo dia (loop continua)
     }
 
-    // Avança para o próximo dia às 9h
+    // Avanca para o proximo dia as 9h
     nextDate.setDate(nextDate.getDate() + 1);
     nextDate.setHours(businessConfig.startHour, 0, 0, 0);
   }
 }
 
 /**
- * Adiciona minutos considerando horário comercial
+ * Adiciona minutos considerando horario comercial
  */
-export function addBusinessMinutes(startDate: Date, minutes: number): Date {
-  const { businessConfig } = getSLAConfig();
+export async function addBusinessMinutes(startDate: Date, minutes: number): Promise<Date> {
+  const { businessConfig } = await getSLAConfig();
   let currentDate = new Date(startDate);
 
-  // Se começar fora do horário comercial, avança para o próximo
-  if (!isBusinessHours(currentDate)) {
-    currentDate = getNextBusinessHour(currentDate);
+  // Se comecar fora do horario comercial, avanca para o proximo
+  if (!await isBusinessHours(currentDate)) {
+    currentDate = await getNextBusinessHour(currentDate);
   }
 
   let remainingMinutes = minutes;
@@ -182,42 +188,42 @@ export function addBusinessMinutes(startDate: Date, minutes: number): Date {
     // Consome o resto do dia
     remainingMinutes -= minutesUntilEndOfDay;
 
-    // Avança para o próximo dia útil
+    // Avanca para o proximo dia util
     currentDate.setDate(currentDate.getDate() + 1);
-    currentDate = getNextBusinessHour(currentDate);
+    currentDate = await getNextBusinessHour(currentDate);
   }
 
   return currentDate;
 }
 
 /**
- * Busca política de SLA aplicável para um ticket
+ * Busca politica de SLA aplicavel para um ticket
  */
-export function findApplicableSLAPolicy(priorityId: number, categoryId?: number): SLAPolicy | null {
+export async function findApplicableSLAPolicy(priorityId: number, categoryId?: number): Promise<SLAPolicy | null> {
   try {
-    // Primeiro tenta encontrar uma política específica para categoria e prioridade
+    // Primeiro tenta encontrar uma politica especifica para categoria e prioridade
     if (categoryId) {
-      const specificPolicy = db.prepare(`
+      const specificPolicy = await executeQueryOne<SLAPolicy>(`
         SELECT * FROM sla_policies
         WHERE is_active = 1
           AND priority_id = ?
           AND category_id = ?
         ORDER BY id
         LIMIT 1
-      `).get(priorityId, categoryId) as SLAPolicy;
+      `, [priorityId, categoryId]);
 
       if (specificPolicy) return specificPolicy;
     }
 
-    // Senão, busca política geral para a prioridade
-    const generalPolicy = db.prepare(`
+    // Senao, busca politica geral para a prioridade
+    const generalPolicy = await executeQueryOne<SLAPolicy>(`
       SELECT * FROM sla_policies
       WHERE is_active = 1
         AND priority_id = ?
         AND category_id IS NULL
       ORDER BY id
       LIMIT 1
-    `).get(priorityId) as SLAPolicy;
+    `, [priorityId]);
 
     return generalPolicy || null;
   } catch (error) {
@@ -229,7 +235,7 @@ export function findApplicableSLAPolicy(priorityId: number, categoryId?: number)
 /**
  * Cria tracking de SLA para um ticket
  */
-export function createSLATracking(ticketId: number, slaPolicy: SLAPolicy, ticketCreatedAt: Date): boolean {
+export async function createSLATracking(ticketId: number, slaPolicy: SLAPolicy, ticketCreatedAt: Date): Promise<boolean> {
   try {
     const now = new Date(ticketCreatedAt);
     const extendedPolicy = slaPolicy as ExtendedSLAPolicy;
@@ -239,15 +245,15 @@ export function createSLATracking(ticketId: number, slaPolicy: SLAPolicy, ticket
     let resolutionDue: Date;
     let escalationDue: Date | null = null;
 
-    // Converte horas para minutos se necessário
+    // Converte horas para minutos se necessario
     const responseMinutes = extendedPolicy.response_time_minutes || slaPolicy.response_time_hours * 60;
     const resolutionMinutes = extendedPolicy.resolution_time_minutes || slaPolicy.resolution_time_hours * 60;
 
     if (slaPolicy.business_hours_only) {
-      responseDue = addBusinessMinutes(now, responseMinutes);
-      resolutionDue = addBusinessMinutes(now, resolutionMinutes);
+      responseDue = await addBusinessMinutes(now, responseMinutes);
+      resolutionDue = await addBusinessMinutes(now, resolutionMinutes);
       if (extendedPolicy.escalation_time_minutes) {
-        escalationDue = addBusinessMinutes(now, extendedPolicy.escalation_time_minutes);
+        escalationDue = await addBusinessMinutes(now, extendedPolicy.escalation_time_minutes);
       }
     } else {
       responseDue = new Date(now.getTime() + responseMinutes * 60000);
@@ -257,19 +263,17 @@ export function createSLATracking(ticketId: number, slaPolicy: SLAPolicy, ticket
       }
     }
 
-    const insertTracking = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO sla_tracking (
         ticket_id, sla_policy_id, response_due_at, resolution_due_at, escalation_due_at
       ) VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const result = insertTracking.run(
+    `, [
       ticketId,
       slaPolicy.id,
       responseDue.toISOString(),
       resolutionDue.toISOString(),
       escalationDue?.toISOString() || null
-    );
+    ]);
 
     return result.changes > 0;
   } catch (error) {
@@ -281,11 +285,11 @@ export function createSLATracking(ticketId: number, slaPolicy: SLAPolicy, ticket
 /**
  * Verifica tickets com SLA em risco
  */
-export function checkSLABreaches(): ExtendedSLATracking[] {
+export async function checkSLABreaches(): Promise<ExtendedSLATracking[]> {
   try {
     const now = new Date().toISOString();
 
-    const query = db.prepare(`
+    return await executeQuery<ExtendedSLATracking>(`
       SELECT st.*, t.title, t.user_id, sp.name as sla_name
       FROM sla_tracking st
       JOIN tickets t ON st.ticket_id = t.id
@@ -297,9 +301,7 @@ export function checkSLABreaches(): ExtendedSLATracking[] {
           OR
           (st.resolution_due_at <= ? AND st.resolution_met = 0)
         )
-    `);
-
-    return query.all(now, now) as ExtendedSLATracking[];
+    `, [now, now]);
   } catch (error) {
     logger.error('Error checking SLA breaches', error);
     return [];
@@ -307,13 +309,14 @@ export function checkSLABreaches(): ExtendedSLATracking[] {
 }
 
 /**
- * Verifica tickets próximos do breach (warning)
+ * Verifica tickets proximos do breach (warning)
  */
-export function checkSLAWarnings(warningMinutes: number = 30): ExtendedSLATracking[] {
+export async function checkSLAWarnings(warningMinutes: number = 30): Promise<ExtendedSLATracking[]> {
   try {
     const warningTime = new Date(Date.now() + warningMinutes * 60000).toISOString();
+    const now = new Date().toISOString();
 
-    const query = db.prepare(`
+    return await executeQuery<ExtendedSLATracking>(`
       SELECT st.*, t.title, t.user_id, sp.name as sla_name
       FROM sla_tracking st
       JOIN tickets t ON st.ticket_id = t.id
@@ -325,10 +328,7 @@ export function checkSLAWarnings(warningMinutes: number = 30): ExtendedSLATracki
           OR
           (st.resolution_due_at <= ? AND st.resolution_due_at > ? AND st.resolution_met = 0)
         )
-    `);
-
-    const now = new Date().toISOString();
-    return query.all(warningTime, now, warningTime, now) as ExtendedSLATracking[];
+    `, [warningTime, now, warningTime, now]);
   } catch (error) {
     logger.error('Error checking SLA warnings', error);
     return [];
@@ -338,18 +338,17 @@ export function checkSLAWarnings(warningMinutes: number = 30): ExtendedSLATracki
 /**
  * Marca primeira resposta como atendida
  */
-export function markFirstResponse(ticketId: number, responseTime: number): boolean {
+export async function markFirstResponse(ticketId: number, responseTime: number): Promise<boolean> {
   try {
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE sla_tracking
       SET
         response_met = 1,
         response_time_minutes = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE ticket_id = ? AND response_met = 0
-    `);
+    `, [responseTime, ticketId]);
 
-    const result = updateQuery.run(responseTime, ticketId);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error marking first response', error);
@@ -360,18 +359,17 @@ export function markFirstResponse(ticketId: number, responseTime: number): boole
 /**
  * Marca ticket como resolvido
  */
-export function markResolution(ticketId: number, resolutionTime: number): boolean {
+export async function markResolution(ticketId: number, resolutionTime: number): Promise<boolean> {
   try {
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE sla_tracking
       SET
         resolution_met = 1,
         resolution_time_minutes = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE ticket_id = ? AND resolution_met = 0
-    `);
+    `, [resolutionTime, ticketId]);
 
-    const result = updateQuery.run(resolutionTime, ticketId);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error marking resolution', error);
@@ -382,61 +380,55 @@ export function markResolution(ticketId: number, resolutionTime: number): boolea
 /**
  * Escala um ticket automaticamente
  */
-export function escalateTicket(ticketId: number, reason: string, escalationType: 'sla_breach' | 'manual' | 'priority_change' = 'sla_breach'): boolean {
+export async function escalateTicket(ticketId: number, reason: string, escalationType: 'sla_breach' | 'manual' | 'priority_change' = 'sla_breach'): Promise<boolean> {
   try {
     // Busca ticket e agente supervisor
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<TicketWithAssignment>(`
       SELECT t.*, u.name as user_name, a.name as agent_name
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users a ON t.assigned_to = a.id
       WHERE t.id = ?
-    `).get(ticketId) as TicketWithAssignment | undefined;
+    `, [ticketId]);
 
     if (!ticket) return false;
 
     // Busca um admin ou supervisor para escalar
-    const supervisor = db.prepare(`
+    const supervisor = await executeQueryOne<{ id: number }>(`
       SELECT id FROM users
       WHERE role = 'admin'
       ORDER BY id
       LIMIT 1
-    `).get() as { id: number } | undefined;
+    `, []);
 
     if (!supervisor) return false;
 
-    // Cria a escalação
-    const insertEscalation = db.prepare(`
+    // Cria a escalacao
+    const escalationResult = await executeRun(`
       INSERT INTO escalations (
         ticket_id, escalation_type, escalated_from, escalated_to, reason
       ) VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const escalationResult = insertEscalation.run(
+    `, [
       ticketId,
       escalationType,
       ticket.assigned_to || null,
       supervisor.id,
       reason
-    );
+    ]);
 
     // Atualiza o ticket para o supervisor
-    const updateTicket = db.prepare(`
+    await executeRun(`
       UPDATE tickets
       SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
+    `, [supervisor.id, ticketId]);
 
-    updateTicket.run(supervisor.id, ticketId);
-
-    // Cria notificação para o supervisor
-    const insertNotification = db.prepare(`
+    // Cria notificacao para o supervisor
+    await executeRun(`
       INSERT INTO notifications (
         user_id, ticket_id, type, title, message, is_read, sent_via_email
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    insertNotification.run(
+    `, [
       supervisor.id,
       ticketId,
       'escalation',
@@ -444,7 +436,7 @@ export function escalateTicket(ticketId: number, reason: string, escalationType:
       `Ticket #${ticketId} foi escalado: ${reason}`,
       false,
       true
-    );
+    ]);
 
     return escalationResult.changes > 0;
   } catch (error) {
@@ -454,9 +446,9 @@ export function escalateTicket(ticketId: number, reason: string, escalationType:
 }
 
 /**
- * Calcula métricas de SLA
+ * Calcula metricas de SLA
  */
-export function getSLAMetrics(startDate?: string, endDate?: string): SLAMetrics | null {
+export async function getSLAMetrics(startDate?: string, endDate?: string): Promise<SLAMetrics | null> {
   try {
     const whereClause = startDate && endDate
       ? 'WHERE st.created_at BETWEEN ? AND ?'
@@ -464,7 +456,7 @@ export function getSLAMetrics(startDate?: string, endDate?: string): SLAMetrics 
 
     const params = startDate && endDate ? [startDate, endDate] : [];
 
-    const metricsQuery = db.prepare(`
+    const rawMetrics = await executeQueryOne<Omit<SLAMetrics, 'response_compliance_percentage' | 'resolution_compliance_percentage'>>(`
       SELECT
         COUNT(*) as total_tickets,
         COUNT(CASE WHEN st.response_met = 1 THEN 1 END) as response_met_count,
@@ -475,13 +467,11 @@ export function getSLAMetrics(startDate?: string, endDate?: string): SLAMetrics 
         COUNT(CASE WHEN st.resolution_due_at < CURRENT_TIMESTAMP AND st.resolution_met = 0 THEN 1 END) as resolution_breaches
       FROM sla_tracking st
       ${whereClause}
-    `);
-
-    const rawMetrics = metricsQuery.get(...params) as Omit<SLAMetrics, 'response_compliance_percentage' | 'resolution_compliance_percentage'> | undefined;
+    `, params);
 
     if (!rawMetrics) return null;
 
-    const metrics: Omit<SLAMetrics, 'response_compliance_percentage' | 'resolution_compliance_percentage'> = rawMetrics;
+    const metrics = rawMetrics;
 
     // Calcula percentuais
     const responseCompliance = metrics.total_tickets > 0
@@ -506,17 +496,17 @@ export function getSLAMetrics(startDate?: string, endDate?: string): SLAMetrics 
 }
 
 /**
- * Busca todas as políticas de SLA
+ * Busca todas as politicas de SLA
  */
-export function getAllSLAPolicies(): SLAPolicy[] {
+export async function getAllSLAPolicies(): Promise<SLAPolicy[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<SLAPolicy>(`
       SELECT sp.*, p.name as priority_name, c.name as category_name
       FROM sla_policies sp
       LEFT JOIN priorities p ON sp.priority_id = p.id
       LEFT JOIN categories c ON sp.category_id = c.id
       ORDER BY sp.priority_id DESC, sp.created_at DESC
-    `).all() as SLAPolicy[];
+    `, []);
   } catch (error) {
     logger.error('Error getting SLA policies', error);
     return [];
@@ -524,25 +514,23 @@ export function getAllSLAPolicies(): SLAPolicy[] {
 }
 
 /**
- * Cria nova política de SLA
+ * Cria nova politica de SLA
  */
-export function createSLAPolicy(policy: CreateSLAPolicy): SLAPolicy | null {
+export async function createSLAPolicy(policy: CreateSLAPolicy): Promise<SLAPolicy | null> {
   try {
     const extendedPolicy = policy as CreateSLAPolicy & { escalation_time_minutes?: number };
-
-    const insertQuery = db.prepare(`
-      INSERT INTO sla_policies (
-        name, description, priority_id, category_id,
-        response_time_minutes, resolution_time_minutes, escalation_time_minutes,
-        business_hours_only, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
 
     // Converte horas para minutos para armazenamento
     const responseMinutes = policy.response_time_hours * 60;
     const resolutionMinutes = policy.resolution_time_hours * 60;
 
-    const result = insertQuery.run(
+    const result = await executeRun(`
+      INSERT INTO sla_policies (
+        name, description, priority_id, category_id,
+        response_time_minutes, resolution_time_minutes, escalation_time_minutes,
+        business_hours_only, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
       policy.name,
       policy.description || null,
       policy.priority_id,
@@ -552,11 +540,13 @@ export function createSLAPolicy(policy: CreateSLAPolicy): SLAPolicy | null {
       extendedPolicy.escalation_time_minutes || null,
       policy.business_hours_only ? 1 : 0,
       policy.is_active ? 1 : 0
-    );
+    ]);
 
     if (result.lastInsertRowid) {
-      return db.prepare('SELECT * FROM sla_policies WHERE id = ?')
-        .get(result.lastInsertRowid) as SLAPolicy;
+      return await executeQueryOne<SLAPolicy>(
+        'SELECT * FROM sla_policies WHERE id = ?',
+        [result.lastInsertRowid]
+      ) || null;
     }
 
     return null;
@@ -567,28 +557,25 @@ export function createSLAPolicy(policy: CreateSLAPolicy): SLAPolicy | null {
 }
 
 /**
- * Processo de monitoramento contínuo de SLA
+ * Processo de monitoramento continuo de SLA
  */
-export function processSLAMonitoring(): void {
+export async function processSLAMonitoring(): Promise<void> {
   try {
     // Verifica warnings
-    const warnings = checkSLAWarnings(30); // 30 minutos antes
-    warnings.forEach(tracking => {
-      // Dispara automação
+    const warnings = await checkSLAWarnings(30); // 30 minutos antes
+    for (const tracking of warnings) {
+      // Dispara automacao
       triggerSLAWarning(tracking.ticket_id, tracking);
 
-      // Cria notificação de warning
-      const insertNotification = db.prepare(`
+      const message = !tracking.first_response_at
+        ? `Ticket #${tracking.ticket_id} proximo do prazo de primeira resposta`
+        : `Ticket #${tracking.ticket_id} proximo do prazo de resolucao`;
+
+      await executeRun(`
         INSERT INTO notifications (
           user_id, ticket_id, type, title, message, is_read, sent_via_email
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      const message = !tracking.first_response_at
-        ? `Ticket #${tracking.ticket_id} próximo do prazo de primeira resposta`
-        : `Ticket #${tracking.ticket_id} próximo do prazo de resolução`;
-
-      insertNotification.run(
+      `, [
         tracking.user_id,
         tracking.ticket_id,
         'sla_warning',
@@ -596,22 +583,22 @@ export function processSLAMonitoring(): void {
         message,
         false,
         true
-      );
-    });
+      ]);
+    }
 
     // Verifica breaches
-    const breaches = checkSLABreaches();
-    breaches.forEach(tracking => {
-      // Dispara automação
+    const breaches = await checkSLABreaches();
+    for (const tracking of breaches) {
+      // Dispara automacao
       triggerSLABreach(tracking.ticket_id, tracking);
 
       // Escala automaticamente tickets com breach
       const reason = !tracking.first_response_at
         ? 'SLA de primeira resposta violado'
-        : 'SLA de resolução violado';
+        : 'SLA de resolucao violado';
 
-      escalateTicket(tracking.ticket_id, reason, 'sla_breach');
-    });
+      await escalateTicket(tracking.ticket_id, reason, 'sla_breach');
+    }
 
     logger.info(`SLA Monitoring: ${warnings.length} warnings, ${breaches.length} breaches processed`);
   } catch (error) {
@@ -622,9 +609,9 @@ export function processSLAMonitoring(): void {
 /**
  * Busca tickets com SLA em risco usando as novas colunas da tabela tickets
  */
-export function getTicketsAtRisk(): any[] {
+export async function getTicketsAtRisk(): Promise<any[]> {
   try {
-    const query = db.prepare(`
+    return await executeQuery<any>(`
       SELECT
         t.id,
         t.title,
@@ -652,9 +639,7 @@ export function getTicketsAtRisk(): any[] {
       WHERE t.sla_status = 'at_risk'
         AND s.is_final = 0
       ORDER BY t.sla_deadline ASC
-    `);
-
-    return query.all();
+    `, []);
   } catch (error) {
     logger.error('Error getting tickets at risk', error);
     return [];
@@ -664,9 +649,9 @@ export function getTicketsAtRisk(): any[] {
 /**
  * Busca tickets com SLA violado usando as novas colunas da tabela tickets
  */
-export function getTicketsBreached(): any[] {
+export async function getTicketsBreached(): Promise<any[]> {
   try {
-    const query = db.prepare(`
+    return await executeQuery<any>(`
       SELECT
         t.id,
         t.title,
@@ -695,9 +680,7 @@ export function getTicketsBreached(): any[] {
       WHERE t.sla_status = 'breached'
         AND s.is_final = 0
       ORDER BY t.sla_deadline ASC
-    `);
-
-    return query.all();
+    `, []);
   } catch (error) {
     logger.error('Error getting breached tickets', error);
     return [];
@@ -707,9 +690,9 @@ export function getTicketsBreached(): any[] {
 /**
  * Atualiza o status SLA de um ticket
  */
-export function updateTicketSLAStatus(ticketId: number): boolean {
+export async function updateTicketSLAStatus(ticketId: number): Promise<boolean> {
   try {
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE tickets
       SET sla_status = CASE
         WHEN sla_deadline IS NULL THEN NULL
@@ -719,9 +702,8 @@ export function updateTicketSLAStatus(ticketId: number): boolean {
       END,
       updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
+    `, [ticketId]);
 
-    const result = updateQuery.run(ticketId);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error updating ticket SLA status', error);
@@ -730,20 +712,24 @@ export function updateTicketSLAStatus(ticketId: number): boolean {
 }
 
 /**
- * Atribui política de SLA a um ticket
+ * Atribui politica de SLA a um ticket
  */
-export function assignSLAPolicyToTicket(ticketId: number, policyId: number): boolean {
+export async function assignSLAPolicyToTicket(ticketId: number, policyId: number): Promise<boolean> {
   try {
-    const policy = db.prepare('SELECT * FROM sla_policies WHERE id = ? AND is_active = 1')
-      .get(policyId) as SLAPolicy | undefined;
+    const policy = await executeQueryOne<SLAPolicy>(
+      'SELECT * FROM sla_policies WHERE id = ? AND is_active = 1',
+      [policyId]
+    );
 
     if (!policy) {
       logger.error('SLA policy not found or inactive', { policyId });
       return false;
     }
 
-    const ticket = db.prepare('SELECT created_at FROM tickets WHERE id = ?')
-      .get(ticketId) as { created_at: string } | undefined;
+    const ticket = await executeQueryOne<{ created_at: string }>(
+      'SELECT created_at FROM tickets WHERE id = ?',
+      [ticketId]
+    );
 
     if (!ticket) {
       logger.error('Ticket not found', { ticketId });
@@ -753,10 +739,10 @@ export function assignSLAPolicyToTicket(ticketId: number, policyId: number): boo
     const createdAt = new Date(ticket.created_at);
     const resolutionMinutes = policy.resolution_time_hours * 60;
     const deadline = policy.business_hours_only
-      ? addBusinessMinutes(createdAt, resolutionMinutes)
+      ? await addBusinessMinutes(createdAt, resolutionMinutes)
       : new Date(createdAt.getTime() + resolutionMinutes * 60000);
 
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE tickets
       SET
         sla_policy_id = ?,
@@ -764,9 +750,8 @@ export function assignSLAPolicyToTicket(ticketId: number, policyId: number): boo
         sla_status = 'on_track',
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `);
+    `, [policyId, deadline.toISOString(), ticketId]);
 
-    const result = updateQuery.run(policyId, deadline.toISOString(), ticketId);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error assigning SLA policy to ticket', error);

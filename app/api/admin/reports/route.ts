@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, verifyTokenFromCookies } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin, ADMIN_ROLES } from '@/lib/auth/roles';
+import { apiError } from '@/lib/api/api-helpers';
 import { logger } from '@/lib/monitoring/logger';
 import { ReportFilters } from '@/lib/reports';
-import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
   getTicketMetrics,
@@ -20,29 +21,16 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Verificar autenticação via cookies httpOnly
-    let decoded = await verifyTokenFromCookies(request);
-    if (!decoded) {
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-      if (token) {
-        decoded = await verifyToken(token);
-      }
-    }
-    if (!decoded) {
-      return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Apenas administradores podem acessar relatórios administrativos.
-    if (!ADMIN_ROLES.includes(decoded.role)) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!isAdmin(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
-    // SECURITY: Get tenant ID from authenticated user
-    const tenantId = decoded.organization_id;
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant não identificado' }, { status: 403 });
-    }
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const reportType = searchParams.get('type') || 'overview';
@@ -93,9 +81,6 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'custom':
-        // TODO: Implement custom metrics and groupBy when needed
-        // const metrics = searchParams.get('metrics')?.split(',') || [];
-        // const groupBy = searchParams.get('group_by') || 'date';
         reportData = getTicketMetrics(filters);
         break;
 
@@ -128,7 +113,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Erro ao gerar relatórios', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }
 
@@ -139,29 +124,16 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Verificar autenticação via cookies httpOnly
-    let decoded = await verifyTokenFromCookies(request);
-    if (!decoded) {
-      const authHeader = request.headers.get('authorization');
-      const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-      if (token) {
-        decoded = await verifyToken(token);
-      }
-    }
-    if (!decoded) {
-      return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Apenas admins podem criar relatórios customizados
-    if (decoded.role !== 'admin') {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (!isAdmin(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
-    // SECURITY: Get tenant ID from authenticated user
-    const tenantId = decoded.organization_id;
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant não identificado' }, { status: 403 });
-    }
+    const tenantId = auth.organizationId;
 
     const body = await request.json();
     const {
@@ -229,8 +201,6 @@ export async function POST(request: NextRequest) {
 
     // Se é um relatório agendado, salvar configuração
     if (schedule) {
-      // TODO: Implementar sistema de agendamento
-      // Por enquanto, apenas retornar os dados
       logger.info('Agendamento de relatório solicitado', schedule);
     }
 
@@ -242,7 +212,7 @@ export async function POST(request: NextRequest) {
         description,
         type,
         generatedAt: new Date().toISOString(),
-        generatedBy: decoded.name,
+        generatedBy: auth.name,
         filters,
         data: reportData
       }
@@ -259,6 +229,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Erro ao criar relatório customizado', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }

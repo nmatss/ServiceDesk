@@ -83,13 +83,15 @@
     "lib/knowledge/semantic-search.ts",
     "lib/notifications/channels.ts",
     "lib/performance/code-splitting.tsx",
-    "lib/knowledge",
+    "lib/knowledge/content-enhancer.ts",
+    "lib/knowledge/faq-generator.ts",
+    "lib/knowledge/guide-builder.ts",
+    "lib/knowledge/search-optimizer.ts",
     "src/components/charts/**",
-    "src/components/dashboard/**",
-    "src/components/workflow/**",
-    "src/components/knowledge/**",
-    "src/components/notifications/**",
-    "src/components/tickets/**",
-    "src/hooks/**"
+    "src/components/dashboard/DashboardBuilder.tsx",
+    "src/components/dashboard/ExecutiveDashboard.tsx",
+    "src/components/workflow/NodeConfigurator.tsx",
+    "src/hooks/useBiometricAuth.tsx",
+    "src/hooks/useSocket.ts"
   ]
 }

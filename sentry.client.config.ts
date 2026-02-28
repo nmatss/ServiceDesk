@@ -12,15 +12,14 @@
  * NOTE: Do NOT import Node.js modules here - this file runs in the browser.
  */
 
+import * as Sentry from '@sentry/nextjs'
+
 const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
 const SENTRY_ENABLED = process.env.NEXT_PUBLIC_SENTRY_ENABLED === 'true' || process.env.SENTRY_ENABLED === 'true'
 const ENVIRONMENT = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development'
 
 // Initialize Sentry only if DSN is configured
 if (SENTRY_ENABLED && SENTRY_DSN) {
-  // Lazy import to avoid build-time incompatibilities in dev
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const Sentry = eval('require')('@sentry/nextjs')
   const integrations: any[] = []
 
   if (typeof Sentry.browserTracingIntegration === 'function') {

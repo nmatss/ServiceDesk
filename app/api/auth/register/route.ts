@@ -380,7 +380,6 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: 'Usuário criado com sucesso',
-      token: accessToken,
       user: {
         id: user.id,
         name: user.name,

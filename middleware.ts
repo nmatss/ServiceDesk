@@ -109,7 +109,18 @@ function supportsBrotli(request: NextRequest): boolean {
  * // Returns: 'no-store, must-revalidate'
  * ```
  */
-function getCacheControl(pathname: string): string {
+/**
+ * API routes that must never be cached (mutations, auth, real-time)
+ * All other API routes inherit Cache-Control from next.config.js headers()
+ */
+const NO_CACHE_API_ROUTES = [
+  '/api/auth/',
+  '/api/tickets/create',
+  '/api/catalog/requests',
+  '/api/workflows/execute',
+]
+
+function getCacheControl(pathname: string): string | null {
   // Static assets - cache for 1 year
   if (
     pathname.startsWith('/_next/static/') ||
@@ -119,9 +130,14 @@ function getCacheControl(pathname: string): string {
     return 'public, max-age=31536000, immutable'
   }
 
-  // API routes - no cache by default (routes can override)
+  // API routes — only override for mutation/auth endpoints
+  // PERF: Let next.config.js headers() handle caching for cacheable API routes
   if (pathname.startsWith('/api/')) {
-    return 'no-store, must-revalidate'
+    if (NO_CACHE_API_ROUTES.some(route => pathname.startsWith(route))) {
+      return 'no-store, must-revalidate'
+    }
+    // Return null to let next.config.js headers() take effect
+    return null
   }
 
   // Landing page and public pages - cache for 5 minutes with revalidation
@@ -256,11 +272,20 @@ export async function middleware(request: NextRequest) {
     cookies[cookie.name] = cookie.value
   })
 
+  // PERF: Only extract headers needed for tenant resolution instead of all headers
+  const tenantHeaders: Record<string, string> = {}
+  const xTenantId = request.headers.get('x-tenant-id')
+  const xTenantSlug = request.headers.get('x-tenant-slug')
+  const xTenantName = request.headers.get('x-tenant-name')
+  if (xTenantId) tenantHeaders['x-tenant-id'] = xTenantId
+  if (xTenantSlug) tenantHeaders['x-tenant-slug'] = xTenantSlug
+  if (xTenantName) tenantHeaders['x-tenant-name'] = xTenantName
+
   // Extract tenant information using Edge-compatible resolver (no database access)
   const tenantResolutionResult = resolveEdgeTenant({
     hostname,
     pathname,
-    headers: Object.fromEntries(request.headers.entries()),
+    headers: tenantHeaders,
     cookies,
     allowDevDefault: !pathname.startsWith('/api/'), // Only allow dev default for frontend routes
   })
@@ -386,9 +411,11 @@ export async function middleware(request: NextRequest) {
   // PERFORMANCE OPTIMIZATIONS
   // ========================
 
-  // Add cache control headers
+  // Add cache control headers (null means let next.config.js headers() handle it)
   const cacheControl = getCacheControl(pathname)
-  response.headers.set('Cache-Control', cacheControl)
+  if (cacheControl) {
+    response.headers.set('Cache-Control', cacheControl)
+  }
 
   // Add Vary header for compression
   response.headers.set('Vary', 'Accept-Encoding, Cookie')
@@ -649,8 +676,9 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - favicon.ico, favicon.svg (favicon files)
+     * - Static file extensions (images, fonts, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|favicon\\.svg|.*\\.(?:jpg|jpeg|png|gif|ico|svg|webp|avif|woff|woff2|ttf|eot|css|js|map)$).*)',
   ],
 }

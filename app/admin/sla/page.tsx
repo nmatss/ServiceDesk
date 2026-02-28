@@ -338,7 +338,7 @@ export default function SLAPage() {
                       <p className="text-description font-medium">
                         Gráfico de tendências de SLA será exibido aqui
                       </p>
-                      <p className="text-sm text-neutral-500 dark:text-neutral-500 mt-2">
+                      <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
                         Integre com biblioteca de gráficos como Recharts ou Chart.js
                       </p>
                     </div>

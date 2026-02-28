@@ -182,7 +182,7 @@ export function useSocket(): UseSocketReturn {
       // Close all active browser notifications
       activeNotificationsRef.current.forEach(notification => {
         try {
-          notification.close()
+          (notification as any).close()
         } catch (e) {
           // Notification may already be closed
         }

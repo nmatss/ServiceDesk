@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { createTrainingSystem, createModelManager } from '@/lib/ai/factories';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin, isPrivileged } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -17,7 +18,6 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  * Query parameters:
  * - period?: 'hour' | 'day' | 'week' | 'month' | 'all' (default: 'day')
  * - modelVersion?: string (specific model version)
- * - organizationId?: number
  * - includeDetails?: boolean (default: false)
  */
 export async function GET(request: NextRequest) {
@@ -28,20 +28,14 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
+    const organizationId = String(auth.organizationId);
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'day';
     const modelVersion = searchParams.get('modelVersion');
-    const organizationId = searchParams.get('organizationId');
     const includeDetails = searchParams.get('includeDetails') === 'true';
 
     // Calculate time window
@@ -52,14 +46,14 @@ export async function GET(request: NextRequest) {
     const modelManager = createModelManager();
     await modelManager.initialize();
 
-    // Get classification metrics
+    // Get classification metrics (scoped by org)
     const classificationMetrics = await getClassificationMetrics(
       timeWindow,
       modelVersion,
       organizationId
     );
 
-    // Get suggestion metrics
+    // Get suggestion metrics (scoped by org)
     const suggestionMetrics = await getSuggestionMetrics(
       timeWindow,
       modelVersion,
@@ -69,7 +63,7 @@ export async function GET(request: NextRequest) {
     // Get model performance metrics
     const performanceMetrics = await trainingSystem.calculatePerformanceMetrics(
       modelVersion || 'current',
-      organizationId ? parseInt(organizationId) : undefined
+      auth.organizationId
     );
 
     // Get cost and efficiency metrics
@@ -135,7 +129,7 @@ async function getClassificationMetrics(
   modelVersion?: string | null,
   organizationId?: string | null
 ) {
-  const whereClause = buildWhereClause(timeWindow, modelVersion, organizationId);
+  const { clause: whereClause, params: whereParams } = buildWhereClause(timeWindow, modelVersion, organizationId);
 
   const stats = await executeQueryOne<any>(`SELECT
       COUNT(*) as total_classifications,
@@ -147,7 +141,7 @@ async function getClassificationMetrics(
       SUM(input_tokens) as total_input_tokens,
       SUM(output_tokens) as total_output_tokens
     FROM ai_classifications
-    ${whereClause}`);
+    ${whereClause}`, whereParams);
 
   // Get distribution by category
   const categoryDistribution = await executeQuery(`SELECT
@@ -159,7 +153,7 @@ async function getClassificationMetrics(
     ${whereClause}
     GROUP BY c.name
     ORDER BY count DESC
-    LIMIT 10`);
+    LIMIT 10`, whereParams);
 
   // Get distribution by priority
   const priorityDistribution = await executeQuery(`SELECT
@@ -170,7 +164,7 @@ async function getClassificationMetrics(
     LEFT JOIN priorities p ON ac.suggested_priority_id = p.id
     ${whereClause}
     GROUP BY p.name
-    ORDER BY count DESC`);
+    ORDER BY count DESC`, whereParams);
 
   const accuracy = stats.total_classifications > 0
     ? stats.accepted / stats.total_classifications
@@ -204,7 +198,7 @@ async function getSuggestionMetrics(
   modelVersion?: string | null,
   organizationId?: string | null
 ) {
-  const whereClause = buildWhereClause(timeWindow, modelVersion, organizationId);
+  const { clause: whereClause, params: whereParams } = buildWhereClause(timeWindow, modelVersion, organizationId);
 
   const stats = await executeQueryOne<any>(`SELECT
       COUNT(*) as total_suggestions,
@@ -213,7 +207,7 @@ async function getSuggestionMetrics(
       COUNT(CASE WHEN was_helpful = 0 THEN 1 END) as not_helpful,
       AVG(confidence_score) as avg_confidence
     FROM ai_suggestions
-    ${whereClause}`);
+    ${whereClause}`, whereParams);
 
   // Get distribution by type
   const typeDistribution = await executeQuery(`SELECT
@@ -224,7 +218,7 @@ async function getSuggestionMetrics(
     FROM ai_suggestions
     ${whereClause}
     GROUP BY suggestion_type
-    ORDER BY count DESC`);
+    ORDER BY count DESC`, whereParams);
 
   const usageRate = stats.total_suggestions > 0
     ? stats.used / stats.total_suggestions
@@ -253,7 +247,7 @@ async function getCostMetrics(
   timeWindow: string,
   modelVersion?: string | null
 ) {
-  const whereClause = buildWhereClause(timeWindow, modelVersion);
+  const { clause: whereClause, params: whereParams } = buildWhereClause(timeWindow, modelVersion);
 
   const stats = await executeQueryOne<any>(`SELECT
       SUM(input_tokens) as total_input_tokens,
@@ -263,7 +257,7 @@ async function getCostMetrics(
       MIN(processing_time_ms) as min_processing_time,
       MAX(processing_time_ms) as max_processing_time
     FROM ai_classifications
-    ${whereClause}`);
+    ${whereClause}`, whereParams);
 
   // Cost calculation (approximate based on OpenAI pricing)
   const inputCostPer1M = 0.15; // $0.15 per 1M input tokens (gpt-4o)
@@ -291,28 +285,40 @@ async function getCostMetrics(
 }
 
 /**
- * Build WHERE clause for queries
+ * Build WHERE clause for queries with parameterized values
  */
 function buildWhereClause(
   timeWindow: string,
   modelVersion?: string | null,
   organizationId?: string | null
-): string {
+): { clause: string; params: unknown[] } {
   const conditions: string[] = ['1=1'];
+  const params: unknown[] = [];
 
   if (timeWindow && timeWindow !== 'all') {
-    conditions.push(`created_at >= '${timeWindow}'`);
+    conditions.push('created_at >= ?');
+    params.push(timeWindow);
   }
 
   if (modelVersion) {
-    conditions.push(`model_name = '${modelVersion}'`);
+    conditions.push('model_name = ?');
+    params.push(modelVersion);
   }
 
   if (organizationId) {
-    conditions.push(`organization_id = ${organizationId}`);
+    const parsed = parseInt(organizationId, 10);
+    if (isNaN(parsed)) {
+      // Invalid organizationId — skip filter to avoid SQL injection
+    } else {
+      conditions.push('organization_id = ?');
+      params.push(parsed);
+    }
   }
 
-  return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  return {
+    clause: conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '',
+    params,
+  };
 }
 
 /**
@@ -414,13 +420,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
-    const payload = await verifyToken(token);
-    if (!payload || payload.role !== 'admin') {
+    // Admin-only endpoint
+    if (!isAdmin(auth.role) && !isPrivileged(auth.role)) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 

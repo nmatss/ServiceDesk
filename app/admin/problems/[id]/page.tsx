@@ -291,7 +291,7 @@ export default function ProblemDetailPage() {
               </div>
 
               {problem.impact && (
-                <div className="glass-panel bg-error-50 dark:bg-error-900/20 border-error-200 dark:border-error-800 animate-slide-up">
+                <div className="glass-panel bg-error-50 dark:bg-error-950 border-error-200 dark:border-error-800 animate-slide-up">
                   <h2 className="font-semibold text-error-800 dark:text-error-400 mb-3 flex items-center gap-2">
                     <ExclamationTriangleSolid className="w-5 h-5" />
                     Impacto no Negócio
@@ -347,7 +347,7 @@ export default function ProblemDetailPage() {
                     Análise de Causa Raiz (RCA)
                   </h2>
                   {problem.root_cause ? (
-                    <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                    <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
                       <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{problem.root_cause}</p>
                     </div>
                   ) : (
@@ -361,7 +361,7 @@ export default function ProblemDetailPage() {
                     Workaround
                   </h2>
                   {problem.workaround ? (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                    <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                       <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{problem.workaround}</p>
                     </div>
                   ) : (
@@ -375,7 +375,7 @@ export default function ProblemDetailPage() {
                     Solução Permanente
                   </h2>
                   {problem.permanent_solution ? (
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                    <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
                       <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{problem.permanent_solution}</p>
                     </div>
                   ) : (
@@ -475,7 +475,7 @@ export default function ProblemDetailPage() {
                   </div>
                 ) : (
                   <div className="p-8 text-center text-muted-content">
-                    <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 text-neutral-300 dark:text-neutral-600" />
+                    <ArrowPathIcon className="w-12 h-12 mx-auto mb-3 text-neutral-400 dark:text-neutral-600" />
                     <p>Nenhuma mudança vinculada</p>
                     <button
                       onClick={() => toast.error('Criação de RFC ainda não implementada')}

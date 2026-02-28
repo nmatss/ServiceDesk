@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { createTrainingSystem } from '@/lib/ai/factories';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -33,15 +33,9 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     const body = await request.json();
     const {
@@ -73,7 +67,7 @@ export async function POST(request: NextRequest) {
           feedback,
           correctedCategory,
           correctedPriority,
-          payload.id
+          auth.userId
         );
 
         // Update classification record with feedback
@@ -85,7 +79,7 @@ export async function POST(request: NextRequest) {
               SELECT id FROM categories WHERE name = ? LIMIT 1
             )
           WHERE id = ?`, [feedback === 'positive' ? 1 : 0,
-          payload.id,
+          auth.userId,
           correctedCategory || null,
           operationId]);
 
@@ -104,8 +98,8 @@ export async function POST(request: NextRequest) {
           WHERE id = ?`, [wasUsed ? 1 : 0,
           wasHelpful !== undefined ? (wasHelpful ? 1 : 0) : null,
           comment || null,
-          payload.id,
-          wasUsed ? payload.id : null,
+          auth.userId,
+          wasUsed ? auth.userId : null,
           wasUsed ? 1 : 0,
           operationId]);
 
@@ -141,7 +135,7 @@ export async function POST(request: NextRequest) {
           operationId,
           feedback,
           comment || null,
-          payload.id]);
+          auth.userId]);
 
         break;
 
@@ -154,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     // Log the feedback submission
     logger.info('AI Feedback Submitted', {
-      userId: payload.id,
+      userId: auth.userId,
       operationType,
       operationId,
       feedback,
@@ -192,15 +186,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
     const operationType = searchParams.get('operationType');

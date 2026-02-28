@@ -13,7 +13,7 @@ import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // ========================================
@@ -27,7 +27,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const tenantContext = guard.context!.tenant
     const userContext = guard.context!.user
 
-    const ticketId = parseInt(params.id);
+    const { id } = await params;
+    const ticketId = parseInt(id);
 
     // Verify ticket exists
     const ticket = await executeQueryOne<{ id: number; user_id: number }>(
@@ -93,7 +94,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const tenantContext = guard.context!.tenant
     const userContext = guard.context!.user
 
-    const ticketId = parseInt(params.id);
+    const { id } = await params;
+    const ticketId = parseInt(id);
     const body = await request.json();
     const { userId } = body;
 
@@ -203,7 +205,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const tenantContext = guard.context!.tenant
     const userContext = guard.context!.user
 
-    const ticketId = parseInt(params.id);
+    const { id } = await params;
+    const ticketId = parseInt(id);
     const { searchParams } = new URL(request.url);
     const queryUserId = searchParams.get('userId');
     const targetUserId = queryUserId ? parseInt(queryUserId, 10) : userContext.id

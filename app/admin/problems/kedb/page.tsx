@@ -283,7 +283,7 @@ export default function KEDBPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="glass-panel p-4 mb-6 bg-error-50 dark:bg-error-500/10 border border-error-200 dark:border-error-500/30 animate-fade-in">
+          <div className="glass-panel p-4 mb-6 bg-error-50 dark:bg-error-950 border border-error-200 dark:border-error-800 animate-fade-in">
             <div className="flex items-center gap-3">
               <ExclamationTriangleIcon className="w-5 h-5 text-error-600 dark:text-error-400 flex-shrink-0" />
               <div>
@@ -480,7 +480,7 @@ export default function KEDBPage() {
 
             {filteredErrors.length === 0 && (
               <div className="glass-panel p-8 text-center animate-fade-in">
-                <BookOpenIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+                <BookOpenIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto mb-3" />
                 <h3 className="font-medium text-neutral-900 dark:text-neutral-50">Nenhum erro conhecido encontrado</h3>
                 <p className="text-sm text-muted-content mt-1">Ajuste os filtros ou crie um novo registro</p>
               </div>

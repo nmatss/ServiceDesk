@@ -31,10 +31,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
     if (guard.response) return guard.response;
 
+    // SECURITY: Use organizationId from auth context, never from request params
+    const organizationId = guard.auth.organizationId;
     const { searchParams } = new URL(request.url);
-    const organizationId = searchParams.get('organizationId')
-      ? parseInt(searchParams.get('organizationId')!)
-      : undefined;
     const includeEncrypted = searchParams.get('includeEncrypted') === 'true';
 
     // Get all settings with metadata
@@ -52,17 +51,10 @@ export async function GET(request: NextRequest) {
       updated_at: string;
     }>;
 
-    if (organizationId !== undefined) {
-      settings = await executeQuery(
-        `SELECT * FROM system_settings WHERE organization_id = ? OR organization_id IS NULL ORDER BY key`,
-        [organizationId]
-      );
-    } else {
-      settings = await executeQuery(
-        `SELECT * FROM system_settings WHERE organization_id IS NULL ORDER BY key`,
-        []
-      );
-    }
+    settings = await executeQuery(
+      `SELECT * FROM system_settings WHERE organization_id = ? OR organization_id IS NULL ORDER BY key`,
+      [organizationId]
+    );
 
     // Filter out encrypted values unless explicitly requested
     const filteredSettings = settings.map(setting => {
@@ -130,8 +122,11 @@ export async function POST(request: NextRequest) {
     const results = [];
     const errors = [];
 
+    // SECURITY: Use organizationId from auth context, never from request body
+    const organizationId = guard.auth.organizationId;
+
     for (const setting of settings) {
-      const { key, value, organizationId } = setting;
+      const { key, value } = setting;
 
       if (!key || value === undefined) {
         errors.push({ key, error: 'Missing key or value' });
@@ -146,7 +141,7 @@ export async function POST(request: NextRequest) {
             value = excluded.value,
             updated_by = excluded.updated_by,
             updated_at = CURRENT_TIMESTAMP`,
-          [key, value, organizationId ?? null, guard.auth.userId]
+          [key, value, organizationId, guard.auth.userId]
         );
 
         results.push({ key, success: true });
@@ -198,7 +193,7 @@ export async function PUT(request: NextRequest) {
     if (guard.response) return guard.response;
 
     const body = await request.json();
-    const { key, value, organizationId } = body;
+    const { key, value } = body;
 
     if (!key || value === undefined) {
       return NextResponse.json(
@@ -207,6 +202,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // SECURITY: Use organizationId from auth context, never from request body
+    const organizationId = guard.auth.organizationId;
+
     await executeRun(
       `INSERT INTO system_settings (key, value, organization_id, updated_by, updated_at)
       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -214,7 +212,7 @@ export async function PUT(request: NextRequest) {
         value = excluded.value,
         updated_by = excluded.updated_by,
         updated_at = CURRENT_TIMESTAMP`,
-      [key, value, organizationId ?? null, guard.auth.userId]
+      [key, value, organizationId, guard.auth.userId]
     );
 
     logger.info('System setting updated', {
@@ -225,10 +223,8 @@ export async function PUT(request: NextRequest) {
 
     // Get the updated value to return
     const updatedSetting = await executeQueryOne<{ value: string }>(
-      organizationId !== undefined
-        ? `SELECT value FROM system_settings WHERE key = ? AND organization_id = ? LIMIT 1`
-        : `SELECT value FROM system_settings WHERE key = ? AND organization_id IS NULL LIMIT 1`,
-      organizationId !== undefined ? [key, organizationId] : [key]
+      `SELECT value FROM system_settings WHERE key = ? AND organization_id = ? LIMIT 1`,
+      [key, organizationId]
     );
 
     return NextResponse.json({
@@ -266,9 +262,6 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
-    const organizationId = searchParams.get('organizationId')
-      ? parseInt(searchParams.get('organizationId')!)
-      : undefined;
 
     if (!key) {
       return NextResponse.json(
@@ -277,17 +270,20 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // SECURITY: Use organizationId from auth context, never from request params
+    const organizationId = guard.auth.organizationId;
+
     const result = await executeRun(
       `DELETE FROM system_settings
-      WHERE key = ? AND (organization_id = ? OR (organization_id IS NULL AND ? IS NULL))`,
-      [key, organizationId ?? null, organizationId ?? null]
+      WHERE key = ? AND organization_id = ?`,
+      [key, organizationId]
     );
 
     if (result.changes > 0) {
       logger.info('System setting deleted', {
         key,
         userId: guard.auth.userId,
-        organizationId
+        organizationId: guard.auth.organizationId
       });
 
       return NextResponse.json({

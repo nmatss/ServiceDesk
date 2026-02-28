@@ -169,6 +169,10 @@ export default function ChangesPage() {
           { label: 'Admin', href: '/admin' },
           { label: 'Mudanças' }
         ]}
+        backButton={{
+          label: 'Voltar ao admin',
+          href: '/admin'
+        }}
         actions={[
           {
             label: 'CAB',
@@ -318,7 +322,7 @@ export default function ChangesPage() {
           </div>
         ) : changes.length === 0 ? (
           <div className="glass-panel text-center py-12">
-            <ArrowsRightLeftIcon className="w-16 h-16 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
+            <ArrowsRightLeftIcon className="w-16 h-16 text-neutral-400 dark:text-neutral-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Nenhuma mudança encontrada</h3>
             <p className="text-description mb-6">
               {hasActiveFilters ? 'Tente ajustar os filtros de busca' : 'Crie sua primeira requisição de mudança'}
@@ -405,7 +409,7 @@ export default function ChangesPage() {
                     </div>
 
                     {/* Arrow */}
-                    <ChevronRightIcon className="w-5 h-5 text-neutral-300 dark:text-neutral-600 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors flex-shrink-0 hidden sm:block" />
+                    <ChevronRightIcon className="w-5 h-5 text-neutral-400 dark:text-neutral-600 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors flex-shrink-0 hidden sm:block" />
                   </div>
                 </div>
               )

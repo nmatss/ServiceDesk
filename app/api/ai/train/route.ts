@@ -6,7 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryOne } from '@/lib/db/adapter';
 import { createTrainingSystem } from '@/lib/ai/factories';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin, isPrivileged } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 
@@ -26,13 +27,12 @@ export async function POST(request: NextRequest) {
   }
   try {
     // Verify authentication
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
-    const payload = await verifyToken(token);
-    if (!payload || payload.role !== 'admin') {
+    // Admin-only endpoint
+    if (!isAdmin(auth.role) && !isPrivileged(auth.role)) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
@@ -103,15 +103,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');

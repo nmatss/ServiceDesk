@@ -71,16 +71,25 @@ export async function GET(request: NextRequest) {
       LIMIT ? OFFSET ?
     `, [...params, limit, offset])
 
-    // Add tags to each article (comma-separated)
-    for (const article of (articles as Array<Record<string, unknown>>)) {
-      const tags = await executeQuery<{ name: string }>(`
-        SELECT t.name
+    // Batch-fetch tags for all articles to avoid N+1
+    const articleIds = (articles as Array<Record<string, unknown>>).map(a => a.id as number);
+    if (articleIds.length > 0) {
+      const placeholders = articleIds.map(() => '?').join(',');
+      const allTags = await executeQuery<{ article_id: number; name: string }>(`
+        SELECT at.article_id, t.name
         FROM kb_tags t
         INNER JOIN kb_article_tags at ON t.id = at.tag_id
-        WHERE at.article_id = ?
+        WHERE at.article_id IN (${placeholders})
         ORDER BY t.name
-      `, [article.id as number])
-      article.tags = tags.map(tag => tag.name).join(', ')
+      `, articleIds);
+      const tagsByArticle = new Map<number, string[]>();
+      for (const tag of allTags) {
+        if (!tagsByArticle.has(tag.article_id)) tagsByArticle.set(tag.article_id, []);
+        tagsByArticle.get(tag.article_id)!.push(tag.name);
+      }
+      for (const article of (articles as Array<Record<string, unknown>>)) {
+        article.tags = (tagsByArticle.get(article.id as number) || []).join(', ');
+      }
     }
 
     // Count total articles
@@ -103,7 +112,7 @@ export async function GET(request: NextRequest) {
       ORDER BY c.name
     `, [tenantContext.id])
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       articles,
       categories,
@@ -114,6 +123,8 @@ export async function GET(request: NextRequest) {
         hasMore: (offset + limit) < total
       }
     })
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+    return response
   } catch (error) {
     logger.error('Error fetching knowledge articles', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

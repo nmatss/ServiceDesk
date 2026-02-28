@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -102,50 +102,84 @@ export function NotificationProvider({ children, maxNotifications = 5 }: Notific
   const unreadCount = notifications.filter(n => !n.read).length
 
   // Listen for server-sent events or WebSocket for real-time notifications
-  useEffect(() => {
-    // SECURITY: Use httpOnly cookies for authentication - no token check needed
-    // Example WebSocket connection (you would implement the actual WebSocket logic)
-    // Placeholder for WebSocket connection implementation
-    // In a real implementation, you would connect to your WebSocket server
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stoppedRef = useRef(false)
+  const pollIntervalMs = useRef(30000) // Start at 30s
 
-    // For now, we'll simulate real-time notifications with polling
+  const POLL_MIN_MS = 30000  // 30s minimum
+  const POLL_MAX_MS = 120000 // 120s maximum
+  const POLL_BACKOFF_FACTOR = 1.5
+
+  // Stable ref for addNotification to avoid effect re-runs
+  const addNotificationRef = useRef(addNotification)
+  addNotificationRef.current = addNotification
+
+  useEffect(() => {
+    stoppedRef.current = false
+    pollIntervalMs.current = POLL_MIN_MS
+
+    const scheduleNextPoll = () => {
+      if (stoppedRef.current) return
+      pollTimeoutRef.current = setTimeout(pollNotifications, pollIntervalMs.current)
+    }
+
     const pollNotifications = async () => {
+      if (stoppedRef.current) return
+
       try {
-        // SECURITY: Use httpOnly cookies for authentication
         const response = await fetch('/api/notifications/unread', {
-          credentials: 'include' // Use httpOnly cookies
+          credentials: 'include'
         })
 
         if (response.ok) {
           const data = await response.json()
           if (data.notifications && data.notifications.length > 0) {
+            // New notifications found — reset interval to minimum
+            pollIntervalMs.current = POLL_MIN_MS
             data.notifications.forEach((notification: any) => {
-              addNotification({
+              addNotificationRef.current({
                 type: notification.type,
                 title: notification.title,
                 message: notification.message,
                 persistent: false
               })
             })
+          } else {
+            // No new notifications — increase interval with backoff
+            pollIntervalMs.current = Math.min(
+              pollIntervalMs.current * POLL_BACKOFF_FACTOR,
+              POLL_MAX_MS
+            )
           }
         } else if (response.status === 401) {
-          // Token invalid, stop polling
+          // Token invalid — stop polling permanently until remount
+          stoppedRef.current = true
           return
         }
-      } catch (error) {
+      } catch {
         // Silently fail for network errors to avoid console spam
       }
+
+      scheduleNextPoll()
     }
 
-    // Poll every 30 seconds
-    const pollInterval = setInterval(pollNotifications, 30000)
+    // Delay first poll by 8s to let auth fully settle
+    const initialTimeout = setTimeout(() => {
+      if (stoppedRef.current) return
+      pollNotifications()
+    }, 8000)
 
     return () => {
-      clearInterval(pollInterval)
+      clearTimeout(initialTimeout)
+      stoppedRef.current = true
+      if (pollTimeoutRef.current) {
+        clearTimeout(pollTimeoutRef.current)
+        pollTimeoutRef.current = null
+      }
     }
-  }, [addNotification])
+  }, []) // No deps — runs once on mount, uses refs for mutable values
 
-  const value: NotificationContextType = {
+  const value = useMemo<NotificationContextType>(() => ({
     notifications,
     addNotification,
     removeNotification,
@@ -153,7 +187,7 @@ export function NotificationProvider({ children, maxNotifications = 5 }: Notific
     markAllAsRead,
     clearAll,
     unreadCount
-  }
+  }), [notifications, addNotification, removeNotification, markAsRead, markAllAsRead, clearAll, unreadCount])
 
   return (
     <NotificationContext.Provider value={value}>
@@ -172,16 +206,16 @@ function NotificationContainer() {
       case 'success': return <CheckCircleIcon className={`${iconClass} text-success-500`} />
       case 'error': return <XCircleIcon className={`${iconClass} text-error-500`} />
       case 'warning': return <ExclamationTriangleIcon className={`${iconClass} text-warning-500`} />
-      case 'info': return <InformationCircleIcon className={`${iconClass} text-info-500`} />
+      case 'info': return <InformationCircleIcon className={`${iconClass} text-brand-500`} />
     }
   }
 
   const getNotificationColors = (type: Notification['type']) => {
     switch (type) {
-      case 'success': return 'bg-success-50 border-success-200 text-success-800 dark:bg-success-900/20 dark:border-success-800 dark:text-success-200'
-      case 'error': return 'bg-error-50 border-error-200 text-error-800 dark:bg-error-900/20 dark:border-error-800 dark:text-error-200'
-      case 'warning': return 'bg-warning-50 border-warning-200 text-warning-800 dark:bg-warning-900/20 dark:border-warning-800 dark:text-warning-200'
-      case 'info': return 'bg-info-50 border-info-200 text-info-800 dark:bg-info-900/20 dark:border-info-800 dark:text-info-200'
+      case 'success': return 'bg-success-50 border-success-200 text-success-800 dark:bg-success-950 dark:border-success-800 dark:text-success-200'
+      case 'error': return 'bg-error-50 border-error-200 text-error-800 dark:bg-error-950 dark:border-error-800 dark:text-error-200'
+      case 'warning': return 'bg-warning-50 border-warning-200 text-warning-800 dark:bg-warning-950 dark:border-warning-800 dark:text-warning-200'
+      case 'info': return 'bg-brand-50 border-brand-200 text-brand-800 dark:bg-brand-950 dark:border-brand-800 dark:text-brand-200'
     }
   }
 

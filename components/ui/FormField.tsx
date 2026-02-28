@@ -78,7 +78,7 @@ export function FormField({
         className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2"
       >
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-red-600 dark:text-red-400 ml-0.5">*</span>}
       </label>
 
       {type === 'select' ? (

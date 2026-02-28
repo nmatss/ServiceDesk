@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { executeQuery } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { getUserContextFromRequest } from '@/lib/auth/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { z } from 'zod';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
@@ -33,20 +33,12 @@ export async function POST(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_SEMANTIC);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    // SECURITY: Authenticate and get user context from JWT
-    const userContext = await getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Unauthorized - Invalid or missing authentication token',
-        },
-        { status: 401 }
-      );
-    }
+    // SECURITY: Authenticate and get user context
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
 
-    // SECURITY: Extract tenant_id from JWT (not from request body!)
-    const tenantId = userContext.organization_id;
+    // SECURITY: Extract tenant_id from auth guard (not from request body!)
+    const tenantId = guard.auth.organizationId;
 
     // Check if AI features are enabled
     if (!process.env.OPENAI_API_KEY) {
@@ -110,6 +102,7 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Get recent tickets from the AUTHENTICATED USER'S TENANT ONLY
     // This ensures tenant isolation - users can only see tickets from their own organization
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const query = `
       SELECT
         t.id,
@@ -125,14 +118,14 @@ export async function POST(request: NextRequest) {
       LEFT JOIN users u ON t.user_id = u.id
       WHERE
         t.organization_id = ?
-        AND t.created_at > datetime('now', '-90 days')
+        AND t.created_at > ?
         AND s.name NOT IN ('Resolvido', 'Fechado', 'Resolved', 'Closed')
       ORDER BY t.created_at DESC
       LIMIT 100
     `;
 
-    // SECURITY FIX: Use tenantId from JWT token, NOT from request body
-    const recentTickets = await executeQuery<any>(query, [tenantId]);
+    // SECURITY FIX: Use tenantId from auth guard, NOT from request body
+    const recentTickets = await executeQuery<any>(query, [tenantId, ninetyDaysAgo]);
 
     // Calculate similarity scores
     const similarities: Array<{

@@ -28,16 +28,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Resolve tenant from trusted context.
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    // Production traffic must always include tenant resolution.
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth.organizationId;
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
@@ -105,16 +99,28 @@ export async function GET(request: NextRequest) {
       ${whereClause}
     `, params)
 
-    // Buscar tags para cada artigo
-    for (const article of (articles as Array<Record<string, unknown>>)) {
-      const tags = await executeQuery(`
-        SELECT t.id, t.name, t.slug, t.color
+    // Batch-fetch tags for all articles to avoid N+1
+    const articleIds = (articles as Array<Record<string, unknown>>).map(a => a.id as number);
+    if (articleIds.length > 0) {
+      const placeholders = articleIds.map(() => '?').join(',');
+      const allTags = await executeQuery<{ article_id: number; id: number; name: string; slug: string; color: string | null }>(`
+        SELECT at.article_id, t.id, t.name, t.slug, t.color
         FROM kb_tags t
         INNER JOIN kb_article_tags at ON t.id = at.tag_id
-        WHERE at.article_id = ?
-      `, [article.id as number])
-
-      article.tags = tags
+        WHERE at.article_id IN (${placeholders})
+      `, articleIds);
+      const tagsByArticle = new Map<number, Array<{ id: number; name: string; slug: string; color: string | null }>>();
+      for (const tag of allTags) {
+        if (!tagsByArticle.has(tag.article_id)) tagsByArticle.set(tag.article_id, []);
+        tagsByArticle.get(tag.article_id)!.push({ id: tag.id, name: tag.name, slug: tag.slug, color: tag.color });
+      }
+      for (const article of (articles as Array<Record<string, unknown>>)) {
+        article.tags = tagsByArticle.get(article.id as number) || [];
+      }
+    } else {
+      for (const article of (articles as Array<Record<string, unknown>>)) {
+        article.tags = [];
+      }
     }
 
     return jsonWithCache({

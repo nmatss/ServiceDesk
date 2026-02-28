@@ -6,9 +6,8 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/auth-service';
-import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { apiError } from '@/lib/api/api-helpers';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type {
   ProblemStatus,
@@ -34,33 +33,9 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -146,7 +121,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch problems
     const result = await problemQueries.getProblems(
-      tenant.organizationId,
+      auth.organizationId,
       filters,
       sort,
       { page, limit }
@@ -158,10 +133,7 @@ export async function GET(request: NextRequest) {
     }, 'DYNAMIC'); // Cache for 1 minute
   } catch (error) {
     logger.error('Error fetching problems:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('Internal server error', 500);
   }
 }
 
@@ -175,40 +147,13 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Only agents and admins can create problems
-    if (payload.role === 'user') {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: Insufficient permissions' },
-        { status: 403 }
-      );
-    }
-
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
+    if (auth.role === 'user') {
+      return apiError('Forbidden: Insufficient permissions', 403);
     }
 
     // Parse request body
@@ -238,14 +183,14 @@ export async function POST(request: NextRequest) {
 
     // Create problem
     const problem = await problemQueries.createProblem(
-      tenant.organizationId,
-      payload.userId ?? 0,
+      auth.organizationId,
+      auth.userId,
       input
     );
 
     // Return created problem with relations
     const problemWithRelations = await problemQueries.getProblemById(
-      tenant.organizationId,
+      auth.organizationId,
       problem.id
     );
 
@@ -261,9 +206,6 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     logger.error('Error creating problem:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('Internal server error', 500);
   }
 }

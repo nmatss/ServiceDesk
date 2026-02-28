@@ -369,7 +369,7 @@ export default function TemplatesPage() {
 
         {filteredTemplates.length === 0 && (
           <div className="glass-panel p-8 text-center animate-fade-in">
-            <DocumentTextIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
+            <DocumentTextIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">Nenhum template encontrado</h3>
             <p className="text-description">
               {searchQuery || filterType !== 'all'

@@ -80,14 +80,34 @@ function seedITILReferenceData(): void {
   // Teams
   const hasTeams = db.prepare("SELECT 1 FROM teams LIMIT 1").get();
   if (!hasTeams) {
-    db.exec(`
-      INSERT INTO teams (name, description, organization_id) VALUES
-        ('IT Support', 'General IT support team', 1),
-        ('Infrastructure', 'Infrastructure and operations team', 1),
-        ('Development', 'Software development team', 1),
-        ('Security', 'Information security team', 1),
-        ('Network', 'Network operations team', 1);
-    `);
+    // Check if table uses tenant_id or organization_id
+    const cols = db.prepare("PRAGMA table_info(teams)").all() as Array<{ name: string }>;
+    const hasOrgId = cols.some(c => c.name === 'organization_id');
+    const hasTenantId = cols.some(c => c.name === 'tenant_id');
+    const hasSlug = cols.some(c => c.name === 'slug');
+    const hasTeamType = cols.some(c => c.name === 'team_type');
+
+    if (hasSlug && hasTeamType && hasTenantId) {
+      // Extended teams schema
+      db.exec(`
+        INSERT INTO teams (tenant_id, name, slug, team_type, description) VALUES
+          (1, 'IT Support', 'it-support', 'support', 'General IT support team'),
+          (1, 'Infrastructure', 'infrastructure', 'technical', 'Infrastructure and operations team'),
+          (1, 'Development', 'development', 'technical', 'Software development team'),
+          (1, 'Security', 'security', 'technical', 'Information security team'),
+          (1, 'Network', 'network', 'technical', 'Network operations team');
+      `);
+    } else if (hasOrgId) {
+      // Simple teams schema
+      db.exec(`
+        INSERT INTO teams (name, description, organization_id) VALUES
+          ('IT Support', 'General IT support team', 1),
+          ('Infrastructure', 'Infrastructure and operations team', 1),
+          ('Development', 'Software development team', 1),
+          ('Security', 'Information security team', 1),
+          ('Network', 'Network operations team', 1);
+      `);
+    }
   }
 
   // Root Cause Categories

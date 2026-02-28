@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS users (
     timezone VARCHAR(100) DEFAULT 'America/Sao_Paulo',
     language VARCHAR(10) DEFAULT 'pt-BR',
     metadata JSONB, -- JSON for additional user data
+    notification_preferences JSONB, -- JSON for user notification preferences
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

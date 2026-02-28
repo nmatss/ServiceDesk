@@ -503,7 +503,7 @@ export default function CMDBPage() {
           </div>
         ) : cis.length === 0 ? (
           <div className="glass-panel rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 p-8 text-center bg-white/80 dark:bg-neutral-900/80">
-            <CircleStackIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
+            <CircleStackIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">Nenhum CI encontrado</h3>
             <p className="text-muted-content mb-4">
               {hasActiveFilters
@@ -600,7 +600,7 @@ export default function CMDBPage() {
                   {/* Footer */}
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-xs font-medium text-muted-content">{ci.ci_type_name}</span>
-                    <ChevronRightIcon className="w-5 h-5 text-neutral-300 dark:text-neutral-600 group-hover:text-brand-500 dark:group-hover:text-brand-400 group-hover:translate-x-1 transition-all" />
+                    <ChevronRightIcon className="w-5 h-5 text-neutral-400 dark:text-neutral-600 group-hover:text-brand-500 dark:group-hover:text-brand-400 group-hover:translate-x-1 transition-all" />
                   </div>
                 </div>
               )
@@ -682,7 +682,7 @@ export default function CMDBPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <ChevronRightIcon className="w-5 h-5 text-neutral-300 dark:text-neutral-600" />
+                          <ChevronRightIcon className="w-5 h-5 text-neutral-400 dark:text-neutral-600" />
                         </td>
                       </tr>
                     )

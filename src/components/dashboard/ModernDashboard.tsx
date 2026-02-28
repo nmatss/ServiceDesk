@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import PageHeader from '@/components/ui/PageHeader'
 import StatsCard, { StatsGrid, StatsCardSkeleton } from '@/components/ui/StatsCard'
@@ -95,7 +95,7 @@ interface DashboardData {
 }
 
 interface ModernDashboardProps {
-  userRole: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin'
+  userRole: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client'
   period?: number
 }
 
@@ -168,17 +168,32 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
     )
   }
 
-  if (!data) return null
+  // Memoize derived dashboard data to avoid recomputing on every render
+  const { overview, tickets, trends, sla, categories, priorities, recentActivity, agentPerformance } = useMemo(() => {
+    if (!data) return {
+      overview: { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } },
+      tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 },
+      trends: { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const },
+      sla: { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 },
+      categories: [] as NonNullable<DashboardData['categories']>,
+      priorities: [] as NonNullable<DashboardData['priorities']>,
+      recentActivity: [] as NonNullable<DashboardData['recent_activity']>,
+      agentPerformance: [] as NonNullable<DashboardData['agent_performance']>,
+    }
+    const ov = data.overview ?? { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } }
+    return {
+      overview: ov,
+      tickets: ov.tickets ?? { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 },
+      trends: data.trends ?? { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const },
+      sla: data.sla ?? { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 },
+      categories: data.categories ?? [],
+      priorities: data.priorities ?? [],
+      recentActivity: data.recent_activity ?? [],
+      agentPerformance: data.agent_performance ?? [],
+    }
+  }, [data])
 
-  // Safe access helpers to prevent crashes
-  const overview = data.overview ?? { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } }
-  const tickets = overview.tickets ?? { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 }
-  const trends = data.trends ?? { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const }
-  const sla = data.sla ?? { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 }
-  const categories = data.categories ?? []
-  const priorities = data.priorities ?? []
-  const recentActivity = data.recent_activity ?? []
-  const agentPerformance = data.agent_performance ?? []
+  if (!data) return null
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const suggestSolutionsSchema = z.object({
@@ -23,23 +23,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
   try {
     // Verificar autenticação
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
+    const organizationId = auth.organizationId;
 
     // Validar entrada
     const body = await request.json();
@@ -54,14 +41,14 @@ export async function POST(request: NextRequest) {
       includeUserContext
     } = suggestSolutionsSchema.parse(body);
 
-    // Buscar artigos relevantes da knowledge base usando busca textual
+    // Buscar artigos relevantes da knowledge base usando busca textual (scoped by org)
     const queryText = `${title} ${description}`;
 
-    // Busca textual para artigos da knowledge base
     const knowledgeArticles = await executeQuery<any>(`
       SELECT id, title, summary, content
       FROM kb_articles
       WHERE is_published = 1
+        AND (organization_id = ? OR organization_id IS NULL)
         AND (
           LOWER(title) LIKE LOWER(?) OR
           LOWER(content) LIKE LOWER(?) OR
@@ -71,21 +58,23 @@ export async function POST(request: NextRequest) {
         CASE WHEN LOWER(title) LIKE LOWER(?) THEN 1 ELSE 2 END,
         helpful_votes DESC
       LIMIT ?
-    `, [`%${queryText}%`,
+    `, [organizationId,
+      `%${queryText}%`,
       `%${queryText}%`,
       `%${queryText}%`,
       `%${title}%`,
       maxKnowledgeArticles]);
 
-    // Buscar tickets similares resolvidos via busca textual
+    // Buscar tickets similares resolvidos via busca textual (scoped by org)
     const similarTickets = await executeQuery<any>(`
       SELECT t.id, t.title, t.description,
              GROUP_CONCAT(c.content, ' | ') as resolution
       FROM tickets t
       LEFT JOIN comments c ON t.id = c.ticket_id
         AND c.is_internal = 0
-        AND c.created_at >= COALESCE(t.resolved_at, datetime('now'))
+        AND c.created_at >= COALESCE(t.resolved_at, CURRENT_TIMESTAMP)
       WHERE t.resolved_at IS NOT NULL
+        AND t.organization_id = ?
         AND t.id != COALESCE(?, 0)
         AND (
           LOWER(t.title) LIKE LOWER(?) OR
@@ -94,25 +83,27 @@ export async function POST(request: NextRequest) {
       GROUP BY t.id, t.title, t.description
       ORDER BY t.resolved_at DESC
       LIMIT ?
-    `, [ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets]);
+    `, [organizationId, ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets]);
 
-    // Buscar contexto do usuário se solicitado
+    // Buscar contexto do usuário se solicitado (scoped by org)
     let userContext;
-    if (includeUserContext && user.id) {
+    if (includeUserContext && auth.userId) {
       try {
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
         const userTickets = await executeQuery<any>(`
           SELECT c.name as category, COUNT(*) as count
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
           WHERE t.user_id = ?
-            AND t.created_at >= datetime('now', '-90 days')
+            AND t.organization_id = ?
+            AND t.created_at >= ?
           GROUP BY c.name
           ORDER BY count DESC
           LIMIT 5
-        `, [user.id]);
+        `, [auth.userId, organizationId, ninetyDaysAgo]);
 
         userContext = {
-          role: user.role,
+          role: auth.role,
           previousIssues: userTickets.map((ticket: any) => ticket.category)
         };
       } catch (error) {
@@ -155,7 +146,7 @@ export async function POST(request: NextRequest) {
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [user.id,
+    `, [auth.userId,
       'ai_suggestion',
       suggestionId,
       'suggest_solution',
@@ -197,7 +188,7 @@ export async function POST(request: NextRequest) {
         inputTokens: suggestions.inputTokens,
         outputTokens: suggestions.outputTokens,
         userContextUsed: !!userContext,
-        vectorSearchUsed: knowledgeArticles.some(kb => kb.relevanceScore)
+        vectorSearchUsed: knowledgeArticles.some((kb: any) => kb.relevanceScore)
       }
     });
 
@@ -221,33 +212,23 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');
 
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
     if (ticketId) {
-      // Buscar sugestões para um ticket específico
+      // Buscar sugestões para um ticket específico (scoped by org)
       const suggestions = await executeQuery<any>(`
-        SELECT * FROM ai_suggestions
-        WHERE ticket_id = ?
-        ORDER BY created_at DESC
-      `, [ticketId]);
+        SELECT s.* FROM ai_suggestions s
+        JOIN tickets t ON s.ticket_id = t.id AND t.organization_id = ?
+        WHERE s.ticket_id = ?
+        ORDER BY s.created_at DESC
+      `, [organizationId, ticketId]);
 
       return NextResponse.json({ suggestions });
     } else {
@@ -260,9 +241,9 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN was_helpful = 1 THEN 1 END) as helpful_count,
           COUNT(CASE WHEN was_helpful = 0 THEN 1 END) as not_helpful_count
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-30 days')
+        WHERE created_at >= ?
           AND suggestion_type = 'solution'
-      `);
+      `, [thirtyDaysAgo]);
 
       const sourceStats = await executeQuery<any>(`
         SELECT
@@ -270,11 +251,11 @@ export async function GET(request: NextRequest) {
           COUNT(*) as count,
           AVG(confidence_score) as avg_confidence
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-30 days')
+        WHERE created_at >= ?
           AND suggestion_type = 'solution'
         GROUP BY source_type
         ORDER BY count DESC
-      `);
+      `, [thirtyDaysAgo]);
 
       return NextResponse.json({
         stats: {

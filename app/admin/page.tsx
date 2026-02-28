@@ -157,8 +157,7 @@ async function CategoriesDistribution() {
         })}
       </div>
     )
-  } catch (error) {
-    console.error('Error fetching categories:', error)
+  } catch {
     return (
       <div className="text-center py-8">
         <p className="text-muted-content">Erro ao carregar categorias</p>
@@ -198,8 +197,7 @@ async function getDashboardData(): Promise<DashboardStats> {
       openTickets: 0,
       resolvedTickets: 0
     }
-  } catch (error) {
-    console.error('Error fetching dashboard stats:', error)
+  } catch {
     return {
       totalUsers: 0,
       totalTickets: 0,
@@ -229,8 +227,7 @@ async function getRecentTickets(): Promise<RecentTicket[]> {
       }
     }
     return []
-  } catch (error) {
-    console.error('Error fetching recent tickets:', error)
+  } catch {
     return []
   }
 }
@@ -310,7 +307,7 @@ export default async function AdminPage() {
                 <p className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 sm:mt-2">
                   {stat.value}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1 line-clamp-1">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-1">
                   {stat.description}
                 </p>
               </div>
@@ -337,7 +334,7 @@ export default async function AdminPage() {
         </div>
         <Suspense fallback={
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600 dark:border-brand-400"></div>
           </div>
         }>
           <CategoriesDistribution />

@@ -1,13 +1,13 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { Automation } from '../types/database';
 import { createNotification } from '../notifications';
 import { logAuditAction } from '../audit';
 import logger from '../monitoring/structured-logger';
 
-// Limite de cascata de automações
+// Limite de cascata de automacoes
 const MAX_CASCADE_DEPTH = 10;
 
-// Tipos para automação
+// Tipos para automacao
 interface AutomationCondition {
   field: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'in' | 'not_in';
@@ -28,15 +28,15 @@ interface TriggerData {
 }
 
 /**
- * Busca automações ativas por tipo de trigger
+ * Busca automacoes ativas por tipo de trigger
  */
-export function getActiveAutomations(triggerType: string): Automation[] {
+export async function getActiveAutomations(triggerType: string): Promise<Automation[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<Automation>(`
       SELECT * FROM automations
       WHERE trigger_type = ? AND is_active = 1
       ORDER BY created_at ASC
-    `).all(triggerType) as Automation[];
+    `, [triggerType]);
   } catch (error) {
     logger.error('Error getting active automations', error);
     return [];
@@ -44,7 +44,7 @@ export function getActiveAutomations(triggerType: string): Automation[] {
 }
 
 /**
- * Executa automações para um trigger específico
+ * Executa automacoes para um trigger especifico
  */
 export async function executeAutomations(
   triggerType: string,
@@ -58,7 +58,7 @@ export async function executeAutomations(
       return false;
     }
 
-    const automations = getActiveAutomations(triggerType);
+    const automations = await getActiveAutomations(triggerType);
 
     if (automations.length === 0) {
       return true;
@@ -71,7 +71,7 @@ export async function executeAutomations(
         await executeAutomation(automation, triggerData, cascadeDepth);
       } catch (error) {
         logger.error(`Error executing automation ${automation.id}:`, error);
-        // Continue com outras automações mesmo se uma falhar
+        // Continue com outras automacoes mesmo se uma falhar
       }
     }
 
@@ -83,7 +83,7 @@ export async function executeAutomations(
 }
 
 /**
- * Executa uma automação específica
+ * Executa uma automacao especifica
  */
 async function executeAutomation(
   automation: Automation,
@@ -94,28 +94,28 @@ async function executeAutomation(
     const conditions = JSON.parse(automation.conditions);
     const actions = JSON.parse(automation.actions);
 
-    // Verificar condições
-    if (!evaluateConditions(conditions, triggerData)) {
+    // Verificar condicoes
+    if (!await evaluateConditions(conditions, triggerData)) {
       return false;
     }
 
     logger.info(`Executing automation: ${automation.name}`, { cascadeDepth });
 
-    // Executar ações (passando cascadeDepth para ações que podem disparar outras automações)
+    // Executar acoes (passando cascadeDepth para acoes que podem disparar outras automacoes)
     for (const action of actions) {
       await executeAction(action, triggerData, cascadeDepth);
     }
 
-    // Atualizar contador de execução
-    db.prepare(`
+    // Atualizar contador de execucao
+    await executeRun(`
       UPDATE automations
       SET execution_count = execution_count + 1,
           last_executed_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(automation.id);
+    `, [automation.id]);
 
-    // Log da execução
-    logAuditAction({
+    // Log da execucao
+    await logAuditAction({
       user_id: undefined,
       action: 'automation_executed',
       resource_type: 'automation',
@@ -134,23 +134,32 @@ async function executeAutomation(
 }
 
 /**
- * Avalia condições da automação
+ * Avalia condicoes da automacao
  */
-function evaluateConditions(
+async function evaluateConditions(
   conditions: AutomationCondition[] | { operator: 'AND' | 'OR'; conditions: AutomationCondition[] },
   triggerData: TriggerData
-): boolean {
+): Promise<boolean> {
   try {
-    // Se é um array simples, usar AND
+    // Se e um array simples, usar AND
     if (Array.isArray(conditions)) {
-      return conditions.every(condition => evaluateCondition(condition, triggerData));
+      for (const condition of conditions) {
+        if (!await evaluateCondition(condition, triggerData)) return false;
+      }
+      return true;
     }
 
-    // Se tem operador lógico
+    // Se tem operador logico
     if (conditions.operator === 'AND') {
-      return conditions.conditions.every(condition => evaluateCondition(condition, triggerData));
+      for (const condition of conditions.conditions) {
+        if (!await evaluateCondition(condition, triggerData)) return false;
+      }
+      return true;
     } else if (conditions.operator === 'OR') {
-      return conditions.conditions.some(condition => evaluateCondition(condition, triggerData));
+      for (const condition of conditions.conditions) {
+        if (await evaluateCondition(condition, triggerData)) return true;
+      }
+      return false;
     }
 
     return false;
@@ -161,11 +170,11 @@ function evaluateConditions(
 }
 
 /**
- * Avalia uma condição específica
+ * Avalia uma condicao especifica
  */
-function evaluateCondition(condition: AutomationCondition, triggerData: TriggerData): boolean {
+async function evaluateCondition(condition: AutomationCondition, triggerData: TriggerData): Promise<boolean> {
   try {
-    const value = getFieldValue(condition.field, triggerData);
+    const value = await getFieldValue(condition.field, triggerData);
 
     switch (condition.operator) {
       case 'equals':
@@ -196,21 +205,21 @@ function evaluateCondition(condition: AutomationCondition, triggerData: TriggerD
 /**
  * Busca valor de um campo nos dados do trigger
  */
-function getFieldValue(field: string, triggerData: TriggerData): any {
+async function getFieldValue(field: string, triggerData: TriggerData): Promise<any> {
   try {
     // Buscar em dados do ticket
     if (triggerData.ticket_id && field.startsWith('ticket.')) {
       const ticketField = field.replace('ticket.', '');
-      const ticket = db.prepare(`
+      const ticket = await executeQueryOne<any>(`
         SELECT t.*, c.name as category_name, p.name as priority_name, s.name as status_name
         FROM tickets t
         LEFT JOIN categories c ON t.category_id = c.id
         LEFT JOIN priorities p ON t.priority_id = p.id
         LEFT JOIN statuses s ON t.status_id = s.id
         WHERE t.id = ?
-      `).get(triggerData.ticket_id);
+      `, [triggerData.ticket_id]);
 
-      return ticket ? (ticket as any)[ticketField] : null;
+      return ticket ? ticket[ticketField] : null;
     }
 
     // Buscar em novos valores
@@ -253,7 +262,7 @@ function getFieldValue(field: string, triggerData: TriggerData): any {
 }
 
 /**
- * Executa uma ação específica
+ * Executa uma acao especifica
  */
 async function executeAction(action: AutomationAction, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
@@ -289,9 +298,6 @@ async function executeAction(action: AutomationAction, triggerData: TriggerData,
   }
 }
 
-/**
- * Envia webhook para sistema externo
- */
 /**
  * Envia webhook para sistema externo com retry exponential backoff
  */
@@ -349,27 +355,36 @@ async function assignTicket(parameters: any, triggerData: TriggerData, cascadeDe
     if (!agent_id) return false;
 
     // Verificar se agente existe
-    const agent = db.prepare('SELECT id FROM users WHERE id = ? AND role IN ("agent", "admin")').get(agent_id);
+    const agent = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM users WHERE id = ? AND role IN (\'agent\', \'admin\')',
+      [agent_id]
+    );
     if (!agent) return false;
 
     // Buscar valores antigos
-    const oldTicket = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?').get(triggerData.ticket_id) as any;
+    const oldTicket = await executeQueryOne<any>(
+      'SELECT assigned_to FROM tickets WHERE id = ?',
+      [triggerData.ticket_id]
+    );
 
     // Atualizar ticket
-    db.prepare('UPDATE tickets SET assigned_to = ? WHERE id = ?').run(agent_id, triggerData.ticket_id);
+    await executeRun(
+      'UPDATE tickets SET assigned_to = ? WHERE id = ?',
+      [agent_id, triggerData.ticket_id]
+    );
 
-    // Criar notificação
-    createNotification({
+    // Criar notificacao
+    await createNotification({
       user_id: agent_id,
       ticket_id: triggerData.ticket_id,
       type: 'ticket_assigned',
-      title: 'Ticket Atribuído Automaticamente',
-      message: `Ticket #${triggerData.ticket_id} foi atribuído automaticamente para você`,
+      title: 'Ticket Atribuido Automaticamente',
+      message: `Ticket #${triggerData.ticket_id} foi atribuido automaticamente para voce`,
       is_read: false,
       sent_via_email: true
     });
 
-    // Disparar automações em cascata (se houver)
+    // Disparar automacoes em cascata (se houver)
     await executeAutomations('ticket_assigned', {
       ticket_id: triggerData.ticket_id,
       old_values: { assigned_to: oldTicket?.assigned_to },
@@ -395,16 +410,25 @@ async function changeTicketStatus(parameters: any, triggerData: TriggerData, cas
     if (!status_id) return false;
 
     // Verificar se status existe
-    const status = db.prepare('SELECT id FROM statuses WHERE id = ?').get(status_id);
+    const status = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM statuses WHERE id = ?',
+      [status_id]
+    );
     if (!status) return false;
 
     // Buscar valores antigos
-    const oldTicket = db.prepare('SELECT status_id FROM tickets WHERE id = ?').get(triggerData.ticket_id) as any;
+    const oldTicket = await executeQueryOne<any>(
+      'SELECT status_id FROM tickets WHERE id = ?',
+      [triggerData.ticket_id]
+    );
 
     // Atualizar ticket
-    db.prepare('UPDATE tickets SET status_id = ? WHERE id = ?').run(status_id, triggerData.ticket_id);
+    await executeRun(
+      'UPDATE tickets SET status_id = ? WHERE id = ?',
+      [status_id, triggerData.ticket_id]
+    );
 
-    // Disparar automações em cascata (se houver)
+    // Disparar automacoes em cascata (se houver)
     await executeAutomations('ticket_updated', {
       ticket_id: triggerData.ticket_id,
       old_values: { status_id: oldTicket?.status_id },
@@ -430,16 +454,25 @@ async function changeTicketPriority(parameters: any, triggerData: TriggerData, c
     if (!priority_id) return false;
 
     // Verificar se prioridade existe
-    const priority = db.prepare('SELECT id FROM priorities WHERE id = ?').get(priority_id);
+    const priority = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM priorities WHERE id = ?',
+      [priority_id]
+    );
     if (!priority) return false;
 
     // Buscar valores antigos
-    const oldTicket = db.prepare('SELECT priority_id FROM tickets WHERE id = ?').get(triggerData.ticket_id) as any;
+    const oldTicket = await executeQueryOne<any>(
+      'SELECT priority_id FROM tickets WHERE id = ?',
+      [triggerData.ticket_id]
+    );
 
     // Atualizar ticket
-    db.prepare('UPDATE tickets SET priority_id = ? WHERE id = ?').run(priority_id, triggerData.ticket_id);
+    await executeRun(
+      'UPDATE tickets SET priority_id = ? WHERE id = ?',
+      [priority_id, triggerData.ticket_id]
+    );
 
-    // Disparar automações em cascata (se houver)
+    // Disparar automacoes em cascata (se houver)
     await executeAutomations('ticket_updated', {
       ticket_id: triggerData.ticket_id,
       old_values: { priority_id: oldTicket?.priority_id },
@@ -455,7 +488,7 @@ async function changeTicketPriority(parameters: any, triggerData: TriggerData, c
 }
 
 /**
- * Adiciona comentário ao ticket
+ * Adiciona comentario ao ticket
  */
 async function addTicketComment(parameters: any, triggerData: TriggerData, cascadeDepth: number = 0): Promise<boolean> {
   try {
@@ -464,17 +497,20 @@ async function addTicketComment(parameters: any, triggerData: TriggerData, casca
     const { content, is_internal = false } = parameters;
     if (!content) return false;
 
-    // Buscar usuário do sistema para comentários automáticos
-    const systemUser = db.prepare('SELECT id FROM users WHERE role = "admin" LIMIT 1').get() as { id: number };
+    // Buscar usuario do sistema para comentarios automaticos
+    const systemUser = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM users WHERE role = \'admin\' LIMIT 1',
+      []
+    );
     if (!systemUser) return false;
 
-    // Adicionar comentário
-    const result = db.prepare(`
+    // Adicionar comentario
+    const result = await executeRun(`
       INSERT INTO comments (ticket_id, user_id, content, is_internal)
       VALUES (?, ?, ?, ?)
-    `).run(triggerData.ticket_id, systemUser.id, content, is_internal ? 1 : 0);
+    `, [triggerData.ticket_id, systemUser.id, content, is_internal ? 1 : 0]);
 
-    // Disparar automações em cascata (se houver)
+    // Disparar automacoes em cascata (se houver)
     await executeAutomations('comment_added', {
       ticket_id: triggerData.ticket_id,
       user_id: systemUser.id,
@@ -490,14 +526,14 @@ async function addTicketComment(parameters: any, triggerData: TriggerData, casca
 }
 
 /**
- * Envia notificação
+ * Envia notificacao
  */
 async function sendNotification(parameters: any, triggerData: TriggerData): Promise<boolean> {
   try {
     const { user_id, title, message, send_email = true } = parameters;
     if (!user_id || !title || !message) return false;
 
-    createNotification({
+    await createNotification({
       user_id,
       ticket_id: triggerData.ticket_id,
       type: 'automation',
@@ -521,37 +557,46 @@ async function escalateTicket(parameters: any, triggerData: TriggerData, cascade
   try {
     if (!triggerData.ticket_id) return false;
 
-    const { escalated_to, reason = 'Escalação automática' } = parameters;
+    const { escalated_to, reason = 'Escalacao automatica' } = parameters;
     if (!escalated_to) return false;
 
-    // Verificar se usuário existe
-    const user = db.prepare('SELECT id FROM users WHERE id = ? AND role IN ("agent", "admin")').get(escalated_to);
+    // Verificar se usuario existe
+    const user = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM users WHERE id = ? AND role IN (\'agent\', \'admin\')',
+      [escalated_to]
+    );
     if (!user) return false;
 
     // Buscar ticket atual
-    const ticket = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?').get(triggerData.ticket_id) as { assigned_to: number };
+    const ticket = await executeQueryOne<{ assigned_to: number }>(
+      'SELECT assigned_to FROM tickets WHERE id = ?',
+      [triggerData.ticket_id]
+    );
 
-    // Registrar escalação
-    db.prepare(`
+    // Registrar escalacao
+    await executeRun(`
       INSERT INTO sla_escalations (ticket_id, escalated_from, escalated_to, escalation_level, reason)
       VALUES (?, ?, ?, 1, ?)
-    `).run(triggerData.ticket_id, ticket?.assigned_to || null, escalated_to, reason);
+    `, [triggerData.ticket_id, ticket?.assigned_to || null, escalated_to, reason]);
 
     // Atribuir ticket
-    db.prepare('UPDATE tickets SET assigned_to = ? WHERE id = ?').run(escalated_to, triggerData.ticket_id);
+    await executeRun(
+      'UPDATE tickets SET assigned_to = ? WHERE id = ?',
+      [escalated_to, triggerData.ticket_id]
+    );
 
-    // Notificar novo responsável
-    createNotification({
+    // Notificar novo responsavel
+    await createNotification({
       user_id: escalated_to,
       ticket_id: triggerData.ticket_id,
       type: 'escalation',
       title: 'Ticket Escalado',
-      message: `Ticket #${triggerData.ticket_id} foi escalado para você. Motivo: ${reason}`,
+      message: `Ticket #${triggerData.ticket_id} foi escalado para voce. Motivo: ${reason}`,
       is_read: false,
       sent_via_email: true
     });
 
-    // Disparar automações em cascata (se houver)
+    // Disparar automacoes em cascata (se houver)
     await executeAutomations('ticket_assigned', {
       ticket_id: triggerData.ticket_id,
       old_values: { assigned_to: ticket?.assigned_to },
@@ -570,13 +615,13 @@ async function escalateTicket(parameters: any, triggerData: TriggerData, cascade
  * Triggers para eventos de ticket
  */
 export async function triggerTicketCreated(ticketId: number, userId: number): Promise<boolean> {
-  const ticket = db.prepare(`
+  const ticket = await executeQueryOne<any>(`
     SELECT t.*, c.name as category_name, p.name as priority_name
     FROM tickets t
     LEFT JOIN categories c ON t.category_id = c.id
     LEFT JOIN priorities p ON t.priority_id = p.id
     WHERE t.id = ?
-  `).get(ticketId);
+  `, [ticketId]);
 
   return executeAutomations('ticket_created', {
     ticket_id: ticketId,
@@ -619,7 +664,10 @@ export async function triggerCommentAdded(
   commentId: number,
   userId: number
 ): Promise<boolean> {
-  const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(commentId);
+  const comment = await executeQueryOne<any>(
+    'SELECT * FROM comments WHERE id = ?',
+    [commentId]
+  );
 
   return executeAutomations('comment_added', {
     ticket_id: ticketId,
@@ -644,16 +692,19 @@ export async function triggerSLAWarning(ticketId: number, slaTracking: any): Pro
 }
 
 /**
- * Cria automações padrão do sistema
+ * Cria automacoes padrao do sistema
  */
-export function createDefaultAutomations(): boolean {
+export async function createDefaultAutomations(): Promise<boolean> {
   try {
-    const systemAdmin = db.prepare('SELECT id FROM users WHERE role = "admin" LIMIT 1').get() as { id: number };
+    const systemAdmin = await executeQueryOne<{ id: number }>(
+      'SELECT id FROM users WHERE role = \'admin\' LIMIT 1',
+      []
+    );
     if (!systemAdmin) return false;
 
     const defaultAutomations = [
       {
-        name: 'Auto-atribuição por categoria',
+        name: 'Auto-atribuicao por categoria',
         description: 'Atribui automaticamente tickets de TI para agentes especializados',
         trigger_type: 'ticket_created',
         conditions: [
@@ -662,41 +713,44 @@ export function createDefaultAutomations(): boolean {
         actions: [
           { type: 'assign_ticket', parameters: { agent_id: systemAdmin.id } }
         ],
-        is_active: false // Criar como inativo para configuração manual
+        is_active: false // Criar como inativo para configuracao manual
       },
       {
-        name: 'Escalação por prioridade crítica',
-        description: 'Escalona automaticamente tickets críticos não respondidos em 1 hora',
+        name: 'Escalacao por prioridade critica',
+        description: 'Escalona automaticamente tickets criticos nao respondidos em 1 hora',
         trigger_type: 'sla_warning',
         conditions: [
-          { field: 'ticket.priority_name', operator: 'equals', value: 'Crítica' }
+          { field: 'ticket.priority_name', operator: 'equals', value: 'Critica' }
         ],
         actions: [
-          { type: 'escalate', parameters: { escalated_to: systemAdmin.id, reason: 'Prioridade crítica não atendida' } }
+          { type: 'escalate', parameters: { escalated_to: systemAdmin.id, reason: 'Prioridade critica nao atendida' } }
         ],
         is_active: false
       },
       {
-        name: 'Notificação para comentários externos',
-        description: 'Notifica o agente responsável quando usuário adiciona comentário',
+        name: 'Notificacao para comentarios externos',
+        description: 'Notifica o agente responsavel quando usuario adiciona comentario',
         trigger_type: 'comment_added',
         conditions: [
           { field: 'new.is_internal', operator: 'equals', value: false }
         ],
         actions: [
-          { type: 'send_notification', parameters: { user_id: 'ticket.assigned_to', title: 'Novo comentário do usuário', message: 'Um usuário adicionou um comentário ao ticket' } }
+          { type: 'send_notification', parameters: { user_id: 'ticket.assigned_to', title: 'Novo comentario do usuario', message: 'Um usuario adicionou um comentario ao ticket' } }
         ],
         is_active: true
       }
     ];
 
     for (const automation of defaultAutomations) {
-      const exists = db.prepare('SELECT id FROM automations WHERE name = ?').get(automation.name);
+      const exists = await executeQueryOne<{ id: number }>(
+        'SELECT id FROM automations WHERE name = ?',
+        [automation.name]
+      );
       if (!exists) {
-        db.prepare(`
+        await executeRun(`
           INSERT INTO automations (name, description, trigger_type, conditions, actions, is_active, created_by)
           VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(
+        `, [
           automation.name,
           automation.description,
           automation.trigger_type,
@@ -704,7 +758,7 @@ export function createDefaultAutomations(): boolean {
           JSON.stringify(automation.actions),
           automation.is_active ? 1 : 0,
           systemAdmin.id
-        );
+        ]);
       }
     }
 

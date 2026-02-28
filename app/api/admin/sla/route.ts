@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date');
 
     if (action === 'metrics' || action === 'overview') {
-      const metrics = getSLAMetrics(startDate || undefined, endDate || undefined);
+      const metrics = await getSLAMetrics(startDate || undefined, endDate || undefined);
       const sla = metrics
         ? {
             ...metrics,

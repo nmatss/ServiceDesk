@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 import * as crypto from 'crypto';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 import {
   User,
@@ -13,16 +13,16 @@ import { logAuthEvent } from './enterprise-auth';
 // ========================================
 
 /**
- * Sistema avançado de gerenciamento de sessões com Redis
- * - Sessões distribuídas
- * - Controle de dispositivos múltiplos
- * - Invalidação em tempo real
- * - Detecção de sessões suspeitas
- * - Analytics de sessão
+ * Sistema avancado de gerenciamento de sessoes com Redis
+ * - Sessoes distribuidas
+ * - Controle de dispositivos multiplos
+ * - Invalidacao em tempo real
+ * - Deteccao de sessoes suspeitas
+ * - Analytics de sessao
  */
 
 // ========================================
-// CONFIGURAÇÃO E INICIALIZAÇÃO
+// CONFIGURACAO E INICIALIZACAO
 // ========================================
 
 let redisClient: Redis | null = null;
@@ -130,7 +130,7 @@ export interface SessionAnalytics {
 }
 
 // ========================================
-// FUNÇÕES DE SESSÃO
+// FUNCOES DE SESSAO
 // ========================================
 
 export async function createSession(
@@ -143,7 +143,7 @@ export async function createSession(
     const sessionId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    // Analisar informações do dispositivo
+    // Analisar informacoes do dispositivo
     const parsedDeviceInfo = parseDeviceInfo(deviceInfo);
 
     // Calcular score de risco
@@ -181,10 +181,10 @@ export async function createSession(
       }
     };
 
-    // Salvar sessão
+    // Salvar sessao
     await saveSession(sessionData);
 
-    // Verificar limite de sessões simultâneas
+    // Verificar limite de sessoes simultaneas
     await enforceSessionLimits(user.id);
 
     // Log de auditoria
@@ -216,9 +216,7 @@ export async function getSession(sessionId: string): Promise<SessionData | null>
     }
 
     // Fallback para database
-    const session = db.prepare(`
-      SELECT * FROM user_sessions WHERE id = ? AND is_active = 1
-    `).get(sessionId) as {
+    const session = await executeQueryOne<{
       id: string;
       user_id: number;
       user_agent?: string;
@@ -226,7 +224,9 @@ export async function getSession(sessionId: string): Promise<SessionData | null>
       created_at: string;
       last_activity: string;
       is_active: number;
-    } | undefined;
+    }>(`
+      SELECT * FROM user_sessions WHERE id = ? AND is_active = 1
+    `, [sessionId]);
 
     if (!session) return null;
 
@@ -310,26 +310,24 @@ export async function saveSession(sessionData: SessionData): Promise<boolean> {
       const ttl = sessionData.settings.sessionTimeout * 60; // converter para segundos
       await redisClient.setex(`session:${sessionData.sessionId}`, ttl, JSON.stringify(sessionData));
 
-      // Manter index por usuário
+      // Manter index por usuario
       await redisClient.sadd(`user_sessions:${sessionData.userId}`, sessionData.sessionId);
       await redisClient.expire(`user_sessions:${sessionData.userId}`, ttl);
     }
 
     // Salvar/atualizar no database
-    const stmt = db.prepare(`
+    await executeRun(`
       INSERT OR REPLACE INTO user_sessions (
         id, user_id, socket_id, user_agent, ip_address, is_active, last_activity
       ) VALUES (?, ?, ?, ?, ?, 1, ?)
-    `);
-
-    stmt.run(
+    `, [
       sessionData.sessionId,
       sessionData.userId,
       null, // socket_id usado para WebSocket
       JSON.stringify(sessionData.deviceInfo),
       sessionData.location?.ip,
       sessionData.activity.lastActivity
-    );
+    ]);
 
     return true;
   } catch (error) {
@@ -349,9 +347,9 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
     }
 
     // Remover do database
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE user_sessions SET is_active = 0 WHERE id = ?
-    `).run(sessionId);
+    `, [sessionId]);
 
     // Log de auditoria
     await logAuthEvent(session.userId, 'session_deleted', {
@@ -389,9 +387,9 @@ export async function deleteAllUserSessions(userId: number, exceptSessionId?: st
 
     const params = exceptSessionId ? [userId, exceptSessionId] : [userId];
 
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE user_sessions SET is_active = 0 WHERE ${whereClause}
-    `).run(...params);
+    `, params);
 
     deletedCount = Math.max(deletedCount, result.changes ?? 0);
 
@@ -409,7 +407,7 @@ export async function deleteAllUserSessions(userId: number, exceptSessionId?: st
 }
 
 // ========================================
-// FUNÇÕES DE ATIVIDADE DE SESSÃO
+// FUNCOES DE ATIVIDADE DE SESSAO
 // ========================================
 
 export async function trackSessionActivity(
@@ -434,7 +432,7 @@ export async function trackSessionActivity(
       }
     };
 
-    // Incrementar pageViews se for navegação
+    // Incrementar pageViews se for navegacao
     if (activity.action === 'page_view') {
       updates.activity!.pageViews = session.activity.pageViews + 1;
     }
@@ -461,7 +459,7 @@ export async function getUserActiveSessions(userId: number): Promise<ActiveSessi
             deviceInfo: sessionData.deviceInfo,
             location: sessionData.location,
             lastActivity: sessionData.activity.lastActivity,
-            isCurrent: false, // será determinado pelo caller
+            isCurrent: false, // sera determinado pelo caller
             riskScore: sessionData.security.riskScore,
             loginMethod: sessionData.security.loginMethod
           });
@@ -469,18 +467,18 @@ export async function getUserActiveSessions(userId: number): Promise<ActiveSessi
       }
     } else {
       // Fallback para database
-      const dbSessions = db.prepare(`
-        SELECT * FROM user_sessions
-        WHERE user_id = ? AND is_active = 1
-        ORDER BY last_activity DESC
-      `).all(userId) as Array<{
+      const dbSessions = await executeQuery<{
         id: string;
         user_id: number;
         user_agent?: string;
         ip_address: string;
         last_activity: string;
         is_active: number;
-      }>;
+      }>(`
+        SELECT * FROM user_sessions
+        WHERE user_id = ? AND is_active = 1
+        ORDER BY last_activity DESC
+      `, [userId]);
 
       for (const session of dbSessions) {
         const parsedDeviceInfo: SessionData['deviceInfo'] = session.user_agent
@@ -516,7 +514,7 @@ export async function getUserActiveSessions(userId: number): Promise<ActiveSessi
 }
 
 // ========================================
-// FUNÇÕES DE SEGURANÇA
+// FUNCOES DE SEGURANCA
 // ========================================
 
 function calculateRiskScore(
@@ -527,7 +525,7 @@ function calculateRiskScore(
 ): number {
   let score = 0;
 
-  // Base score por método de login
+  // Base score por metodo de login
   switch (loginMethod) {
     case 'password':
       score += 20;
@@ -548,12 +546,12 @@ function calculateRiskScore(
     score += 15;
   }
 
-  // Mobile devices têm score ligeiramente maior
+  // Mobile devices tem score ligeiramente maior
   if (deviceInfo.isMobile) {
     score += 5;
   }
 
-  // Primeiro login do usuário
+  // Primeiro login do usuario
   if (!user.last_login_at) {
     score += 20;
   }
@@ -563,12 +561,7 @@ function calculateRiskScore(
     score += user.failed_login_attempts * 10;
   }
 
-  // IP em lista de bloqueio ou suspeito (implementar verificação de IP reputation)
-  // if (isIpSuspicious(location.ip)) {
-  //   score += 25;
-  // }
-
-  // Horário fora do normal (implementar baseado no histórico do usuário)
+  // Horario fora do normal
   const hour = new Date().getHours();
   if (hour < 6 || hour > 22) {
     score += 10;
@@ -580,7 +573,7 @@ function calculateRiskScore(
 function parseDeviceInfo(rawDeviceInfo: { userAgent: string; platform?: string }): SessionData['deviceInfo'] {
   const userAgent = rawDeviceInfo.userAgent || '';
 
-  // Parse básico do User-Agent (em produção, use uma biblioteca como ua-parser-js)
+  // Parse basico do User-Agent (em producao, use uma biblioteca como ua-parser-js)
   const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
   const isTablet = /iPad|Tablet/.test(userAgent);
 
@@ -641,7 +634,7 @@ function extractOSVersion(userAgent: string): string {
 }
 
 // ========================================
-// FUNÇÕES DE LIMPEZA E MANUTENÇÃO
+// FUNCOES DE LIMPEZA E MANUTENCAO
 // ========================================
 
 export async function cleanupExpiredSessions(): Promise<number> {
@@ -649,8 +642,8 @@ export async function cleanupExpiredSessions(): Promise<number> {
     let cleanedCount = 0;
 
     if (useRedis && redisClient) {
-      // Redis TTL cuida da expiração automaticamente
-      // Mas vamos limpar índices órfãos
+      // Redis TTL cuida da expiracao automaticamente
+      // Mas vamos limpar indices orfaos
       const userKeys = await redisClient.keys('user_sessions:*');
 
       for (const userKey of userKeys) {
@@ -666,7 +659,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
           }
         }
 
-        // Atualizar índice com apenas sessões válidas
+        // Atualizar indice com apenas sessoes validas
         if (validSessionIds.length > 0) {
           await redisClient.del(userKey);
           await redisClient.sadd(userKey, ...validSessionIds);
@@ -676,13 +669,13 @@ export async function cleanupExpiredSessions(): Promise<number> {
       }
     }
 
-    // Limpar sessões expiradas no database
-    const result = db.prepare(`
+    // Limpar sessoes expiradas no database
+    const result = await executeRun(`
       UPDATE user_sessions
       SET is_active = 0
       WHERE is_active = 1
         AND datetime(last_activity, '+8 hours') < datetime('now')
-    `).run();
+    `, []);
 
     cleanedCount += result.changes ?? 0;
 
@@ -696,45 +689,34 @@ export async function cleanupExpiredSessions(): Promise<number> {
 
 export async function enforceSessionLimits(userId: number, maxSessions: number = 10): Promise<void> {
   try {
-    // SECURITY FIX: Use database transaction to prevent race condition
-    // This ensures atomic check-and-delete operation
-    const transaction = db.transaction(() => {
-      // Get active sessions directly from database within transaction
-      // This avoids async operations and ensures atomicity
-      const dbSessions = db.prepare(`
-        SELECT id, user_agent, ip_address, last_activity
-        FROM user_sessions
-        WHERE user_id = ? AND is_active = 1
-        ORDER BY last_activity ASC
-      `).all(userId) as Array<{
-        id: string;
-        user_agent?: string;
-        ip_address: string;
-        last_activity: string;
-      }>;
+    // Get active sessions from database
+    const dbSessions = await executeQuery<{
+      id: string;
+      user_agent?: string;
+      ip_address: string;
+      last_activity: string;
+    }>(`
+      SELECT id, user_agent, ip_address, last_activity
+      FROM user_sessions
+      WHERE user_id = ? AND is_active = 1
+      ORDER BY last_activity ASC
+    `, [userId]);
 
-      // Check if we need to enforce limits
-      if (dbSessions.length > maxSessions) {
-        // Calculate how many sessions to remove
-        const removeCount = dbSessions.length - maxSessions;
-        const sessionsToRemove = dbSessions.slice(0, removeCount);
+    // Check if we need to enforce limits
+    if (dbSessions.length <= maxSessions) return;
 
-        // Delete sessions from database in the transaction
-        const deleteStmt = db.prepare('UPDATE user_sessions SET is_active = 0 WHERE id = ?');
-        for (const session of sessionsToRemove) {
-          deleteStmt.run(session.id);
-        }
+    // Calculate how many sessions to remove
+    const removeCount = dbSessions.length - maxSessions;
+    const sessionsToRemove = dbSessions.slice(0, removeCount);
 
-        return sessionsToRemove.map(s => s.id);
-      }
+    // Delete sessions from database
+    for (const session of sessionsToRemove) {
+      await executeRun('UPDATE user_sessions SET is_active = 0 WHERE id = ?', [session.id]);
+    }
 
-      return [];
-    });
+    const removedSessionIds = sessionsToRemove.map(s => s.id);
 
-    // Execute the transaction
-    const removedSessionIds = transaction();
-
-    // After transaction completes, clean up Redis (best-effort, async)
+    // Clean up Redis (best-effort, async)
     if (removedSessionIds.length > 0 && useRedis && redisClient) {
       for (const sessionId of removedSessionIds) {
         redisClient.del(`session:${sessionId}`).catch((err) => {
@@ -762,7 +744,7 @@ export async function enforceSessionLimits(userId: number, maxSessions: number =
 }
 
 // ========================================
-// ANALYTICS DE SESSÃO
+// ANALYTICS DE SESSAO
 // ========================================
 
 export async function getSessionAnalytics(userId?: number): Promise<SessionAnalytics> {
@@ -781,24 +763,22 @@ export async function getSessionAnalytics(userId?: number): Promise<SessionAnaly
       // Implementar analytics baseado em Redis
       const sessionKeys = await redisClient.keys('session:*');
       analytics.activeSessions = sessionKeys.length;
-
-      // Para analytics mais detalhadas, seria necessário armazenar dados agregados
     } else {
       // Analytics baseado em database
       const whereClause = userId ? 'WHERE user_id = ?' : '';
       const params = userId ? [userId] : [];
 
-      // Total de sessões
-      const totalResult = db.prepare(`
+      // Total de sessoes
+      const totalResult = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count FROM user_sessions ${whereClause}
-      `).get(...params) as { count: number } | undefined;
+      `, params);
       analytics.totalSessions = totalResult?.count ?? 0;
 
-      // Sessões ativas
-      const activeResult = db.prepare(`
+      // Sessoes ativas
+      const activeResult = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count FROM user_sessions
         ${whereClause} ${whereClause ? 'AND' : 'WHERE'} is_active = 1
-      `).get(...params) as { count: number } | undefined;
+      `, params);
       analytics.activeSessions = activeResult?.count ?? 0;
     }
 
@@ -818,11 +798,11 @@ export async function getSessionAnalytics(userId?: number): Promise<SessionAnaly
 }
 
 // ========================================
-// INICIALIZAÇÃO
+// INICIALIZACAO
 // ========================================
 
-// Inicializar quando o módulo for carregado
+// Inicializar quando o modulo for carregado
 initializeSessionManager();
 
-// Configurar limpeza automática a cada hora
+// Configurar limpeza automatica a cada hora
 setInterval(cleanupExpiredSessions, 60 * 60 * 1000);

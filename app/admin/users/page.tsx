@@ -14,9 +14,12 @@ import { LoadingError } from '@/components/ui/error-states'
 import { NoDataEmptyState } from '@/components/ui/empty-state'
 
 export default function AdminUsersPage() {
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     fetchUsers()
@@ -46,29 +49,39 @@ export default function AdminUsersPage() {
   }
 
   const handleExport = () => {
-    logger.info('Exporting users...')
-    customToast.info('Preparando exportação...')
-    // Simulate export
-    setTimeout(() => {
-      customToast.success('Lista de usuários exportada com sucesso!')
-    }, 1000)
+    const headers = ['ID', 'Nome', 'Email', 'Papel', 'Status']
+    const csvRows = [headers.join(',')]
+    users.forEach((u: any) => {
+      csvRows.push([u.id, u.name, u.email, u.role, u.is_active ? 'Ativo' : 'Inativo'].join(','))
+    })
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'usuarios.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+    customToast.success('Exportação concluída')
   }
 
   const handleDelete = async (userId: number, userName: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"?`)) {
+    if (!confirm(`Tem certeza que deseja desativar o usuário "${userName}"?`)) {
       return
     }
 
-    const loadingToast = customToast.loading('Excluindo usuário...')
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      customToast.dismiss(loadingToast)
-      customToast.success(`Usuário "${userName}" excluído com sucesso!`)
-      fetchUsers()
-    } catch (error) {
-      customToast.dismiss(loadingToast)
-      customToast.error('Erro ao excluir usuário')
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      if (response.ok) {
+        customToast.success('Usuário desativado com sucesso')
+        fetchUsers()
+      } else {
+        customToast.error('Erro ao desativar usuário')
+      }
+    } catch {
+      customToast.error('Erro ao desativar usuário')
     }
   }
 
@@ -134,6 +147,17 @@ export default function AdminUsersPage() {
       ),
     },
   ]
+
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = !searchTerm ||
+      u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'active' && u.is_active) ||
+      (statusFilter === 'inactive' && !u.is_active)
+    return matchesSearch && matchesRole && matchesStatus
+  })
 
   const totalUsers = users.length
   const activeUsers = users.filter(u => u.role === 'user').length
@@ -208,21 +232,29 @@ export default function AdminUsersPage() {
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Função
             </label>
-            <select className="input">
-              <option>Todas</option>
-              <option>Admin</option>
-              <option>Agente</option>
-              <option>Usuário</option>
+            <select
+              className="input"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="all">Todas</option>
+              <option value="admin">Admin</option>
+              <option value="agent">Agente</option>
+              <option value="user">Usuário</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Status
             </label>
-            <select className="input">
-              <option>Todos</option>
-              <option>Ativo</option>
-              <option>Inativo</option>
+            <select
+              className="input"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              <option value="active">Ativo</option>
+              <option value="inactive">Inativo</option>
             </select>
           </div>
           <div>
@@ -233,11 +265,13 @@ export default function AdminUsersPage() {
               type="text"
               placeholder="Nome ou email..."
               className="input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex items-end">
-            <button onClick={() => customToast.info('Filtros de usuários ainda não implementados')} className="btn btn-primary w-full">
-              Aplicar Filtros
+            <button onClick={() => { setSearchTerm(''); setRoleFilter('all'); setStatusFilter('all') }} className="btn btn-primary w-full">
+              Limpar Filtros
             </button>
           </div>
         </div>
@@ -251,7 +285,7 @@ export default function AdminUsersPage() {
           <div className="p-6">
             <AdminTableSkeleton />
           </div>
-        ) : users.length === 0 ? (
+        ) : filteredUsers.length === 0 ? (
           <NoDataEmptyState message="Nenhum usuário encontrado no sistema." />
         ) : (
           <>
@@ -259,16 +293,16 @@ export default function AdminUsersPage() {
             <div className="hidden md:block">
               <AdminTable
                 columns={columns}
-                data={users}
+                data={filteredUsers}
                 loading={false}
                 emptyMessage="Nenhum usuário encontrado"
-                onRowClick={(row) => logger.info('User clicked', row)}
+                onRowClick={() => {}}
               />
             </div>
 
             {/* Mobile Card View */}
             <div className="md:hidden space-y-3 p-4">
-              {users.map(user => (
+              {filteredUsers.map(user => (
                 <div key={user.id} className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">{user.name}</h3>

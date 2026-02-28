@@ -26,7 +26,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only';
+  role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user';
   tenant_id: number;
   job_title?: string;
   department?: string;
@@ -228,13 +228,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.user]);
 
   // Memoized role checks
-  const isAdmin = useMemo(() => state.user?.role === 'admin', [state.user]);
+  const isAdmin = useMemo(() =>
+    ['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(state.user?.role ?? ''),
+    [state.user]
+  );
   const isAgent = useMemo(() =>
-    state.user?.role === 'agent' || state.user?.role === 'admin',
+    ['super_admin', 'admin', 'tenant_admin', 'team_manager', 'agent'].includes(state.user?.role ?? ''),
     [state.user]
   );
   const isManager = useMemo(() =>
-    state.user?.role === 'manager' || state.user?.role === 'admin',
+    ['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(state.user?.role ?? ''),
     [state.user]
   );
 

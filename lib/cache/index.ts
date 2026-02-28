@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 // Interface para cache
@@ -9,14 +9,14 @@ interface CacheEntry {
   created_at: string;
 }
 
-// Interface para configuração de cache
+// Interface para configuracao de cache
 interface CacheConfig {
   defaultTTL: number; // Time to live em segundos
-  maxSize: number; // Número máximo de entradas
+  maxSize: number; // Numero maximo de entradas
   enabled: boolean;
 }
 
-// Configuração padrão
+// Configuracao padrao
 const defaultConfig: CacheConfig = {
   defaultTTL: 300, // 5 minutos
   maxSize: 1000,
@@ -24,29 +24,6 @@ const defaultConfig: CacheConfig = {
 };
 
 let config = { ...defaultConfig };
-
-/**
- * Create cache table if it doesn't exist
- */
-function createCacheTable() {
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS cache (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create index for cleanup
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at)
-    `);
-  } catch (error) {
-    logger.error('Error creating cache table', error);
-  }
-}
 
 /**
  * Configura o sistema de cache
@@ -57,14 +34,14 @@ export function configureCacheSystem(newConfig: Partial<CacheConfig>): void {
 }
 
 /**
- * Verifica se o cache está habilitado
+ * Verifica se o cache esta habilitado
  */
 export function isCacheEnabled(): boolean {
   return config.enabled;
 }
 
 /**
- * Gera chave de cache única
+ * Gera chave de cache unica
  */
 function generateCacheKey(prefix: string, params: any = {}): string {
   const paramString = Object.keys(params)
@@ -78,25 +55,23 @@ function generateCacheKey(prefix: string, params: any = {}): string {
 /**
  * Busca valor no cache
  */
-export function getFromCache<T>(key: string): T | null {
+export async function getFromCache<T>(key: string): Promise<T | null> {
   if (!isCacheEnabled()) return null;
 
   try {
-    // Check if cache table exists first
-    const tableExists = db.prepare(`
-      SELECT name FROM sqlite_master
-      WHERE type='table' AND name='cache'
-    `).get();
-
-    if (!tableExists) {
-      createCacheTable();
+    // Try to query the cache table; if it doesn't exist, create it
+    let entry: CacheEntry | undefined;
+    try {
+      entry = await executeQueryOne<CacheEntry>(`
+        SELECT value, expires_at
+        FROM cache
+        WHERE key = ?
+      `, [key]);
+    } catch {
+      // Table likely doesn't exist, create it
+      await initializeCacheSystem();
+      return null;
     }
-
-    const entry = db.prepare(`
-      SELECT value, expires_at
-      FROM cache
-      WHERE key = ?
-    `).get(key) as CacheEntry | undefined;
 
     if (!entry) {
       return null;
@@ -105,7 +80,7 @@ export function getFromCache<T>(key: string): T | null {
     // Verificar se expirou
     if (new Date(entry.expires_at) < new Date()) {
       // Remove entrada expirada
-      db.prepare('DELETE FROM cache WHERE key = ?').run(key);
+      await executeRun('DELETE FROM cache WHERE key = ?', [key]);
       return null;
     }
 
@@ -119,7 +94,7 @@ export function getFromCache<T>(key: string): T | null {
 /**
  * Armazena valor no cache
  */
-export function setCache<T>(key: string, value: T, ttl: number = config.defaultTTL): boolean {
+export async function setCache<T>(key: string, value: T, ttl: number = config.defaultTTL): Promise<boolean> {
   if (!isCacheEnabled()) return false;
 
   try {
@@ -127,13 +102,13 @@ export function setCache<T>(key: string, value: T, ttl: number = config.defaultT
     const valueString = JSON.stringify(value);
 
     // Verificar se precisa limpar cache por limite de tamanho
-    cleanupCacheIfNeeded();
+    await cleanupCacheIfNeeded();
 
     // Inserir ou atualizar
-    db.prepare(`
+    await executeRun(`
       INSERT OR REPLACE INTO cache (key, value, expires_at)
       VALUES (?, ?, ?)
-    `).run(key, valueString, expiresAt);
+    `, [key, valueString, expiresAt]);
 
     return true;
   } catch (error) {
@@ -145,11 +120,11 @@ export function setCache<T>(key: string, value: T, ttl: number = config.defaultT
 /**
  * Remove entrada do cache
  */
-export function removeFromCache(key: string): boolean {
+export async function removeFromCache(key: string): Promise<boolean> {
   if (!isCacheEnabled()) return false;
 
   try {
-    const result = db.prepare('DELETE FROM cache WHERE key = ?').run(key);
+    const result = await executeRun('DELETE FROM cache WHERE key = ?', [key]);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error removing from cache', error);
@@ -158,13 +133,13 @@ export function removeFromCache(key: string): boolean {
 }
 
 /**
- * Remove entradas do cache por padrão
+ * Remove entradas do cache por padrao
  */
-export function removeCachePattern(pattern: string): number {
+export async function removeCachePattern(pattern: string): Promise<number> {
   if (!isCacheEnabled()) return 0;
 
   try {
-    const result = db.prepare('DELETE FROM cache WHERE key LIKE ?').run(pattern);
+    const result = await executeRun('DELETE FROM cache WHERE key LIKE ?', [pattern]);
     return result.changes;
   } catch (error) {
     logger.error('Error removing cache pattern', error);
@@ -175,12 +150,12 @@ export function removeCachePattern(pattern: string): number {
 /**
  * Limpa cache expirado
  */
-export function cleanupExpiredCache(): number {
+export async function cleanupExpiredCache(): Promise<number> {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM cache
       WHERE expires_at < datetime('now')
-    `).run();
+    `, []);
 
     if (result.changes > 0) {
       logger.info(`Cleaned up ${result.changes} expired cache entries`);
@@ -194,24 +169,28 @@ export function cleanupExpiredCache(): number {
 }
 
 /**
- * Limpa cache se necessário por limite de tamanho
+ * Limpa cache se necessario por limite de tamanho
  */
-function cleanupCacheIfNeeded(): void {
+async function cleanupCacheIfNeeded(): Promise<void> {
   try {
-    const { count } = db.prepare('SELECT COUNT(*) as count FROM cache').get() as { count: number };
+    const countResult = await executeQueryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM cache',
+      []
+    );
+    const count = countResult?.count ?? 0;
 
     if (count >= config.maxSize) {
       // Remove as entradas mais antigas
       const entriesToRemove = Math.floor(config.maxSize * 0.2); // Remove 20%
 
-      db.prepare(`
+      await executeRun(`
         DELETE FROM cache
         WHERE key IN (
           SELECT key FROM cache
           ORDER BY created_at ASC
           LIMIT ?
         )
-      `).run(entriesToRemove);
+      `, [entriesToRemove]);
 
       logger.info(`Cleaned up ${entriesToRemove} cache entries due to size limit`);
     }
@@ -223,9 +202,9 @@ function cleanupCacheIfNeeded(): void {
 /**
  * Limpa todo o cache
  */
-export function clearAllCache(): number {
+export async function clearAllCache(): Promise<number> {
   try {
-    const result = db.prepare('DELETE FROM cache').run();
+    const result = await executeRun('DELETE FROM cache', []);
     logger.info(`Cleared all cache: ${result.changes} entries removed`);
     return result.changes;
   } catch (error) {
@@ -235,37 +214,37 @@ export function clearAllCache(): number {
 }
 
 /**
- * Busca estatísticas do cache
+ * Busca estatisticas do cache
  */
-export function getCacheStats(): {
+export async function getCacheStats(): Promise<{
   total_entries: number;
   expired_entries: number;
   size_mb: number;
   hit_rate?: number;
-} {
+}> {
   try {
     // Total de entradas
-    const { total_entries } = db.prepare(`
+    const totalResult = await executeQueryOne<{ total_entries: number }>(`
       SELECT COUNT(*) as total_entries FROM cache
-    `).get() as { total_entries: number };
+    `, []);
 
     // Entradas expiradas
-    const { expired_entries } = db.prepare(`
+    const expiredResult = await executeQueryOne<{ expired_entries: number }>(`
       SELECT COUNT(*) as expired_entries
       FROM cache
       WHERE expires_at < datetime('now')
-    `).get() as { expired_entries: number };
+    `, []);
 
     // Tamanho aproximado em MB
-    const { total_size } = db.prepare(`
+    const sizeResult = await executeQueryOne<{ total_size: number }>(`
       SELECT SUM(LENGTH(value)) as total_size FROM cache
-    `).get() as { total_size: number };
+    `, []);
 
-    const size_mb = total_size ? (total_size / 1024 / 1024) : 0;
+    const size_mb = sizeResult?.total_size ? (sizeResult.total_size / 1024 / 1024) : 0;
 
     return {
-      total_entries,
-      expired_entries,
+      total_entries: totalResult?.total_entries ?? 0,
+      expired_entries: expiredResult?.expired_entries ?? 0,
       size_mb: Math.round(size_mb * 100) / 100
     };
   } catch (error) {
@@ -278,69 +257,69 @@ export function getCacheStats(): {
   }
 }
 
-// Funções específicas para cache de dados do sistema
+// Funcoes especificas para cache de dados do sistema
 
 /**
  * Cache para busca de tickets
  */
-export function cacheTicketSearch<T>(searchParams: any, data: T, ttl: number = 60): void {
+export async function cacheTicketSearch<T>(searchParams: any, data: T, ttl: number = 60): Promise<void> {
   const key = generateCacheKey('tickets:search', searchParams);
-  setCache(key, data, ttl);
+  await setCache(key, data, ttl);
 }
 
-export function getCachedTicketSearch<T>(searchParams: any): T | null {
+export async function getCachedTicketSearch<T>(searchParams: any): Promise<T | null> {
   const key = generateCacheKey('tickets:search', searchParams);
   return getFromCache<T>(key);
 }
 
 /**
- * Cache para estatísticas
+ * Cache para estatisticas
  */
-export function cacheStats<T>(statsType: string, data: T, ttl: number = 300): void {
+export async function cacheStats<T>(statsType: string, data: T, ttl: number = 300): Promise<void> {
   const key = generateCacheKey('stats', { type: statsType });
-  setCache(key, data, ttl);
+  await setCache(key, data, ttl);
 }
 
-export function getCachedStats<T>(statsType: string): T | null {
+export async function getCachedStats<T>(statsType: string): Promise<T | null> {
   const key = generateCacheKey('stats', { type: statsType });
   return getFromCache<T>(key);
 }
 
 /**
- * Cache para relatórios
+ * Cache para relatorios
  */
-export function cacheReport<T>(reportType: string, filters: any, data: T, ttl: number = 600): void {
+export async function cacheReport<T>(reportType: string, filters: any, data: T, ttl: number = 600): Promise<void> {
   const key = generateCacheKey('reports', { type: reportType, ...filters });
-  setCache(key, data, ttl);
+  await setCache(key, data, ttl);
 }
 
-export function getCachedReport<T>(reportType: string, filters: any): T | null {
+export async function getCachedReport<T>(reportType: string, filters: any): Promise<T | null> {
   const key = generateCacheKey('reports', { type: reportType, ...filters });
   return getFromCache<T>(key);
 }
 
 /**
- * Cache para dados de usuário
+ * Cache para dados de usuario
  */
-export function cacheUserData<T>(userId: number, dataType: string, data: T, ttl: number = 300): void {
+export async function cacheUserData<T>(userId: number, dataType: string, data: T, ttl: number = 300): Promise<void> {
   const key = generateCacheKey('user', { id: userId, type: dataType });
-  setCache(key, data, ttl);
+  await setCache(key, data, ttl);
 }
 
-export function getCachedUserData<T>(userId: number, dataType: string): T | null {
+export async function getCachedUserData<T>(userId: number, dataType: string): Promise<T | null> {
   const key = generateCacheKey('user', { id: userId, type: dataType });
   return getFromCache<T>(key);
 }
 
 /**
- * Cache para configurações do sistema
+ * Cache para configuracoes do sistema
  */
-export function cacheSystemSettings<T>(data: T, ttl: number = 1800): void {
+export async function cacheSystemSettings<T>(data: T, ttl: number = 1800): Promise<void> {
   const key = 'system:settings';
-  setCache(key, data, ttl);
+  await setCache(key, data, ttl);
 }
 
-export function getCachedSystemSettings<T>(): T | null {
+export async function getCachedSystemSettings<T>(): Promise<T | null> {
   const key = 'system:settings';
   return getFromCache<T>(key);
 }
@@ -348,34 +327,34 @@ export function getCachedSystemSettings<T>(): T | null {
 /**
  * Invalida cache relacionado a um ticket
  */
-export function invalidateTicketCache(ticketId: number): void {
-  removeCachePattern(`tickets:search:%`);
-  removeCachePattern(`reports:%`);
-  removeCachePattern(`stats:%`);
-  removeFromCache(`ticket:${ticketId}`);
+export async function invalidateTicketCache(ticketId: number): Promise<void> {
+  await removeCachePattern(`tickets:search:%`);
+  await removeCachePattern(`reports:%`);
+  await removeCachePattern(`stats:%`);
+  await removeFromCache(`ticket:${ticketId}`);
   logger.info(`Invalidated cache for ticket ${ticketId}`);
 }
 
 /**
- * Invalida cache relacionado a um usuário
+ * Invalida cache relacionado a um usuario
  */
-export function invalidateUserCache(userId: number): void {
-  removeCachePattern(`user:${userId}:%`);
-  removeCachePattern(`tickets:search:%`);
+export async function invalidateUserCache(userId: number): Promise<void> {
+  await removeCachePattern(`user:${userId}:%`);
+  await removeCachePattern(`tickets:search:%`);
   logger.info(`Invalidated cache for user ${userId}`);
 }
 
 /**
- * Invalida cache de estatísticas
+ * Invalida cache de estatisticas
  */
-export function invalidateStatsCache(): void {
-  removeCachePattern('stats:%');
-  removeCachePattern('reports:%');
+export async function invalidateStatsCache(): Promise<void> {
+  await removeCachePattern('stats:%');
+  await removeCachePattern('reports:%');
   logger.info('Invalidated stats cache');
 }
 
 /**
- * Wrapper para cache de funções
+ * Wrapper para cache de funcoes
  */
 export async function withCache<T>(
   cacheKey: string,
@@ -383,19 +362,19 @@ export async function withCache<T>(
   ttl: number = config.defaultTTL
 ): Promise<T> {
   // Tentar buscar do cache primeiro
-  const cachedValue = getFromCache<T>(cacheKey);
+  const cachedValue = await getFromCache<T>(cacheKey);
   if (cachedValue !== null) {
     return cachedValue;
   }
 
-  // Executar função e cachear resultado
+  // Executar funcao e cachear resultado
   const result = await fn();
-  setCache(cacheKey, result, ttl);
+  await setCache(cacheKey, result, ttl);
   return result;
 }
 
 /**
- * Middleware para cache automático de funções
+ * Middleware para cache automatico de funcoes
  */
 export function cached<T extends (...args: any[]) => any>(
   ttl: number = config.defaultTTL,
@@ -421,31 +400,31 @@ export function cached<T extends (...args: any[]) => any>(
 }
 
 /**
- * Inicialização do sistema de cache
+ * Inicializacao do sistema de cache
  */
-export function initializeCacheSystem(): void {
+export async function initializeCacheSystem(): Promise<void> {
   try {
-    // Criar tabela de cache se não existir
-    db.prepare(`
+    // Criar tabela de cache se nao existir
+    await executeRun(`
       CREATE TABLE IF NOT EXISTS cache (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         expires_at TEXT NOT NULL,
         created_at TEXT DEFAULT (datetime('now'))
       )
-    `).run();
+    `, []);
 
-    // Criar índice para limpeza eficiente
-    db.prepare(`
+    // Criar indice para limpeza eficiente
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at)
-    `).run();
+    `, []);
 
-    db.prepare(`
+    await executeRun(`
       CREATE INDEX IF NOT EXISTS idx_cache_created_at ON cache(created_at)
-    `).run();
+    `, []);
 
     // Limpeza inicial
-    cleanupExpiredCache();
+    await cleanupExpiredCache();
 
     logger.info('Cache system initialized successfully');
   } catch (error) {
@@ -454,7 +433,7 @@ export function initializeCacheSystem(): void {
 }
 
 /**
- * Processo automático de limpeza de cache
+ * Processo automatico de limpeza de cache
  */
 export function startCacheCleanupProcess(): void {
   // Limpeza a cada 5 minutos
@@ -465,7 +444,7 @@ export function startCacheCleanupProcess(): void {
   logger.info('Cache cleanup process started');
 }
 
-// Exportar configuração atual
+// Exportar configuracao atual
 export function getCacheConfig(): CacheConfig {
   return { ...config };
 }

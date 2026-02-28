@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { getCachedTicketSearch, cacheTicketSearch } from '@/lib/cache';
 import { logger } from '@/lib/monitoring/logger';
 import { HybridSearchEngine, type SearchFilters } from '@/lib/ai/hybrid-search';
@@ -48,17 +48,9 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -79,7 +71,7 @@ export async function GET(request: NextRequest) {
          WHERE user_id = ?
          ORDER BY created_at DESC
          LIMIT ?`,
-        [user.id, limit]
+        [auth.userId, limit]
       );
 
       return NextResponse.json({ success: true, history });
@@ -97,7 +89,7 @@ export async function GET(request: NextRequest) {
          GROUP BY query
          ORDER BY MAX(created_at) DESC
          LIMIT ?`,
-        [user.id, `%${query}%`, limit]
+        [auth.userId, `%${query}%`, limit]
       );
 
       return NextResponse.json({
@@ -128,8 +120,8 @@ export async function GET(request: NextRequest) {
       offset,
     };
 
-    if (user.role === 'user') {
-      filters.users = [user.id];
+    if (auth.role === 'user') {
+      filters.users = [auth.userId];
     }
 
     const hybridSearch = getHybridSearch();
@@ -146,14 +138,14 @@ export async function GET(request: NextRequest) {
         ? {
             search_query: query,
             ...filters,
-            user_role: user.role,
-            user_id: user.role === 'user' ? user.id : null,
+            user_role: auth.role,
+            user_id: auth.role === 'user' ? auth.userId : null,
           }
         : null;
 
-    let searchResult =
+    let searchResult: Awaited<ReturnType<HybridSearchEngine['search']>> | null =
       cacheKey
-        ? (getCachedTicketSearch(cacheKey) as ReturnType<HybridSearchEngine['search']> extends Promise<infer T> ? T : never)
+        ? await getCachedTicketSearch(cacheKey)
         : null;
 
     if (!searchResult) {
@@ -177,20 +169,20 @@ export async function GET(request: NextRequest) {
     const paginatedResults = searchResult.results.slice(offset, offset + limit);
 
     if (query) {
-      await saveSearchHistory(user.id, query, filters as Record<string, unknown>, paginatedResults.length, mode);
+      await saveSearchHistory(auth.userId, query, filters as Record<string, unknown>, paginatedResults.length, mode);
     }
 
     if (action === 'global') {
       let users: Array<{ id: number; name: string; email: string; role: string }> = [];
 
-      if (includeUsers && query && user.organization_id) {
+      if (includeUsers && query && auth.organizationId) {
         users = await executeQuery(
           `SELECT id, name, email, role
            FROM users
            WHERE organization_id = ? AND (LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?))
            ORDER BY name
            LIMIT ?`,
-          [user.organization_id, `%${query}%`, `%${query}%`, Math.max(1, Math.floor(limit / 2))]
+          [auth.organizationId, `%${query}%`, `%${query}%`, Math.max(1, Math.floor(limit / 2))]
         );
       }
 
@@ -227,17 +219,9 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     const body = await request.json();
     const {
@@ -249,8 +233,8 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const effectiveFilters: SearchFilters = { ...(filters || {}), query };
-    if (user.role === 'user') {
-      effectiveFilters.users = [user.id];
+    if (auth.role === 'user') {
+      effectiveFilters.users = [auth.userId];
     }
 
     const entityTypes =
@@ -275,7 +259,7 @@ export async function POST(request: NextRequest) {
 
     if (saveToHistory && query.trim()) {
       await saveSearchHistory(
-        user.id,
+        auth.userId,
         query.trim(),
         effectiveFilters as Record<string, unknown>,
         searchResult.total,

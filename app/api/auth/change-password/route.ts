@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest) {
 
     // SECURITY FIX: Apply password policy validation
     // Use the password policy manager to validate against configured policies
-    const policyResult = passwordPolicyManager.validatePassword(
+    const policyResult = await passwordPolicyManager.validatePassword(
       newPassword,
       user.role,
       user.id

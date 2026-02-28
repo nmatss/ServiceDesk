@@ -43,7 +43,7 @@ const inputVariants = cva(
       size: {
         xs: 'h-7 px-2 text-base', // 16px minimum to prevent iOS zoom
         sm: 'h-8 px-3 text-base', // 16px minimum to prevent iOS zoom
-        md: 'h-10 px-3 py-2 text-base',
+        md: 'h-11 px-3 py-2 text-base sm:text-sm',
         lg: 'h-12 px-4 py-3 text-lg',
         xl: 'h-14 px-6 py-4 text-xl',
       },

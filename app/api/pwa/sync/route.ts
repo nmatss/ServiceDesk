@@ -291,7 +291,7 @@ async function getUpdatedData(_db: any, userId: string, lastSyncTime: number) {
       `SELECT * FROM tickets
        WHERE (created_by = ? OR assigned_to = ?)
        AND updated_at > ?
-       LIMIT 50`,
+       LIMIT 100`,
     [userId, userId, sinceDate]);
 
   const notifications = await executeQuery(
@@ -299,7 +299,7 @@ async function getUpdatedData(_db: any, userId: string, lastSyncTime: number) {
        WHERE user_id = ?
        AND created_at > ?
        ORDER BY created_at DESC
-       LIMIT 20`,
+       LIMIT 100`,
     [userId, sinceDate]);
 
   return {

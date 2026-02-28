@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Header from './Header'
 import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/src/contexts/ThemeContext'
 import { NotificationProvider } from '@/src/components/notifications/NotificationProvider'
+import { populateAuthCache } from '@/lib/hooks/useRequireAuth'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -15,7 +16,7 @@ interface User {
   id: number
   name: string
   email: string
-  role: 'admin' | 'agent' | 'user'
+  role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
 }
 
 // Public routes that don't require authentication
@@ -30,9 +31,7 @@ const customLayoutRoutes = ['/admin']
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <ThemeProvider>
-      <NotificationProvider>
-        <AppLayoutContent>{children}</AppLayoutContent>
-      </NotificationProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
     </ThemeProvider>
   )
 }
@@ -44,24 +43,43 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isAuthPage, setIsAuthPage] = useState(false)
-  const [hasCustomLayout, setHasCustomLayout] = useState(false)
+  const lastAuthCheckRef = useRef<number>(0)
+  // Track whether the user explicitly toggled the sidebar (vs auto behavior)
+  const userToggledRef = useRef(false)
 
-  // Check if current route is an auth page or has custom layout
-  useEffect(() => {
-    setIsAuthPage(authRoutes.includes(pathname))
-    setHasCustomLayout(customLayoutRoutes.some(route => pathname.startsWith(route)))
-  }, [pathname])
+  // Wrap setSidebarOpen so Header/Sidebar toggle buttons mark it as user-explicit
+  const handleUserToggleSidebar = useCallback((value: boolean) => {
+    userToggledRef.current = true
+    // Persist preference on desktop
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      try { localStorage.setItem('sidebar-open', String(value)) } catch {}
+    }
+    setSidebarOpen(value)
+  }, [])
 
-  // Authentication check using httpOnly cookies
+  // PERF: Derived values — no state + useEffect needed
+  const isAuthPage = useMemo(() => authRoutes.includes(pathname), [pathname])
+  const hasCustomLayout = useMemo(() => customLayoutRoutes.some(route => pathname.startsWith(route)), [pathname])
+  const isPublicRoute = useMemo(() => publicRoutes.includes(pathname), [pathname])
+
+  // PERF: Auth check with 30s cooldown — catches expired sessions on navigation
+  // without calling /api/auth/verify on every single route change.
+  const AUTH_CHECK_COOLDOWN_MS = 30_000
   useEffect(() => {
     const checkAuth = async () => {
+      if (isPublicRoute || isAuthPage) {
+        setLoading(false)
+        return
+      }
+
+      const now = Date.now()
+      const timeSinceLastCheck = now - lastAuthCheckRef.current
+      if (lastAuthCheckRef.current > 0 && timeSinceLastCheck < AUTH_CHECK_COOLDOWN_MS) {
+        // Skip — last check was recent enough
+        return
+      }
+
       try {
-        if (publicRoutes.includes(pathname)) {
-          setLoading(false)
-          return
-        }
-        // Verify auth using httpOnly cookies
         const response = await fetch('/api/auth/verify', {
           credentials: 'include'
         })
@@ -69,50 +87,107 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         if (response.ok) {
           const responseData = await response.json()
           if (responseData.success && responseData.user) {
-            setUser({
+            lastAuthCheckRef.current = Date.now()
+            const authUser = {
               id: responseData.user.id,
               name: responseData.user.name,
               email: responseData.user.email,
-              role: responseData.user.role as 'admin' | 'agent' | 'user'
-            })
-          } else if (!publicRoutes.includes(pathname)) {
+              role: responseData.user.role as 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
+            }
+            setUser(authUser)
+            // Populate global auth cache so useRequireAuth() on page components
+            // can skip redundant /api/auth/verify calls
+            populateAuthCache(
+              { ...authUser, tenant_id: responseData.user.tenant_id || 0 },
+              responseData.tenant || null
+            )
+          } else {
             router.push('/auth/login')
           }
         } else {
-          if (!publicRoutes.includes(pathname)) {
-            router.push('/auth/login')
-          }
+          router.push('/auth/login')
         }
       } catch (error) {
         console.error('[AppLayout] Auth check failed:', error)
-        if (!publicRoutes.includes(pathname)) {
-          router.push('/auth/login')
-        }
+        router.push('/auth/login')
       } finally {
         setLoading(false)
       }
     }
 
     checkAuth()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, router])
 
-  // Auto-close sidebar on mobile when route changes
+  // Keep a ref to router so the 401 interceptor doesn't reinstall on every router change
+  const routerRef = useRef(router)
+  routerRef.current = router
+
+  // Global 401 interceptor — redirects to login when any API call returns 401.
+  // Covers all pages automatically without needing per-page 401 handling.
   useEffect(() => {
-    setSidebarOpen(false)
+    if (isAuthPage || isPublicRoute) return
+
+    const originalFetch = window.fetch
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const response = await originalFetch(...args)
+      const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof Request ? args[0].url : ''
+      if (response.status === 401 && url.startsWith('/api/') && !url.includes('/api/auth/')) {
+        // Session expired — redirect to login
+        lastAuthCheckRef.current = 0
+        routerRef.current.push('/auth/login')
+      }
+      return response
+    }
+    return () => {
+      window.fetch = originalFetch
+    }
+  }, [isAuthPage, isPublicRoute])
+
+  // Auto-close sidebar on mobile when route changes (desktop keeps user preference)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false)
+    }
   }, [pathname])
 
-  // Close sidebar when clicking outside on mobile
+  // PERF: Debounced resize handler — respects user's explicit sidebar preference on desktop
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        if (window.innerWidth >= 1024) {
+          // Desktop: only auto-open if user hasn't explicitly toggled
+          if (!userToggledRef.current) {
+            setSidebarOpen(true)
+          }
+        } else {
+          // Mobile: always close on resize to mobile
+          setSidebarOpen(false)
+          userToggledRef.current = false
+        }
+      }, 150)
+    }
+    // Initial check: load user preference from localStorage, fallback to open on desktop
+    if (window.innerWidth >= 1024) {
+      try {
+        const saved = localStorage.getItem('sidebar-open')
+        if (saved !== null) {
+          setSidebarOpen(saved === 'true')
+          userToggledRef.current = true
+        } else {
+          setSidebarOpen(true)
+        }
+      } catch {
         setSidebarOpen(true)
-      } else {
-        setSidebarOpen(false)
       }
     }
-    handleResize()
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener('resize', handleResize)
+    }
   }, [])
 
   if (loading) {
@@ -141,75 +216,77 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-[#0a0a0c] bg-pattern">
-      {/* Sidebar - Single Source of Truth */}
-      <Sidebar
-        open={sidebarOpen}
-        setOpen={setSidebarOpen}
-        userRole={user?.role || 'user'}
-      />
-
-      {/* Main content area */}
-      <div className={`flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
-        {/* Header - Single Source of Truth */}
-        <Header
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          user={user || undefined}
+    <NotificationProvider>
+      <div className="min-h-screen bg-neutral-50 dark:bg-[#0a0a0c] bg-pattern">
+        {/* Sidebar - Single Source of Truth */}
+        <Sidebar
+          open={sidebarOpen}
+          setOpen={handleUserToggleSidebar}
+          userRole={user?.role || 'user'}
         />
 
-        {/* Page content */}
-        <main
-          id="main-content"
-          className="flex-1 relative"
-          role="main"
-          aria-label="Conteúdo principal"
-        >
-          <div className="container-responsive py-6">
-            {children}
-          </div>
-        </main>
+        {/* Main content area */}
+        <div className={`flex flex-col min-h-screen transition-[padding] duration-150 ease-out ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
+          {/* Header - Single Source of Truth */}
+          <Header
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={handleUserToggleSidebar}
+            user={user || undefined}
+          />
 
-        {/* Footer */}
-        <footer
-          className="bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 py-4"
-          role="contentinfo"
-          aria-label="Rodapé"
-        >
-          <div className="container-responsive">
-            <div className="flex flex-col sm:flex-row justify-between items-center">
-              <div className="text-sm text-description">
-                © 2024 ServiceDesk Pro. Todos os direitos reservados.
-              </div>
-              <nav className="flex items-center space-x-4 mt-2 sm:mt-0" aria-label="Links do rodapé">
-                <a
-                  href="/knowledge"
-                  className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                  aria-label="Ir para base de conhecimento"
-                >
-                  Documentação
-                </a>
-                <a
-                  href="/portal/create"
-                  className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-                  aria-label="Abrir novo ticket de suporte"
-                >
-                  Suporte
-                </a>
-              </nav>
+          {/* Page content */}
+          <main
+            id="main-content"
+            className="flex-1 relative"
+            role="main"
+            aria-label="Conteúdo principal"
+          >
+            <div className="container-responsive py-6">
+              {children}
             </div>
-          </div>
-        </footer>
-      </div>
+          </main>
 
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-    </div>
+          {/* Footer */}
+          <footer
+            className="bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 py-4"
+            role="contentinfo"
+            aria-label="Rodapé"
+          >
+            <div className="container-responsive">
+              <div className="flex flex-col sm:flex-row justify-between items-center">
+                <div className="text-sm text-description">
+                  © 2024 ServiceDesk Pro. Todos os direitos reservados.
+                </div>
+                <nav className="flex items-center space-x-4 mt-2 sm:mt-0" aria-label="Links do rodapé">
+                  <a
+                    href="/knowledge"
+                    className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    aria-label="Ir para base de conhecimento"
+                  >
+                    Documentação
+                  </a>
+                  <a
+                    href="/portal/create"
+                    className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    aria-label="Abrir novo ticket de suporte"
+                  >
+                    Suporte
+                  </a>
+                </nav>
+              </div>
+            </div>
+          </footer>
+        </div>
+
+        {/* Mobile sidebar backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+      </div>
+    </NotificationProvider>
   )
 }
 
@@ -267,7 +344,7 @@ export class AppLayoutErrorBoundary extends React.Component<
 // HOC for pages that need authentication
 export function withAuth<P extends object>(
   Component: React.ComponentType<P>,
-  allowedRoles?: ('admin' | 'agent' | 'user')[]
+  allowedRoles?: ('super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user')[]
 ) {
   return function AuthenticatedComponent(props: P) {
     const router = useRouter()
@@ -293,7 +370,7 @@ export function withAuth<P extends object>(
             return
           }
 
-          const userRole = data.user.role as 'admin' | 'agent' | 'user'
+          const userRole = data.user.role as 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
 
           if (allowedRoles && !allowedRoles.includes(userRole)) {
             router.push('/unauthorized')

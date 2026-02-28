@@ -1,6 +1,6 @@
 import { randomInt } from 'crypto';
 import bcrypt from 'bcrypt';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface PasswordPolicy {
@@ -59,9 +59,9 @@ class PasswordPolicyManager {
   /**
    * Get active password policy for user role
    */
-  getPolicyForRole(role: string): PasswordPolicy | null {
+  async getPolicyForRole(role: string): Promise<PasswordPolicy | null> {
     try {
-      const policy = db.prepare(`
+      const policy = await executeQueryOne<any>(`
         SELECT * FROM password_policies
         WHERE is_active = 1
           AND (applies_to_roles IS NULL OR json_extract(applies_to_roles, '$') LIKE '%"' || ? || '"%')
@@ -69,7 +69,7 @@ class PasswordPolicyManager {
           CASE WHEN applies_to_roles IS NOT NULL THEN 1 ELSE 2 END,
           created_at DESC
         LIMIT 1
-      `).get(role) as any;
+      `, [role]);
 
       if (!policy) return null;
 
@@ -86,8 +86,8 @@ class PasswordPolicyManager {
   /**
    * Get default password policy
    */
-  getDefaultPolicy(): PasswordPolicy {
-    const defaultPolicy = this.getPolicyForRole('user');
+  async getDefaultPolicy(): Promise<PasswordPolicy> {
+    const defaultPolicy = await this.getPolicyForRole('user');
 
     return defaultPolicy || {
       id: 0,
@@ -112,8 +112,8 @@ class PasswordPolicyManager {
   /**
    * Validate password against policy
    */
-  validatePassword(password: string, userRole: string, userId?: number): PasswordValidationResult {
-    const policy = this.getPolicyForRole(userRole) || this.getDefaultPolicy();
+  async validatePassword(password: string, userRole: string, userId?: number): Promise<PasswordValidationResult> {
+    const policy = await this.getPolicyForRole(userRole) || await this.getDefaultPolicy();
     const errors: string[] = [];
     const recommendations: string[] = [];
     let score = 0;
@@ -170,7 +170,7 @@ class PasswordPolicyManager {
     }
 
     // Check password reuse if userId provided
-    if (userId && this.isPasswordReused(userId, password, policy.prevent_reuse_last)) {
+    if (userId && await this.isPasswordReused(userId, password, policy.prevent_reuse_last)) {
       errors.push(`Password cannot be one of your last ${policy.prevent_reuse_last} passwords`);
     }
 
@@ -204,8 +204,8 @@ class PasswordPolicyManager {
   /**
    * Get password requirements for user role
    */
-  getRequirements(userRole: string): PasswordRequirements {
-    const policy = this.getPolicyForRole(userRole) || this.getDefaultPolicy();
+  async getRequirements(userRole: string): Promise<PasswordRequirements> {
+    const policy = await this.getPolicyForRole(userRole) || await this.getDefaultPolicy();
 
     return {
       minLength: policy.min_length,
@@ -223,15 +223,15 @@ class PasswordPolicyManager {
   /**
    * Check if password is expired
    */
-  isPasswordExpired(userId: number): boolean {
+  async isPasswordExpired(userId: number): Promise<boolean> {
     try {
-      const user = db.prepare(`
+      const user = await executeQueryOne<any>(`
         SELECT password_changed_at, role FROM users WHERE id = ?
-      `).get(userId) as any | undefined;
+      `, [userId]);
 
       if (!user || !user.password_changed_at) return false;
 
-      const policy = this.getPolicyForRole(user.role as string) || this.getDefaultPolicy();
+      const policy = await this.getPolicyForRole(user.role as string) || await this.getDefaultPolicy();
       const passwordChangedAt = new Date(user.password_changed_at as string);
       const expiryDate = new Date(passwordChangedAt.getTime() + (policy.max_age_days * 24 * 60 * 60 * 1000));
 
@@ -245,15 +245,15 @@ class PasswordPolicyManager {
   /**
    * Get days until password expires
    */
-  getDaysUntilExpiry(userId: number): number | null {
+  async getDaysUntilExpiry(userId: number): Promise<number | null> {
     try {
-      const user = db.prepare(`
+      const user = await executeQueryOne<any>(`
         SELECT password_changed_at, role FROM users WHERE id = ?
-      `).get(userId) as any | undefined;
+      `, [userId]);
 
       if (!user || !user.password_changed_at) return null;
 
-      const policy = this.getPolicyForRole(user.role as string) || this.getDefaultPolicy();
+      const policy = await this.getPolicyForRole(user.role as string) || await this.getDefaultPolicy();
       const passwordChangedAt = new Date(user.password_changed_at as string);
       const expiryDate = new Date(passwordChangedAt.getTime() + (policy.max_age_days * 24 * 60 * 60 * 1000));
       const now = new Date();
@@ -273,18 +273,18 @@ class PasswordPolicyManager {
   async storePasswordHistory(userId: number, passwordHash: string): Promise<void> {
     try {
       // Add new password to history
-      db.prepare(`
+      await executeRun(`
         INSERT INTO password_history (user_id, password_hash)
         VALUES (?, ?)
-      `).run(userId, passwordHash);
+      `, [userId, passwordHash]);
 
       // Clean up old password history based on policy
-      const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any | undefined;
+      const user = await executeQueryOne<any>('SELECT role FROM users WHERE id = ?', [userId]);
       if (user) {
-        const policy = this.getPolicyForRole(user.role as string) || this.getDefaultPolicy();
+        const policy = await this.getPolicyForRole(user.role as string) || await this.getDefaultPolicy();
 
         // Keep only the last N passwords
-        db.prepare(`
+        await executeRun(`
           DELETE FROM password_history
           WHERE user_id = ?
             AND id NOT IN (
@@ -293,7 +293,7 @@ class PasswordPolicyManager {
               ORDER BY created_at DESC
               LIMIT ?
             )
-        `).run(userId, userId, policy.prevent_reuse_last);
+        `, [userId, userId, policy.prevent_reuse_last]);
       }
     } catch (error) {
       logger.error('Error storing password history', error);
@@ -303,14 +303,14 @@ class PasswordPolicyManager {
   /**
    * Check if password was recently used
    */
-  private isPasswordReused(userId: number, password: string, preventReuseCount: number): boolean {
+  private async isPasswordReused(userId: number, password: string, preventReuseCount: number): Promise<boolean> {
     try {
-      const recentPasswords = db.prepare(`
+      const recentPasswords = await executeQuery<any>(`
         SELECT password_hash FROM password_history
         WHERE user_id = ?
         ORDER BY created_at DESC
         LIMIT ?
-      `).all(userId, preventReuseCount) as any[];
+      `, [userId, preventReuseCount]);
 
       for (const record of recentPasswords) {
         if (bcrypt.compareSync(password, record.password_hash as string)) {
@@ -328,12 +328,12 @@ class PasswordPolicyManager {
   /**
    * Generate password strength meter data
    */
-  getPasswordStrength(password: string): {
+  async getPasswordStrength(password: string): Promise<{
     score: number;
     level: 'very-weak' | 'weak' | 'fair' | 'good' | 'strong';
     feedback: string[];
-  } {
-    const result = this.validatePassword(password, 'user');
+  }> {
+    const result = await this.validatePassword(password, 'user');
     const feedback: string[] = [];
 
     let level: 'very-weak' | 'weak' | 'fair' | 'good' | 'strong';
@@ -374,13 +374,13 @@ class PasswordPolicyManager {
   /**
    * Create or update password policy
    */
-  savePolicy(policy: Omit<PasswordPolicy, 'id' | 'created_at' | 'updated_at'> & { id?: number }): boolean {
+  async savePolicy(policy: Omit<PasswordPolicy, 'id' | 'created_at' | 'updated_at'> & { id?: number }): Promise<boolean> {
     try {
       const appliesToRoles = JSON.stringify(policy.applies_to_roles);
 
       if (policy.id) {
         // Update existing policy
-        const stmt = db.prepare(`
+        const result = await executeRun(`
           UPDATE password_policies
           SET name = ?, min_length = ?, require_uppercase = ?, require_lowercase = ?,
               require_numbers = ?, require_special_chars = ?, min_special_chars = ?,
@@ -388,35 +388,31 @@ class PasswordPolicyManager {
               lockout_duration_minutes = ?, is_active = ?, applies_to_roles = ?,
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `);
-
-        const result = stmt.run(
+        `, [
           policy.name, policy.min_length, policy.require_uppercase ? 1 : 0,
           policy.require_lowercase ? 1 : 0, policy.require_numbers ? 1 : 0,
           policy.require_special_chars ? 1 : 0, policy.min_special_chars,
           policy.max_age_days, policy.prevent_reuse_last, policy.max_failed_attempts,
           policy.lockout_duration_minutes, policy.is_active ? 1 : 0, appliesToRoles,
           policy.id
-        );
+        ]);
 
         return result.changes > 0;
       } else {
         // Create new policy
-        const stmt = db.prepare(`
+        const result = await executeRun(`
           INSERT INTO password_policies
           (name, min_length, require_uppercase, require_lowercase, require_numbers,
            require_special_chars, min_special_chars, max_age_days, prevent_reuse_last,
            max_failed_attempts, lockout_duration_minutes, is_active, applies_to_roles)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        const result = stmt.run(
+        `, [
           policy.name, policy.min_length, policy.require_uppercase ? 1 : 0,
           policy.require_lowercase ? 1 : 0, policy.require_numbers ? 1 : 0,
           policy.require_special_chars ? 1 : 0, policy.min_special_chars,
           policy.max_age_days, policy.prevent_reuse_last, policy.max_failed_attempts,
           policy.lockout_duration_minutes, policy.is_active ? 1 : 0, appliesToRoles
-        );
+        ]);
 
         return result.changes > 0;
       }
@@ -429,12 +425,12 @@ class PasswordPolicyManager {
   /**
    * Get all password policies
    */
-  getAllPolicies(): PasswordPolicy[] {
+  async getAllPolicies(): Promise<PasswordPolicy[]> {
     try {
-      const policies = db.prepare(`
+      const policies = await executeQuery<any>(`
         SELECT * FROM password_policies
         ORDER BY is_active DESC, name ASC
-      `).all() as any[];
+      `, []);
 
       return policies.map(policy => ({
         ...policy,
@@ -449,10 +445,9 @@ class PasswordPolicyManager {
   /**
    * Delete password policy
    */
-  deletePolicy(policyId: number): boolean {
+  async deletePolicy(policyId: number): Promise<boolean> {
     try {
-      const stmt = db.prepare('DELETE FROM password_policies WHERE id = ?');
-      const result = stmt.run(policyId);
+      const result = await executeRun('DELETE FROM password_policies WHERE id = ?', [policyId]);
       return result.changes > 0;
     } catch (error) {
       logger.error('Error deleting password policy', error);

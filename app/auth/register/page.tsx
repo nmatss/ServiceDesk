@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { EyeIcon, EyeSlashIcon, LockClosedIcon, EnvelopeIcon, UserIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { customToast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/Button'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
@@ -35,6 +38,8 @@ export default function RegisterPage() {
       return
     }
 
+    const loadingToast = customToast.loading('Criando conta...')
+
     try {
       // SECURITY: Use httpOnly cookies for authentication
       const response = await fetch('/api/auth/register', {
@@ -48,12 +53,15 @@ export default function RegisterPage() {
 
       const data = await response.json()
 
+      customToast.dismiss(loadingToast)
+
       if (response.ok) {
         // SECURITY: Token is now stored in httpOnly cookies by the backend
         // Only store non-sensitive display data in localStorage for UX
         localStorage.setItem('user_name', data.user.name)
         localStorage.setItem('user_role', data.user.role)
         setStatusMessage('Conta criada com sucesso. Redirecionando...')
+        customToast.success('Conta criada com sucesso!')
         setTimeout(() => {
           router.push('/dashboard')
         }, 500)
@@ -61,11 +69,14 @@ export default function RegisterPage() {
         const errorMsg = data.error || 'Erro ao registrar'
         setError(errorMsg)
         setStatusMessage(`Erro: ${errorMsg}`)
+        customToast.error(errorMsg)
       }
     } catch (err) {
+      customToast.dismiss(loadingToast)
       const errorMsg = 'Erro de rede ou servidor'
       setError(errorMsg)
       setStatusMessage(`Erro: ${errorMsg}`)
+      customToast.error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -77,14 +88,10 @@ export default function RegisterPage() {
     { text: 'Número', met: /\d/.test(password) },
   ]
 
-  // Check if all requirements are met
-  // const allRequirementsMet = passwordRequirements.every(req => req.met)
-
   // Announce password strength to screen readers
   useEffect(() => {
     if (password) {
       const metCount = passwordRequirements.filter(req => req.met).length
-      // const total = passwordRequirements.length
       if (metCount === 0) {
         setPasswordStrengthMessage('Senha muito fraca')
       } else if (metCount === 1) {
@@ -100,7 +107,7 @@ export default function RegisterPage() {
   }, [password])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-neutral-100 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950 flex animate-fade-in">
+    <div className="min-h-screen flex animate-fade-in">
       {/* Screen reader announcements */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {statusMessage}
@@ -109,45 +116,82 @@ export default function RegisterPage() {
         {passwordStrengthMessage}
       </div>
 
-      {/* Left Side - Brand Background */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 dark:from-brand-700 dark:via-brand-800 dark:to-brand-900 items-center justify-center animate-fade-in" role="complementary" aria-label="Informações sobre o ServiceDesk">
-        <div className="text-center text-white px-12">
-          <h2 className="text-5xl font-bold mb-4 animate-slide-up">Junte-se a nós</h2>
-          <p className="text-xl text-brand-100 dark:text-brand-200 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+      {/* Left Side - Brand Panel */}
+      <div className="hidden lg:flex lg:flex-1 relative overflow-hidden items-center justify-center" role="complementary" aria-label="Informações sobre o ServiceDesk">
+        {/* Deep gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0c1929] via-[#0f2847] to-[#1a1a2e]" />
+
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-1/3 right-1/4 w-64 h-64 rounded-full bg-violet-500 blur-[100px]" />
+          <div className="absolute bottom-1/3 left-1/4 w-48 h-48 rounded-full bg-brand-500 blur-[80px]" />
+          <div className="absolute top-2/3 right-1/2 w-32 h-32 rounded-full bg-brand-400 blur-[60px]" />
+        </div>
+
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.8) 1px, transparent 0)',
+          backgroundSize: '24px 24px'
+        }} />
+
+        {/* Content */}
+        <div className="relative z-10 text-center text-white px-12 max-w-lg">
+          {/* Logo */}
+          <div className="flex justify-center mb-8 animate-slide-up">
+            <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl">
+              <Image
+                src="/favicon.svg"
+                alt="ServiceDesk Logo"
+                width={64}
+                height={64}
+                className="rounded-xl"
+                priority
+              />
+            </div>
+          </div>
+
+          <h2 className="text-4xl font-bold mb-3 animate-slide-up tracking-tight">
+            Junte-se a nós
+          </h2>
+          <p className="text-lg text-blue-200 animate-slide-up mb-12" style={{ animationDelay: '0.1s' }}>
             Crie sua conta e comece a gerenciar seus tickets de forma profissional
           </p>
-          <div className="mt-12 space-y-4">
-            <div className="flex items-center text-left animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <div className="flex-shrink-0 w-12 h-12 bg-brand-500 dark:bg-brand-600 rounded-lg flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+          {/* Feature list */}
+          <div className="space-y-5 text-left">
+            <div className="flex items-center animate-slide-up group" style={{ animationDelay: '0.2s' }}>
+              <div className="flex-shrink-0 w-12 h-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/10 group-hover:bg-white/20 transition-colors shadow-lg">
+                <svg className="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="font-medium">Rápido e Fácil</p>
-                <p className="text-sm text-brand-100 dark:text-brand-200">Configure sua conta em minutos</p>
+                <p className="font-semibold text-white">Rápido e Fácil</p>
+                <p className="text-sm text-blue-200/80">Configure sua conta em minutos</p>
               </div>
             </div>
-            <div className="flex items-center text-left animate-slide-up" style={{ animationDelay: '0.3s' }}>
-              <div className="flex-shrink-0 w-12 h-12 bg-brand-500 dark:bg-brand-600 rounded-lg flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+            <div className="flex items-center animate-slide-up group" style={{ animationDelay: '0.3s' }}>
+              <div className="flex-shrink-0 w-12 h-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/10 group-hover:bg-white/20 transition-colors shadow-lg">
+                <svg className="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="font-medium">Seguro</p>
-                <p className="text-sm text-brand-100 dark:text-brand-200">Seus dados protegidos</p>
+                <p className="font-semibold text-white">Seguro</p>
+                <p className="text-sm text-blue-200/80">Seus dados protegidos com criptografia</p>
               </div>
             </div>
-            <div className="flex items-center text-left animate-slide-up" style={{ animationDelay: '0.4s' }}>
-              <div className="flex-shrink-0 w-12 h-12 bg-brand-500 dark:bg-brand-600 rounded-lg flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+            <div className="flex items-center animate-slide-up group" style={{ animationDelay: '0.4s' }}>
+              <div className="flex-shrink-0 w-12 h-12 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/10 group-hover:bg-white/20 transition-colors shadow-lg">
+                <svg className="w-6 h-6 text-brand-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="font-medium">Suporte 24/7</p>
-                <p className="text-sm text-brand-100 dark:text-brand-200">Sempre disponível para ajudar</p>
+                <p className="font-semibold text-white">Suporte 24/7</p>
+                <p className="text-sm text-blue-200/80">Sempre disponível para ajudar</p>
               </div>
             </div>
           </div>
@@ -155,20 +199,32 @@ export default function RegisterPage() {
       </div>
 
       {/* Right Side - Register Form */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8" role="main">
-        <div className="max-w-md w-full space-y-8 animate-slide-up">
-          {/* Header */}
-          <div>
-            <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
-              Criar Conta
-            </h1>
-            <p className="mt-2 text-sm text-description">
-              Preencha os dados para criar sua conta
-            </p>
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950" role="main">
+        <div className="max-w-md w-full space-y-6 animate-slide-up">
+          {/* Logo + Header */}
+          <div className="flex items-center gap-4">
+            <div className="flex-shrink-0 lg:hidden">
+              <Image
+                src="/favicon.svg"
+                alt="ServiceDesk Logo"
+                width={48}
+                height={48}
+                className="rounded-xl shadow-md"
+                priority
+              />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+                Criar Conta
+              </h1>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                Preencha os dados para criar sua conta
+              </p>
+            </div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5 glass-panel p-8 rounded-xl" aria-label="Formulário de criação de conta" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-5 bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl" aria-label="Formulário de criação de conta" noValidate>
             {/* Name Input */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -176,7 +232,7 @@ export default function RegisterPage() {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <UserIcon className="h-5 w-5 text-icon-muted" />
+                  <UserIcon className="h-5 w-5 text-neutral-400 dark:text-neutral-500" />
                 </div>
                 <input
                   id="name"
@@ -190,7 +246,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  className="input pl-10 hover-lift"
                   placeholder="Seu nome completo"
                 />
                 <span id="name-description" className="sr-only">Digite seu nome completo para criar a conta</span>
@@ -204,7 +260,7 @@ export default function RegisterPage() {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <EnvelopeIcon className="h-5 w-5 text-icon-muted" />
+                  <EnvelopeIcon className="h-5 w-5 text-neutral-400 dark:text-neutral-500" />
                 </div>
                 <input
                   id="email"
@@ -218,7 +274,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  className="input pl-10 hover-lift"
                   placeholder="seu@email.com"
                 />
                 <span id="email-description" className="sr-only">Digite um endereço de email válido</span>
@@ -232,7 +288,7 @@ export default function RegisterPage() {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <LockClosedIcon className="h-5 w-5 text-icon-muted" />
+                  <LockClosedIcon className="h-5 w-5 text-neutral-400 dark:text-neutral-500" />
                 </div>
                 <input
                   id="password"
@@ -246,7 +302,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  className="input pl-10 pr-10 hover-lift"
                   placeholder="••••••••"
                 />
                 <button
@@ -257,9 +313,9 @@ export default function RegisterPage() {
                   aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
+                    <EyeSlashIcon className="h-5 w-5 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
+                    <EyeIcon className="h-5 w-5 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -271,7 +327,7 @@ export default function RegisterPage() {
                   {passwordRequirements.map((req, index) => (
                     <div key={index} className="flex items-center text-xs">
                       <CheckCircleIcon className={`h-4 w-4 mr-1 ${req.met ? 'text-green-500 dark:text-green-400' : 'text-neutral-300 dark:text-neutral-600'}`} aria-hidden="true" />
-                      <span className={req.met ? 'text-green-600 dark:text-green-400' : 'text-muted-content'}>
+                      <span className={req.met ? 'text-green-600 dark:text-green-400' : 'text-neutral-500 dark:text-neutral-400'}>
                         {req.text}
                         <span className="sr-only">{req.met ? ' - atendido' : ' - não atendido'}</span>
                       </span>
@@ -288,7 +344,7 @@ export default function RegisterPage() {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none" aria-hidden="true">
-                  <LockClosedIcon className="h-5 w-5 text-icon-muted" />
+                  <LockClosedIcon className="h-5 w-5 text-neutral-400 dark:text-neutral-500" />
                 </div>
                 <input
                   id="confirmPassword"
@@ -302,7 +358,7 @@ export default function RegisterPage() {
                   aria-invalid={error ? 'true' : 'false'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-brand-600 dark:focus:ring-brand-500 focus:border-transparent transition-shadow"
+                  className="input pl-10 pr-10 hover-lift"
                   placeholder="••••••••"
                 />
                 <span id="confirm-password-description" className="sr-only">Digite a senha novamente para confirmação</span>
@@ -314,9 +370,9 @@ export default function RegisterPage() {
                   aria-pressed={showConfirmPassword}
                 >
                   {showConfirmPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
+                    <EyeSlashIcon className="h-5 w-5 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-icon-muted hover:text-neutral-600 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
+                    <EyeIcon className="h-5 w-5 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-400 transition-colors" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -324,31 +380,24 @@ export default function RegisterPage() {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4" role="alert" aria-live="assertive">
-                <p className="text-sm text-red-800">{error}</p>
+              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4" role="alert" aria-live="assertive">
+                <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
               </div>
             )}
 
             {/* Submit Button */}
-            <button
+            <Button
               type="submit"
-              disabled={loading}
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={loading}
+              loadingText="Criando conta..."
+              className="hover-lift shadow-lg"
               aria-label="Criar conta"
-              aria-busy={loading}
-              className="w-full flex justify-center items-center py-3 px-4 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-600 dark:focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-brand-600/20 dark:shadow-brand-500/20"
             >
-              {loading ? (
-                <div className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Criando conta...
-                </div>
-              ) : (
-                'Criar Conta'
-              )}
-            </button>
+              Criar Conta
+            </Button>
           </form>
 
           {/* Divider */}
@@ -357,7 +406,9 @@ export default function RegisterPage() {
               <div className="w-full border-t border-neutral-300 dark:border-neutral-700"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gradient-to-br from-neutral-50 via-brand-50/30 to-neutral-100 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950 text-muted-content">Já tem uma conta?</span>
+              <span className="px-4 bg-slate-100 dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 rounded-full text-xs font-medium">
+                Já tem uma conta?
+              </span>
             </div>
           </div>
 
@@ -367,7 +418,7 @@ export default function RegisterPage() {
               href="/auth/login"
               className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors"
             >
-              Fazer login →
+              Fazer login &rarr;
             </Link>
           </div>
         </div>

@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
     // Cache the results
     cacheTicketSearch(tenantContext.id, cacheKey, { tickets, total }, 60)
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       tickets,
       pagination: {
@@ -152,6 +152,8 @@ export async function GET(request: NextRequest) {
         pages: Math.ceil(total / limit)
       }
     })
+    response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300')
+    return response
   } catch (error) {
     logger.error('Error fetching tickets', error)
     return NextResponse.json(

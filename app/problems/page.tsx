@@ -253,7 +253,7 @@ export default function ProblemsPage() {
 
         {/* Error State */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 animate-slide-down">
+          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 animate-slide-down">
             <p className="text-red-800 dark:text-red-400">{error}</p>
           </div>
         )}

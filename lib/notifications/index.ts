@@ -1,19 +1,17 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { CreateNotification, Notification, NotificationWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
 /**
- * Cria uma notificação
+ * Cria uma notificacao
  */
-export function createNotification(notification: CreateNotification): Notification | null {
+export async function createNotification(notification: CreateNotification): Promise<Notification | null> {
   try {
-    const insertQuery = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO notifications (
         user_id, ticket_id, type, title, message, is_read, sent_via_email, email_sent_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = insertQuery.run(
+    `, [
       notification.user_id,
       notification.ticket_id || null,
       notification.type,
@@ -22,11 +20,13 @@ export function createNotification(notification: CreateNotification): Notificati
       notification.is_read ? 1 : 0,
       notification.sent_via_email ? 1 : 0,
       notification.email_sent_at || null
-    );
+    ]);
 
     if (result.lastInsertRowid) {
-      return db.prepare('SELECT * FROM notifications WHERE id = ?')
-        .get(result.lastInsertRowid) as Notification;
+      return await executeQueryOne<Notification>(
+        'SELECT * FROM notifications WHERE id = ?',
+        [result.lastInsertRowid]
+      ) || null;
     }
 
     return null;
@@ -37,9 +37,9 @@ export function createNotification(notification: CreateNotification): Notificati
 }
 
 /**
- * Busca notificações de um usuário
+ * Busca notificacoes de um usuario
  */
-export function getUserNotifications(
+export async function getUserNotifications(
   userId: number,
   options: {
     unreadOnly?: boolean;
@@ -47,7 +47,7 @@ export function getUserNotifications(
     offset?: number;
     types?: string[];
   } = {}
-): { notifications: NotificationWithDetails[]; total: number; unread: number } {
+): Promise<{ notifications: NotificationWithDetails[]; total: number; unread: number }> {
   try {
     const { unreadOnly = false, limit = 50, offset = 0, types } = options;
 
@@ -64,8 +64,8 @@ export function getUserNotifications(
       params.push(...types);
     }
 
-    // Buscar notificações
-    const notifications = db.prepare(`
+    // Buscar notificacoes
+    const notifications = await executeQuery<NotificationWithDetails>(`
       SELECT
         n.*,
         u.name as user_name,
@@ -78,23 +78,23 @@ export function getUserNotifications(
       ${whereClause}
       ORDER BY n.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset) as NotificationWithDetails[];
+    `, [...params, limit, offset]);
 
     // Contar total
-    const totalQuery = db.prepare(`
+    const totalResult = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM notifications n
       ${whereClause}
-    `);
-    const { total } = totalQuery.get(...params) as { total: number };
+    `, params);
+    const total = totalResult?.total ?? 0;
 
-    // Contar não lidas
-    const unreadQuery = db.prepare(`
+    // Contar nao lidas
+    const unreadResult = await executeQueryOne<{ unread: number }>(`
       SELECT COUNT(*) as unread
       FROM notifications n
       WHERE n.user_id = ? AND n.is_read = 0
-    `);
-    const { unread } = unreadQuery.get(userId) as { unread: number };
+    `, [userId]);
+    const unread = unreadResult?.unread ?? 0;
 
     return { notifications, total, unread };
   } catch (error) {
@@ -104,20 +104,19 @@ export function getUserNotifications(
 }
 
 /**
- * Marca notificações como lidas
+ * Marca notificacoes como lidas
  */
-export function markAsRead(notificationIds: number[], userId: number): number {
+export async function markAsRead(notificationIds: number[], userId: number): Promise<number> {
   try {
     if (notificationIds.length === 0) return 0;
 
     const placeholders = notificationIds.map(() => '?').join(',');
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE notifications
       SET is_read = 1
       WHERE id IN (${placeholders}) AND user_id = ?
-    `);
+    `, [...notificationIds, userId]);
 
-    const result = updateQuery.run(...notificationIds, userId);
     return result.changes;
   } catch (error) {
     logger.error('Error marking notifications as read', error);
@@ -126,17 +125,16 @@ export function markAsRead(notificationIds: number[], userId: number): number {
 }
 
 /**
- * Marca todas as notificações de um usuário como lidas
+ * Marca todas as notificacoes de um usuario como lidas
  */
-export function markAllAsRead(userId: number): number {
+export async function markAllAsRead(userId: number): Promise<number> {
   try {
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE notifications
       SET is_read = 1
       WHERE user_id = ? AND is_read = 0
-    `);
+    `, [userId]);
 
-    const result = updateQuery.run(userId);
     return result.changes;
   } catch (error) {
     logger.error('Error marking all notifications as read', error);
@@ -145,19 +143,18 @@ export function markAllAsRead(userId: number): number {
 }
 
 /**
- * Deleta notificações antigas
+ * Deleta notificacoes antigas
  */
-export function deleteOldNotifications(daysOld: number = 30): number {
+export async function deleteOldNotifications(daysOld: number = 30): Promise<number> {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const deleteQuery = db.prepare(`
+    const result = await executeRun(`
       DELETE FROM notifications
       WHERE created_at < ? AND is_read = 1
-    `);
+    `, [cutoffDate.toISOString()]);
 
-    const result = deleteQuery.run(cutoffDate.toISOString());
     return result.changes;
   } catch (error) {
     logger.error('Error deleting old notifications', error);
@@ -166,27 +163,27 @@ export function deleteOldNotifications(daysOld: number = 30): number {
 }
 
 /**
- * Cria notificação de ticket atribuído
+ * Cria notificacao de ticket atribuido
  */
-export function notifyTicketAssigned(ticketId: number, assignedTo: number, assignedBy?: number): boolean {
+export async function notifyTicketAssigned(ticketId: number, assignedTo: number, assignedBy?: number): Promise<boolean> {
   try {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<any>(`
       SELECT t.title, u.name as assigned_by_name
       FROM tickets t
       LEFT JOIN users u ON u.id = ?
       WHERE t.id = ?
-    `).get(assignedBy || null, ticketId) as any;
+    `, [assignedBy || null, ticketId]);
 
     if (!ticket) return false;
 
     const assignedByText = assignedBy ? ` por ${ticket.assigned_by_name}` : '';
 
-    return createNotification({
+    return await createNotification({
       user_id: assignedTo,
       ticket_id: ticketId,
       type: 'ticket_assigned',
-      title: 'Ticket Atribuído',
-      message: `Ticket #${ticketId} "${ticket.title}" foi atribuído para você${assignedByText}`,
+      title: 'Ticket Atribuido',
+      message: `Ticket #${ticketId} "${ticket.title}" foi atribuido para voce${assignedByText}`,
       is_read: false,
       sent_via_email: true
     }) !== null;
@@ -197,21 +194,21 @@ export function notifyTicketAssigned(ticketId: number, assignedTo: number, assig
 }
 
 /**
- * Cria notificação de ticket atualizado
+ * Cria notificacao de ticket atualizado
  */
-export function notifyTicketUpdated(ticketId: number, userId: number, updateType: string): boolean {
+export async function notifyTicketUpdated(ticketId: number, userId: number, updateType: string): Promise<boolean> {
   try {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<any>(`
       SELECT t.title, t.user_id, t.assigned_to
       FROM tickets t
       WHERE t.id = ?
-    `).get(ticketId) as any;
+    `, [ticketId]);
 
     if (!ticket) return false;
 
-    // Notificar o criador do ticket (se não for quem atualizou)
+    // Notificar o criador do ticket (se nao for quem atualizou)
     if (ticket.user_id !== userId) {
-      createNotification({
+      await createNotification({
         user_id: ticket.user_id,
         ticket_id: ticketId,
         type: 'ticket_updated',
@@ -222,9 +219,9 @@ export function notifyTicketUpdated(ticketId: number, userId: number, updateType
       });
     }
 
-    // Notificar o agente responsável (se não for quem atualizou)
+    // Notificar o agente responsavel (se nao for quem atualizou)
     if (ticket.assigned_to && ticket.assigned_to !== userId) {
-      createNotification({
+      await createNotification({
         user_id: ticket.assigned_to,
         ticket_id: ticketId,
         type: 'ticket_updated',
@@ -243,37 +240,37 @@ export function notifyTicketUpdated(ticketId: number, userId: number, updateType
 }
 
 /**
- * Cria notificação de comentário adicionado
+ * Cria notificacao de comentario adicionado
  */
-export function notifyCommentAdded(ticketId: number, commentAuthor: number, isInternal: boolean = false): boolean {
+export async function notifyCommentAdded(ticketId: number, commentAuthor: number, isInternal: boolean = false): Promise<boolean> {
   try {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<any>(`
       SELECT t.title, t.user_id, t.assigned_to, u.name as author_name
       FROM tickets t
       LEFT JOIN users u ON u.id = ?
       WHERE t.id = ?
-    `).get(commentAuthor, ticketId) as any;
+    `, [commentAuthor, ticketId]);
 
     if (!ticket) return false;
 
     const recipients: number[] = [];
 
-    // Se não for comentário interno, notificar o criador do ticket
+    // Se nao for comentario interno, notificar o criador do ticket
     if (!isInternal && ticket.user_id !== commentAuthor) {
       recipients.push(ticket.user_id);
     }
 
-    // Notificar o agente responsável (sempre, exceto se for o próprio autor)
+    // Notificar o agente responsavel (sempre, exceto se for o proprio autor)
     if (ticket.assigned_to && ticket.assigned_to !== commentAuthor) {
       recipients.push(ticket.assigned_to);
     }
 
-    // Se for comentário interno, notificar outros agentes
+    // Se for comentario interno, notificar outros agentes
     if (isInternal) {
-      const agents = db.prepare(`
+      const agents = await executeQuery<{ id: number }>(`
         SELECT id FROM users
         WHERE role IN ('admin', 'agent') AND id != ?
-      `).all(commentAuthor) as { id: number }[];
+      `, [commentAuthor]);
 
       agents.forEach(agent => {
         if (!recipients.includes(agent.id)) {
@@ -282,18 +279,18 @@ export function notifyCommentAdded(ticketId: number, commentAuthor: number, isIn
       });
     }
 
-    // Criar notificações
-    recipients.forEach(userId => {
-      createNotification({
-        user_id: userId,
+    // Criar notificacoes
+    for (const recipientUserId of recipients) {
+      await createNotification({
+        user_id: recipientUserId,
         ticket_id: ticketId,
         type: 'comment_added',
-        title: isInternal ? 'Comentário Interno Adicionado' : 'Novo Comentário',
-        message: `${ticket.author_name} adicionou um ${isInternal ? 'comentário interno' : 'comentário'} no ticket #${ticketId} "${ticket.title}"`,
+        title: isInternal ? 'Comentario Interno Adicionado' : 'Novo Comentario',
+        message: `${ticket.author_name} adicionou um ${isInternal ? 'comentario interno' : 'comentario'} no ticket #${ticketId} "${ticket.title}"`,
         is_read: false,
-        sent_via_email: !isInternal // Comentários internos não vão por email para usuários finais
+        sent_via_email: !isInternal
       });
-    });
+    }
 
     return true;
   } catch (error) {
@@ -303,30 +300,30 @@ export function notifyCommentAdded(ticketId: number, commentAuthor: number, isIn
 }
 
 /**
- * Cria notificação de SLA warning
+ * Cria notificacao de SLA warning
  */
-export function notifySLAWarning(ticketId: number, warningType: 'response' | 'resolution'): boolean {
+export async function notifySLAWarning(ticketId: number, warningType: 'response' | 'resolution'): Promise<boolean> {
   try {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<any>(`
       SELECT t.title, t.user_id, t.assigned_to, st.response_due_at, st.resolution_due_at
       FROM tickets t
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       WHERE t.id = ?
-    `).get(ticketId) as any;
+    `, [ticketId]);
 
     if (!ticket) return false;
 
     const recipients: number[] = [];
 
-    // Notificar o agente responsável
+    // Notificar o agente responsavel
     if (ticket.assigned_to) {
       recipients.push(ticket.assigned_to);
     }
 
     // Notificar admins
-    const admins = db.prepare(`
+    const admins = await executeQuery<{ id: number }>(`
       SELECT id FROM users WHERE role = 'admin'
-    `).all() as { id: number }[];
+    `, []);
 
     admins.forEach(admin => {
       if (!recipients.includes(admin.id)) {
@@ -335,19 +332,19 @@ export function notifySLAWarning(ticketId: number, warningType: 'response' | 're
     });
 
     const dueDate = warningType === 'response' ? ticket.response_due_at : ticket.resolution_due_at;
-    const timeType = warningType === 'response' ? 'primeira resposta' : 'resolução';
+    const timeType = warningType === 'response' ? 'primeira resposta' : 'resolucao';
 
-    recipients.forEach(userId => {
-      createNotification({
-        user_id: userId,
+    for (const recipientUserId of recipients) {
+      await createNotification({
+        user_id: recipientUserId,
         ticket_id: ticketId,
         type: 'sla_warning',
         title: 'Aviso de SLA',
-        message: `Ticket #${ticketId} "${ticket.title}" está próximo do prazo de ${timeType} (${new Date(dueDate).toLocaleString()})`,
+        message: `Ticket #${ticketId} "${ticket.title}" esta proximo do prazo de ${timeType} (${new Date(dueDate).toLocaleString()})`,
         is_read: false,
         sent_via_email: true
       });
-    });
+    }
 
     return true;
   } catch (error) {
@@ -357,29 +354,29 @@ export function notifySLAWarning(ticketId: number, warningType: 'response' | 're
 }
 
 /**
- * Cria notificação de SLA breach
+ * Cria notificacao de SLA breach
  */
-export function notifySLABreach(ticketId: number, breachType: 'response' | 'resolution'): boolean {
+export async function notifySLABreach(ticketId: number, breachType: 'response' | 'resolution'): Promise<boolean> {
   try {
-    const ticket = db.prepare(`
+    const ticket = await executeQueryOne<any>(`
       SELECT t.title, t.user_id, t.assigned_to
       FROM tickets t
       WHERE t.id = ?
-    `).get(ticketId) as any;
+    `, [ticketId]);
 
     if (!ticket) return false;
 
     const recipients: number[] = [];
 
-    // Notificar o agente responsável
+    // Notificar o agente responsavel
     if (ticket.assigned_to) {
       recipients.push(ticket.assigned_to);
     }
 
     // Notificar admins
-    const admins = db.prepare(`
+    const admins = await executeQuery<{ id: number }>(`
       SELECT id FROM users WHERE role = 'admin'
-    `).all() as { id: number }[];
+    `, []);
 
     admins.forEach(admin => {
       if (!recipients.includes(admin.id)) {
@@ -387,19 +384,19 @@ export function notifySLABreach(ticketId: number, breachType: 'response' | 'reso
       }
     });
 
-    const timeType = breachType === 'response' ? 'primeira resposta' : 'resolução';
+    const timeType = breachType === 'response' ? 'primeira resposta' : 'resolucao';
 
-    recipients.forEach(userId => {
-      createNotification({
-        user_id: userId,
+    for (const recipientUserId of recipients) {
+      await createNotification({
+        user_id: recipientUserId,
         ticket_id: ticketId,
         type: 'sla_breach',
         title: 'SLA Violado',
-        message: `CRÍTICO: Ticket #${ticketId} "${ticket.title}" violou o SLA de ${timeType}`,
+        message: `CRITICO: Ticket #${ticketId} "${ticket.title}" violou o SLA de ${timeType}`,
         is_read: false,
         sent_via_email: true
       });
-    });
+    }
 
     return true;
   } catch (error) {
@@ -409,22 +406,23 @@ export function notifySLABreach(ticketId: number, breachType: 'response' | 'reso
 }
 
 /**
- * Cria notificação de escalação
+ * Cria notificacao de escalacao
  */
-export function notifyEscalation(ticketId: number, escalatedTo: number, reason: string): boolean {
+export async function notifyEscalation(ticketId: number, escalatedTo: number, reason: string): Promise<boolean> {
   try {
-    const ticket = db.prepare(`
-      SELECT title FROM tickets WHERE id = ?
-    `).get(ticketId) as { title: string };
+    const ticket = await executeQueryOne<{ title: string }>(
+      'SELECT title FROM tickets WHERE id = ?',
+      [ticketId]
+    );
 
     if (!ticket) return false;
 
-    return createNotification({
+    return await createNotification({
       user_id: escalatedTo,
       ticket_id: ticketId,
       type: 'escalation',
       title: 'Ticket Escalado',
-      message: `Ticket #${ticketId} "${ticket.title}" foi escalado para você. Motivo: ${reason}`,
+      message: `Ticket #${ticketId} "${ticket.title}" foi escalado para voce. Motivo: ${reason}`,
       is_read: false,
       sent_via_email: true
     }) !== null;
@@ -435,9 +433,9 @@ export function notifyEscalation(ticketId: number, escalatedTo: number, reason: 
 }
 
 /**
- * Estatísticas de notificações
+ * Estatisticas de notificacoes
  */
-export function getNotificationStats(userId?: number): any {
+export async function getNotificationStats(userId?: number): Promise<any> {
   try {
     let whereClause = '';
     const params: any[] = [];
@@ -447,7 +445,7 @@ export function getNotificationStats(userId?: number): any {
       params.push(userId);
     }
 
-    const stats = db.prepare(`
+    const stats = await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total,
         COUNT(CASE WHEN is_read = 0 THEN 1 END) as unread,
@@ -459,9 +457,9 @@ export function getNotificationStats(userId?: number): any {
         COUNT(CASE WHEN type = 'comment_added' THEN 1 END) as comments
       FROM notifications
       ${whereClause}
-    `).get(...params);
+    `, params);
 
-    return stats;
+    return stats || null;
   } catch (error) {
     logger.error('Error getting notification stats', error);
     return null;
@@ -469,12 +467,12 @@ export function getNotificationStats(userId?: number): any {
 }
 
 /**
- * Processo de limpeza automática de notificações antigas
+ * Processo de limpeza automatica de notificacoes antigas
  */
-export function cleanupNotifications(): number {
+export async function cleanupNotifications(): Promise<number> {
   try {
-    // Deletar notificações lidas com mais de 30 dias
-    const deleted = deleteOldNotifications(30);
+    // Deletar notificacoes lidas com mais de 30 dias
+    const deleted = await deleteOldNotifications(30);
 
     logger.info(`Cleanup: ${deleted} old notifications deleted`);
     return deleted;

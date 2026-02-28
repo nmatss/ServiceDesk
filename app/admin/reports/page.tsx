@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger'
 import toast from 'react-hot-toast'
 import PageHeader from '@/components/ui/PageHeader'
@@ -33,6 +34,7 @@ interface ReportData {
 }
 
 export default function AdminReportsPage() {
+  const router = useRouter()
   const [_loading, setLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('30')
@@ -55,7 +57,8 @@ export default function AdminReportsPage() {
 
       if (!response.ok) {
         if (response.status === 401) {
-          setError('Sessão expirada. Faça login novamente.')
+          router.push('/auth/login')
+          return
         } else if (response.status === 403) {
           setError('Acesso negado. Apenas administradores podem visualizar relatórios.')
         } else {
@@ -310,7 +313,7 @@ export default function AdminReportsPage() {
                 ) : (
                   <tr>
                     <td colSpan={3} className="px-6 py-8 text-center text-sm text-muted-content">
-                      <UserGroupIcon className="h-12 w-12 mx-auto text-neutral-300 dark:text-neutral-600 mb-2" />
+                      <UserGroupIcon className="h-12 w-12 mx-auto text-neutral-400 dark:text-neutral-600 mb-2" />
                       <p>Nenhum agente com tickets resolvidos no período</p>
                     </td>
                   </tr>

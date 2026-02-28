@@ -85,6 +85,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+
     const data = await request.json()
 
     // Track based on metric type

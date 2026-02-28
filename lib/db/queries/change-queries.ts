@@ -26,23 +26,27 @@ import type {
  * Generate change request number in format CHG-YYYY-XXXXX
  */
 export async function generateChangeNumber(organizationId: number): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `CHG-${year}-`;
+  return executeTransaction(async (db) => {
+    const year = new Date().getFullYear();
+    const prefix = `CHG-${year}-`;
 
-  const result = await executeQueryOne<{ change_number: string }>(
-    `SELECT change_number FROM change_requests
-     WHERE organization_id = ? AND change_number LIKE ?
-     ORDER BY id DESC LIMIT 1`,
-    [organizationId, `${prefix}%`]
-  );
+    const result = await db.get<{ change_number: string }>(
+      `SELECT change_number FROM change_requests
+       WHERE organization_id = ? AND change_number LIKE ?
+       ORDER BY id DESC LIMIT 1`,
+      [organizationId, `${prefix}%`]
+    );
 
-  let nextNumber = 1;
-  if (result?.change_number) {
-    const currentNumber = parseInt(result.change_number.replace(prefix, ''), 10);
-    nextNumber = currentNumber + 1;
-  }
+    let nextNumber = 1;
+    if (result?.change_number) {
+      const currentNumber = parseInt(result.change_number.replace(prefix, ''), 10);
+      if (!isNaN(currentNumber)) {
+        nextNumber = currentNumber + 1;
+      }
+    }
 
-  return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+    return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+  });
 }
 
 // ============================================
@@ -610,11 +614,21 @@ export async function createChangeType(
  * Add a CAB approval/vote for a change request
  */
 export async function addChangeApproval(
+  organizationId: number,
   changeRequestId: number,
   cabMemberId: number,
   vote: 'approve' | 'reject' | 'defer' | 'abstain',
   comments?: string
 ): Promise<ChangeRequestApproval> {
+  // Verify the change request belongs to the organization
+  const cr = await executeQueryOne<{ id: number }>(
+    `SELECT id FROM change_requests WHERE id = ? AND organization_id = ?`,
+    [changeRequestId, organizationId]
+  );
+  if (!cr) {
+    throw new Error('Change request not found or access denied');
+  }
+
   const result = await executeRun(
     `INSERT INTO change_request_approvals (
       change_request_id, cab_member_id, vote, voted_at, comments
@@ -634,13 +648,15 @@ export async function addChangeApproval(
  * List all approvals for a change request
  */
 export async function listChangeApprovals(
+  organizationId: number,
   changeRequestId: number
 ): Promise<ChangeRequestApproval[]> {
   return executeQuery<ChangeRequestApproval>(
-    `SELECT * FROM change_request_approvals
-     WHERE change_request_id = ?
-     ORDER BY voted_at DESC`,
-    [changeRequestId]
+    `SELECT ca.* FROM change_request_approvals ca
+     JOIN change_requests cr ON ca.change_request_id = cr.id
+     WHERE cr.organization_id = ? AND ca.change_request_id = ?
+     ORDER BY ca.voted_at DESC`,
+    [organizationId, changeRequestId]
   );
 }
 
@@ -711,13 +727,15 @@ export async function createChangeTask(
  * List all tasks for a change request
  */
 export async function listChangeTasks(
+  organizationId: number,
   changeRequestId: number
 ): Promise<ChangeTask[]> {
   return executeQuery<ChangeTask>(
-    `SELECT * FROM change_tasks
-     WHERE change_request_id = ?
-     ORDER BY task_order, created_at`,
-    [changeRequestId]
+    `SELECT ct.* FROM change_tasks ct
+     JOIN change_requests cr ON ct.change_request_id = cr.id
+     WHERE cr.organization_id = ? AND ct.change_request_id = ?
+     ORDER BY ct.task_order, ct.created_at`,
+    [organizationId, changeRequestId]
   );
 }
 
@@ -725,6 +743,7 @@ export async function listChangeTasks(
  * Update a change task
  */
 export async function updateChangeTask(
+  organizationId: number,
   taskId: number,
   input: {
     title?: string;
@@ -740,6 +759,15 @@ export async function updateChangeTask(
     completion_notes?: string;
   }
 ): Promise<ChangeTask | null> {
+  // Verify the task belongs to a change request in the organization
+  const task = await executeQueryOne<ChangeTask>(
+    `SELECT ct.* FROM change_tasks ct
+     JOIN change_requests cr ON ct.change_request_id = cr.id
+     WHERE ct.id = ? AND cr.organization_id = ?`,
+    [taskId, organizationId]
+  );
+  if (!task) return null;
+
   const updates: string[] = [];
   const params: unknown[] = [];
 
@@ -807,11 +835,7 @@ export async function updateChangeTask(
   }
 
   if (updates.length === 0) {
-    const result = await executeQueryOne<ChangeTask>(
-      `SELECT * FROM change_tasks WHERE id = ?`,
-      [taskId]
-    );
-    return result ?? null;
+    return task;
   }
 
   params.push(taskId);

@@ -35,43 +35,51 @@ import type {
 // ============================================
 
 async function generateProblemNumber(organizationId: number): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `PRB-${year}-`;
+  return executeTransaction(async (db) => {
+    const year = new Date().getFullYear();
+    const prefix = `PRB-${year}-`;
 
-  const result = await executeQueryOne<{ problem_number: string }>(
-    `SELECT problem_number FROM problems
-     WHERE organization_id = ? AND problem_number LIKE ?
-     ORDER BY id DESC LIMIT 1`,
-    [organizationId, `${prefix}%`]
-  );
+    const result = await db.get<{ problem_number: string }>(
+      `SELECT problem_number FROM problems
+       WHERE organization_id = ? AND problem_number LIKE ?
+       ORDER BY id DESC LIMIT 1`,
+      [organizationId, `${prefix}%`]
+    );
 
-  let nextNumber = 1;
-  if (result?.problem_number) {
-    const currentNumber = parseInt(result.problem_number.replace(prefix, ''), 10);
-    nextNumber = currentNumber + 1;
-  }
+    let nextNumber = 1;
+    if (result?.problem_number) {
+      const currentNumber = parseInt(result.problem_number.replace(prefix, ''), 10);
+      if (!isNaN(currentNumber)) {
+        nextNumber = currentNumber + 1;
+      }
+    }
 
-  return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+    return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+  });
 }
 
 async function generateKnownErrorNumber(organizationId: number): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `KE-${year}-`;
+  return executeTransaction(async (db) => {
+    const year = new Date().getFullYear();
+    const prefix = `KE-${year}-`;
 
-  const result = await executeQueryOne<{ ke_number: string }>(
-    `SELECT ke_number FROM known_errors
-     WHERE organization_id = ? AND ke_number LIKE ?
-     ORDER BY id DESC LIMIT 1`,
-    [organizationId, `${prefix}%`]
-  );
+    const result = await db.get<{ ke_number: string }>(
+      `SELECT ke_number FROM known_errors
+       WHERE organization_id = ? AND ke_number LIKE ?
+       ORDER BY id DESC LIMIT 1`,
+      [organizationId, `${prefix}%`]
+    );
 
-  let nextNumber = 1;
-  if (result?.ke_number) {
-    const currentNumber = parseInt(result.ke_number.replace(prefix, ''), 10);
-    nextNumber = currentNumber + 1;
-  }
+    let nextNumber = 1;
+    if (result?.ke_number) {
+      const currentNumber = parseInt(result.ke_number.replace(prefix, ''), 10);
+      if (!isNaN(currentNumber)) {
+        nextNumber = currentNumber + 1;
+      }
+    }
 
-  return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+    return `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+  });
 }
 
 // ============================================
@@ -311,7 +319,7 @@ export async function getProblems(
     status: 'p.status',
   };
   const sortField = sortFieldMap[sort.field] || 'p.created_at';
-  const sortDirection = sort.direction.toUpperCase();
+  const safeSortDirection = sort.direction?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
   // Count total
   const countResult = await executeQueryOne<{ total: number }>(
@@ -339,7 +347,7 @@ export async function getProblems(
      LEFT JOIN teams team ON p.assigned_team_id = team.id
      LEFT JOIN users creator ON p.created_by = creator.id
      WHERE ${whereClause}
-     ORDER BY ${sortField} ${sortDirection}
+     ORDER BY ${sortField} ${safeSortDirection}
      LIMIT ? OFFSET ?`,
     [...params, pagination.limit, offset]
   );
@@ -598,46 +606,46 @@ export async function getProblemIncidents(
   organizationId: number,
   problemId: number
 ): Promise<ProblemIncidentLinkWithDetails[]> {
-  const links = await executeQuery<ProblemIncidentLink>(
-    `SELECT * FROM problem_incident_links
-     WHERE problem_id = ?
-     ORDER BY created_at DESC`,
+  const rows = await executeQuery<any>(
+    `SELECT pil.*,
+       t.id as ticket__id, ('TKT-' || CAST(t.id AS TEXT)) as ticket__ticket_number,
+       t.title as ticket__title, s.name as ticket__status, pr.name as ticket__priority,
+       t.created_at as ticket__created_at,
+       u.id as linked_by_user__id, u.name as linked_by_user__name
+     FROM problem_incident_links pil
+     LEFT JOIN tickets t ON pil.ticket_id = t.id
+     LEFT JOIN statuses s ON t.status_id = s.id
+     LEFT JOIN priorities pr ON t.priority_id = pr.id
+     LEFT JOIN users u ON pil.linked_by = u.id
+     WHERE pil.problem_id = ?
+     ORDER BY pil.linked_at DESC`,
     [problemId]
   );
 
-  const linksWithDetails = await Promise.all(
-    links.map(async (link) => {
-      const [ticket, linkedByUser] = await Promise.all([
-        executeQueryOne<{
-          id: number;
-          ticket_number: string;
-          title: string;
-          status: string;
-          priority: string | null;
-          created_at: string;
-        }>(
-          `SELECT t.id, ('TKT-' || CAST(t.id AS TEXT)) as ticket_number, t.title, s.name as status, p.name as priority, t.created_at
-           FROM tickets t
-           LEFT JOIN statuses s ON t.status_id = s.id
-           LEFT JOIN priorities p ON t.priority_id = p.id
-           WHERE t.id = ?`,
-          [link.ticket_id]
-        ),
-        executeQueryOne<{ id: number; name: string }>(
-          `SELECT id, name FROM users WHERE id = ?`,
-          [link.linked_by]
-        ),
-      ]);
+  return rows.map((row: any) => {
+    const {
+      ticket__id, ticket__ticket_number, ticket__title, ticket__status,
+      ticket__priority, ticket__created_at,
+      linked_by_user__id, linked_by_user__name,
+      ...linkFields
+    } = row;
 
-      return {
-        ...link,
-        ticket: ticket || undefined,
-        linked_by_user: linkedByUser || undefined,
-      };
-    })
-  );
-
-  return linksWithDetails;
+    return {
+      ...linkFields,
+      ticket: ticket__id ? {
+        id: ticket__id,
+        ticket_number: ticket__ticket_number,
+        title: ticket__title,
+        status: ticket__status,
+        priority: ticket__priority,
+        created_at: ticket__created_at,
+      } : undefined,
+      linked_by_user: linked_by_user__id ? {
+        id: linked_by_user__id,
+        name: linked_by_user__name,
+      } : undefined,
+    };
+  });
 }
 
 /**
@@ -791,22 +799,45 @@ export async function getKnownErrors(
   const offset = (pagination.page - 1) * pagination.limit;
   const totalPages = Math.ceil(total / pagination.limit);
 
-  // Fetch known errors
-  const knownErrors = await executeQuery<KnownError>(
-    `SELECT * FROM known_errors
+  // Fetch known errors with JOINs to avoid N+1
+  const knownErrorRows = await executeQuery<any>(
+    `SELECT ke.*,
+       p.title as problem__title, p.problem_number as problem__problem_number,
+       u.id as created_by_user__id, u.name as created_by_user__name, u.email as created_by_user__email
+     FROM known_errors ke
+     LEFT JOIN problems p ON ke.problem_id = p.id
+     LEFT JOIN users u ON ke.created_by = u.id
      WHERE ${whereClause}
-     ORDER BY created_at DESC
+     ORDER BY ke.created_at DESC
      LIMIT ? OFFSET ?`,
     [...params, pagination.limit, offset]
   );
 
-  // Fetch relations for each
-  const knownErrorsWithRelations = await Promise.all(
-    knownErrors.map((ke) => getKnownErrorById(organizationId, ke.id))
-  );
+  const knownErrorsWithRelations: KnownErrorWithRelations[] = knownErrorRows.map((row: any) => {
+    const {
+      problem__title, problem__problem_number,
+      created_by_user__id, created_by_user__name, created_by_user__email,
+      ...keFields
+    } = row;
+
+    return {
+      ...keFields,
+      problem: keFields.problem_id && problem__title ? {
+        id: keFields.problem_id,
+        title: problem__title,
+        problem_number: problem__problem_number,
+      } : null,
+      created_by_user: created_by_user__id ? {
+        id: created_by_user__id,
+        name: created_by_user__name,
+        email: created_by_user__email,
+      } : undefined,
+      reviewed_by_user: null,
+    } as KnownErrorWithRelations;
+  });
 
   return {
-    data: knownErrorsWithRelations.filter((ke): ke is KnownErrorWithRelations => ke !== null),
+    data: knownErrorsWithRelations,
     total,
     page: pagination.page,
     limit: pagination.limit,
@@ -971,30 +1002,24 @@ export async function getProblemActivities(
   problemId: number,
   includeInternal: boolean = true
 ): Promise<ProblemActivityWithUser[]> {
-  const condition = includeInternal ? '' : ' AND is_internal = 0';
+  const condition = includeInternal ? '' : ' AND pa.is_internal = 0';
 
-  const activities = await executeQuery<ProblemActivity>(
-    `SELECT * FROM problem_activities
-     WHERE problem_id = ?${condition}
-     ORDER BY created_at DESC`,
+  const rows = await executeQuery<any>(
+    `SELECT pa.*, u.id as user__id, u.name as user__name, u.avatar_url as user__avatar_url
+     FROM problem_activities pa
+     LEFT JOIN users u ON pa.user_id = u.id
+     WHERE pa.problem_id = ?${condition}
+     ORDER BY pa.created_at DESC`,
     [problemId]
   );
 
-  const activitiesWithUsers = await Promise.all(
-    activities.map(async (activity) => {
-      const user = await executeQueryOne<{ id: number; name: string; avatar_url: string | null }>(
-        `SELECT id, name, avatar_url FROM users WHERE id = ?`,
-        [activity.user_id]
-      );
-
-      return {
-        ...activity,
-        user: user || undefined,
-      };
-    })
-  );
-
-  return activitiesWithUsers;
+  return rows.map((row: any) => {
+    const { user__id, user__name, user__avatar_url, ...activityFields } = row;
+    return {
+      ...activityFields,
+      user: user__id ? { id: user__id, name: user__name, avatar_url: user__avatar_url } : undefined,
+    };
+  });
 }
 
 // ============================================

@@ -79,7 +79,7 @@ export default function NotificationBell() {
       case 'success': return <CheckIcon className={`${iconClass} text-success-500`} />
       case 'error': return <ClockIcon className={`${iconClass} text-error-500`} />
       case 'warning': return <ClockIcon className={`${iconClass} text-warning-500`} />
-      case 'info': return <ClockIcon className={`${iconClass} text-info-500`} />
+      case 'info': return <ClockIcon className={`${iconClass} text-brand-500`} />
       default: return <ClockIcon className={`${iconClass} text-neutral-500`} />
     }
   }

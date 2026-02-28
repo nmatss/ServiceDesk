@@ -37,21 +37,19 @@ const nextConfig = {
   // ========================
   // COMPRESSION
   // ========================
-  compress: true, // Enable gzip compression
+  // PERF: Disabled — server.ts applies compression via compression middleware.
+  // Having both causes double-compression overhead.
+  compress: false,
 
   // ========================
   // CACHING & HEADERS
   // ========================
   async headers() {
     return [
-      // Security & CSP headers
+      // Security headers (CSP is handled by lib/security/helmet.ts to avoid conflicts)
       {
         source: '/(.*)',
         headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://r2cdn.perplexity.ai data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
-          },
           {
             key: 'X-DNS-Prefetch-Control',
             value: 'on',
@@ -62,7 +60,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
+            value: 'DENY',
           },
           {
             key: 'X-Content-Type-Options',
@@ -373,9 +371,14 @@ const nextConfig = {
     optimizePackageImports: [
       '@heroicons/react',
       '@headlessui/react',
+      'react-hot-toast',
+      'recharts',
+      'date-fns',
+      'lodash',
+      'jose',
+      'zod',
+      'framer-motion',
     ],
-    // Optimize CSS
-    optimizeCss: true,
   },
 
   // ========================

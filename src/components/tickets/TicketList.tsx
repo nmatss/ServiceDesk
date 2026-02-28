@@ -44,7 +44,7 @@ function mapPriority(priority: string | undefined | null): Ticket['priority'] {
 }
 
 interface TicketListProps {
-  userRole?: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin'
+  userRole?: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client'
   showUserTickets?: boolean
   showFilters?: boolean
   showStats?: boolean
@@ -109,25 +109,44 @@ export default function TicketList({
   const [showFiltersPanel, setShowFiltersPanel] = useState(false)
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'grid'>('cards')
 
-  // Mock data for development
-  const [categories] = useState([
-    { id: 1, name: 'Suporte Técnico' },
-    { id: 2, name: 'Solicitação' },
-    { id: 3, name: 'Bug' },
-    { id: 4, name: 'Dúvida' }
-  ])
+  const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([])
+  const [agents, setAgents] = useState<Array<{ id: number; name: string }>>([])
+  const [filtersLoading, setFiltersLoading] = useState(true)
 
-  const [agents] = useState([
-    { id: 1, name: 'Maria Santos' },
-    { id: 2, name: 'Ana Lima' },
-    { id: 3, name: 'Carlos Silva' }
-  ])
+  // Fetch categories and agents from API
+  useEffect(() => {
+    const fetchFilterData = async () => {
+      setFiltersLoading(true)
+      try {
+        const [catRes, agentRes] = await Promise.all([
+          fetch('/api/categories', { credentials: 'include' }).catch(() => null),
+          fetch('/api/users?role=agent', { credentials: 'include' }).catch(() => null),
+        ])
+        if (catRes?.ok) {
+          const catData = await catRes.json()
+          const cats = catData.categories || catData.data || []
+          setCategories(cats.map((c: Record<string, unknown>) => ({ id: Number(c.id), name: String(c.name || '') })))
+        }
+        if (agentRes?.ok) {
+          const agentData = await agentRes.json()
+          const users = agentData.users || agentData.data || []
+          setAgents(users.map((u: Record<string, unknown>) => ({ id: Number(u.id), name: String(u.name || '') })))
+        }
+      } catch {
+        // Silently fail — filters will just be empty
+      } finally {
+        setFiltersLoading(false)
+      }
+    }
+    fetchFilterData()
+  }, [])
 
   useEffect(() => {
     fetchTickets()
     if (showStats) {
       fetchStats()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, showUserTickets])
 
   const fetchTickets = async () => {

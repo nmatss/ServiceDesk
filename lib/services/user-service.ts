@@ -15,7 +15,7 @@ export interface CreateUserDTO {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin';
+  role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user';
   organization_id: number;
   timezone?: string;
   language?: string;

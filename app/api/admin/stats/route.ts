@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { executeQueryOne } from '@/lib/db/adapter';
-import { verifyToken } from '@/lib/auth/auth-service'
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin } from '@/lib/auth/roles';
+import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -11,51 +12,16 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { success: false, error: 'Contexto de tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.substring(7)
-    const decoded = await verifyToken(token)
-
-    if (!decoded) {
-      return NextResponse.json(
-        { success: false, error: 'Token inválido' },
-        { status: 401 }
-      )
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
 
     // Verificar se é admin
-    if (decoded.role !== 'admin' && decoded.role !== 'tenant_admin') {
-      return NextResponse.json(
-        { success: false, error: 'Acesso negado' },
-        { status: 403 }
-      )
+    if (!isAdmin(auth.role)) {
+      return apiError('Acesso negado', 403);
     }
 
-    // Verificar se usuário pertence ao tenant
-    if (decoded.organization_id !== tenantContext.id) {
-      return NextResponse.json(
-        { success: false, error: 'Acesso negado a este tenant' },
-        { status: 403 }
-      )
-    }
-
-    const tenantId = tenantContext.id
+    const tenantId = auth.organizationId;
 
     // Buscar estatísticas FILTRADAS POR TENANT
     const totalUsers = await executeQueryOne<{ count: number }>('SELECT COUNT(*) as count FROM users WHERE organization_id = ?', [tenantId])
@@ -81,16 +47,9 @@ export async function GET(request: NextRequest) {
       resolvedTickets: resolvedTickets?.count ?? 0
     }
 
-    return NextResponse.json({
-      success: true,
-      stats
-    })
+    return apiSuccess(stats);
   } catch (error) {
     logger.error('Error fetching stats', error)
-    return NextResponse.json(
-      { success: false, error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    return apiError('Erro interno do servidor', 500);
   }
 }
-

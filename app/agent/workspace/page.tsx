@@ -221,7 +221,7 @@ export default function AgentWorkspacePage() {
               },
               {
                 label: 'Configurações',
-                onClick: () => router.push('/agent/settings'),
+                onClick: () => router.push('/admin/settings'),
                 icon: Cog6ToothIcon,
                 variant: 'secondary'
               }

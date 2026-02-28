@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/design-system/utils';
@@ -292,6 +292,45 @@ export function DataTable<T = any>({
     onSort(columnKey, newDirection);
   };
 
+  // Memoize rendered rows to avoid re-rendering all rows on unrelated state changes
+  const renderedRows = useMemo(() => data.map((record, index) => (
+    <TableRow
+      key={getRowKey(record, index)}
+      className={onRowClick ? 'cursor-pointer' : undefined}
+      onClick={() => onRowClick?.(record, index)}
+    >
+      {columns.map((column) => {
+        let value;
+        if (column.dataIndex) {
+          value = (record as any)[column.dataIndex];
+        } else {
+          value = record;
+        }
+
+        let content;
+        if (column.render) {
+          content = column.render(value, record, index);
+        } else {
+          content = value?.toString() || '';
+        }
+
+        return (
+          <TableCell
+            key={column.key}
+            className={cn(
+              column.align === 'center' && 'text-center',
+              column.align === 'right' && 'text-right',
+              column.className
+            )}
+          >
+            {content}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  )), [data, columns, onRowClick, sortConfig]);
+
   if (loading) {
     return (
       <Table {...tableProps} className={className}>
@@ -369,42 +408,7 @@ export function DataTable<T = any>({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((record, index) => (
-          <TableRow
-            key={getRowKey(record, index)}
-            className={onRowClick ? 'cursor-pointer' : undefined}
-            onClick={() => onRowClick?.(record, index)}
-          >
-            {columns.map((column) => {
-              let value;
-              if (column.dataIndex) {
-                value = (record as any)[column.dataIndex];
-              } else {
-                value = record;
-              }
-
-              let content;
-              if (column.render) {
-                content = column.render(value, record, index);
-              } else {
-                content = value?.toString() || '';
-              }
-
-              return (
-                <TableCell
-                  key={column.key}
-                  className={cn(
-                    column.align === 'center' && 'text-center',
-                    column.align === 'right' && 'text-right',
-                    column.className
-                  )}
-                >
-                  {content}
-                </TableCell>
-              );
-            })}
-          </TableRow>
-        ))}
+        {renderedRows}
       </TableBody>
     </Table>
   );

@@ -430,30 +430,5 @@ export const LazyTeamsPage = dynamic(
   }
 )
 
-// ===========================
-// EXPORTS
-// ===========================
-
-export default {
-  LazyLineChart,
-  LazyBarChart,
-  LazyPieChart,
-  LazyAreaChart,
-  LazyRichTextEditor,
-  LazyReactFlow,
-  LazyModal,
-  LazyDialog,
-  LazyAnalyticsDashboard,
-  LazyReportsPage,
-  LazyKnowledgeArticle,
-  LazyTicketDetails,
-  LazyFileUpload,
-  LazyCommandPalette,
-  LazyComunidadeBuilder,
-  LazyCMDBPage,
-  LazyKnowledgePage,
-  LazyTeamsPage,
-  LazyWrapper,
-  ConditionalLazy,
-  LazyOnVisible,
-}
+// PERF: No default export — use named imports for tree-shaking.
+// e.g., import { LazyLineChart } from '@/components/LazyComponents'

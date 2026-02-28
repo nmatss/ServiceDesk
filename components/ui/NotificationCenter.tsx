@@ -8,7 +8,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { logger } from '@/lib/monitoring/logger';
 import {
@@ -66,7 +66,7 @@ interface NotificationFilter {
   starred?: boolean;
 }
 
-export function NotificationCenter({ isOpen, onClose, persona = 'agent', className = '' }: NotificationCenterProps) {
+export const NotificationCenter = React.memo(function NotificationCenter({ isOpen, onClose, persona = 'agent', className = '' }: NotificationCenterProps) {
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: '1',
@@ -268,38 +268,38 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
   };
 
   // Notification actions
-  const markAsRead = (notificationId: string) => {
+  const markAsRead = useCallback((notificationId: string) => {
     setNotifications(prev =>
       prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
     );
-  };
+  }, []);
 
-  const markAsUnread = (notificationId: string) => {
+  const markAsUnread = useCallback((notificationId: string) => {
     setNotifications(prev =>
       prev.map(n => n.id === notificationId ? { ...n, read: false } : n)
     );
-  };
+  }, []);
 
-  const toggleStar = (notificationId: string) => {
+  const toggleStar = useCallback((notificationId: string) => {
     setNotifications(prev =>
       prev.map(n => n.id === notificationId ? { ...n, starred: !n.starred } : n)
     );
-  };
+  }, []);
 
-  const deleteNotification = (notificationId: string) => {
+  const deleteNotification = useCallback((notificationId: string) => {
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
-  };
+  }, []);
 
-  const markAllAsRead = () => {
+  const markAllAsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
+  }, []);
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     setNotifications([]);
-  };
+  }, []);
 
   // Handle bulk actions
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = useCallback((action: string) => {
     switch (action) {
       case 'markRead':
         setNotifications(prev =>
@@ -316,23 +316,23 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
         break;
     }
     setSelectedNotifications([]);
-  };
+  }, [selectedNotifications]);
 
-  const toggleSelection = (notificationId: string) => {
+  const toggleSelection = useCallback((notificationId: string) => {
     setSelectedNotifications(prev =>
       prev.includes(notificationId)
         ? prev.filter(id => id !== notificationId)
         : [...prev, notificationId]
     );
-  };
+  }, []);
 
-  const selectAll = () => {
+  const selectAll = useCallback(() => {
     setSelectedNotifications(filteredNotifications.map(n => n.id));
-  };
+  }, [filteredNotifications]);
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedNotifications([]);
-  };
+  }, []);
 
   // Handle click outside
   useEffect(() => {
@@ -650,7 +650,7 @@ export function NotificationCenter({ isOpen, onClose, persona = 'agent', classNa
     </div>,
     document.body
   );
-}
+});
 
 // Hook for notification center
 export function useNotificationCenter() {

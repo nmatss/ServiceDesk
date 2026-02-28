@@ -6,7 +6,7 @@
  */
 
 import db from './connection';
-import { getFromCache, setCache } from '../cache';
+import { getFromCache, setCache } from '../cache/lru-cache';
 import type {
   RealTimeKPIs,
   SLAAnalyticsRow,

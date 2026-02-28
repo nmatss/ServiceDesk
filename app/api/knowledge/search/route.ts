@@ -10,7 +10,7 @@ import Fuse from 'fuse.js'
 import type { KBArticle } from '@/lib/types/database'
 import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, executeQueryOne, executeRun, getDbType } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 function resolveSemanticSearchEngine() {
@@ -111,14 +111,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth.organizationId;
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')
@@ -384,16 +380,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    // SECURITY: Require authentication
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const tenantId = guard.auth.organizationId;
 
-    const userContext = getUserContextFromRequest(request)
     const body = await request.json()
     const { query, articleId, position, userId } = body
 
@@ -411,7 +402,7 @@ export async function POST(request: NextRequest) {
         resultsCount: 0,
         clickedArticleId: articleId,
         clickPosition: position,
-        userId: userContext?.id || userId,
+        userId: guard.auth.userId || userId,
         timestamp: new Date(),
       })
     }

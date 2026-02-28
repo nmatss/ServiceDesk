@@ -606,7 +606,7 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
                     </div>
 
                     {/* Arrows In */}
-                    <div className="text-neutral-300 dark:text-neutral-600">
+                    <div className="text-neutral-400 dark:text-neutral-600">
                       <ArrowsRightLeftIcon className="w-8 h-8" />
                     </div>
 
@@ -630,7 +630,7 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
                     </div>
 
                     {/* Arrows Out */}
-                    <div className="text-neutral-300 dark:text-neutral-600">
+                    <div className="text-neutral-400 dark:text-neutral-600">
                       <ArrowsRightLeftIcon className="w-8 h-8" />
                     </div>
 
@@ -738,7 +738,7 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
 
               {linkedTickets.length === 0 ? (
                 <div className="text-center py-8">
-                  <DocumentTextIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+                  <DocumentTextIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto mb-3" />
                   <p className="text-muted-content">Nenhum ticket vinculado a este CI</p>
                 </div>
               ) : (
@@ -778,7 +778,7 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
 
               {history.length === 0 ? (
                 <div className="text-center py-8">
-                  <ClockIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+                  <ClockIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto mb-3" />
                   <p className="text-muted-content">Nenhuma alteração registrada</p>
                 </div>
               ) : (

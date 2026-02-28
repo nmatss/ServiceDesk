@@ -276,6 +276,7 @@ export async function listCABMembers(
  * Create a new CAB meeting
  */
 export async function createCABMeeting(
+  organizationId: number,
   cabId: number,
   userId: number,
   input: CreateCABMeeting
@@ -284,8 +285,8 @@ export async function createCABMeeting(
     `INSERT INTO cab_meetings (
       cab_id, title, scheduled_date, meeting_date, meeting_type, status,
       attendees, agenda, minutes, decisions, action_items,
-      created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      organization_id, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       cabId,
       input.title,
@@ -298,22 +299,24 @@ export async function createCABMeeting(
       input.minutes || null,
       input.decisions ? JSON.stringify(input.decisions) : null,
       input.action_items ? JSON.stringify(input.action_items) : null,
+      organizationId,
       userId,
     ]
   );
 
-  return (await getCABMeetingById(result.lastInsertRowid!))!;
+  return (await getCABMeetingById(organizationId, result.lastInsertRowid!))!;
 }
 
 /**
  * Get CAB meeting by ID with related data
  */
 export async function getCABMeetingById(
+  organizationId: number,
   meetingId: number
 ): Promise<CABMeetingWithDetails | null> {
   const meeting = await executeQueryOne<CABMeeting>(
-    `SELECT * FROM cab_meetings WHERE id = ?`,
-    [meetingId]
+    `SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?`,
+    [meetingId, organizationId]
   );
 
   if (!meeting) return null;
@@ -408,6 +411,7 @@ export async function listCABMeetings(
  * Update CAB meeting
  */
 export async function updateCABMeeting(
+  organizationId: number,
   meetingId: number,
   input: Partial<{
     status: string;
@@ -467,24 +471,25 @@ export async function updateCABMeeting(
   }
 
   if (updates.length === 0) {
-    return getCABMeetingById(meetingId);
+    return getCABMeetingById(organizationId, meetingId);
   }
 
   updates.push('updated_at = CURRENT_TIMESTAMP');
-  values.push(meetingId);
+  values.push(meetingId, organizationId);
 
   await executeRun(
-    `UPDATE cab_meetings SET ${updates.join(', ')} WHERE id = ?`,
+    `UPDATE cab_meetings SET ${updates.join(', ')} WHERE id = ? AND organization_id = ?`,
     values
   );
 
-  return getCABMeetingById(meetingId);
+  return getCABMeetingById(organizationId, meetingId);
 }
 
 /**
  * Start a CAB meeting
  */
 export async function startCABMeeting(
+  organizationId: number,
   meetingId: number
 ): Promise<CABMeeting | null> {
   await executeRun(
@@ -492,17 +497,18 @@ export async function startCABMeeting(
      SET status = 'in_progress',
          actual_start = CURRENT_TIMESTAMP,
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    [meetingId]
+     WHERE id = ? AND organization_id = ?`,
+    [meetingId, organizationId]
   );
 
-  return getCABMeetingById(meetingId);
+  return getCABMeetingById(organizationId, meetingId);
 }
 
 /**
  * End a CAB meeting
  */
 export async function endCABMeeting(
+  organizationId: number,
   meetingId: number,
   minutes?: string,
   decisions?: any[],
@@ -528,30 +534,31 @@ export async function endCABMeeting(
     values.push(JSON.stringify(actionItems));
   }
 
-  values.push(meetingId);
+  values.push(meetingId, organizationId);
 
   await executeRun(
-    `UPDATE cab_meetings SET ${updates.join(', ')} WHERE id = ?`,
+    `UPDATE cab_meetings SET ${updates.join(', ')} WHERE id = ? AND organization_id = ?`,
     values
   );
 
-  return getCABMeetingById(meetingId);
+  return getCABMeetingById(organizationId, meetingId);
 }
 
 /**
  * Cancel a CAB meeting
  */
 export async function cancelCABMeeting(
+  organizationId: number,
   meetingId: number
 ): Promise<CABMeeting | null> {
   await executeRun(
     `UPDATE cab_meetings
      SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    [meetingId]
+     WHERE id = ? AND organization_id = ?`,
+    [meetingId, organizationId]
   );
 
-  return getCABMeetingById(meetingId);
+  return getCABMeetingById(organizationId, meetingId);
 }
 
 // ============================================
@@ -614,12 +621,22 @@ export async function listMeetingChangeRequests(
  * Cast or update a vote on a change request
  */
 export async function castVote(
+  organizationId: number,
   changeRequestId: number,
   cabMemberId: number,
   vote: 'approve' | 'reject' | 'defer' | 'abstain',
   comments?: string,
   conditions?: string
 ): Promise<ChangeRequestApproval> {
+  // Verify the change request belongs to the organization
+  const cr = await executeQueryOne<{ id: number }>(
+    `SELECT id FROM change_requests WHERE id = ? AND organization_id = ?`,
+    [changeRequestId, organizationId]
+  );
+  if (!cr) {
+    throw new Error('Change request not found or access denied');
+  }
+
   // Check if vote already exists
   const existing = await executeQueryOne<ChangeRequestApproval>(
     `SELECT * FROM change_request_approvals
@@ -660,6 +677,7 @@ export async function castVote(
  * Get voting results for a change request
  */
 export async function getVotingResults(
+  organizationId: number,
   changeRequestId: number
 ): Promise<{
   approvals: ChangeRequestApprovalWithDetails[];
@@ -673,39 +691,55 @@ export async function getVotingResults(
     has_quorum: boolean;
   };
 }> {
-  // Fetch all votes with member and user details
-  const approvals = await executeQuery<ChangeRequestApproval>(
-    `SELECT * FROM change_request_approvals WHERE change_request_id = ?`,
-    [changeRequestId]
+  // Fetch all votes with member and user details in a single JOIN query
+  const rows = await executeQuery<any>(
+    `SELECT cra.*,
+       cm.id as cm__id, cm.cab_id as cm__cab_id, cm.user_id as cm__user_id,
+       cm.role as cm__role, cm.is_voting_member as cm__is_voting_member,
+       cm.expertise_areas as cm__expertise_areas, cm.is_active as cm__is_active,
+       cm.joined_at as cm__joined_at,
+       u.id as u__id, u.name as u__name, u.email as u__email,
+       u.avatar_url as u__avatar_url, u.role as u__role
+     FROM change_request_approvals cra
+     JOIN change_requests cr ON cra.change_request_id = cr.id
+     LEFT JOIN cab_members cm ON cra.cab_member_id = cm.id
+     LEFT JOIN users u ON cm.user_id = u.id
+     WHERE cra.change_request_id = ? AND cr.organization_id = ?
+     ORDER BY cra.created_at DESC`,
+    [changeRequestId, organizationId]
   );
 
-  // Fetch member and user details for each approval
-  const approvalsWithDetails = await Promise.all(
-    approvals.map(async (approval) => {
-      const member = await executeQueryOne<CABMember>(
-        `SELECT * FROM cab_members WHERE id = ?`,
-        [approval.cab_member_id]
-      );
+  const approvalsWithDetails = rows.map((row: any) => {
+    const {
+      cm__id, cm__cab_id, cm__user_id, cm__role, cm__is_voting_member,
+      cm__expertise_areas, cm__is_active, cm__joined_at,
+      u__id, u__name, u__email, u__avatar_url, u__role,
+      ...approvalFields
+    } = row;
 
-      let memberWithDetails: CABMemberWithDetails | undefined;
-      if (member) {
-        const user = await executeQueryOne<User>(
-          `SELECT id, name, email, avatar_url, role FROM users WHERE id = ?`,
-          [member.user_id]
-        );
+    let memberWithDetails: CABMemberWithDetails | undefined;
+    if (cm__id) {
+      memberWithDetails = {
+        id: cm__id,
+        cab_id: cm__cab_id,
+        user_id: cm__user_id,
+        role: cm__role,
+        is_voting_member: cm__is_voting_member,
+        expertise_areas: cm__expertise_areas,
+        is_active: cm__is_active,
+        joined_at: cm__joined_at,
+        user: u__id ? {
+          id: u__id, name: u__name, email: u__email,
+          avatar_url: u__avatar_url, role: u__role,
+        } : undefined,
+      } as CABMemberWithDetails;
+    }
 
-        memberWithDetails = {
-          ...member,
-          user: user || undefined,
-        };
-      }
-
-      return {
-        ...approval,
-        cab_member: memberWithDetails,
-      };
-    })
-  );
+    return {
+      ...approvalFields,
+      cab_member: memberWithDetails,
+    };
+  });
 
   // Calculate summary
   const votingMembers = approvalsWithDetails.filter(
@@ -739,6 +773,7 @@ export async function getVotingResults(
  * Check if a meeting has quorum
  */
 export async function checkQuorum(
+  organizationId: number,
   meetingId: number
 ): Promise<{
   has_quorum: boolean;
@@ -746,10 +781,10 @@ export async function checkQuorum(
   present_members: number;
   quorum_percentage: number;
 }> {
-  // Get meeting and CAB configuration
+  // Get meeting and CAB configuration, scoped to organization
   const meeting = await executeQueryOne<CABMeeting>(
-    `SELECT * FROM cab_meetings WHERE id = ?`,
-    [meetingId]
+    `SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?`,
+    [meetingId, organizationId]
   );
 
   if (!meeting) {

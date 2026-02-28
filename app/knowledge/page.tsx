@@ -63,16 +63,12 @@ export default function KnowledgePage() {
       setLoading(true)
 
       // SECURITY: Use httpOnly cookies for authentication
-      // Buscar categorias
-      const categoriesResponse = await fetch('/api/knowledge/categories', {
-        credentials: 'include' // Use httpOnly cookies
-      })
+      // Buscar categorias e artigos em paralelo
+      const [categoriesResponse, articlesResponse] = await Promise.all([
+        fetch('/api/knowledge/categories', { credentials: 'include' }),
+        fetch('/api/knowledge/articles?status=published&limit=50', { credentials: 'include' })
+      ])
       const categoriesData = await categoriesResponse.json()
-
-      // Buscar artigos
-      const articlesResponse = await fetch('/api/knowledge/articles?status=published&limit=50', {
-        credentials: 'include' // Use httpOnly cookies
-      })
       const articlesData = await articlesResponse.json()
 
       if (categoriesData.success) {
@@ -188,7 +184,7 @@ export default function KnowledgePage() {
             {(user?.role === 'admin' || user?.role === 'agent') && (
               <div className="flex-shrink-0">
                 <a
-                  href="/knowledge/new"
+                  href="/admin/knowledge"
                   className="btn btn-primary"
                 >
                   <PlusIcon className="h-4 w-4 mr-2" />
@@ -256,7 +252,7 @@ export default function KnowledgePage() {
                   <p className="text-xs sm:text-sm text-description mb-1 line-clamp-2">
                     {category.description}
                   </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-500">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     {category.article_count} artigos
                   </p>
                 </button>
@@ -304,7 +300,7 @@ export default function KnowledgePage() {
                 </p>
                 {(userRole === 'admin' || userRole === 'agent') && (
                   <button
-                    onClick={() => router.push('/knowledge/new')}
+                    onClick={() => router.push('/admin/knowledge')}
                     className="btn btn-primary"
                   >
                     <PlusIcon className="h-4 w-4 mr-2" />

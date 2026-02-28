@@ -62,7 +62,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'agent' | 'user' | 'manager' | 'read_only' | 'api_client' | 'tenant_admin';
+  role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user';
   password_hash?: string;
   organization_id: number;
   is_active: boolean;

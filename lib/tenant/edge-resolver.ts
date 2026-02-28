@@ -48,8 +48,8 @@ export interface EdgeResolverOptions {
  */
 const DEV_DEFAULT_TENANT: EdgeTenantInfo = {
   id: 1,
-  slug: 'demo',
-  name: 'ServiceDesk Demo',
+  slug: 'default',
+  name: 'Default Organization',
 };
 
 /**

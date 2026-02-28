@@ -169,7 +169,7 @@ export default function NewProblemPage() {
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">
         {error && (
-          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3 animate-slide-down">
+          <div className="mb-6 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-center gap-3 animate-slide-down">
             <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
             <p className="text-red-800 dark:text-red-400">{error}</p>
           </div>

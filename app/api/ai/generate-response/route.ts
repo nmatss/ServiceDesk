@@ -3,7 +3,8 @@ import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isPrivileged } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const generateResponseSchema = z.object({
@@ -22,26 +23,13 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
+    const organizationId = auth.organizationId;
 
     // Verificar permissões (apenas agentes e admins podem gerar respostas)
-    if (!['agent', 'admin', 'manager'].includes(user.role)) {
+    if (!isPrivileged(auth.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
@@ -59,7 +47,7 @@ export async function POST(request: NextRequest) {
       customContext
     } = generateResponseSchema.parse(body);
 
-        // Buscar dados do ticket
+    // Buscar dados do ticket
     const ticket = await executeQueryOne<any>(`
       SELECT t.*, c.name as category_name, p.name as priority_name,
              s.name as status_name, u.name as user_name, u.email as user_email
@@ -68,8 +56,8 @@ export async function POST(request: NextRequest) {
       JOIN priorities p ON t.priority_id = p.id
       JOIN statuses s ON t.status_id = s.id
       JOIN users u ON t.user_id = u.id
-      WHERE t.id = ?
-    `, [ticketId]);
+      WHERE t.id = ? AND t.organization_id = ?
+    `, [ticketId, organizationId]);
 
     if (!ticket) {
       return NextResponse.json(
@@ -84,9 +72,10 @@ export async function POST(request: NextRequest) {
              u.name as user_name, u.role
       FROM comments c
       JOIN users u ON c.user_id = u.id
+      JOIN tickets t ON c.ticket_id = t.id AND t.organization_id = ?
       WHERE c.ticket_id = ?
       ORDER BY c.created_at ASC
-    `, [ticketId]);
+    `, [organizationId, ticketId]);
 
     // Formatar histórico para o AI
     const formattedHistory = conversationHistory.map(comment => ({
@@ -106,6 +95,7 @@ export async function POST(request: NextRequest) {
           SELECT title, content
           FROM kb_articles
           WHERE is_published = 1
+            AND (organization_id = ? OR organization_id IS NULL)
             AND (
               LOWER(title) LIKE LOWER(?) OR
               LOWER(content) LIKE LOWER(?) OR
@@ -113,7 +103,8 @@ export async function POST(request: NextRequest) {
             )
           ORDER BY helpful_votes DESC
           LIMIT ?
-        `, [`%${queryText}%`,
+        `, [organizationId,
+          `%${queryText}%`,
           `%${queryText}%`,
           `%${queryText}%`,
           maxKnowledgeArticles]);
@@ -173,7 +164,7 @@ export async function POST(request: NextRequest) {
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [user.id,
+    `, [auth.userId,
       'ai_suggestion',
       suggestionId.lastInsertRowid,
       'generate_response',
@@ -243,41 +234,32 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');
     const responseType = searchParams.get('type');
 
+    // Compute date 30 days ago for adapter-compatible queries
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
     if (ticketId) {
-      // Buscar histórico de respostas geradas para um ticket
+      // Buscar histórico de respostas geradas para um ticket (scoped by org)
       let query = `
-        SELECT * FROM ai_suggestions
-        WHERE ticket_id = ? AND suggestion_type = 'response'
+        SELECT s.* FROM ai_suggestions s
+        JOIN tickets t ON s.ticket_id = t.id AND t.organization_id = ?
+        WHERE s.ticket_id = ? AND s.suggestion_type = 'response'
       `;
-      const params = [ticketId];
+      const params: (string | number)[] = [organizationId, ticketId];
 
       if (responseType) {
-        query += ` AND content LIKE ?`;
+        query += ` AND s.content LIKE ?`;
         params.push(`%"responseType":"${responseType}"%`);
       }
 
-      query += ` ORDER BY created_at DESC`;
+      query += ` ORDER BY s.created_at DESC`;
 
       const responses = await executeQuery(query, params);
 
@@ -291,9 +273,9 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN was_helpful = 1 THEN 1 END) as helpful_count,
           AVG(LENGTH(content)) as avg_response_length
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-30 days')
+        WHERE created_at >= ?
           AND suggestion_type = 'response'
-      `);
+      `, [thirtyDaysAgo]);
 
       const responseTypeStats = await executeQuery<any>(`
         SELECT
@@ -306,11 +288,11 @@ export async function GET(request: NextRequest) {
           END as response_type,
           COUNT(*) as count
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-30 days')
+        WHERE created_at >= ?
           AND suggestion_type = 'response'
         GROUP BY response_type
         ORDER BY count DESC
-      `);
+      `, [thirtyDaysAgo]);
 
       const toneStats = await executeQuery<any>(`
         SELECT
@@ -324,11 +306,11 @@ export async function GET(request: NextRequest) {
           COUNT(*) as count,
           AVG(CASE WHEN was_helpful = 1 THEN 1.0 ELSE 0.0 END) as helpfulness_rate
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-30 days')
+        WHERE created_at >= ?
           AND suggestion_type = 'response'
         GROUP BY tone
         ORDER BY count DESC
-      `);
+      `, [thirtyDaysAgo]);
 
       return NextResponse.json({
         stats: {

@@ -420,7 +420,7 @@ export default function CABPage() {
 
                 {upcomingMeetings.length === 0 && (
                   <div className="glass-panel p-8 text-center">
-                    <CalendarDaysIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
+                    <CalendarDaysIcon className="w-12 h-12 text-neutral-400 dark:text-neutral-600 mx-auto mb-3" />
                     <h3 className="font-medium text-neutral-900 dark:text-neutral-100">Nenhuma reunião agendada</h3>
                     <button
                       onClick={() => toast.error('Criação de reuniões CAB ainda não implementada')}

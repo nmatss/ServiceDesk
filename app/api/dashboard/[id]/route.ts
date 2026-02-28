@@ -10,14 +10,15 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const guard = requireTenantUserContext(req);
     if (guard.response) return guard.response;
     const { userId } = guard.auth!;
 
-    const dashboardId = params.id;
+    const { id } = await params;
+    const dashboardId = id;
 
     // Fetch dashboard from database
     const dashboard = await executeQueryOne<{
@@ -74,14 +75,15 @@ export async function GET(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const guard = requireTenantUserContext(req);
     if (guard.response) return guard.response;
     const { userId, role } = guard.auth!;
 
-    const dashboardId = params.id;
+    const { id } = await params;
+    const dashboardId = id;
     const body = await req.json();
     const { name, description, config, is_shared } = body;
 
@@ -166,14 +168,15 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const guard = requireTenantUserContext(req);
     if (guard.response) return guard.response;
     const { userId, role } = guard.auth!;
 
-    const dashboardId = params.id;
+    const { id } = await params;
+    const dashboardId = id;
 
     // Verify ownership
     const existingDashboard = await executeQueryOne<{ user_id: number; is_default: number | boolean }>(`

@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger';
 
 interface Notification {
@@ -43,10 +44,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [usePolling, setUsePolling] = useState(false)
+  const [authFailed, setAuthFailed] = useState(false)
   const eventSourceRef = useRef<EventSource | null>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pathname = usePathname()
 
   const unreadCount = notifications.filter(n => !n.is_read).length
+
+  // Check if on auth page — skip all network requests
+  const isAuthPage = pathname?.startsWith('/auth/') || pathname === '/landing'
 
   // Fetch notifications from API
   const fetchNotifications = useCallback(async () => {
@@ -54,6 +60,21 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const response = await fetch('/api/notifications/unread', {
         credentials: 'include',
       })
+
+      if (response.status === 401) {
+        // Not authenticated — stop all polling/SSE
+        setAuthFailed(true)
+        setIsConnected(false)
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current)
+          pollingIntervalRef.current = null
+        }
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close()
+          eventSourceRef.current = null
+        }
+        return
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch notifications')
@@ -123,7 +144,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
 
   // Setup SSE connection
   useEffect(() => {
-    if (usePolling) return
+    if (usePolling || isAuthPage || authFailed) return
 
     let retryCount = 0
     const maxRetries = 3
@@ -189,11 +210,11 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         eventSourceRef.current = null
       }
     }
-  }, [usePolling, fetchNotifications])
+  }, [usePolling, isAuthPage, authFailed, fetchNotifications])
 
   // Setup polling fallback
   useEffect(() => {
-    if (!usePolling) return
+    if (!usePolling || isAuthPage || authFailed) return
 
     logger.info('Using polling for notifications')
 
@@ -209,7 +230,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         pollingIntervalRef.current = null
       }
     }
-  }, [usePolling, fetchNotifications])
+  }, [usePolling, isAuthPage, authFailed, fetchNotifications])
 
   const value = {
     notifications,

@@ -467,7 +467,7 @@ export default function ProfilePage() {
                 Alterar Senha
               </h3>
               <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                <div className="glass-panel bg-blue-50/50 dark:bg-blue-900/10 p-4 border border-blue-200 dark:border-blue-800">
+                <div className="glass-panel bg-blue-50 dark:bg-blue-950 p-4 border border-blue-200 dark:border-blue-800">
                   <div className="flex gap-3">
                     <ShieldCheckIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                     <div className="text-sm text-blue-700 dark:text-blue-300">

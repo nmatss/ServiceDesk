@@ -241,6 +241,10 @@ export default function TicketDetailsPage() {
             { label: 'Tickets', href: '/tickets' },
             { label: `#${ticket.id}` }
           ]}
+          backButton={{
+            label: 'Voltar aos tickets',
+            href: '/tickets'
+          }}
           actions={
             <div className="flex items-center space-x-3">
               <button

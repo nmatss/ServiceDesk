@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const analyzeSentimentSchema = z.object({
@@ -20,22 +20,10 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const { auth } = guard;
+    const organizationId = auth.organizationId;
 
     // Validar entrada
     const body = await request.json();
@@ -56,36 +44,40 @@ export async function POST(request: NextRequest) {
     if (ticketId) {
       const ticket = await executeQueryOne<any>(`
         SELECT t.*, c.name as category, p.name as priority, p.level as priority_level,
-               CAST((julianday('now') - julianday(t.created_at)) AS INTEGER) as days_open,
                COUNT(e.id) as escalation_level
         FROM tickets t
         JOIN categories c ON t.category_id = c.id
         JOIN priorities p ON t.priority_id = p.id
         LEFT JOIN escalations e ON t.id = e.ticket_id
-        WHERE t.id = ?
+        WHERE t.id = ? AND t.organization_id = ?
         GROUP BY t.id
-      `, [ticketId]);
+      `, [ticketId, organizationId]);
 
       if (ticket) {
+        // Calculate days open in JS instead of SQLite julianday()
+        const createdAt = new Date(ticket.created_at);
+        const daysOpen = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
         ticketContext = {
           category: ticket.category,
           priority: ticket.priority,
           priority_level: ticket.priority_level,
           priority_id: ticket.priority_id,
-          daysOpen: ticket.days_open,
+          daysOpen,
           escalationLevel: ticket.escalation_level
         };
 
         // Buscar histórico de conversas se solicitado
         if (includeHistory) {
           const comments = await executeQuery<any>(`
-            SELECT content, created_at
-            FROM comments
-            WHERE ticket_id = ?
-              AND is_internal = 0
-            ORDER BY created_at DESC
+            SELECT c.content, c.created_at
+            FROM comments c
+            JOIN tickets t ON c.ticket_id = t.id AND t.organization_id = ?
+            WHERE c.ticket_id = ?
+              AND c.is_internal = 0
+            ORDER BY c.created_at DESC
             LIMIT 10
-          `, [ticketId]);
+          `, [organizationId, ticketId]);
 
           conversationHistory = comments.map((comment: any) => ({
             message: comment.content,
@@ -143,10 +135,10 @@ export async function POST(request: NextRequest) {
         `, [targetPriorityLevel]);
 
         if (targetPriority && targetPriority.id !== ticketContext?.priority_id) {
-          // Atualizar prioridade do ticket
+          // Atualizar prioridade do ticket (scoped by org)
           await executeRun(`
-            UPDATE tickets SET priority_id = ? WHERE id = ?
-          `, [targetPriority.id, ticketId]);
+            UPDATE tickets SET priority_id = ? WHERE id = ? AND organization_id = ?
+          `, [targetPriority.id, ticketId, organizationId]);
 
           // Criar escalação automática
           await executeRun(`
@@ -156,7 +148,7 @@ export async function POST(request: NextRequest) {
             'sentiment_analysis',
             `Prioridade ajustada automaticamente devido ao sentimento ${sentimentAnalysis.sentiment} detectado`]);
 
-          // Criar notificação para agentes
+          // Criar notificação para agentes (scoped by org)
           await executeRun(`
             INSERT INTO notifications (
               user_id, ticket_id, type, title, message
@@ -165,9 +157,11 @@ export async function POST(request: NextRequest) {
             FROM users u
             WHERE u.role IN ('agent', 'admin', 'manager')
               AND u.is_active = 1
+              AND u.organization_id = ?
           `, [ticketId,
             'Ticket escalado por análise de sentimento',
-            `O ticket #${ticketId} foi escalado automaticamente devido ao sentimento negativo detectado`]);
+            `O ticket #${ticketId} foi escalado automaticamente devido ao sentimento negativo detectado`,
+            organizationId]);
 
           priorityAdjusted = true;
           newPriority = {
@@ -192,9 +186,11 @@ export async function POST(request: NextRequest) {
           FROM users u
           WHERE u.role IN ('agent', 'admin', 'manager')
             AND u.is_active = 1
+            AND u.organization_id = ?
         `, [ticketId,
           'Atenção imediata necessária',
-          `Análise de sentimento detectou urgência emocional crítica no ticket #${ticketId || 'novo'}`]);
+          `Análise de sentimento detectou urgência emocional crítica no ticket #${ticketId || 'novo'}`,
+          organizationId]);
       } catch (error) {
         logger.warn('Failed to create urgent attention notification', error);
       }
@@ -209,7 +205,7 @@ export async function POST(request: NextRequest) {
         user_id, entity_type, entity_id, action,
         new_values, ip_address
       ) VALUES (?, ?, ?, ?, ?, ?)
-    `, [user.id,
+    `, [auth.userId,
       'ai_suggestion',
       analysisId,
       'analyze_sentiment',
@@ -277,34 +273,27 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const guard = requireTenantUserContext(request);
+    if (guard.response) return guard.response;
+    const organizationId = guard.auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');
     const period = searchParams.get('period') || '30'; // days
 
+    // Compute date window in JS
+    const periodDays = parseInt(period, 10) || 30;
+    const periodStart = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
     if (ticketId) {
-      // Buscar análises de sentimento para um ticket específico
+      // Buscar análises de sentimento para um ticket específico (scoped by org)
       const analyses = await executeQuery<any>(`
-        SELECT * FROM ai_suggestions
-        WHERE ticket_id = ? AND suggestion_type = 'sentiment_analysis'
-        ORDER BY created_at DESC
-      `, [ticketId]);
+        SELECT s.* FROM ai_suggestions s
+        JOIN tickets t ON s.ticket_id = t.id AND t.organization_id = ?
+        WHERE s.ticket_id = ? AND s.suggestion_type = 'sentiment_analysis'
+        ORDER BY s.created_at DESC
+      `, [organizationId, ticketId]);
 
       return NextResponse.json({ analyses });
     } else {
@@ -317,9 +306,9 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN content LIKE '%"sentiment":"negative"%' THEN 1 END) as negative_count,
           COUNT(CASE WHEN content LIKE '%"immediateAttentionRequired":true%' THEN 1 END) as urgent_count
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-' || ? || ' days')
+        WHERE created_at >= ?
           AND suggestion_type = 'sentiment_analysis'
-      `, [period]);
+      `, [periodStart]);
 
       const frustrationStats = await executeQuery<any>(`
         SELECT
@@ -332,19 +321,19 @@ export async function GET(request: NextRequest) {
           END as frustration_level,
           COUNT(*) as count
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-' || ? || ' days')
+        WHERE created_at >= ?
           AND suggestion_type = 'sentiment_analysis'
         GROUP BY frustration_level
         ORDER BY count DESC
-      `, [period]);
+      `, [periodStart]);
 
       const escalationStats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_escalations,
           COUNT(CASE WHEN escalation_type = 'sentiment_analysis' THEN 1 END) as sentiment_escalations
         FROM escalations
-        WHERE escalated_at >= datetime('now', '-' || ? || ' days')
-      `, [period]);
+        WHERE escalated_at >= ?
+      `, [periodStart]);
 
       // Tendência de sentimento ao longo do tempo (últimos 7 dias)
       const sentimentTrend = await executeQuery<any>(`
@@ -354,11 +343,11 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN content LIKE '%"sentiment":"neutral"%' THEN 1 END) as neutral,
           COUNT(CASE WHEN content LIKE '%"sentiment":"negative"%' THEN 1 END) as negative
         FROM ai_suggestions
-        WHERE created_at >= datetime('now', '-7 days')
+        WHERE created_at >= ?
           AND suggestion_type = 'sentiment_analysis'
         GROUP BY DATE(created_at)
         ORDER BY date DESC
-      `);
+      `, [sevenDaysAgo]);
 
       return NextResponse.json({
         stats: {

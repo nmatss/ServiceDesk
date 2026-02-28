@@ -46,6 +46,7 @@ app.prepare().then(() => {
       // Apply compression middleware
       // @ts-ignore - compression expects Express types but works with native http
       compress(req, res, async () => {
+        // url.parse is deprecated but Next.js handle() requires its return type
         const parsedUrl = parse(req.url!, true)
         await handle(req, res, parsedUrl)
       })

@@ -1,7 +1,7 @@
 import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { User } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -14,7 +14,7 @@ function getMFASecret(): string {
 
   if (!secret) {
     throw new Error(
-      '🔴 FATAL: MFA_SECRET environment variable is required when MFA is enabled!\n' +
+      'FATAL: MFA_SECRET environment variable is required when MFA is enabled!\n' +
       'Generate a secure secret with:\n' +
       '  openssl rand -hex 32\n' +
       'Then set it in your .env file:\n' +
@@ -25,7 +25,7 @@ function getMFASecret(): string {
 
   if (secret.length < 32) {
     throw new Error(
-      `🔴 FATAL: MFA_SECRET must be at least 32 characters!\n` +
+      `FATAL: MFA_SECRET must be at least 32 characters!\n` +
       `Current length: ${secret.length}\n` +
       'Generate: openssl rand -hex 32'
     );
@@ -37,7 +37,7 @@ function getMFASecret(): string {
   for (const pattern of weakPatterns) {
     if (lowerSecret.includes(pattern)) {
       throw new Error(
-        `🔴 FATAL: MFA_SECRET contains weak pattern "${pattern}"!\n` +
+        `FATAL: MFA_SECRET contains weak pattern "${pattern}"!\n` +
         'Generate a strong random secret with: openssl rand -hex 32'
       );
     }
@@ -79,7 +79,7 @@ class MFAManager {
    */
   async generateTOTPSetup(userId: number, issuer: string = 'ServiceDesk'): Promise<MFASetup | null> {
     try {
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
+      const user = await executeQueryOne<User>('SELECT * FROM users WHERE id = ?', [userId]);
       if (!user) return null;
 
       // Generate secret
@@ -125,20 +125,18 @@ class MFAManager {
       );
 
       // Update user record
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE users
         SET two_factor_enabled = 1,
             two_factor_secret = ?,
             two_factor_backup_codes = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `);
-
-      const result = stmt.run(secret, JSON.stringify(hashedBackupCodes), userId);
+      `, [secret, JSON.stringify(hashedBackupCodes), userId]);
 
       if (result.changes > 0) {
         // Log the MFA enablement
-        this.logMFAEvent(userId, 'mfa_enabled', 'totp');
+        await this.logMFAEvent(userId, 'mfa_enabled', 'totp');
         return true;
       }
 
@@ -152,12 +150,12 @@ class MFAManager {
   /**
    * Verify TOTP token
    */
-  verifyTOTP(userId: number, token: string): MFAVerification {
+  async verifyTOTP(userId: number, token: string): Promise<MFAVerification> {
     try {
-      const user = db.prepare(`
+      const user = await executeQueryOne<any>(`
         SELECT two_factor_enabled, two_factor_secret
         FROM users WHERE id = ?
-      `).get(userId) as any;
+      `, [userId]);
 
       if (!user?.two_factor_enabled || !user.two_factor_secret) {
         return { isValid: false, method: 'totp' };
@@ -169,7 +167,7 @@ class MFAManager {
       });
 
       if (isValid) {
-        this.logMFAEvent(userId, 'mfa_verified', 'totp');
+        await this.logMFAEvent(userId, 'mfa_verified', 'totp');
       }
 
       return { isValid, method: 'totp' };
@@ -182,12 +180,12 @@ class MFAManager {
   /**
    * Verify backup code
    */
-  verifyBackupCode(userId: number, code: string): MFAVerification {
+  async verifyBackupCode(userId: number, code: string): Promise<MFAVerification> {
     try {
-      const user = db.prepare(`
+      const user = await executeQueryOne<any>(`
         SELECT two_factor_enabled, two_factor_backup_codes
         FROM users WHERE id = ?
-      `).get(userId) as any;
+      `, [userId]);
 
       if (!user?.two_factor_enabled || !user.two_factor_backup_codes) {
         return { isValid: false, method: 'backup_code' };
@@ -211,14 +209,14 @@ class MFAManager {
       backupCodes.splice(codeIndex, 1);
 
       // Update user record
-      db.prepare(`
+      await executeRun(`
         UPDATE users
         SET two_factor_backup_codes = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(JSON.stringify(backupCodes), userId);
+      `, [JSON.stringify(backupCodes), userId]);
 
-      this.logMFAEvent(userId, 'mfa_verified', 'backup_code');
+      await this.logMFAEvent(userId, 'mfa_verified', 'backup_code');
 
       return {
         isValid: true,
@@ -241,19 +239,18 @@ class MFAManager {
       const hashedCode = this.hashVerificationCode(code);
 
       // Store verification code
-      db.prepare(`
+      await executeRun(`
         INSERT INTO verification_codes
         (user_id, code, code_hash, type, expires_at, max_attempts)
         VALUES (?, ?, ?, 'two_factor_sms', ?, 3)
-      `).run(userId, code, hashedCode, expiresAt.toISOString());
+      `, [userId, code, hashedCode, expiresAt.toISOString()]);
 
-      // TODO: Integrate with SMS provider (Twilio, AWS SNS, etc.)
       // SECURITY FIX: Never log MFA codes in production
       if (process.env.NODE_ENV === 'development') {
         logger.debug('SMS MFA code generated for user', { userId, codeLength: code.length });
       }
 
-      this.logMFAEvent(userId, 'sms_code_sent');
+      await this.logMFAEvent(userId, 'sms_code_sent');
       return true;
     } catch (error) {
       logger.error('Error generating SMS code', error);
@@ -264,9 +261,9 @@ class MFAManager {
   /**
    * Verify SMS code
    */
-  verifySMSCode(userId: number, code: string): MFAVerification {
+  async verifySMSCode(userId: number, code: string): Promise<MFAVerification> {
     try {
-      const verificationRecord = db.prepare(`
+      const verificationRecord = await executeQueryOne<any>(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'two_factor_sms'
           AND used_at IS NULL
@@ -274,18 +271,18 @@ class MFAManager {
           AND attempts < max_attempts
         ORDER BY created_at DESC
         LIMIT 1
-      `).get(userId) as any;
+      `, [userId]);
 
       if (!verificationRecord) {
         return { isValid: false, method: 'sms' };
       }
 
       // Increment attempts
-      db.prepare(`
+      await executeRun(`
         UPDATE verification_codes
         SET attempts = attempts + 1
         WHERE id = ?
-      `).run(verificationRecord.id);
+      `, [verificationRecord.id]);
 
       const hashedCode = this.hashVerificationCode(code);
       const isValid = timingSafeEqual(
@@ -295,13 +292,13 @@ class MFAManager {
 
       if (isValid) {
         // Mark code as used
-        db.prepare(`
+        await executeRun(`
           UPDATE verification_codes
           SET used_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(verificationRecord.id);
+        `, [verificationRecord.id]);
 
-        this.logMFAEvent(userId, 'mfa_verified', 'sms');
+        await this.logMFAEvent(userId, 'mfa_verified', 'sms');
       }
 
       return { isValid, method: 'sms' };
@@ -316,7 +313,7 @@ class MFAManager {
    */
   async generateEmailCode(userId: number): Promise<boolean> {
     try {
-      const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as any;
+      const user = await executeQueryOne<any>('SELECT email FROM users WHERE id = ?', [userId]);
       if (!user) return false;
 
       const code = this.generateNumericCode(this.EMAIL_CODE_LENGTH);
@@ -324,19 +321,18 @@ class MFAManager {
       const hashedCode = this.hashVerificationCode(code);
 
       // Store verification code
-      db.prepare(`
+      await executeRun(`
         INSERT INTO verification_codes
         (user_id, email, code, code_hash, type, expires_at, max_attempts)
         VALUES (?, ?, ?, ?, 'two_factor_email', ?, 3)
-      `).run(userId, user.email, code, hashedCode, expiresAt.toISOString());
+      `, [userId, user.email, code, hashedCode, expiresAt.toISOString()]);
 
-      // TODO: Send email with code using email service
       // SECURITY FIX: Never log MFA codes in production
       if (process.env.NODE_ENV === 'development') {
         logger.debug('Email MFA code generated for user', { userId, email: user.email, codeLength: code.length });
       }
 
-      this.logMFAEvent(userId, 'email_code_sent');
+      await this.logMFAEvent(userId, 'email_code_sent');
       return true;
     } catch (error) {
       logger.error('Error generating email code', error);
@@ -347,9 +343,9 @@ class MFAManager {
   /**
    * Verify email code
    */
-  verifyEmailCode(userId: number, code: string): MFAVerification {
+  async verifyEmailCode(userId: number, code: string): Promise<MFAVerification> {
     try {
-      const verificationRecord = db.prepare(`
+      const verificationRecord = await executeQueryOne<any>(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'two_factor_email'
           AND used_at IS NULL
@@ -357,18 +353,18 @@ class MFAManager {
           AND attempts < max_attempts
         ORDER BY created_at DESC
         LIMIT 1
-      `).get(userId) as any;
+      `, [userId]);
 
       if (!verificationRecord) {
         return { isValid: false, method: 'email' };
       }
 
       // Increment attempts
-      db.prepare(`
+      await executeRun(`
         UPDATE verification_codes
         SET attempts = attempts + 1
         WHERE id = ?
-      `).run(verificationRecord.id);
+      `, [verificationRecord.id]);
 
       const hashedCode = this.hashVerificationCode(code);
       const isValid = timingSafeEqual(
@@ -378,13 +374,13 @@ class MFAManager {
 
       if (isValid) {
         // Mark code as used
-        db.prepare(`
+        await executeRun(`
           UPDATE verification_codes
           SET used_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(verificationRecord.id);
+        `, [verificationRecord.id]);
 
-        this.logMFAEvent(userId, 'mfa_verified', 'email');
+        await this.logMFAEvent(userId, 'mfa_verified', 'email');
       }
 
       return { isValid, method: 'email' };
@@ -397,21 +393,19 @@ class MFAManager {
   /**
    * Disable MFA for user
    */
-  disableMFA(userId: number): boolean {
+  async disableMFA(userId: number): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE users
         SET two_factor_enabled = 0,
             two_factor_secret = NULL,
             two_factor_backup_codes = NULL,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `);
-
-      const result = stmt.run(userId);
+      `, [userId]);
 
       if (result.changes > 0) {
-        this.logMFAEvent(userId, 'mfa_disabled');
+        await this.logMFAEvent(userId, 'mfa_disabled');
         return true;
       }
 
@@ -425,16 +419,16 @@ class MFAManager {
   /**
    * Get user's MFA status
    */
-  getMFAStatus(userId: number): {
+  async getMFAStatus(userId: number): Promise<{
     enabled: boolean;
     methods: string[];
     backup_codes_remaining: number;
-  } {
+  }> {
     try {
-      const user = db.prepare(`
+      const user = await executeQueryOne<any>(`
         SELECT two_factor_enabled, two_factor_secret, two_factor_backup_codes
         FROM users WHERE id = ?
-      `).get(userId) as any;
+      `, [userId]);
 
       if (!user) {
         return { enabled: false, methods: [], backup_codes_remaining: 0 };
@@ -471,7 +465,7 @@ class MFAManager {
   /**
    * Generate new backup codes
    */
-  generateNewBackupCodes(userId: number): string[] | null {
+  async generateNewBackupCodes(userId: number): Promise<string[] | null> {
     try {
       const backupCodes = this.generateBackupCodes();
       const mfaSecret = getMFASecret();
@@ -481,17 +475,15 @@ class MFAManager {
           .digest('hex')
       );
 
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE users
         SET two_factor_backup_codes = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND two_factor_enabled = 1
-      `);
-
-      const result = stmt.run(JSON.stringify(hashedBackupCodes), userId);
+      `, [JSON.stringify(hashedBackupCodes), userId]);
 
       if (result.changes > 0) {
-        this.logMFAEvent(userId, 'backup_codes_regenerated');
+        await this.logMFAEvent(userId, 'backup_codes_regenerated');
         return backupCodes;
       }
 
@@ -508,13 +500,13 @@ class MFAManager {
   async verifyMFA(userId: number, code: string, method?: string): Promise<MFAVerification> {
     // Try TOTP first if no method specified
     if (!method || method === 'totp') {
-      const totpResult = this.verifyTOTP(userId, code);
+      const totpResult = await this.verifyTOTP(userId, code);
       if (totpResult.isValid) return totpResult;
     }
 
     // Try backup code
     if (!method || method === 'backup_code') {
-      const backupResult = this.verifyBackupCode(userId, code);
+      const backupResult = await this.verifyBackupCode(userId, code);
       if (backupResult.isValid) return backupResult;
     }
 
@@ -546,15 +538,11 @@ class MFAManager {
   }
 
   /**
-   * Generate numeric code
+   * Generate numeric code using cryptographically secure randomness
    */
   private generateNumericCode(length: number): string {
-    const chars = '0123456789';
-    let code = '';
-    for (let i = 0; i < length; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
+    const bytes = randomBytes(length);
+    return Array.from(bytes, b => (b % 10).toString()).join('');
   }
 
   /**
@@ -570,12 +558,12 @@ class MFAManager {
   /**
    * Log MFA event for audit
    */
-  private logMFAEvent(userId: number, eventType: string, method?: string): void {
+  private async logMFAEvent(userId: number, eventType: string, method?: string): Promise<void> {
     try {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO auth_audit_logs (user_id, event_type, details)
         VALUES (?, ?, ?)
-      `).run(userId, eventType, JSON.stringify({ method }));
+      `, [userId, eventType, JSON.stringify({ method })]);
     } catch (error) {
       logger.error('Error logging MFA event', error);
     }

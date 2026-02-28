@@ -181,7 +181,91 @@ class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   async transaction<T>(callback: (db: DatabaseAdapter) => Promise<T>): Promise<T> {
-    return await this.db.transaction(async () => await callback(this));
+    // Acquire a dedicated client so every query in the callback runs on the
+    // same connection (and therefore inside the same transaction).
+    const pool = (this.db as any).pool as import('pg').Pool;
+    if (!pool || typeof pool.connect !== 'function') {
+      // Fallback: delegate to PostgresConnection.transaction which already
+      // does client-scoped work internally.
+      return await this.db.transaction(async () => await callback(this));
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const self = this; // for convertPlaceholders access
+      const clientAdapter: DatabaseAdapter = {
+        query: async <R = any>(sql: string, params?: any[]): Promise<R[]> => {
+          const converted = self.convertPlaceholders(sql);
+          const result = await client.query(converted, params || []);
+          return result.rows as R[];
+        },
+        get: async <R = any>(sql: string, params?: any[]): Promise<R | undefined> => {
+          const converted = self.convertPlaceholders(sql);
+          const result = await client.query(converted, params || []);
+          return result.rows[0] as R | undefined;
+        },
+        all: async <R = any>(sql: string, params?: any[]): Promise<R[]> => {
+          const converted = self.convertPlaceholders(sql);
+          const result = await client.query(converted, params || []);
+          return result.rows as R[];
+        },
+        run: async (sql: string, params?: any[]): Promise<RunResult> => {
+          const converted = self.convertPlaceholders(sql);
+          const result = await client.query(converted, params || []);
+          const firstRow = result.rows[0] as any;
+          return {
+            changes: result.rowCount ?? 0,
+            lastInsertRowid: firstRow?.id != null ? Number(firstRow.id) : undefined,
+          };
+        },
+        prepare: (sql: string): PreparedStatement => {
+          const converted = self.convertPlaceholders(sql);
+          return {
+            get: async <R = any>(...params: any[]): Promise<R | undefined> => {
+              const result = await client.query(converted, params);
+              return result.rows[0] as R | undefined;
+            },
+            all: async <R = any>(...params: any[]): Promise<R[]> => {
+              const result = await client.query(converted, params);
+              return result.rows as R[];
+            },
+            run: async (...params: any[]): Promise<RunResult> => {
+              const result = await client.query(converted, params);
+              const firstRow = result.rows[0] as any;
+              return {
+                changes: result.rowCount ?? 0,
+                lastInsertRowid: firstRow?.id != null ? Number(firstRow.id) : undefined,
+              };
+            },
+          };
+        },
+        transaction: async <U>(cb: (db: DatabaseAdapter) => Promise<U>): Promise<U> => {
+          // Nested transactions use savepoints
+          await client.query('SAVEPOINT nested_tx');
+          try {
+            const result = await cb(clientAdapter);
+            await client.query('RELEASE SAVEPOINT nested_tx');
+            return result;
+          } catch (error) {
+            await client.query('ROLLBACK TO SAVEPOINT nested_tx');
+            throw error;
+          }
+        },
+        getType: () => 'postgresql' as const,
+        isAsync: () => true,
+      };
+
+      const result = await callback(clientAdapter);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   getType(): 'postgresql' {
