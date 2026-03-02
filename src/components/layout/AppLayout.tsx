@@ -17,6 +17,7 @@ interface User {
   name: string
   email: string
   role: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
+  organization_id: number
 }
 
 // Public routes that don't require authentication
@@ -92,7 +93,8 @@ function AppLayoutContent({ children }: AppLayoutProps) {
               id: responseData.user.id,
               name: responseData.user.name,
               email: responseData.user.email,
-              role: responseData.user.role as 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
+              role: responseData.user.role as 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user',
+              organization_id: responseData.user.organization_id || responseData.user.tenant_id || 0
             }
             setUser(authUser)
             // Populate global auth cache so useRequireAuth() on page components
@@ -224,6 +226,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           open={sidebarOpen}
           setOpen={handleUserToggleSidebar}
           userRole={user?.role || 'user'}
+          organizationId={user?.organization_id || 0}
         />
 
         {/* Main content area */}

@@ -26,7 +26,9 @@ import {
   ClipboardDocumentListIcon,
   PresentationChartLineIcon,
   WrenchScrewdriverIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  BuildingOffice2Icon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -40,6 +42,7 @@ interface SidebarProps {
   open: boolean
   setOpen: (open: boolean) => void
   userRole: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
+  organizationId?: number
 }
 
 interface MenuItem {
@@ -58,7 +61,7 @@ interface SubMenuItem {
   badge?: number | string
 }
 
-export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
+export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }: SidebarProps) {
   const pathname = usePathname()
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
   const [ticketCounts, setTicketCounts] = useState({
@@ -334,6 +337,17 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
   const menuItems = useMemo(() => getMenuItems(), [userRole, ticketCounts])
 
+  // Super Admin menu — visible only to org 1 users
+  const isSuperAdmin = organizationId === 1
+
+  const superAdminItems: SubMenuItem[] = [
+    { name: 'Dashboard', href: '/admin/super', icon: GlobeAltIcon },
+    { name: 'Organizações', href: '/admin/super/organizations', icon: BuildingOffice2Icon },
+    { name: 'Usuários Globais', href: '/admin/super/users', icon: UserGroupIcon },
+    { name: 'Auditoria', href: '/admin/super/audit', icon: ClipboardDocumentListIcon },
+    { name: 'Configurações', href: '/admin/super/settings', icon: Cog6ToothIcon },
+  ]
+
   const isActive = (href: string) => {
     if (href === '/admin' && pathname === '/admin') return true
     if (href === '/dashboard' && pathname === '/dashboard') return true
@@ -370,6 +384,72 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
         role="navigation"
         aria-label="Menu principal"
       >
+        {/* Super Admin Section */}
+        {isSuperAdmin && (
+          <div className="mb-4">
+            <button
+              onClick={() => toggleSubmenu('SuperAdmin')}
+              onKeyDown={(e) => handleSubmenuKeyDown(e, 'SuperAdmin')}
+              className={`
+                sidebar-item min-h-touch transition-colors duration-150 w-full
+                ${pathname.startsWith('/admin/super') ? 'sidebar-item-active' : ''}
+              `}
+              aria-expanded={expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super')}
+              aria-controls="submenu-SuperAdmin"
+              aria-label={`${expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super') ? 'Fechar' : 'Abrir'} submenu Super Admin`}
+            >
+              <ShieldCheckIcon className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 text-amber-500 dark:text-amber-400" aria-hidden="true" />
+              {open && (
+                <>
+                  <span className="ml-3 flex-1 text-left truncate font-semibold text-amber-700 dark:text-amber-300">Super Admin</span>
+                  <ChevronDownIcon
+                    className={`h-4 w-4 ml-1 transition-transform duration-200 ${
+                      expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super') ? 'rotate-180' : ''
+                    }`}
+                    aria-hidden="true"
+                  />
+                </>
+              )}
+            </button>
+
+            {open && (expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super')) && (
+              <div
+                id="submenu-SuperAdmin"
+                className="ml-4 mt-2 space-y-1 animate-slide-down"
+                role="group"
+                aria-label="Super Admin submenu"
+              >
+                {superAdminItems.map((subItem) => {
+                  const isSubActive = subItem.href === '/admin/super'
+                    ? pathname === '/admin/super'
+                    : pathname.startsWith(subItem.href)
+                  return (
+                    <Link
+                      key={subItem.href}
+                      href={subItem.href}
+                      className={`
+                        flex items-center px-4 py-2 min-h-touch text-sm rounded-lg
+                        transition-colors duration-150
+                        ${isSubActive
+                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                          : 'text-description hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                        }
+                      `}
+                      aria-current={isSubActive ? 'page' : undefined}
+                    >
+                      <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" aria-hidden="true" />
+                      <span className="ml-3 flex-1 truncate">{subItem.name}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Separator */}
+            <div className="mt-3 mb-2 border-t border-neutral-200 dark:border-neutral-700" />
+          </div>
+        )}
+
         {menuItems.map((item) => {
           const isItemActive = isActive(item.href)
           const hasActiveChild = hasActiveSubmenu(item.submenu)
