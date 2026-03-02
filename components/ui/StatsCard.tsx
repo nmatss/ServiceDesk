@@ -110,7 +110,7 @@ const colorConfig = {
 
 const sizeConfig = {
   sm: {
-    container: 'p-4',
+    container: 'p-3 sm:p-4',
     icon: 'h-5 w-5',
     iconContainer: 'p-2',
     title: 'text-xs',
@@ -118,20 +118,20 @@ const sizeConfig = {
     change: 'text-xs'
   },
   md: {
-    container: 'p-5',
-    icon: 'h-6 w-6',
-    iconContainer: 'p-3',
-    title: 'text-sm',
-    value: 'text-2xl',
-    change: 'text-sm'
+    container: 'p-4 sm:p-5',
+    icon: 'h-5 w-5 sm:h-6 sm:w-6',
+    iconContainer: 'p-2 sm:p-3',
+    title: 'text-xs sm:text-sm',
+    value: 'text-xl sm:text-2xl',
+    change: 'text-xs sm:text-sm'
   },
   lg: {
-    container: 'p-6',
-    icon: 'h-8 w-8',
-    iconContainer: 'p-4',
-    title: 'text-base',
-    value: 'text-3xl',
-    change: 'text-base'
+    container: 'p-4 sm:p-6',
+    icon: 'h-6 w-6 sm:h-8 sm:w-8',
+    iconContainer: 'p-3 sm:p-4',
+    title: 'text-sm sm:text-base',
+    value: 'text-2xl sm:text-3xl',
+    change: 'text-sm sm:text-base'
   }
 }
 

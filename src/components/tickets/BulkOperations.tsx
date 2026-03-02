@@ -422,13 +422,13 @@ export function BulkOperations({
       case 'assign':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Assign to Agent
             </label>
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select an agent...</option>
               {users.filter(u => u.role === 'agent' || u.role === 'admin').map(user => (
@@ -443,13 +443,13 @@ export function BulkOperations({
       case 'category':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               New Category
             </label>
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select a category...</option>
               {categories.map(category => (
@@ -464,13 +464,13 @@ export function BulkOperations({
       case 'priority':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               New Priority
             </label>
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select a priority...</option>
               {priorities.map(priority => (
@@ -485,13 +485,13 @@ export function BulkOperations({
       case 'status':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               New Status
             </label>
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select a status...</option>
               {statuses.map(status => (
@@ -506,7 +506,7 @@ export function BulkOperations({
       case 'comment':
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Comment Text
             </label>
             <textarea
@@ -514,7 +514,7 @@ export function BulkOperations({
               onChange={(e) => setOperationValue(e.target.value)}
               rows={3}
               placeholder="Enter comment to add to all selected tickets..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white resize-none"
             />
           </div>
         );
@@ -522,14 +522,14 @@ export function BulkOperations({
       default:
         return (
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Value
             </label>
             <input
               type="text"
               value={operationValue || ''}
               onChange={(e) => setOperationValue(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
             />
           </div>
         );
@@ -538,7 +538,7 @@ export function BulkOperations({
 
   if (selectedTickets.length === 0) {
     return (
-      <div className={`p-6 text-center text-gray-500 dark:text-gray-400 ${className}`}>
+      <div className={`p-6 text-center text-neutral-500 dark:text-neutral-400 ${className}`}>
         <Cog6ToothIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
         <p>Select tickets to perform bulk operations</p>
       </div>
@@ -548,14 +548,14 @@ export function BulkOperations({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Selection Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          <h3 className="text-lg font-medium text-neutral-900 dark:text-white">
             Bulk Operations ({selectedTickets.length} tickets selected)
           </h3>
           <button
             onClick={onClearSelection}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -568,25 +568,25 @@ export function BulkOperations({
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {selectedTickets.length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Total Selected</div>
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">Total Selected</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {Object.keys(stats.byStatus).length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Different Statuses</div>
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">Different Statuses</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {Object.keys(stats.byPriority).length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Priority Levels</div>
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">Priority Levels</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {Object.keys(stats.byCategory).length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Categories</div>
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">Categories</div>
             </div>
           </div>
         )}
@@ -606,8 +606,8 @@ export function BulkOperations({
 
       {/* Operation Selection */}
       {!selectedOperation && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
+          <h4 className="text-lg font-medium text-neutral-900 dark:text-white mb-4">
             Choose Operation
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -615,12 +615,12 @@ export function BulkOperations({
               <button
                 key={operation.type}
                 onClick={() => handleOperationSelect(operation)}
-                className={`p-4 border rounded-lg text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                className={`p-4 border rounded-lg text-left hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors ${
                   operation.dangerLevel === 'high'
                     ? 'border-red-200 dark:border-red-800 hover:border-red-300'
                     : operation.dangerLevel === 'medium'
                     ? 'border-orange-200 dark:border-orange-800 hover:border-orange-300'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
+                    : 'border-neutral-200 dark:border-neutral-600 hover:border-neutral-300'
                 }`}
               >
                 <div className="flex items-center space-x-3">
@@ -630,10 +630,10 @@ export function BulkOperations({
                     'text-blue-500'
                   }`} />
                   <div>
-                    <div className="font-medium text-gray-900 dark:text-white">
+                    <div className="font-medium text-neutral-900 dark:text-white">
                       {operation.name}
                     </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-neutral-500 dark:text-neutral-400">
                       {operation.description}
                     </div>
                   </div>
@@ -646,15 +646,15 @@ export function BulkOperations({
 
       {/* Operation Configuration */}
       {selectedOperation && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+            <h4 className="text-lg font-medium text-neutral-900 dark:text-white flex items-center">
               <selectedOperation.icon className="h-5 w-5 mr-2" />
               {selectedOperation.name}
             </h4>
             <button
               onClick={() => setSelectedOperation(null)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -665,7 +665,7 @@ export function BulkOperations({
 
             {/* Optional comment */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Optional Comment
               </label>
               <input
@@ -673,7 +673,7 @@ export function BulkOperations({
                 value={operationComment}
                 onChange={(e) => setOperationComment(e.target.value)}
                 placeholder="Add a comment to this operation..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
               />
             </div>
 
@@ -699,7 +699,7 @@ export function BulkOperations({
                   </button>
                   <button
                     onClick={() => setShowConfirmation(false)}
-                    className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                    className="px-3 py-1 bg-neutral-600 text-white rounded text-sm hover:bg-neutral-700"
                   >
                     Cancel
                   </button>
@@ -711,7 +711,7 @@ export function BulkOperations({
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setSelectedOperation(null)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700"
               >
                 Cancel
               </button>
@@ -735,17 +735,17 @@ export function BulkOperations({
 
       {/* Active Jobs */}
       {showProgress && activeJobs.size > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
+          <h4 className="text-lg font-medium text-neutral-900 dark:text-white mb-4">
             Active Operations
           </h4>
           <div className="space-y-4">
             {Array.from(activeJobs.values()).map((job) => (
-              <div key={job.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <div key={job.id} className="border border-neutral-200 dark:border-neutral-600 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
                     <job.operation.icon className="h-5 w-5 text-blue-500" />
-                    <span className="font-medium text-gray-900 dark:text-white">
+                    <span className="font-medium text-neutral-900 dark:text-white">
                       {job.operation.name}
                     </span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -753,7 +753,7 @@ export function BulkOperations({
                       job.status === 'paused' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                       job.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                       job.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                      'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200'
                     }`}>
                       {job.status}
                     </span>
@@ -762,7 +762,7 @@ export function BulkOperations({
                     {job.status === 'running' && (
                       <button
                         onClick={() => handleJobControl(job.id, 'pause')}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                       >
                         <PauseIcon className="h-4 w-4" />
                       </button>
@@ -770,14 +770,14 @@ export function BulkOperations({
                     {job.status === 'paused' && (
                       <button
                         onClick={() => handleJobControl(job.id, 'resume')}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                       >
                         <PlayIcon className="h-4 w-4" />
                       </button>
                     )}
                     <button
                       onClick={() => handleJobControl(job.id, 'cancel')}
-                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                      className="text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
                     >
                       <XMarkIcon className="h-4 w-4" />
                     </button>
@@ -794,7 +794,7 @@ export function BulkOperations({
                       {((job.progress.completed / job.progress.total) * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(job.progress.completed / job.progress.total) * 100}%` }}
@@ -821,19 +821,19 @@ export function BulkOperations({
 
       {/* Job History */}
       {jobHistory.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
+          <h4 className="text-lg font-medium text-neutral-900 dark:text-white mb-4">
             Recent Operations
           </h4>
           <div className="space-y-2">
             {jobHistory.slice(0, 5).map((job) => (
-              <div key={job.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+              <div key={job.id} className="flex items-center justify-between py-2 border-b border-neutral-100 dark:border-neutral-700 last:border-b-0">
                 <div className="flex items-center space-x-2">
-                  <job.operation.icon className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-900 dark:text-white">
+                  <job.operation.icon className="h-4 w-4 text-neutral-400" />
+                  <span className="text-sm text-neutral-900 dark:text-white">
                     {job.operation.name}
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="text-sm text-neutral-500 dark:text-neutral-400">
                     ({job.progress.total} tickets)
                   </span>
                 </div>
@@ -842,7 +842,7 @@ export function BulkOperations({
                     {job.status}
                   </span>
                   {job.completedAt && (
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-neutral-500 dark:text-neutral-400">
                       {job.completedAt.toLocaleTimeString()}
                     </span>
                   )}

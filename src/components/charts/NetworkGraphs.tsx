@@ -392,7 +392,7 @@ export function AgentCollaborationNetwork({
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Agent Collaboration Network
         </h3>
         <p className="text-sm text-description">
@@ -404,7 +404,7 @@ export function AgentCollaborationNetwork({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700"
       />
 
       {/* Selection Information */}
@@ -424,26 +424,26 @@ export function AgentCollaborationNetwork({
 
       {/* Network Statistics */}
       <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
+        <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+          <div className="text-lg font-bold text-neutral-900 dark:text-white">
             {data.nodes.length}
           </div>
           <div className="text-sm text-description">Nodes</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
+        <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+          <div className="text-lg font-bold text-neutral-900 dark:text-white">
             {data.links.length}
           </div>
           <div className="text-sm text-description">Connections</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
+        <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+          <div className="text-lg font-bold text-neutral-900 dark:text-white">
             {(data.links.reduce((sum, link) => sum + link.value, 0) / data.links.length).toFixed(1)}
           </div>
           <div className="text-sm text-description">Avg Strength</div>
         </div>
-        <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
+        <div className="text-center p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+          <div className="text-lg font-bold text-neutral-900 dark:text-white">
             {Math.max(...data.nodes.map(node =>
               data.links.filter(link =>
                 (link.source as any).id === node.id || (link.target as any).id === node.id
@@ -456,7 +456,7 @@ export function AgentCollaborationNetwork({
 
       {/* Legend */}
       <div className="mt-4">
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Legend</h4>
+        <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Legend</h4>
         <div className="flex flex-wrap gap-4">
           {/* Node Types */}
           <div className="flex items-center space-x-2">
@@ -492,7 +492,7 @@ export function AgentCollaborationNetwork({
         </div>
       </div>
 
-      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
         💡 Tip: Drag nodes to rearrange, zoom with mouse wheel, hover for details
       </div>
     </div>
@@ -524,7 +524,7 @@ export function NetworkGraphs({
       return (
         <div className="w-full">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
               Escalation Network
             </h3>
             <p className="text-sm text-description">
@@ -545,7 +545,7 @@ export function NetworkGraphs({
       return (
         <div className="w-full">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
               Communication Network
             </h3>
             <p className="text-sm text-description">

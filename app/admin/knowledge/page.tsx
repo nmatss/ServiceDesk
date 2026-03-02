@@ -403,17 +403,17 @@ export default function KnowledgePage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      className="btn btn-secondary"
+                      className="btn btn-secondary min-h-[44px] min-w-[44px]"
                       onClick={() => logger.info('Edit article', article.id)}
-                      aria-label="Editar artigo"
+                      aria-label={`Editar artigo ${article.title}`}
                     >
                       <PencilIcon className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteArticle(article.id)}
-                      className="btn btn-danger"
-                      aria-label="Excluir artigo"
+                      className="btn btn-danger min-h-[44px] min-w-[44px]"
+                      aria-label={`Excluir artigo ${article.title}`}
                     >
                       <TrashIcon className="h-4 w-4" />
                     </button>

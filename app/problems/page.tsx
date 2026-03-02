@@ -107,7 +107,7 @@ export default function ProblemsPage() {
           router.push('/auth/login');
           return;
         }
-        throw new Error('Failed to fetch problems');
+        throw new Error('Erro ao buscar problemas');
       }
 
       const data = await response.json();
@@ -121,11 +121,10 @@ export default function ProblemsPage() {
           totalPages: result.totalPages,
         }));
       } else {
-        setError(data.error || 'Failed to fetch problems');
+        setError(data.error || 'Erro ao buscar problemas');
       }
-    } catch (err) {
-      console.error('Error fetching problems:', err);
-      setError('Failed to load problems');
+    } catch {
+      setError('Erro ao carregar problemas');
     } finally {
       setLoading(false);
     }
@@ -158,7 +157,8 @@ export default function ProblemsPage() {
         actions={
           <Link
             href="/problems/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md min-h-[44px]"
+            aria-label="Registrar novo problema"
           >
             <PlusIcon className="w-5 h-5" />
             Novo Problema
@@ -178,20 +178,24 @@ export default function ProblemsPage() {
                 placeholder="Buscar problemas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200"
+                aria-label="Buscar problemas"
+                className="w-full pl-10 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 h-11 text-base sm:text-sm sm:h-auto"
               />
             </div>
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
+              aria-label={showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+              aria-expanded={showFilters}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition-all duration-200 min-h-[44px]"
             >
               <FunnelIcon className="w-5 h-5" />
               Filtros
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md"
+              aria-label="Buscar problemas"
+              className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 shadow-sm hover:shadow-md min-h-[44px]"
             >
               Buscar
             </button>
@@ -207,7 +211,8 @@ export default function ProblemsPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as ProblemStatus | '')}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200"
+                  aria-label="Filtrar por status"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200 min-h-[44px]"
                 >
                   <option value="">Todos</option>
                   <option value="open">Aberto</option>
@@ -225,7 +230,8 @@ export default function ProblemsPage() {
                 <select
                   value={impactFilter}
                   onChange={(e) => setImpactFilter(e.target.value as ProblemImpact | '')}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200"
+                  aria-label="Filtrar por impacto"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white transition-all duration-200 min-h-[44px]"
                 >
                   <option value="">Todos</option>
                   <option value="low">Baixo</option>
@@ -242,7 +248,7 @@ export default function ProblemsPage() {
                     setImpactFilter('');
                     setSearchQuery('');
                   }}
-                  className="px-4 py-2 text-description hover:text-neutral-900 dark:hover:text-white transition-all duration-200"
+                  className="px-4 py-2 text-description hover:text-neutral-900 dark:hover:text-white transition-all duration-200 min-h-[44px]"
                 >
                   Limpar Filtros
                 </button>
@@ -362,7 +368,8 @@ export default function ProblemsPage() {
               <button
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
-                className="p-2 border border-neutral-300 dark:border-neutral-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
+                aria-label="Página anterior"
+                className="p-2 border border-neutral-300 dark:border-neutral-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
@@ -372,7 +379,8 @@ export default function ProblemsPage() {
               <button
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.totalPages}
-                className="p-2 border border-neutral-300 dark:border-neutral-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
+                aria-label="Próxima página"
+                className="p-2 border border-neutral-300 dark:border-neutral-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <ChevronRightIcon className="w-5 h-5" />
               </button>

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MobileNav } from '@/src/components/mobile/MobileNav'
+import { logger } from '@/lib/monitoring/logger'
 import {
   XMarkIcon,
   QrCodeIcon,
@@ -47,7 +48,7 @@ export default function MobileScanPage() {
       // Start scanning
       scanQRCode()
     } catch (error) {
-      console.error('Camera access error:', error)
+      logger.error('Camera access error:', error)
       setHasPermission(false)
     }
   }
@@ -74,7 +75,7 @@ export default function MobileScanPage() {
         })
         setTorchEnabled(!torchEnabled)
       } catch (error) {
-        console.error('Torch error:', error)
+        logger.error('Torch error:', error)
       }
     }
   }
@@ -136,7 +137,7 @@ export default function MobileScanPage() {
       <div className="flex items-center justify-center min-h-screen bg-neutral-900 dark:bg-neutral-950">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-brand-600 dark:border-brand-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white">Requesting camera access...</p>
+          <p className="text-white">Solicitando acesso à câmera...</p>
         </div>
       </div>
     )
@@ -146,16 +147,16 @@ export default function MobileScanPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900 dark:bg-neutral-950 p-6">
         <QrCodeIcon className="w-24 h-24 text-neutral-600 dark:text-neutral-500 mb-6 animate-fade-in" />
-        <h2 className="text-2xl font-bold text-white mb-2 animate-slide-up">Camera Access Denied</h2>
+        <h2 className="text-2xl font-bold text-white mb-2 animate-slide-up">Acesso à Câmera Negado</h2>
         <p className="text-icon-muted text-center mb-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
-          Please grant camera permission to scan QR codes
+          Por favor, conceda permissão de câmera para escanear códigos QR
         </p>
         <button
           onClick={() => router.back()}
           className="px-6 py-3 bg-gradient-brand hover:opacity-90 text-white font-semibold rounded-lg transition-all min-h-[44px] shadow-lg hover:shadow-xl animate-slide-up"
           style={{ animationDelay: '200ms' }}
         >
-          Go Back
+          Voltar
         </button>
       </div>
     )
@@ -167,12 +168,12 @@ export default function MobileScanPage() {
       <header className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent">
         <div className="flex items-center justify-between px-4 py-4">
           <h1 className="text-xl font-bold text-white">
-            Scan QR Code
+            Escanear QR Code
           </h1>
           <button
             onClick={() => router.back()}
             className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors min-h-[44px] min-w-[44px]"
-            aria-label="Close"
+            aria-label="Fechar"
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
@@ -213,7 +214,7 @@ export default function MobileScanPage() {
       <div className="absolute bottom-32 left-0 right-0 px-6 text-center">
         <div className="glass-panel bg-black/60 backdrop-blur-md rounded-lg p-4 animate-fade-in">
           <p className="text-white text-sm">
-            {scannedData ? 'QR Code Scanned!' : 'Position QR code within the frame'}
+            {scannedData ? 'QR Code Escaneado!' : 'Posicione o QR Code dentro da moldura'}
           </p>
           {scannedData && (
             <p className="text-brand-400 dark:text-brand-300 text-xs mt-2 font-mono animate-slide-up">
@@ -233,7 +234,7 @@ export default function MobileScanPage() {
               ? 'bg-priority-medium text-white shadow-priority-medium/50'
               : 'glass-panel bg-white/20 text-white hover:bg-white/30'
           }`}
-          aria-label="Toggle flashlight"
+          aria-label="Alternar lanterna"
         >
           <LightBulbIcon className="w-6 h-6" />
         </button>
@@ -242,7 +243,7 @@ export default function MobileScanPage() {
         <button
           onClick={switchCamera}
           className="p-4 glass-panel bg-white/20 hover:bg-white/30 text-white rounded-full transition-all min-h-[56px] min-w-[56px] shadow-lg"
-          aria-label="Switch camera"
+          aria-label="Alternar câmera"
         >
           <ArrowPathIcon className="w-6 h-6" />
         </button>

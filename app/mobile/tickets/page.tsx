@@ -25,27 +25,27 @@ export default function MobileTicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([
     {
       id: 1,
-      subject: 'Login issue on mobile app',
+      subject: 'Problema de login no app mobile',
       status: 'open',
       priority: 'high',
       created_at: '2024-01-15T10:30:00Z',
-      description: 'Unable to login using mobile credentials'
+      description: 'Não consigo fazer login com credenciais mobile'
     },
     {
       id: 2,
-      subject: 'Password reset not working',
+      subject: 'Redefinição de senha não funciona',
       status: 'in-progress',
       priority: 'medium',
       created_at: '2024-01-14T14:20:00Z',
-      description: 'Reset link expires immediately'
+      description: 'O link de redefinição expira imediatamente'
     },
     {
       id: 3,
-      subject: 'Feature request: Dark mode',
+      subject: 'Solicitação: Modo escuro',
       status: 'open',
       priority: 'low',
       created_at: '2024-01-13T09:15:00Z',
-      description: 'Would love to have a dark mode option'
+      description: 'Gostaria de ter a opção de modo escuro'
     }
   ])
   const [hasMore, setHasMore] = useState(true)
@@ -104,10 +104,10 @@ export default function MobileTicketsPage() {
       <header className="sticky top-0 z-40 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 shadow-sm">
         <div className="px-4 py-4">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-            My Tickets
+            Meus Tickets
           </h1>
           <p className="text-sm text-description mt-1">
-            {tickets.length} active tickets
+            {tickets.length} {tickets.length === 1 ? 'ticket ativo' : 'tickets ativos'}
           </p>
         </div>
       </header>
@@ -126,13 +126,13 @@ export default function MobileTicketsPage() {
               leftActions={[
                 {
                   icon: <CheckCircleIcon className="w-6 h-6" />,
-                  label: 'Resolve',
+                  label: 'Resolver',
                   onClick: () => handleResolve(ticket.id),
                   color: 'success'
                 },
                 {
                   icon: <ArchiveBoxIcon className="w-6 h-6" />,
-                  label: 'Archive',
+                  label: 'Arquivar',
                   onClick: () => handleArchive(ticket.id),
                   color: 'primary'
                 }
@@ -140,7 +140,7 @@ export default function MobileTicketsPage() {
               rightActions={[
                 {
                   icon: <TrashIcon className="w-6 h-6" />,
-                  label: 'Delete',
+                  label: 'Excluir',
                   onClick: () => handleDelete(ticket.id),
                   color: 'danger'
                 }
@@ -165,7 +165,7 @@ export default function MobileTicketsPage() {
                   </span>
                   <div className="flex items-center space-x-1">
                     <ClockIcon className="w-4 h-4" />
-                    <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                    <span>{new Date(ticket.created_at).toLocaleDateString('pt-BR')}</span>
                   </div>
                 </div>
 

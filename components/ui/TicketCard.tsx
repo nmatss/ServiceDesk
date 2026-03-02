@@ -179,10 +179,10 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
       if (!date) return 'N/A';
       const now = new Date();
       const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-      if (diffInHours < 1) return 'Just now';
-      if (diffInHours < 24) return `${diffInHours}h ago`;
-      if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d ago`;
-      return date.toLocaleDateString();
+      if (diffInHours < 1) return 'Agora';
+      if (diffInHours < 24) return `${diffInHours}h atrás`;
+      if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d atrás`;
+      return date.toLocaleDateString('pt-BR');
     };
 
     const getSlaStatusColor = () => {
@@ -241,6 +241,8 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                   e.stopPropagation();
                   setShowActionsMenu(!showActionsMenu);
                 }}
+                aria-label="Abrir menu de ações"
+                aria-expanded={showActionsMenu}
                 className={cn(
                   'opacity-0 transition-opacity',
                   (isHovered || showActionsMenu) && 'opacity-100'
@@ -266,7 +268,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
                       >
                         <Eye className="h-4 w-4" />
-                        View
+                        Visualizar
                       </button>
                       {onEdit && (
                         <button
@@ -278,7 +280,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                           className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
                         >
                           <Edit className="h-4 w-4" />
-                          Edit
+                          Editar
                         </button>
                       )}
                       {onAssign && (
@@ -291,7 +293,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                           className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700"
                         >
                           <User className="h-4 w-4" />
-                          Assign
+                          Atribuir
                         </button>
                       )}
                       {onDelete && (
@@ -306,7 +308,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-error-600 hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-900/20"
                           >
                             <Trash2 className="h-4 w-4" />
-                            Delete
+                            Excluir
                           </button>
                         </>
                       )}
@@ -321,7 +323,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
         {/* Header */}
         <div className={cn('flex items-start justify-between', selectable && 'ml-6')}>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
               <span className="text-xs font-mono text-muted-content">
                 #{ticket.id}
               </span>
@@ -329,7 +331,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
               <StatusBadge status={ticket.priority} variant="priority" />
               {isOverdue && (
                 <span className="text-xs text-error-600 dark:text-error-400 font-medium">
-                  Overdue
+                  Atrasado
                 </span>
               )}
             </div>
@@ -354,20 +356,20 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
         {showDetails && (
           <div className="space-y-3">
             {/* Assignee and Requester */}
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <div className="flex items-center gap-3 min-w-0 flex-wrap">
                 {ticket.assignee && (
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-neutral-400" />
-                    <span className="text-neutral-700 dark:text-neutral-300">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <User className="h-4 w-4 text-neutral-400 flex-shrink-0" />
+                    <span className="text-neutral-700 dark:text-neutral-300 truncate">
                       {ticket.assignee.name}
                     </span>
                   </div>
                 )}
                 {ticket.requester && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-neutral-400" />
-                    <span className="text-description">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-2 h-2 rounded-full bg-neutral-400 flex-shrink-0" />
+                    <span className="text-description truncate">
                       {ticket.requester.name}
                     </span>
                   </div>
@@ -375,9 +377,9 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
               </div>
 
               {ticket.category && (
-                <div className="flex items-center gap-1">
-                  <Tag className="h-3 w-3 text-neutral-400" />
-                  <span className="text-xs text-muted-content">
+                <div className="flex items-center gap-1 min-w-0">
+                  <Tag className="h-3 w-3 text-neutral-400 flex-shrink-0" />
+                  <span className="text-xs text-muted-content truncate">
                     {ticket.category}
                   </span>
                 </div>
@@ -385,25 +387,25 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
             </div>
 
             {/* Meta information */}
-            <div className="flex items-center justify-between text-xs text-muted-content">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-content">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
+                  <Clock className="h-3 w-3 flex-shrink-0" />
                   <span>{formatTimeAgo(ticket.updatedAt)}</span>
                 </div>
 
                 {dueDate && (
                   <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                    <Calendar className="h-3 w-3 flex-shrink-0" />
                     <span className={isOverdue ? 'text-error-600' : ''}>
-                      Due {formatTimeAgo(ticket.dueDate)}
+                      Prazo {formatTimeAgo(ticket.dueDate)}
                     </span>
                   </div>
                 )}
 
                 {ticket.slaStatus && (
                   <div className={cn('flex items-center gap-1', getSlaStatusColor())}>
-                    <Circle className="h-2 w-2 fill-current" />
+                    <Circle className="h-2 w-2 fill-current flex-shrink-0" />
                     <span className="capitalize">{ticket.slaStatus.replace('-', ' ')}</span>
                   </div>
                 )}
@@ -412,14 +414,14 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
               <div className="flex items-center gap-3">
                 {ticket.commentsCount !== undefined && ticket.commentsCount > 0 && (
                   <div className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
+                    <MessageSquare className="h-3 w-3 flex-shrink-0" />
                     <span>{ticket.commentsCount}</span>
                   </div>
                 )}
 
                 {ticket.attachmentsCount !== undefined && ticket.attachmentsCount > 0 && (
                   <div className="flex items-center gap-1">
-                    <Paperclip className="h-3 w-3" />
+                    <Paperclip className="h-3 w-3 flex-shrink-0" />
                     <span>{ticket.attachmentsCount}</span>
                   </div>
                 )}
@@ -439,7 +441,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                 ))}
                 {ticket.tags.length > (compact ? 2 : 4) && (
                   <span className="text-xs text-muted-content">
-                    +{ticket.tags.length - (compact ? 2 : 4)} more
+                    +{ticket.tags.length - (compact ? 2 : 4)} mais
                   </span>
                 )}
               </div>
@@ -452,7 +454,7 @@ export const TicketCard = React.memo(React.forwardRef<HTMLDivElement, TicketCard
                   <span>Est: {ticket.estimatedHours}h</span>
                 )}
                 {ticket.actualHours && (
-                  <span>Actual: {ticket.actualHours}h</span>
+                  <span>Real: {ticket.actualHours}h</span>
                 )}
               </div>
             )}
@@ -506,7 +508,7 @@ export const TicketList: React.FC<TicketListProps> = React.memo(({
   onTicketAssign,
   onSelectionChange,
   loading = false,
-  emptyText = 'No tickets found',
+  emptyText = 'Nenhum ticket encontrado',
   className,
 }) => {
   // Memoize selection handler
@@ -524,7 +526,7 @@ export const TicketList: React.FC<TicketListProps> = React.memo(({
     return (
       <div className={cn(
         layout === 'grid'
-          ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
+          ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4'
           : 'space-y-4',
         className
       )}>
@@ -560,7 +562,7 @@ export const TicketList: React.FC<TicketListProps> = React.memo(({
   return (
     <div className={cn(
       layout === 'grid'
-        ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'
+        ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4'
         : 'space-y-4',
       className
     )}>

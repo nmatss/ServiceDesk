@@ -93,7 +93,7 @@ export default function PWAOfflineIndicator() {
       case 'good': return 'text-green-300';
       case 'fair': return 'text-yellow-300';
       case 'poor': return 'text-red-300';
-      default: return 'text-gray-400';
+      default: return 'text-neutral-400';
     }
   };
 

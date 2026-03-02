@@ -192,7 +192,7 @@ export function TicketTags({
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       {/* Tag Icon */}
-      <TagIcon className="h-4 w-4 text-gray-400 mr-1" />
+      <TagIcon className="h-4 w-4 text-neutral-400 mr-1" />
 
       {/* Tags */}
       {visibleTags.map((tag) => (
@@ -224,7 +224,7 @@ export function TicketTags({
       {!showAll && hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(true)}
-          className="text-xs text-gray-500 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100"
+          className="text-xs text-neutral-500 hover:text-neutral-700 px-1.5 py-0.5 rounded hover:bg-neutral-100"
         >
           +{hiddenCount} more
         </button>
@@ -234,7 +234,7 @@ export function TicketTags({
       {showAll && hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(false)}
-          className="text-xs text-gray-500 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100"
+          className="text-xs text-neutral-500 hover:text-neutral-700 px-1.5 py-0.5 rounded hover:bg-neutral-100"
         >
           Show less
         </button>
@@ -252,18 +252,18 @@ export function TicketTags({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type tag name..."
-                className="w-32 text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-32 text-xs px-2 py-1 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isLoading}
               />
 
               {/* Suggestions dropdown */}
               {suggestions.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10 max-h-48 overflow-auto">
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-neutral-200 z-10 max-h-48 overflow-auto">
                   {suggestions.map((tag) => (
                     <button
                       key={tag.id}
                       onClick={() => addTag(tag.id)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2"
                     >
                       <span
                         className="w-3 h-3 rounded-full"
@@ -277,10 +277,10 @@ export function TicketTags({
 
               {/* Create new tag option */}
               {searchTerm.trim() && !suggestions.some(s => s.name.toLowerCase() === searchTerm.toLowerCase()) && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-neutral-200 z-10">
                   <button
                     onClick={() => addTag(undefined, searchTerm.trim())}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-blue-600"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2 text-blue-600"
                   >
                     <PlusIcon className="h-4 w-4" />
                     <span>Create "{searchTerm}"</span>
@@ -291,7 +291,7 @@ export function TicketTags({
           ) : (
             <button
               onClick={() => setIsAdding(true)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700 px-1.5 py-0.5 rounded hover:bg-neutral-100 transition-colors"
               disabled={isLoading}
             >
               <PlusIcon className="h-3 w-3" />
@@ -303,7 +303,7 @@ export function TicketTags({
 
       {/* Empty state */}
       {tags.length === 0 && readOnly && (
-        <span className="text-xs text-gray-400 italic">No tags</span>
+        <span className="text-xs text-neutral-400 italic">No tags</span>
       )}
     </div>
   );

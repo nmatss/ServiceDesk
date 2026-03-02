@@ -35,7 +35,6 @@ export default function ChangeCalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [changes, setChanges] = useState<ScheduledChange[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [selectedChange, setSelectedChange] = useState<ScheduledChange | null>(null)
 
@@ -165,9 +164,9 @@ export default function ChangeCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-purple-50/20 pb-6">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/30 to-purple-50/20 dark:from-neutral-950 dark:via-brand-950/30 dark:to-purple-950/20 pb-6">
       {/* Modern Header */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-neutral-200/50 mb-6 shadow-sm">
+      <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-lg border-b border-neutral-200/50 dark:border-neutral-700/50 mb-6 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
           <PageHeader
             title="Calendário de Mudanças"
@@ -203,24 +202,26 @@ export default function ChangeCalendarPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigateMonth(-1)}
-                className="p-2 hover:bg-brand-50 rounded-lg transition-colors group"
+                className="p-2 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-colors group min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Mês anterior"
+                aria-label="Mês anterior"
               >
-                <ChevronLeftIcon className="w-5 h-5 text-neutral-600 group-hover:text-brand-600 transition-colors" />
+                <ChevronLeftIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
               </button>
-              <h2 className="text-lg font-bold text-neutral-900 capitalize min-w-[200px] text-center">
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 capitalize min-w-[200px] text-center">
                 {monthName}
               </h2>
               <button
                 onClick={() => navigateMonth(1)}
-                className="p-2 hover:bg-brand-50 rounded-lg transition-colors group"
+                className="p-2 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-colors group min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Próximo mês"
+                aria-label="Próximo mês"
               >
-                <ChevronRightIcon className="w-5 h-5 text-neutral-600 group-hover:text-brand-600 transition-colors" />
+                <ChevronRightIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-4 py-1.5 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                className="px-4 py-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 hover:bg-brand-100 dark:hover:bg-brand-900/30 rounded-lg transition-colors"
               >
                 Hoje
               </button>
@@ -229,9 +230,9 @@ export default function ChangeCalendarPage() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 border border-neutral-200 rounded-lg text-sm bg-white/50 backdrop-blur-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all"
+                className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm bg-white/50 dark:bg-neutral-800/50 backdrop-blur-sm focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-neutral-800 transition-all text-neutral-900 dark:text-neutral-100"
               >
-                <option value="all">Todas categorias</option>
+                <option value="all">Todas as categorias</option>
                 <option value="standard">Padrão</option>
                 <option value="normal">Normal</option>
                 <option value="emergency">Emergência</option>
@@ -240,18 +241,18 @@ export default function ChangeCalendarPage() {
           </div>
 
           {/* Modern Legend */}
-          <div className="flex flex-wrap gap-6 mt-4 pt-4 border-t border-neutral-200">
+          <div className="flex flex-wrap gap-6 mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded-full bg-green-500 shadow-md"></div>
-              <span className="text-sm font-medium text-neutral-700">Padrão</span>
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Padrão</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded-full bg-brand-500 shadow-md"></div>
-              <span className="text-sm font-medium text-neutral-700">Normal</span>
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Normal</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded-full bg-red-500 shadow-md animate-pulse"></div>
-              <span className="text-sm font-medium text-neutral-700">Emergência</span>
+              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Emergência</span>
             </div>
           </div>
         </div>
@@ -266,9 +267,9 @@ export default function ChangeCalendarPage() {
             <div className="overflow-x-auto scrollbar-thin">
               <div className="min-w-[640px]">
                 {/* Week Days Header */}
-                <div className="grid grid-cols-7 border-b border-neutral-200 bg-gradient-to-r from-brand-50 to-brand-50">
+                <div className="grid grid-cols-7 border-b border-neutral-200 dark:border-neutral-700 bg-gradient-to-r from-brand-50 to-brand-50 dark:from-brand-950/30 dark:to-brand-950/30">
                   {weekDays.map(day => (
-                    <div key={day} className="p-2 sm:p-3 text-center text-sm font-semibold text-neutral-700">
+                    <div key={day} className="p-2 sm:p-3 text-center text-sm font-semibold text-neutral-700 dark:text-neutral-300">
                       {day}
                     </div>
                   ))}
@@ -278,7 +279,7 @@ export default function ChangeCalendarPage() {
                 <div className="grid grid-cols-7">
               {/* Empty cells for days before the first of the month */}
               {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-                <div key={`empty-${index}`} className="min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 bg-neutral-50 border-b border-r border-neutral-100"></div>
+                <div key={`empty-${index}`} className="min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 bg-neutral-50 dark:bg-neutral-800/50 border-b border-r border-neutral-100 dark:border-neutral-700"></div>
               ))}
 
               {/* Days of the month */}
@@ -290,12 +291,12 @@ export default function ChangeCalendarPage() {
                 return (
                   <div
                     key={day}
-                    className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-b border-r border-neutral-100 ${
-                      dayIsToday ? 'bg-brand-50' : ''
+                    className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border-b border-r border-neutral-100 dark:border-neutral-700 ${
+                      dayIsToday ? 'bg-brand-50 dark:bg-brand-950/30' : 'dark:bg-neutral-900'
                     }`}
                   >
                     <div className={`text-sm font-medium mb-1 ${
-                      dayIsToday ? 'w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center' : 'text-neutral-700'
+                      dayIsToday ? 'w-6 h-6 bg-brand-600 text-white rounded-full flex items-center justify-center' : 'text-neutral-700 dark:text-neutral-300'
                     }`}>
                       {day}
                     </div>
@@ -311,7 +312,7 @@ export default function ChangeCalendarPage() {
                         </div>
                       ))}
                       {dayChanges.length > 3 && (
-                        <div className="text-xs text-neutral-500 pl-1">
+                        <div className="text-xs text-neutral-500 dark:text-neutral-400 pl-1">
                           +{dayChanges.length - 3} mais
                         </div>
                       )}
@@ -327,13 +328,13 @@ export default function ChangeCalendarPage() {
 
         {/* Upcoming Changes List */}
         <div className="mt-6 glass-panel">
-          <div className="p-4 border-b border-neutral-200">
-            <h3 className="font-bold text-lg text-neutral-900 flex items-center gap-2">
+          <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
+            <h3 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
               <ClockIcon className="w-5 h-5 text-brand-500" />
               Próximas Mudanças
             </h3>
           </div>
-          <div className="divide-y divide-neutral-100">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {changes
               .filter(c => c.status === 'scheduled')
               .sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
@@ -342,12 +343,12 @@ export default function ChangeCalendarPage() {
                 <div
                   key={change.id}
                   onClick={() => router.push(`/admin/changes/${change.id}`)}
-                  className="p-4 flex items-center gap-4 hover:bg-neutral-50 cursor-pointer"
+                  className="p-4 flex items-center gap-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer transition-colors"
                 >
                   <div className={`w-1 h-12 rounded ${getCategoryColor(change.category)}`}></div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-neutral-900 truncate">CHG-{change.id}: {change.title}</p>
-                    <p className="text-sm text-neutral-500">
+                    <p className="font-medium text-neutral-900 dark:text-neutral-100 truncate">CHG-{change.id}: {change.title}</p>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
                       {new Date(change.scheduled_start).toLocaleDateString('pt-BR', {
                         weekday: 'short',
                         day: '2-digit',
@@ -360,10 +361,10 @@ export default function ChangeCalendarPage() {
                     </p>
                   </div>
                   <div className="text-right hidden sm:block">
-                    <p className="text-sm font-medium text-neutral-900">{change.assigned_to}</p>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{change.assigned_to}</p>
                     <div className="flex gap-1 justify-end mt-1">
                       {change.services.slice(0, 2).map((service, i) => (
-                        <span key={i} className="px-2 py-0.5 text-xs bg-neutral-100 text-neutral-600 rounded">
+                        <span key={i} className="px-2 py-0.5 text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 rounded">
                           {service}
                         </span>
                       ))}
@@ -379,7 +380,7 @@ export default function ChangeCalendarPage() {
       {/* Change Detail Modal */}
       {selectedChange && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl max-w-md w-full max-w-[calc(100vw-2rem)] p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -388,37 +389,38 @@ export default function ChangeCalendarPage() {
                   </span>
                   {getStatusIcon(selectedChange.status)}
                 </div>
-                <h3 className="font-semibold text-neutral-900">CHG-{selectedChange.id}</h3>
+                <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">CHG-{selectedChange.id}</h3>
               </div>
               <button
                 onClick={() => setSelectedChange(null)}
-                className="text-neutral-400 hover:text-neutral-600"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                aria-label="Fechar"
               >
                 <XCircleIcon className="w-6 h-6" />
               </button>
             </div>
 
-            <p className="text-neutral-700 mb-4">{selectedChange.title}</p>
+            <p className="text-neutral-700 dark:text-neutral-300 mb-4">{selectedChange.title}</p>
 
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-neutral-500">Início</span>
-                <span className="font-medium">
+                <span className="text-neutral-500 dark:text-neutral-400">Início</span>
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">
                   {new Date(selectedChange.scheduled_start).toLocaleString('pt-BR')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-500">Fim</span>
-                <span className="font-medium">
+                <span className="text-neutral-500 dark:text-neutral-400">Fim</span>
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">
                   {new Date(selectedChange.scheduled_end).toLocaleString('pt-BR')}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-500">Responsável</span>
-                <span className="font-medium">{selectedChange.assigned_to}</span>
+                <span className="text-neutral-500 dark:text-neutral-400">Responsável</span>
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">{selectedChange.assigned_to}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-neutral-500">Risco</span>
+                <span className="text-neutral-500 dark:text-neutral-400">Risco</span>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map(level => (
                     <div
@@ -428,17 +430,17 @@ export default function ChangeCalendarPage() {
                           ? selectedChange.risk_level <= 2 ? 'bg-green-500' :
                             selectedChange.risk_level <= 3 ? 'bg-yellow-500' :
                             selectedChange.risk_level <= 4 ? 'bg-orange-500' : 'bg-red-500'
-                          : 'bg-neutral-200'
+                          : 'bg-neutral-200 dark:bg-neutral-700'
                       }`}
                     />
                   ))}
                 </div>
               </div>
               <div>
-                <span className="text-neutral-500">Serviços Afetados</span>
+                <span className="text-neutral-500 dark:text-neutral-400">Serviços Afetados</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedChange.services.map((service, i) => (
-                    <span key={i} className="px-2 py-1 text-xs bg-neutral-100 text-neutral-700 rounded">
+                    <span key={i} className="px-2 py-1 text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded">
                       {service}
                     </span>
                   ))}
@@ -458,7 +460,7 @@ export default function ChangeCalendarPage() {
               </button>
               <button
                 onClick={() => setSelectedChange(null)}
-                className="flex-1 py-2 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg hover:bg-neutral-200"
+                className="flex-1 py-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700"
               >
                 Fechar
               </button>
@@ -468,17 +470,17 @@ export default function ChangeCalendarPage() {
       )}
 
       {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 sm:hidden safe-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700 shadow-lg p-3 sm:hidden safe-bottom">
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/admin/changes')}
-            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 rounded-lg"
           >
             Lista
           </button>
           <button
             onClick={() => router.push('/admin/cab')}
-            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
+            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 rounded-lg"
           >
             CAB
           </button>

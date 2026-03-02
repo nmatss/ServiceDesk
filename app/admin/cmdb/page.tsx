@@ -24,8 +24,7 @@ import {
   ChevronRightIcon,
   Squares2X2Icon,
   ListBulletIcon,
-  ArrowDownTrayIcon,
-  HomeIcon
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 
 interface CI {
@@ -248,7 +247,7 @@ export default function CMDBPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           <PageHeader
             title="CMDB"
-            description="Configuration Management Database"
+            description="Banco de Dados de Gerenciamento de Configuração"
             icon={CircleStackIcon}
             breadcrumbs={[
               { label: 'Admin', href: '/admin' },
@@ -630,7 +629,10 @@ export default function CMDBPage() {
                       <tr
                         key={ci.id}
                         onClick={() => handleCIClick(ci)}
-                        className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer transition-colors"
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCIClick(ci) } }}
+                        role="button"
+                        tabIndex={0}
+                        className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 cursor-pointer transition-colors focus:outline-none focus:bg-brand-50 dark:focus:bg-brand-900/20"
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">

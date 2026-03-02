@@ -91,7 +91,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     if (score >= 0.8) return 'text-green-600 bg-green-50';
     if (score >= 0.6) return 'text-blue-600 bg-blue-50';
     if (score >= 0.4) return 'text-yellow-600 bg-yellow-50';
-    return 'text-gray-600 bg-gray-50';
+    return 'text-neutral-600 bg-neutral-50';
   };
 
   /**
@@ -115,9 +115,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
       <div className={`space-y-4 ${className}`}>
         {[1, 2, 3].map(i => (
           <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-            <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            <div className="h-6 bg-neutral-200 rounded w-3/4 mb-3"></div>
+            <div className="h-4 bg-neutral-200 rounded w-full mb-2"></div>
+            <div className="h-4 bg-neutral-200 rounded w-5/6"></div>
           </div>
         ))}
       </div>
@@ -127,12 +127,12 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
   if (results.length === 0) {
     return (
       <div className={`bg-white rounded-lg shadow p-12 text-center ${className}`}>
-        <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No results found</h3>
-        <p className="text-gray-600 mb-4">
+        <DocumentTextIcon className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
+        <h3 className="text-lg font-medium text-neutral-900 mb-2">No results found</h3>
+        <p className="text-neutral-600 mb-4">
           We couldn't find any articles matching "{query}"
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-neutral-500">
           Try different keywords or browse by category
         </p>
       </div>
@@ -143,8 +143,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     <div className={`space-y-4 ${className}`}>
       {/* Results header */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-600">
-          Found <span className="font-semibold text-gray-900">{total}</span> result
+        <p className="text-sm text-neutral-600">
+          Found <span className="font-semibold text-neutral-900">{total}</span> result
           {total !== 1 ? 's' : ''} for "{query}"
         </p>
       </div>
@@ -183,7 +183,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             </div>
 
             {/* Summary */}
-            <p className="text-gray-700 mb-3 line-clamp-2">
+            <p className="text-neutral-700 mb-3 line-clamp-2">
               {highlightText(result.summary || result.content.substring(0, 200), query)}
             </p>
 
@@ -191,7 +191,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             {result.highlights && result.highlights.length > 0 && (
               <div className="mb-3 space-y-1">
                 {result.highlights.slice(0, 2).map((highlight, idx) => (
-                  <p key={idx} className="text-sm text-gray-600 italic">
+                  <p key={idx} className="text-sm text-neutral-600 italic">
                     "...{highlightText(highlight, query)}..."
                   </p>
                 ))}
@@ -199,7 +199,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
             )}
 
             {/* Metadata */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-600">
               {/* Category */}
               {result.category_name && (
                 <div className="flex items-center">
@@ -235,22 +235,22 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                 {result.tags.slice(0, 5).map((tag, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-700"
                   >
                     <TagIcon className="h-3 w-3 mr-1" />
                     {tag}
                   </span>
                 ))}
                 {result.tags.length > 5 && (
-                  <span className="text-xs text-gray-500">+{result.tags.length - 5} more</span>
+                  <span className="text-xs text-neutral-500">+{result.tags.length - 5} more</span>
                 )}
               </div>
             )}
 
             {/* Score breakdown (debug mode) */}
             {(result.semanticScore !== undefined || result.keywordScore !== undefined) && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <div className="flex gap-4 text-xs text-gray-500">
+              <div className="mt-3 pt-3 border-t border-neutral-100">
+                <div className="flex gap-4 text-xs text-neutral-500">
                   {result.semanticScore !== undefined && (
                     <span>Semantic: {Math.round(result.semanticScore * 100)}%</span>
                   )}

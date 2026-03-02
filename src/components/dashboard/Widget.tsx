@@ -19,12 +19,12 @@ export function Widget({
   return (
     <div
       className={`
-        bg-white dark:bg-gray-800
+        bg-white dark:bg-neutral-800
         rounded-lg shadow-sm
         border-2 transition-all duration-200
         ${isSelected
           ? 'border-blue-500 dark:border-blue-400 shadow-lg'
-          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
         }
         ${className}
       `}

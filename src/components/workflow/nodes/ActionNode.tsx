@@ -120,13 +120,13 @@ export default function ActionNode({ data, selected }: NodeProps<ActionNodeData>
         };
       default:
         return {
-          bg: 'from-gray-50 to-gray-100',
-          border: 'border-gray-300',
-          iconBg: 'bg-gray-500',
-          text: 'text-gray-900',
-          subtext: 'text-gray-700',
-          ring: 'ring-gray-400',
-          badge: 'bg-gray-100 text-gray-800',
+          bg: 'from-neutral-50 to-neutral-100',
+          border: 'border-neutral-300',
+          iconBg: 'bg-neutral-500',
+          text: 'text-neutral-900',
+          subtext: 'text-neutral-700',
+          ring: 'ring-neutral-400',
+          badge: 'bg-neutral-100 text-neutral-800',
         };
     }
   };

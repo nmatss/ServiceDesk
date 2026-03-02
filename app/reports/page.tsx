@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger';
 import {
   ChartBarIcon,
@@ -13,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { useNotificationHelpers } from '@/src/components/notifications/NotificationProvider'
 import { Breadcrumb } from '@/components/ui/Breadcrumb'
+import { useRequireAuth } from '@/lib/hooks/useRequireAuth'
 
 interface ReportStats {
   totalTickets: number
@@ -39,47 +39,21 @@ interface CategoryStats {
 }
 
 export default function ReportsPage() {
-  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<ReportStats | null>(null)
   const [trends, setTrends] = useState<TicketTrend[]>([])
   const [categories, setCategories] = useState<CategoryStats[]>([])
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('30d')
-  const [userRole, setUserRole] = useState<'admin' | 'agent' | 'user'>('user')
-  const [userName, setUserName] = useState('')
   const { success, error } = useNotificationHelpers()
 
+  // Use the centralized auth hook - eliminates duplicate auth code
+  const { user, loading: authLoading } = useRequireAuth()
+
   useEffect(() => {
-    // SECURITY: Verify authentication via httpOnly cookies only
-    const verifyAndLoad = async () => {
-      try {
-        const response = await fetch('/api/auth/verify', {
-          method: 'GET',
-          credentials: 'include' // Use httpOnly cookies
-        })
-
-        if (!response.ok) {
-          router.push('/auth/login')
-          return
-        }
-
-        const data = await response.json()
-
-        if (!data.success || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUserRole(data.user.role || 'user')
-        setUserName(data.user.name || '')
-        fetchReportsData()
-      } catch {
-        router.push('/auth/login')
-      }
+    if (!authLoading && user) {
+      fetchReportsData()
     }
-
-    verifyAndLoad()
-  }, [router, selectedPeriod])
+  }, [authLoading, user, selectedPeriod])
 
   const fetchReportsData = async () => {
     try {
@@ -141,9 +115,9 @@ export default function ReportsPage() {
   }
 
   const getPerformanceColor = (score: number) => {
-    if (score >= 90) return 'text-green-600'
-    if (score >= 70) return 'text-yellow-600'
-    return 'text-red-600'
+    if (score >= 90) return 'text-green-600 dark:text-green-400'
+    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400'
+    return 'text-red-600 dark:text-red-400'
   }
 
   const getPerformanceBadge = (score: number) => {
@@ -152,10 +126,10 @@ export default function ReportsPage() {
     return 'Precisa Melhorar'
   }
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-brand-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600"></div>
       </div>
     )
   }
@@ -168,7 +142,7 @@ export default function ReportsPage() {
           <Breadcrumb
             items={[
               { label: 'Home', href: '/', icon: HomeIcon },
-              { label: userRole === 'agent' ? 'Meus Relatórios' : 'Relatórios' }
+              { label: user?.role === 'agent' ? 'Meus Relatórios' : 'Relatórios' }
             ]}
             className="mb-4"
           />
@@ -177,21 +151,22 @@ export default function ReportsPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-                {userRole === 'agent' ? 'Meus Relatórios' : 'Relatórios'}
+                {user?.role === 'agent' ? 'Meus Relatórios' : 'Relatórios'}
               </h1>
               <p className="mt-2 text-description">
-                {userRole === 'agent'
-                  ? `Análise da performance de ${userName}`
+                {user?.role === 'agent'
+                  ? `Análise da performance de ${user?.name || ''}`
                   : 'Análise de performance e estatísticas do sistema'
                 }
               </p>
             </div>
-            <div className="mt-4 lg:mt-0 flex items-center space-x-4">
+            <div className="mt-4 lg:mt-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
               {/* Period Selector */}
               <select
                 value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value as any)}
+                onChange={(e) => setSelectedPeriod(e.target.value as '7d' | '30d' | '90d' | '1y')}
                 className="input-primary text-sm"
+                aria-label="Selecionar período"
               >
                 <option value="7d">Últimos 7 dias</option>
                 <option value="30d">Últimos 30 dias</option>
@@ -209,7 +184,7 @@ export default function ReportsPage() {
           </div>
 
           {/* Performance Summary */}
-          {userRole === 'agent' && stats && (
+          {user?.role === 'agent' && stats && (
             <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-8">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
@@ -222,7 +197,7 @@ export default function ReportsPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   stats.performanceScore >= 90
                     ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -329,33 +304,33 @@ export default function ReportsPage() {
           )}
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
             {/* Trend Chart */}
             <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
                 Tendência de Tickets - {getPeriodLabel(selectedPeriod)}
               </h3>
-              <div className="h-64 flex items-end justify-between space-x-2">
+              <div className="h-64 flex items-end justify-between gap-1 sm:gap-2 overflow-x-auto">
                 {trends.map((trend, index) => {
                   const maxValue = Math.max(...trends.map(t => Math.max(t.created, t.resolved)))
                   const createdHeight = (trend.created / maxValue) * 100
                   const resolvedHeight = (trend.resolved / maxValue) * 100
 
                   return (
-                    <div key={index} className="flex-1 flex flex-col items-center">
-                      <div className="w-full flex justify-center space-x-1 mb-2">
+                    <div key={index} className="flex-1 min-w-[2rem] flex flex-col items-center">
+                      <div className="w-full flex justify-center space-x-0.5 sm:space-x-1 mb-2">
                         <div
-                          className="bg-brand-500 rounded-t"
-                          style={{ height: `${createdHeight * 2}px`, width: '12px' }}
+                          className="bg-brand-500 rounded-t w-2 sm:w-3"
+                          style={{ height: `${createdHeight * 2}px` }}
                           title={`Criados: ${trend.created}`}
                         />
                         <div
-                          className="bg-green-500 rounded-t"
-                          style={{ height: `${resolvedHeight * 2}px`, width: '12px' }}
+                          className="bg-green-500 rounded-t w-2 sm:w-3"
+                          style={{ height: `${resolvedHeight * 2}px` }}
                           title={`Resolvidos: ${trend.resolved}`}
                         />
                       </div>
-                      <span className="text-xs text-muted-content transform rotate-45">
+                      <span className="text-[10px] sm:text-xs text-muted-content transform rotate-45 whitespace-nowrap">
                         {new Date(trend.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                       </span>
                     </div>

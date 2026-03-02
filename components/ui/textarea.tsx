@@ -7,7 +7,7 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const textareaVariants = cva(
   [
-    'flex min-h-[80px] w-full border bg-background px-3 py-2 text-sm transition-colors',
+    'flex min-h-[100px] w-full border bg-background px-3 py-2 text-base sm:text-sm transition-colors',
     'placeholder:text-muted-foreground',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
     'disabled:cursor-not-allowed disabled:opacity-50',
@@ -43,7 +43,7 @@ const textareaVariants = cva(
       size: {
         xs: 'min-h-[60px] px-2 py-1 text-xs',
         sm: 'min-h-[70px] px-3 py-1.5 text-sm',
-        md: 'min-h-[80px] px-3 py-2 text-base',
+        md: 'min-h-[100px] px-3 py-2 text-base sm:text-sm',
         lg: 'min-h-[100px] px-4 py-3 text-lg',
         xl: 'min-h-[120px] px-6 py-4 text-xl',
       },

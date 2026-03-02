@@ -15,8 +15,8 @@ const tableVariants = cva(
       },
       density: {
         compact: '[&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1',
-        normal: '[&_th]:px-4 [&_th]:py-2 [&_td]:px-4 [&_td]:py-2',
-        comfortable: '[&_th]:px-6 [&_th]:py-3 [&_td]:px-6 [&_td]:py-3',
+        normal: '[&_th]:px-2 [&_th]:py-1.5 [&_td]:px-2 [&_td]:py-1.5 sm:[&_th]:px-4 sm:[&_th]:py-2 sm:[&_td]:px-4 sm:[&_td]:py-2',
+        comfortable: '[&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 sm:[&_th]:px-6 sm:[&_th]:py-3 sm:[&_td]:px-6 sm:[&_td]:py-3',
       },
       persona: {
         enduser: 'rounded-xl shadow-soft overflow-hidden',
@@ -261,7 +261,7 @@ export function DataTable<T = any>({
   columns,
   data,
   loading = false,
-  emptyText = 'No data available',
+  emptyText = 'Nenhum dado disponível',
   rowKey = 'id',
   onRowClick,
   sortConfig,
@@ -439,7 +439,9 @@ export const ActionCell: React.FC<ActionCellProps> = ({
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        aria-label="Abrir menu de ações"
+        aria-expanded={isOpen}
       >
         {trigger}
       </button>

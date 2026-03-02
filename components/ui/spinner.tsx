@@ -15,9 +15,9 @@ const sizeClasses = {
 
 const colorClasses = {
   primary: 'border-blue-600 border-t-transparent',
-  secondary: 'border-gray-600 border-t-transparent',
+  secondary: 'border-neutral-600 border-t-transparent',
   white: 'border-white border-t-transparent',
-  gray: 'border-gray-400 border-t-transparent',
+  gray: 'border-neutral-400 border-t-transparent',
 }
 
 export function Spinner({ size = 'md', color = 'primary', className }: SpinnerProps) {
@@ -40,10 +40,10 @@ export function Spinner({ size = 'md', color = 'primary', className }: SpinnerPr
 export function SpinnerOverlay({ message }: { message?: string }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-8 flex flex-col items-center gap-4 shadow-xl">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg p-8 flex flex-col items-center gap-4 shadow-xl">
         <Spinner size="xl" color="primary" />
         {message && (
-          <p className="text-gray-700 dark:text-gray-300 font-medium">
+          <p className="text-neutral-700 dark:text-neutral-300 font-medium">
             {message}
           </p>
         )}

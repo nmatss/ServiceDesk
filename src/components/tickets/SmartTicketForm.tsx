@@ -342,7 +342,7 @@ export function SmartTicketForm({
     <div className={`max-w-4xl mx-auto space-y-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
           Create Smart Ticket
         </h2>
         <div className="flex items-center space-x-2">
@@ -351,7 +351,7 @@ export function SmartTicketForm({
             onClick={() => setAnalysisEnabled(!analysisEnabled)}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${analysisEnabled
               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+              : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400'
               }`}
           >
             {analysisEnabled ? 'AI Enabled' : 'AI Disabled'}
@@ -371,7 +371,7 @@ export function SmartTicketForm({
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title Field */}
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="title" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Title *
               </label>
               <input
@@ -379,7 +379,7 @@ export function SmartTicketForm({
                 id="title"
                 value={formState.title}
                 onChange={(e) => handleFieldChange('title', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${validationErrors.title ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.title ? 'border-red-500' : 'border-neutral-300'
                   }`}
                 placeholder="Brief description of the issue..."
                 maxLength={200}
@@ -387,7 +387,7 @@ export function SmartTicketForm({
               {validationErrors.title && (
                 <p className="mt-1 text-sm text-red-600">{validationErrors.title}</p>
               )}
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-neutral-500">
                 {formState.title.length}/200 characters
               </p>
 
@@ -401,7 +401,7 @@ export function SmartTicketForm({
 
             {/* Description Field */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Description *
               </label>
               <textarea
@@ -409,7 +409,7 @@ export function SmartTicketForm({
                 value={formState.description}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
                 rows={6}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none ${validationErrors.description ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white resize-none ${validationErrors.description ? 'border-red-500' : 'border-neutral-300'
                   }`}
                 placeholder="Detailed description of the issue, steps to reproduce, expected vs actual behavior..."
                 maxLength={2000}
@@ -417,14 +417,14 @@ export function SmartTicketForm({
               {validationErrors.description && (
                 <p className="mt-1 text-sm text-red-600">{validationErrors.description}</p>
               )}
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-neutral-500">
                 {formState.description.length}/2000 characters
               </p>
             </div>
 
             {/* Category Selection */}
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="category" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Category *
                 {aiAnalysis?.category.confidence && aiAnalysis.category.confidence >= 0.70 && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -437,7 +437,7 @@ export function SmartTicketForm({
                 id="category"
                 value={formState.category_id || ''}
                 onChange={(e) => handleFieldChange('category_id', parseInt(e.target.value) || null)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${validationErrors.category_id ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.category_id ? 'border-red-500' : 'border-neutral-300'
                   }`}
               >
                 <option value="">Select a category...</option>
@@ -454,7 +454,7 @@ export function SmartTicketForm({
 
             {/* Priority Selection */}
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Priority *
                 {aiAnalysis?.priority.confidence && aiAnalysis.priority.confidence >= 0.70 && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -467,7 +467,7 @@ export function SmartTicketForm({
                 id="priority"
                 value={formState.priority_id || ''}
                 onChange={(e) => handleFieldChange('priority_id', parseInt(e.target.value) || null)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${validationErrors.priority_id ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.priority_id ? 'border-red-500' : 'border-neutral-300'
                   }`}
               >
                 <option value="">Select priority...</option>
@@ -485,7 +485,7 @@ export function SmartTicketForm({
             {/* Agent Assignment (Optional) */}
             {agents.length > 0 && (
               <div>
-                <label htmlFor="assigned_to" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="assigned_to" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Assign to Agent (Optional)
                   {aiAnalysis?.escalation.suggestedAgent && (
                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
@@ -498,7 +498,7 @@ export function SmartTicketForm({
                   id="assigned_to"
                   value={formState.assigned_to || ''}
                   onChange={(e) => handleFieldChange('assigned_to', parseInt(e.target.value) || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
                 >
                   <option value="">Auto-assign</option>
                   {agents.map((agent) => (
@@ -521,7 +521,7 @@ export function SmartTicketForm({
                   priority_id: null,
                   assigned_to: null
                 })}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+                className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 bg-white hover:bg-neutral-50 focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-600"
               >
                 Clear
               </button>
@@ -540,15 +540,15 @@ export function SmartTicketForm({
         <div className="space-y-6">
           {/* AI Insights Panel */}
           {showAIInsights && aiInsights.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-white flex items-center">
                   <SparklesIcon className="h-5 w-5 mr-2 text-blue-500" />
                   AI Insights
                 </h3>
                 <button
                   onClick={() => setShowAIInsights(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                 >
                   <XCircleIcon className="h-5 w-5" />
                 </button>
@@ -572,14 +572,14 @@ export function SmartTicketForm({
                         }`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                          <h4 className="text-sm font-medium text-neutral-900 dark:text-white">
                             {insight.title}
                           </h4>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-neutral-500 dark:text-neutral-400">
                             {(insight.confidence * 100).toFixed(0)}%
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        <p className="text-sm text-neutral-600 dark:text-neutral-300 mt-1">
                           {insight.description}
                         </p>
                         {insight.action && (
@@ -600,15 +600,15 @@ export function SmartTicketForm({
 
           {/* Duplicate Detection Panel */}
           {showDuplicates && duplicateAnalysis?.isDuplicate && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                <h3 className="text-lg font-medium text-neutral-900 dark:text-white flex items-center">
                   <DocumentDuplicateIcon className="h-5 w-5 mr-2 text-orange-500" />
                   Potential Duplicates
                 </h3>
                 <button
                   onClick={() => setShowDuplicates(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                 >
                   <XCircleIcon className="h-5 w-5" />
                 </button>
@@ -622,17 +622,17 @@ export function SmartTicketForm({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        <h4 className="text-sm font-medium text-neutral-900 dark:text-white truncate">
                           #{match.ticket.id}: {match.ticket.title}
                         </h4>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                        <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
                           {(match.similarityScore * 100).toFixed(1)}% similarity
                         </p>
                       </div>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${match.confidenceLevel === 'very_high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
                         match.confidenceLevel === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
                           match.confidenceLevel === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                            'bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200'
                         }`}>
                         {match.confidenceLevel}
                       </span>
@@ -654,29 +654,29 @@ export function SmartTicketForm({
           )}
 
           {/* Analysis Status */}
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
               Analysis Status
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-300">AI Analysis</span>
-                <span className={`flex items-center ${aiAnalysis ? 'text-green-600 dark:text-green-400' : 'text-gray-400'
+                <span className="text-neutral-600 dark:text-neutral-300">AI Analysis</span>
+                <span className={`flex items-center ${aiAnalysis ? 'text-green-600 dark:text-green-400' : 'text-neutral-400'
                   }`}>
                   {aiAnalysis ? <CheckCircleIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-300">Duplicate Check</span>
-                <span className={`flex items-center ${duplicateAnalysis ? 'text-green-600 dark:text-green-400' : 'text-gray-400'
+                <span className="text-neutral-600 dark:text-neutral-300">Duplicate Check</span>
+                <span className={`flex items-center ${duplicateAnalysis ? 'text-green-600 dark:text-green-400' : 'text-neutral-400'
                   }`}>
                   {duplicateAnalysis ? <CheckCircleIcon className="h-4 w-4" /> : <ClockIcon className="h-4 w-4" />}
                 </span>
               </div>
               {aiAnalysis && (
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600 dark:text-gray-300">Est. Resolution</span>
-                  <span className="text-gray-900 dark:text-white">
+                  <span className="text-neutral-600 dark:text-neutral-300">Est. Resolution</span>
+                  <span className="text-neutral-900 dark:text-white">
                     {aiAnalysis.estimatedResolutionTime}h
                   </span>
                 </div>

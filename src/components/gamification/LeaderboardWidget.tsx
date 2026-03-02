@@ -66,13 +66,13 @@ export default function LeaderboardWidget({
             <div
               key={entry.userId}
               className={`flex items-center gap-3 p-2 rounded-lg ${
-                entry.userId === currentUserId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                entry.userId === currentUserId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-neutral-50'
               }`}
             >
               <span className="text-2xl">{getRankEmoji(entry.rank) || `#${entry.rank}`}</span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{entry.username}</p>
-                <p className="text-xs text-gray-500">{formatPoints(entry.points)} pts</p>
+                <p className="text-xs text-neutral-500">{formatPoints(entry.points)} pts</p>
               </div>
             </div>
           ))}
@@ -105,7 +105,7 @@ export default function LeaderboardWidget({
               <button
                 onClick={() => onOptInChange?.(!currentUser.optedIn)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  currentUser.optedIn ? 'bg-green-500' : 'bg-gray-400'
+                  currentUser.optedIn ? 'bg-green-500' : 'bg-neutral-400'
                 }`}
               >
                 <span
@@ -138,10 +138,10 @@ export default function LeaderboardWidget({
       </div>
 
       {/* Filters */}
-      <div className="p-4 border-b border-gray-200 space-y-3">
+      <div className="p-4 border-b border-neutral-200 space-y-3">
         {/* Period Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">Period:</span>
+          <span className="text-sm font-medium text-neutral-700">Period:</span>
           <div className="flex gap-2">
             {(['day', 'week', 'month', 'all-time'] as const).map((p) => (
               <button
@@ -150,7 +150,7 @@ export default function LeaderboardWidget({
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                   period === p
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
               >
                 {p === 'all-time' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
@@ -162,11 +162,11 @@ export default function LeaderboardWidget({
         {/* Team Filter */}
         {teams.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Team:</span>
+            <span className="text-sm font-medium text-neutral-700">Team:</span>
             <select
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Teams</option>
               {teams.map((teamId) => {
@@ -183,14 +183,14 @@ export default function LeaderboardWidget({
 
         {/* View Mode */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700">View:</span>
+          <span className="text-sm font-medium text-neutral-700">View:</span>
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode('full')}
               className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === 'full'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               All
@@ -200,7 +200,7 @@ export default function LeaderboardWidget({
               className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === 'top10'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               Top 10
@@ -211,7 +211,7 @@ export default function LeaderboardWidget({
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === 'neighbors'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
               >
                 Around Me
@@ -224,31 +224,31 @@ export default function LeaderboardWidget({
       {/* Leaderboard Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Rank
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Player
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Points
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Stats
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Streak
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-neutral-200">
             {displayLeaderboard.map((entry, _index) => (
               <tr
                 key={entry.userId}
                 className={`
-                  ${entry.userId === currentUserId ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                  ${entry.userId === currentUserId ? 'bg-blue-50' : 'hover:bg-neutral-50'}
                   ${entry.rank <= 3 ? 'font-semibold' : ''}
                   transition-colors
                 `}
@@ -262,10 +262,10 @@ export default function LeaderboardWidget({
                         entry.rank === 1
                           ? 'text-yellow-600'
                           : entry.rank === 2
-                          ? 'text-gray-500'
+                          ? 'text-neutral-500'
                           : entry.rank === 3
                           ? 'text-orange-600'
-                          : 'text-gray-900'
+                          : 'text-neutral-900'
                       }`}
                     >
                       #{entry.rank}
@@ -290,7 +290,7 @@ export default function LeaderboardWidget({
                       )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-neutral-900">
                         {entry.username}
                         {entry.userId === currentUserId && (
                           <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
@@ -299,7 +299,7 @@ export default function LeaderboardWidget({
                         )}
                       </p>
                       {entry.teamName && (
-                        <p className="text-xs text-gray-500">{entry.teamName}</p>
+                        <p className="text-xs text-neutral-500">{entry.teamName}</p>
                       )}
                     </div>
                   </div>
@@ -308,17 +308,17 @@ export default function LeaderboardWidget({
                 {/* Points */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm">
-                    <p className="font-bold text-gray-900">{formatPoints(entry.points)}</p>
-                    <p className="text-xs text-gray-500">{entry.badges} badges</p>
+                    <p className="font-bold text-neutral-900">{formatPoints(entry.points)}</p>
+                    <p className="text-xs text-neutral-500">{entry.badges} badges</p>
                   </div>
                 </td>
 
                 {/* Stats */}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-xs text-gray-600 space-y-1">
+                  <div className="text-xs text-neutral-600 space-y-1">
                     <div className="flex items-center gap-1">
                       <span className="font-medium">{entry.ticketsResolved}</span>
-                      <span className="text-gray-400">tickets</span>
+                      <span className="text-neutral-400">tickets</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
@@ -337,7 +337,7 @@ export default function LeaderboardWidget({
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="text-xl">{getStreakEmoji(entry.currentStreak)}</span>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-neutral-900">
                       {entry.currentStreak} {entry.currentStreak === 1 ? 'day' : 'days'}
                     </span>
                   </div>
@@ -350,7 +350,7 @@ export default function LeaderboardWidget({
 
       {/* Empty State */}
       {displayLeaderboard.length === 0 && (
-        <div className="p-12 text-center text-gray-500">
+        <div className="p-12 text-center text-neutral-500">
           <p className="text-lg font-medium mb-2">No data available</p>
           <p className="text-sm">Start earning points to appear on the leaderboard!</p>
         </div>
@@ -413,13 +413,13 @@ export function MiniLeaderboard({
           <div
             key={entry.userId}
             className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-              entry.userId === currentUser?.userId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+              entry.userId === currentUser?.userId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-neutral-50'
             }`}
           >
             <span className="text-2xl">{getRankEmoji(entry.rank) || `#${entry.rank}`}</span>
             <div className="flex-1 min-w-0">
               <p className="font-semibold truncate">{entry.username}</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-neutral-500">
                 {formatPoints(entry.points)} pts • {getStreakEmoji(entry.currentStreak)} {entry.currentStreak}d
               </p>
             </div>
@@ -428,7 +428,7 @@ export function MiniLeaderboard({
       </div>
 
       {currentUser && currentUser.rank > 5 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="mt-4 pt-4 border-t border-neutral-200">
           <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <span className="text-lg font-bold text-blue-600">#{currentUser.rank}</span>
             <div className="flex-1">

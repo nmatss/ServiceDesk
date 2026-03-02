@@ -185,7 +185,7 @@ export default function ArticlePage() {
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-4">Artigo não encontrado</h1>
           <button
             onClick={() => router.push('/knowledge')}
-            className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300"
+            className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 min-h-[44px]"
           >
             Voltar para Base de Conhecimento
           </button>
@@ -261,11 +261,11 @@ export default function ArticlePage() {
           </div>
 
           {/* Conteúdo */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <SafeHTML
               html={article.content}
               allowMarkdown
-              className="prose prose-lg max-w-none"
+              className="prose prose-sm sm:prose-lg max-w-none dark:prose-invert overflow-x-hidden"
             />
           </div>
 
@@ -276,11 +276,11 @@ export default function ArticlePage() {
             </h3>
 
             {feedbackGiven === null && !showFeedbackComment ? (
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
                 <button
                   onClick={() => handleFeedback(true)}
                   disabled={submittingFeedback}
-                  className="flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                  className="flex items-center justify-center px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50 min-h-[44px]"
                 >
                   <HandThumbUpIcon className="w-5 h-5 mr-2" />
                   Sim, foi útil
@@ -288,19 +288,19 @@ export default function ArticlePage() {
                 <button
                   onClick={() => handleFeedback(false)}
                   disabled={submittingFeedback}
-                  className="flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                  className="flex items-center justify-center px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50 min-h-[44px]"
                 >
                   <HandThumbDownIcon className="w-5 h-5 mr-2" />
                   Não foi útil
                 </button>
               </div>
             ) : feedbackGiven === true ? (
-              <div className="flex items-center text-green-700">
+              <div className="flex items-center text-green-700 dark:text-green-400">
                 <HandThumbUpSolid className="w-5 h-5 mr-2" />
                 <span>Obrigado pelo seu feedback!</span>
               </div>
             ) : feedbackGiven === false && !showFeedbackComment ? (
-              <div className="flex items-center text-red-700">
+              <div className="flex items-center text-red-700 dark:text-red-400">
                 <HandThumbDownSolid className="w-5 h-5 mr-2" />
                 <span>Obrigado pelo seu feedback!</span>
               </div>
@@ -322,13 +322,13 @@ export default function ArticlePage() {
                   <button
                     onClick={handleNegativeFeedbackSubmit}
                     disabled={submittingFeedback}
-                    className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 min-h-[44px] bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
                   >
                     {submittingFeedback ? 'Enviando...' : 'Enviar'}
                   </button>
                   <button
                     onClick={() => setShowFeedbackComment(false)}
-                    className="px-4 py-2 text-description hover:text-neutral-900 dark:hover:text-white transition-colors"
+                    className="px-4 py-2 min-h-[44px] text-description hover:text-neutral-900 dark:hover:text-white transition-colors"
                   >
                     Cancelar
                   </button>
@@ -338,8 +338,8 @@ export default function ArticlePage() {
 
             {/* Estatísticas */}
             <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-700">
-              <div className="flex items-center justify-between text-sm text-muted-content">
-                <div className="flex items-center space-x-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-sm text-muted-content">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <span>{article.helpful_votes} pessoas acharam útil</span>
                   <span>{article.not_helpful_votes} pessoas acharam inútil</span>
                 </div>
@@ -353,12 +353,16 @@ export default function ArticlePage() {
         {article.relatedArticles && article.relatedArticles.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-6">Artigos Relacionados</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {article.relatedArticles.map((relatedArticle) => (
                 <div
                   key={relatedArticle.id}
                   onClick={() => router.push(`/knowledge/article/${relatedArticle.slug}`)}
-                  className="glass-panel p-4 rounded-lg hover:shadow-lg transition-all cursor-pointer hover:scale-105"
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/knowledge/article/${relatedArticle.slug}`) } }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Ler artigo: ${relatedArticle.title}`}
+                  className="glass-panel p-4 rounded-lg hover:shadow-lg transition-shadow cursor-pointer active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-2">
                     {relatedArticle.title}
@@ -367,7 +371,7 @@ export default function ArticlePage() {
                     {relatedArticle.summary}
                   </p>
                   <div className="flex items-center justify-between text-xs text-muted-content">
-                    <span>{relatedArticle.view_count} views</span>
+                    <span>{relatedArticle.view_count} visualizações</span>
                     <span>{relatedArticle.helpful_votes} úteis</span>
                   </div>
                 </div>

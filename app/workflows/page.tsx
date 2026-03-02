@@ -17,6 +17,7 @@ import {
   HomeIcon,
 } from '@heroicons/react/24/outline';
 import { WorkflowDefinition } from '@/lib/types/workflow';
+import { logger } from '@/lib/monitoring/logger';
 import PageHeader from '@/components/ui/PageHeader';
 
 export default function WorkflowsPage() {
@@ -44,7 +45,7 @@ export default function WorkflowsPage() {
         setWorkflows(data.workflows);
       }
     } catch (error) {
-      console.error('Error loading workflows:', error);
+      logger.error('Erro ao carregar workflows', error);
     } finally {
       setLoading(false);
     }
@@ -80,12 +81,12 @@ export default function WorkflowsPage() {
         loadWorkflows();
       }
     } catch (error) {
-      console.error('Error duplicating workflow:', error);
+      logger.error('Erro ao duplicar workflow', error);
     }
   };
 
   const handleDeleteWorkflow = async (workflowId: number) => {
-    if (!confirm('Are you sure you want to delete this workflow?')) {
+    if (!confirm('Tem certeza que deseja excluir este workflow?')) {
       return;
     }
 
@@ -98,7 +99,7 @@ export default function WorkflowsPage() {
         loadWorkflows();
       }
     } catch (error) {
-      console.error('Error deleting workflow:', error);
+      logger.error('Erro ao excluir workflow', error);
     }
   };
 
@@ -118,7 +119,7 @@ export default function WorkflowsPage() {
         loadWorkflows();
       }
     } catch (error) {
-      console.error('Error toggling workflow:', error);
+      logger.error('Erro ao alterar estado do workflow', error);
     }
   };
 
@@ -139,7 +140,7 @@ export default function WorkflowsPage() {
       {/* Header */}
       <PageHeader
         title="Workflows"
-        description="Automate your ticket management with visual workflows"
+        description="Automatize o gerenciamento de tickets com fluxos visuais"
         breadcrumbs={[
           { label: 'Início', href: '/', icon: HomeIcon },
           { label: 'Workflows', href: '/workflows' },
@@ -150,53 +151,53 @@ export default function WorkflowsPage() {
             className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <PlusIcon className="w-5 h-5" />
-            <span>Create Workflow</span>
+            <span>Criar Workflow</span>
           </button>
         }
       />
 
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center space-x-2 animate-fade-in">
+        <div className="flex items-center space-x-2 overflow-x-auto pb-2 animate-fade-in">
           <button
             onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap min-h-[44px] ${
               filter === 'all'
                 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
           >
-            All
+            Todos
           </button>
           <button
             onClick={() => setFilter('ticket_automation')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap min-h-[44px] ${
               filter === 'ticket_automation'
                 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
           >
-            Ticket Automation
+            Automação de Tickets
           </button>
           <button
             onClick={() => setFilter('notification')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap min-h-[44px] ${
               filter === 'notification'
                 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
           >
-            Notifications
+            Notificações
           </button>
           <button
             onClick={() => setFilter('approval')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap min-h-[44px] ${
               filter === 'approval'
                 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
           >
-            Approvals
+            Aprovações
           </button>
         </div>
       </div>
@@ -224,18 +225,18 @@ export default function WorkflowsPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">
-              No workflows yet
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
+              Nenhum workflow encontrado
             </h3>
             <p className="text-sm text-description mb-6">
-              Get started by creating your first workflow
+              Comece criando seu primeiro workflow
             </p>
             <button
               onClick={handleCreateWorkflow}
-              className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all duration-200"
+              className="inline-flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-all duration-200 min-h-[44px]"
             >
               <PlusIcon className="w-5 h-5" />
-              <span>Create Workflow</span>
+              <span>Criar Workflow</span>
             </button>
           </div>
         ) : (
@@ -270,12 +271,12 @@ export default function WorkflowsPage() {
                       {workflow.category.replace('_', ' ')}
                     </span>
                     {workflow.isActive ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                        Active
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                        Ativo
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                        Inactive
+                        Inativo
                       </span>
                     )}
                   </div>
@@ -285,26 +286,26 @@ export default function WorkflowsPage() {
                 <div className="px-6 py-4 bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200 dark:border-neutral-700">
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <div className="text-sm font-medium text-neutral-500">
-                        Executions
+                      <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                        Execuções
                       </div>
-                      <div className="text-lg font-semibold text-neutral-900 dark:text-white mt-1">
+                      <div className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mt-1">
                         {workflow.executionCount || 0}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-neutral-500">
-                        Success
+                      <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                        Sucesso
                       </div>
-                      <div className="text-lg font-semibold text-green-600 mt-1">
+                      <div className="text-lg font-semibold text-green-600 dark:text-green-400 mt-1">
                         {workflow.successCount || 0}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-neutral-500">
-                        Failed
+                      <div className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                        Falhas
                       </div>
-                      <div className="text-lg font-semibold text-red-600 mt-1">
+                      <div className="text-lg font-semibold text-red-600 dark:text-red-400 mt-1">
                         {workflow.failureCount || 0}
                       </div>
                     </div>
@@ -312,33 +313,37 @@ export default function WorkflowsPage() {
                 </div>
 
                 {/* Card Actions */}
-                <div className="px-4 py-3 flex items-center justify-between space-x-2">
+                <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => handleEditWorkflow(workflow.id)}
-                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
-                      title="Edit"
+                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      title="Editar"
+                      aria-label="Editar workflow"
                     >
                       <PencilIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDuplicateWorkflow(workflow)}
-                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
-                      title="Duplicate"
+                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      title="Duplicar"
+                      aria-label="Duplicar workflow"
                     >
                       <DocumentDuplicateIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleViewAnalytics(workflow.id)}
-                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
-                      title="Analytics"
+                      className="p-2 text-description hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      title="Análises"
+                      aria-label="Ver análises do workflow"
                     >
                       <ChartBarIcon className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteWorkflow(workflow.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                      title="Delete"
+                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      title="Excluir"
+                      aria-label="Excluir workflow"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
@@ -354,12 +359,12 @@ export default function WorkflowsPage() {
                   >
                     {workflow.isActive ? (
                       <>
-                        <span>Deactivate</span>
+                        <span>Desativar</span>
                       </>
                     ) : (
                       <>
                         <PlayIcon className="w-4 h-4" />
-                        <span>Activate</span>
+                        <span>Ativar</span>
                       </>
                     )}
                   </button>

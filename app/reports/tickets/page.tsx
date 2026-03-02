@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger'
 import {
   ChartBarIcon,
   TicketIcon,
@@ -125,7 +126,7 @@ export default function TicketReportsPage() {
         { priority: 'Baixa', count: 43, avg_resolution: 18.6, sla_compliance: 97, color: 'bg-green-500' }
       ])
     } catch (error) {
-      console.error('Error fetching report data:', error)
+      logger.error('Error fetching report data:', error)
     } finally {
       setLoading(false)
     }
@@ -150,13 +151,14 @@ export default function TicketReportsPage() {
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
+              aria-label="Selecionar período"
               className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
             >
               <option value="7d">Últimos 7 dias</option>
               <option value="30d">Últimos 30 dias</option>
               <option value="90d">Últimos 90 dias</option>
             </select>
-            <button className="px-3 py-2 text-sm font-medium text-description bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg flex items-center gap-2 transition-all">
+            <button className="px-3 py-2 text-sm font-medium text-description bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg flex items-center gap-2 transition-all min-h-[44px]" aria-label="Exportar relatório">
               <ArrowDownTrayIcon className="w-4 h-4" />
               <span className="hidden sm:inline">Exportar</span>
             </button>
@@ -236,7 +238,7 @@ export default function TicketReportsPage() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xl font-bold text-neutral-900 dark:text-white">
+                      <span className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
                         {Math.round((summary.sla_met / summary.total) * 100)}%
                       </span>
                     </div>
@@ -247,14 +249,14 @@ export default function TicketReportsPage() {
                         <CheckCircleIcon className="w-4 h-4 text-green-500" />
                         Dentro do SLA
                       </span>
-                      <span className="font-medium text-green-600">{summary.sla_met}</span>
+                      <span className="font-medium text-green-600 dark:text-green-400">{summary.sla_met}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-description flex items-center gap-1">
                         <XCircleIcon className="w-4 h-4 text-red-500" />
                         Fora do SLA
                       </span>
-                      <span className="font-medium text-red-600">{summary.sla_breached}</span>
+                      <span className="font-medium text-red-600 dark:text-red-400">{summary.sla_breached}</span>
                     </div>
                   </div>
                 </div>
@@ -349,7 +351,7 @@ export default function TicketReportsPage() {
                     <div key={index}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-description">{cat.name}</span>
-                        <span className="font-medium text-neutral-900 dark:text-white">{cat.count} ({cat.percentage}%)</span>
+                        <span className="font-medium text-neutral-900 dark:text-neutral-100">{cat.count} ({cat.percentage}%)</span>
                       </div>
                       <div className="w-full h-2 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                         <div className={`h-full ${cat.color} rounded-full`} style={{ width: `${cat.percentage}%` }} />
@@ -382,7 +384,7 @@ export default function TicketReportsPage() {
                           <td className="py-2 text-right">{p.count}</td>
                           <td className="py-2 text-right hidden sm:table-cell">{p.avg_resolution}h</td>
                           <td className="py-2 text-right">
-                            <span className={p.sla_compliance >= 90 ? 'text-green-600' : 'text-orange-600'}>
+                            <span className={p.sla_compliance >= 90 ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}>
                               {p.sla_compliance}%
                             </span>
                           </td>

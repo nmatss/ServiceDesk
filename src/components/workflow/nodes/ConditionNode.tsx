@@ -153,7 +153,7 @@ export default function ConditionNode({ data, selected }: NodeProps<ConditionNod
         {configuration.customExpression && (
           <div className={`text-xs ${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
             <div className="font-medium mb-1">Expression:</div>
-            <code className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">
+            <code className="font-mono text-xs bg-neutral-100 px-1 py-0.5 rounded">
               {configuration.customExpression.length > 30
                 ? `${configuration.customExpression.substring(0, 30)}...`
                 : configuration.customExpression
@@ -238,7 +238,7 @@ export default function ConditionNode({ data, selected }: NodeProps<ConditionNod
           type="source"
           position={Position.Bottom}
           id="condition-default"
-          className="w-3 h-3 bg-gray-500 border-2 border-white"
+          className="w-3 h-3 bg-neutral-500 border-2 border-white"
           style={{ bottom: -6 }}
         />
       )}
@@ -258,7 +258,7 @@ export default function ConditionNode({ data, selected }: NodeProps<ConditionNod
 
       {configuration.defaultPath && (
         <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1">
-          <div className="w-2 h-2 bg-gray-400 rounded-full opacity-50"></div>
+          <div className="w-2 h-2 bg-neutral-400 rounded-full opacity-50"></div>
         </div>
       )}
 

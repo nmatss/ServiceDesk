@@ -49,7 +49,7 @@ export function AnimatedCard({
       }}
       whileTap={{ scale: tapScale }}
       className={cn(
-        'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow cursor-pointer',
+        'bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-md transition-shadow cursor-pointer',
         className
       )}
     >
@@ -201,7 +201,7 @@ export function SlideInPanel({ children, isOpen, onClose, side = 'right', classN
         variants={variants[side]}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className={cn(
-          'fixed z-50 bg-white dark:bg-gray-900 shadow-xl',
+          'fixed z-50 bg-white dark:bg-neutral-900 shadow-xl',
           side === 'left' && 'left-0 top-0 bottom-0 w-80',
           side === 'right' && 'right-0 top-0 bottom-0 w-80',
           side === 'top' && 'top-0 left-0 right-0 h-80',
@@ -298,7 +298,7 @@ export function HoverCard({ children, className, glowColor = 'blue' }: HoverCard
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 400, damping: 15 }}
       className={cn(
-        'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-lg transition-all duration-200',
+        'bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-lg transition-all duration-200',
         glowColors[glowColor as keyof typeof glowColors],
         className
       )}
@@ -343,7 +343,7 @@ export function Pulse({ children, className, pulseColor = 'bg-blue-500' }: Pulse
 // ========================================
 export function SkeletonShimmer({ className }: { className?: string }) {
   return (
-    <div className={cn('relative overflow-hidden rounded-md bg-gray-200 dark:bg-gray-700', className)}>
+    <div className={cn('relative overflow-hidden rounded-md bg-neutral-200 dark:bg-neutral-700', className)}>
       <motion.div
         className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
         animate={{
@@ -437,7 +437,7 @@ export function AnimatedProgressBar({
           <span>{progress}%</span>
         </div>
       )}
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+      <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5 overflow-hidden">
         <motion.div
           className={cn('h-full rounded-full', color)}
           initial={{ width: 0 }}

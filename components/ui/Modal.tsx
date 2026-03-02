@@ -110,13 +110,13 @@ export const Modal: React.FC<ModalProps> = ({
               <Dialog.Panel
                 className={cn(
                   modalVariants({ size, persona }),
-                  'w-full max-w-[calc(100vw-2rem)]',
+                  'w-full max-w-[calc(100vw-2rem)] max-h-[90vh] overflow-y-auto',
                   className
                 )}
               >
                 {/* Header */}
                 {(title || showCloseButton) && (
-                  <div className="flex items-center justify-between p-6 pb-4">
+                  <div className="flex items-center justify-between p-4 sm:p-6 pb-3 sm:pb-4">
                     <div className="flex-1 min-w-0">
                       {title && (
                         <Dialog.Title
@@ -136,7 +136,7 @@ export const Modal: React.FC<ModalProps> = ({
                     {showCloseButton && (
                       <button
                         type="button"
-                        className="ml-4 rounded-md bg-white text-neutral-400 hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-neutral-800 dark:hover:text-neutral-300"
+                        className="ml-4 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-white text-neutral-400 hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-neutral-800 dark:hover:text-neutral-300"
                         onClick={onClose}
                         aria-label="Fechar modal"
                       >
@@ -149,8 +149,8 @@ export const Modal: React.FC<ModalProps> = ({
 
                 {/* Content */}
                 <div className={cn(
-                  'px-6',
-                  title || showCloseButton ? 'pt-0 pb-6' : 'py-6'
+                  'px-4 sm:px-6',
+                  title || showCloseButton ? 'pt-0 pb-4 sm:pb-6' : 'py-4 sm:py-6'
                 )}>
                   {children}
                 </div>
@@ -191,7 +191,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
   type = 'info',
   message,
   confirmText = 'OK',
-  cancelText = 'Cancel',
+  cancelText = 'Cancelar',
   onConfirm,
   onCancel,
   showCancel = false,
@@ -272,8 +272,8 @@ export interface FormModalProps extends ModalProps {
 export const FormModal: React.FC<FormModalProps> = ({
   children,
   onSubmit,
-  submitText = 'Save',
-  cancelText = 'Cancel',
+  submitText = 'Salvar',
+  cancelText = 'Cancelar',
   showFooter = true,
   loading = false,
   submitDisabled = false,

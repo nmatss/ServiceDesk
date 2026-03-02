@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger'
 import {
   ExclamationTriangleIcon,
   DocumentTextIcon,
@@ -45,7 +46,7 @@ export default function NewProblemPage() {
           setCategories(data.categories)
         }
       } catch (error) {
-        console.error('Error fetching categories:', error)
+        logger.error('Erro ao buscar categorias', error)
       }
     }
     fetchCategories()
@@ -78,13 +79,13 @@ export default function NewProblemPage() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to create problem')
+        throw new Error(data.error || 'Falha ao criar problema')
       }
 
       // Redirect to the created problem or problems list
       router.push(data.data?.id ? `/admin/problems/${data.data.id}` : '/admin/problems')
     } catch (error) {
-      console.error('Error creating problem:', error)
+      logger.error('Erro ao criar problema', error)
       toast.error(error instanceof Error ? error.message : 'Erro ao criar problema')
     } finally {
       setLoading(false)
@@ -240,13 +241,14 @@ export default function NewProblemPage() {
                 type="text"
                 value={newService}
                 onChange={(e) => setNewService(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addService() } }}
                 className="flex-1 px-4 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-transparent text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 transition-all"
                 placeholder="Nome do serviço"
               />
               <button
                 type="button"
                 onClick={addService}
+                aria-label="Adicionar serviço"
                 className="px-4 py-2.5 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg hover:bg-brand-200 dark:hover:bg-brand-900/50 transition-colors flex items-center justify-center"
               >
                 <PlusIcon className="w-5 h-5" />
@@ -263,7 +265,8 @@ export default function NewProblemPage() {
                   <button
                     type="button"
                     onClick={() => removeService(service)}
-                    className="text-neutral-400 hover:text-error-500 dark:hover:text-error-400 transition-colors"
+                    aria-label={`Remover serviço ${service}`}
+                    className="text-neutral-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                   >
                     <XMarkIcon className="w-4 h-4" />
                   </button>
@@ -340,7 +343,8 @@ export default function NewProblemPage() {
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="button"
+            onClick={(e) => handleSubmit(e as unknown as React.FormEvent)}
             disabled={loading}
             className="flex-1 py-2.5 text-sm font-medium text-white bg-gradient-brand rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all"
           >

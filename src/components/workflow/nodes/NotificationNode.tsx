@@ -172,7 +172,7 @@ export default function NotificationNode({ data, selected }: NodeProps<Notificat
           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
             configuration.deliveryOptions.priority === 'urgent' ? 'bg-red-100 text-red-800' :
             configuration.deliveryOptions.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-            'bg-gray-100 text-gray-800'
+            'bg-neutral-100 text-neutral-800'
           }`}>
             {configuration.deliveryOptions.priority.toUpperCase()}
           </span>

@@ -110,7 +110,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
             setError('Problema não encontrado');
             return;
           }
-          throw new Error('Failed to fetch problem');
+          throw new Error('Erro ao buscar problema');
         }
 
         const data = await response.json();
@@ -120,11 +120,10 @@ export default function ProblemDetailPage({ params }: PageProps) {
           setActivities(data.data.activities || []);
           setIncidents(data.data.incidents || []);
         } else {
-          setError(data.error || 'Failed to fetch problem');
+          setError(data.error || 'Erro ao buscar problema');
         }
-      } catch (err) {
-        console.error('Error fetching problem:', err);
-        setError('Failed to load problem');
+      } catch {
+        setError('Erro ao carregar problema');
       } finally {
         setLoading(false);
       }
@@ -157,8 +156,8 @@ export default function ProblemDetailPage({ params }: PageProps) {
           setNewComment('');
         }
       }
-    } catch (err) {
-      console.error('Error adding comment:', err);
+    } catch {
+      // Error silently handled
     } finally {
       setSubmitting(false);
     }
@@ -187,8 +186,8 @@ export default function ProblemDetailPage({ params }: PageProps) {
           }
         }
       }
-    } catch (err) {
-      console.error('Error updating status:', err);
+    } catch {
+      // Error silently handled
     }
   };
 
@@ -213,7 +212,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
           </h2>
           <Link
             href="/problems"
-            className="mt-4 inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 transition-all duration-200 duration-200"
+            className="mt-4 inline-flex items-center gap-2 text-brand-600 hover:text-brand-700 transition-all duration-200"
           >
             <ArrowLeftIcon className="w-4 h-4" />
             Voltar para lista
@@ -231,7 +230,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
       <PageHeader
         title={problem.title}
         description={
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             <span className="font-mono text-sm text-muted-content">
               {problem.problem_number}
             </span>
@@ -252,11 +251,12 @@ export default function ProblemDetailPage({ params }: PageProps) {
           { label: problem.problem_number, href: `/problems/${id}` },
         ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <select
               value={problem.status}
               onChange={(e) => handleStatusChange(e.target.value as ProblemStatus)}
-              className="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-sm transition-all duration-200"
+              aria-label="Alterar status do problema"
+              className="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm transition-all duration-200 min-h-[44px]"
             >
               <option value="open">Aberto</option>
               <option value="identified">Identificado</option>
@@ -267,7 +267,7 @@ export default function ProblemDetailPage({ params }: PageProps) {
             </select>
             <Link
               href={`/problems/${id}/edit`}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition-all duration-200 min-h-[44px]"
             >
               <PencilIcon className="w-4 h-4" />
               Editar
@@ -283,8 +283,8 @@ export default function ProblemDetailPage({ params }: PageProps) {
           <div className="lg:col-span-2 space-y-6">
             {/* Tabs */}
             <div className="glass-panel overflow-hidden animate-slide-up">
-              <div className="border-b border-neutral-200 dark:border-neutral-700">
-                <nav className="flex">
+              <div className="border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
+                <nav className="flex min-w-max">
                   {[
                     { key: 'details', label: 'Detalhes', icon: DocumentTextIcon },
                     { key: 'incidents', label: `Incidentes (${incidents.length})`, icon: LinkIcon },
@@ -293,13 +293,15 @@ export default function ProblemDetailPage({ params }: PageProps) {
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                      className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-all duration-200 ${
+                      aria-selected={activeTab === tab.key}
+                      role="tab"
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-3 min-h-[44px] border-b-2 font-medium text-sm whitespace-nowrap transition-all duration-200 ${
                         activeTab === tab.key
                           ? 'border-brand-600 text-brand-600'
                           : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
                       }`}
                     >
-                      <tab.icon className="w-4 h-4" />
+                      <tab.icon className="w-4 h-4 flex-shrink-0" />
                       {tab.label}
                     </button>
                   ))}
@@ -359,11 +361,11 @@ export default function ProblemDetailPage({ params }: PageProps) {
                 {/* Incidents Tab */}
                 {activeTab === 'incidents' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                       <h3 className="font-medium text-neutral-900 dark:text-white">
                         Incidentes Relacionados
                       </h3>
-                      <button className="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200">
+                      <button className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-all duration-200 min-h-[44px]" aria-label="Vincular incidente ao problema">
                         <PlusIcon className="w-4 h-4" />
                         Vincular Incidente
                       </button>
@@ -429,7 +431,8 @@ export default function ProblemDetailPage({ params }: PageProps) {
                         <button
                           type="submit"
                           disabled={!newComment.trim() || submitting}
-                          className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                          aria-label="Adicionar comentário"
+                          className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 min-h-[44px]"
                         >
                           {submitting ? 'Enviando...' : 'Adicionar Comentário'}
                         </button>
@@ -571,12 +574,12 @@ export default function ProblemDetailPage({ params }: PageProps) {
               <h3 className="font-medium text-neutral-900 dark:text-white mb-4">Ações</h3>
               <div className="space-y-2">
                 {!problem.known_error && problem.root_cause && (
-                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200">
+                  <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 min-h-[44px]" aria-label="Criar erro conhecido">
                     <ExclamationTriangleIcon className="w-4 h-4" />
                     Criar Erro Conhecido
                   </button>
                 )}
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-all duration-200">
+                <button className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition-all duration-200 min-h-[44px]" aria-label="Vincular incidente ao problema">
                   <LinkIcon className="w-4 h-4" />
                   Vincular Incidente
                 </button>

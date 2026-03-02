@@ -202,6 +202,7 @@ export default function KnowledgePage() {
                 placeholder="Buscar artigos, soluções ou documentação..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Buscar na base de conhecimento"
                 className="input-primary pl-10 text-sm sm:text-base lg:text-lg py-3 sm:py-4"
               />
               <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
@@ -313,8 +314,12 @@ export default function KnowledgePage() {
                 {filteredArticles.map((article) => (
                   <div
                     key={article.id}
-                    className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer active:scale-98"
+                    className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6 hover:shadow-md transition-shadow cursor-pointer active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500"
                     onClick={() => router.push(`/knowledge/${article.slug}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/knowledge/${article.slug}`) } }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Ler artigo: ${article.title}`}
                   >
                     <h3 className="text-base sm:text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-2">
                       {article.title}

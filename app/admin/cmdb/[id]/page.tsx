@@ -7,7 +7,6 @@ import PageHeader from '@/components/ui/PageHeader'
 import {
   ArrowLeftIcon,
   ServerIcon,
-  HomeIcon,
   ComputerDesktopIcon,
   CpuChipIcon,
   CloudIcon,
@@ -238,6 +237,7 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
           <div className="flex items-start justify-between gap-4 mb-4">
             <button
               onClick={() => router.push('/admin/cmdb')}
+              aria-label="Voltar ao CMDB"
               className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
             >
               <ArrowLeftIcon className="w-5 h-5 text-description" />
@@ -558,7 +558,7 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
                     <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{formatDate(ci.warranty_expiry)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-content mb-1">End of Life</p>
+                    <p className="text-xs text-muted-content mb-1">Fim de Vida (EOL)</p>
                     <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{formatDate(ci.end_of_life_date)}</p>
                   </div>
                 </div>
@@ -589,7 +589,10 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
                         <div
                           key={rel.id}
                           onClick={() => router.push(`/admin/cmdb/${rel.related_ci_id}`)}
-                          className="flex items-center gap-2 px-3 py-2 glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-sm transition-all"
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/cmdb/${rel.related_ci_id}`) } }}
+                          role="button"
+                          tabIndex={0}
+                          className="flex items-center gap-2 px-3 py-2 glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 cursor-pointer hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-500"
                         >
                           <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-700 flex items-center justify-center">
                             <LinkIcon className="w-4 h-4 text-muted-content" />
@@ -640,7 +643,10 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
                         <div
                           key={rel.id}
                           onClick={() => router.push(`/admin/cmdb/${rel.related_ci_id}`)}
-                          className={`flex items-center gap-2 px-3 py-2 glass-panel rounded-lg border cursor-pointer hover:shadow-sm transition-all ${
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/cmdb/${rel.related_ci_id}`) } }}
+                          role="button"
+                          tabIndex={0}
+                          className={`flex items-center gap-2 px-3 py-2 glass-panel rounded-lg border cursor-pointer hover:shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-500 ${
                             rel.is_critical_path ? 'border-error-300 dark:border-error-700 hover:border-error-400 dark:hover:border-error-600' : 'border-neutral-200 dark:border-neutral-700 hover:border-brand-300 dark:hover:border-brand-700'
                           }`}
                         >
@@ -747,7 +753,10 @@ export default function CIDetailPage({ params }: { params: Promise<{ id: string 
                     <div
                       key={ticket.id}
                       onClick={() => router.push(`/tickets/${ticket.ticket_id}`)}
-                      className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/tickets/${ticket.ticket_id}`) } }}
+                      role="button"
+                      tabIndex={0}
+                      className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <div className="flex items-center gap-3">
                         <DocumentTextIcon className="w-5 h-5 text-icon-muted" />

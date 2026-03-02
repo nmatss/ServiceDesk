@@ -127,20 +127,20 @@ export default function WorkflowTester({
     <div className={`workflow-tester fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className}`}>
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-neutral-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-neutral-900">
                 Test Workflow
               </h2>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-neutral-600 mt-1">
                 {workflow.name}
               </p>
             </div>
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                className="p-2 text-neutral-400 hover:text-neutral-600 rounded-lg transition-colors"
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -153,12 +153,12 @@ export default function WorkflowTester({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Input Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              <h3 className="text-sm font-semibold text-neutral-900 mb-3">
                 Trigger Data
               </h3>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Ticket ID
                   </label>
                   <input
@@ -166,19 +166,19 @@ export default function WorkflowTester({
                     value={triggerData.ticketId || ''}
                     onChange={(e) => handleTriggerDataChange('ticketId', parseInt(e.target.value))}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Priority
                   </label>
                   <select
                     value={triggerData.priority || 'medium'}
                     onChange={(e) => handleTriggerDataChange('priority', e.target.value)}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -188,7 +188,7 @@ export default function WorkflowTester({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Category
                   </label>
                   <input
@@ -196,12 +196,12 @@ export default function WorkflowTester({
                     value={triggerData.category || ''}
                     onChange={(e) => handleTriggerDataChange('category', e.target.value)}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Status
                   </label>
                   <input
@@ -209,12 +209,12 @@ export default function WorkflowTester({
                     value={triggerData.status || ''}
                     onChange={(e) => handleTriggerDataChange('status', e.target.value)}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Custom JSON Data
                   </label>
                   <textarea
@@ -229,7 +229,7 @@ export default function WorkflowTester({
                     }}
                     disabled={isRunning}
                     rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
               </div>
@@ -237,14 +237,14 @@ export default function WorkflowTester({
 
             {/* Output Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">
+              <h3 className="text-sm font-semibold text-neutral-900 mb-3">
                 Execution Results
               </h3>
 
               {!executionResult && !error && !isRunning && (
-                <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-300 rounded-lg">
-                  <PlayIcon className="w-12 h-12 text-gray-400 mb-3" />
-                  <p className="text-sm text-gray-600">
+                <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-neutral-300 rounded-lg">
+                  <PlayIcon className="w-12 h-12 text-neutral-400 mb-3" />
+                  <p className="text-sm text-neutral-600">
                     Click "Run Test" to execute the workflow
                   </p>
                 </div>
@@ -253,10 +253,10 @@ export default function WorkflowTester({
               {isRunning && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <ArrowPathIcon className="w-12 h-12 text-blue-500 animate-spin mb-3" />
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-neutral-900">
                     Running workflow...
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-neutral-600 mt-1">
                     Please wait while we execute your workflow
                   </p>
                 </div>
@@ -281,9 +281,9 @@ export default function WorkflowTester({
               {executionResult && (
                 <div className="space-y-4">
                   {/* Status */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">
+                      <span className="text-sm font-medium text-neutral-700">
                         Status
                       </span>
                       <div className="flex items-center space-x-2">
@@ -313,12 +313,12 @@ export default function WorkflowTester({
                     {/* Progress */}
                     <div className="mt-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-gray-600">Progress</span>
-                        <span className="text-xs font-medium text-gray-900">
+                        <span className="text-xs text-neutral-600">Progress</span>
+                        <span className="text-xs font-medium text-neutral-900">
                           {executionResult.progress}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-neutral-200 rounded-full h-2">
                         <div
                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${executionResult.progress}%` }}
@@ -330,11 +330,11 @@ export default function WorkflowTester({
                   {/* Output Variables */}
                   {Object.keys(executionResult.variables).length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      <h4 className="text-sm font-medium text-neutral-700 mb-2">
                         Output Variables
                       </h4>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <pre className="text-xs font-mono text-gray-800 overflow-auto">
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3">
+                        <pre className="text-xs font-mono text-neutral-800 overflow-auto">
                           {JSON.stringify(executionResult.variables, null, 2)}
                         </pre>
                       </div>
@@ -344,13 +344,13 @@ export default function WorkflowTester({
                   {/* Execution Logs */}
                   {executionResult.logs.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">
+                      <h4 className="text-sm font-medium text-neutral-700 mb-2">
                         Execution Logs
                       </h4>
-                      <div className="bg-gray-900 rounded-lg p-3 max-h-64 overflow-auto">
+                      <div className="bg-neutral-900 rounded-lg p-3 max-h-64 overflow-auto">
                         {executionResult.logs.map((log: any, index: number) => (
                           <div key={index} className="text-xs font-mono mb-1">
-                            <span className="text-gray-500">
+                            <span className="text-neutral-500">
                               [{new Date(log.timestamp).toLocaleTimeString()}]
                             </span>
                             <span
@@ -364,7 +364,7 @@ export default function WorkflowTester({
                             >
                               {log.level.toUpperCase()}
                             </span>
-                            <span className="text-gray-300 ml-2">
+                            <span className="text-neutral-300 ml-2">
                               {log.message}
                             </span>
                           </div>
@@ -391,16 +391,16 @@ export default function WorkflowTester({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
+        <div className="p-6 border-t border-neutral-200 bg-neutral-50">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-neutral-600">
               {workflow.nodes.length} nodes • {workflow.edges.length} edges
             </div>
             <div className="flex items-center space-x-3">
               {executionResult && (
                 <button
                   onClick={handleReset}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50 rounded-lg transition-colors"
                 >
                   <ArrowPathIcon className="w-4 h-4" />
                   <span>Reset</span>
@@ -419,7 +419,7 @@ export default function WorkflowTester({
                 <button
                   onClick={handleStartTest}
                   disabled={!workflow.nodes.length}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-400 rounded-lg transition-colors"
                 >
                   <PlayIcon className="w-4 h-4" />
                   <span>Run Test</span>

@@ -310,33 +310,33 @@ module.exports = {
         },
 
         '.card-persona-enduser': {
-          '@apply bg-white dark:bg-gray-800 border border-persona-primary rounded-xl shadow-lg p-6': {},
+          '@apply bg-white dark:bg-neutral-800 border border-persona-primary rounded-xl shadow-lg p-6': {},
           '@apply transition-all duration-300 ease-out hover:shadow-xl': {},
         },
         '.card-persona-agent': {
-          '@apply bg-white dark:bg-gray-800 border border-persona-secondary rounded-md shadow-sm p-4': {},
+          '@apply bg-white dark:bg-neutral-800 border border-persona-secondary rounded-md shadow-sm p-4': {},
           '@apply transition-all duration-150 ease-in-out hover:shadow-md': {},
         },
         '.card-persona-manager': {
-          '@apply bg-white dark:bg-gray-800 border border-persona-primary rounded-xl shadow-lg p-6': {},
+          '@apply bg-white dark:bg-neutral-800 border border-persona-primary rounded-xl shadow-lg p-6': {},
           '@apply transition-all duration-200 ease-out hover:shadow-xl': {},
         },
 
         '.input-persona-enduser': {
           '@apply w-full px-4 py-3 text-base border border-persona-secondary rounded-lg': {},
-          '@apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500': {},
+          '@apply bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500': {},
           '@apply focus:outline-none focus:ring-2 focus:ring-persona-focus focus:border-persona-focus': {},
           '@apply transition-all duration-300 ease-out': {},
         },
         '.input-persona-agent': {
           '@apply w-full px-3 py-1.5 text-sm border border-persona-secondary rounded-md': {},
-          '@apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500': {},
+          '@apply bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500': {},
           '@apply focus:outline-none focus:ring-2 focus:ring-persona-focus focus:border-persona-focus': {},
           '@apply transition-all duration-150 ease-in-out': {},
         },
         '.input-persona-manager': {
           '@apply w-full px-4 py-2.5 text-base border border-persona-primary rounded-lg': {},
-          '@apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500': {},
+          '@apply bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500': {},
           '@apply focus:outline-none focus:ring-2 focus:ring-persona-focus focus:border-persona-focus': {},
           '@apply transition-all duration-200 ease-out': {},
         },

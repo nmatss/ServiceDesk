@@ -233,7 +233,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
           <input
             type="text"
-            placeholder="Search actions..."
+            placeholder="Buscar ações..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -350,7 +350,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 <div className="flex items-center gap-3 mb-4">
                   <AlertTriangle className="h-6 w-6 text-warning-600" />
                   <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                    Confirm Action
+                    Confirmar Ação
                   </h3>
                 </div>
                 <p className="text-description mb-6">
@@ -361,13 +361,13 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                     variant="secondary"
                     onClick={() => setConfirmAction(null)}
                   >
-                    Cancel
+                    Cancelar
                   </Button>
                   <Button
                     variant={confirmAction.variant === 'destructive' ? 'destructive' : 'primary'}
                     onClick={handleConfirmAction}
                   >
-                    Confirm
+                    Confirmar
                   </Button>
                 </div>
               </div>
@@ -383,93 +383,93 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
 export const ticketActions: QuickAction[] = [
   {
     id: 'create-ticket',
-    label: 'New Ticket',
+    label: 'Novo Ticket',
     icon: <Plus />,
     onClick: () => {},
     variant: 'primary',
-    group: 'Create',
+    group: 'Criar',
     shortcut: 'Ctrl+N',
   },
   {
     id: 'assign-ticket',
-    label: 'Assign',
+    label: 'Atribuir',
     icon: <User />,
     onClick: () => {},
-    group: 'Actions',
+    group: 'Ações',
   },
   {
     id: 'edit-ticket',
-    label: 'Edit',
+    label: 'Editar',
     icon: <Edit />,
     onClick: () => {},
-    group: 'Actions',
+    group: 'Ações',
   },
   {
     id: 'close-ticket',
-    label: 'Close',
+    label: 'Fechar',
     icon: <CheckCircle />,
     onClick: () => {},
     variant: 'success',
-    group: 'Actions',
+    group: 'Ações',
   },
   {
     id: 'delete-ticket',
-    label: 'Delete',
+    label: 'Excluir',
     icon: <Trash2 />,
     onClick: () => {},
     variant: 'destructive',
-    group: 'Actions',
-    confirmMessage: 'Are you sure you want to delete this ticket? This action cannot be undone.',
+    group: 'Ações',
+    confirmMessage: 'Tem certeza que deseja excluir este ticket? Esta ação não pode ser desfeita.',
   },
 ];
 
 export const dashboardActions: QuickAction[] = [
   {
     id: 'refresh',
-    label: 'Refresh',
+    label: 'Atualizar',
     icon: <RefreshCw />,
     onClick: () => {},
     shortcut: 'F5',
   },
   {
     id: 'filter',
-    label: 'Filter',
+    label: 'Filtrar',
     icon: <Filter />,
     onClick: () => {},
   },
   {
     id: 'sort',
-    label: 'Sort',
+    label: 'Ordenar',
     icon: <SortAsc />,
     onClick: () => {},
   },
   {
     id: 'export',
-    label: 'Export',
+    label: 'Exportar',
     icon: <Download />,
     onClick: () => {},
-    group: 'Data',
+    group: 'Dados',
   },
   {
     id: 'import',
-    label: 'Import',
+    label: 'Importar',
     icon: <Upload />,
     onClick: () => {},
-    group: 'Data',
+    group: 'Dados',
   },
   {
     id: 'settings',
-    label: 'Settings',
+    label: 'Configurações',
     icon: <Settings />,
     onClick: () => {},
-    group: 'System',
+    group: 'Sistema',
   },
 ];
 
 export const agentActions: QuickAction[] = [
   {
     id: 'quick-reply',
-    label: 'Quick Reply',
+    label: 'Resposta Rápida',
     icon: <Send />,
     onClick: () => {},
     variant: 'primary',
@@ -477,26 +477,26 @@ export const agentActions: QuickAction[] = [
   },
   {
     id: 'escalate',
-    label: 'Escalate',
+    label: 'Escalar',
     icon: <TrendingUp />,
     onClick: () => {},
     variant: 'secondary',
   },
   {
     id: 'schedule',
-    label: 'Schedule',
+    label: 'Agendar',
     icon: <Calendar />,
     onClick: () => {},
   },
   {
     id: 'tag',
-    label: 'Add Tag',
+    label: 'Adicionar Tag',
     icon: <Tag />,
     onClick: () => {},
   },
   {
     id: 'timer',
-    label: 'Start Timer',
+    label: 'Iniciar Cronômetro',
     icon: <Clock />,
     onClick: () => {},
   },
@@ -505,26 +505,26 @@ export const agentActions: QuickAction[] = [
 export const managerActions: QuickAction[] = [
   {
     id: 'analytics',
-    label: 'Analytics',
+    label: 'Análises',
     icon: <BarChart3 />,
     onClick: () => {},
     variant: 'primary',
   },
   {
     id: 'team-performance',
-    label: 'Team Performance',
+    label: 'Desempenho da Equipe',
     icon: <Users />,
     onClick: () => {},
   },
   {
     id: 'sla-report',
-    label: 'SLA Report',
+    label: 'Relatório SLA',
     icon: <Clock />,
     onClick: () => {},
   },
   {
     id: 'trend-analysis',
-    label: 'Trends',
+    label: 'Tendências',
     icon: <TrendingUp />,
     onClick: () => {},
   },

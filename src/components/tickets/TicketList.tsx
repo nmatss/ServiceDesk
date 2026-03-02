@@ -307,7 +307,7 @@ export default function TicketList({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
           {/* Search */}
           {showSearch && (
-            <div className="flex-1 max-w-md">
+            <div className="flex-1 w-full lg:max-w-md">
               <label htmlFor="ticket-search" className="sr-only">Buscar tickets por título ou descrição</label>
               <div className="relative">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" aria-hidden="true" />
@@ -317,7 +317,7 @@ export default function TicketList({
                   placeholder="Buscar tickets..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="input input-bordered w-full pl-10"
+                  className="input input-bordered w-full pl-10 h-11 text-base sm:text-sm sm:h-auto"
                   aria-label="Campo de busca de tickets"
                   aria-describedby="search-help"
                 />
@@ -327,7 +327,7 @@ export default function TicketList({
           )}
 
           {/* Controls */}
-          <div className="flex items-center space-x-2" role="group" aria-label="Controles de visualização">
+          <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Controles de visualização">
             {/* View Mode Toggle */}
             <div className="btn-group" role="group" aria-label="Modo de visualização">
               <button
@@ -385,7 +385,7 @@ export default function TicketList({
 
         {/* Advanced Filters */}
         {showFilters && showFiltersPanel && (
-          <div id="filter-panel" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-neutral-200 dark:border-neutral-700" role="region" aria-label="Filtros avançados">
+          <div id="filter-panel" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-neutral-200 dark:border-neutral-700" role="region" aria-label="Filtros avançados">
             <div>
               <label htmlFor="status-filter" className="label label-text">Status</label>
               <select
@@ -503,8 +503,8 @@ export default function TicketList({
     }
 
     const gridClass = viewMode === 'grid'
-      ? 'grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6'
-      : 'space-y-4'
+      ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6'
+      : 'space-y-3 sm:space-y-4'
 
     return (
       <div

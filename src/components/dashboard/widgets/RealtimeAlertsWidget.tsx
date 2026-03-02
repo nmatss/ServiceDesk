@@ -43,7 +43,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
       case 'high': return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20';
       case 'medium': return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20';
       case 'low': return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
-      default: return 'border-gray-500 bg-gray-50 dark:bg-gray-900/20';
+      default: return 'border-neutral-500 bg-neutral-50 dark:bg-neutral-900/20';
     }
   };
 
@@ -95,7 +95,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+              <h4 className="text-sm font-medium text-neutral-900 dark:text-white truncate">
                 {alert.title}
               </h4>
               <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
@@ -111,12 +111,12 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
               {alert.description}
             </p>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">
                 {getTimeAgo()}
               </span>
               <div className="flex items-center space-x-2">
                 {alert.affected_tickets && alert.affected_tickets.length > 0 && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
                     {alert.affected_tickets.length} tickets affected
                   </span>
                 )}
@@ -133,7 +133,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
         <div className="flex items-center space-x-1 ml-2">
           <button
             onClick={() => onView(alert)}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
             title="View details"
           >
             <ChevronRightIcon className="w-4 h-4" />
@@ -141,7 +141,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
           {alert.dismissible && (
             <button
               onClick={() => onDismiss(alert.id)}
-              className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="p-1 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
               title="Dismiss alert"
             >
               <XMarkIcon className="w-4 h-4" />
@@ -222,12 +222,12 @@ export function RealtimeAlertsWidget({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center space-x-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
               Real-time Alerts
             </h3>
             {getUnreadCount() > 0 && (
@@ -236,7 +236,7 @@ export function RealtimeAlertsWidget({
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
             System alerts and notifications
           </p>
         </div>
@@ -245,7 +245,7 @@ export function RealtimeAlertsWidget({
           <select
             value={config.filterBySeverity}
             onChange={(e) => onUpdate({ filterBySeverity: e.target.value })}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
             <option value="all">All Alerts</option>
             <option value="high">High & Critical</option>
@@ -257,7 +257,7 @@ export function RealtimeAlertsWidget({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.soundEnabled
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
             {config.soundEnabled ? 'Sound On' : 'Sound Off'}
@@ -267,7 +267,7 @@ export function RealtimeAlertsWidget({
             onClick={() => onUpdate({ showDismissed: !config.showDismissed })}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.showDismissed
-                ? 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
                 : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
             }`}
           >
@@ -318,10 +318,10 @@ export function RealtimeAlertsWidget({
         ) : (
           <div className="text-center py-8">
             <CheckCircleIcon className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-neutral-500 dark:text-neutral-400">
               {isConnected ? 'No alerts at this time' : 'Offline - unable to check for alerts'}
             </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-1">
               {isConnected ? 'All systems operating normally' : 'Check connection status'}
             </p>
           </div>
@@ -329,7 +329,7 @@ export function RealtimeAlertsWidget({
       </div>
 
       {/* Connection Status */}
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -337,7 +337,7 @@ export function RealtimeAlertsWidget({
               {isConnected ? 'Real-time monitoring active' : 'Connection lost'}
             </span>
           </div>
-          <span className="text-gray-500 dark:text-gray-400">
+          <span className="text-neutral-500 dark:text-neutral-400">
             {filteredAlerts.length} of {alerts.length} alerts shown
           </span>
         </div>
@@ -346,15 +346,15 @@ export function RealtimeAlertsWidget({
       {/* Alert Detail Modal */}
       {selectedAlert && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
                   Alert Details
                 </h3>
                 <button
                   onClick={() => setSelectedAlert(null)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                 >
                   <XMarkIcon className="w-6 h-6" />
                 </button>
@@ -362,22 +362,22 @@ export function RealtimeAlertsWidget({
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
-                  <p className="text-gray-900 dark:text-white">{selectedAlert.title}</p>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Title</label>
+                  <p className="text-neutral-900 dark:text-white">{selectedAlert.title}</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Description</label>
                   <p className="text-description">{selectedAlert.description}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
-                    <p className="text-gray-900 dark:text-white capitalize">{selectedAlert.type.replace('_', ' ')}</p>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Type</label>
+                    <p className="text-neutral-900 dark:text-white capitalize">{selectedAlert.type.replace('_', ' ')}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Severity</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Severity</label>
                     <p className={`capitalize font-medium ${
                       selectedAlert.severity === 'critical' ? 'text-red-600' :
                       selectedAlert.severity === 'high' ? 'text-orange-600' :
@@ -391,8 +391,8 @@ export function RealtimeAlertsWidget({
 
                 {selectedAlert.affected_tickets && selectedAlert.affected_tickets.length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Affected Tickets</label>
-                    <p className="text-gray-900 dark:text-white">
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Affected Tickets</label>
+                    <p className="text-neutral-900 dark:text-white">
                       {selectedAlert.affected_tickets.join(', ')}
                     </p>
                   </div>
@@ -400,7 +400,7 @@ export function RealtimeAlertsWidget({
 
                 {selectedAlert.auto_actions && selectedAlert.auto_actions.length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Auto Actions Taken</label>
+                    <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Auto Actions Taken</label>
                     <ul className="list-disc list-inside text-description">
                       {selectedAlert.auto_actions.map((action, index) => (
                         <li key={index}>{action}</li>
@@ -410,8 +410,8 @@ export function RealtimeAlertsWidget({
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Timestamp</label>
-                  <p className="text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Timestamp</label>
+                  <p className="text-neutral-900 dark:text-white">
                     {new Date(selectedAlert.timestamp).toLocaleString()}
                   </p>
                 </div>
@@ -420,7 +420,7 @@ export function RealtimeAlertsWidget({
               <div className="mt-6 flex justify-end space-x-3">
                 <button
                   onClick={() => setSelectedAlert(null)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                  className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-200 rounded-md hover:bg-neutral-300 dark:bg-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-500"
                 >
                   Close
                 </button>

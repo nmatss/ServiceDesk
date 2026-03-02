@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger'
-import toast from 'react-hot-toast'
+import { customToast } from '@/components/ui/toast'
 import PageHeader from '@/components/ui/PageHeader'
 import StatsCard, { StatsGrid } from '@/components/ui/StatsCard'
 import {
@@ -126,14 +126,15 @@ export default function AdminReportsPage() {
 
       {/* Period Filter */}
       <div className="glass-panel p-4 animate-slide-up">
-        <div className="flex items-center space-x-4">
-          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
             Período:
           </label>
           <select
             value={selectedPeriod}
             onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="input max-w-xs"
+            className="input w-full sm:max-w-xs"
+            aria-label="Selecionar período do relatório"
           >
             <option value="7">Últimos 7 dias</option>
             <option value="30">Últimos 30 dias</option>
@@ -216,7 +217,7 @@ export default function AdminReportsPage() {
       {reportData && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Ticket Status Chart */}
-          <div className="glass-panel p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <div className="glass-panel p-4 sm:p-6 animate-slide-up" style={{ animationDelay: '100ms' }}>
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6">
               Status dos Tickets
             </h3>
@@ -237,7 +238,7 @@ export default function AdminReportsPage() {
           </div>
 
           {/* Category Distribution */}
-          <div className="glass-panel p-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
+          <div className="glass-panel p-4 sm:p-6 animate-slide-up" style={{ animationDelay: '200ms' }}>
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6">
               Distribuição por Categoria
             </h3>
@@ -276,7 +277,7 @@ export default function AdminReportsPage() {
             </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
+            <table className="min-w-[500px] w-full divide-y divide-neutral-200 dark:divide-neutral-700">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-content uppercase tracking-wider">
@@ -326,7 +327,7 @@ export default function AdminReportsPage() {
 
       {/* User Statistics */}
       {reportData && (
-        <div className="glass-panel p-6 animate-slide-up" style={{ animationDelay: '400ms' }}>
+        <div className="glass-panel p-4 sm:p-6 animate-slide-up" style={{ animationDelay: '400ms' }}>
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6">
             Estatísticas de Usuários
           </h3>
@@ -370,24 +371,24 @@ export default function AdminReportsPage() {
       )}
 
       {/* Quick Actions */}
-      <div className="glass-panel p-6 animate-slide-up" style={{ animationDelay: '500ms' }}>
+      <div className="glass-panel p-4 sm:p-6 animate-slide-up" style={{ animationDelay: '500ms' }}>
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6">
           Ações Rápidas
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <button onClick={() => toast.error('Relatório de tickets ainda não implementado')} className="btn btn-secondary w-full group">
+          <button onClick={() => customToast.error('Relatório de tickets ainda não implementado')} className="btn btn-secondary w-full group">
             <TicketIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Tickets
           </button>
-          <button onClick={() => toast.error('Relatório de usuários ainda não implementado')} className="btn btn-secondary w-full group">
+          <button onClick={() => customToast.error('Relatório de usuários ainda não implementado')} className="btn btn-secondary w-full group">
             <UserGroupIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Usuários
           </button>
-          <button onClick={() => toast.error('Relatório de performance ainda não implementado')} className="btn btn-secondary w-full group">
+          <button onClick={() => customToast.error('Relatório de performance ainda não implementado')} className="btn btn-secondary w-full group">
             <ChartBarIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Performance
           </button>
-          <button onClick={() => toast.error('Relatório de categorias ainda não implementado')} className="btn btn-secondary w-full group">
+          <button onClick={() => customToast.error('Relatório de categorias ainda não implementado')} className="btn btn-secondary w-full group">
             <DocumentTextIcon className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
             Relatório de Categorias
           </button>

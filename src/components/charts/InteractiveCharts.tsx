@@ -210,14 +210,14 @@ export function DrilldownChart({
           {breadcrumb.map((crumb, index) => (
             <li key={index} className="inline-flex items-center">
               {index > 0 && (
-                <svg className="w-3 h-3 mx-1 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-3 h-3 mx-1 text-neutral-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
               )}
               <span className={`text-sm font-medium ${
                 index === breadcrumb.length - 1
                   ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 cursor-pointer'
               }`}>
                 {crumb}
               </span>
@@ -230,7 +230,7 @@ export function DrilldownChart({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700"
       />
     </div>
   );
@@ -303,7 +303,7 @@ export function ZoomableChart({
   return (
     <div className="w-full">
       <div className="mb-4 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Zoomable Time Series Chart
         </h3>
         <button
@@ -381,7 +381,7 @@ export function BrushableChart({
     <div className="w-full space-y-6">
       {/* Detail View */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
           Detail View
         </h3>
         <ResponsiveContainer width="100%" height={300}>
@@ -405,7 +405,7 @@ export function BrushableChart({
 
       {/* Overview with Brush */}
       <div>
-        <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <h4 className="text-md font-medium text-neutral-700 dark:text-neutral-300 mb-2">
           Overview & Navigation
         </h4>
         <ResponsiveContainer width="100%" height={100}>

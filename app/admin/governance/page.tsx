@@ -134,7 +134,7 @@ export default function GovernancePage() {
           action: 'LOGIN',
           resource_type: 'session',
           resource_id: 'sess_abc123',
-          resource_name: 'User Session',
+          resource_name: 'Sessão do Usuário',
           ip_address: '10.0.0.50',
           user_agent: 'Mozilla/5.0 Firefox/121',
           status: 'success',
@@ -164,7 +164,7 @@ export default function GovernancePage() {
           action: 'LOGIN_FAILED',
           resource_type: 'auth',
           resource_id: 'auth_789',
-          resource_name: 'Authentication Attempt',
+          resource_name: 'Tentativa de Autenticação',
           ip_address: '203.0.113.50',
           user_agent: 'curl/7.88.1',
           status: 'failure',
@@ -361,7 +361,7 @@ export default function GovernancePage() {
       ])
 
     } catch (error) {
-      console.error('Error fetching governance data:', error)
+      toast.error('Erro ao carregar dados de governança')
     } finally {
       setLoading(false)
     }

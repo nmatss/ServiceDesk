@@ -489,9 +489,9 @@ export default function WorkflowBuilder({
               {/* Canvas Panels */}
               <Panel position="top-center" className="workflow-info-panel">
                 <div className="bg-white shadow-sm border rounded-lg px-3 py-2 text-sm">
-                  <span className="font-medium text-gray-900">{workflowData.name}</span>
+                  <span className="font-medium text-neutral-900">{workflowData.name}</span>
                   {workflowData.description && (
-                    <span className="text-gray-500 ml-2">• {workflowData.description}</span>
+                    <span className="text-neutral-500 ml-2">• {workflowData.description}</span>
                   )}
                 </div>
               </Panel>
@@ -500,11 +500,11 @@ export default function WorkflowBuilder({
               <Panel position="top-right" className="workflow-stats-panel">
                 <div className="bg-white shadow-sm border rounded-lg px-3 py-2 text-sm space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Nodes:</span>
+                    <span className="text-neutral-600">Nodes:</span>
                     <span className="font-medium">{nodes.length}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Edges:</span>
+                    <span className="text-neutral-600">Edges:</span>
                     <span className="font-medium">{edges.length}</span>
                   </div>
                 </div>

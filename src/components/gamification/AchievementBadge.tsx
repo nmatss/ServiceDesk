@@ -75,7 +75,7 @@ export default function AchievementBadge({
           ${sizeClasses[size].container}
           rounded-lg
           border-2
-          ${unlocked ? `${rarityBackground} border-current ${rarityColor}` : 'bg-gray-100 border-gray-300'}
+          ${unlocked ? `${rarityBackground} border-current ${rarityColor}` : 'bg-neutral-100 border-neutral-300'}
           flex flex-col items-center justify-center
           transition-all duration-300
           ${unlocked ? 'hover:scale-105 hover:shadow-lg' : 'opacity-50'}
@@ -93,8 +93,8 @@ export default function AchievementBadge({
             absolute top-1 right-1
             ${sizeClasses[size].badge}
             px-2 py-0.5 rounded-full
-            ${unlocked ? rarityBackground : 'bg-gray-200'}
-            ${unlocked ? rarityColor : 'text-gray-500'}
+            ${unlocked ? rarityBackground : 'bg-neutral-200'}
+            ${unlocked ? rarityColor : 'text-neutral-500'}
             font-semibold uppercase
           `}
         >
@@ -105,7 +105,7 @@ export default function AchievementBadge({
         {!unlocked && (
           <div className="absolute inset-0 flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-gray-400"
+              className="w-8 h-8 text-neutral-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -131,7 +131,7 @@ export default function AchievementBadge({
 
       {/* Progress Bar */}
       {showProgress && !unlocked && progress && progress.percentage > 0 && (
-        <div className="absolute -bottom-2 left-0 right-0 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className="absolute -bottom-2 left-0 right-0 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
             style={{ width: `${progress.percentage}%` }}
@@ -149,35 +149,35 @@ export default function AchievementBadge({
           z-10
         `}
       >
-        <div className="bg-gray-900 text-white rounded-lg p-3 shadow-xl min-w-[200px] max-w-[300px]">
+        <div className="bg-neutral-900 text-white rounded-lg p-3 shadow-xl min-w-[200px] max-w-[300px]">
           <div className="flex items-start justify-between gap-2 mb-2">
             <h4 className={`${sizeClasses[size].title} font-bold flex-1`}>
               {badge.name}
             </h4>
             <span className="text-yellow-400 font-semibold">+{badge.points}</span>
           </div>
-          <p className={`${sizeClasses[size].description} text-gray-300 mb-2`}>
+          <p className={`${sizeClasses[size].description} text-neutral-300 mb-2`}>
             {badge.description}
           </p>
           {!unlocked && progress && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
+            <div className="mt-2 pt-2 border-t border-neutral-700">
+              <div className="flex justify-between text-xs text-neutral-400 mb-1">
                 <span>Progress</span>
                 <span>{progress.percentage.toFixed(0)}%</span>
               </div>
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div className="h-2 bg-neutral-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
                   style={{ width: `${progress.percentage}%` }}
                 />
               </div>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-neutral-400 mt-1">
                 {progress.currentValue} / {progress.targetValue} {badge.criteria.metric}
               </div>
             </div>
           )}
           {unlocked && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
+            <div className="mt-2 pt-2 border-t border-neutral-700">
               <div className="flex items-center gap-1 text-xs text-green-400">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                   <path
@@ -193,7 +193,7 @@ export default function AchievementBadge({
         </div>
         {/* Tooltip Arrow */}
         <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px">
-          <div className="border-8 border-transparent border-t-gray-900" />
+          <div className="border-8 border-transparent border-t-neutral-900" />
         </div>
       </div>
     </div>
@@ -283,7 +283,7 @@ export function AchievementCollection({
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
               filter === 'all'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
             }`}
           >
             All
@@ -296,7 +296,7 @@ export function AchievementCollection({
                 className={`px-3 py-1 rounded-full text-sm font-medium transition-colors capitalize ${
                   filter === category
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
                 {category}
@@ -308,7 +308,7 @@ export function AchievementCollection({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="name">Sort by Name</option>
           <option value="rarity">Sort by Rarity</option>
@@ -331,7 +331,7 @@ export function AchievementCollection({
       </div>
 
       {sortedBadges.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-neutral-500">
           <p>No badges found for this filter</p>
         </div>
       )}
@@ -374,7 +374,7 @@ export function AchievementUnlockToast({ badge, onClose }: AchievementUnlockToas
           </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-neutral-500 hover:text-neutral-700 transition-colors"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path

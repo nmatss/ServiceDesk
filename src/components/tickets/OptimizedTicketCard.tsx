@@ -180,10 +180,10 @@ function TicketCardComponent({
   // Memoized class names
   const cardClassName = useMemo(() => {
     return [
-      'group relative bg-white dark:bg-gray-800 rounded-lg border p-4 transition-all duration-200',
+      'group relative bg-white dark:bg-neutral-800 rounded-lg border p-4 transition-all duration-200',
       'hover:shadow-md hover:border-primary-300 dark:hover:border-primary-600',
       'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-      selected ? 'ring-2 ring-primary-500 border-primary-500' : 'border-gray-200 dark:border-gray-700',
+      selected ? 'ring-2 ring-primary-500 border-primary-500' : 'border-neutral-200 dark:border-neutral-700',
       onClick ? 'cursor-pointer' : '',
       className
     ].filter(Boolean).join(' ');
@@ -213,8 +213,8 @@ function TicketCardComponent({
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-            <span className="text-gray-500 dark:text-gray-400 mr-1">#{ticket.id}</span>
+          <h3 className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+            <span className="text-neutral-500 dark:text-neutral-400 mr-1">#{ticket.id}</span>
             {ticket.title}
           </h3>
         </div>
@@ -230,7 +230,7 @@ function TicketCardComponent({
 
       {/* Description (optional) */}
       {showDescription && ticket.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-3">
+        <p className="text-sm text-neutral-600 dark:text-neutral-300 line-clamp-2 mb-3">
           {ticket.description}
         </p>
       )}
@@ -243,7 +243,7 @@ function TicketCardComponent({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+      <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
         <div className="flex items-center gap-4">
           {/* User */}
           {ticket.user_name && (
@@ -298,7 +298,7 @@ function TicketCardComponent({
             <button
               type="button"
               onClick={handleAssign}
-              className="text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+              className="text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               title="Atribuir ticket"
               aria-label="Atribuir ticket"
             >

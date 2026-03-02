@@ -143,6 +143,32 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
     fetchDashboardData(true)
   }
 
+  // Memoize derived dashboard data to avoid recomputing on every render
+  // Must be called before any early returns to satisfy React hooks rules
+  const { overview, tickets, trends, sla, categories, priorities, recentActivity, agentPerformance } = useMemo(() => {
+    if (!data) return {
+      overview: { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } },
+      tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 },
+      trends: { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const },
+      sla: { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 },
+      categories: [] as NonNullable<DashboardData['categories']>,
+      priorities: [] as NonNullable<DashboardData['priorities']>,
+      recentActivity: [] as NonNullable<DashboardData['recent_activity']>,
+      agentPerformance: [] as NonNullable<DashboardData['agent_performance']>,
+    }
+    const ov = data.overview ?? { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } }
+    return {
+      overview: ov,
+      tickets: ov.tickets ?? { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 },
+      trends: data.trends ?? { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const },
+      sla: data.sla ?? { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 },
+      categories: data.categories ?? [],
+      priorities: data.priorities ?? [],
+      recentActivity: data.recent_activity ?? [],
+      agentPerformance: data.agent_performance ?? [],
+    }
+  }, [data])
+
   if (loading && !data) {
     return <DashboardSkeleton />
   }
@@ -167,31 +193,6 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       </div>
     )
   }
-
-  // Memoize derived dashboard data to avoid recomputing on every render
-  const { overview, tickets, trends, sla, categories, priorities, recentActivity, agentPerformance } = useMemo(() => {
-    if (!data) return {
-      overview: { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } },
-      tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 },
-      trends: { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const },
-      sla: { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 },
-      categories: [] as NonNullable<DashboardData['categories']>,
-      priorities: [] as NonNullable<DashboardData['priorities']>,
-      recentActivity: [] as NonNullable<DashboardData['recent_activity']>,
-      agentPerformance: [] as NonNullable<DashboardData['agent_performance']>,
-    }
-    const ov = data.overview ?? { tickets: { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 } }
-    return {
-      overview: ov,
-      tickets: ov.tickets ?? { total: 0, open: 0, closed: 0, unassigned: 0, avg_resolution_hours: 0 },
-      trends: data.trends ?? { current_period: 0, previous_period: 0, change_percentage: 0, trend: 'stable' as const },
-      sla: data.sla ?? { total_tracked: 0, response_compliance: 0, resolution_compliance: 0, response_compliant: 0, resolution_compliant: 0 },
-      categories: data.categories ?? [],
-      priorities: data.priorities ?? [],
-      recentActivity: data.recent_activity ?? [],
-      agentPerformance: data.agent_performance ?? [],
-    }
-  }, [data])
 
   if (!data) return null
 
@@ -493,17 +494,21 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
             ) : recentActivity.slice(0, 8).map((ticket) => (
               <div
                 key={ticket.id}
-                className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-all duration-200"
+                className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"
                 onClick={() => router.push(`/tickets/${ticket.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/tickets/${ticket.id}`) } }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Ticket #${ticket.id}: ${ticket.title ?? 'Sem título'}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                         #{ticket.id} {ticket.title ?? 'Sem título'}
                       </h4>
                       <span
-                        className="inline-flex px-2 py-1 text-xs font-medium rounded-full"
+                        className="inline-flex px-2 py-1 text-xs font-medium rounded-full flex-shrink-0"
                         style={{
                           backgroundColor: `${ticket.status_color ?? '#6B7280'}20`,
                           color: ticket.status_color ?? '#6B7280'
@@ -512,7 +517,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                         {ticket.status_name ?? 'Desconhecido'}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center space-x-4 text-xs text-description">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-description">
                       <span>{ticket.user_name ?? 'Anônimo'}</span>
                       <span>{ticket.category_name ?? 'Sem categoria'}</span>
                       <span
@@ -523,7 +528,7 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
                       </span>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-content">
+                  <div className="text-xs text-muted-content flex-shrink-0">
                     {ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('pt-BR') : '-'}
                   </div>
                 </div>
@@ -534,10 +539,11 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-slide-up">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 animate-slide-up" role="navigation" aria-label="Ações rápidas">
         <button
           onClick={() => router.push('/tickets/new')}
-          className="p-4 glass-panel hover:shadow-medium transition-all duration-200 group"
+          className="p-4 glass-panel hover:shadow-medium transition-all duration-200 group min-h-[44px]"
+          aria-label="Criar novo ticket"
         >
           <div className="text-center">
             <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/20 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">

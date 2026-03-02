@@ -28,7 +28,7 @@ export function CustomMetricsWidget({
     switch (trend) {
       case 'up': return <ArrowUpIcon className="w-4 h-4 text-green-500" />;
       case 'down': return <ArrowDownIcon className="w-4 h-4 text-red-500" />;
-      default: return <MinusIcon className="w-4 h-4 text-gray-500" />;
+      default: return <MinusIcon className="w-4 h-4 text-neutral-500" />;
     }
   };
 
@@ -42,8 +42,8 @@ export function CustomMetricsWidget({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
+      <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4">
         Custom Metrics
       </h3>
 
@@ -51,7 +51,7 @@ export function CustomMetricsWidget({
         config.compactView ? 'grid-cols-2' : 'grid-cols-1'
       }`}>
         {metrics.map(metric => (
-          <div key={metric.key} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div key={metric.key} className="border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-description">
                 {metric.label}
@@ -59,11 +59,11 @@ export function CustomMetricsWidget({
               {metric.trend && getTrendIcon(metric.trend)}
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">
+              <span className="text-2xl font-bold text-neutral-900 dark:text-white">
                 {formatValue(metric.value, metric.unit)}
               </span>
               {config.showTargets && metric.target && (
-                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                <span className="text-sm text-neutral-500 dark:text-neutral-400 ml-2">
                   / {formatValue(metric.target, metric.unit)}
                 </span>
               )}

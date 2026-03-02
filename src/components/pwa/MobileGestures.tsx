@@ -402,13 +402,13 @@ export function BottomSheet({
       >
         {/* Drag Handle */}
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-12 h-1 bg-gray-300 rounded-full" />
+          <div className="w-12 h-1 bg-neutral-300 rounded-full" />
         </div>
 
         {/* Header */}
         {title && (
-          <div className="px-4 pb-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <div className="px-4 pb-4 border-b border-neutral-200">
+            <h3 className="text-lg font-semibold text-neutral-900">{title}</h3>
           </div>
         )}
 

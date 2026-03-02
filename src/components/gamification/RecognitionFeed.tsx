@@ -70,7 +70,7 @@ export default function RecognitionFeed({
       </div>
 
       {/* Filters */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-neutral-200">
         <div className="flex gap-2">
           {(['all', 'kudos', 'milestone', 'helper-of-month', 'success-story'] as const).map((type) => (
             <button
@@ -79,7 +79,7 @@ export default function RecognitionFeed({
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors capitalize ${
                 filter === type
                   ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
               {type === 'all' ? 'All' : type.replace('-', ' ')}
@@ -89,7 +89,7 @@ export default function RecognitionFeed({
       </div>
 
       {/* Feed */}
-      <div className="divide-y divide-gray-200">
+      <div className="divide-y divide-neutral-200">
         {filteredRecognitions.map((recognition) => (
           <RecognitionCard
             key={recognition.id}
@@ -102,7 +102,7 @@ export default function RecognitionFeed({
 
       {/* Load More */}
       {hasMore && onLoadMore && (
-        <div className="p-4 text-center border-t border-gray-200">
+        <div className="p-4 text-center border-t border-neutral-200">
           <button
             onClick={onLoadMore}
             className="text-purple-600 hover:text-purple-700 font-medium"
@@ -114,7 +114,7 @@ export default function RecognitionFeed({
 
       {/* Empty State */}
       {filteredRecognitions.length === 0 && (
-        <div className="p-12 text-center text-gray-500">
+        <div className="p-12 text-center text-neutral-500">
           <p className="text-lg font-medium mb-2">No recognition yet</p>
           <p className="text-sm">Be the first to send kudos to a teammate!</p>
         </div>
@@ -169,7 +169,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
       case 'success-story':
         return 'text-purple-600 bg-purple-100';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-neutral-600 bg-neutral-100';
     }
   };
 
@@ -182,7 +182,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
   const userReacted = recognition.reactions.some((r) => r.userId === currentUserId);
 
   return (
-    <div className="p-6 hover:bg-gray-50 transition-colors">
+    <div className="p-6 hover:bg-neutral-50 transition-colors">
       <div className="flex gap-4">
         {/* Avatar */}
         <div className="flex-shrink-0">
@@ -204,7 +204,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
           {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-neutral-900">
                 <span className="font-semibold">{recognition.fromUsername}</span>
                 {recognition.type === 'kudos' && (
                   <>
@@ -228,7 +228,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
                   </>
                 )}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-neutral-500">
                 {new Date(recognition.createdAt).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -244,7 +244,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
 
           {/* Message */}
           <div className="mb-3">
-            <p className="text-gray-700 whitespace-pre-wrap">{recognition.message}</p>
+            <p className="text-neutral-700 whitespace-pre-wrap">{recognition.message}</p>
           </div>
 
           {/* Points Badge */}
@@ -265,10 +265,10 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
                   <button
                     key={emoji}
                     onClick={() => onReact?.(recognition.id, emoji)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors"
                   >
                     <span className="text-sm">{emoji}</span>
-                    <span className="text-xs font-medium text-gray-600">{count}</span>
+                    <span className="text-xs font-medium text-neutral-600">{count}</span>
                   </button>
                 )
               ))}
@@ -282,7 +282,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
                   className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                     userReacted
                       ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
                   {userReacted ? 'Reacted' : 'React'}
@@ -290,7 +290,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
 
                 {/* Reaction Picker */}
                 {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex gap-1 z-10">
+                  <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-neutral-200 p-2 flex gap-1 z-10">
                     {reactionEmojis.map((emoji) => (
                       <button
                         key={emoji}
@@ -354,11 +354,11 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h3 className="text-xl font-bold text-gray-900">Send Kudos 👏</h3>
+        <div className="flex items-center justify-between p-6 border-b border-neutral-200">
+          <h3 className="text-xl font-bold text-neutral-900">Send Kudos 👏</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-neutral-400 hover:text-neutral-600 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -375,7 +375,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
         <div className="p-6 space-y-4">
           {/* User Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               To: {selectedUser ? selectedUser.name : 'Select a teammate'}
             </label>
             {!selectedUser ? (
@@ -385,10 +385,10 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search for a teammate..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 {searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto z-10">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-auto z-10">
                     {searchResults.map((user) => (
                       <button
                         key={user.id}
@@ -396,9 +396,9 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
                           setSelectedUser({ id: user.id, name: user.name });
                           setSearchQuery('');
                         }}
-                        className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                        className="w-full px-4 py-2 text-left hover:bg-neutral-50 transition-colors"
                       >
-                        <p className="font-medium text-gray-900">{user.name}</p>
+                        <p className="font-medium text-neutral-900">{user.name}</p>
                       </button>
                     ))}
                   </div>
@@ -419,7 +419,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
 
           {/* Message */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Message
             </label>
             <textarea
@@ -428,16 +428,16 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Tell them why they're awesome! Be specific about what they did..."
               rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-neutral-500 mt-1">
               Tip: Use @kudos in comments to give quick recognition!
             </p>
           </div>
 
           {/* Quick Templates */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Quick Templates:</p>
+            <p className="text-sm font-medium text-neutral-700 mb-2">Quick Templates:</p>
             <div className="flex flex-wrap gap-2">
               {[
                 'Thanks for helping me with that tricky ticket!',
@@ -448,7 +448,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
                 <button
                   key={index}
                   onClick={() => setMessage(template)}
-                  className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  className="text-xs px-3 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors"
                 >
                   {template}
                 </button>
@@ -458,10 +458,10 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-neutral-200">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+            className="px-4 py-2 text-neutral-700 hover:text-neutral-900 font-medium transition-colors"
           >
             Cancel
           </button>

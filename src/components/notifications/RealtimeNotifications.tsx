@@ -69,7 +69,7 @@ export default function RealtimeNotifications() {
       case 'system_alert':
         return 'border-red-200 bg-red-50'
       default:
-        return 'border-gray-200 bg-gray-50'
+        return 'border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800/50'
     }
   }
 
@@ -109,8 +109,8 @@ export default function RealtimeNotifications() {
         onClick={() => setIsOpen(!isOpen)}
         className={`relative p-2 rounded-lg transition-colors ${
           isConnected
-            ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-            : 'text-gray-400 cursor-not-allowed'
+            ? 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            : 'text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
         }`}
         disabled={!isConnected}
         aria-label={
@@ -129,7 +129,7 @@ export default function RealtimeNotifications() {
         {/* Indicador de conexão */}
         <div
           className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-            isConnected ? 'bg-green-500' : 'bg-gray-400'
+            isConnected ? 'bg-green-500' : 'bg-neutral-400'
           }`}
           aria-label={isConnected ? 'Conectado' : 'Desconectado'}
         />
@@ -157,20 +157,20 @@ export default function RealtimeNotifications() {
 
           {/* Panel */}
           <div
-            className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-20 max-h-96 overflow-hidden"
+            className="absolute right-0 mt-2 w-96 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 z-20 max-h-96 overflow-hidden"
             role="region"
             aria-label="Painel de notificações em tempo real"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900" id="realtime-notifications-heading">
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100" id="realtime-notifications-heading">
                 Notificações
               </h3>
               <div className="flex items-center space-x-2">
                 {notifications.length > 0 && (
                   <button
                     onClick={clearNotifications}
-                    className="text-sm text-gray-500 hover:text-gray-700"
+                    className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
                     aria-label="Limpar todas as notificações"
                     title="Limpar todas"
                   >
@@ -179,7 +179,7 @@ export default function RealtimeNotifications() {
                 )}
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"
                   aria-label="Fechar painel de notificações"
                 >
                   <XMarkIcon className="w-5 h-5" aria-hidden="true" />
@@ -211,18 +211,18 @@ export default function RealtimeNotifications() {
             >
               {notifications.length === 0 ? (
                 <div className="p-8 text-center" role="status">
-                  <BellIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" aria-hidden="true" />
-                  <p className="text-gray-500 text-sm">
+                  <BellIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" aria-hidden="true" />
+                  <p className="text-neutral-500 dark:text-neutral-400 text-sm">
                     Nenhuma notificação no momento
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
                   {notifications.map((notification, index) => (
                     <div
                       key={index}
                       onClick={() => handleNotificationClick(notification, index)}
-                      className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${getNotificationColor(notification.type, notification.priority)}`}
+                      className={`p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors border-l-4 ${getNotificationColor(notification.type, notification.priority)}`}
                       role="listitem"
                       aria-label={`${notification.title}: ${notification.message}. ${notification.priority === 'high' ? 'Alta prioridade. ' : ''}${formatTimestamp(notification.timestamp)}`}
                     >
@@ -239,15 +239,15 @@ export default function RealtimeNotifications() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                            <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                               {notification.title}
                             </h4>
-                            <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                            <span className="text-xs text-neutral-500 dark:text-neutral-400 flex-shrink-0 ml-2">
                               {formatTimestamp(notification.timestamp)}
                             </span>
                           </div>
 
-                          <p className="text-sm text-gray-600 line-clamp-2">
+                          <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">
                             {notification.message}
                           </p>
 
@@ -261,7 +261,7 @@ export default function RealtimeNotifications() {
 
                           {/* Dados adicionais */}
                           {notification.data?.ticketId && (
-                            <div className="mt-2 text-xs text-gray-500">
+                            <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
                               Ticket #{notification.data.ticketId}
                             </div>
                           )}
@@ -275,7 +275,7 @@ export default function RealtimeNotifications() {
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="p-3 bg-gray-50 border-t border-gray-200">
+              <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 border-t border-neutral-200 dark:border-neutral-700">
                 <button
                   onClick={() => {
                     router.push('/notifications')

@@ -24,7 +24,7 @@ export function CompanyLogoWidget({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex items-center justify-center">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6 flex items-center justify-center">
       <div className="text-center">
         {config.logoUrl ? (
           <img
@@ -40,7 +40,7 @@ export function CompanyLogoWidget({
           </div>
         )}
         {config.showName && (
-          <p className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          <p className="mt-2 text-sm font-medium text-neutral-900 dark:text-white">
             {config.companyName || 'Company Name'}
           </p>
         )}

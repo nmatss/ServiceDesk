@@ -6,19 +6,13 @@ import toast from 'react-hot-toast'
 import {
   UserGroupIcon,
   CalendarDaysIcon,
-  ClockIcon,
   CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
   PlusIcon,
   ArrowPathIcon,
-  PlayIcon,
-  DocumentTextIcon,
   ChevronRightIcon,
   VideoCameraIcon,
   HandThumbUpIcon,
-  HandThumbDownIcon,
-  MinusIcon
+  HandThumbDownIcon
 } from '@heroicons/react/24/outline'
 import { UserGroupIcon as UserGroupSolid } from '@heroicons/react/24/solid'
 import PageHeader from '@/components/ui/PageHeader'
@@ -106,8 +100,8 @@ export default function CABPage() {
             // For now, use mock attendees since we don't have attendees in the API response
             // In production, you would fetch this from a cab_attendees table
             const attendees = [
-              { name: 'CAB Member 1', role: 'Manager' },
-              { name: 'CAB Member 2', role: 'Technical Lead' }
+              { name: 'Membro CAB 1', role: 'Gerente' },
+              { name: 'Membro CAB 2', role: 'Líder Técnico' }
             ]
 
             return {
@@ -188,6 +182,15 @@ export default function CABPage() {
       case 'normal': return 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300'
       case 'emergency': return 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
       default: return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+    }
+  }
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'standard': return 'Padrão'
+      case 'normal': return 'Normal'
+      case 'emergency': return 'Emergência'
+      default: return category
     }
   }
 
@@ -382,18 +385,21 @@ export default function CABPage() {
                           <div
                             key={change.id}
                             onClick={() => router.push(`/admin/changes/${change.id}`)}
-                            className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/50 cursor-pointer transition-all duration-200 group"
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/changes/${change.id}`) } }}
+                            role="button"
+                            tabIndex={0}
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 gap-2 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700/50 cursor-pointer transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-brand-500"
                           >
-                            <div className="flex items-center gap-3">
-                              <ArrowPathIcon className="w-5 h-5 text-brand-500 dark:text-brand-400" />
-                              <div>
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <ArrowPathIcon className="w-5 h-5 text-brand-500 dark:text-brand-400 flex-shrink-0" />
+                              <div className="min-w-0">
                                 <p className="font-medium text-neutral-900 dark:text-neutral-100">CHG-{change.id}</p>
-                                <p className="text-sm text-muted-content">{change.title}</p>
+                                <p className="text-sm text-muted-content truncate">{change.title}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-shrink-0 pl-8 sm:pl-0">
                               <span className={`px-2 py-0.5 text-xs font-medium rounded-full transition-all duration-200 ${getCategoryColor(change.category)}`}>
-                                {change.category}
+                                {getCategoryLabel(change.category)}
                               </span>
                               <div className="flex gap-1">
                                 {[1, 2, 3, 4, 5].map(level => (
@@ -409,7 +415,7 @@ export default function CABPage() {
                                   />
                                 ))}
                               </div>
-                              <ChevronRightIcon className="w-5 h-5 text-neutral-400 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors" />
+                              <ChevronRightIcon className="w-5 h-5 text-neutral-400 dark:text-neutral-600 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors" />
                             </div>
                           </div>
                         ))}
@@ -443,20 +449,20 @@ export default function CABPage() {
                   {pendingChanges.map(change => (
                     <div
                       key={change.id}
-                      className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-all duration-200 group"
+                      className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-all duration-200 group"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-brand-100 dark:bg-brand-900/20 rounded-lg flex items-center justify-center transition-all duration-200">
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                        <div className="w-10 h-10 bg-brand-100 dark:bg-brand-900/20 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200">
                           <ArrowPathIcon className="w-5 h-5 text-brand-600 dark:text-brand-400" />
                         </div>
-                        <div>
-                          <p className="font-medium text-neutral-900 dark:text-neutral-100">CHG-{change.id}: {change.title}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-neutral-900 dark:text-neutral-100 truncate">CHG-{change.id}: {change.title}</p>
                           <p className="text-sm text-muted-content">Solicitante: {change.requester}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-shrink-0 pl-14 sm:pl-0">
                         <span className={`px-2 py-0.5 text-xs font-medium rounded-full transition-all duration-200 ${getCategoryColor(change.category)}`}>
-                          {change.category}
+                          {getCategoryLabel(change.category)}
                         </span>
                         <button
                           onClick={() => router.push(`/admin/changes/${change.id}`)}

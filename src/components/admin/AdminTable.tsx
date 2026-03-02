@@ -35,7 +35,7 @@ export const AdminTable: React.FC<AdminTableProps> = ({
               <div key={i} className="flex space-x-4">
                 {columns.map((_, j) => (
                   <div key={j} className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-neutral-200 rounded"></div>
                   </div>
                 ))}
               </div>
@@ -50,7 +50,7 @@ export const AdminTable: React.FC<AdminTableProps> = ({
     return (
       <div className={`bg-white shadow rounded-lg ${className}`}>
         <div className="p-6 text-center">
-          <p className="text-gray-500">{emptyMessage}</p>
+          <p className="text-neutral-500">{emptyMessage}</p>
         </div>
       </div>
     )
@@ -59,28 +59,28 @@ export const AdminTable: React.FC<AdminTableProps> = ({
   return (
     <div className={`bg-white shadow rounded-lg overflow-hidden ${className}`}>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-neutral-200">
+          <thead className="bg-neutral-50">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider"
                 >
                   {column.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white divide-y divide-neutral-200">
             {data.map((row, index) => (
               <tr
                 key={index}
-                className={onRowClick ? 'hover:bg-gray-50 cursor-pointer' : ''}
+                className={onRowClick ? 'hover:bg-neutral-50 cursor-pointer' : ''}
                 onClick={() => onRowClick?.(row)}
               >
                 {columns.map((column) => (
-                  <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
                     {column.render 
                       ? column.render(row[column.key], row)
                       : row[column.key]

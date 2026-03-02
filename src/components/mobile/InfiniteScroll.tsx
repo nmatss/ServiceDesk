@@ -74,7 +74,7 @@ export const InfiniteScroll: React.FC<InfiniteScrollProps> = ({
     <div className="flex items-center justify-center py-8">
       <div className="flex flex-col items-center space-y-2">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-description">Loading more...</p>
+        <p className="text-sm text-description">Carregando mais...</p>
       </div>
     </div>
   )
@@ -82,7 +82,7 @@ export const InfiniteScroll: React.FC<InfiniteScrollProps> = ({
   const defaultEndMessage = (
     <div className="flex items-center justify-center py-8">
       <p className="text-sm text-muted-content">
-        No more items to load
+        Não há mais itens para carregar
       </p>
     </div>
   )

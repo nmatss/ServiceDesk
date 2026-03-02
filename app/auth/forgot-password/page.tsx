@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
             />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-50">
               Recuperar senha
             </h1>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Form */}
-        <div className="bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl">
+        <div className="bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-4 sm:p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl">
           {submitted ? (
             <div className="text-center py-4">
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
                 Verifique seu email
               </h2>
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
-                Se o email existir, enviaremos instrucoes de recuperacao.
+                Se o email existir, enviaremos instruções de recuperação.
               </p>
               <Link
                 href="/auth/login"
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+            <form onSubmit={handleSubmit} className="space-y-6" aria-label="Formulário de recuperação de senha" noValidate>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Email
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
                     autoComplete="email"
                     required
                     aria-required="true"
-                    aria-label="Endereco de email"
+                    aria-label="Endereço de email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="input pl-10 hover-lift"
@@ -104,8 +104,9 @@ export default function ForgotPasswordPage() {
                 loading={loading}
                 loadingText="Enviando..."
                 className="hover-lift shadow-lg"
+                aria-label="Enviar instruções de recuperação"
               >
-                Enviar instrucoes
+                Enviar instruções
               </Button>
 
               <div className="text-center">

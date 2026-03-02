@@ -1,49 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/outline'
 import TicketForm from '@/src/components/tickets/TicketForm'
+import { useRequireAuth } from '@/lib/hooks/useRequireAuth'
 
 export default function NewTicketPage() {
   const router = useRouter()
-  const [userRole, setUserRole] = useState<'admin' | 'agent' | 'user'>('user')
-  const [loading, setLoading] = useState(true)
+  const { user, loading } = useRequireAuth()
 
-  useEffect(() => {
-    // SECURITY: Verify authentication via httpOnly cookies only
-    const verifyAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/verify', {
-          method: 'GET',
-          credentials: 'include' // Use httpOnly cookies
-        })
+  const userRole = (user?.role as 'admin' | 'agent' | 'user') || 'user'
 
-        if (!response.ok) {
-          router.push('/auth/login')
-          return
-        }
-
-        const data = await response.json()
-
-        if (!data.success || !data.user) {
-          router.push('/auth/login')
-          return
-        }
-
-        setUserRole(data.user.role || 'user')
-        setLoading(false)
-      } catch {
-        router.push('/auth/login')
-      }
-    }
-
-    verifyAuth()
-  }, [router])
-
-  const handleFormSubmit = (ticket: any) => {
-    // Redirect to the created ticket
+  const handleFormSubmit = (ticket: { id: string | number }) => {
     router.push(`/tickets/${ticket.id}`)
   }
 
@@ -68,7 +37,8 @@ export default function NewTicketPage() {
       <div className="flex items-center space-x-4">
         <Link
           href="/tickets"
-          className="btn btn-ghost btn-sm"
+          className="btn btn-ghost btn-sm min-h-[44px]"
+          aria-label="Voltar para lista de tickets"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Voltar

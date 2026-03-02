@@ -70,11 +70,11 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
    * Get similarity color
    */
   const getSimilarityColor = (score?: number): string => {
-    if (!score) return 'text-gray-600';
+    if (!score) return 'text-neutral-600';
     if (score >= 0.8) return 'text-green-600';
     if (score >= 0.6) return 'text-blue-600';
     if (score >= 0.4) return 'text-yellow-600';
-    return 'text-gray-600';
+    return 'text-neutral-600';
   };
 
   if (loading) {
@@ -82,13 +82,13 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
       <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
         <div className="flex items-center mb-4">
           <SparklesIcon className="h-5 w-5 text-blue-600 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
         </div>
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
             <div key={i} className="animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-full"></div>
+              <div className="h-4 bg-neutral-200 rounded w-3/4 mb-2"></div>
+              <div className="h-3 bg-neutral-200 rounded w-full"></div>
             </div>
           ))}
         </div>
@@ -105,7 +105,7 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
       {/* Header */}
       <div className="flex items-center mb-4">
         <SparklesIcon className="h-5 w-5 text-blue-600 mr-2" />
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
       </div>
 
       {/* Articles list */}
@@ -120,11 +120,11 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
             <div key={article.id} className="group">
               <Link
                 href={`/knowledge/article/${article.id}`}
-                className="block hover:bg-gray-50 -mx-2 p-2 rounded transition-colors"
+                className="block hover:bg-neutral-50 -mx-2 p-2 rounded transition-colors"
               >
                 {/* Title */}
                 <div className="flex items-start justify-between mb-1">
-                  <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors flex-1 line-clamp-2">
+                  <h3 className="text-sm font-medium text-neutral-900 group-hover:text-blue-600 transition-colors flex-1 line-clamp-2">
                     {article.title}
                   </h3>
 
@@ -142,11 +142,11 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
 
                 {/* Summary */}
                 {article.summary && (
-                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">{article.summary}</p>
+                  <p className="text-xs text-neutral-600 mb-2 line-clamp-2">{article.summary}</p>
                 )}
 
                 {/* Metadata */}
-                <div className="flex items-center gap-3 text-xs text-gray-500">
+                <div className="flex items-center gap-3 text-xs text-neutral-500">
                   {/* Category */}
                   {article.category_name && (
                     <div className="flex items-center">
@@ -172,14 +172,14 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
               </Link>
 
               {/* Separator */}
-              {index < articles.length - 1 && <div className="border-t border-gray-100 mt-4"></div>}
+              {index < articles.length - 1 && <div className="border-t border-neutral-100 mt-4"></div>}
             </div>
           );
         })}
       </div>
 
       {/* View all link */}
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      <div className="mt-4 pt-4 border-t border-neutral-200">
         <Link
           href="/knowledge/search"
           className="text-sm text-blue-600 hover:text-blue-700 font-medium"

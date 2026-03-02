@@ -307,9 +307,9 @@ export function ConfirmDialog({
   }
 
   const buttonStyles = {
-    danger: 'btn-danger',
-    warning: 'btn-warning',
-    info: 'btn-primary'
+    danger: 'bg-red-600 hover:bg-red-700 text-white',
+    warning: 'bg-amber-500 hover:bg-amber-600 text-white',
+    info: 'bg-brand-600 hover:bg-brand-700 text-white'
   }
 
   return (
@@ -340,7 +340,7 @@ export function ConfirmDialog({
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <button
             onClick={onCancel}
-            className="btn btn-secondary w-full sm:flex-1 order-2 sm:order-1"
+            className="w-full sm:flex-1 order-2 sm:order-1 px-4 py-2.5 min-h-[44px] rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 font-medium text-sm transition-colors"
           >
             {cancelText}
           </button>
@@ -349,7 +349,7 @@ export function ConfirmDialog({
               onConfirm()
               onCancel()
             }}
-            className={cn('btn w-full sm:flex-1 order-1 sm:order-2', buttonStyles[variant])}
+            className={cn('w-full sm:flex-1 order-1 sm:order-2 px-4 py-2.5 min-h-[44px] rounded-lg font-medium text-sm transition-colors', buttonStyles[variant])}
           >
             {confirmText}
           </button>

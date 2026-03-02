@@ -105,7 +105,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
                     ) : approver.type === 'role' ? (
                       <UserGroupIcon className="w-3 h-3" />
                     ) : (
-                      <div className="w-3 h-3 bg-gray-400 rounded-full" />
+                      <div className="w-3 h-3 bg-neutral-400 rounded-full" />
                     )}
                   </div>
                   <span className="truncate">

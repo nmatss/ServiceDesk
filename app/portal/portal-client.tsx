@@ -127,11 +127,11 @@ export default function PortalClient() {
 
   const getUrgencyColor = (workflowType: string) => {
     switch (workflowType) {
-      case 'incident': return 'border-error-200 bg-error-50'
-      case 'request': return 'border-brand-200 bg-brand-50'
-      case 'change': return 'border-warning-200 bg-warning-50'
-      case 'problem': return 'border-purple-200 bg-purple-50'
-      default: return 'border-neutral-200 bg-neutral-50'
+      case 'incident': return 'border-error-200 bg-error-50 dark:border-error-800 dark:bg-error-950/20'
+      case 'request': return 'border-brand-200 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/20'
+      case 'change': return 'border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950/20'
+      case 'problem': return 'border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/20'
+      default: return 'border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800'
     }
   }
 
@@ -168,7 +168,7 @@ export default function PortalClient() {
             <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={() => router.push('/portal/tickets')}
-                className="flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                className="flex-1 sm:flex-none px-3 py-2 min-h-[44px] text-xs sm:text-sm font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/30 hover:bg-brand-100 dark:hover:bg-brand-950/50 rounded-lg transition-colors"
               >
                 Meus Tickets
               </button>
@@ -240,8 +240,8 @@ export default function PortalClient() {
                   <span className="truncate">{workflowInfo.slaInfo}</span>
                 </div>
 
-                {/* Examples - Hidden on very small screens */}
-                <div className="hidden xs:block mb-3 sm:mb-4">
+                {/* Examples - Hidden on smallest screens, shown on sm+ */}
+                <div className="hidden sm:block mb-3 sm:mb-4">
                   <p className="text-xs sm:text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5 sm:mb-2">Exemplos:</p>
                   <ul className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 space-y-0.5 sm:space-y-1">
                     {workflowInfo.examples.slice(0, 2).map((example, index) => (

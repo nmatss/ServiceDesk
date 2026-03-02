@@ -5,52 +5,52 @@ import { Dialog, DialogPanel } from '@headlessui/react'
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 
 const navigation = [
-  { name: 'Product', href: '#' },
-  { name: 'Features', href: '#' },
-  { name: 'Resources', href: '#' },
-  { name: 'Company', href: '#' },
+  { name: 'Produto', href: '#' },
+  { name: 'Recursos', href: '#' },
+  { name: 'Documentação', href: '#' },
+  { name: 'Empresa', href: '#' },
 ]
 const stats = [
-  { label: 'Transactions every 24 hours', value: '44 million' },
-  { label: 'Assets under holding', value: '$119 trillion' },
-  { label: 'New users annually', value: '46,000' },
+  { label: 'Transações a cada 24 horas', value: '44 milhões' },
+  { label: 'Ativos sob gestão', value: 'R$ 119 trilhões' },
+  { label: 'Novos usuários anuais', value: '46.000' },
 ]
 const values = [
   {
-    name: 'Be world-class',
+    name: 'Excelência',
     description:
-      'Aut illo quae. Ut et harum ea animi natus. Culpa maiores et sed sint et magnam exercitationem quia. Ullam voluptas nihil vitae dicta molestiae et. Aliquid velit porro vero.',
+      'Buscamos ser referência em tudo que fazemos. Qualidade e dedicação são pilares fundamentais da nossa equipe.',
   },
   {
-    name: 'Share everything you know',
+    name: 'Compartilhar conhecimento',
     description:
-      'Mollitia delectus a omnis. Quae velit aliquid. Qui nulla maxime adipisci illo id molestiae. Cumque cum ut minus rerum architecto magnam consequatur. Quia quaerat minima.',
+      'Acreditamos que o conhecimento compartilhado fortalece toda a comunidade. Colaboração é essencial.',
   },
   {
-    name: 'Always learning',
+    name: 'Aprendizado contínuo',
     description:
-      'Aut repellendus et officiis dolor possimus. Deserunt velit quasi sunt fuga error labore quia ipsum. Commodi autem voluptatem nam. Quos voluptatem totam.',
+      'Estamos sempre evoluindo, buscando novas tecnologias e melhores práticas para entregar mais valor.',
   },
   {
-    name: 'Be supportive',
+    name: 'Apoio mútuo',
     description:
-      'Magnam provident veritatis odit. Vitae eligendi repellat non. Eum fugit impedit veritatis ducimus. Non qui aspernatur laudantium modi. Praesentium rerum error deserunt harum.',
+      'Cultivamos um ambiente de suporte e confiança, onde todos podem contribuir e crescer juntos.',
   },
   {
-    name: 'Take responsibility',
+    name: 'Responsabilidade',
     description:
-      'Sit minus expedita quam in ullam molestiae dignissimos in harum. Tenetur dolorem iure. Non nesciunt dolorem veniam necessitatibus laboriosam voluptas perspiciatis error.',
+      'Assumimos compromisso com nossos resultados e com o impacto positivo que geramos na comunidade.',
   },
   {
-    name: 'Enjoy downtime',
+    name: 'Equilíbrio',
     description:
-      'Ipsa in earum deserunt aut. Quos minus aut animi et soluta. Ipsum dicta ut quia eius. Possimus reprehenderit iste aspernatur ut est velit consequatur distinctio.',
+      'Valorizamos o bem-estar e o equilíbrio entre vida pessoal e profissional de toda a equipe.',
   },
 ]
 const team = [
   {
     name: 'Michael Foster',
-    role: 'Co-Founder / CTO',
+    role: 'Cofundador / CTO',
     imageUrl:
       'https://images.unsplash.com/photo-1519244703995-f4e0f30006d5?ixlib=rb-=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=8&w=1024&h=1024&q=80',
   },
@@ -77,12 +77,12 @@ const blogPosts = [
 ]
 const footerNavigation = {
   main: [
-    { name: 'About', href: '#' },
+    { name: 'Sobre', href: '#' },
     { name: 'Blog', href: '#' },
-    { name: 'Jobs', href: '#' },
-    { name: 'Press', href: '#' },
-    { name: 'Accessibility', href: '#' },
-    { name: 'Partners', href: '#' },
+    { name: 'Carreiras', href: '#' },
+    { name: 'Imprensa', href: '#' },
+    { name: 'Acessibilidade', href: '#' },
+    { name: 'Parceiros', href: '#' },
   ],
   social: [
     {
@@ -157,13 +157,13 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div className={`bg-white ${className || ''}`}>
+    <div className={`bg-white dark:bg-neutral-950 ${className || ''}`}>
       {/* Header */}
       <header className="absolute inset-x-0 top-0 z-50">
         <nav aria-label="Global" className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
           <div className="flex lg:flex-1">
             <a href="#" className="-m-1.5 p-1.5">
-              <span className="sr-only">Your Company</span>
+              <span className="sr-only">Sua Empresa</span>
               <img
                 alt=""
                 src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
@@ -175,31 +175,31 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
+              className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-neutral-700 dark:text-neutral-300"
             >
-              <span className="sr-only">Open main menu</span>
+              <span className="sr-only">Abrir menu principal</span>
               <Bars3Icon aria-hidden="true" className="size-6" />
             </button>
           </div>
           <div className="hidden lg:flex lg:gap-x-12">
             {navigation.map((item) => (
-              <a key={item.name} href={item.href} className="text-sm/6 font-semibold text-gray-900">
+              <a key={item.name} href={item.href} className="text-sm/6 font-semibold text-neutral-900 dark:text-neutral-100">
                 {item.name}
               </a>
             ))}
           </div>
           <div className="hidden lg:flex lg:flex-1 lg:justify-end">
-            <a href="#" className="text-sm/6 font-semibold text-gray-900">
-              Log in <span aria-hidden="true">&rarr;</span>
+            <a href="#" className="text-sm/6 font-semibold text-neutral-900 dark:text-neutral-100">
+              Entrar <span aria-hidden="true">&rarr;</span>
             </a>
           </div>
         </nav>
         <Dialog open={mobileMenuOpen} onClose={setMobileMenuOpen} className="lg:hidden">
           <div className="fixed inset-0 z-50" />
-          <DialogPanel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white p-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+          <DialogPanel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white dark:bg-neutral-900 p-6 sm:max-w-sm sm:ring-1 sm:ring-neutral-900/10 dark:ring-neutral-100/10">
             <div className="flex items-center justify-between">
               <a href="#" className="-m-1.5 p-1.5">
-                <span className="sr-only">Your Company</span>
+                <span className="sr-only">Sua Empresa</span>
                 <img
                   alt=""
                   src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
@@ -209,20 +209,20 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="-m-2.5 rounded-md p-2.5 text-gray-700"
+                className="-m-2.5 rounded-md p-2.5 text-neutral-700 dark:text-neutral-300"
               >
-                <span className="sr-only">Close menu</span>
+                <span className="sr-only">Fechar menu</span>
                 <XMarkIcon aria-hidden="true" className="size-6" />
               </button>
             </div>
             <div className="mt-6 flow-root">
-              <div className="-my-6 divide-y divide-gray-500/10">
+              <div className="-my-6 divide-y divide-neutral-500/10">
                 <div className="space-y-2 py-6">
                   {navigation.map((item) => (
                     <a
                       key={item.name}
                       href={item.href}
-                      className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                      className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                     >
                       {item.name}
                     </a>
@@ -231,9 +231,9 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                 <div className="py-6">
                   <a
                     href="#"
-                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50"
+                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-neutral-900 dark:text-neutral-100 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                   >
-                    Log in
+                    Entrar
                   </a>
                 </div>
               </div>
@@ -247,7 +247,7 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
         <div className="relative isolate -z-10">
           <svg
             aria-hidden="true"
-            className="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-gray-200 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
+            className="absolute inset-x-0 top-0 -z-10 h-[64rem] w-full stroke-neutral-200 dark:stroke-neutral-700 [mask-image:radial-gradient(32rem_32rem_at_center,white,transparent)]"
           >
             <defs>
               <pattern
@@ -261,7 +261,7 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                 <path d="M.5 200V.5H200" fill="none" />
               </pattern>
             </defs>
-            <svg x="50%" y={-1} className="overflow-visible fill-gray-50">
+            <svg x="50%" y={-1} className="overflow-visible fill-neutral-50 dark:fill-neutral-900">
               <path
                 d="M-200 0h201v201h-201Z M600 0h201v201h-201Z M-400 600h201v201h-201Z M200 800h201v201h-201Z"
                 strokeWidth={0}
@@ -285,10 +285,10 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
             <div className="mx-auto max-w-7xl px-6 pb-32 pt-36 sm:pt-60 lg:px-8 lg:pt-32">
               <div className="mx-auto max-w-2xl gap-x-14 lg:mx-0 lg:flex lg:max-w-none lg:items-center">
                 <div className="relative w-full lg:max-w-xl lg:shrink-0 xl:max-w-2xl">
-                  <h1 className="text-pretty text-5xl font-semibold tracking-tight text-gray-900 sm:text-7xl">
-                    Comunidade Builder template
+                  <h1 className="text-pretty text-5xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-7xl">
+                    Template Comunidade Builder
                   </h1>
-                  <p className="mt-8 text-pretty text-lg font-medium text-gray-500 sm:max-w-md sm:text-xl/8 lg:max-w-none">
+                  <p className="mt-8 text-pretty text-lg font-medium text-neutral-500 dark:text-neutral-400 sm:max-w-md sm:text-xl/8 lg:max-w-none">
                     Description minim id magna ipsum sint dolor qui. Sunt sit in quis cupidatat mollit aute velit. Et
                     labore commodo nulla aliqua proident mollit ullamco exercitation tempor. Sint aliqua anim nulla sunt
                     mollit id pariatur in voluptate cillum. Eu voluptate tempor esse minim amet fugiat veniam occaecat
@@ -301,9 +301,9 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                       <img
                         alt=""
                         src="https://images.unsplash.com/photo-1557804506-669a67965ba0?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&h=528&q=80"
-                        className="aspect-[2/3] w-full rounded-xl bg-gray-900/5 object-cover shadow-lg"
+                        className="aspect-[2/3] w-full rounded-xl bg-neutral-900/5 dark:bg-neutral-100/5 object-cover shadow-lg"
                       />
-                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-gray-900/10" />
+                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-neutral-900/10 dark:ring-neutral-100/10" />
                     </div>
                   </div>
                   <div className="mr-auto w-44 flex-none space-y-8 sm:mr-0 sm:pt-52 lg:pt-36">
@@ -311,17 +311,17 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                       <img
                         alt=""
                         src="https://images.unsplash.com/photo-1485217988980-11786ced9454?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&h=528&q=80"
-                        className="aspect-[2/3] w-full rounded-xl bg-gray-900/5 object-cover shadow-lg"
+                        className="aspect-[2/3] w-full rounded-xl bg-neutral-900/5 dark:bg-neutral-100/5 object-cover shadow-lg"
                       />
-                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-gray-900/10" />
+                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-neutral-900/10 dark:ring-neutral-100/10" />
                     </div>
                     <div className="relative">
                       <img
                         alt=""
                         src="https://images.unsplash.com/photo-1559136555-9303baea8ebd?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&crop=focalpoint&fp-x=.4&w=396&h=528&q=80"
-                        className="aspect-[2/3] w-full rounded-xl bg-gray-900/5 object-cover shadow-lg"
+                        className="aspect-[2/3] w-full rounded-xl bg-neutral-900/5 dark:bg-neutral-100/5 object-cover shadow-lg"
                       />
-                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-gray-900/10" />
+                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-neutral-900/10 dark:ring-neutral-100/10" />
                     </div>
                   </div>
                   <div className="w-44 flex-none space-y-8 pt-32 sm:pt-0">
@@ -329,17 +329,17 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                       <img
                         alt=""
                         src="https://images.unsplash.com/photo-1670272504528-790c24957dda?ixlib=rb-4.0.3&ixid=MnwxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&crop=left&w=400&h=528&q=80"
-                        className="aspect-[2/3] w-full rounded-xl bg-gray-900/5 object-cover shadow-lg"
+                        className="aspect-[2/3] w-full rounded-xl bg-neutral-900/5 dark:bg-neutral-100/5 object-cover shadow-lg"
                       />
-                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-gray-900/10" />
+                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-neutral-900/10 dark:ring-neutral-100/10" />
                     </div>
                     <div className="relative">
                       <img
                         alt=""
                         src="https://images.unsplash.com/photo-1670272505284-8faba1c31f7d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&h=528&q=80"
-                        className="aspect-[2/3] w-full rounded-xl bg-gray-900/5 object-cover shadow-lg"
+                        className="aspect-[2/3] w-full rounded-xl bg-neutral-900/5 dark:bg-neutral-100/5 object-cover shadow-lg"
                       />
-                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-gray-900/10" />
+                      <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-neutral-900/10 dark:ring-neutral-100/10" />
                     </div>
                   </div>
                 </div>
@@ -351,15 +351,15 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
         {/* Content section */}
         <div className="mx-auto -mt-12 max-w-7xl px-6 sm:mt-0 lg:px-8 xl:-mt-8">
           <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-            <h2 className="text-pretty text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">Our mission</h2>
+            <h2 className="text-pretty text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl">Nossa missão</h2>
             <div className="mt-6 flex flex-col gap-x-8 gap-y-20 lg:flex-row">
               <div className="lg:w-full lg:max-w-2xl lg:flex-auto">
-                <p className="text-xl/8 text-gray-600">
+                <p className="text-xl/8 text-neutral-600 dark:text-neutral-400">
                   Aliquet nec orci mattis amet quisque ullamcorper neque, nibh sem. At arcu, sit dui mi, nibh dui, diam
                   eget aliquam. Quisque id at vitae feugiat egestas ac. Diam nulla orci at in viverra scelerisque eget.
                   Eleifend egestas fringilla sapien.
                 </p>
-                <p className="mt-10 max-w-xl text-base/7 text-gray-700">
+                <p className="mt-10 max-w-xl text-base/7 text-neutral-700 dark:text-neutral-300">
                   Faucibus commodo massa rhoncus, volutpat. Dignissim sed eget risus enim. Mattis mauris semper sed amet
                   vitae sed turpis id. Id dolor praesent donec est. Odio penatibus risus viverra tellus varius sit neque
                   erat velit. Faucibus commodo massa rhoncus, volutpat. Dignissim sed eget risus enim. Mattis mauris
@@ -370,8 +370,8 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                 <dl className="w-64 space-y-8 xl:w-80">
                   {stats.map((stat) => (
                     <div key={stat.label} className="flex flex-col-reverse gap-y-4">
-                      <dt className="text-base/7 text-gray-600">{stat.label}</dt>
-                      <dd className="text-5xl font-semibold tracking-tight text-gray-900">{stat.value}</dd>
+                      <dt className="text-base/7 text-neutral-600 dark:text-neutral-400">{stat.label}</dt>
+                      <dd className="text-5xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">{stat.value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -392,8 +392,8 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
         {/* Values section */}
         <div className="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
           <div className="mx-auto max-w-2xl lg:mx-0">
-            <h2 className="text-pretty text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">Our values</h2>
-            <p className="mt-6 text-lg/8 text-gray-600">
+            <h2 className="text-pretty text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl">Nossos valores</h2>
+            <p className="mt-6 text-lg/8 text-neutral-600 dark:text-neutral-400">
               Lorem ipsum dolor sit amet consect adipisicing elit. Possimus magnam voluptatum cupiditate veritatis in
               accusamus quisquam.
             </p>
@@ -401,8 +401,8 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
           <dl className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 text-base/7 sm:grid-cols-2 lg:mx-0 lg:max-w-none lg:grid-cols-3">
             {values.map((value) => (
               <div key={value.name}>
-                <dt className="font-semibold text-gray-900">{value.name}</dt>
-                <dd className="mt-1 text-gray-600">{value.description}</dd>
+                <dt className="font-semibold text-neutral-900 dark:text-neutral-100">{value.name}</dt>
+                <dd className="mt-1 text-neutral-600 dark:text-neutral-400">{value.description}</dd>
               </div>
             ))}
           </dl>
@@ -411,7 +411,7 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
         {/* Logo cloud */}
         <div className="relative isolate -z-10 mt-32 sm:mt-48">
           <div className="absolute inset-x-0 top-1/2 -z-10 flex -translate-y-1/2 justify-center overflow-hidden [mask-image:radial-gradient(50%_45%_at_50%_55%,white,transparent)]">
-            <svg aria-hidden="true" className="h-[40rem] w-[80rem] flex-none stroke-gray-200">
+            <svg aria-hidden="true" className="h-[40rem] w-[80rem] flex-none stroke-neutral-200 dark:stroke-neutral-700">
               <defs>
                 <pattern
                   x="50%"
@@ -425,15 +425,15 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                   <path d="M.5 200V.5H200" fill="none" />
                 </pattern>
               </defs>
-              <svg x="50%" y="50%" className="overflow-visible fill-gray-50">
+              <svg x="50%" y="50%" className="overflow-visible fill-neutral-50 dark:fill-neutral-900">
                 <path d="M-300 0h201v201h-201Z M300 200h201v201h-201Z" strokeWidth={0} />
               </svg>
               <rect fill="url(#e9033f3e-f665-41a6-84ef-756f6778e6fe)" width="100%" height="100%" strokeWidth={0} />
             </svg>
           </div>
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
-            <h2 className="text-center text-lg/8 font-semibold text-gray-900">
-              Trusted by the world&apos;s most innovative teams
+            <h2 className="text-center text-lg/8 font-semibold text-neutral-900 dark:text-neutral-100">
+              Empresas que confiam em nós
             </h2>
             <div className="mx-auto mt-10 grid max-w-lg grid-cols-4 items-center gap-x-8 gap-y-10 sm:max-w-xl sm:grid-cols-6 sm:gap-x-10 lg:mx-0 lg:max-w-none lg:grid-cols-5">
               <img
@@ -478,10 +478,10 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
         {/* Team section */}
         <div className="mx-auto mt-32 max-w-7xl px-6 sm:mt-48 lg:px-8">
           <div className="mx-auto max-w-2xl lg:mx-0">
-            <h2 className="text-pretty text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">Our team</h2>
-            <p className="mt-6 text-lg/8 text-gray-600">
-              We&apos;re a dynamic group of individuals who are passionate about what we do and dedicated to delivering the
-              best results for our clients.
+            <h2 className="text-pretty text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl">Nossa equipe</h2>
+            <p className="mt-6 text-lg/8 text-neutral-600 dark:text-neutral-400">
+              Somos um grupo dinâmico de profissionais apaixonados pelo que fazemos e dedicados a entregar os
+              melhores resultados para nossos clientes.
             </p>
           </div>
           <ul
@@ -491,8 +491,8 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
             {team.map((person) => (
               <li key={person.name}>
                 <img alt="" src={person.imageUrl} className="mx-auto size-24 rounded-full" />
-                <h3 className="mt-6 text-base/7 font-semibold tracking-tight text-gray-900">{person.name}</h3>
-                <p className="text-sm/6 text-gray-600">{person.role}</p>
+                <h3 className="mt-6 text-base/7 font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">{person.name}</h3>
+                <p className="text-sm/6 text-neutral-600 dark:text-neutral-400">{person.role}</p>
               </li>
             ))}
           </ul>
@@ -501,22 +501,22 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
         {/* Blog section */}
         <div className="mx-auto mt-32 max-w-7xl px-6 sm:mt-40 lg:px-8">
           <div className="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-            <h2 className="text-balance text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
-              From the blog
+            <h2 className="text-balance text-4xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-5xl">
+              Do nosso blog
             </h2>
-            <p className="mt-2 text-lg/8 text-gray-600">Learn how to grow your business with our expert advice.</p>
+            <p className="mt-2 text-lg/8 text-neutral-600 dark:text-neutral-400">Aprenda como crescer seu negócio com nossos artigos especializados.</p>
           </div>
           <div className="mx-auto mt-16 grid max-w-2xl auto-rows-fr grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
             {blogPosts.map((post) => (
               <article
                 key={post.id}
-                className="relative isolate flex flex-col justify-end overflow-hidden rounded-2xl bg-gray-900 px-8 pb-8 pt-80 sm:pt-48 lg:pt-80"
+                className="relative isolate flex flex-col justify-end overflow-hidden rounded-2xl bg-neutral-900 px-8 pb-8 pt-80 sm:pt-48 lg:pt-80"
               >
                 <img alt="" src={post.imageUrl} className="absolute inset-0 -z-10 size-full object-cover" />
-                <div className="absolute inset-0 -z-10 bg-gradient-to-t from-gray-900 via-gray-900/40" />
-                <div className="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-gray-900/10" />
+                <div className="absolute inset-0 -z-10 bg-gradient-to-t from-neutral-900 via-neutral-900/40" />
+                <div className="absolute inset-0 -z-10 rounded-2xl ring-1 ring-inset ring-neutral-900/10 dark:ring-neutral-100/10" />
 
-                <div className="flex flex-wrap items-center gap-y-1 overflow-hidden text-sm/6 text-gray-300">
+                <div className="flex flex-wrap items-center gap-y-1 overflow-hidden text-sm/6 text-neutral-300">
                   <time dateTime={post.datetime} className="mr-8">
                     {post.date}
                   </time>
@@ -548,21 +548,21 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
           Footer
         </h2>
         <div className="mx-auto max-w-7xl px-6 pb-8 lg:px-8">
-          <div className="border-t border-gray-900/10 pt-16">
+          <div className="border-t border-neutral-900/10 dark:border-neutral-100/10 pt-16">
             <div className="xl:grid xl:grid-cols-3 xl:gap-8">
               <img
-                alt="Company name"
+                alt="Logo da empresa"
                 src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
                 className="h-8"
               />
               <div className="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
                 <div className="md:grid md:grid-cols-2 md:gap-8">
                   <div>
-                    <h3 className="text-sm/6 font-semibold text-gray-900">Company</h3>
+                    <h3 className="text-sm/6 font-semibold text-neutral-900 dark:text-neutral-100">Empresa</h3>
                     <ul role="list" className="mt-6 space-y-4">
                       {footerNavigation.main.map((item) => (
                         <li key={item.name}>
-                          <a href={item.href} className="text-sm/6 text-gray-600 hover:text-gray-900">
+                          <a href={item.href} className="text-sm/6 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:text-neutral-100">
                             {item.name}
                           </a>
                         </li>
@@ -572,11 +572,11 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                 </div>
                 <div className="md:grid md:grid-cols-1 md:gap-8">
                   <div>
-                    <h3 className="text-sm/6 font-semibold text-gray-900">Follow us</h3>
+                    <h3 className="text-sm/6 font-semibold text-neutral-900 dark:text-neutral-100">Siga-nos</h3>
                     <ul role="list" className="mt-6 flex gap-6">
                       {footerNavigation.social.map((item) => (
                         <li key={item.name}>
-                          <a href={item.href} className="text-gray-400 hover:text-gray-500">
+                          <a href={item.href} className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-500 dark:text-neutral-400">
                             <span className="sr-only">{item.name}</span>
                             <item.icon aria-hidden="true" className="size-6" />
                           </a>
@@ -587,8 +587,8 @@ export default function ComunidadeBuilder({ className }: ComunidadeBuilderProps)
                 </div>
               </div>
             </div>
-            <div className="mt-16 border-t border-gray-900/10 pt-8 sm:mt-20 lg:mt-24">
-              <p className="text-sm/6 text-gray-600">&copy; 2024 Your Company, Inc. All rights reserved.</p>
+            <div className="mt-16 border-t border-neutral-900/10 dark:border-neutral-100/10 pt-8 sm:mt-20 lg:mt-24">
+              <p className="text-sm/6 text-neutral-600 dark:text-neutral-400">&copy; 2024 Sua Empresa. Todos os direitos reservados.</p>
             </div>
           </div>
         </div>

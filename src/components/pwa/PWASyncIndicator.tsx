@@ -16,7 +16,7 @@ export default function PWASyncIndicator() {
     <div className="fixed bottom-4 right-4 z-40">
       {/* Sync status indicator */}
       {(isSyncing || pendingActions > 0) && (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 mb-2 max-w-xs">
+        <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3 mb-2 max-w-xs">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
               {isSyncing ? (
@@ -27,11 +27,11 @@ export default function PWASyncIndicator() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-neutral-900">
                 {isSyncing ? 'Sincronizando...' : 'Aguardando sincronização'}
               </p>
               {pendingActions > 0 && (
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-neutral-600">
                   {pendingActions} {pendingActions === 1 ? 'ação pendente' : 'ações pendentes'}
                 </p>
               )}
@@ -41,7 +41,7 @@ export default function PWASyncIndicator() {
           {/* Progress indicator */}
           {isSyncing && (
             <div className="mt-2">
-              <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div className="w-full bg-neutral-200 rounded-full h-1.5">
                 <div className="bg-blue-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
               </div>
             </div>
@@ -49,7 +49,7 @@ export default function PWASyncIndicator() {
 
           {/* Pending actions breakdown */}
           {pendingActions > 0 && !isSyncing && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="mt-2 pt-2 border-t border-neutral-100">
               <div className="flex flex-wrap gap-1">
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
                   Tickets

@@ -116,7 +116,7 @@ export function ChartWidget({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <LineChart {...commonProps}>
-              {showGrid && <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />}
+              {showGrid && <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-700" />}
               <XAxis
                 dataKey={xAxisKey}
                 tick={{ fontSize: 12 }}
@@ -153,7 +153,7 @@ export function ChartWidget({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <BarChart {...commonProps}>
-              {showGrid && <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />}
+              {showGrid && <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-700" />}
               <XAxis
                 dataKey={xAxisKey}
                 tick={{ fontSize: 12 }}
@@ -187,7 +187,7 @@ export function ChartWidget({
         return (
           <ResponsiveContainer width="100%" height={height}>
             <AreaChart {...commonProps}>
-              {showGrid && <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />}
+              {showGrid && <CartesianGrid strokeDasharray="3 3" className="stroke-neutral-200 dark:stroke-neutral-700" />}
               <XAxis
                 dataKey={xAxisKey}
                 tick={{ fontSize: 12 }}

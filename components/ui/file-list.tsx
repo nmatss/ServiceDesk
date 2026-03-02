@@ -112,8 +112,8 @@ export default function FileList({
 
   if (files.length === 0) {
     return (
-      <div className={`text-center py-8 text-gray-500 ${className}`}>
-        <DocumentIcon className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+      <div className={`text-center py-8 text-neutral-500 dark:text-neutral-400 ${className}`}>
+        <DocumentIcon className="mx-auto h-12 w-12 text-neutral-300 dark:text-neutral-600 mb-4" />
         <p>Nenhum arquivo encontrado</p>
       </div>
     )
@@ -128,7 +128,7 @@ export default function FileList({
         return (
           <div
             key={file.id}
-            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-between p-4 border border-neutral-200 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
           >
             <div className="flex items-center space-x-3 flex-1 min-w-0">
               <div className="flex-shrink-0">
@@ -140,15 +140,15 @@ export default function FileList({
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded border">
-                    <IconComponent className="w-6 h-6 text-gray-600" />
+                  <div className="w-10 h-10 flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700">
+                    <IconComponent className="w-6 h-6 text-neutral-600 dark:text-neutral-400" />
                   </div>
                 )}
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                     {file.originalName}
                   </p>
                   {file.isPublic && (
@@ -157,7 +157,7 @@ export default function FileList({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
+                <div className="flex items-center space-x-4 text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   <span>{file.formattedSize}</span>
                   {showUploader && file.uploadedByName && (
                     <span>Por: {file.uploadedByName}</span>

@@ -28,7 +28,6 @@ import {
   ClipboardDocumentCheckIcon,
   UserGroupIcon
 } from '@heroicons/react/24/outline'
-import { ArrowPathIcon as ArrowPathSolid } from '@heroicons/react/24/solid'
 import toast from 'react-hot-toast'
 
 interface Change {
@@ -133,7 +132,7 @@ export default function ChangeDetailPage() {
         // Map approvals
         const approvals = (data.approvals || []).map((a: Record<string, unknown>) => ({
           user: a.approver_name || 'Desconhecido',
-          role: a.approver_type === 'cab' ? 'CAB Member' : 'Manager',
+          role: a.approver_type === 'cab' ? 'Membro CAB' : 'Gerente',
           status: a.status,
           timestamp: a.decided_at || null
         }))
@@ -191,7 +190,7 @@ export default function ChangeDetailPage() {
         })
       }
     } catch (error) {
-      console.error('Error fetching change:', error)
+      toast.error('Erro ao buscar detalhes da mudança')
     } finally {
       setLoading(false)
     }
@@ -334,13 +333,13 @@ export default function ChangeDetailPage() {
               {getCategoryLabel(change.category)}
             </span>
             {change.cab_required && (
-              <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-700 flex items-center gap-1.5 shadow-sm">
+              <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-sm">
                 <UserGroupIcon className="w-4 h-4" />
-                CAB Required
+                Requer CAB
               </span>
             )}
             {change.scheduled_start && (
-              <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-700 flex items-center gap-1.5 shadow-sm">
+              <span className="px-4 py-1.5 rounded-full text-sm font-semibold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 shadow-sm">
                 <CalendarDaysIcon className="w-4 h-4" />
                 {formatDate(change.scheduled_start)}
               </span>
@@ -382,7 +381,7 @@ export default function ChangeDetailPage() {
                 }`}>
                   <UserGroupIcon className="w-6 h-6" />
                 </div>
-                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">CAB Review</span>
+                <span className="text-xs font-medium mt-2 text-center text-neutral-700 dark:text-neutral-300">Revisão CAB</span>
               </div>
 
               <div className={`flex-1 h-1 mx-2 transition-all ${

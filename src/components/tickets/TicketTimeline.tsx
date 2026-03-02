@@ -7,6 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import type { Ticket, Comment, User, Category, Priority, Status } from '../../../lib/types/database';
 
 // Icons
@@ -122,8 +123,8 @@ export function TicketTimeline({
       type: 'system',
       timestamp: parseISO(ticket.created_at),
       user: getUserById(ticket.user_id),
-      title: 'Ticket Created',
-      description: `Ticket #${ticket.id} was created`,
+      title: 'Ticket Criado',
+      description: `Ticket #${ticket.id} foi criado`,
       icon: DocumentTextIcon,
       iconColor: 'text-blue-500',
       isSystemGenerated: true,
@@ -149,8 +150,8 @@ export function TicketTimeline({
         type: 'assignment',
         timestamp: parseISO(ticket.created_at), // Would be actual assignment time in real system
         user: assignedUser,
-        title: 'Ticket Assigned',
-        description: `Assigned to ${assignedUser?.name || 'Unknown User'}`,
+        title: 'Ticket Atribuído',
+        description: `Atribuído a ${assignedUser?.name || 'Usuário desconhecido'}`,
         icon: UserGroupIcon,
         iconColor: 'text-green-500',
         isSystemGenerated: false,
@@ -171,7 +172,7 @@ export function TicketTimeline({
         type: 'comment',
         timestamp: parseISO(comment.created_at),
         user: commentUser,
-        title: comment.is_internal ? 'Internal Note Added' : 'Comment Added',
+        title: comment.is_internal ? 'Nota Interna Adicionada' : 'Comentário Adicionado',
         description: comment.content.length > 100
           ? comment.content.substring(0, 100) + '...'
           : comment.content,
@@ -195,8 +196,8 @@ export function TicketTimeline({
         id: `ticket-resolved-${ticket.id}`,
         type: 'status_change',
         timestamp: parseISO(ticket.resolved_at),
-        title: 'Ticket Resolved',
-        description: 'Ticket has been marked as resolved',
+        title: 'Ticket Resolvido',
+        description: 'Ticket foi marcado como resolvido',
         icon: CheckCircleIcon,
         iconColor: 'text-green-500',
         isSystemGenerated: true,
@@ -231,8 +232,8 @@ export function TicketTimeline({
         type: 'priority_change',
         timestamp: new Date(parseISO(ticket.created_at).getTime() + Math.random() * ticketAge),
         user: getUserById(ticket.assigned_to || ticket.user_id),
-        title: 'Priority Updated',
-        description: `Priority changed to ${getPriorityById(ticket.priority_id)?.name || 'Unknown'}`,
+        title: 'Prioridade Atualizada',
+        description: `Prioridade alterada para ${getPriorityById(ticket.priority_id)?.name || 'Desconhecida'}`,
         icon: ExclamationTriangleIcon,
         iconColor: 'text-orange-500',
         isSystemGenerated: false,
@@ -252,8 +253,8 @@ export function TicketTimeline({
         type: 'status_change',
         timestamp: new Date(parseISO(ticket.created_at).getTime() + Math.random() * ticketAge),
         user: getUserById(ticket.assigned_to || ticket.user_id),
-        title: 'Status Updated',
-        description: `Status changed to ${getStatusById(ticket.status_id)?.name || 'Unknown'}`,
+        title: 'Status Atualizado',
+        description: `Status alterado para ${getStatusById(ticket.status_id)?.name || 'Desconhecido'}`,
         icon: ClockIcon,
         iconColor: 'text-blue-500',
         isSystemGenerated: false,
@@ -273,10 +274,10 @@ export function TicketTimeline({
         type: 'view',
         timestamp: new Date(parseISO(ticket.created_at).getTime() + Math.random() * ticketAge),
         user: getUserById(ticket.assigned_to || users[1]?.id || ticket.user_id),
-        title: 'Ticket Viewed',
-        description: 'Ticket was opened for review',
+        title: 'Ticket Visualizado',
+        description: 'Ticket foi aberto para revisão',
         icon: EyeIcon,
-        iconColor: 'text-gray-500',
+        iconColor: 'text-neutral-500',
         isSystemGenerated: true,
         severity: 'low',
         metadata: {
@@ -292,8 +293,8 @@ export function TicketTimeline({
         id: `sla-warning-${Date.now()}`,
         type: 'sla_breach',
         timestamp: new Date(parseISO(ticket.created_at).getTime() + Math.random() * ticketAge),
-        title: 'SLA Warning',
-        description: 'Ticket is approaching SLA breach deadline',
+        title: 'Alerta de SLA',
+        description: 'Ticket está se aproximando do prazo de violação do SLA',
         icon: BellIcon,
         iconColor: 'text-red-500',
         isSystemGenerated: true,
@@ -397,17 +398,17 @@ export function TicketTimeline({
       <div key={event.id} className="relative">
         {/* Timeline line */}
         {!isLast && (
-          <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
+          <div className="absolute left-4 top-10 bottom-0 w-0.5 bg-neutral-200 dark:bg-neutral-700" />
         )}
 
         {/* Event container */}
-        <div className="relative flex items-start space-x-3">
+        <div className="relative flex items-start gap-2 sm:gap-3">
           {/* Icon */}
           <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
             event.severity === 'critical' ? 'bg-red-100 dark:bg-red-900' :
             event.severity === 'high' ? 'bg-orange-100 dark:bg-orange-900' :
             event.severity === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900' :
-            'bg-gray-100 dark:bg-gray-800'
+            'bg-neutral-100 dark:bg-neutral-800'
           }`}>
             <EventIcon className={`h-5 w-5 ${event.iconColor}`} />
           </div>
@@ -419,43 +420,43 @@ export function TicketTimeline({
               onClick={() => handleEventClick(event)}
             >
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+                  <h4 className="text-sm font-medium text-neutral-900 dark:text-white">
                     {event.title}
                   </h4>
                   {event.isInternal && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                      Internal
+                      Interno
                     </span>
                   )}
                   {event.isSystemGenerated && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                      System
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200">
+                      Sistema
                     </span>
                   )}
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                  <span title={format(event.timestamp, 'PPpp')}>
-                    {formatDistanceToNow(event.timestamp, { addSuffix: true })}
+                <div className="flex items-center text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+                  <span title={format(event.timestamp, 'PPpp', { locale: ptBR })}>
+                    {formatDistanceToNow(event.timestamp, { addSuffix: true, locale: ptBR })}
                   </span>
                 </div>
               </div>
 
               {/* Description */}
               {event.description && (
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
                   {event.description}
                 </p>
               )}
 
               {/* User info */}
               {event.user && (
-                <div className="mt-1 flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-1 flex items-center space-x-1 text-xs text-neutral-500 dark:text-neutral-400">
                   <UserIcon className="h-3 w-3" />
                   <span>{event.user.name}</span>
                   {event.user.role !== 'user' && (
-                    <span className="text-gray-400">({event.user.role})</span>
+                    <span className="text-neutral-400">({event.user.role})</span>
                   )}
                 </div>
               )}
@@ -463,17 +464,17 @@ export function TicketTimeline({
 
             {/* Expanded content */}
             {isExpanded && event.metadata && (
-              <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Event Details
+              <div className="mt-3 p-2 sm:p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                <h5 className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
+                  Detalhes do Evento
                 </h5>
-                <div className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                <div className="space-y-1 text-xs sm:text-sm text-neutral-600 dark:text-neutral-300">
                   {Object.entries(event.metadata).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
+                    <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-0.5">
                       <span className="font-medium capitalize">
                         {key.replace(/_/g, ' ')}:
                       </span>
-                      <span className="text-right">
+                      <span className="sm:text-right break-all">
                         {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                       </span>
                     </div>
@@ -483,14 +484,14 @@ export function TicketTimeline({
                 {/* Related items */}
                 {event.relatedItems && event.relatedItems.length > 0 && (
                   <div className="mt-3">
-                    <h6 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                      Related Items
+                    <h6 className="text-sm font-medium text-neutral-900 dark:text-white mb-1">
+                      Itens Relacionados
                     </h6>
                     <div className="space-y-1">
                       {event.relatedItems.map((item, index) => (
                         <div key={index} className="flex items-center space-x-2 text-sm">
                           <span className="capitalize">{item.type}:</span>
-                          <span className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                          <span className="text-brand-600 dark:text-brand-400 hover:underline cursor-pointer">
                             {item.name}
                           </span>
                         </div>
@@ -508,19 +509,19 @@ export function TicketTimeline({
 
   // Render filter controls
   const renderFilters = () => (
-    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
-      <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-        Filter Timeline
+    <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+      <h4 className="text-sm font-medium text-neutral-900 dark:text-white mb-3">
+        Filtrar Timeline
       </h4>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         {/* Search */}
-        <div>
+        <div className="sm:col-span-2 md:col-span-1">
           <input
             type="text"
-            placeholder="Search events..."
+            placeholder="Buscar eventos..."
             value={filter.searchTerm}
             onChange={(e) => setFilter(prev => ({ ...prev, searchTerm: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg text-base sm:text-sm h-11 sm:h-auto focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
           />
         </div>
 
@@ -533,13 +534,13 @@ export function TicketTimeline({
               const values = Array.from(e.target.selectedOptions, option => option.value);
               setFilter(prev => ({ ...prev, types: new Set(values) }));
             }}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
           >
-            <option value="comment">Comments</option>
-            <option value="status_change">Status Changes</option>
-            <option value="assignment">Assignments</option>
-            <option value="priority_change">Priority Changes</option>
-            <option value="system">System Events</option>
+            <option value="comment">Comentários</option>
+            <option value="status_change">Alterações de Status</option>
+            <option value="assignment">Atribuições</option>
+            <option value="priority_change">Alterações de Prioridade</option>
+            <option value="system">Eventos do Sistema</option>
           </select>
         </div>
 
@@ -552,12 +553,12 @@ export function TicketTimeline({
               const values = Array.from(e.target.selectedOptions, option => option.value);
               setFilter(prev => ({ ...prev, severity: new Set(values) }));
             }}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
           >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="low">Baixa</option>
+            <option value="medium">Média</option>
+            <option value="high">Alta</option>
+            <option value="critical">Crítica</option>
           </select>
         </div>
       </div>
@@ -572,9 +573,9 @@ export function TicketTimeline({
             severity: new Set(),
             searchTerm: ''
           })}
-          className="mt-3 text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+          className="mt-3 text-sm text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300 min-h-[44px] inline-flex items-center"
         >
-          Clear all filters
+          Limpar todos os filtros
         </button>
       )}
     </div>
@@ -583,22 +584,24 @@ export function TicketTimeline({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-          Timeline ({filteredEvents.length} events)
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h3 className="text-base sm:text-lg font-medium text-neutral-900 dark:text-white">
+          Timeline ({filteredEvents.length} evento{filteredEvents.length !== 1 ? 's' : ''})
         </h3>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setExpandedEvents(new Set())}
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 min-h-[44px] sm:min-h-0"
+            aria-label="Recolher todos os eventos"
           >
-            Collapse All
+            Recolher Tudo
           </button>
           <button
             onClick={() => setExpandedEvents(new Set(filteredEvents.map(e => e.id)))}
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 min-h-[44px] sm:min-h-0"
+            aria-label="Expandir todos os eventos"
           >
-            Expand All
+            Expandir Tudo
           </button>
         </div>
       </div>
@@ -607,12 +610,12 @@ export function TicketTimeline({
       {renderFilters()}
 
       {/* Timeline */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700">
+        <div className="p-3 sm:p-6">
           {Object.keys(groupedEvents).length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-8 text-neutral-500 dark:text-neutral-400">
               <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No events found matching your filters</p>
+              <p>Nenhum evento encontrado com os filtros atuais</p>
             </div>
           ) : groupByDate ? (
             // Grouped by date
@@ -622,10 +625,10 @@ export function TicketTimeline({
                 .map(([date, events]) => (
                   <div key={date}>
                     <div className="flex items-center mb-4">
-                      <h4 className="text-sm font-medium text-gray-900 dark:text-white">
-                        {format(parseISO(date), 'EEEE, MMMM d, yyyy')}
+                      <h4 className="text-sm font-medium text-neutral-900 dark:text-white">
+                        {format(parseISO(date), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
                       </h4>
-                      <div className="flex-1 ml-4 h-px bg-gray-200 dark:bg-gray-700" />
+                      <div className="flex-1 ml-4 h-px bg-neutral-200 dark:bg-neutral-700" />
                     </div>
                     <div className="space-y-6">
                       {events.map((event, index) =>
@@ -651,9 +654,9 @@ export function TicketTimeline({
         <div className="text-center">
           <button
             onClick={() => {/* Implement load more logic */}}
-            className="px-4 py-2 text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+            className="px-4 py-2 text-sm text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300"
           >
-            Load more events ({timelineEvents.length - maxEvents} remaining)
+            Carregar mais eventos ({timelineEvents.length - maxEvents} restantes)
           </button>
         </div>
       )}

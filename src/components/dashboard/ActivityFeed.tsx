@@ -97,24 +97,24 @@ export default function ActivityFeed({ limit = 10 }: ActivityFeedProps) {
       case 'attachment_uploaded':
         return <PaperClipIcon className="h-5 w-5 text-indigo-500" />
       default:
-        return <UserIcon className="h-5 w-5 text-gray-500" />
+        return <UserIcon className="h-5 w-5 text-neutral-500" />
     }
   }
 
   const getActivityColor = (type: string) => {
     switch (type) {
       case 'ticket_created':
-        return 'bg-blue-50'
+        return 'bg-blue-50 dark:bg-blue-900/20'
       case 'ticket_updated':
-        return 'bg-yellow-50'
+        return 'bg-yellow-50 dark:bg-yellow-900/20'
       case 'ticket_resolved':
-        return 'bg-green-50'
+        return 'bg-green-50 dark:bg-green-900/20'
       case 'comment_added':
-        return 'bg-purple-50'
+        return 'bg-purple-50 dark:bg-purple-900/20'
       case 'attachment_uploaded':
-        return 'bg-indigo-50'
+        return 'bg-indigo-50 dark:bg-indigo-900/20'
       default:
-        return 'bg-gray-50'
+        return 'bg-neutral-50 dark:bg-neutral-800'
     }
   }
 
@@ -138,16 +138,16 @@ export default function ActivityFeed({ limit = 10 }: ActivityFeedProps) {
 
   if (loading) {
     return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Atividade Recente</h3>
+      <div className="bg-white dark:bg-neutral-800 shadow rounded-lg p-6">
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">Atividade Recente</h3>
         <div className="space-y-4">
           {[...Array(limit)].map((_, i) => (
             <div key={i} className="animate-pulse">
               <div className="flex items-start space-x-3">
-                <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+                <div className="h-10 w-10 bg-neutral-200 dark:bg-neutral-700 rounded-full"></div>
                 <div className="flex-1">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-1/2"></div>
                 </div>
               </div>
             </div>
@@ -158,41 +158,41 @@ export default function ActivityFeed({ limit = 10 }: ActivityFeedProps) {
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900">Atividade Recente</h3>
+    <div className="bg-white dark:bg-neutral-800 shadow rounded-lg">
+      <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">Atividade Recente</h3>
       </div>
-      <div className="divide-y divide-gray-200">
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
         {activities.length === 0 ? (
           <div className="px-6 py-4 text-center">
-            <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhuma atividade recente</p>
           </div>
         ) : (
           activities.map((activity) => (
-            <div key={activity.id} className="px-6 py-4">
+            <div key={activity.id} className="px-6 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors">
               <div className="flex items-start space-x-3">
                 <div className={`flex-shrink-0 p-2 rounded-full ${getActivityColor(activity.type)}`}>
                   {getActivityIcon(activity.type)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-900">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <p className="text-sm text-neutral-900 dark:text-neutral-100">
                       <span className="font-medium">{activity.user_name}</span>{' '}
                       {activity.description}
                       {activity.ticket_id && (
-                        <span className="text-indigo-600">
+                        <span className="text-brand-600 dark:text-brand-400">
                           {' '}no ticket #{activity.ticket_id}
                         </span>
                       )}
                     </p>
-                    <div className="flex items-center text-xs text-gray-500">
+                    <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400 flex-shrink-0">
                       <ClockIcon className="h-3 w-3 mr-1" />
                       {formatTime(activity.timestamp)}
                     </div>
                   </div>
                   {activity.ticket_title && (
-                    <p className="mt-1 text-sm text-gray-600 truncate">
-                      "{activity.ticket_title}"
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400 truncate">
+                      &ldquo;{activity.ticket_title}&rdquo;
                     </p>
                   )}
                 </div>

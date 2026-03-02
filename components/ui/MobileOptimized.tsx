@@ -96,7 +96,7 @@ export function MobileTabs({
               )}
               <span className="font-medium">{activeTabData?.label}</span>
               {activeTabData?.count !== undefined && (
-                <span className="badge badge-sm">{activeTabData.count}</span>
+                <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 text-xs font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-full">{activeTabData.count}</span>
               )}
             </div>
             <ChevronDownIcon className={`h-4 w-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
@@ -118,7 +118,7 @@ export function MobileTabs({
                   {tab.icon && <tab.icon className="h-4 w-4" />}
                   <span className="flex-1">{tab.label}</span>
                   {tab.count !== undefined && (
-                    <span className="badge badge-sm">{tab.count}</span>
+                    <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 text-xs font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-full">{tab.count}</span>
                   )}
                 </button>
               ))}
@@ -143,7 +143,7 @@ export function MobileTabs({
               {tab.icon && <tab.icon className="h-4 w-4" />}
               <span>{tab.label}</span>
               {tab.count !== undefined && (
-                <span className="badge badge-sm">{tab.count}</span>
+                <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 text-xs font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-full">{tab.count}</span>
               )}
             </button>
           ))}
@@ -302,7 +302,7 @@ export function MobileModal({
             <h3 className="text-lg font-semibold">{title}</h3>
             <button
               onClick={onClose}
-              className="btn btn-ghost btn-sm"
+              className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 dark:text-neutral-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -328,7 +328,7 @@ export function MobileModal({
             <h3 className="text-lg font-semibold">{title}</h3>
             <button
               onClick={onClose}
-              className="btn btn-ghost btn-sm"
+              className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 dark:text-neutral-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>

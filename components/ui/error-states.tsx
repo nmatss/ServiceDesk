@@ -46,7 +46,7 @@ export function ErrorState({
         </div>
       )}
 
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{title}</h3>
+      <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{title}</h3>
 
       <p className="text-description mb-6 max-w-md">{description}</p>
 
@@ -57,7 +57,7 @@ export function ErrorState({
             className={cn(
               'px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2',
               action.variant === 'secondary'
-                ? 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white focus:ring-gray-500'
+                ? 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:ring-neutral-500'
                 : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md focus:ring-blue-500'
             )}
           >
@@ -68,7 +68,7 @@ export function ErrorState({
         {secondaryAction && (
           <button
             onClick={secondaryAction.onClick}
-            className="px-6 py-2.5 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+            className="px-6 py-2.5 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500"
           >
             {secondaryAction.label}
           </button>
@@ -129,7 +129,7 @@ export function NotFoundError({ onGoHome, onGoBack, title, message }: NotFoundEr
   return (
     <ErrorState
       icon={
-        <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-10 h-10 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -380,7 +380,7 @@ export function ErrorBoundaryFallback({ error, resetError }: ErrorBoundaryFallba
   const isDev = process.env.NODE_ENV === 'development'
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 p-4">
       <div className="max-w-2xl w-full">
         <ErrorState
           icon={<ShieldExclamationIcon className="w-10 h-10 text-red-600" />}

@@ -8,13 +8,13 @@ import { cn } from '@/lib/utils';
 // TABS COMPONENT
 // ========================================
 
-const tabsListVariants = cva('inline-flex items-center', {
+const tabsListVariants = cva('inline-flex items-center overflow-x-auto scrollbar-hide -mx-1 px-1', {
   variants: {
     variant: {
-      default: 'border-b border-gray-200 dark:border-gray-700',
-      pills: 'bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1',
+      default: 'border-b border-neutral-200 dark:border-neutral-700',
+      pills: 'bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1 gap-1',
       underline: 'gap-4',
-      segment: 'bg-gray-100 dark:bg-gray-800 rounded-lg p-1',
+      segment: 'bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1',
     },
   },
   defaultVariants: {
@@ -23,14 +23,14 @@ const tabsListVariants = cva('inline-flex items-center', {
 });
 
 const tabsTriggerVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center whitespace-nowrap font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 min-h-[44px] sm:min-h-0',
   {
     variants: {
       variant: {
-        default: 'px-4 py-2 text-sm border-b-2 border-transparent data-[state=active]:border-brand-600 data-[state=active]:text-brand-600 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-        pills: 'px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-brand-600 data-[state=active]:shadow-sm text-gray-600 hover:text-gray-900 dark:data-[state=active]:bg-gray-700 dark:text-gray-300',
-        underline: 'px-1 py-2 text-sm border-b-2 border-transparent data-[state=active]:border-brand-600 data-[state=active]:text-brand-600 text-gray-500 hover:text-gray-700',
-        segment: 'flex-1 px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm text-gray-600 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white dark:text-gray-400',
+        default: 'px-4 py-2 text-sm border-b-2 border-transparent data-[state=active]:border-brand-600 data-[state=active]:text-brand-600 text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+        pills: 'px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-brand-600 data-[state=active]:shadow-sm text-neutral-600 hover:text-neutral-900 dark:data-[state=active]:bg-neutral-700 dark:text-neutral-300',
+        underline: 'px-1 py-2 text-sm border-b-2 border-transparent data-[state=active]:border-brand-600 data-[state=active]:text-brand-600 text-neutral-500 hover:text-neutral-700',
+        segment: 'flex-1 px-3 py-1.5 text-sm rounded-md data-[state=active]:bg-white data-[state=active]:text-neutral-900 data-[state=active]:shadow-sm text-neutral-600 dark:data-[state=active]:bg-neutral-700 dark:data-[state=active]:text-white dark:text-neutral-400',
       },
       size: {
         sm: 'text-xs px-2 py-1',

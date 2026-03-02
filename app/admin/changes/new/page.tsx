@@ -230,7 +230,7 @@ export default function NewChangePage() {
           </div>
 
           {/* Risk Assessment */}
-          <div className="glass-panel bg-gradient-to-br from-orange-50/50 to-red-50/30">
+          <div className="glass-panel bg-gradient-to-br from-orange-50/50 to-red-50/30 dark:from-orange-950/20 dark:to-red-950/10">
             <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
               Avaliação de Risco
@@ -249,9 +249,9 @@ export default function NewChangePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, risk_level: parseInt(e.target.value) }))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-neutral-500">
+                <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span>Baixo</span>
-                  <span className="font-medium text-lg text-orange-600">{formData.risk_level}</span>
+                  <span className="font-medium text-lg text-orange-600 dark:text-orange-400">{formData.risk_level}</span>
                   <span>Alto</span>
                 </div>
               </div>
@@ -268,9 +268,9 @@ export default function NewChangePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, impact_level: parseInt(e.target.value) }))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-neutral-500">
+                <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span>Baixo</span>
-                  <span className="font-medium text-lg text-red-600">{formData.impact_level}</span>
+                  <span className="font-medium text-lg text-red-600 dark:text-red-400">{formData.impact_level}</span>
                   <span>Alto</span>
                 </div>
               </div>
@@ -287,9 +287,9 @@ export default function NewChangePage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, urgency_level: parseInt(e.target.value) }))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-neutral-500">
+                <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400">
                   <span>Baixa</span>
-                  <span className="font-medium text-lg text-yellow-600">{formData.urgency_level}</span>
+                  <span className="font-medium text-lg text-yellow-600 dark:text-yellow-400">{formData.urgency_level}</span>
                   <span>Alta</span>
                 </div>
               </div>
@@ -297,7 +297,7 @@ export default function NewChangePage() {
           </div>
 
           {/* Schedule */}
-          <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-brand-50/30">
+          <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-brand-50/30 dark:from-brand-950/20 dark:to-brand-950/10">
             <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <CalendarDaysIcon className="w-5 h-5 text-brand-500" />
               Agendamento
@@ -337,7 +337,7 @@ export default function NewChangePage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, cab_required: e.target.checked }))}
                 className="w-4 h-4 text-brand-600 border-neutral-300 rounded focus:ring-brand-500"
               />
-              <label htmlFor="cab_required" className="text-sm text-neutral-700 flex items-center gap-2">
+              <label htmlFor="cab_required" className="text-sm text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
                 <UserGroupIcon className="w-4 h-4" />
                 Requer aprovação do CAB
               </label>
@@ -358,7 +358,7 @@ export default function NewChangePage() {
                   value={formData.implementation_plan}
                   onChange={(e) => setFormData(prev => ({ ...prev, implementation_plan: e.target.value }))}
                   rows={5}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
                   placeholder="1. Backup do sistema&#10;2. Parar serviços&#10;3. Aplicar mudanças&#10;4. Testar&#10;5. Reiniciar serviços"
                 />
               </div>
@@ -372,7 +372,7 @@ export default function NewChangePage() {
                   value={formData.rollback_plan}
                   onChange={(e) => setFormData(prev => ({ ...prev, rollback_plan: e.target.value }))}
                   rows={4}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
                   placeholder="Em caso de falha:&#10;1. Parar o processo&#10;2. Restaurar backup&#10;3. Reiniciar serviços"
                 />
               </div>
@@ -386,7 +386,7 @@ export default function NewChangePage() {
                   value={formData.test_plan}
                   onChange={(e) => setFormData(prev => ({ ...prev, test_plan: e.target.value }))}
                   rows={4}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
+                  className="w-full px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent font-mono text-sm"
                   placeholder="Testes de validação:&#10;1. Verificar conectividade&#10;2. Testar funcionalidades principais&#10;3. Validar logs"
                 />
               </div>
@@ -394,7 +394,7 @@ export default function NewChangePage() {
           </div>
 
           {/* Affected Services */}
-          <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-cyan-50/30">
+          <div className="glass-panel bg-gradient-to-br from-brand-50/50 to-cyan-50/30 dark:from-brand-950/20 dark:to-cyan-950/10">
             <h2 className="font-bold text-lg text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <ServerIcon className="w-5 h-5 text-brand-500" />
               Serviços Afetados
@@ -405,14 +405,14 @@ export default function NewChangePage() {
                 type="text"
                 value={newService}
                 onChange={(e) => setNewService(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
                 className="flex-1 px-4 py-2 border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 placeholder="Nome do serviço"
               />
               <button
                 type="button"
                 onClick={addService}
-                className="px-4 py-2 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200"
+                className="px-4 py-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg hover:bg-brand-200 dark:hover:bg-brand-900/50"
               >
                 <PlusIcon className="w-5 h-5" />
               </button>
@@ -422,29 +422,29 @@ export default function NewChangePage() {
               {formData.affected_services.map((service, index) => (
                 <span
                   key={index}
-                  className="px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded-lg text-sm flex items-center gap-2"
+                  className="px-3 py-1.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg text-sm flex items-center gap-2"
                 >
                   {service}
                   <button
                     type="button"
                     onClick={() => removeService(service)}
-                    className="text-neutral-400 hover:text-neutral-600"
+                    className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"
                   >
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </span>
               ))}
               {formData.affected_services.length === 0 && (
-                <p className="text-sm text-neutral-500">Nenhum serviço adicionado</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Nenhum serviço adicionado</p>
               )}
             </div>
           </div>
 
           {/* Info Box */}
-          <div className="glass-panel bg-gradient-to-br from-brand-50 to-brand-50 border-brand-200">
+          <div className="glass-panel bg-gradient-to-br from-brand-50 to-brand-50 dark:from-brand-950/20 dark:to-brand-950/20 border-brand-200 dark:border-brand-800">
             <div className="flex gap-3">
-              <InformationCircleIcon className="w-6 h-6 text-brand-600 flex-shrink-0" />
-              <div className="text-sm text-brand-700">
+              <InformationCircleIcon className="w-6 h-6 text-brand-600 dark:text-brand-400 flex-shrink-0" />
+              <div className="text-sm text-brand-700 dark:text-brand-300">
                 <p className="font-semibold mb-2">Próximos passos após submissão:</p>
                 <ul className="list-disc list-inside space-y-1.5">
                   <li>A RFC será revisada pelo gestor responsável</li>
@@ -485,7 +485,7 @@ export default function NewChangePage() {
             <button
               type="button"
               onClick={() => router.push('/admin/changes')}
-              className="flex-1 sm:flex-none px-6 py-3 text-neutral-600 rounded-lg font-medium hover:bg-neutral-100"
+              className="flex-1 sm:flex-none px-6 py-3 text-neutral-600 dark:text-neutral-400 rounded-lg font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
               Cancelar
             </button>

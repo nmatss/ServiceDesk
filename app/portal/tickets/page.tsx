@@ -274,7 +274,7 @@ export default function MyTicketsPage() {
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+              <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100">
                 Meus Tickets
               </h1>
               <p className="text-description">
@@ -284,9 +284,9 @@ export default function MyTicketsPage() {
             <div className="mt-4 sm:mt-0">
               <Link
                 href="/portal"
-                className="inline-flex items-center px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
+                className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2.5 sm:py-2 min-h-[44px] bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-base sm:text-sm"
               >
-                <PlusIcon className="w-4 h-4 mr-2" />
+                <PlusIcon className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />
                 Nova Solicitação
               </Link>
             </div>
@@ -296,41 +296,41 @@ export default function MyTicketsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Abertos</p>
-                <p className="text-3xl font-bold text-warning-600">{statusGroups.open.length}</p>
+        <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
+          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-1 sm:gap-0">
+              <div className="text-center sm:text-left">
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">Abertos</p>
+                <p className="text-xl sm:text-3xl font-bold text-warning-600">{statusGroups.open.length}</p>
               </div>
-              <ClockIcon className="w-8 h-8 text-warning-400" />
+              <ClockIcon className="w-6 h-6 sm:w-8 sm:h-8 text-warning-400 hidden sm:block" />
             </div>
           </div>
 
-          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Em Progresso</p>
-                <p className="text-3xl font-bold text-brand-600">{statusGroups.in_progress.length}</p>
+          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-1 sm:gap-0">
+              <div className="text-center sm:text-left">
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">Em Progresso</p>
+                <p className="text-xl sm:text-3xl font-bold text-brand-600">{statusGroups.in_progress.length}</p>
               </div>
-              <ExclamationTriangleIcon className="w-8 h-8 text-brand-400" />
+              <ExclamationTriangleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand-400 hidden sm:block" />
             </div>
           </div>
 
-          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Resolvidos</p>
-                <p className="text-3xl font-bold text-success-600">{statusGroups.resolved.length}</p>
+          <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-1 sm:gap-0">
+              <div className="text-center sm:text-left">
+                <p className="text-xs sm:text-sm font-medium text-neutral-600 dark:text-neutral-400">Resolvidos</p>
+                <p className="text-xl sm:text-3xl font-bold text-success-600">{statusGroups.resolved.length}</p>
               </div>
-              <CheckCircleIcon className="w-8 h-8 text-success-400" />
+              <CheckCircleIcon className="w-6 h-6 sm:w-8 sm:h-8 text-success-400 hidden sm:block" />
             </div>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 mb-6">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4" role="search">
+        <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6 mb-6">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 sm:gap-4" role="search">
             <div className="flex-1">
               <div className="relative">
                 <input
@@ -338,25 +338,30 @@ export default function MyTicketsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por número, título ou descrição..."
-                  className="w-full pl-10 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full pl-10 pr-4 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  aria-label="Buscar tickets"
                 />
-                <MagnifyingGlassIcon className="w-5 h-5 text-neutral-400 absolute left-3 top-2.5" />
+                <MagnifyingGlassIcon className="w-5 h-5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center px-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 dark:text-neutral-300 transition-colors"
-            >
-              <FunnelIcon className="w-4 h-4 mr-2" />
-              Filtros
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors"
-            >
-              Buscar
-            </button>
+            <div className="flex gap-3 sm:gap-4">
+              <button
+                type="button"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 sm:py-2 min-h-[44px] border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 dark:text-neutral-300 transition-colors text-base sm:text-sm"
+                aria-label="Mostrar filtros"
+                aria-expanded={showFilters}
+              >
+                <FunnelIcon className="w-4 h-4 mr-2" />
+                Filtros
+              </button>
+              <button
+                type="submit"
+                className="flex-1 sm:flex-none px-6 py-2.5 sm:py-2 min-h-[44px] bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors text-base sm:text-sm"
+              >
+                Buscar
+              </button>
+            </div>
           </form>
 
           {showFilters && (
@@ -367,7 +372,7 @@ export default function MyTicketsPage() {
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="all">Todos os status</option>
                     {statuses.map(status => (
@@ -381,7 +386,7 @@ export default function MyTicketsPage() {
                   <select
                     value={selectedPriority}
                     onChange={(e) => setSelectedPriority(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="all">Todas as prioridades</option>
                     {priorities.map(priority => (
@@ -399,7 +404,7 @@ export default function MyTicketsPage() {
                       if (field) setSortBy(field)
                       setSortOrder(order as 'asc' | 'desc')
                     }}
-                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   >
                     <option value="created_at-desc">Mais recentes</option>
                     <option value="created_at-asc">Mais antigos</option>
@@ -428,68 +433,78 @@ export default function MyTicketsPage() {
             {tickets.map(ticket => (
               <div
                 key={ticket.id}
-                className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-md transition-shadow cursor-pointer"
+                className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500"
                 onClick={() => router.push(`/portal/tickets/${ticket.id}`)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/portal/tickets/${ticket.id}`) } }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Ver ticket #${ticket.ticket_number}: ${ticket.title}`}
               >
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-3">
+                <div className="p-4 sm:p-6">
+                  {/* Mobile: stacked layout / Desktop: horizontal */}
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-mono text-neutral-500 dark:text-neutral-400">
                         #{ticket.ticket_number}
                       </span>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-1.5">
                         {getStatusIcon(ticket.status)}
                         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                           {ticket.status}
                         </span>
                       </div>
                       <span
-                        className="px-2 py-1 text-xs font-medium rounded-full text-white"
+                        className="px-2 py-0.5 text-xs font-medium rounded-full text-white"
                         style={{ backgroundColor: ticket.priority_color }}
                       >
                         {ticket.priority}
                       </span>
                       {ticket.is_overdue && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-error-100 text-error-800">
+                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-error-100 text-error-800">
                           Vencido
                         </span>
                       )}
                     </div>
-                    <button className="p-1 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded">
+                    <button
+                      className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded -mr-2 -mt-2 sm:mr-0 sm:mt-0 sm:p-1 sm:min-w-0 sm:min-h-0"
+                      aria-label={`Ver ticket #${ticket.ticket_number}`}
+                    >
                       <EyeIcon className="w-4 h-4 text-neutral-400" />
                     </button>
                   </div>
 
-                  <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-1">
+                  <h3 className="text-base sm:text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-1 sm:mb-2 line-clamp-2 sm:line-clamp-1">
                     {ticket.title}
                   </h3>
 
-                  <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-4 line-clamp-2">
+                  <p className="text-neutral-600 dark:text-neutral-400 text-sm mb-3 sm:mb-4 line-clamp-2">
                     {ticket.description}
                   </p>
 
-                  <div className="flex items-center justify-between text-sm text-neutral-500 dark:text-neutral-400">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-1">
-                        <CalendarIcon className="w-4 h-4" />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <div className="flex items-center gap-1">
+                        <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>Criado {formatDate(ticket.created_at)}</span>
                       </div>
                       {ticket.assigned_to_name && (
-                        <div className="flex items-center space-x-1">
-                          <UserIcon className="w-4 h-4" />
-                          <span>Atribuído a {ticket.assigned_to_name}</span>
+                        <div className="flex items-center gap-1">
+                          <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          <span>{ticket.assigned_to_name}</span>
                         </div>
                       )}
                       {ticket.category_name && (
-                        <div className="flex items-center space-x-1">
-                          <span className="w-2 h-2 bg-neutral-400 dark:bg-neutral-500 rounded-full"></span>
+                        <div className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-neutral-400 dark:bg-neutral-500 rounded-full"></span>
                           <span>{ticket.category_name}</span>
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {ticket.sla_due_at && formatSLADue(ticket.sla_due_at)}
-                    </div>
+                    {ticket.sla_due_at && (
+                      <div className="flex items-center gap-2">
+                        {formatSLADue(ticket.sla_due_at)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

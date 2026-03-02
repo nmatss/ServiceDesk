@@ -26,6 +26,7 @@ import {
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
 import { ExclamationTriangleIcon as ExclamationTriangleSolid } from '@heroicons/react/24/solid'
+import { logger } from '@/lib/monitoring/logger'
 
 interface Problem {
   id: string
@@ -70,6 +71,7 @@ export default function ProblemDetailPage() {
 
   useEffect(() => {
     fetchProblem()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [problemId])
 
   const fetchProblem = async () => {
@@ -79,7 +81,7 @@ export default function ProblemDetailPage() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to fetch problem')
+        throw new Error(data.error || 'Falha ao carregar problema')
       }
 
       const apiProblem = data.data
@@ -119,7 +121,7 @@ export default function ProblemDetailPage() {
         })) || []
       })
     } catch (error) {
-      console.error('Error fetching problem:', error)
+      logger.error('Erro ao buscar problema', error)
       setProblem(null)
     } finally {
       setLoading(false)
@@ -223,6 +225,7 @@ export default function ProblemDetailPage() {
           <button
             onClick={() => router.push('/admin/problems')}
             className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+            aria-label="Voltar para lista de problemas"
           >
             <ArrowLeftIcon className="w-5 h-5 text-description" />
           </button>
@@ -321,7 +324,10 @@ export default function ProblemDetailPage() {
                       <div
                         key={ci.id}
                         onClick={() => router.push(`/admin/cmdb/${ci.id}`)}
-                        className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 cursor-pointer transition-colors"
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/cmdb/${ci.id}`) } }}
+                        role="button"
+                        tabIndex={0}
+                        className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
                       >
                         <div className="flex items-center gap-3">
                           <ServerIcon className="w-5 h-5 text-icon-muted" />
@@ -421,7 +427,10 @@ export default function ProblemDetailPage() {
                     <div
                       key={incidentId}
                       onClick={() => router.push(`/tickets/${incidentId}`)}
-                      className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/tickets/${incidentId}`) } }}
+                      role="button"
+                      tabIndex={0}
+                      className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <div className="flex items-center gap-3">
                         <ExclamationTriangleIcon className="w-5 h-5 text-orange-500 dark:text-orange-400" />
@@ -458,7 +467,10 @@ export default function ProblemDetailPage() {
                       <div
                         key={changeId}
                         onClick={() => router.push(`/admin/changes/${changeId}`)}
-                        className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/changes/${changeId}`) } }}
+                        role="button"
+                        tabIndex={0}
+                        className="p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500"
                       >
                         <div className="flex items-center gap-3">
                           <ArrowPathIcon className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
@@ -538,7 +550,8 @@ export default function ProblemDetailPage() {
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Descreva as ações realizadas, descobertas ou próximos passos..."
-                    className="w-full p-4 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                    aria-label="Adicionar comentário ao histórico"
+                    className="w-full p-4 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
                     rows={4}
                   />
                   <button
@@ -644,6 +657,7 @@ export default function ProblemDetailPage() {
             Voltar
           </button>
           <button
+            onClick={() => toast.error('Edição de problemas ainda não implementada')}
             className="btn btn-primary flex-1"
           >
             <PencilIcon className="w-4 h-4 mr-2" />

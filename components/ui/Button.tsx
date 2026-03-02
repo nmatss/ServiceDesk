@@ -68,9 +68,9 @@ const buttonVariants = cva(
         ],
       },
       size: {
-        xs: 'h-7 px-2 text-xs gap-1',
-        sm: 'h-8 px-3 text-sm gap-1.5',
-        md: 'h-10 px-4 py-2 gap-2',
+        xs: 'h-7 min-h-[44px] sm:min-h-0 px-2 text-xs gap-1',
+        sm: 'h-8 min-h-[44px] sm:min-h-0 px-3 text-sm gap-1.5',
+        md: 'h-10 min-h-[44px] sm:min-h-0 px-4 py-2 gap-2',
         lg: 'h-12 px-6 py-3 text-base gap-2',
         xl: 'h-14 px-8 py-4 text-lg gap-3',
         icon: 'h-10 w-10 min-h-[44px] min-w-[44px] p-0',

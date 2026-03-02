@@ -202,12 +202,12 @@ export default function BiometricAuth({
     return (
       <div className={`biometric-auth-container ${className}`}>
         <div className="text-center p-6">
-          <div className="text-gray-400 mb-4">
+          <div className="text-neutral-400 dark:text-neutral-500 mb-4">
             <svg className="w-16 h-16 mx-auto" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+          <h3 className="text-lg font-semibold text-neutral-700 dark:text-neutral-300 mb-2">
             Autenticação Biométrica Não Disponível
           </h3>
           <p className="text-sm text-description">
@@ -228,7 +228,7 @@ export default function BiometricAuth({
           </div>
 
           {/* Title */}
-          <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+          <h3 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200 mb-2">
             {mode === 'register' ? 'Configurar Biometria' : 'Autenticação Biométrica'}
           </h3>
 
@@ -248,7 +248,7 @@ export default function BiometricAuth({
               transition-all duration-200 transform
               ${
                 isProcessing
-                  ? 'bg-gray-400 cursor-not-allowed'
+                  ? 'bg-neutral-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
               }
             `}
@@ -302,7 +302,7 @@ export default function BiometricAuth({
           )}
 
           {/* Info */}
-          <div className="mt-6 text-xs text-gray-500 dark:text-gray-500">
+          <div className="mt-6 text-xs text-neutral-500 dark:text-neutral-400">
             {isPlatformAuthenticator ? (
               <p>Autenticação segura usando biometria do dispositivo</p>
             ) : (
@@ -320,7 +320,7 @@ export default function BiometricAuth({
           </div>
 
           {/* Title */}
-          <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+          <h3 className="text-xl font-semibold text-neutral-800 dark:text-neutral-200 mb-2">
             Digite seu PIN
           </h3>
 
@@ -334,7 +334,7 @@ export default function BiometricAuth({
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
               placeholder="Digite seu PIN"
               maxLength={6}
-              className="w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:bg-gray-800 dark:text-white"
+              className="w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-neutral-300 dark:border-neutral-600 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:bg-neutral-800 dark:text-white"
               autoFocus
               disabled={isProcessing}
             />
@@ -347,7 +347,7 @@ export default function BiometricAuth({
                 transition-all duration-200 transform
                 ${
                   isProcessing || pin.length < 4
-                    ? 'bg-gray-400 cursor-not-allowed'
+                    ? 'bg-neutral-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
                 }
               `}
@@ -439,8 +439,8 @@ export function BiometricSettings() {
   }
 
   return (
-    <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">
+    <div className="p-4 bg-white dark:bg-neutral-800 rounded-lg shadow">
+      <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200 mb-4">
         Autenticação Biométrica
       </h3>
 
@@ -452,7 +452,7 @@ export function BiometricSettings() {
           onClick={handleToggleBiometric}
           className={`
             relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-            ${isEnabled ? 'bg-blue-600' : 'bg-gray-300'}
+            ${isEnabled ? 'bg-blue-600' : 'bg-neutral-300 dark:bg-neutral-600'}
           `}
         >
           <span
@@ -465,7 +465,7 @@ export function BiometricSettings() {
       </div>
 
       {biometricInfo.hasStoredCredentials && (
-        <p className="text-xs text-gray-500 dark:text-gray-500">
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Credenciais biométricas configuradas
         </p>
       )}

@@ -2,7 +2,7 @@ import { Skeleton, SkeletonAvatar } from './skeleton'
 
 export function TicketSkeleton() {
   return (
-    <div className="rounded-lg border bg-white dark:bg-gray-800 p-4 space-y-3">
+    <div className="rounded-lg border bg-white dark:bg-neutral-800 p-4 space-y-3">
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-2">
           <Skeleton className="h-5 w-3/4" />
@@ -40,8 +40,8 @@ export function TicketListSkeleton({ count = 5 }: { count?: number }) {
 
 export function TicketTableSkeleton({ rows = 10 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-lg border bg-white dark:bg-gray-800">
-      <div className="border-b bg-gray-50 dark:bg-gray-900/50 p-4">
+    <div className="overflow-hidden rounded-lg border bg-white dark:bg-neutral-800">
+      <div className="border-b bg-neutral-50 dark:bg-neutral-900/50 p-4">
         <div className="flex gap-4">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-4 w-32" />

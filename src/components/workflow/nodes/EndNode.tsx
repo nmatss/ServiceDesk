@@ -208,7 +208,7 @@ export default function EndNode({ data, selected }: NodeProps<EndNodeData>) {
 
       {/* Progress Indicator - Always 100% for end nodes */}
       <div className="absolute -bottom-2 left-0 right-0">
-        <div className="w-full h-1 bg-gray-200 rounded-full">
+        <div className="w-full h-1 bg-neutral-200 rounded-full">
           <div className={`h-full ${colorClasses.iconBg} rounded-full`} style={{ width: '100%' }}></div>
         </div>
       </div>
@@ -221,7 +221,7 @@ export default function EndNode({ data, selected }: NodeProps<EndNodeData>) {
 
       {/* Terminal Node Indicator */}
       <div className="absolute -bottom-1 -left-1">
-        <div className="w-3 h-3 bg-gray-700 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+        <div className="w-3 h-3 bg-neutral-700 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
           <div className="w-1 h-1 bg-white rounded-full"></div>
         </div>
       </div>

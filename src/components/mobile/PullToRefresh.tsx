@@ -19,9 +19,9 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   children,
   threshold = 100,
   className = '',
-  refreshingText = 'Refreshing...',
-  pullText = 'Pull to refresh',
-  releaseText = 'Release to refresh'
+  refreshingText = 'Atualizando...',
+  pullText = 'Puxe para atualizar',
+  releaseText = 'Solte para atualizar'
 }) => {
   const { ref, isRefreshing, pullDistance, progress } = usePullToRefresh(onRefresh, threshold)
 

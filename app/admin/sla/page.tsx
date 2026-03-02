@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger';
-import toast from 'react-hot-toast'
+import { customToast } from '@/components/ui/toast'
 import {
   ClockIcon,
   ExclamationTriangleIcon,
@@ -181,6 +181,10 @@ export default function SLAPage() {
           title="Gerenciamento de SLA"
           description="Monitore e gerencie acordos de nível de serviço"
           icon={ClockIcon}
+          breadcrumbs={[
+            { label: 'Admin', href: '/admin' },
+            { label: 'SLA' }
+          ]}
           actions={[
             {
               label: 'Atualizar',
@@ -198,7 +202,7 @@ export default function SLAPage() {
         />
 
         {/* Modern Tabs with Glass Effect */}
-        <div className="glass-panel p-1 flex space-x-2">
+        <div className="glass-panel p-1 flex space-x-2 overflow-x-auto scrollbar-thin" role="tablist" aria-label="Abas de SLA">
           {[
             { id: 'overview', name: 'Visão Geral', icon: ChartBarIcon },
             { id: 'policies', name: 'Políticas', icon: Cog6ToothIcon },
@@ -207,9 +211,12 @@ export default function SLAPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
+              aria-label={`Aba ${tab.name}`}
+              aria-selected={activeTab === tab.id}
+              role="tab"
               className={`
-                flex-1 flex items-center justify-center space-x-2 px-6 py-3 rounded-lg font-medium text-sm
-                transition-all duration-300
+                flex-1 flex items-center justify-center space-x-2 px-4 sm:px-6 py-3 rounded-lg font-medium text-sm
+                transition-all duration-300 whitespace-nowrap min-w-fit min-h-[44px]
                 ${activeTab === tab.id
                   ? 'bg-gradient-brand text-white shadow-medium'
                   : 'text-description hover:text-brand-600 dark:hover:text-brand-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -281,18 +288,18 @@ export default function SLAPage() {
                 </StatsGrid>
 
                 {/* Performance Metrics with Glass Panel */}
-                <div className="glass-panel p-8">
+                <div className="glass-panel p-4 sm:p-8">
                   <div className="flex items-center justify-between mb-6">
                     <div>
-                      <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                      <h3 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100">
                         Métricas de Performance
                       </h3>
                       <p className="text-sm text-description mt-1">
                         Tempos médios de resposta e resolução
                       </p>
                     </div>
-                    <div className="h-12 w-12 bg-gradient-brand rounded-xl flex items-center justify-center">
-                      <ClockIcon className="h-7 w-7 text-white" />
+                    <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-brand rounded-xl flex items-center justify-center flex-shrink-0">
+                      <ClockIcon className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -328,8 +335,8 @@ export default function SLAPage() {
                 </div>
 
                 {/* SLA Compliance Chart Placeholder */}
-                <div className="glass-panel p-8">
-                  <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-6">
+                <div className="glass-panel p-4 sm:p-8">
+                  <h3 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-6">
                     Gráfico de Conformidade SLA
                   </h3>
                   <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-800 dark:to-neutral-900 rounded-xl p-8 flex items-center justify-center min-h-[300px] border border-neutral-200 dark:border-neutral-700">
@@ -349,8 +356,8 @@ export default function SLAPage() {
 
             {/* Policies Tab */}
             {activeTab === 'policies' && (
-              <div className="glass-panel p-8">
-                <div className="flex items-center justify-between mb-6">
+              <div className="glass-panel p-4 sm:p-8">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                   <div>
                     <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
                       Políticas de SLA
@@ -359,7 +366,7 @@ export default function SLAPage() {
                       Gerencie suas políticas de acordo de nível de serviço
                     </p>
                   </div>
-                  <button onClick={() => toast.error('Criação de políticas SLA ainda não implementada')} className="btn btn-primary">
+                  <button onClick={() => customToast.error('Criação de políticas SLA ainda não implementada')} className="btn btn-primary whitespace-nowrap">
                     <PlusIcon className="h-5 w-5 mr-2" />
                     Adicionar Política
                   </button>
@@ -373,7 +380,7 @@ export default function SLAPage() {
                     <p className="mt-2 text-sm text-description">
                       Comece criando uma nova política de SLA para gerenciar seus acordos.
                     </p>
-                    <button onClick={() => toast.error('Criação de políticas SLA ainda não implementada')} className="mt-6 btn btn-primary">
+                    <button onClick={() => customToast.error('Criação de políticas SLA ainda não implementada')} className="mt-6 btn btn-primary">
                       <PlusIcon className="h-5 w-5 mr-2" />
                       Criar Primeira Política
                     </button>
@@ -461,33 +468,37 @@ export default function SLAPage() {
             {activeTab === 'tickets' && (
               <div className="space-y-6">
                 {/* Modern Filter with Glass Panel */}
-                <div className="glass-panel p-4 flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <FunnelIcon className="h-5 w-5 text-description" />
-                    <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Filtrar por:</span>
-                  </div>
-                  <div className="flex space-x-2">
-                    {[
-                      { id: 'all', name: 'Todos', icon: null },
-                      { id: 'breached', name: 'Violados', icon: ExclamationTriangleIcon },
-                      { id: 'at_risk', name: 'Em Risco', icon: ExclamationTriangleIcon },
-                      { id: 'on_time', name: 'No Prazo', icon: CheckCircleIcon }
-                    ].map((filter) => (
-                      <button
-                        key={filter.id}
-                        onClick={() => setTicketFilter(filter.id as any)}
-                        className={`
-                          px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center space-x-2
-                          ${ticketFilter === filter.id
-                            ? 'bg-gradient-brand text-white shadow-medium'
-                            : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                          }
-                        `}
-                      >
-                        {filter.icon && <filter.icon className="h-4 w-4" />}
-                        <span>{filter.name}</span>
-                      </button>
-                    ))}
+                <div className="glass-panel p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center space-x-2">
+                      <FunnelIcon className="h-5 w-5 text-description" />
+                      <span className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Filtrar por:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: 'all', name: 'Todos', icon: null },
+                        { id: 'breached', name: 'Violados', icon: ExclamationTriangleIcon },
+                        { id: 'at_risk', name: 'Em Risco', icon: ExclamationTriangleIcon },
+                        { id: 'on_time', name: 'No Prazo', icon: CheckCircleIcon }
+                      ].map((filter) => (
+                        <button
+                          key={filter.id}
+                          onClick={() => setTicketFilter(filter.id as any)}
+                          aria-label={`Filtrar por ${filter.name}`}
+                          aria-pressed={ticketFilter === filter.id}
+                          className={`
+                            px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 flex items-center space-x-2 min-h-[44px]
+                            ${ticketFilter === filter.id
+                              ? 'bg-gradient-brand text-white shadow-medium'
+                              : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                            }
+                          `}
+                        >
+                          {filter.icon && <filter.icon className="h-4 w-4" />}
+                          <span>{filter.name}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -508,20 +519,20 @@ export default function SLAPage() {
                       {slaTickets.map((ticket) => (
                         <div
                           key={ticket.id}
-                          className="group glass-panel p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                          className="group glass-panel p-4 sm:p-6 hover:shadow-large hover:-translate-y-1 transition-all duration-300 cursor-pointer"
                         >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-3 mb-3">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-3">
                                 <span className="px-3 py-1 bg-brand-100 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 rounded-lg text-sm font-bold">
                                   #{ticket.id}
                                 </span>
-                                <h4 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                                <h4 className="text-base font-bold text-neutral-900 dark:text-neutral-100 line-clamp-1">
                                   {ticket.title}
                                 </h4>
                               </div>
 
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-sm">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-sm">
                                 <div className="flex items-center space-x-2">
                                   <ClockIcon className="h-4 w-4 text-muted-content" />
                                   <span className="text-description">
@@ -567,7 +578,7 @@ export default function SLAPage() {
                             </div>
 
                             <span
-                              className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold whitespace-nowrap ${
+                              className={`inline-flex items-center rounded-full px-4 py-2 text-xs font-bold whitespace-nowrap self-start ${
                                 ticket.sla_status === 'breached'
                                   ? 'bg-error-100 text-error-800 dark:bg-error-900/20 dark:text-error-400'
                                   : ticket.sla_status === 'at_risk'

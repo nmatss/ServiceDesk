@@ -216,7 +216,7 @@ export function QuickReplies({
       ) : (
         <button
           onClick={() => setIsOpen(true)}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${className}`}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${className}`}
         >
           <BoltIcon className="h-4 w-4" />
           Quick Replies
@@ -255,26 +255,26 @@ export function QuickReplies({
               >
                 <Dialog.Panel className="w-full max-w-2xl transform rounded-xl bg-white shadow-2xl transition-all">
                   {/* Header */}
-                  <div className="border-b border-gray-200 px-6 py-4">
-                    <Dialog.Title className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="border-b border-neutral-200 px-6 py-4">
+                    <Dialog.Title className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
                       <BoltIcon className="h-5 w-5 text-amber-500" />
                       Quick Replies
                     </Dialog.Title>
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-neutral-500">
                       Select a macro to apply actions or insert content
                     </p>
                   </div>
 
                   {/* Search */}
-                  <div className="border-b border-gray-200 px-6 py-3">
+                  <div className="border-b border-neutral-200 px-6 py-3">
                     <div className="relative">
-                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search macros..."
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
 
@@ -286,7 +286,7 @@ export function QuickReplies({
                           className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
                             selectedCategory === null
                               ? 'bg-blue-100 text-blue-700'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                           }`}
                         >
                           All
@@ -298,7 +298,7 @@ export function QuickReplies({
                             className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
                               selectedCategory === id
                                 ? 'bg-blue-100 text-blue-700'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                             }`}
                           >
                             {name}
@@ -311,52 +311,52 @@ export function QuickReplies({
                   {/* Content */}
                   <div className="flex max-h-96 min-h-64">
                     {/* Macros List */}
-                    <div className={`flex-1 overflow-y-auto ${previewMacro ? 'border-r border-gray-200' : ''}`}>
+                    <div className={`flex-1 overflow-y-auto ${previewMacro ? 'border-r border-neutral-200' : ''}`}>
                       {isLoading ? (
                         <div className="flex items-center justify-center h-32">
-                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-blue-500" />
+                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-neutral-300 border-t-blue-500" />
                         </div>
                       ) : filteredMacros.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-32 text-gray-500">
+                        <div className="flex flex-col items-center justify-center h-32 text-neutral-500">
                           <BoltIcon className="h-8 w-8 mb-2" />
                           <p className="text-sm">No macros found</p>
                         </div>
                       ) : (
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-neutral-100">
                           {filteredMacros.map((macro) => (
                             <div
                               key={macro.id}
-                              className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
+                              className={`px-4 py-3 hover:bg-neutral-50 cursor-pointer transition-colors ${
                                 previewMacro?.id === macro.id ? 'bg-blue-50' : ''
                               }`}
                               onClick={() => setPreviewMacro(macro)}
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-medium text-gray-900 truncate">
+                                  <h4 className="text-sm font-medium text-neutral-900 truncate">
                                     {macro.name}
                                   </h4>
                                   {macro.description && (
-                                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                    <p className="text-xs text-neutral-500 mt-0.5 truncate">
                                       {macro.description}
                                     </p>
                                   )}
                                   <div className="flex items-center gap-3 mt-1.5">
                                     {macro.category_name && (
-                                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                                      <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
                                         <FolderIcon className="h-3 w-3" />
                                         {macro.category_name}
                                       </span>
                                     )}
                                     {macro.usage_count !== undefined && macro.usage_count > 0 && (
-                                      <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                                      <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
                                         <ClockIcon className="h-3 w-3" />
                                         Used {macro.usage_count}x
                                       </span>
                                     )}
                                   </div>
                                 </div>
-                                <ChevronRightIcon className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+                                <ChevronRightIcon className="h-4 w-4 text-neutral-400 ml-2 flex-shrink-0" />
                               </div>
                             </div>
                           ))}
@@ -366,18 +366,18 @@ export function QuickReplies({
 
                     {/* Preview Panel */}
                     {previewMacro && (
-                      <div className="w-72 p-4 overflow-y-auto bg-gray-50">
-                        <h4 className="font-medium text-gray-900 mb-2">
+                      <div className="w-72 p-4 overflow-y-auto bg-neutral-50">
+                        <h4 className="font-medium text-neutral-900 mb-2">
                           {previewMacro.name}
                         </h4>
 
                         {/* Content Preview */}
                         {previewMacro.content && (
                           <div className="mb-4">
-                            <h5 className="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
+                            <h5 className="text-xs font-medium text-neutral-500 mb-1 uppercase tracking-wide">
                               Content
                             </h5>
-                            <div className="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200 max-h-32 overflow-y-auto">
+                            <div className="text-sm text-neutral-700 bg-white p-3 rounded border border-neutral-200 max-h-32 overflow-y-auto">
                               {previewMacro.content}
                             </div>
                           </div>
@@ -386,14 +386,14 @@ export function QuickReplies({
                         {/* Actions Preview */}
                         {previewMacro.actions.length > 0 && (
                           <div className="mb-4">
-                            <h5 className="text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">
+                            <h5 className="text-xs font-medium text-neutral-500 mb-1 uppercase tracking-wide">
                               Actions
                             </h5>
                             <ul className="space-y-1">
                               {previewMacro.actions.map((action, idx) => (
                                 <li
                                   key={idx}
-                                  className="text-xs text-gray-600 flex items-center gap-2"
+                                  className="text-xs text-neutral-600 flex items-center gap-2"
                                 >
                                   <span>{getActionIcon(action.type)}</span>
                                   <span>{formatActionDescription(action)}</span>
@@ -426,7 +426,7 @@ export function QuickReplies({
                           {previewMacro.content && onContentSelect && (
                             <button
                               onClick={() => insertContent(previewMacro)}
-                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-lg hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                             >
                               Insert Content Only
                             </button>
@@ -437,14 +437,14 @@ export function QuickReplies({
                   </div>
 
                   {/* Footer */}
-                  <div className="border-t border-gray-200 px-6 py-3 bg-gray-50 rounded-b-xl">
+                  <div className="border-t border-neutral-200 px-6 py-3 bg-neutral-50 rounded-b-xl">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-neutral-500">
                         {filteredMacros.length} macro{filteredMacros.length !== 1 ? 's' : ''} available
                       </p>
                       <button
                         onClick={() => setIsOpen(false)}
-                        className="px-4 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                        className="px-4 py-1.5 text-sm font-medium text-neutral-600 hover:text-neutral-800 transition-colors"
                       >
                         Cancel
                       </button>

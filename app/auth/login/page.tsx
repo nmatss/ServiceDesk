@@ -76,7 +76,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex animate-fade-in">
+    <div className="min-h-screen flex flex-col lg:flex-row animate-fade-in">
       {/* Screen reader announcements */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {statusMessage}
@@ -98,7 +98,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-50">
                 Bem-vindo de volta
               </h1>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
@@ -108,7 +108,7 @@ export default function LoginPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl" aria-label="Formulário de login" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-4 sm:p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl" aria-label="Formulário de login" noValidate>
             {/* Email Input */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -164,7 +164,7 @@ export default function LoginPage() {
                 <span id="password-description" className="sr-only">Digite sua senha para fazer login</span>
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center min-w-[44px] min-h-[44px] justify-center"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   aria-pressed={showPassword}
@@ -179,14 +179,14 @@ export default function LoginPage() {
             </div>
 
             {/* Remember & Forgot */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
               <div className="flex items-center">
                 <input
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
                   aria-label="Lembrar de mim"
-                  className="h-4 w-4 text-brand-600 focus:ring-brand-600 border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800"
+                  className="h-5 w-5 sm:h-4 sm:w-4 text-brand-600 focus:ring-brand-600 border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-neutral-700 dark:text-neutral-300">
                   Lembrar de mim

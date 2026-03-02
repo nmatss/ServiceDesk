@@ -325,23 +325,23 @@ export function WidgetLibrary({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-900 text-left align-middle shadow-xl transition-all">
+              <DialogPanel className="w-full max-w-6xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 text-left align-middle shadow-xl transition-all">
                 <div className="flex h-[80vh]">
                   {/* Sidebar */}
-                  <div className="w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-6">
-                    <DialogTitle className="text-lg font-medium text-gray-900 dark:text-white mb-6">
+                  <div className="w-64 bg-neutral-50 dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700 p-6">
+                    <DialogTitle className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-6">
                       Widget Library
                     </DialogTitle>
 
                     {/* Search */}
                     <div className="relative mb-6">
-                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
                       <input
                         type="text"
                         placeholder="Search widgets..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                        className="w-full pl-10 pr-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400"
                       />
                     </div>
 
@@ -354,12 +354,12 @@ export function WidgetLibrary({
                           className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                             selectedCategory === category.id
                               ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                              : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <span>{category.name}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-xs text-neutral-500 dark:text-neutral-400">
                               {category.count}
                             </span>
                           </div>
@@ -371,19 +371,19 @@ export function WidgetLibrary({
                   {/* Main Content */}
                   <div className="flex-1 flex flex-col">
                     {/* Header */}
-                    <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                          <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
                             {categories.find(c => c.id === selectedCategory)?.name || 'All Widgets'}
                           </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
                             {filteredWidgets.length} widgets available
                           </p>
                         </div>
                         <button
                           onClick={onClose}
-                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                         >
                           <XMarkIcon className="w-6 h-6" />
                         </button>
@@ -396,16 +396,16 @@ export function WidgetLibrary({
                         {filteredWidgets.map(widget => (
                           <div
                             key={widget.id}
-                            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                             onClick={() => setSelectedWidget(widget)}
                           >
                             {/* Widget Preview */}
-                            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
                               <div className="flex items-center space-x-3 mb-3">
                                 <span className="text-2xl">{widget.icon}</span>
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2">
-                                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                                    <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                                       {widget.name}
                                     </h4>
                                     {widget.premium && (
@@ -414,15 +414,15 @@ export function WidgetLibrary({
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                                     {widget.description}
                                   </p>
                                 </div>
                               </div>
 
                               {/* Preview Image Placeholder */}
-                              <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded mb-3 flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">Widget Preview</span>
+                              <div className="w-full h-24 bg-neutral-100 dark:bg-neutral-700 rounded mb-3 flex items-center justify-center">
+                                <span className="text-neutral-400 text-xs">Widget Preview</span>
                               </div>
 
                               {/* Tags */}
@@ -430,20 +430,20 @@ export function WidgetLibrary({
                                 {widget.tags.slice(0, 3).map(tag => (
                                   <span
                                     key={tag}
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300"
                                   >
                                     {tag}
                                   </span>
                                 ))}
                                 {widget.tags.length > 3 && (
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
                                     +{widget.tags.length - 3} more
                                   </span>
                                 )}
                               </div>
 
                               {/* Size Info */}
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
                                 Size: {widget.defaultSize.w}×{widget.defaultSize.h} grid units
                               </div>
                             </div>
@@ -470,7 +470,7 @@ export function WidgetLibrary({
                                   disabled={isWidgetAdded(widget.type)}
                                   className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                                     isWidgetAdded(widget.type)
-                                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                                      ? 'bg-neutral-100 text-neutral-500 cursor-not-allowed dark:bg-neutral-700 dark:text-neutral-400'
                                       : 'bg-blue-600 text-white hover:bg-blue-700'
                                   }`}
                                 >
@@ -485,11 +485,11 @@ export function WidgetLibrary({
 
                       {filteredWidgets.length === 0 && (
                         <div className="text-center py-12">
-                          <div className="text-gray-400 text-4xl mb-4">🔍</div>
-                          <p className="text-gray-500 dark:text-gray-400">
+                          <div className="text-neutral-400 text-4xl mb-4">🔍</div>
+                          <p className="text-neutral-500 dark:text-neutral-400">
                             No widgets found matching your criteria
                           </p>
-                          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                          <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-1">
                             Try adjusting your search or category filter
                           </p>
                         </div>
@@ -501,23 +501,23 @@ export function WidgetLibrary({
                 {/* Widget Detail Modal */}
                 {selectedWidget && (
                   <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
                       <div className="p-6">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center space-x-3">
                             <span className="text-3xl">{selectedWidget.icon}</span>
                             <div>
-                              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
                                 {selectedWidget.name}
                               </h3>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                              <p className="text-sm text-neutral-500 dark:text-neutral-400">
                                 {selectedWidget.description}
                               </p>
                             </div>
                           </div>
                           <button
                             onClick={() => setSelectedWidget(null)}
-                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                           >
                             <XMarkIcon className="w-6 h-6" />
                           </button>
@@ -526,7 +526,7 @@ export function WidgetLibrary({
                         {/* Detailed Description */}
                         <div className="space-y-4">
                           <div>
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                            <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                               Description
                             </h4>
                             <p className="text-sm text-description">
@@ -537,7 +537,7 @@ export function WidgetLibrary({
                           {/* Requirements */}
                           {selectedWidget.requiresData && (
                             <div>
-                              <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                              <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                                 Data Requirements
                               </h4>
                               <div className="flex flex-wrap gap-2">
@@ -555,14 +555,14 @@ export function WidgetLibrary({
 
                           {/* Tags */}
                           <div>
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                            <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                               Tags
                             </h4>
                             <div className="flex flex-wrap gap-2">
                               {selectedWidget.tags.map(tag => (
                                 <span
                                   key={tag}
-                                  className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                                  className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300"
                                 >
                                   {tag}
                                 </span>
@@ -572,10 +572,10 @@ export function WidgetLibrary({
 
                           {/* Configuration Preview */}
                           <div>
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                            <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                               Default Configuration
                             </h4>
-                            <div className="bg-gray-50 dark:bg-gray-700 rounded-md p-3">
+                            <div className="bg-neutral-50 dark:bg-neutral-700 rounded-md p-3">
                               <pre className="text-xs text-description">
                                 {JSON.stringify(selectedWidget.defaultConfig, null, 2)}
                               </pre>
@@ -587,7 +587,7 @@ export function WidgetLibrary({
                         <div className="mt-6 flex justify-end space-x-3">
                           <button
                             onClick={() => setSelectedWidget(null)}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                            className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-200 rounded-md hover:bg-neutral-300 dark:bg-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-500"
                           >
                             Close
                           </button>
@@ -599,7 +599,7 @@ export function WidgetLibrary({
                             disabled={isWidgetAdded(selectedWidget.type)}
                             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                               isWidgetAdded(selectedWidget.type)
-                                ? 'bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                                ? 'bg-neutral-100 text-neutral-500 cursor-not-allowed dark:bg-neutral-700 dark:text-neutral-400'
                                 : 'bg-blue-600 text-white hover:bg-blue-700'
                             }`}
                           >

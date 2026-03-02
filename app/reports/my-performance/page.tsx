@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { logger } from '@/lib/monitoring/logger'
 import {
   ChartBarIcon,
   ClockIcon,
@@ -110,7 +111,7 @@ export default function MyPerformancePage() {
       setAchievements([
         {
           id: '1',
-          title: 'Speed Demon',
+          title: 'Velocista',
           description: 'Resolver 10 tickets em um dia',
           icon: BoltIcon,
           earned: true,
@@ -118,7 +119,7 @@ export default function MyPerformancePage() {
         },
         {
           id: '2',
-          title: 'SLA Master',
+          title: 'Mestre SLA',
           description: 'Manter 95% de SLA por 30 dias',
           icon: TrophyIcon,
           earned: true,
@@ -126,7 +127,7 @@ export default function MyPerformancePage() {
         },
         {
           id: '3',
-          title: 'Customer Hero',
+          title: 'Herói do Cliente',
           description: 'Receber 10 avaliações 5 estrelas',
           icon: StarIcon,
           earned: false,
@@ -135,7 +136,7 @@ export default function MyPerformancePage() {
         },
         {
           id: '4',
-          title: 'On Fire',
+          title: 'Em Chamas',
           description: 'Resolver 50 tickets no mês',
           icon: FireIcon,
           earned: false,
@@ -144,7 +145,7 @@ export default function MyPerformancePage() {
         }
       ])
     } catch (error) {
-      console.error('Error fetching performance data:', error)
+      logger.error('Error fetching performance data:', error)
     } finally {
       setLoading(false)
     }
@@ -176,7 +177,7 @@ export default function MyPerformancePage() {
       color: 'text-purple-600'
     },
     {
-      label: 'SLA Compliance',
+      label: 'Conformidade SLA',
       value: `${stats.sla_compliance}%`,
       change: 3,
       changeLabel: 'aumento',
@@ -204,6 +205,7 @@ export default function MyPerformancePage() {
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
+              aria-label="Selecionar período"
               className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
             >
               <option value="7d">Últimos 7 dias</option>

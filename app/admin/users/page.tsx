@@ -1,11 +1,12 @@
 'use client'
 
 import { AdminTable } from '@/src/components/admin/AdminTable'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { logger } from '@/lib/monitoring/logger';
 import { customToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/Button'
 import { UserGroupIcon, PlusIcon, DocumentArrowDownIcon, UserIcon, ShieldCheckIcon, UsersIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
+import { useDebounce } from '@/lib/hooks/useDebounce'
 import PageHeader from '@/components/ui/PageHeader'
 import StatsCard, { StatsGrid } from '@/components/ui/StatsCard'
 import { AdminTableSkeleton } from '@/components/ui/table-skeleton'
@@ -18,6 +19,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearch = useDebounce(searchTerm, 300)
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -149,9 +151,9 @@ export default function AdminUsersPage() {
   ]
 
   const filteredUsers = users.filter(u => {
-    const matchesSearch = !searchTerm ||
-      u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = !debouncedSearch ||
+      u.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(debouncedSearch.toLowerCase())
     const matchesRole = roleFilter === 'all' || u.role === roleFilter
     const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'active' && u.is_active) ||
@@ -223,7 +225,7 @@ export default function AdminUsersPage() {
       )}
 
       {/* Filters */}
-      <div className="glass-panel p-6 animate-slide-up">
+      <div className="glass-panel p-4 sm:p-6 animate-slide-up">
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
           Filtros
         </h3>
@@ -236,6 +238,7 @@ export default function AdminUsersPage() {
               className="input"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
+              aria-label="Filtrar por função"
             >
               <option value="all">Todas</option>
               <option value="admin">Admin</option>
@@ -251,6 +254,7 @@ export default function AdminUsersPage() {
               className="input"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filtrar por status"
             >
               <option value="all">Todos</option>
               <option value="active">Ativo</option>
@@ -267,10 +271,11 @@ export default function AdminUsersPage() {
               className="input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Buscar usuários por nome ou email"
             />
           </div>
           <div className="flex items-end">
-            <button onClick={() => { setSearchTerm(''); setRoleFilter('all'); setStatusFilter('all') }} className="btn btn-primary w-full">
+            <button onClick={() => { setSearchTerm(''); setRoleFilter('all'); setStatusFilter('all') }} className="btn btn-primary w-full min-h-[44px]">
               Limpar Filtros
             </button>
           </div>

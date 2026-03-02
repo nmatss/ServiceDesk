@@ -239,9 +239,9 @@ export function TicketRelationships({
       'in-progress': 'bg-yellow-100 text-yellow-700',
       pending: 'bg-pink-100 text-pink-700',
       resolved: 'bg-green-100 text-green-700',
-      closed: 'bg-gray-100 text-gray-700',
+      closed: 'bg-neutral-100 text-neutral-700',
     };
-    return colors[statusName?.toLowerCase() || ''] || 'bg-gray-100 text-gray-700';
+    return colors[statusName?.toLowerCase() || ''] || 'bg-neutral-100 text-neutral-700';
   };
 
   const hasRelationships = counts.total > 0;
@@ -250,11 +250,11 @@ export function TicketRelationships({
     <div className={`${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
-          <LinkIcon className="h-4 w-4 text-gray-400" />
+        <h3 className="text-sm font-medium text-neutral-900 flex items-center gap-2">
+          <LinkIcon className="h-4 w-4 text-neutral-400" />
           Relationships
           {counts.total > 0 && (
-            <span className="text-xs text-gray-400">({counts.total})</span>
+            <span className="text-xs text-neutral-400">({counts.total})</span>
           )}
         </h3>
         {!readOnly && (
@@ -271,10 +271,10 @@ export function TicketRelationships({
       {/* Loading */}
       {isLoading ? (
         <div className="flex items-center justify-center py-4">
-          <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-blue-500" />
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-300 border-t-blue-500" />
         </div>
       ) : !hasRelationships ? (
-        <p className="text-xs text-gray-400 italic py-2">No linked tickets</p>
+        <p className="text-xs text-neutral-400 italic py-2">No linked tickets</p>
       ) : (
         <div className="space-y-3">
           {(Object.entries(RELATIONSHIP_CONFIG) as [RelationshipType, typeof RELATIONSHIP_CONFIG[RelationshipType]][]).map(
@@ -286,7 +286,7 @@ export function TicketRelationships({
 
               return (
                 <div key={type}>
-                  <h4 className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1">
+                  <h4 className="text-xs font-medium text-neutral-500 mb-1.5 flex items-center gap-1">
                     <Icon className="h-3 w-3" />
                     {config.label} ({items.length})
                   </h4>
@@ -294,7 +294,7 @@ export function TicketRelationships({
                     {items.map((ticket) => (
                       <div
                         key={ticket.relationship_id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors group"
+                        className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors group"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <a
@@ -303,7 +303,7 @@ export function TicketRelationships({
                           >
                             #{ticket.ticket_number}
                           </a>
-                          <span className="text-xs text-gray-700 truncate max-w-48">
+                          <span className="text-xs text-neutral-700 truncate max-w-48">
                             {ticket.title}
                           </span>
                           {ticket.status_name && (
@@ -315,7 +315,7 @@ export function TicketRelationships({
                         {!readOnly && (
                           <button
                             onClick={() => removeRelationship(ticket.relationship_id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-neutral-400 hover:text-red-500 transition-all"
                             title="Remove link"
                           >
                             <XMarkIcon className="h-3.5 w-3.5" />
@@ -363,8 +363,8 @@ export function TicketRelationships({
               >
                 <Dialog.Panel className="w-full max-w-md transform rounded-xl bg-white shadow-2xl transition-all">
                   {/* Header */}
-                  <div className="border-b border-gray-200 px-6 py-4">
-                    <Dialog.Title className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="border-b border-neutral-200 px-6 py-4">
+                    <Dialog.Title className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
                       <LinkIcon className="h-5 w-5 text-blue-500" />
                       Link Ticket
                     </Dialog.Title>
@@ -374,7 +374,7 @@ export function TicketRelationships({
                   <div className="px-6 py-4 space-y-4">
                     {/* Relationship Type */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
                         Link Type
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -388,7 +388,7 @@ export function TicketRelationships({
                                 className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-colors ${
                                   selectedType === type
                                     ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                    : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                                    : 'border-neutral-200 hover:border-neutral-300 text-neutral-700'
                                 }`}
                               >
                                 <Icon className="h-4 w-4" />
@@ -402,7 +402,7 @@ export function TicketRelationships({
 
                     {/* Search */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-neutral-700 mb-2">
                         Search Ticket
                       </label>
                       <input
@@ -410,7 +410,7 @@ export function TicketRelationships({
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search by number or title..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
 
@@ -418,7 +418,7 @@ export function TicketRelationships({
                     <div className="max-h-48 overflow-y-auto">
                       {isSearching ? (
                         <div className="flex items-center justify-center py-4">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-blue-500" />
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-300 border-t-blue-500" />
                         </div>
                       ) : searchResults.length > 0 ? (
                         <div className="space-y-1">
@@ -427,23 +427,23 @@ export function TicketRelationships({
                               key={ticket.id}
                               onClick={() => addRelationship(ticket.id)}
                               disabled={isAdding}
-                              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 text-left transition-colors disabled:opacity-50"
+                              className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-neutral-50 text-left transition-colors disabled:opacity-50"
                             >
                               <span className="text-xs font-mono text-blue-600">
                                 #{ticket.ticket_number}
                               </span>
-                              <span className="text-sm text-gray-700 truncate flex-1">
+                              <span className="text-sm text-neutral-700 truncate flex-1">
                                 {ticket.title}
                               </span>
                             </button>
                           ))}
                         </div>
                       ) : searchTerm.trim() ? (
-                        <p className="text-sm text-gray-500 text-center py-4">
+                        <p className="text-sm text-neutral-500 text-center py-4">
                           No tickets found
                         </p>
                       ) : (
-                        <p className="text-sm text-gray-400 text-center py-4">
+                        <p className="text-sm text-neutral-400 text-center py-4">
                           Type to search for tickets
                         </p>
                       )}
@@ -451,11 +451,11 @@ export function TicketRelationships({
                   </div>
 
                   {/* Footer */}
-                  <div className="border-t border-gray-200 px-6 py-3 bg-gray-50 rounded-b-xl">
+                  <div className="border-t border-neutral-200 px-6 py-3 bg-neutral-50 rounded-b-xl">
                     <div className="flex justify-end">
                       <button
                         onClick={() => setIsAddModalOpen(false)}
-                        className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-800 transition-colors"
                       >
                         Cancel
                       </button>

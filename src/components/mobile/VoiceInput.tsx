@@ -70,14 +70,14 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         setIsListening(false)
 
         const errorMessages: { [key: string]: string } = {
-          'no-speech': 'No speech detected. Please try again.',
-          'audio-capture': 'Microphone access denied.',
-          'not-allowed': 'Microphone permission denied.',
-          'network': 'Network error occurred.',
-          'aborted': 'Speech recognition aborted.'
+          'no-speech': 'Nenhuma fala detectada. Tente novamente.',
+          'audio-capture': 'Acesso ao microfone negado.',
+          'not-allowed': 'Permissão do microfone negada.',
+          'network': 'Erro de rede.',
+          'aborted': 'Reconhecimento de fala cancelado.'
         }
 
-        const errorMessage = errorMessages[event.error] || 'An error occurred during speech recognition.'
+        const errorMessage = errorMessages[event.error] || 'Ocorreu um erro no reconhecimento de fala.'
         onError?.(errorMessage)
       }
 
@@ -98,7 +98,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
   const startListening = useCallback(async () => {
     if (!isSupported || !recognitionRef.current) {
-      onError?.('Speech recognition is not supported in this browser.')
+      onError?.('Reconhecimento de fala não é suportado neste navegador.')
       return
     }
 
@@ -108,7 +108,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       recognitionRef.current.start()
     } catch (error) {
       console.error('Microphone access error:', error)
-      onError?.('Failed to access microphone. Please check permissions.')
+      onError?.('Falha ao acessar o microfone. Verifique as permissões.')
     }
   }, [isSupported, onError])
 
@@ -127,7 +127,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
     return (
       <div className={`p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg ${className}`}>
         <p className="text-sm text-yellow-800 dark:text-yellow-200">
-          Voice input is not supported in your browser.
+          A entrada de voz não é suportada neste navegador.
         </p>
       </div>
     )
@@ -141,19 +141,19 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
           <button
             onClick={startListening}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-h-[44px]"
-            aria-label="Start voice input"
+            aria-label="Iniciar entrada de voz"
           >
             <MicrophoneIcon className="w-5 h-5" />
-            <span className="font-medium">Start Recording</span>
+            <span className="font-medium">Iniciar Gravação</span>
           </button>
         ) : (
           <button
             onClick={stopListening}
             className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors animate-pulse min-h-[44px]"
-            aria-label="Stop voice input"
+            aria-label="Parar entrada de voz"
           >
             <StopIcon className="w-5 h-5" />
-            <span className="font-medium">Stop Recording</span>
+            <span className="font-medium">Parar Gravação</span>
           </button>
         )}
 
@@ -161,7 +161,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
           <button
             onClick={clearTranscript}
             className="p-2 text-description hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors min-h-[44px] min-w-[44px]"
-            aria-label="Clear transcript"
+            aria-label="Limpar transcrição"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
@@ -188,7 +188,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
             <div className="w-1 h-4 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
             <div className="w-1 h-4 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
           </div>
-          <span className="font-medium">Listening...</span>
+          <span className="font-medium">Ouvindo...</span>
         </div>
       )}
     </div>

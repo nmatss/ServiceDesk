@@ -141,11 +141,11 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 flex items-center gap-2 animate-slide-up">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2 animate-slide-up">
                 <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand-600" />
                 Catálogo de Serviços
               </h1>
-              <p className="text-sm sm:text-base text-neutral-600 mt-1">
+              <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
                 Encontre e solicite os serviços que você precisa
               </p>
             </div>
@@ -169,12 +169,15 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar serviços..."
-                className="w-full pl-10 pr-4 py-2.5 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700"
+                aria-label="Buscar serviços no catálogo"
+                className="w-full pl-10 pr-4 py-2.5 text-base sm:text-sm h-11 sm:h-auto border border-neutral-200 dark:border-neutral-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white dark:bg-neutral-800 dark:text-neutral-100"
               />
             </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2.5 rounded-xl border transition-all duration-200 ${showFilters ? 'bg-brand-50 border-brand-200 text-brand-600' : 'glass-panel border-neutral-200 text-neutral-600'}`}
+              aria-label="Mostrar filtros"
+              aria-expanded={showFilters}
+              className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border transition-all duration-200 ${showFilters ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-700 text-brand-600 dark:text-brand-400' : 'glass-panel border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400'}`}
             >
               <FunnelIcon className="w-5 h-5" />
             </button>
@@ -185,11 +188,11 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
         {/* Filters Panel */}
         {showFilters && (
-          <div className="glass-panel rounded-xl border border-neutral-200 shadow-sm p-4 mb-6 animate-slide-up">
+          <div className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm p-4 mb-6 animate-slide-up">
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Category Filter */}
               <div className="flex-1">
-                <label className="block text-xs font-medium text-neutral-500 mb-2">Categoria</label>
+                <label className="block text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">Categoria</label>
                 <div className="flex flex-wrap gap-2">
                   {categories.map((cat) => {
                     const IconComponent = getCategoryIcon(cat.icon)
@@ -199,8 +202,8 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
                         onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all duration-200 ${
                           selectedCategory === cat.id
-                            ? 'bg-brand-100 text-brand-700 border-brand-200'
-                            : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+                            ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-700'
+                            : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700'
                         } border`}
                       >
                         <IconComponent className="w-4 h-4" />
@@ -217,8 +220,8 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
                   onClick={() => setShowFeatured(!showFeatured)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-all duration-200 ${
                     showFeatured
-                      ? 'bg-warning-100 text-warning-700 border-warning-200'
-                      : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+                      ? 'bg-warning-100 dark:bg-warning-900/30 text-warning-700 dark:text-warning-300 border-warning-200 dark:border-warning-700'
+                      : 'bg-neutral-50 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-600'
                   }`}
                 >
                   <StarIconSolid className={`w-4 h-4 ${showFeatured ? 'text-warning-500' : 'text-neutral-400'}`} />
@@ -228,7 +231,7 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
             </div>
 
             {hasActiveFilters && (
-              <div className="mt-3 pt-3 border-t flex justify-end">
+              <div className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700 flex justify-end">
                 <button
                   onClick={clearFilters}
                   className="text-sm text-brand-600 hover:text-brand-700 flex items-center gap-1 transition-colors"
@@ -269,8 +272,8 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
                       <IconComponent className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                   </div>
-                  <span className="text-xs sm:text-sm font-medium text-neutral-900 text-center line-clamp-1">{cat.name}</span>
-                  <span className="text-[10px] sm:text-xs text-neutral-500">{cat.item_count || 0} serviços</span>
+                  <span className="text-xs sm:text-sm font-medium text-neutral-900 dark:text-neutral-100 text-center line-clamp-1">{cat.name}</span>
+                  <span className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400">{cat.item_count || 0} serviços</span>
                 </button>
               )
             })}
@@ -281,7 +284,7 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
         {/* Featured Services */}
         {!selectedCategory && !search && featuredItems.length > 0 && (
           <div className="mb-8 animate-fade-in">
-            <h2 className="text-lg sm:text-xl font-bold text-neutral-900 mb-4 flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <StarIconSolid className="w-5 h-5 text-warning-500" />
               Serviços em Destaque
             </h2>
@@ -315,22 +318,26 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
 
         {/* View Toggle */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-neutral-900">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
             {selectedCategory
               ? categories.find(c => c.id === selectedCategory)?.name || 'Serviços'
               : 'Todos os Serviços'}
-            <span className="text-sm font-normal text-neutral-500 ml-2">({filteredItems.length})</span>
+            <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400 ml-2">({filteredItems.length})</span>
           </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'grid' ? 'bg-brand-100 text-brand-600' : 'glass-panel text-neutral-500 border border-neutral-200'}`}
+              aria-label="Visualizar em grade"
+              aria-pressed={viewMode === 'grid'}
+              className={`p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-all duration-200 ${viewMode === 'grid' ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' : 'glass-panel text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700'}`}
             >
               <Squares2X2Icon className="w-5 h-5" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'list' ? 'bg-brand-100 text-brand-600' : 'glass-panel text-neutral-500 border border-neutral-200'}`}
+              aria-label="Visualizar em lista"
+              aria-pressed={viewMode === 'list'}
+              className={`p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-all duration-200 ${viewMode === 'list' ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400' : 'glass-panel text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700'}`}
             >
               <ListBulletIcon className="w-5 h-5" />
             </button>
@@ -339,10 +346,10 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
 
         {/* Items Grid/List */}
         {filteredItems.length === 0 ? (
-          <div className="glass-panel rounded-xl border border-neutral-200 p-8 text-center animate-fade-in">
-            <CogIcon className="w-12 h-12 text-neutral-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-neutral-900 mb-2">Nenhum serviço encontrado</h3>
-            <p className="text-neutral-500">Tente ajustar os filtros de busca</p>
+          <div className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-700 p-8 text-center animate-fade-in">
+            <CogIcon className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">Nenhum serviço encontrado</h3>
+            <p className="text-neutral-500 dark:text-neutral-400">Tente ajustar os filtros de busca</p>
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -350,7 +357,11 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
               <div
                 key={item.id}
                 onClick={() => handleRequestService(item)}
-                className="glass-panel rounded-xl border border-neutral-200 p-4 hover:shadow-lg hover:border-brand-200 transition-all duration-200 cursor-pointer group animate-fade-in"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRequestService(item) } }}
+                role="button"
+                tabIndex={0}
+                aria-label={`Solicitar serviço: ${item.name}`}
+                className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-700 p-4 hover:shadow-lg hover:border-brand-200 dark:hover:border-brand-700 transition-all duration-200 cursor-pointer group animate-fade-in focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div
@@ -367,16 +378,16 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
                   )}
                 </div>
 
-                <h3 className="font-semibold text-neutral-900 mb-1 group-hover:text-brand-600 line-clamp-1 transition-colors">
+                <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-1 group-hover:text-brand-600 dark:group-hover:text-brand-400 line-clamp-1 transition-colors">
                   {item.name}
                 </h3>
-                <p className="text-xs text-neutral-500 mb-2">{item.category_name}</p>
-                <p className="text-sm text-neutral-600 line-clamp-2 mb-4">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">{item.category_name}</p>
+                <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2 mb-4">
                   {item.short_description}
                 </p>
 
-                <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
-                  <div className="flex items-center gap-3 text-xs text-neutral-500">
+                <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-700">
+                  <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400">
                     {item.estimated_fulfillment_time && (
                       <span className="flex items-center gap-1">
                         <ClockIcon className="w-3.5 h-3.5" />
@@ -398,13 +409,13 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
             ))}
           </div>
         ) : (
-          <div className="glass-panel rounded-xl border border-neutral-200 overflow-hidden animate-fade-in">
-            <div className="divide-y divide-neutral-100">
+          <div className="glass-panel rounded-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden animate-fade-in">
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
               {filteredItems.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => handleRequestService(item)}
-                  className="flex items-center gap-4 p-4 hover:bg-neutral-50 cursor-pointer group transition-colors duration-200"
+                  className="flex items-center gap-4 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer group transition-colors duration-200"
                 >
                   <div
                     className="p-2 sm:p-3 rounded-lg flex-shrink-0"
@@ -418,15 +429,15 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-neutral-900 group-hover:text-brand-600 truncate transition-colors">
+                      <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 truncate transition-colors">
                         {item.name}
                       </h3>
                       {item.is_featured && (
                         <StarIconSolid className="w-4 h-4 text-warning-400 flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-sm text-neutral-600 line-clamp-1">{item.short_description}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-neutral-500">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400 line-clamp-1">{item.short_description}</p>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                       <span>{item.category_name}</span>
                       {item.estimated_fulfillment_time && (
                         <>
@@ -443,7 +454,7 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-semibold text-brand-600">{formatCost(item)}</p>
                     {item.requires_approval && (
-                      <p className="text-xs text-neutral-500 flex items-center gap-1 justify-end mt-1">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1 justify-end mt-1">
                         <CheckBadgeIcon className="w-3.5 h-3.5" />
                         Aprovação
                       </p>
@@ -463,13 +474,13 @@ export default function CatalogClient({ initialItems, initialCategories }: Catal
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/portal')}
-            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors"
+            className="flex-1 py-3 min-h-[44px] text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors"
           >
             Voltar
           </button>
           <button
             onClick={() => router.push('/portal/requests')}
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg flex items-center justify-center gap-2 hover:bg-brand-700 transition-colors"
+            className="flex-1 py-3 min-h-[44px] text-sm font-medium text-white bg-brand-600 rounded-lg flex items-center justify-center gap-2 hover:bg-brand-700 transition-colors"
           >
             <span>Minhas Solicitações</span>
           </button>

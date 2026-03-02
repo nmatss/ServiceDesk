@@ -108,9 +108,9 @@ const nodeCategories: NodeCategory[] = [
         label: 'Delay',
         description: 'Wait for specified time period',
         icon: ClockIcon,
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-300',
+        color: 'text-neutral-600',
+        bgColor: 'bg-neutral-50',
+        borderColor: 'border-neutral-300',
       },
       {
         type: 'script',
@@ -220,7 +220,7 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className = '' }) => {
       <div className="p-4 space-y-6">
         {nodeCategories.map((category) => (
           <div key={category.name} className="category-section">
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
               {category.name}
             </h4>
             <div className="space-y-2">
@@ -246,12 +246,12 @@ export const NodePalette: React.FC<NodePaletteProps> = ({ className = '' }) => {
                       <div className={`text-sm font-semibold ${node.color} truncate`}>
                         {node.label}
                       </div>
-                      <div className="text-xs text-gray-600 mt-0.5 line-clamp-2">
+                      <div className="text-xs text-neutral-600 mt-0.5 line-clamp-2">
                         {node.description}
                       </div>
                     </div>
                     <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-neutral-400">
                         Drag
                       </div>
                     </div>

@@ -504,8 +504,8 @@ export function ManagerTeamOverview({ className = '' }: ManagerComponentProps) {
     switch (status) {
       case 'online': return 'bg-green-500';
       case 'away': return 'bg-amber-500';
-      case 'offline': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+      case 'offline': return 'bg-neutral-500';
+      default: return 'bg-neutral-500';
     }
   };
 
@@ -673,7 +673,7 @@ export function ManagerInsights({ className = '' }: ManagerComponentProps) {
       case 'high': return 'border-red-200 bg-red-50';
       case 'medium': return 'border-amber-200 bg-amber-50';
       case 'low': return 'border-green-200 bg-green-50';
-      default: return 'border-gray-200 bg-gray-50';
+      default: return 'border-neutral-200 bg-neutral-50';
     }
   };
 

@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useState, useEffect } from 'react'
 import toast, { Toaster, ToastOptions } from 'react-hot-toast'
 import {
   CheckCircleIcon,
@@ -8,13 +9,15 @@ import {
   InformationCircleIcon
 } from '@heroicons/react/24/solid'
 
+const toastClass = '!bg-white dark:!bg-neutral-800 !text-neutral-900 dark:!text-neutral-100 !shadow-lg !border !border-neutral-200 dark:!border-neutral-700 !rounded-xl'
+
 // Custom toast functions with icons
 export const customToast = {
   success: (message: string, options?: ToastOptions) => {
     return toast.success(message, {
       duration: 4000,
-      icon: <CheckCircleIcon className="w-5 h-5 text-green-500" />,
-      className: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg',
+      icon: <CheckCircleIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />,
+      className: toastClass,
       ...options,
     })
   },
@@ -22,8 +25,8 @@ export const customToast = {
   error: (message: string, options?: ToastOptions) => {
     return toast.error(message, {
       duration: 5000,
-      icon: <XCircleIcon className="w-5 h-5 text-red-500" />,
-      className: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg',
+      icon: <XCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />,
+      className: toastClass,
       ...options,
     })
   },
@@ -31,8 +34,8 @@ export const customToast = {
   warning: (message: string, options?: ToastOptions) => {
     return toast(message, {
       duration: 4500,
-      icon: <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />,
-      className: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg',
+      icon: <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0" />,
+      className: toastClass,
       ...options,
     })
   },
@@ -40,8 +43,8 @@ export const customToast = {
   info: (message: string, options?: ToastOptions) => {
     return toast(message, {
       duration: 4000,
-      icon: <InformationCircleIcon className="w-5 h-5 text-blue-500" />,
-      className: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg',
+      icon: <InformationCircleIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />,
+      className: toastClass,
       ...options,
     })
   },
@@ -63,7 +66,7 @@ export const customToast = {
         error: messages.error,
       },
       {
-        className: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg',
+        className: toastClass,
         ...options,
       }
     )
@@ -71,7 +74,7 @@ export const customToast = {
 
   loading: (message: string, options?: ToastOptions) => {
     return toast.loading(message, {
-      className: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg',
+      className: toastClass,
       ...options,
     })
   },
@@ -81,34 +84,39 @@ export const customToast = {
   },
 }
 
-// Toaster component with customized settings
+// Toaster component — client-only to avoid SSR hydration mismatch
 export function ToastProvider() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return null
+
   return (
     <Toaster
-      position="top-right"
+      position="bottom-center"
       reverseOrder={false}
       gutter={8}
+      containerStyle={{
+        bottom: 20,
+      }}
       toastOptions={{
         duration: 4000,
         style: {
-          background: 'white',
-          color: '#1f2937',
+          background: 'var(--toast-bg, #ffffff)',
+          color: 'var(--toast-color, #1f2937)',
           padding: '12px 16px',
-          borderRadius: '0.5rem',
-          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-          maxWidth: '500px',
+          borderRadius: '0.75rem',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          maxWidth: 'calc(100vw - 2rem)',
+          width: '100%',
+          fontSize: '0.875rem',
+          border: '1px solid var(--toast-border, #e5e7eb)',
         },
         success: {
           duration: 4000,
-          style: {
-            border: '1px solid #10b981',
-          },
         },
         error: {
           duration: 5000,
-          style: {
-            border: '1px solid #ef4444',
-          },
         },
       }}
     />

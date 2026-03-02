@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { logger } from '@/lib/monitoring/logger';
-import toast from 'react-hot-toast'
+import { customToast } from '@/components/ui/toast'
 import {
   UsersIcon,
   PlusIcon,
@@ -65,11 +65,32 @@ const teamTypeIcons = {
   management: ShieldCheckIcon
 }
 
-const availabilityColors = {
-  available: 'bg-success-100 text-success-800 dark:bg-success-900/20 dark:text-success-400',
-  busy: 'bg-warning-100 text-warning-800 dark:bg-warning-900/20 dark:text-warning-400',
-  away: 'bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-400',
-  off_duty: 'bg-error-100 text-error-800 dark:bg-error-900/20 dark:text-error-400'
+const availabilityLabels: Record<string, string> = {
+  available: 'Disponível',
+  busy: 'Ocupado',
+  away: 'Ausente',
+  off_duty: 'Fora de serviço'
+}
+
+const algorithmLabels: Record<string, string> = {
+  round_robin: 'Rodízio',
+  least_loaded: 'Menor Carga',
+  skill_based: 'Por Habilidade'
+}
+
+const teamTypeLabels: Record<string, string> = {
+  technical: 'Técnica',
+  business: 'Negócios',
+  support: 'Suporte',
+  management: 'Gestão'
+}
+
+const memberRoleLabels: Record<string, string> = {
+  manager: 'Gerente',
+  lead: 'Líder',
+  senior: 'Sênior',
+  member: 'Membro',
+  trainee: 'Estagiário'
 }
 
 export default function TeamsManagementPage() {
@@ -95,7 +116,7 @@ export default function TeamsManagementPage() {
         setTeams(data.teams)
       }
     } catch (error) {
-      logger.error('Error fetching teams', error)
+      logger.error('Erro ao buscar equipes', error)
     } finally {
       setLoading(false)
     }
@@ -112,7 +133,7 @@ export default function TeamsManagementPage() {
         setTeamMembers(data.members)
       }
     } catch (error) {
-      logger.error('Error fetching team members', error)
+      logger.error('Erro ao buscar membros da equipe', error)
     }
   }
 
@@ -217,7 +238,7 @@ export default function TeamsManagementPage() {
         {/* Teams List - Glass Panel */}
         <div className="lg:col-span-1">
           <div className="glass-panel overflow-hidden">
-            <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+            <div className="px-4 sm:px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
               <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                 Equipes ({teams.length})
               </h2>
@@ -226,7 +247,11 @@ export default function TeamsManagementPage() {
               {teams.map((team, index) => (
                 <div
                   key={team.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Selecionar equipe ${team.name}`}
                   onClick={() => selectTeam(team)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTeam(team); } }}
                   className={`p-4 cursor-pointer transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 animate-slide-up ${
                     selectedTeam?.id === team.id
                       ? 'bg-brand-50 dark:bg-brand-900/20 border-r-2 border-brand-500'
@@ -250,7 +275,7 @@ export default function TeamsManagementPage() {
                           {team.name}
                         </h3>
                         <p className="text-sm text-muted-content capitalize">
-                          {team.team_type}
+                          {team.team_type === 'technical' ? 'Técnica' : team.team_type === 'business' ? 'Negócios' : team.team_type === 'support' ? 'Suporte' : team.team_type === 'management' ? 'Gestão' : team.team_type}
                         </p>
                       </div>
                     </div>
@@ -290,40 +315,42 @@ export default function TeamsManagementPage() {
             <div className="space-y-6">
               {/* Team Info Card - Glass Panel */}
               <div className="glass-panel overflow-hidden animate-slide-up">
-                <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className="p-3 rounded-lg transition-transform hover:scale-110"
-                      style={{
-                        backgroundColor: selectedTeam.color + '20',
-                        color: selectedTeam.color
-                      }}
-                    >
-                      {getTeamTypeIcon(selectedTeam.team_type)}
+                <div className="px-4 sm:px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
+                      <div
+                        className="p-3 rounded-lg transition-transform hover:scale-110 flex-shrink-0"
+                        style={{
+                          backgroundColor: selectedTeam.color + '20',
+                          color: selectedTeam.color
+                        }}
+                      >
+                        {getTeamTypeIcon(selectedTeam.team_type)}
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="text-lg sm:text-xl font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                          {selectedTeam.name}
+                        </h2>
+                        <p className="text-description text-sm line-clamp-2">
+                          {selectedTeam.description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-                        {selectedTeam.name}
-                      </h2>
-                      <p className="text-description">
-                        {selectedTeam.description}
-                      </p>
+                    <div className="flex-shrink-0">
+                      <button
+                        onClick={() => setShowEditModal(true)}
+                        className="p-2 text-description hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label="Editar equipe"
+                      >
+                        <PencilIcon className="w-5 h-5" />
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowEditModal(true)}
-                      className="p-2 text-description hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all duration-200"
-                      aria-label="Editar equipe"
-                    >
-                      <PencilIcon className="w-5 h-5" />
-                    </button>
                   </div>
                 </div>
 
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   {/* Stats da Equipe */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-brand-50 dark:bg-brand-900/20 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
@@ -362,8 +389,8 @@ export default function TeamsManagementPage() {
                           <p className="text-sm text-description">
                             Algoritmo
                           </p>
-                          <p className="text-lg font-bold text-warning-600 dark:text-warning-400 capitalize">
-                            {selectedTeam.assignment_algorithm.replace('_', ' ')}
+                          <p className="text-lg font-bold text-warning-600 dark:text-warning-400">
+                            {algorithmLabels[selectedTeam.assignment_algorithm] || selectedTeam.assignment_algorithm}
                           </p>
                         </div>
                         <ServerIcon className="w-8 h-8 text-warning-600 dark:text-warning-400 opacity-50" />
@@ -382,8 +409,8 @@ export default function TeamsManagementPage() {
                           <span className="text-muted-content">
                             Tipo:
                           </span>
-                          <span className="badge badge-primary capitalize">
-                            {selectedTeam.team_type}
+                          <span className="badge badge-primary">
+                            {teamTypeLabels[selectedTeam.team_type] || selectedTeam.team_type}
                           </span>
                         </div>
                         <div className="flex justify-between items-center">
@@ -496,11 +523,11 @@ export default function TeamsManagementPage() {
 
               {/* Team Members Card - Glass Panel */}
               <div className="glass-panel overflow-hidden animate-slide-up" style={{ animationDelay: '150ms' }}>
-                <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+                <div className="px-4 sm:px-6 py-4 border-b border-neutral-200 dark:border-neutral-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                     Membros da Equipe ({teamMembers.length})
                   </h3>
-                  <button onClick={() => toast.error('Adição de membros ainda não implementada')} className="btn btn-primary">
+                  <button onClick={() => customToast.error('Adição de membros ainda não implementada')} className="btn btn-primary whitespace-nowrap min-h-[44px]" aria-label="Adicionar membro à equipe">
                     <UserPlusIcon className="w-4 h-4 mr-2" />
                     Adicionar Membro
                   </button>
@@ -513,23 +540,23 @@ export default function TeamsManagementPage() {
                       className="p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors animate-fade-in"
                       style={{ animationDelay: `${index * 50}ms` }}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-brand rounded-full flex items-center justify-center shadow-md">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="w-10 h-10 bg-gradient-brand rounded-full flex items-center justify-center shadow-md flex-shrink-0">
                             <span className="text-sm font-medium text-white">
                               {member.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
+                          <div className="min-w-0">
+                            <h4 className="font-medium text-neutral-900 dark:text-neutral-100 truncate">
                               {member.name}
                             </h4>
-                            <p className="text-sm text-muted-content">
+                            <p className="text-sm text-muted-content truncate">
                               {member.email}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center flex-wrap gap-2 pl-[3.25rem] sm:pl-0">
                           <span className={`badge ${
                             member.availability_status === 'available'
                               ? 'badge-success'
@@ -539,10 +566,10 @@ export default function TeamsManagementPage() {
                               ? 'badge-neutral'
                               : 'badge-error'
                           }`}>
-                            {member.availability_status.replace('_', ' ')}
+                            {availabilityLabels[member.availability_status] || member.availability_status}
                           </span>
-                          <span className="badge badge-primary capitalize">
-                            {member.role}
+                          <span className="badge badge-primary">
+                            {memberRoleLabels[member.role] || member.role}
                           </span>
                           <div className="text-right min-w-[60px]">
                             <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

@@ -106,7 +106,7 @@ export default function SidebarMenu() {
     <div className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ${
       collapsed ? 'w-16' : 'w-64'
     }`}>
-      <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4 shadow-lg border-r border-gray-200">
+      <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4 shadow-lg border-r border-neutral-200">
         {/* Top Section with colored dots and logo */}
         <div className="flex flex-col items-center py-4">
           {/* Colored dots */}
@@ -118,7 +118,7 @@ export default function SidebarMenu() {
           
           {/* Logo and text */}
           <div className="flex items-center mb-4">
-            <div className="h-6 w-6 text-gray-900 flex items-center justify-center">
+            <div className="h-6 w-6 text-neutral-900 flex items-center justify-center">
               <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                 <rect width="32" height="32" rx="4" fill="#1a1a2e"></rect>
                 <g filter="url(#glow)">
@@ -137,16 +137,16 @@ export default function SidebarMenu() {
               </svg>
             </div>
             {!collapsed && (
-              <span className="ml-2 text-lg font-bold text-gray-900">SERVICEDESK</span>
+              <span className="ml-2 text-lg font-bold text-neutral-900">SERVICEDESK</span>
             )}
           </div>
           
           {/* Toggle button */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1 rounded hover:bg-gray-100 transition-colors duration-200"
+            className="p-1 rounded hover:bg-neutral-100 transition-colors duration-200"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 text-neutral-600">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
@@ -155,9 +155,9 @@ export default function SidebarMenu() {
         {/* Search Field */}
         {!collapsed && (
           <div className="relative">
-            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-gray-400" />
+            <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-neutral-400" />
             <input
-              className="block w-full border-0 py-2 pl-8 pr-0 text-gray-900 placeholder:text-gray-400 focus:ring-0 sm:text-sm bg-gray-50 rounded-lg"
+              className="block w-full border-0 py-2 pl-8 pr-0 text-neutral-900 placeholder:text-neutral-400 focus:ring-0 sm:text-sm bg-neutral-50 rounded-lg"
               placeholder="Buscar..."
               type="search"
               name="search"
@@ -170,7 +170,7 @@ export default function SidebarMenu() {
           <ul role="list" className="flex flex-1 flex-col gap-y-7">
             <li>
               {!collapsed && (
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
                   MAIN MENU
                 </div>
               )}
@@ -185,8 +185,8 @@ export default function SidebarMenu() {
                       <div
                         className={`group flex items-center rounded-lg transition-all duration-200 p-3 ${
                           isActive
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-neutral-100 text-neutral-900'
+                            : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900'
                         } ${collapsed ? 'justify-center' : ''}`}
                         onMouseEnter={() => setHoveredItem(item.name)}
                         onMouseLeave={() => setHoveredItem(null)}
@@ -204,7 +204,7 @@ export default function SidebarMenu() {
                         {!collapsed && hasSubmenu && (
                           <button
                             onClick={() => toggleExpanded(item.name)}
-                            className="ml-auto p-1 rounded hover:bg-gray-200 transition-colors duration-200"
+                            className="ml-auto p-1 rounded hover:bg-neutral-200 transition-colors duration-200"
                           >
                             <ChevronDownIcon 
                               className={`h-4 w-4 transition-transform duration-200 ${
@@ -218,9 +218,9 @@ export default function SidebarMenu() {
                       {/* Tooltip for collapsed state */}
                       {collapsed && hoveredItem === item.name && (
                         <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 z-50">
-                          <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                          <div className="bg-neutral-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
                             {item.name}
-                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
+                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-900 rotate-45"></div>
                           </div>
                         </div>
                       )}
@@ -233,8 +233,8 @@ export default function SidebarMenu() {
                               <div
                                 className={`group flex items-center rounded-lg transition-all duration-200 p-2 ${
                                   isItemActive(subItem.href)
-                                    ? 'bg-gray-100 text-gray-900'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                    ? 'bg-neutral-100 text-neutral-900'
+                                    : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                                 }`}
                                 onMouseEnter={() => setHoveredItem(subItem.name)}
                                 onMouseLeave={() => setHoveredItem(null)}
@@ -250,9 +250,9 @@ export default function SidebarMenu() {
                               {/* Tooltip for collapsed submenu state */}
                               {collapsed && hoveredItem === subItem.name && (
                                 <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 z-50">
-                                  <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                                  <div className="bg-neutral-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
                                     {subItem.name}
-                                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
+                                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-900 rotate-45"></div>
                                   </div>
                                 </div>
                               )}
@@ -269,7 +269,7 @@ export default function SidebarMenu() {
             {/* Teams Section */}
             <li>
               {!collapsed && (
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
                   TEAMS
                 </div>
               )}
@@ -282,8 +282,8 @@ export default function SidebarMenu() {
                       <div
                         className={`group flex items-center rounded-lg transition-all duration-200 p-3 ${
                           isActive
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-neutral-100 text-neutral-900'
+                            : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900'
                         } ${collapsed ? 'justify-center' : ''}`}
                         onMouseEnter={() => setHoveredItem(team.name)}
                         onMouseLeave={() => setHoveredItem(null)}
@@ -305,7 +305,7 @@ export default function SidebarMenu() {
                             <div className="flex-1 flex items-center justify-between">
                               <span className="truncate">{team.name}</span>
                               {team.locked && (
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 text-gray-400">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 text-neutral-400">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                                 </svg>
                               )}
@@ -317,9 +317,9 @@ export default function SidebarMenu() {
                       {/* Tooltip for collapsed state */}
                       {collapsed && hoveredItem === team.name && (
                         <div className="absolute left-full ml-2 top-1/2 transform -translate-y-1/2 z-50">
-                          <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                          <div className="bg-neutral-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
                             {team.name}
-                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-gray-900 rotate-45"></div>
+                            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1 w-2 h-2 bg-neutral-900 rotate-45"></div>
                           </div>
                         </div>
                       )}
@@ -331,21 +331,21 @@ export default function SidebarMenu() {
             
             {/* User Profile & Logout */}
             <li className="mt-auto">
-              <div className="border-t border-gray-200 pt-4">
+              <div className="border-t border-neutral-200 pt-4">
                 {!collapsed && (
                   <div className="flex items-center gap-x-3 px-3 py-2">
                     <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center">
                       <span className="text-sm font-medium text-white">A</span>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-900">Admin</p>
-                      <p className="text-xs text-gray-500">Administrador</p>
+                      <p className="text-sm font-semibold text-neutral-900">Admin</p>
+                      <p className="text-xs text-neutral-500">Administrador</p>
                     </div>
                   </div>
                 )}
                 <button
                   onClick={handleLogout}
-                  className={`w-full flex items-center gap-x-3 rounded-lg p-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 ${
+                  className={`w-full flex items-center gap-x-3 rounded-lg p-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 transition-all duration-200 ${
                     collapsed ? 'justify-center' : ''
                   }`}
                 >

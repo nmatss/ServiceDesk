@@ -211,7 +211,8 @@ export default function EditTicketPage() {
           <p className="text-description mb-6">{error || 'Ticket não encontrado'}</p>
           <button
             onClick={() => router.back()}
-            className="btn-primary inline-flex items-center space-x-2"
+            className="btn-primary inline-flex items-center space-x-2 min-h-[44px]"
+            aria-label="Voltar à página anterior"
           >
             <ArrowLeftIcon className="h-4 w-4" />
             <span>Voltar</span>
@@ -248,7 +249,8 @@ export default function EditTicketPage() {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500"
+                aria-required="true"
+                className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-neutral-200 dark:border-neutral-700 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 focus:border-brand-500 dark:focus:border-brand-400 transition-all text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 h-11 text-base sm:text-sm sm:h-auto"
                 required
               />
             </div>
@@ -363,14 +365,16 @@ export default function EditTicketPage() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="btn-secondary"
+                className="btn-secondary min-h-[44px]"
+                aria-label="Cancelar edição"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="btn-primary inline-flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary inline-flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                aria-label="Salvar alterações do ticket"
               >
                 {saving ? (
                   <>

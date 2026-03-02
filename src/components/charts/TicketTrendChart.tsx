@@ -345,12 +345,12 @@ export default function TicketTrendChart({
   // ============================================================================
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Ticket Trends</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="text-lg font-semibold text-neutral-900">Ticket Trends</h3>
+          <p className="text-sm text-neutral-500 mt-1">
             {stats && `${filteredData.length} data points • ${stats.created} created • ${stats.resolved} resolved`}
           </p>
         </div>
@@ -359,13 +359,13 @@ export default function TicketTrendChart({
           <div className="flex gap-2">
             <button
               onClick={exportToCSV}
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
             >
               Export CSV
             </button>
             <button
               onClick={exportToImage}
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
             >
               Export Image
             </button>
@@ -385,7 +385,7 @@ export default function TicketTrendChart({
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   timeRange === range
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
               >
                 {range === '7d' && 'Last 7 Days'}
@@ -399,7 +399,7 @@ export default function TicketTrendChart({
           {/* Chart Type Selector */}
           <div className="flex gap-4">
             <div className="flex gap-2">
-              <span className="text-sm font-medium text-gray-700">Chart Type:</span>
+              <span className="text-sm font-medium text-neutral-700">Chart Type:</span>
               {(['line', 'area', 'bar'] as ChartType[]).map(type => (
                 <button
                   key={type}
@@ -407,7 +407,7 @@ export default function TicketTrendChart({
                   className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                     chartType === type
                       ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                      : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
                   }`}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -416,21 +416,21 @@ export default function TicketTrendChart({
             </div>
 
             <div className="flex gap-3">
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-neutral-700">
                 <input
                   type="checkbox"
                   checked={showGrid}
                   onChange={() => setShowGrid(!showGrid)}
-                  className="rounded border-gray-300"
+                  className="rounded border-neutral-300"
                 />
                 Grid
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-neutral-700">
                 <input
                   type="checkbox"
                   checked={showLegend}
                   onChange={() => setShowLegend(!showLegend)}
-                  className="rounded border-gray-300"
+                  className="rounded border-neutral-300"
                 />
                 Legend
               </label>
@@ -439,7 +439,7 @@ export default function TicketTrendChart({
 
           {/* Metric Selector */}
           <div>
-            <span className="text-sm font-medium text-gray-700 mb-2 block">Metrics:</span>
+            <span className="text-sm font-medium text-neutral-700 mb-2 block">Metrics:</span>
             <div className="flex flex-wrap gap-2">
               {Object.entries(metricConfig).map(([key, config]) => (
                 <button
@@ -448,7 +448,7 @@ export default function TicketTrendChart({
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     selectedMetrics.has(key)
                       ? 'text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                   style={
                     selectedMetrics.has(key)
@@ -469,7 +469,7 @@ export default function TicketTrendChart({
         {filteredData.length > 0 ? (
           renderChart()
         ) : (
-          <div className="flex items-center justify-center h-64 text-gray-500">
+          <div className="flex items-center justify-center h-64 text-neutral-500">
             No data available for the selected time range
           </div>
         )}
@@ -477,23 +477,23 @@ export default function TicketTrendChart({
 
       {/* Statistics Footer */}
       {stats && (
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-gray-200">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-neutral-200">
           <div>
-            <p className="text-xs text-gray-500">Total Created</p>
-            <p className="text-lg font-semibold text-gray-900">{stats.created.toLocaleString()}</p>
+            <p className="text-xs text-neutral-500">Total Created</p>
+            <p className="text-lg font-semibold text-neutral-900">{stats.created.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Total Resolved</p>
+            <p className="text-xs text-neutral-500">Total Resolved</p>
             <p className="text-lg font-semibold text-green-600">{stats.resolved.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Avg Resolution Time</p>
-            <p className="text-lg font-semibold text-gray-900">
+            <p className="text-xs text-neutral-500">Avg Resolution Time</p>
+            <p className="text-lg font-semibold text-neutral-900">
               {stats.avgResolutionTime.toFixed(1)}h
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500">Avg SLA Compliance</p>
+            <p className="text-xs text-neutral-500">Avg SLA Compliance</p>
             <p className="text-lg font-semibold text-blue-600">
               {stats.avgSLACompliance.toFixed(1)}%
             </p>

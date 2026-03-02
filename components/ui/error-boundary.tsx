@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <ExclamationTriangleIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
 
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
               Algo deu errado
             </h3>
 

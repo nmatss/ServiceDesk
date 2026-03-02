@@ -22,12 +22,12 @@ export const AdminCard: React.FC<AdminCardProps> = ({
       aria-labelledby={headerId}
     >
       {(title || headerAction) && (
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-neutral-200">
           <div className="flex items-center justify-between">
             {title && (
               <h3
                 id={headerId}
-                className="text-lg font-medium text-gray-900"
+                className="text-lg font-medium text-neutral-900"
               >
                 {title}
               </h3>

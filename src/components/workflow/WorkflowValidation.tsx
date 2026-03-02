@@ -241,7 +241,7 @@ export default function WorkflowValidation({
     <div className={`workflow-validation fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className}`}>
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-neutral-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {isValid ? (
@@ -250,10 +250,10 @@ export default function WorkflowValidation({
                 <XCircleIcon className="w-8 h-8 text-red-500" />
               )}
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-xl font-semibold text-neutral-900">
                   Workflow Validation
                 </h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-neutral-600 mt-1">
                   {isValid
                     ? 'Your workflow is valid and ready to deploy'
                     : 'Please fix the errors below before deploying'}
@@ -263,7 +263,7 @@ export default function WorkflowValidation({
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                className="p-2 text-neutral-400 hover:text-neutral-600 rounded-lg transition-colors"
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -304,10 +304,10 @@ export default function WorkflowValidation({
           {issues.length === 0 ? (
             <div className="text-center py-12">
               <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <p className="text-lg font-medium text-gray-900">
+              <p className="text-lg font-medium text-neutral-900">
                 No issues found!
               </p>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-neutral-600 mt-1">
                 Your workflow looks great and is ready to deploy.
               </p>
             </div>
@@ -347,7 +347,7 @@ export default function WorkflowValidation({
                         {issue.message}
                       </p>
                       {(issue.nodeId || issue.edgeId) && (
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs text-neutral-600 mt-1">
                           {issue.nodeId ? `Node ID: ${issue.nodeId}` : `Edge ID: ${issue.edgeId}`}
                         </p>
                       )}
@@ -360,9 +360,9 @@ export default function WorkflowValidation({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
+        <div className="p-6 border-t border-neutral-200 bg-neutral-50">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-neutral-600">
               {workflow.nodes.length} node{workflow.nodes.length !== 1 ? 's' : ''} •{' '}
               {workflow.edges.length} edge{workflow.edges.length !== 1 ? 's' : ''}
             </div>

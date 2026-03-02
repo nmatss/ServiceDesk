@@ -211,9 +211,9 @@ export default function FileUpload({
       {/* Upload Area */}
       <div
         className={`
-          relative border-2 border-dashed rounded-lg p-6 transition-colors
-          ${dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}
+          relative border-2 border-dashed rounded-lg p-4 sm:p-6 transition-colors
+          ${dragOver ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20' : 'border-neutral-300 dark:border-neutral-600'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-neutral-400 dark:hover:border-neutral-500'}
         `}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -231,14 +231,14 @@ export default function FileUpload({
         />
 
         <div className="text-center">
-          <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <CloudArrowUpIcon className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-neutral-400 dark:text-neutral-500" />
           <div className="mt-2">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
               {uploading ? 'Enviando...' : 'Clique para selecionar ou arraste arquivos aqui'}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
               Tamanho máximo: {maxSize}MB
-              {multiple && ' • Múltiplos arquivos permitidos'}
+              {multiple && ' - Múltiplos arquivos permitidos'}
             </p>
           </div>
         </div>
@@ -246,7 +246,7 @@ export default function FileUpload({
         {uploading && (
           <div className="mt-4">
             <Progress value={uploadProgress} className="w-full" />
-            <p className="text-xs text-gray-500 mt-1 text-center">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 text-center">
               {Math.round(uploadProgress)}% concluído
             </p>
           </div>
@@ -254,37 +254,37 @@ export default function FileUpload({
       </div>
 
       {/* File Type Info */}
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-neutral-500 dark:text-neutral-400">
         <p className="font-medium mb-1">Tipos de arquivo permitidos:</p>
         <div className="flex flex-wrap gap-2">
           {acceptedTypes.includes('image/*') && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
               <PhotoIcon className="w-3 h-3 mr-1" />
               Imagens
             </span>
           )}
           {acceptedTypes.includes('application/pdf') && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
               <DocumentTextIcon className="w-3 h-3 mr-1" />
               PDF
             </span>
           )}
           {(acceptedTypes.includes('application/msword') ||
             acceptedTypes.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
               <DocumentIcon className="w-3 h-3 mr-1" />
               Word
             </span>
           )}
           {(acceptedTypes.includes('application/vnd.ms-excel') ||
             acceptedTypes.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
               <DocumentIcon className="w-3 h-3 mr-1" />
               Excel
             </span>
           )}
           {acceptedTypes.includes('text/plain') && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-neutral-100 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-300">
               <DocumentTextIcon className="w-3 h-3 mr-1" />
               Texto
             </span>

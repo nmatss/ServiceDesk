@@ -29,15 +29,15 @@ export function Breadcrumb({ items, className = '' }: BreadcrumbProps) {
             {item.href ? (
               <Link
                 href={item.href}
-                className="text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center"
+                className="text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center max-w-[150px] sm:max-w-none"
               >
-                {item.icon && <item.icon className="h-4 w-4 mr-1" />}
-                {item.label}
+                {item.icon && <item.icon className="h-4 w-4 mr-1 flex-shrink-0" />}
+                <span className="truncate">{item.label}</span>
               </Link>
             ) : (
-              <span className="text-neutral-900 dark:text-neutral-100 font-medium flex items-center">
-                {item.icon && <item.icon className="h-4 w-4 mr-1" />}
-                {item.label}
+              <span className="text-neutral-900 dark:text-neutral-100 font-medium flex items-center max-w-[200px] sm:max-w-none">
+                {item.icon && <item.icon className="h-4 w-4 mr-1 flex-shrink-0" />}
+                <span className="truncate">{item.label}</span>
               </span>
             )}
           </li>

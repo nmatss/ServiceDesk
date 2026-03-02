@@ -1,7 +1,5 @@
 'use client'
 
-import { AdminCard } from '@/src/components/admin/AdminCard'
-import { AdminButton } from '@/src/components/admin/AdminButton'
 import { useState } from 'react'
 import { logger } from '@/lib/monitoring/logger'
 import { CogIcon, BellIcon, TicketIcon, ServerIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
@@ -49,7 +47,7 @@ export default function AdminSettingsPage() {
         />
 
         {/* General Settings - Glass Panel */}
-        <div className="glass-panel p-6">
+        <div className="glass-panel p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="h-10 w-10 bg-gradient-brand rounded-lg flex items-center justify-center">
               <CogIcon className="h-6 w-6 text-white" />
@@ -70,6 +68,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => updateSettings('siteName', e.target.value)}
                   placeholder="Ex: Suporte Técnico da Empresa"
                   className="input"
+                  aria-label="Nome do site"
                 />
               </div>
               <div>
@@ -82,6 +81,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => updateSettings('siteDescription', e.target.value)}
                   placeholder="Ex: Central de atendimento ao cliente"
                   className="input"
+                  aria-label="Descrição do site"
                 />
               </div>
             </div>
@@ -89,7 +89,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Notification Settings - Glass Panel */}
-        <div className="glass-panel p-6">
+        <div className="glass-panel p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
               <BellIcon className="h-6 w-6 text-white" />
@@ -108,12 +108,13 @@ export default function AdminSettingsPage() {
                   Enviar notificações por email para usuários
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer" aria-label="Ativar notificações por email">
                 <input
                   type="checkbox"
                   checked={settings.emailNotifications}
                   onChange={(e) => updateSettings('emailNotifications', e.target.checked)}
                   className="sr-only peer"
+                  aria-label="Notificações por email"
                 />
                 <div className="w-11 h-6 bg-neutral-300 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-brand shadow-sm"></div>
               </label>
@@ -128,12 +129,13 @@ export default function AdminSettingsPage() {
                   Atribuir automaticamente tickets para agentes disponíveis
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer" aria-label="Ativar atribuição automática">
                 <input
                   type="checkbox"
                   checked={settings.autoAssignTickets}
                   onChange={(e) => updateSettings('autoAssignTickets', e.target.checked)}
                   className="sr-only peer"
+                  aria-label="Atribuição automática de tickets"
                 />
                 <div className="w-11 h-6 bg-neutral-300 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-brand shadow-sm"></div>
               </label>
@@ -142,7 +144,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Ticket Settings - Glass Panel */}
-        <div className="glass-panel p-6">
+        <div className="glass-panel p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
               <TicketIcon className="h-6 w-6 text-white" />
@@ -164,6 +166,7 @@ export default function AdminSettingsPage() {
                   value={settings.maxTicketsPerUser}
                   onChange={(e) => updateSettings('maxTicketsPerUser', parseInt(e.target.value))}
                   className="input"
+                  aria-label="Máximo de tickets por usuário"
                 />
                 <p className="mt-2 text-sm text-description">
                   Número máximo de tickets que um usuário pode ter abertos
@@ -180,6 +183,7 @@ export default function AdminSettingsPage() {
                   value={settings.ticketTimeout}
                   onChange={(e) => updateSettings('ticketTimeout', parseInt(e.target.value))}
                   className="input"
+                  aria-label="Timeout de tickets em horas"
                 />
                 <p className="mt-2 text-sm text-description">
                   Tempo limite para resposta de tickets em horas
@@ -190,7 +194,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* System Settings - Glass Panel */}
-        <div className="glass-panel p-6">
+        <div className="glass-panel p-4 sm:p-6">
           <div className="flex items-center space-x-3 mb-6">
             <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
               <ServerIcon className="h-6 w-6 text-white" />
@@ -209,12 +213,13 @@ export default function AdminSettingsPage() {
                   Ativar modo de manutenção para manutenções do sistema
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer" aria-label="Ativar modo de manutenção">
                 <input
                   type="checkbox"
                   checked={settings.maintenanceMode}
                   onChange={(e) => updateSettings('maintenanceMode', e.target.checked)}
                   className="sr-only peer"
+                  aria-label="Modo de manutenção"
                 />
                 <div className="w-11 h-6 bg-neutral-300 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-brand shadow-sm"></div>
               </label>
@@ -223,7 +228,7 @@ export default function AdminSettingsPage() {
         </div>
 
         {/* Danger Zone - Glass Panel with Red Theme */}
-        <div className="glass-panel p-6 border-2 border-red-200 dark:border-red-900/50">
+        <div className="glass-panel p-4 sm:p-6 border-2 border-red-200 dark:border-red-900/50">
           <div className="flex items-center space-x-3 mb-6">
             <div className="h-10 w-10 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
               <ExclamationTriangleIcon className="h-6 w-6 text-white" />

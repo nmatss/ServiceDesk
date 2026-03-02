@@ -15,9 +15,9 @@ export function TableSkeleton({
 }: TableSkeletonProps) {
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-lg border bg-white dark:bg-gray-800">
+      <div className="overflow-hidden rounded-lg border bg-white dark:bg-neutral-800">
         {showHeader && (
-          <div className="border-b bg-gray-50 dark:bg-gray-900/50 p-4">
+          <div className="border-b bg-neutral-50 dark:bg-neutral-900/50 p-4">
             <div className="flex gap-4">
               {Array.from({ length: columns }).map((_, i) => (
                 <Skeleton
@@ -33,7 +33,7 @@ export function TableSkeleton({
         {Array.from({ length: rows }).map((_, rowIndex) => (
           <div
             key={rowIndex}
-            className="border-b last:border-b-0 p-4 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+            className="border-b last:border-b-0 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors"
           >
             <div className="flex gap-4">
               {Array.from({ length: columns }).map((_, colIndex) => (

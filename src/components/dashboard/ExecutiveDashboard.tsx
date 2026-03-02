@@ -298,11 +298,11 @@ export function ExecutiveDashboard() {
 
       default:
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
               Unknown Widget: {widget.type}
             </h3>
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-neutral-500 dark:text-neutral-400">
               Widget type not implemented
             </p>
           </div>
@@ -318,18 +318,18 @@ export function ExecutiveDashboard() {
   }, [isConnected, connectionQuality]);
 
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+    <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-900 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-neutral-800 shadow-sm border-b border-neutral-200 dark:border-neutral-700">
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <DocumentChartBarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               <div>
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
                   Executive Dashboard
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">
                   Last updated: {lastUpdated.toLocaleTimeString()}
                 </p>
               </div>
@@ -339,7 +339,7 @@ export function ExecutiveDashboard() {
               {/* Connection Status */}
               <div className="flex items-center space-x-2">
                 <div className={`w-3 h-3 rounded-full bg-${connectionStatus.color}-500`} />
-                <span className="text-sm text-gray-600 dark:text-gray-300">
+                <span className="text-sm text-neutral-600 dark:text-neutral-300">
                   {connectionStatus.text}
                 </span>
               </div>
@@ -347,7 +347,7 @@ export function ExecutiveDashboard() {
               {/* Action Buttons */}
               <button
                 onClick={() => setIsWidgetLibraryOpen(true)}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600"
               >
                 <ChartBarIcon className="w-4 h-4 mr-2" />
                 Add Widget
@@ -355,7 +355,7 @@ export function ExecutiveDashboard() {
 
               <button
                 onClick={() => setIsBuilderOpen(true)}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600"
               >
                 <CogIcon className="w-4 h-4 mr-2" />
                 Customize
@@ -378,7 +378,7 @@ export function ExecutiveDashboard() {
 
               <button
                 onClick={toggleFullscreen}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                className="inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600"
               >
                 {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
               </button>

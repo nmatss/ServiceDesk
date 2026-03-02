@@ -96,17 +96,17 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                 <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 text-brand-600" />
                 Central de Serviços
               </h1>
-              <p className="text-sm sm:text-base text-neutral-600 mt-1">
+              <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 mt-1">
                 Todas as áreas da empresa em um só lugar
               </p>
             </div>
             <button
               onClick={() => router.push('/portal/requests')}
-              className="px-4 py-2 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg"
+              className="px-4 py-2.5 sm:py-2 min-h-[44px] text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg w-full sm:w-auto"
             >
               Minhas Solicitações
             </button>
@@ -120,7 +120,8 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="O que você precisa? Busque serviços, áreas ou palavras-chave..."
-                className="w-full pl-12 pr-4 py-3 border border-neutral-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent shadow-sm"
+                aria-label="Buscar serviços e áreas de atendimento"
+                className="w-full pl-12 pr-4 py-3 text-base sm:text-sm border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent shadow-sm"
               />
             </div>
           </div>
@@ -129,7 +130,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6">
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
             <StarIconSolid className="w-5 h-5 text-warning-500" />
             Ações Mais Usadas
           </h2>
@@ -166,7 +167,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
 
         {recentRequests.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
               <ClockIcon className="w-5 h-5 text-neutral-400" />
               Suas Solicitações Recentes
             </h2>
@@ -175,7 +176,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
                 <div
                   key={request.id}
                   onClick={() => router.push(`/portal/requests/${request.id}`)}
-                  className="flex items-center justify-between p-4 hover:bg-neutral-50 cursor-pointer"
+                  className="flex items-center justify-between p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-2 rounded-full ${
@@ -183,8 +184,8 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
                       request.status === 'in_progress' ? 'bg-warning-500' : 'bg-brand-500'
                     }`}></div>
                     <div>
-                      <p className="font-medium text-neutral-900">{request.title}</p>
-                      <p className="text-xs text-neutral-500 capitalize">{request.area}</p>
+                      <p className="font-medium text-neutral-900 dark:text-neutral-100">{request.title}</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 capitalize">{request.area}</p>
                     </div>
                   </div>
                   <ArrowRightIcon className="w-5 h-5 text-neutral-300" />
@@ -195,7 +196,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
         )}
 
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-4">
             Áreas de Atendimento
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -267,7 +268,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
         <div className="mt-8 bg-gradient-to-r from-brand-600 to-indigo-600 rounded-xl p-6 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 glass-panel/20 rounded-xl">
+              <div className="p-3 bg-white/20 rounded-xl">
                 <ChatBubbleLeftRightIcon className="w-8 h-8" />
               </div>
               <div>
@@ -279,7 +280,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
             </div>
             <button
               onClick={() => router.push('/portal/support')}
-              className="px-6 py-3 glass-panel text-brand-600 rounded-lg font-medium hover:bg-brand-50 transition-colors"
+              className="px-6 py-3 min-h-[44px] w-full sm:w-auto bg-white text-brand-600 rounded-lg font-medium hover:bg-brand-50 transition-colors"
             >
               Falar com Atendente
             </button>
@@ -291,13 +292,13 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/portal')}
-            className="flex-1 py-2.5 text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
+            className="flex-1 py-3 min-h-[44px] text-sm font-medium text-neutral-600 bg-neutral-100 rounded-lg"
           >
             Voltar
           </button>
           <button
             onClick={() => router.push('/portal/requests')}
-            className="flex-1 py-2.5 text-sm font-medium text-white bg-brand-600 rounded-lg"
+            className="flex-1 py-3 min-h-[44px] text-sm font-medium text-white bg-brand-600 rounded-lg"
           >
             Minhas Solicitações
           </button>

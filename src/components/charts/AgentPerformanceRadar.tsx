@@ -119,16 +119,16 @@ export default function AgentPerformanceRadar({
     if (!active || !payload || !payload.length) return null;
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
-        <p className="font-semibold text-gray-900 mb-2">{payload[0].payload.metric}</p>
+      <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3">
+        <p className="font-semibold text-neutral-900 mb-2">{payload[0].payload.metric}</p>
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-2 text-sm">
             <div
               className="w-3 h-3 rounded"
               style={{ backgroundColor: entry.stroke }}
             />
-            <span className="text-gray-600">{entry.name}:</span>
-            <span className="font-medium text-gray-900">{entry.value.toFixed(1)}</span>
+            <span className="text-neutral-600">{entry.name}:</span>
+            <span className="font-medium text-neutral-900">{entry.value.toFixed(1)}</span>
           </div>
         ))}
       </div>
@@ -156,8 +156,8 @@ export default function AgentPerformanceRadar({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Agent Performance Comparison</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="text-lg font-semibold text-neutral-900">Agent Performance Comparison</h3>
+          <p className="text-sm text-neutral-500 mt-1">
             Comparing {selectedAgents.length} agent{selectedAgents.length !== 1 ? 's' : ''} across 6 metrics
           </p>
         </div>
@@ -216,7 +216,7 @@ export default function AgentPerformanceRadar({
         <div className="space-y-4">
           {/* Agent Selection */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Select Agents to Compare</h4>
+            <h4 className="text-sm font-medium text-neutral-700 mb-3">Select Agents to Compare</h4>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {agents.map((agent) => (
                 <button
@@ -225,7 +225,7 @@ export default function AgentPerformanceRadar({
                   className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
                     selectedAgents.includes(agent.agentId)
                       ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                      : 'border-neutral-200 hover:border-neutral-300 bg-white'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -237,7 +237,7 @@ export default function AgentPerformanceRadar({
                           : chartColors.neutral[300],
                       }}
                     />
-                    <span className="text-sm font-medium text-gray-900">{agent.agentName}</span>
+                    <span className="text-sm font-medium text-neutral-900">{agent.agentName}</span>
                   </div>
                   {selectedAgents.includes(agent.agentId) && (
                     <svg
@@ -257,32 +257,32 @@ export default function AgentPerformanceRadar({
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-neutral-500 mt-2">
               Select up to {maxAgents} agents to compare
             </p>
           </div>
 
           {/* Overall Rankings */}
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Overall Rankings</h4>
+            <h4 className="text-sm font-medium text-neutral-700 mb-3">Overall Rankings</h4>
             <div className="space-y-2">
               {overallScores.slice(0, 5).map((score, index) => (
                 <div
                   key={score.agentId}
-                  className="flex items-center justify-between p-2 rounded bg-gray-50"
+                  className="flex items-center justify-between p-2 rounded bg-neutral-50"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-400">#{index + 1}</span>
-                    <span className="text-sm text-gray-900">{score.agentName}</span>
+                    <span className="text-sm font-bold text-neutral-400">#{index + 1}</span>
+                    <span className="text-sm text-neutral-900">{score.agentName}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-16 h-2 bg-neutral-200 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-blue-600 rounded-full"
                         style={{ width: `${score.score}%` }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">{score.score.toFixed(0)}</span>
+                    <span className="text-sm font-medium text-neutral-700">{score.score.toFixed(0)}</span>
                   </div>
                 </div>
               ))}
@@ -292,26 +292,26 @@ export default function AgentPerformanceRadar({
       </div>
 
       {/* Metric Definitions */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Metric Definitions</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs text-gray-600">
+      <div className="mt-6 pt-6 border-t border-neutral-200">
+        <h4 className="text-sm font-medium text-neutral-700 mb-3">Metric Definitions</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs text-neutral-600">
           <div>
-            <span className="font-medium text-gray-900">Resolution Speed:</span> Average time to resolve tickets
+            <span className="font-medium text-neutral-900">Resolution Speed:</span> Average time to resolve tickets
           </div>
           <div>
-            <span className="font-medium text-gray-900">CSAT:</span> Customer satisfaction score
+            <span className="font-medium text-neutral-900">CSAT:</span> Customer satisfaction score
           </div>
           <div>
-            <span className="font-medium text-gray-900">Volume:</span> Number of tickets handled
+            <span className="font-medium text-neutral-900">Volume:</span> Number of tickets handled
           </div>
           <div>
-            <span className="font-medium text-gray-900">SLA:</span> SLA compliance rate
+            <span className="font-medium text-neutral-900">SLA:</span> SLA compliance rate
           </div>
           <div>
-            <span className="font-medium text-gray-900">Response Time:</span> First response speed
+            <span className="font-medium text-neutral-900">Response Time:</span> First response speed
           </div>
           <div>
-            <span className="font-medium text-gray-900">Knowledge:</span> Knowledge base contributions
+            <span className="font-medium text-neutral-900">Knowledge:</span> Knowledge base contributions
           </div>
         </div>
       </div>

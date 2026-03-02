@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import PageHeader from '@/components/ui/PageHeader'
-import { toast } from 'react-hot-toast'
+import { customToast } from '@/components/ui/toast'
 import { logger } from '@/lib/monitoring/logger';
 import {
   EnvelopeIcon,
@@ -85,8 +85,8 @@ export default function EmailsPage() {
         })
       }
     } catch (error) {
-      logger.error('Error fetching emails', error)
-      toast.error('Erro ao carregar emails')
+      logger.error('Erro ao buscar emails', error)
+      customToast.error('Erro ao carregar emails')
     } finally {
       setLoading(false)
     }
@@ -103,13 +103,13 @@ export default function EmailsPage() {
 
       const data = await response.json()
       if (data.success) {
-        toast.success(data.message)
+        customToast.success(data.message)
         fetchEmails()
       } else {
-        toast.error(data.error)
+        customToast.error(data.error)
       }
     } catch (error) {
-      toast.error('Erro ao processar fila')
+      customToast.error('Erro ao processar fila')
     } finally {
       setProcessing(false)
     }
@@ -125,13 +125,13 @@ export default function EmailsPage() {
 
       const data = await response.json()
       if (data.success) {
-        toast.success(data.message)
+        customToast.success(data.message)
         fetchEmails()
       } else {
-        toast.error(data.error)
+        customToast.error(data.error)
       }
     } catch (error) {
-      toast.error('Erro ao reprocessar emails')
+      customToast.error('Erro ao reprocessar emails')
     }
   }
 
@@ -147,13 +147,13 @@ export default function EmailsPage() {
 
       const data = await response.json()
       if (data.success) {
-        toast.success(data.message)
+        customToast.success(data.message)
         fetchEmails()
       } else {
-        toast.error(data.error)
+        customToast.error(data.error)
       }
     } catch (error) {
-      toast.error('Erro ao limpar emails falhados')
+      customToast.error('Erro ao limpar emails falhados')
     }
   }
 

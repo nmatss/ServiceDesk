@@ -74,7 +74,7 @@ interface StatusConfig {
 const statusConfigs: Record<string, Record<string, StatusConfig>> = {
   ticket: {
     open: {
-      label: 'Open',
+      label: 'Aberto',
       icon: InformationCircleIcon,
       color: {
         bg: 'bg-blue-50 dark:bg-blue-900/20',
@@ -82,11 +82,11 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-blue-200 dark:border-blue-800',
         dot: 'bg-blue-500'
       },
-      description: 'Ticket is open and awaiting response',
+      description: 'Ticket aberto aguardando resposta',
       priority: 3
     },
     'in-progress': {
-      label: 'In Progress',
+      label: 'Em Andamento',
       icon: ClockIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -94,23 +94,23 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-amber-200 dark:border-amber-800',
         dot: 'bg-amber-500'
       },
-      description: 'Ticket is being actively worked on',
+      description: 'Ticket sendo atendido ativamente',
       priority: 4
     },
     pending: {
-      label: 'Pending',
+      label: 'Pendente',
       icon: PauseCircleIcon,
       color: {
-        bg: 'bg-gray-50 dark:bg-gray-900/20',
-        text: 'text-gray-700 dark:text-gray-400',
-        border: 'border-gray-200 dark:border-gray-800',
-        dot: 'bg-gray-500'
+        bg: 'bg-neutral-50 dark:bg-neutral-900/20',
+        text: 'text-neutral-700 dark:text-neutral-400',
+        border: 'border-neutral-200 dark:border-neutral-800',
+        dot: 'bg-neutral-500'
       },
-      description: 'Waiting for customer response',
+      description: 'Aguardando resposta do cliente',
       priority: 2
     },
     resolved: {
-      label: 'Resolved',
+      label: 'Resolvido',
       icon: CheckCircleIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -118,23 +118,23 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-green-200 dark:border-green-800',
         dot: 'bg-green-500'
       },
-      description: 'Ticket has been resolved',
+      description: 'Ticket foi resolvido',
       priority: 1
     },
     closed: {
-      label: 'Closed',
+      label: 'Fechado',
       icon: XCircleIcon,
       color: {
-        bg: 'bg-gray-50 dark:bg-gray-900/20',
-        text: 'text-gray-600 dark:text-gray-400',
-        border: 'border-gray-200 dark:border-gray-800',
-        dot: 'bg-gray-400'
+        bg: 'bg-neutral-50 dark:bg-neutral-900/20',
+        text: 'text-neutral-600 dark:text-neutral-400',
+        border: 'border-neutral-200 dark:border-neutral-800',
+        dot: 'bg-neutral-400'
       },
-      description: 'Ticket is closed',
+      description: 'Ticket encerrado',
       priority: 0
     },
     cancelled: {
-      label: 'Cancelled',
+      label: 'Cancelado',
       icon: XCircleIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -142,14 +142,14 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-red-200 dark:border-red-800',
         dot: 'bg-red-500'
       },
-      description: 'Ticket was cancelled',
+      description: 'Ticket cancelado',
       priority: 0
     }
   },
 
   priority: {
     low: {
-      label: 'Low',
+      label: 'Baixa',
       icon: InformationCircleIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -160,7 +160,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       priority: 1
     },
     medium: {
-      label: 'Medium',
+      label: 'Média',
       icon: ExclamationTriangleIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -171,7 +171,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       priority: 2
     },
     high: {
-      label: 'High',
+      label: 'Alta',
       icon: ExclamationTriangleIcon,
       color: {
         bg: 'bg-orange-50 dark:bg-orange-900/20',
@@ -182,7 +182,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       priority: 3
     },
     critical: {
-      label: 'Critical',
+      label: 'Crítica',
       icon: ExclamationTriangleIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -204,10 +204,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-green-200 dark:border-green-800',
         dot: 'bg-green-500'
       },
-      description: 'User is currently online'
+      description: 'Usuário está online'
     },
     away: {
-      label: 'Away',
+      label: 'Ausente',
       icon: ClockIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -215,10 +215,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-amber-200 dark:border-amber-800',
         dot: 'bg-amber-500'
       },
-      description: 'User is away'
+      description: 'Usuário está ausente'
     },
     busy: {
-      label: 'Busy',
+      label: 'Ocupado',
       icon: PauseCircleIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -226,24 +226,24 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-red-200 dark:border-red-800',
         dot: 'bg-red-500'
       },
-      description: 'User is busy'
+      description: 'Usuário está ocupado'
     },
     offline: {
       label: 'Offline',
       icon: EyeSlashIcon,
       color: {
-        bg: 'bg-gray-50 dark:bg-gray-900/20',
-        text: 'text-gray-600 dark:text-gray-400',
-        border: 'border-gray-200 dark:border-gray-800',
-        dot: 'bg-gray-400'
+        bg: 'bg-neutral-50 dark:bg-neutral-900/20',
+        text: 'text-neutral-600 dark:text-neutral-400',
+        border: 'border-neutral-200 dark:border-neutral-800',
+        dot: 'bg-neutral-400'
       },
-      description: 'User is offline'
+      description: 'Usuário está offline'
     }
   },
 
   system: {
     operational: {
-      label: 'Operational',
+      label: 'Operacional',
       icon: CheckCircleIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -251,10 +251,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-green-200 dark:border-green-800',
         dot: 'bg-green-500'
       },
-      description: 'All systems operational'
+      description: 'Todos os sistemas operacionais'
     },
     degraded: {
-      label: 'Degraded',
+      label: 'Degradado',
       icon: ExclamationTriangleIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -262,10 +262,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-amber-200 dark:border-amber-800',
         dot: 'bg-amber-500'
       },
-      description: 'Performance issues detected'
+      description: 'Problemas de desempenho detectados'
     },
     outage: {
-      label: 'Outage',
+      label: 'Indisponível',
       icon: XCircleIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -273,10 +273,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-red-200 dark:border-red-800',
         dot: 'bg-red-500'
       },
-      description: 'System outage in progress'
+      description: 'Indisponibilidade do sistema em andamento'
     },
     maintenance: {
-      label: 'Maintenance',
+      label: 'Manutenção',
       icon: Cog6ToothIcon,
       color: {
         bg: 'bg-blue-50 dark:bg-blue-900/20',
@@ -284,13 +284,13 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-blue-200 dark:border-blue-800',
         dot: 'bg-blue-500'
       },
-      description: 'Scheduled maintenance'
+      description: 'Manutenção programada'
     }
   },
 
   sla: {
     met: {
-      label: 'SLA Met',
+      label: 'SLA Cumprido',
       icon: CheckCircleIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -298,10 +298,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-green-200 dark:border-green-800',
         dot: 'bg-green-500'
       },
-      description: 'SLA requirements met'
+      description: 'Requisitos de SLA atendidos'
     },
     warning: {
-      label: 'SLA Warning',
+      label: 'SLA em Alerta',
       icon: ExclamationTriangleIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -309,10 +309,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-amber-200 dark:border-amber-800',
         dot: 'bg-amber-500'
       },
-      description: 'SLA deadline approaching'
+      description: 'Prazo de SLA se aproximando'
     },
     breached: {
-      label: 'SLA Breached',
+      label: 'SLA Violado',
       icon: XCircleIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -320,13 +320,13 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
         border: 'border-red-200 dark:border-red-800',
         dot: 'bg-red-500'
       },
-      description: 'SLA deadline exceeded'
+      description: 'Prazo de SLA excedido'
     }
   },
 
   connection: {
     connected: {
-      label: 'Connected',
+      label: 'Conectado',
       icon: WifiIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -336,7 +336,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       }
     },
     connecting: {
-      label: 'Connecting',
+      label: 'Conectando',
       icon: SignalIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -346,7 +346,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       }
     },
     disconnected: {
-      label: 'Disconnected',
+      label: 'Desconectado',
       icon: SignalSlashIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -359,7 +359,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
 
   health: {
     healthy: {
-      label: 'Healthy',
+      label: 'Saudável',
       icon: HeartIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -369,7 +369,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       }
     },
     warning: {
-      label: 'Warning',
+      label: 'Alerta',
       icon: ExclamationTriangleIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -379,7 +379,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       }
     },
     critical: {
-      label: 'Critical',
+      label: 'Crítico',
       icon: ShieldExclamationIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -392,7 +392,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
 
   security: {
     secure: {
-      label: 'Secure',
+      label: 'Seguro',
       icon: ShieldCheckIcon,
       color: {
         bg: 'bg-green-50 dark:bg-green-900/20',
@@ -402,7 +402,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       }
     },
     warning: {
-      label: 'Security Warning',
+      label: 'Alerta de Segurança',
       icon: ShieldExclamationIcon,
       color: {
         bg: 'bg-amber-50 dark:bg-amber-900/20',
@@ -412,7 +412,7 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       }
     },
     threat: {
-      label: 'Security Threat',
+      label: 'Ameaça de Segurança',
       icon: ShieldExclamationIcon,
       color: {
         bg: 'bg-red-50 dark:bg-red-900/20',
@@ -605,7 +605,7 @@ export function StatusIndicator({
           </div>
         )}
         {metadata && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
             {Object.entries(metadata).map(([key, value]) => (
               <span key={key} className="mr-2">
                 {key}: {String(value)}
@@ -649,10 +649,10 @@ export function StatusIndicator({
         {showTooltipState && (
           <div
             ref={tooltipRef}
-            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-neutral-700 rounded shadow-lg z-50 whitespace-nowrap"
+            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-neutral-900 dark:bg-neutral-700 rounded shadow-lg z-50 whitespace-nowrap"
           >
             {tooltipText}
-            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-neutral-700" />
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-neutral-900 dark:border-t-neutral-700" />
           </div>
         )}
       </div>
@@ -767,7 +767,7 @@ export function SystemHealthDashboard({ persona = 'manager', className = '' }: {
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-neutral-100">System Health</h3>
+      <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Saúde do Sistema</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {healthMetrics.map((metric) => (
           <StatusIndicator

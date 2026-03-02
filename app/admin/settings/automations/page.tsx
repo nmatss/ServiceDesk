@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import toast from 'react-hot-toast'
+import { customToast } from '@/components/ui/toast'
 import PageHeader from '@/components/ui/PageHeader'
 import {
   CpuChipIcon,
@@ -224,7 +224,7 @@ export default function AutomationsPage() {
     setTestingId(id)
     await new Promise(resolve => setTimeout(resolve, 2000))
     setTestingId(null)
-    toast.success('Teste executado com sucesso!')
+    customToast.success('Teste executado com sucesso!')
   }
 
   const formatLastExecution = (date?: string) => {
@@ -638,7 +638,8 @@ export default function AutomationsPage() {
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Fechar modal"
                 >
                   <XMarkIcon className="w-5 h-5 text-muted-content" />
                 </button>

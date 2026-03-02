@@ -97,8 +97,8 @@ export default function NewProblemPage() {
           const data = await usersRes.json();
           setUsers(data.data || data.users || []);
         }
-      } catch (err) {
-        console.error('Error fetching options:', err);
+      } catch {
+        // Silently fail — options will be empty
       } finally {
         setLoadingOptions(false);
       }
@@ -145,8 +145,7 @@ export default function NewProblemPage() {
       } else {
         setError(data.error || 'Erro ao criar problema');
       }
-    } catch (err) {
-      console.error('Error creating problem:', err);
+    } catch {
       setError('Erro ao criar problema');
     } finally {
       setLoading(false);
@@ -193,7 +192,9 @@ export default function NewProblemPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Descreva o problema de forma resumida"
                   required
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                  aria-label="Título do problema"
+                  aria-required="true"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 h-11 text-base sm:text-sm sm:h-auto"
                 />
               </div>
 
@@ -206,6 +207,8 @@ export default function NewProblemPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Descreva o problema em detalhes, incluindo quando e como foi identificado"
                   required
+                  aria-label="Descrição do problema"
+                  aria-required="true"
                   rows={5}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 resize-none"
                 />
@@ -346,14 +349,15 @@ export default function NewProblemPage() {
           <div className="flex items-center justify-end gap-4">
             <Link
               href="/problems"
-              className="px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-all duration-200"
+              className="px-4 py-2 text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-all duration-200 min-h-[44px] inline-flex items-center"
             >
               Cancelar
             </Link>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              aria-label="Criar problema"
+              className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 min-h-[44px]"
             >
               {loading ? 'Criando...' : 'Criar Problema'}
             </button>

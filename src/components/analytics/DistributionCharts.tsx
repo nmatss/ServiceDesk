@@ -148,8 +148,8 @@ export default function DistributionCharts({
               data={formatCategoryData}
               margin={{
                 top: 5,
-                right: 30,
-                left: 20,
+                right: 10,
+                left: 0,
                 bottom: 5,
               }}
             >
@@ -195,8 +195,8 @@ export default function DistributionCharts({
               layout="horizontal"
               margin={{
                 top: 5,
-                right: 30,
-                left: 20,
+                right: 10,
+                left: 0,
                 bottom: 5,
               }}
             >

@@ -106,19 +106,19 @@ function SortableTicketCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-shadow ${
+      className={`bg-white rounded-lg border border-neutral-200 p-3 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-shadow ${
         isDragging ? 'opacity-50 shadow-lg' : ''
       }`}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs font-mono text-gray-500">
+        <span className="text-xs font-mono text-neutral-500">
           #{ticket.ticket_number}
         </span>
         <span
           className={`text-xs px-1.5 py-0.5 rounded border ${
             priorityColors[ticket.priority_name?.toLowerCase()] ||
-            'bg-gray-100 text-gray-700 border-gray-200'
+            'bg-neutral-100 text-neutral-700 border-neutral-200'
           }`}
         >
           {ticket.priority_name}
@@ -126,7 +126,7 @@ function SortableTicketCard({
       </div>
 
       {/* Title */}
-      <h4 className="text-sm font-medium text-gray-900 mb-2 line-clamp-2">
+      <h4 className="text-sm font-medium text-neutral-900 mb-2 line-clamp-2">
         {ticket.title}
       </h4>
 
@@ -146,7 +146,7 @@ function SortableTicketCard({
             </span>
           ))}
           {ticket.tags.length > 3 && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-neutral-400">
               +{ticket.tags.length - 3}
             </span>
           )}
@@ -154,19 +154,19 @@ function SortableTicketCard({
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
         <div className="flex items-center gap-2">
           {ticket.assigned_to_name ? (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-neutral-500">
               <UserCircleIcon className="h-4 w-4" />
               <span className="truncate max-w-16">{ticket.assigned_to_name}</span>
             </div>
           ) : (
-            <span className="text-xs text-gray-400 italic">Unassigned</span>
+            <span className="text-xs text-neutral-400 italic">Unassigned</span>
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-gray-400">
+        <div className="flex items-center gap-2 text-neutral-400">
           {ticket.comments_count !== undefined && ticket.comments_count > 0 && (
             <div className="flex items-center gap-0.5 text-xs">
               <ChatBubbleLeftIcon className="h-3.5 w-3.5" />
@@ -200,7 +200,7 @@ function KanbanColumn({
     'in-progress': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
     pending: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
     resolved: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
-    closed: { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+    closed: { bg: 'bg-neutral-50', border: 'border-neutral-200', text: 'text-neutral-700' },
   };
 
   const colors = statusColors[status.name.toLowerCase()] || statusColors.open;
@@ -219,7 +219,7 @@ function KanbanColumn({
           <h3 className={`text-sm font-semibold ${textClass}`}>
             {status.name}
           </h3>
-          <span className="text-xs text-gray-500 bg-white px-1.5 py-0.5 rounded-full">
+          <span className="text-xs text-neutral-500 bg-white px-1.5 py-0.5 rounded-full">
             {tickets.length}
           </span>
         </div>
@@ -227,14 +227,14 @@ function KanbanColumn({
           {onAddTicket && (
             <button
               onClick={() => onAddTicket(status.id)}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-white/50 transition-colors"
+              className="p-1 text-neutral-400 hover:text-neutral-600 rounded hover:bg-white/50 transition-colors"
               title="Add ticket"
             >
               <PlusIcon className="h-4 w-4" />
             </button>
           )}
           <button
-            className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-white/50 transition-colors"
+            className="p-1 text-neutral-400 hover:text-neutral-600 rounded hover:bg-white/50 transition-colors"
             title="Column options"
           >
             <EllipsisHorizontalIcon className="h-4 w-4" />
@@ -260,7 +260,7 @@ function KanbanColumn({
         </SortableContext>
 
         {tickets.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
               <TagIcon className="h-6 w-6" />
             </div>
@@ -277,11 +277,11 @@ function TicketPreview({ ticket }: { ticket: Ticket }) {
   return (
     <div className="bg-white rounded-lg border-2 border-blue-400 p-3 shadow-xl w-72 rotate-3">
       <div className="flex items-start justify-between mb-2">
-        <span className="text-xs font-mono text-gray-500">
+        <span className="text-xs font-mono text-neutral-500">
           #{ticket.ticket_number}
         </span>
       </div>
-      <h4 className="text-sm font-medium text-gray-900 line-clamp-2">
+      <h4 className="text-sm font-medium text-neutral-900 line-clamp-2">
         {ticket.title}
       </h4>
     </div>
@@ -427,10 +427,10 @@ export function KanbanBoard({
       <div className={`flex gap-4 p-4 overflow-x-auto ${className}`}>
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="w-72 flex-shrink-0 animate-pulse">
-            <div className="h-10 bg-gray-200 rounded-t-lg" />
-            <div className="h-96 bg-gray-100 rounded-b-lg p-2 space-y-2">
-              <div className="h-24 bg-gray-200 rounded-lg" />
-              <div className="h-24 bg-gray-200 rounded-lg" />
+            <div className="h-10 bg-neutral-200 rounded-t-lg" />
+            <div className="h-96 bg-neutral-100 rounded-b-lg p-2 space-y-2">
+              <div className="h-24 bg-neutral-200 rounded-lg" />
+              <div className="h-24 bg-neutral-200 rounded-lg" />
             </div>
           </div>
         ))}

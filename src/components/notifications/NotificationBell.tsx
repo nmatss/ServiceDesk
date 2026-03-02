@@ -1,12 +1,17 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   BellIcon,
   CheckIcon,
-  ClockIcon,
   TrashIcon,
-  EyeIcon
+  EyeIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  XCircleIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid'
 import { useNotifications } from './NotificationProvider'
@@ -22,141 +27,176 @@ export default function NotificationBell() {
   } = useNotifications()
 
   const [isOpen, setIsOpen] = useState(false)
-  const [announcement, setAnnouncement] = useState('')
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    if (!isOpen) return
+
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false)
       }
     }
 
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+        buttonRef.current?.focus()
+      }
+    }
+
     document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
     }
-  }, [])
+  }, [isOpen])
 
-  // Announce unread count changes to screen readers
-  useEffect(() => {
-    if (unreadCount > 0) {
-      setAnnouncement(`${unreadCount} ${unreadCount === 1 ? 'nova notificação' : 'novas notificações'}`)
-    } else {
-      setAnnouncement('Nenhuma notificação nova')
-    }
-  }, [unreadCount])
-
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setIsOpen(false)
-    }
-  }
-
-  const formatTime = (timestamp: Date) => {
+  const formatTime = useCallback((timestamp: Date) => {
     const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - timestamp.getTime()) / (1000 * 60))
+    const diffMs = now.getTime() - timestamp.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
 
-    if (diffInMinutes < 1) return 'Agora mesmo'
-    if (diffInMinutes < 60) return `${diffInMinutes}min atrás`
+    if (diffMin < 1) return 'Agora'
+    if (diffMin < 60) return `${diffMin}min`
 
-    const diffInHours = Math.floor(diffInMinutes / 60)
-    if (diffInHours < 24) return `${diffInHours}h atrás`
+    const diffH = Math.floor(diffMin / 60)
+    if (diffH < 24) return `${diffH}h`
+
+    const diffD = Math.floor(diffH / 24)
+    if (diffD < 7) return `${diffD}d`
 
     return timestamp.toLocaleDateString('pt-BR', {
       day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
+      month: 'short'
     })
-  }
+  }, [])
 
-  const getNotificationIcon = (type: string) => {
-    const iconClass = "h-4 w-4"
+  const getIcon = useCallback((type: string) => {
+    const base = 'h-5 w-5 flex-shrink-0'
     switch (type) {
-      case 'success': return <CheckIcon className={`${iconClass} text-success-500`} />
-      case 'error': return <ClockIcon className={`${iconClass} text-error-500`} />
-      case 'warning': return <ClockIcon className={`${iconClass} text-warning-500`} />
-      case 'info': return <ClockIcon className={`${iconClass} text-brand-500`} />
-      default: return <ClockIcon className={`${iconClass} text-neutral-500`} />
+      case 'success':
+        return <CheckCircleIcon className={`${base} text-emerald-500`} />
+      case 'error':
+        return <XCircleIcon className={`${base} text-red-500`} />
+      case 'warning':
+        return <ExclamationTriangleIcon className={`${base} text-amber-500`} />
+      case 'info':
+      default:
+        return <InformationCircleIcon className={`${base} text-blue-500`} />
     }
-  }
+  }, [])
 
-  const handleNotificationClick = (notification: any) => {
-    markAsRead(notification.id)
-    if (notification.actions && notification.actions.length > 0) {
+  const getIconBg = useCallback((type: string) => {
+    switch (type) {
+      case 'success': return 'bg-emerald-50 dark:bg-emerald-500/10'
+      case 'error': return 'bg-red-50 dark:bg-red-500/10'
+      case 'warning': return 'bg-amber-50 dark:bg-amber-500/10'
+      case 'info':
+      default: return 'bg-blue-50 dark:bg-blue-500/10'
+    }
+  }, [])
+
+  const handleRemove = useCallback((id: string) => {
+    setExitingIds(prev => new Set(prev).add(id))
+    setTimeout(() => {
+      removeNotification(id)
+      setExitingIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }, 200)
+  }, [removeNotification])
+
+  const handleNotificationClick = useCallback((notification: any) => {
+    if (!notification.read) {
+      markAsRead(notification.id)
+    }
+    if (notification.actions?.length > 0) {
       notification.actions[0].action()
     }
     setIsOpen(false)
-  }
+  }, [markAsRead])
 
   return (
-    <>
-      {/* Screen reader announcement region */}
-      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {announcement}
-      </div>
-
-      <div className="relative" ref={dropdownRef}>
-        {/* Bell Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          onKeyDown={handleKeyDown}
-          className={`relative p-2 rounded-lg transition-colors ${
-            unreadCount > 0
-              ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20'
-              : 'text-description hover:bg-neutral-100 dark:hover:bg-neutral-800'
-          }`}
-          aria-label={unreadCount > 0 ? `Notificações: ${unreadCount} não lidas` : 'Notificações'}
-          aria-expanded={isOpen}
-          aria-haspopup="true"
-          aria-controls="notification-dropdown"
-        >
+    <div className="relative">
+      {/* Bell Button */}
+      <button
+        ref={buttonRef}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`relative p-2 rounded-xl transition-all duration-200 ${
+          isOpen
+            ? 'bg-neutral-100 dark:bg-neutral-700/50'
+            : unreadCount > 0
+              ? 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10'
+              : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+        }`}
+        aria-label={unreadCount > 0 ? `Notificações: ${unreadCount} não lidas` : 'Notificações'}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        aria-controls="notification-panel"
+      >
         {unreadCount > 0 ? (
-          <BellIconSolid className="h-6 w-6" aria-hidden="true" />
+          <BellIconSolid className="h-5 w-5 sm:h-6 sm:w-6" />
         ) : (
-          <BellIcon className="h-6 w-6" aria-hidden="true" />
+          <BellIcon className="h-5 w-5 sm:h-6 sm:w-6" />
         )}
 
-        {/* Notification Badge */}
+        {/* Badge */}
         {unreadCount > 0 && (
-          <span
-            className="absolute -top-1 -right-1 h-5 w-5 bg-error-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse"
-            aria-label={`${unreadCount} notificações não lidas`}
-          >
-            {unreadCount > 9 ? '9+' : unreadCount}
+          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full ring-2 ring-white dark:ring-neutral-900 tabular-nums">
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown Panel */}
       {isOpen && (
         <div
-          id="notification-dropdown"
-          className="absolute right-0 mt-2 w-80 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 animate-fade-in"
+          ref={dropdownRef}
+          id="notification-panel"
+          className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-neutral-200/80 dark:border-neutral-700/80 z-50 overflow-hidden"
           role="region"
           aria-label="Painel de notificações"
-          onKeyDown={handleKeyDown}
+          style={{
+            animation: 'fadeSlideDown 0.2s ease-out',
+            maxWidth: '24rem',
+            right: '0'
+          }}
         >
           {/* Header */}
-          <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
+          <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-700/50">
             <div className="flex items-center justify-between">
-              <h3
-                className="text-lg font-semibold text-neutral-900 dark:text-neutral-100"
-                id="notifications-heading"
-              >
-                Notificações
-              </h3>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  Notificações
+                </h3>
+                {unreadCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-semibold bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1">
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium"
-                    aria-label="Marcar todas as notificações como lidas"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-500/10 transition-colors"
+                    title="Marcar todas como lidas"
+                    aria-label="Marcar todas como lidas"
                   >
-                    Marcar todas como lidas
+                    <CheckIcon className="h-4 w-4" />
                   </button>
                 )}
                 {notifications.length > 0 && (
@@ -165,156 +205,163 @@ export default function NotificationBell() {
                       clearAll()
                       setIsOpen(false)
                     }}
-                    className="p-1 text-neutral-400 hover:text-error-500 rounded"
-                    aria-label="Limpar todas as notificações"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                     title="Limpar todas"
+                    aria-label="Limpar todas as notificações"
                   >
-                    <TrashIcon className="h-4 w-4" aria-hidden="true" />
+                    <TrashIcon className="h-4 w-4" />
                   </button>
                 )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:text-neutral-300 dark:hover:bg-neutral-700 transition-colors sm:hidden"
+                  aria-label="Fechar notificações"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
               </div>
             </div>
-            {unreadCount > 0 && (
-              <p className="text-sm text-description mt-1">
-                {unreadCount} {unreadCount === 1 ? 'nova notificação' : 'novas notificações'}
-              </p>
-            )}
           </div>
 
-          {/* Notifications List */}
+          {/* List */}
           <div
-            className="max-h-96 overflow-y-auto"
+            className="max-h-[60vh] sm:max-h-96 overflow-y-auto overscroll-contain"
             role="list"
-            aria-labelledby="notifications-heading"
-            aria-live="polite"
-            aria-atomic="false"
+            aria-label="Lista de notificações"
           >
             {notifications.length === 0 ? (
-              <div className="p-8 text-center" role="status">
-                <BellIcon className="h-12 w-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" aria-hidden="true" />
-                <p className="text-description text-sm">
+              <div className="py-12 px-4 text-center">
+                <div className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-700/50 flex items-center justify-center mx-auto mb-3">
+                  <BellIcon className="h-6 w-6 text-neutral-400 dark:text-neutral-500" />
+                </div>
+                <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
                   Nenhuma notificação
+                </p>
+                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                  Você está em dia!
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 hover:bg-neutral-50 dark:hover:bg-neutral-700/50 cursor-pointer transition-colors ${
-                      !notification.read ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                    role="listitem"
-                    aria-label={`${notification.title}: ${notification.message}. ${!notification.read ? 'Não lida' : 'Lida'}. ${formatTime(notification.timestamp)}`}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 mt-0.5">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className={`text-sm font-medium ${
-                              !notification.read
-                                ? 'text-neutral-900 dark:text-neutral-100'
-                                : 'text-neutral-700 dark:text-neutral-300'
-                            }`}>
-                              {notification.title}
-                            </p>
-                            <p className={`text-sm mt-1 ${
-                              !notification.read
-                                ? 'text-description'
-                                : 'text-neutral-500 dark:text-neutral-500'
-                            }`}>
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-2 flex items-center">
-                              <ClockIcon className="h-3 w-3 mr-1" />
-                              {formatTime(notification.timestamp)}
-                            </p>
-                          </div>
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`group relative flex items-start gap-3 px-4 py-3 cursor-pointer transition-all duration-200 border-b border-neutral-50 dark:border-neutral-700/30 last:border-0 ${
+                    exitingIds.has(notification.id)
+                      ? 'opacity-0 -translate-x-4'
+                      : ''
+                  } ${
+                    !notification.read
+                      ? 'bg-brand-50/40 dark:bg-brand-500/5 hover:bg-brand-50/60 dark:hover:bg-brand-500/10'
+                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/30'
+                  }`}
+                  onClick={() => handleNotificationClick(notification)}
+                  role="listitem"
+                  aria-label={`${notification.title}: ${notification.message}. ${formatTime(notification.timestamp)}`}
+                >
+                  {/* Unread indicator */}
+                  {!notification.read && (
+                    <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-brand-500" />
+                  )}
 
-                          {/* Action buttons */}
-                          <div className="flex items-center space-x-1 ml-2">
-                            {!notification.read && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  markAsRead(notification.id)
-                                }}
-                                className="p-1 text-neutral-400 hover:text-brand-500 rounded"
-                                aria-label={`Marcar notificação "${notification.title}" como lida`}
-                                title="Marcar como lida"
-                              >
-                                <EyeIcon className="h-4 w-4" aria-hidden="true" />
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                removeNotification(notification.id)
-                              }}
-                              className="p-1 text-neutral-400 hover:text-error-500 rounded"
-                              aria-label={`Remover notificação "${notification.title}"`}
-                              title="Remover"
-                            >
-                              <TrashIcon className="h-4 w-4" aria-hidden="true" />
-                            </button>
-                          </div>
-                        </div>
+                  {/* Icon */}
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 ${getIconBg(notification.type)}`}>
+                    {getIcon(notification.type)}
+                  </div>
 
-                        {/* Actions */}
-                        {notification.actions && notification.actions.length > 0 && (
-                          <div className="flex items-center space-x-2 mt-3" role="group" aria-label="Ações da notificação">
-                            {notification.actions.map((action, index) => (
-                              <button
-                                key={index}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  action.action()
-                                  removeNotification(notification.id)
-                                  setIsOpen(false)
-                                }}
-                                className={`text-xs px-3 py-1 rounded-md font-medium transition-colors ${
-                                  action.variant === 'primary'
-                                    ? 'bg-brand-600 text-white hover:bg-brand-700'
-                                    : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
-                                }`}
-                                aria-label={`${action.label} para notificação "${notification.title}"`}
-                              >
-                                {action.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm leading-snug ${
+                      !notification.read
+                        ? 'font-semibold text-neutral-900 dark:text-neutral-100'
+                        : 'font-medium text-neutral-700 dark:text-neutral-300'
+                    }`}>
+                      {notification.title}
+                    </p>
+                    <p className="text-[13px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
+                      {notification.message}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="inline-flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500">
+                        <ClockIcon className="h-3 w-3" />
+                        {formatTime(notification.timestamp)}
+                      </span>
                     </div>
 
-                    {/* Unread indicator */}
-                    {!notification.read && (
-                      <div className="absolute left-2 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-brand-500 rounded-full"></div>
+                    {/* Actions */}
+                    {notification.actions && notification.actions.length > 0 && (
+                      <div className="flex items-center gap-2 mt-2">
+                        {notification.actions.map((action, index) => (
+                          <button
+                            key={index}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              action.action()
+                              removeNotification(notification.id)
+                              setIsOpen(false)
+                            }}
+                            className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${
+                              action.variant === 'primary'
+                                ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'
+                                : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
+                            }`}
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
-                ))}
-              </div>
+
+                  {/* Hover actions */}
+                  <div className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!notification.read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          markAsRead(notification.id)
+                        }}
+                        className="p-1 rounded-md text-neutral-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-500/10 transition-colors"
+                        title="Marcar como lida"
+                        aria-label={`Marcar "${notification.title}" como lida`}
+                      >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemove(notification.id)
+                      }}
+                      className="p-1 rounded-md text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      title="Remover"
+                      aria-label={`Remover "${notification.title}"`}
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
 
           {/* Footer */}
-          {notifications.length > 0 && (
-            <div className="p-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="w-full text-center text-sm text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium"
-              >
-                Ver todas as notificações
-              </button>
+          {notifications.length > 3 && (
+            <div className="px-4 py-2.5 border-t border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/80">
+              <p className="text-xs text-center text-neutral-400 dark:text-neutral-500">
+                {notifications.length} {notifications.length === 1 ? 'notificação' : 'notificações'}
+              </p>
             </div>
           )}
         </div>
       )}
+
+      {/* Screen reader announcement */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {unreadCount > 0
+          ? `${unreadCount} ${unreadCount === 1 ? 'nova notificação' : 'novas notificações'}`
+          : 'Nenhuma notificação nova'
+        }
       </div>
-    </>
+    </div>
   )
 }

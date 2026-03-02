@@ -445,11 +445,11 @@ export function CollaborativeEditor({
     <div className={`relative ${className}`}>
       {/* Header with collaborators and status */}
       {showCollaborators && (
-        <div className="flex items-center justify-between mb-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-t-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-3 p-2 bg-neutral-50 dark:bg-neutral-800 rounded-t-lg border border-neutral-200 dark:border-neutral-700">
           {/* Connection Status */}
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${statusColor === 'green' ? 'bg-green-400' : 'bg-red-400'}`} />
-            <span className="text-sm text-gray-600 dark:text-gray-300">{statusText}</span>
+            <span className="text-sm text-neutral-600 dark:text-neutral-300">{statusText}</span>
             {editorState.isSaving && (
               <div className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
                 <ArrowPathIcon className="h-4 w-4 animate-spin" />
@@ -463,11 +463,11 @@ export function CollaborativeEditor({
             {activeCollaborators.map((collaborator) => (
               <div
                 key={collaborator.user.id}
-                className="flex items-center space-x-1 px-2 py-1 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
+                className="flex items-center space-x-1 px-2 py-1 rounded-full bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600"
                 style={{ borderLeftColor: collaborator.color, borderLeftWidth: '3px' }}
               >
-                <UserIcon className="h-3 w-3 text-gray-400" />
-                <span className="text-xs text-gray-600 dark:text-gray-300">
+                <UserIcon className="h-3 w-3 text-neutral-400" />
+                <span className="text-xs text-neutral-600 dark:text-neutral-300">
                   {collaborator.user.name}
                 </span>
                 {collaborator.isTyping && (
@@ -480,7 +480,7 @@ export function CollaborativeEditor({
               </div>
             ))}
             {activeCollaborators.length === 0 && (
-              <span className="text-sm text-gray-500 dark:text-gray-400">No other collaborators</span>
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">No other collaborators</span>
             )}
           </div>
         </div>
@@ -532,8 +532,8 @@ export function CollaborativeEditor({
           placeholder={placeholder}
           maxLength={maxLength}
           readOnly={readOnly}
-          className={`w-full min-h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white resize-none ${
-            readOnly ? 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' : ''
+          className={`w-full min-h-32 p-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:text-white resize-none ${
+            readOnly ? 'bg-neutral-50 dark:bg-neutral-800 cursor-not-allowed' : ''
           } ${showCollaborators ? 'rounded-t-none' : ''}`}
           style={{ minHeight: '200px' }}
         />
@@ -573,7 +573,7 @@ export function CollaborativeEditor({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-2 text-sm text-gray-500 dark:text-gray-400">
+      <div className="flex items-center justify-between mt-2 text-sm text-neutral-500 dark:text-neutral-400">
         <div className="flex items-center space-x-4">
           <span>{editorState.content.length}/{maxLength} characters</span>
           {editorState.lastSaved && (

@@ -183,7 +183,7 @@ export const ActionFeedback: React.FC<ActionFeedbackProps> = ({
           <button
             onClick={handleClose}
             className="flex-shrink-0 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
-            aria-label="Close notification"
+            aria-label="Fechar notificação"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path

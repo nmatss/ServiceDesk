@@ -41,13 +41,13 @@ export default function WorkflowToolbar({
   hasChanges = false,
 }: WorkflowToolbarProps) {
   return (
-    <div className="workflow-toolbar bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+    <div className="workflow-toolbar bg-white border-b border-neutral-200 px-4 py-2 flex items-center justify-between">
       {/* Left Section */}
       <div className="flex items-center space-x-3">
         {/* Sidebar Toggle */}
         <button
           onClick={onToggleSidebar}
-          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
           title="Toggle Sidebar"
         >
           <Bars3Icon className="w-5 h-5" />
@@ -55,7 +55,7 @@ export default function WorkflowToolbar({
 
         {/* Workflow Name */}
         <div className="flex items-center space-x-2">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-neutral-900">
             {workflow?.name || 'Untitled Workflow'}
           </h2>
           {hasChanges && (
@@ -102,7 +102,7 @@ export default function WorkflowToolbar({
               className={`flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 hasChanges
                   ? 'text-white bg-blue-600 hover:bg-blue-700'
-                  : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  : 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
               }`}
               title="Save Workflow"
             >
@@ -123,7 +123,7 @@ export default function WorkflowToolbar({
         )}
 
         {readOnly && (
-          <div className="flex items-center space-x-2 px-3 py-1.5 text-sm text-gray-500 bg-gray-100 rounded-lg">
+          <div className="flex items-center space-x-2 px-3 py-1.5 text-sm text-neutral-500 bg-neutral-100 rounded-lg">
             <EyeIcon className="w-4 h-4" />
             <span>Read Only Mode</span>
           </div>
@@ -135,7 +135,7 @@ export default function WorkflowToolbar({
         {/* Properties Toggle */}
         <button
           onClick={onToggleProperties}
-          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
           title="Toggle Properties Panel"
         >
           <Cog6ToothIcon className="w-5 h-5" />
@@ -143,7 +143,7 @@ export default function WorkflowToolbar({
 
         {/* Workflow Info */}
         {workflow && (
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-neutral-500">
             v{workflow.version || 1}
           </div>
         )}

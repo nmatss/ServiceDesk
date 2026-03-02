@@ -25,19 +25,19 @@ export default function WorkflowSidebar({
 
   return (
     <div
-      className={`workflow-sidebar bg-white border-r border-gray-200 flex flex-col ${className}`}
+      className={`workflow-sidebar bg-white border-r border-neutral-200 flex flex-col ${className}`}
       style={{ width: '320px', minWidth: '320px' }}
     >
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-neutral-200">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wide">
             Workflow Builder
           </h3>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+              className="p-1 text-neutral-400 hover:text-neutral-600 rounded transition-colors"
               title="Close Sidebar"
             >
               <XMarkIcon className="w-5 h-5" />
@@ -46,13 +46,13 @@ export default function WorkflowSidebar({
         </div>
 
         {/* Tabs */}
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex space-x-1 bg-neutral-100 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('nodes')}
             className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'nodes'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-600 hover:text-neutral-900'
             }`}
           >
             Nodes
@@ -61,8 +61,8 @@ export default function WorkflowSidebar({
             onClick={() => setActiveTab('info')}
             className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'info'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-600 hover:text-neutral-900'
             }`}
           >
             Info
@@ -72,13 +72,13 @@ export default function WorkflowSidebar({
         {/* Search (only for nodes tab) */}
         {activeTab === 'nodes' && (
           <div className="mt-3 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search nodes..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         )}
@@ -93,10 +93,10 @@ export default function WorkflowSidebar({
         {activeTab === 'info' && (
           <div className="p-4 space-y-4">
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+              <h4 className="text-sm font-semibold text-neutral-900 mb-2">
                 About Workflow Builder
               </h4>
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-neutral-600 leading-relaxed">
                 Create powerful automated workflows by connecting nodes together.
                 Drag nodes from the palette and drop them onto the canvas to build
                 your workflow.
@@ -104,10 +104,10 @@ export default function WorkflowSidebar({
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+              <h4 className="text-sm font-semibold text-neutral-900 mb-2">
                 Quick Tips
               </h4>
-              <ul className="text-sm text-gray-600 space-y-2">
+              <ul className="text-sm text-neutral-600 space-y-2">
                 <li className="flex items-start">
                   <span className="text-blue-500 mr-2">•</span>
                   <span>Every workflow must start with a Start node and end with an End node</span>
@@ -132,24 +132,24 @@ export default function WorkflowSidebar({
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">
+              <h4 className="text-sm font-semibold text-neutral-900 mb-2">
                 Node Categories
               </h4>
-              <div className="space-y-2 text-sm text-gray-600">
+              <div className="space-y-2 text-sm text-neutral-600">
                 <div>
-                  <span className="font-medium text-gray-700">Flow Control:</span> Start, End, Condition, Parallel, Loop
+                  <span className="font-medium text-neutral-700">Flow Control:</span> Start, End, Condition, Parallel, Loop
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Actions:</span> Action, Delay, Script
+                  <span className="font-medium text-neutral-700">Actions:</span> Action, Delay, Script
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Human Interaction:</span> Approval, Human Task
+                  <span className="font-medium text-neutral-700">Human Interaction:</span> Approval, Human Task
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Integration:</span> Notification, Webhook, Integration
+                  <span className="font-medium text-neutral-700">Integration:</span> Notification, Webhook, Integration
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Advanced:</span> ML Prediction, Subworkflow
+                  <span className="font-medium text-neutral-700">Advanced:</span> ML Prediction, Subworkflow
                 </div>
               </div>
             </div>

@@ -304,7 +304,7 @@ export function WorkflowSankey({
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Ticket Workflow Analysis
         </h3>
         <p className="text-sm text-description">
@@ -316,7 +316,7 @@ export function WorkflowSankey({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700"
       />
 
       {/* Selection Information */}
@@ -363,7 +363,7 @@ export function WorkflowSankey({
           <span className="text-sm text-description">Resolved</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-gray-500 rounded"></div>
+          <div className="w-4 h-4 bg-neutral-500 rounded"></div>
           <span className="text-sm text-description">Closed</span>
         </div>
         <div className="flex items-center space-x-2">
@@ -407,7 +407,7 @@ export function AgentAssignmentSankey({
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Agent Assignment Flow
         </h3>
         <p className="text-sm text-description">

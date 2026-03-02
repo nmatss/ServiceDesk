@@ -108,7 +108,7 @@ export function HelpTooltip({
         onBlur={handleMouseLeave}
         className={cn('inline-flex items-center cursor-help', className)}
       >
-        {children || <IconComponent className="w-4 h-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />}
+        {children || <IconComponent className="w-4 h-4 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300" />}
       </div>
 
       {isVisible &&
@@ -116,7 +116,7 @@ export function HelpTooltip({
         createPortal(
           <div
             ref={tooltipRef}
-            className="fixed z-50 px-3 py-2 text-sm text-white bg-gray-900 dark:bg-gray-700 rounded-lg shadow-lg animate-fade-in"
+            className="fixed z-50 px-3 py-2 text-sm text-white bg-neutral-900 dark:bg-neutral-700 rounded-lg shadow-lg animate-fade-in"
             style={{
               top: coords.top,
               left: coords.left,
@@ -127,7 +127,7 @@ export function HelpTooltip({
             {/* Arrow */}
             <div
               className={cn(
-                'absolute w-2 h-2 bg-gray-900 dark:bg-gray-700 transform rotate-45',
+                'absolute w-2 h-2 bg-neutral-900 dark:bg-neutral-700 transform rotate-45',
                 position === 'top' && 'bottom-[-4px] left-1/2 -translate-x-1/2',
                 position === 'bottom' && 'top-[-4px] left-1/2 -translate-x-1/2',
                 position === 'left' && 'right-[-4px] top-1/2 -translate-y-1/2',
@@ -172,17 +172,17 @@ export function HelpPanel({ title, children, defaultOpen = false, className }: H
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className={cn('border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden', className)}>
+    <div className={cn('border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden', className)}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        className="w-full flex items-center justify-between p-4 bg-neutral-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <QuestionMarkCircleIcon className="w-5 h-5 text-gray-400" />
-          <span className="font-medium text-gray-900 dark:text-white">{title}</span>
+          <QuestionMarkCircleIcon className="w-5 h-5 text-neutral-400" />
+          <span className="font-medium text-neutral-900 dark:text-neutral-100">{title}</span>
         </div>
         <svg
-          className={cn('w-5 h-5 text-gray-400 transition-transform', isOpen && 'rotate-180')}
+          className={cn('w-5 h-5 text-neutral-400 transition-transform', isOpen && 'rotate-180')}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -192,8 +192,8 @@ export function HelpPanel({ title, children, defaultOpen = false, className }: H
       </button>
 
       {isOpen && (
-        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none">
+        <div className="p-4 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700">
+          <div className="text-sm text-neutral-700 dark:text-neutral-300 prose dark:prose-invert max-w-none">
             {children}
           </div>
         </div>
@@ -251,7 +251,7 @@ export function FeatureAnnouncement({
         <button
           onClick={onDismiss}
           className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded transition-colors"
-          aria-label="Dismiss"
+          aria-label="Fechar"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -379,7 +379,7 @@ export function OnboardingTooltip({
       {/* Tooltip */}
       <div
         ref={tooltipRef}
-        className="fixed z-50 w-80 p-5 bg-white dark:bg-gray-800 rounded-lg shadow-2xl animate-fade-in"
+        className="fixed z-50 w-80 p-5 bg-white dark:bg-neutral-800 rounded-lg shadow-2xl animate-fade-in"
         style={coords}
       >
         <div className="mb-3">
@@ -388,15 +388,15 @@ export function OnboardingTooltip({
               Passo {step} de {totalSteps}
             </span>
             {onSkip && (
-              <button onClick={onSkip} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              <button onClick={onSkip} className="text-xs text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">
                 Pular tour
               </button>
             )}
           </div>
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h4>
+          <h4 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</h4>
         </div>
 
-        <div className="text-sm text-gray-700 dark:text-gray-300 mb-4">{content}</div>
+        <div className="text-sm text-neutral-700 dark:text-neutral-300 mb-4">{content}</div>
 
         <div className="flex items-center justify-between">
           <div className="flex gap-1">
@@ -405,7 +405,7 @@ export function OnboardingTooltip({
                 key={i}
                 className={cn(
                   'h-1.5 w-8 rounded-full transition-colors',
-                  i + 1 === step ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+                  i + 1 === step ? 'bg-blue-600' : 'bg-neutral-200 dark:bg-neutral-700'
                 )}
               />
             ))}
@@ -415,7 +415,7 @@ export function OnboardingTooltip({
             {step > 1 && onPrev && (
               <button
                 onClick={onPrev}
-                className="px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                className="px-3 py-1.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded transition-colors"
               >
                 Anterior
               </button>

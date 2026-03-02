@@ -131,7 +131,7 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
               'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current',
               'transition-colors flex items-center justify-center'
             )}
-            aria-label="Remove"
+            aria-label="Remover"
           >
             <XMarkIcon className="h-4 w-4" />
           </button>

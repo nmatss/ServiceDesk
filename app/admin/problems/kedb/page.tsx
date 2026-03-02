@@ -109,7 +109,7 @@ export default function KEDBPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch known errors')
+        throw new Error('Erro ao buscar erros conhecidos')
       }
 
       const data = await response.json()
@@ -117,11 +117,11 @@ export default function KEDBPage() {
       if (data.success && data.data) {
         setErrors(data.data.data || [])
       } else {
-        throw new Error(data.error || 'Unknown error')
+        throw new Error(data.error || 'Erro desconhecido')
       }
     } catch (error) {
-      console.error('Error fetching known errors:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load known errors')
+      // Error handled via setError state
+      setError(error instanceof Error ? error.message : 'Erro ao carregar erros conhecidos')
       setErrors([])
     } finally {
       setLoading(false)

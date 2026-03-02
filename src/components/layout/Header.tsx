@@ -76,7 +76,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
         className="sticky top-0 z-40 glass border-b border-neutral-200 dark:border-white/10 safe-top"
         role="banner"
       >
-        <div className="flex items-center justify-between h-14 sm:h-16 px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 px-4 sm:px-6 lg:px-8">
           {/* Left section */}
           <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Mobile sidebar toggle */}
@@ -155,7 +155,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </span>
                 </div>
-                <span className="hidden md:block text-sm font-medium text-neutral-700 dark:text-neutral-300 max-w-[120px] truncate">
+                <span className="hidden md:block text-sm font-medium text-neutral-700 dark:text-neutral-300 max-w-[120px] lg:max-w-[160px] truncate">
                   {user?.name || 'Usuário'}
                 </span>
               </button>
@@ -164,23 +164,27 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
               {showUserMenu && (
                 <div
                   id="user-menu-dropdown"
-                  className="absolute right-0 mt-2 w-64 sm:w-72 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-large z-50"
+                  className="absolute right-0 mt-2 w-64 sm:w-72 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl z-50"
                   role="menu"
                   aria-label="Menu do usuário"
                   onKeyDown={handleUserMenuKeyDown}
                 >
                   <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                       {user?.name}
                     </p>
-                    <p className="text-xs text-description">
+                    <p className="text-xs text-description truncate">
                       {user?.email}
                     </p>
-                    <span className={`inline-flex mt-2 badge ${user?.role === 'admin' ? 'badge-error' :
-                        user?.role === 'agent' ? 'badge-warning' :
+                    <span className={`inline-flex mt-2 badge ${
+                      user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'tenant_admin' ? 'badge-error' :
+                        user?.role === 'agent' || user?.role === 'team_manager' ? 'badge-warning' :
                           'badge-neutral'
                       }`}>
-                      {user?.role === 'admin' ? 'Administrador' :
+                      {user?.role === 'super_admin' ? 'Super Admin' :
+                        user?.role === 'admin' ? 'Administrador' :
+                        user?.role === 'tenant_admin' ? 'Admin Tenant' :
+                        user?.role === 'team_manager' ? 'Gerente de Equipe' :
                         user?.role === 'agent' ? 'Agente' :
                           'Usuário'}
                     </span>
@@ -217,7 +221,7 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
 
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-3 text-sm min-h-touch text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors"
+                      className="flex items-center w-full px-4 py-3 text-sm min-h-touch text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       role="menuitem"
                       aria-label="Sair da conta"
                     >
@@ -239,8 +243,12 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
           role="dialog"
           aria-modal="true"
           aria-label="Busca móvel"
+          onClick={() => setShowSearch(false)}
         >
-          <div className="bg-white dark:bg-neutral-900 p-4">
+          <div
+            className="bg-white dark:bg-neutral-900 p-4 safe-top"
+            onClick={(e) => e.stopPropagation()}
+          >
             <GlobalSearchWithAutocomplete
               placeholder="Buscar tickets, artigos, usuários..."
               isMobile={true}

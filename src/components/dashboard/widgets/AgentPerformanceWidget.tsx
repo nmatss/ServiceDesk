@@ -53,7 +53,7 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
       case 'overloaded': return 'text-red-600 bg-red-100 dark:bg-red-900/20';
       case 'optimal': return 'text-green-600 bg-green-100 dark:bg-green-900/20';
       case 'underutilized': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20';
-      default: return 'text-gray-600 bg-gray-100 dark:bg-gray-900/20';
+      default: return 'text-neutral-600 bg-neutral-100 dark:bg-neutral-900/20';
     }
   };
 
@@ -66,7 +66,7 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
 
   return (
     <div className={`
-      bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4
+      bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4
       ${isTopPerformer ? 'ring-2 ring-yellow-400 dark:ring-yellow-500' : ''}
       transition-all duration-200 hover:shadow-md
     `}>
@@ -74,7 +74,7 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
         <div className="flex items-center space-x-3">
           <div className={`
             w-10 h-10 rounded-full flex items-center justify-center
-            ${isTopPerformer ? 'bg-yellow-100 dark:bg-yellow-900/20' : 'bg-gray-100 dark:bg-gray-700'}
+            ${isTopPerformer ? 'bg-yellow-100 dark:bg-yellow-900/20' : 'bg-neutral-100 dark:bg-neutral-700'}
           `}>
             {isTopPerformer ? (
               <TrophyIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
@@ -84,14 +84,14 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h4 className="font-semibold text-gray-900 dark:text-white">
+              <h4 className="font-semibold text-neutral-900 dark:text-white">
                 {agent.name}
               </h4>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-neutral-500 dark:text-neutral-400">
                 #{rank}
               </span>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-32">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate max-w-32">
               {agent.email}
             </p>
           </div>
@@ -104,23 +104,23 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
 
       <div className="grid grid-cols-2 gap-4 mb-3">
         <div className="text-center">
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="text-lg font-bold text-neutral-900 dark:text-white">
             {agent.assigned_tickets}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Assigned</div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400">Assigned</div>
         </div>
         <div className="text-center">
-          <div className="text-lg font-bold text-gray-900 dark:text-white">
+          <div className="text-lg font-bold text-neutral-900 dark:text-white">
             {agent.resolved_tickets}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Resolved</div>
+          <div className="text-xs text-neutral-500 dark:text-neutral-400">Resolved</div>
         </div>
       </div>
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <span className="text-sm text-description">Resolution Rate</span>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <span className="text-sm font-medium text-neutral-900 dark:text-white">
             {agent.resolution_rate.toFixed(1)}%
           </span>
         </div>
@@ -134,7 +134,7 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
 
         <div className="flex justify-between items-center">
           <span className="text-sm text-description">Avg Response</span>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <span className="text-sm font-medium text-neutral-900 dark:text-white">
             {agent.avg_response_time.toFixed(0)}m
           </span>
         </div>
@@ -143,10 +143,10 @@ function AgentCard({ agent, rank, isTopPerformer }: AgentCardProps) {
           <span className="text-sm text-description">Satisfaction</span>
           <div className="flex items-center space-x-1">
             <StarIcon className="w-4 h-4 text-yellow-500" />
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-sm font-medium text-neutral-900 dark:text-white">
               {(agent.avg_satisfaction || 0).toFixed(1)}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">
               ({agent.satisfaction_responses})
             </span>
           </div>
@@ -251,7 +251,7 @@ export function AgentPerformanceWidget({
                 if (active && payload && payload.length) {
                   const data = payload[0].payload;
                   return (
-                    <div className="bg-gray-800 text-white p-3 rounded-lg shadow-lg">
+                    <div className="bg-neutral-800 text-white p-3 rounded-lg shadow-lg">
                       <p className="font-medium">{data.name}</p>
                       <p>Resolution Rate: {data.resolution_rate.toFixed(1)}%</p>
                       <p>Response Time: {data.avg_response_time.toFixed(0)}m</p>
@@ -292,7 +292,7 @@ export function AgentPerformanceWidget({
           </RadarChart>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <p className="text-gray-500 dark:text-gray-400">
+            <p className="text-neutral-500 dark:text-neutral-400">
               Select an agent to view radar chart
             </p>
           </div>
@@ -332,14 +332,14 @@ export function AgentPerformanceWidget({
   }, [sortedData]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
             Agent Performance
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
             Team productivity and efficiency metrics
           </p>
         </div>
@@ -348,7 +348,7 @@ export function AgentPerformanceWidget({
           <select
             value={config.period}
             onChange={(e) => onUpdate({ period: e.target.value })}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
             <option value="week">Last Week</option>
             <option value="month">Last Month</option>
@@ -358,7 +358,7 @@ export function AgentPerformanceWidget({
           <select
             value={config.viewType}
             onChange={(e) => onUpdate({ viewType: e.target.value })}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
             <option value="bar">Bar Chart</option>
             <option value="scatter">Scatter Plot</option>
@@ -369,7 +369,7 @@ export function AgentPerformanceWidget({
           <select
             value={config.sortBy}
             onChange={(e) => onUpdate({ sortBy: e.target.value })}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
             <option value="resolution_rate">Resolution Rate</option>
             <option value="efficiency_score">Efficiency</option>
@@ -382,58 +382,58 @@ export function AgentPerformanceWidget({
       {config.viewType === 'table' ? (
         /* Table View */
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+          <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
+            <thead className="bg-neutral-50 dark:bg-neutral-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">
                   Agent
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">
                   Tickets
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">
                   Resolution Rate
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">
                   Avg Response
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">
                   Satisfaction
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-300 uppercase tracking-wider">
                   Status
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
               {sortedData.map((agent, _index) => (
-                <tr key={agent.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <tr key={agent.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-medium text-neutral-900 dark:text-white">
                         {agent.name}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-neutral-900 dark:text-white">
                       {agent.resolved_tickets}/{agent.assigned_tickets}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-neutral-900 dark:text-white">
                       {agent.resolution_rate.toFixed(1)}%
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
+                    <div className="text-sm text-neutral-900 dark:text-white">
                       {agent.avg_response_time.toFixed(0)}m
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <StarIcon className="w-4 h-4 text-yellow-500 mr-1" />
-                      <span className="text-sm text-gray-900 dark:text-white">
+                      <span className="text-sm text-neutral-900 dark:text-white">
                         {(agent.avg_satisfaction || 0).toFixed(1)}
                       </span>
                     </div>
@@ -463,8 +463,8 @@ export function AgentPerformanceWidget({
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <ChartBarIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+                  <p className="text-neutral-500 dark:text-neutral-400">
                     {isConnected ? 'Loading agent data...' : 'No data available'}
                   </p>
                 </div>
@@ -474,7 +474,7 @@ export function AgentPerformanceWidget({
 
           {/* Top Performers Cards */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
+            <h4 className="text-sm font-medium text-neutral-900 dark:text-white mb-4">
               Top Performers
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

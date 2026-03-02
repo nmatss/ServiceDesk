@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { WorkflowDefinition } from '@/lib/types/workflow';
 import toast from 'react-hot-toast';
+import { logger } from '@/lib/monitoring/logger';
 
 // Lazy load heavy components to reduce initial bundle size
 const WorkflowBuilder = dynamic(
@@ -64,8 +65,8 @@ function WorkflowBuilderContent() {
         setWorkflow(data.workflow);
       }
     } catch (error) {
-      console.error('Error loading workflow:', error);
-      toast.error('Failed to load workflow');
+      logger.error('Erro ao carregar workflow', error);
+      toast.error('Falha ao carregar workflow');
     } finally {
       setLoading(false);
     }
@@ -90,20 +91,19 @@ function WorkflowBuilderContent() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('Workflow saved successfully');
+        toast.success('Workflow salvo com sucesso');
         if (data.workflow) {
           setWorkflow(data.workflow);
-          // Update URL if this was a new workflow
           if (!workflow?.id && data.workflow.id) {
             router.push(`/workflows/builder?id=${data.workflow.id}`);
           }
         }
       } else {
-        toast.error(data.error || 'Failed to save workflow');
+        toast.error(data.error || 'Falha ao salvar workflow');
       }
     } catch (error) {
-      console.error('Error saving workflow:', error);
-      toast.error('Failed to save workflow');
+      logger.error('Erro ao salvar workflow', error);
+      toast.error('Falha ao salvar workflow');
     }
   };
 
@@ -115,7 +115,7 @@ function WorkflowBuilderContent() {
   const handleDeploy = async (workflowToDeploy: WorkflowDefinition) => {
     try {
       if (!workflowToDeploy.id) {
-        toast.error('Please save the workflow first');
+        toast.error('Salve o workflow antes de publicar');
         return;
       }
 
@@ -131,15 +131,15 @@ function WorkflowBuilderContent() {
       });
 
       if (response.ok) {
-        toast.success('Workflow deployed successfully');
+        toast.success('Workflow publicado com sucesso');
         setWorkflow({ ...workflowToDeploy, isActive: true });
       } else {
         const data = await response.json();
-        toast.error(data.error || 'Failed to deploy workflow');
+        toast.error(data.error || 'Falha ao publicar workflow');
       }
     } catch (error) {
-      console.error('Error deploying workflow:', error);
-      toast.error('Failed to deploy workflow');
+      logger.error('Erro ao publicar workflow', error);
+      toast.error('Falha ao publicar workflow');
     }
   };
 

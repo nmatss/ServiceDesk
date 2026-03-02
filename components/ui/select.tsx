@@ -32,7 +32,7 @@ const selectVariants = cva(
       size: {
         xs: 'h-7 px-2 py-1 text-xs',
         sm: 'h-8 px-3 py-1.5 text-sm',
-        md: 'h-10 px-3 py-2 text-base',
+        md: 'h-11 px-3 py-2 text-base sm:text-sm',
         lg: 'h-12 px-4 py-3 text-lg',
         xl: 'h-14 px-6 py-4 text-xl',
       },
@@ -86,7 +86,7 @@ const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
       value,
       onValueChange,
       options,
-      placeholder = 'Select an option...',
+      placeholder = 'Selecione uma opção...',
       disabled = false,
       label,
       description,
@@ -257,7 +257,7 @@ const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>(
       values = [],
       onValuesChange,
       options,
-      placeholder = 'Select options...',
+      placeholder = 'Selecione opções...',
       maxSelections,
       ...props
     },
@@ -276,7 +276,7 @@ const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>(
         ? placeholder
         : selectedOptions.length === 1
         ? selectedOptions[0].label
-        : `${selectedOptions.length} selected`;
+        : `${selectedOptions.length} selecionados`;
 
     return (
       <Select

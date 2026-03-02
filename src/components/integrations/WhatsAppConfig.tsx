@@ -196,7 +196,7 @@ export function WhatsAppConfig() {
       case 'REJECTED':
         return 'text-red-600 bg-red-100';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-neutral-600 bg-neutral-100';
     }
   };
 
@@ -205,7 +205,7 @@ export function WhatsAppConfig() {
       TRANSACTIONAL: 'bg-blue-100 text-blue-800',
       MARKETING: 'bg-purple-100 text-purple-800',
       AUTHENTICATION: 'bg-green-100 text-green-800',
-      UTILITY: 'bg-gray-100 text-gray-800',
+      UTILITY: 'bg-neutral-100 text-neutral-800',
     };
 
     return colors[category] || colors.UTILITY;
@@ -216,8 +216,8 @@ export function WhatsAppConfig() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Integração WhatsApp Business</h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <h2 className="text-2xl font-bold text-neutral-900">Integração WhatsApp Business</h2>
+          <p className="mt-1 text-sm text-neutral-600">
             Configure a integração com WhatsApp Business API para receber e enviar mensagens
           </p>
         </div>
@@ -233,7 +233,7 @@ export function WhatsAppConfig() {
                 : 'bg-red-500'
             }`}
           />
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-neutral-700">
             {connectionStatus === 'connected'
               ? 'Conectado'
               : connectionStatus === 'testing'
@@ -250,7 +250,7 @@ export function WhatsAppConfig() {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -261,8 +261,8 @@ export function WhatsAppConfig() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total de Mensagens</dt>
-                    <dd className="text-lg font-semibold text-gray-900">{stats.totalMessages.toLocaleString()}</dd>
+                    <dt className="text-sm font-medium text-neutral-500 truncate">Total de Mensagens</dt>
+                    <dd className="text-lg font-semibold text-neutral-900">{stats.totalMessages.toLocaleString()}</dd>
                   </dl>
                 </div>
               </div>
@@ -273,7 +273,7 @@ export function WhatsAppConfig() {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -284,8 +284,8 @@ export function WhatsAppConfig() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Contatos Únicos</dt>
-                    <dd className="text-lg font-semibold text-gray-900">{stats.uniqueContacts.toLocaleString()}</dd>
+                    <dt className="text-sm font-medium text-neutral-500 truncate">Contatos Únicos</dt>
+                    <dd className="text-lg font-semibold text-neutral-900">{stats.uniqueContacts.toLocaleString()}</dd>
                   </dl>
                 </div>
               </div>
@@ -296,7 +296,7 @@ export function WhatsAppConfig() {
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-6 w-6 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -307,8 +307,8 @@ export function WhatsAppConfig() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Chamados Criados</dt>
-                    <dd className="text-lg font-semibold text-gray-900">{stats.ticketsCreated.toLocaleString()}</dd>
+                    <dt className="text-sm font-medium text-neutral-500 truncate">Chamados Criados</dt>
+                    <dd className="text-lg font-semibold text-neutral-900">{stats.ticketsCreated.toLocaleString()}</dd>
                   </dl>
                 </div>
               </div>
@@ -320,11 +320,11 @@ export function WhatsAppConfig() {
       {/* Configuration Form */}
       <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900 mb-4">Configuração da API</h3>
+          <h3 className="text-lg font-medium leading-6 text-neutral-900 mb-4">Configuração da API</h3>
 
           <div className="grid grid-cols-1 gap-6">
             <div>
-              <label htmlFor="phoneNumberId" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="phoneNumberId" className="block text-sm font-medium text-neutral-700">
                 Phone Number ID
               </label>
               <Input
@@ -335,11 +335,11 @@ export function WhatsAppConfig() {
                 placeholder="123456789012345"
                 className="mt-1"
               />
-              <p className="mt-1 text-sm text-gray-500">ID do número de telefone no WhatsApp Business Manager</p>
+              <p className="mt-1 text-sm text-neutral-500">ID do número de telefone no WhatsApp Business Manager</p>
             </div>
 
             <div>
-              <label htmlFor="businessAccountId" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="businessAccountId" className="block text-sm font-medium text-neutral-700">
                 Business Account ID
               </label>
               <Input
@@ -350,11 +350,11 @@ export function WhatsAppConfig() {
                 placeholder="123456789012345"
                 className="mt-1"
               />
-              <p className="mt-1 text-sm text-gray-500">ID da conta de negócios no WhatsApp Business Manager</p>
+              <p className="mt-1 text-sm text-neutral-500">ID da conta de negócios no WhatsApp Business Manager</p>
             </div>
 
             <div>
-              <label htmlFor="accessToken" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="accessToken" className="block text-sm font-medium text-neutral-700">
                 Access Token
               </label>
               <Input
@@ -365,11 +365,11 @@ export function WhatsAppConfig() {
                 placeholder="EAAxxxxxxxxxx"
                 className="mt-1"
               />
-              <p className="mt-1 text-sm text-gray-500">Token de acesso permanente da WhatsApp Cloud API</p>
+              <p className="mt-1 text-sm text-neutral-500">Token de acesso permanente da WhatsApp Cloud API</p>
             </div>
 
             <div>
-              <label htmlFor="webhookVerifyToken" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="webhookVerifyToken" className="block text-sm font-medium text-neutral-700">
                 Webhook Verify Token
               </label>
               <Input
@@ -380,11 +380,11 @@ export function WhatsAppConfig() {
                 placeholder="my_secure_token_123"
                 className="mt-1"
               />
-              <p className="mt-1 text-sm text-gray-500">Token para verificação do webhook (você define este valor)</p>
+              <p className="mt-1 text-sm text-neutral-500">Token para verificação do webhook (você define este valor)</p>
             </div>
 
             <div>
-              <label htmlFor="apiVersion" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="apiVersion" className="block text-sm font-medium text-neutral-700">
                 API Version
               </label>
               <Input
@@ -395,7 +395,7 @@ export function WhatsAppConfig() {
                 placeholder="v18.0"
                 className="mt-1"
               />
-              <p className="mt-1 text-sm text-gray-500">Versão da API do WhatsApp Business (padrão: v18.0)</p>
+              <p className="mt-1 text-sm text-neutral-500">Versão da API do WhatsApp Business (padrão: v18.0)</p>
             </div>
           </div>
 
@@ -435,50 +435,50 @@ export function WhatsAppConfig() {
       <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium leading-6 text-gray-900">Message Templates</h3>
+            <h3 className="text-lg font-medium leading-6 text-neutral-900">Message Templates</h3>
             <Button onClick={handleRegisterPredefinedTemplates} variant="secondary" size="sm">
               Registrar Templates Padrão
             </Button>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-neutral-200">
+              <thead className="bg-neutral-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Nome
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Categoria
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Idioma
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-neutral-200">
                 {templates.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-neutral-500">
                       Nenhum template cadastrado. Clique em "Registrar Templates Padrão" para começar.
                     </td>
                   </tr>
                 ) : (
                   templates.map((template) => (
                     <tr key={template.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
                         {template.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getCategoryBadge(template.category)}`}>
                           {template.category}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{template.language}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">{template.language}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(template.status)}`}>
                           {template.status}
                         </span>

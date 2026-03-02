@@ -136,7 +136,7 @@ export default function SLAComplianceHeatmap({
 
   const getCellColor = (cellData: SLAHeatmapData | null): string => {
     if (!cellData || cellData.total_tickets === 0) {
-      return '#f3f4f6'; // gray-100
+      return '#f3f4f6'; // neutral-100
     }
 
     return COLOR_SCALES[selectedColorScale](cellData.compliance_rate);
@@ -163,7 +163,7 @@ export default function SLAComplianceHeatmap({
     }
 
     return (
-      <div className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-sm pointer-events-none"
+      <div className="absolute z-50 bg-white border border-neutral-200 rounded-lg shadow-lg p-4 text-sm pointer-events-none"
         style={{
           top: '50%',
           left: '50%',
@@ -171,28 +171,28 @@ export default function SLAComplianceHeatmap({
           minWidth: '200px',
         }}
       >
-        <div className="font-semibold text-gray-900 mb-2">
+        <div className="font-semibold text-neutral-900 mb-2">
           {DAYS[day]} at {formatHour(hour)}
         </div>
         <div className="space-y-1">
           <div className="flex justify-between">
-            <span className="text-gray-600">Compliance:</span>
-            <span className="font-medium text-gray-900">
+            <span className="text-neutral-600">Compliance:</span>
+            <span className="font-medium text-neutral-900">
               {cellData.compliance_rate.toFixed(1)}%
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Total Tickets:</span>
-            <span className="font-medium text-gray-900">{cellData.total_tickets}</span>
+            <span className="text-neutral-600">Total Tickets:</span>
+            <span className="font-medium text-neutral-900">{cellData.total_tickets}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Violated:</span>
+            <span className="text-neutral-600">Violated:</span>
             <span className="font-medium text-red-600">{cellData.violated_tickets}</span>
           </div>
           {cellData.avg_response_time !== undefined && (
             <div className="flex justify-between">
-              <span className="text-gray-600">Avg Response:</span>
-              <span className="font-medium text-gray-900">
+              <span className="text-neutral-600">Avg Response:</span>
+              <span className="font-medium text-neutral-900">
                 {cellData.avg_response_time.toFixed(1)}m
               </span>
             </div>
@@ -211,7 +211,7 @@ export default function SLAComplianceHeatmap({
 
     return (
       <div className="flex items-center gap-4">
-        <span className="text-sm font-medium text-gray-700">Compliance Rate:</span>
+        <span className="text-sm font-medium text-neutral-700">Compliance Rate:</span>
         <div className="flex items-center gap-2">
           {legendValues.map((value, index) => (
             <div key={value} className="flex items-center gap-1">
@@ -219,7 +219,7 @@ export default function SLAComplianceHeatmap({
                 className="w-8 h-4 rounded"
                 style={{ backgroundColor: COLOR_SCALES[selectedColorScale](value) }}
               />
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-neutral-600">
                 {value}%{index < legendValues.length - 1 && ' -'}
               </span>
             </div>
@@ -237,12 +237,12 @@ export default function SLAComplianceHeatmap({
   const cellGap = 2;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">SLA Compliance Heatmap</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="text-lg font-semibold text-neutral-900">SLA Compliance Heatmap</h3>
+          <p className="text-sm text-neutral-500 mt-1">
             By hour of day and day of week
           </p>
         </div>
@@ -252,7 +252,7 @@ export default function SLAComplianceHeatmap({
           <select
             value={selectedColorScale}
             onChange={(e) => setSelectedColorScale(e.target.value as ColorScale)}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="default">Default</option>
             <option value="red-green">Red-Green</option>
@@ -264,33 +264,33 @@ export default function SLAComplianceHeatmap({
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Overall Compliance</p>
-          <p className="text-xl font-semibold text-gray-900">
+        <div className="bg-neutral-50 rounded-lg p-3">
+          <p className="text-xs text-neutral-500">Overall Compliance</p>
+          <p className="text-xl font-semibold text-neutral-900">
             {(statistics.overallCompliance ?? 0).toFixed(1)}%
           </p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Average</p>
+        <div className="bg-neutral-50 rounded-lg p-3">
+          <p className="text-xs text-neutral-500">Average</p>
           <p className="text-xl font-semibold text-blue-600">
             {statistics.avgCompliance.toFixed(1)}%
           </p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Best Hour</p>
+        <div className="bg-neutral-50 rounded-lg p-3">
+          <p className="text-xs text-neutral-500">Best Hour</p>
           <p className="text-xl font-semibold text-green-600">
             {statistics.maxCompliance.toFixed(1)}%
           </p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Worst Hour</p>
+        <div className="bg-neutral-50 rounded-lg p-3">
+          <p className="text-xs text-neutral-500">Worst Hour</p>
           <p className="text-xl font-semibold text-red-600">
             {statistics.minCompliance.toFixed(1)}%
           </p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Total Tickets</p>
-          <p className="text-xl font-semibold text-gray-900">
+        <div className="bg-neutral-50 rounded-lg p-3">
+          <p className="text-xs text-neutral-500">Total Tickets</p>
+          <p className="text-xl font-semibold text-neutral-900">
             {statistics.totalTickets.toLocaleString()}
           </p>
         </div>
@@ -307,7 +307,7 @@ export default function SLAComplianceHeatmap({
             {HOURS.map(hour => (
               <div
                 key={hour}
-                className="flex items-center justify-center text-xs text-gray-600 font-medium"
+                className="flex items-center justify-center text-xs text-neutral-600 font-medium"
                 style={{
                   width: cellSize,
                   marginRight: cellGap,
@@ -322,7 +322,7 @@ export default function SLAComplianceHeatmap({
           {DAYS.map((day, dayIndex) => (
             <div key={day} className="flex items-center mb-0.5">
               {/* Day Label */}
-              <div className="w-14 text-sm font-medium text-gray-700 text-right pr-2">
+              <div className="w-14 text-sm font-medium text-neutral-700 text-right pr-2">
                 {day}
               </div>
 
@@ -376,7 +376,7 @@ export default function SLAComplianceHeatmap({
             {HOURS.map(hour => (
               <div
                 key={hour}
-                className="flex items-center justify-center text-xs text-gray-600"
+                className="flex items-center justify-center text-xs text-neutral-600"
                 style={{
                   width: cellSize,
                   marginRight: cellGap,
@@ -390,9 +390,9 @@ export default function SLAComplianceHeatmap({
       </div>
 
       {/* Insights */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <h4 className="text-sm font-semibold text-gray-900 mb-3">Key Insights</h4>
-        <ul className="space-y-2 text-sm text-gray-600">
+      <div className="mt-6 pt-6 border-t border-neutral-200">
+        <h4 className="text-sm font-semibold text-neutral-900 mb-3">Key Insights</h4>
+        <ul className="space-y-2 text-sm text-neutral-600">
           {statistics.avgCompliance >= 95 && (
             <li className="flex items-start gap-2">
               <span className="text-green-500 mt-0.5">✓</span>

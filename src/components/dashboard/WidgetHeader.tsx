@@ -41,19 +41,19 @@ export function WidgetHeader({
   actions = []
 }: WidgetHeaderProps) {
   return (
-    <div className={`flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 ${isDraggable ? 'widget-drag-handle cursor-move' : ''}`}>
+    <div className={`flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 ${isDraggable ? 'widget-drag-handle cursor-move' : ''}`}>
       <div className="flex items-center space-x-3 flex-1 min-w-0">
         {icon && (
-          <div className="flex-shrink-0 text-gray-500 dark:text-gray-400">
+          <div className="flex-shrink-0 text-neutral-500 dark:text-neutral-400">
             {icon}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
             {title}
           </h3>
           {subtitle && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
               {subtitle}
             </p>
           )}
@@ -68,12 +68,12 @@ export function WidgetHeader({
               e.stopPropagation();
               onRefresh();
             }}
-            className={`p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+            className={`p-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors ${
               isLoading ? 'animate-spin' : ''
             }`}
             title="Refresh"
           >
-            <ArrowPathIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <ArrowPathIcon className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
           </button>
         )}
 
@@ -83,21 +83,21 @@ export function WidgetHeader({
               e.stopPropagation();
               onExpand();
             }}
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
             title="Expand"
           >
-            <ArrowsPointingOutIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <ArrowsPointingOutIcon className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
           </button>
         )}
 
         {/* More Actions Menu */}
         {(onConfigure || onRemove || actions.length > 0) && (
           <Menu as="div" className="relative">
-            <MenuButton className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-              <EllipsisVerticalIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+            <MenuButton className="p-1.5 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors">
+              <EllipsisVerticalIcon className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
             </MenuButton>
 
-            <MenuItems className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+            <MenuItems className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-neutral-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
               <div className="py-1">
                 {onConfigure && (
                   <MenuItem>
@@ -108,8 +108,8 @@ export function WidgetHeader({
                           onConfigure();
                         }}
                         className={`${
-                          active ? 'bg-gray-100 dark:bg-gray-700' : ''
-                        } flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200`}
+                          active ? 'bg-neutral-100 dark:bg-neutral-700' : ''
+                        } flex items-center w-full px-4 py-2 text-sm text-neutral-700 dark:text-neutral-200`}
                       >
                         <Cog6ToothIcon className="w-4 h-4 mr-3" />
                         Configure
@@ -127,13 +127,13 @@ export function WidgetHeader({
                           action.onClick();
                         }}
                         className={`${
-                          active ? 'bg-gray-100 dark:bg-gray-700' : ''
+                          active ? 'bg-neutral-100 dark:bg-neutral-700' : ''
                         } flex items-center w-full px-4 py-2 text-sm ${
                           action.variant === 'danger'
                             ? 'text-red-600 dark:text-red-400'
                             : action.variant === 'primary'
                             ? 'text-blue-600 dark:text-blue-400'
-                            : 'text-gray-700 dark:text-gray-200'
+                            : 'text-neutral-700 dark:text-neutral-200'
                         }`}
                       >
                         {action.icon && <span className="w-4 h-4 mr-3">{action.icon}</span>}
@@ -145,7 +145,7 @@ export function WidgetHeader({
 
                 {onRemove && (
                   <>
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                    <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
                     <MenuItem>
                       {({ active }) => (
                         <button

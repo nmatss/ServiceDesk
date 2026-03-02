@@ -7,7 +7,6 @@ import PageHeader from '@/components/ui/PageHeader'
 import {
   ServerStackIcon,
   ArrowLeftIcon,
-  HomeIcon,
   CpuChipIcon,
   CircleStackIcon,
   GlobeAltIcon,
@@ -229,6 +228,7 @@ export default function NewCIPage() {
           <div className="flex items-center gap-4 mb-4">
             <button
               onClick={() => router.push('/admin/cmdb')}
+              aria-label="Voltar ao CMDB"
               className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
             >
               <ArrowLeftIcon className="w-5 h-5 text-description" />

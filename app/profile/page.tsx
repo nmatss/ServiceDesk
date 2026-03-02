@@ -365,17 +365,19 @@ export default function ProfilePage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} variant="pills">
-          <TabsList className="w-full justify-start glass-panel p-1">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
-              <UserIcon className="h-4 w-4" />
-              Informações Pessoais
+          <TabsList className="w-full justify-start glass-panel p-1 overflow-x-auto flex-nowrap">
+            <TabsTrigger value="profile" className="flex items-center gap-2 whitespace-nowrap text-sm">
+              <UserIcon className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Informações Pessoais</span>
+              <span className="sm:hidden">Perfil</span>
             </TabsTrigger>
-            <TabsTrigger value="password" className="flex items-center gap-2">
-              <KeyIcon className="h-4 w-4" />
-              Alterar Senha
+            <TabsTrigger value="password" className="flex items-center gap-2 whitespace-nowrap text-sm">
+              <KeyIcon className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Alterar Senha</span>
+              <span className="sm:hidden">Senha</span>
             </TabsTrigger>
-            <TabsTrigger value="preferences" className="flex items-center gap-2">
-              <BellIcon className="h-4 w-4" />
+            <TabsTrigger value="preferences" className="flex items-center gap-2 whitespace-nowrap text-sm">
+              <BellIcon className="h-4 w-4 flex-shrink-0" />
               Preferências
             </TabsTrigger>
           </TabsList>
@@ -583,9 +585,9 @@ export default function ProfilePage() {
 
               <div className="space-y-6">
                 {/* Email Notifications */}
-                <div className="flex items-center justify-between p-4 glass-panel hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <EnvelopeIcon className="h-6 w-6 text-brand-600 dark:text-brand-400 mt-0.5" />
+                <div className="flex items-center justify-between gap-4 p-4 glass-panel hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <EnvelopeIcon className="h-6 w-6 text-brand-600 dark:text-brand-400 mt-0.5 flex-shrink-0" />
                     <div>
                       <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
                         Notificações por Email
@@ -601,15 +603,16 @@ export default function ProfilePage() {
                       checked={preferences.emailNotifications}
                       onChange={(e) => handlePreferenceChange('emailNotifications', e.target.checked)}
                       className="sr-only peer"
+                      aria-label="Ativar notificações por email"
                     />
                     <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 dark:peer-focus:ring-brand-800 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-brand-600"></div>
                   </label>
                 </div>
 
                 {/* Push Notifications */}
-                <div className="flex items-center justify-between p-4 glass-panel hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <BellIcon className="h-6 w-6 text-brand-600 dark:text-brand-400 mt-0.5" />
+                <div className="flex items-center justify-between gap-4 p-4 glass-panel hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <BellIcon className="h-6 w-6 text-brand-600 dark:text-brand-400 mt-0.5 flex-shrink-0" />
                     <div>
                       <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
                         Notificações Push
@@ -625,15 +628,16 @@ export default function ProfilePage() {
                       checked={preferences.pushNotifications}
                       onChange={(e) => handlePreferenceChange('pushNotifications', e.target.checked)}
                       className="sr-only peer"
+                      aria-label="Ativar notificações push"
                     />
                     <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 dark:peer-focus:ring-brand-800 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-brand-600"></div>
                   </label>
                 </div>
 
                 {/* Weekly Reports */}
-                <div className="flex items-center justify-between p-4 glass-panel hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <ChartBarIcon className="h-6 w-6 text-brand-600 dark:text-brand-400 mt-0.5" />
+                <div className="flex items-center justify-between gap-4 p-4 glass-panel hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <ChartBarIcon className="h-6 w-6 text-brand-600 dark:text-brand-400 mt-0.5 flex-shrink-0" />
                     <div>
                       <h4 className="font-medium text-neutral-900 dark:text-neutral-100">
                         Relatórios Semanais
@@ -649,6 +653,7 @@ export default function ProfilePage() {
                       checked={preferences.weeklyReports}
                       onChange={(e) => handlePreferenceChange('weeklyReports', e.target.checked)}
                       className="sr-only peer"
+                      aria-label="Ativar relatórios semanais"
                     />
                     <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 dark:peer-focus:ring-brand-800 rounded-full peer dark:bg-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-neutral-600 peer-checked:bg-brand-600"></div>
                   </label>

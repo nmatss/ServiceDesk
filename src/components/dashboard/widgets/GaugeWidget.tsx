@@ -106,7 +106,7 @@ export function GaugeWidget({
                 fill="none"
                 stroke="#E5E7EB"
                 strokeWidth={strokeWidth}
-                className="dark:stroke-gray-700"
+                className="dark:stroke-neutral-700"
               />
 
               {/* Progress Circle */}
@@ -141,9 +141,9 @@ export function GaugeWidget({
 
             {/* Center Value */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-3xl font-bold text-gray-900 dark:text-white">
+              <div className="text-3xl font-bold text-neutral-900 dark:text-white">
                 {value.toFixed(0)}
-                <span className="text-lg text-gray-500 dark:text-gray-400 ml-1">
+                <span className="text-lg text-neutral-500 dark:text-neutral-400 ml-1">
                   {unit}
                 </span>
               </div>
@@ -159,18 +159,18 @@ export function GaugeWidget({
           <div className="mt-4 w-full">
             <div className="flex items-center justify-center space-x-4 text-xs">
               <div className="flex items-center space-x-1">
-                <span className="text-gray-500 dark:text-gray-400">Min:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{min}</span>
+                <span className="text-neutral-500 dark:text-neutral-400">Min:</span>
+                <span className="font-medium text-neutral-900 dark:text-white">{min}</span>
               </div>
               {target !== undefined && (
                 <div className="flex items-center space-x-1">
-                  <span className="text-gray-500 dark:text-gray-400">Target:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{target}</span>
+                  <span className="text-neutral-500 dark:text-neutral-400">Target:</span>
+                  <span className="font-medium text-neutral-900 dark:text-white">{target}</span>
                 </div>
               )}
               <div className="flex items-center space-x-1">
-                <span className="text-gray-500 dark:text-gray-400">Max:</span>
-                <span className="font-medium text-gray-900 dark:text-white">{max}</span>
+                <span className="text-neutral-500 dark:text-neutral-400">Max:</span>
+                <span className="font-medium text-neutral-900 dark:text-white">{max}</span>
               </div>
             </div>
 

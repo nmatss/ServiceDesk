@@ -42,7 +42,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
   const navItems: NavItem[] = [
     {
-      label: 'Home',
+      label: 'Início',
       href: '/dashboard',
       icon: <HomeIcon className="w-6 h-6" />,
       activeIcon: <HomeIconSolid className="w-6 h-6" />
@@ -54,20 +54,20 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       activeIcon: <TicketIconSolid className="w-6 h-6" />
     },
     {
-      label: 'Create',
+      label: 'Criar',
       href: '#',
       icon: <PlusCircleIcon className="w-6 h-6" />,
       activeIcon: <PlusCircleIconSolid className="w-6 h-6" />
     },
     {
-      label: 'Notifications',
+      label: 'Notificações',
       href: '/notifications',
       icon: <BellIcon className="w-6 h-6" />,
       activeIcon: <BellIconSolid className="w-6 h-6" />,
       badge: notificationCount
     },
     {
-      label: 'Profile',
+      label: 'Perfil',
       href: '/profile',
       icon: <UserCircleIcon className="w-6 h-6" />,
       activeIcon: <UserCircleIconSolid className="w-6 h-6" />
@@ -83,7 +83,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
     setLastTapTime(now)
 
     // Handle create button
-    if (item.label === 'Create') {
+    if (item.label === 'Criar') {
       e.preventDefault()
       onCreateClick?.()
 
@@ -111,7 +111,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-          const isCreateButton = item.label === 'Create'
+          const isCreateButton = item.label === 'Criar'
 
           return (
             <Link

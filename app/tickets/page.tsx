@@ -53,7 +53,8 @@ export default function TicketsPage() {
         <div className="flex items-center space-x-3">
           <Link
             href="/tickets/new"
-            className="btn btn-primary"
+            className="btn btn-primary min-h-[44px]"
+            aria-label="Criar novo ticket"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
             Novo Ticket

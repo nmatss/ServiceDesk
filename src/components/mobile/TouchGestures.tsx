@@ -353,7 +353,7 @@ export default function TouchGestures({
             opacity: Math.min(pullDistance / mergedConfig.pullToRefreshThreshold, 1),
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg">
+          <div className="bg-white dark:bg-neutral-800 rounded-full p-3 shadow-lg">
             {isRefreshing ? (
               <svg
                 className="animate-spin h-6 w-6 text-blue-600"

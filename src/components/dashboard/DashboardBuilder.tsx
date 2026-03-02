@@ -330,7 +330,7 @@ export function DashboardBuilder({
   const renderLayoutTab = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
           Dashboard Layout
         </h3>
         <div className="flex items-center space-x-2">
@@ -339,7 +339,7 @@ export function DashboardBuilder({
             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
               previewMode
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
             {previewMode ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
@@ -349,7 +349,7 @@ export function DashboardBuilder({
       </div>
 
       {/* Layout Grid */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 min-h-96">
+      <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4 min-h-96">
         <ResponsiveGridLayout
           className="layout"
           layouts={config.layouts}
@@ -365,16 +365,16 @@ export function DashboardBuilder({
           {config.widgets.map((widget: any) => (
             <div
               key={widget.id}
-              className={`bg-white dark:bg-gray-700 rounded border-2 transition-all ${
+              className={`bg-white dark:bg-neutral-700 rounded border-2 transition-all ${
                 selectedWidget === widget.id
                   ? 'border-blue-500'
-                  : 'border-gray-200 dark:border-gray-600'
+                  : 'border-neutral-200 dark:border-neutral-600'
               }`}
               onClick={() => setSelectedWidget(widget.id)}
             >
               <div className="p-3 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                     {widget.title}
                   </span>
                   {!previewMode && (
@@ -384,7 +384,7 @@ export function DashboardBuilder({
                           e.stopPropagation();
                           duplicateWidget(widget);
                         }}
-                        className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                        className="p-1 text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400"
                         title="Duplicate widget"
                       >
                         <DocumentDuplicateIcon className="w-3 h-3" />
@@ -394,7 +394,7 @@ export function DashboardBuilder({
                           e.stopPropagation();
                           removeWidget(widget.id);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                        className="p-1 text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
                         title="Remove widget"
                       >
                         <TrashIcon className="w-3 h-3" />
@@ -402,7 +402,7 @@ export function DashboardBuilder({
                     </div>
                   )}
                 </div>
-                <div className="flex-1 bg-gray-100 dark:bg-gray-600 rounded text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                <div className="flex-1 bg-neutral-100 dark:bg-neutral-600 rounded text-xs text-neutral-500 dark:text-neutral-400 flex items-center justify-center">
                   {widget.type}
                 </div>
               </div>
@@ -413,8 +413,8 @@ export function DashboardBuilder({
 
       {/* Widget Configuration Panel */}
       {selectedWidget && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4">
+          <h4 className="text-md font-medium text-neutral-900 dark:text-neutral-100 mb-3">
             Widget Configuration
           </h4>
           {(() => {
@@ -424,14 +424,14 @@ export function DashboardBuilder({
             return (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                     Title
                   </label>
                   <input
                     type="text"
                     value={widget.title}
                     onChange={(e) => updateWidgetConfig(selectedWidget, { title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                   />
                 </div>
 
@@ -448,7 +448,7 @@ export function DashboardBuilder({
                           })}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Show Trends</span>
+                        <span className="text-sm text-neutral-700 dark:text-neutral-300">Show Trends</span>
                       </label>
                       <label className="flex items-center">
                         <input
@@ -459,14 +459,14 @@ export function DashboardBuilder({
                           })}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Compact Mode</span>
+                        <span className="text-sm text-neutral-700 dark:text-neutral-300">Compact Mode</span>
                       </label>
                     </>
                   )}
 
                   {(widget.type === 'sla_performance' || widget.type === 'agent_performance') && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                         Period
                       </label>
                       <select
@@ -474,7 +474,7 @@ export function DashboardBuilder({
                         onChange={(e) => updateWidgetConfig(selectedWidget, {
                           config: { ...widget.config, period: e.target.value }
                         })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                       >
                         <option value="week">Week</option>
                         <option value="month">Month</option>
@@ -493,14 +493,14 @@ export function DashboardBuilder({
 
   const renderWidgetsTab = () => (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+      <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
         Widget Library
       </h3>
 
       {/* Widget Categories */}
       {['kpi', 'charts', 'tables', 'alerts', 'custom'].map(category => (
         <div key={category}>
-          <h4 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3 capitalize">
+          <h4 className="text-md font-medium text-neutral-700 dark:text-neutral-300 mb-3 capitalize">
             {category} Widgets
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -509,23 +509,23 @@ export function DashboardBuilder({
               .map(template => (
                 <div
                   key={template.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => addWidget(template)}
                 >
                   <div className="flex items-center space-x-3">
                     <span className="text-2xl">{template.icon}</span>
                     <div className="flex-1">
-                      <h5 className="text-sm font-medium text-gray-900 dark:text-white">
+                      <h5 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         {template.name}
                       </h5>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                         {template.description}
                       </p>
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                         {template.defaultSize.w}×{template.defaultSize.h} grid
                       </p>
                     </div>
-                    <PlusIcon className="w-5 h-5 text-gray-400" />
+                    <PlusIcon className="w-5 h-5 text-neutral-400" />
                   </div>
                 </div>
               ))}
@@ -537,19 +537,19 @@ export function DashboardBuilder({
 
   const renderSettingsTab = () => (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+      <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
         Dashboard Settings
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
             Theme
           </label>
           <select
             value={config.theme}
             onChange={(e) => onConfigChange({ ...config, theme: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
@@ -558,7 +558,7 @@ export function DashboardBuilder({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
             Refresh Interval (seconds)
           </label>
           <input
@@ -570,14 +570,14 @@ export function DashboardBuilder({
             })}
             min="5"
             max="300"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
           />
         </div>
       </div>
 
       {/* Auto Export Settings */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-        <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">
+      <div className="bg-neutral-50 dark:bg-neutral-800 rounded-lg p-4">
+        <h4 className="text-md font-medium text-neutral-900 dark:text-neutral-100 mb-3">
           Auto Export Settings
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -591,13 +591,13 @@ export function DashboardBuilder({
               })}
               className="mr-2"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Enable Auto Export</span>
+            <span className="text-sm text-neutral-700 dark:text-neutral-300">Enable Auto Export</span>
           </label>
 
           {config.autoExport?.enabled && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Format
                 </label>
                 <select
@@ -606,7 +606,7 @@ export function DashboardBuilder({
                     ...config,
                     autoExport: { ...config.autoExport, format: e.target.value }
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                 >
                   <option value="pdf">PDF</option>
                   <option value="excel">Excel</option>
@@ -614,7 +614,7 @@ export function DashboardBuilder({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Schedule
                 </label>
                 <select
@@ -623,7 +623,7 @@ export function DashboardBuilder({
                     ...config,
                     autoExport: { ...config.autoExport, schedule: e.target.value }
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -640,18 +640,18 @@ export function DashboardBuilder({
   const renderTemplatesTab = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
           Dashboard Templates
         </h3>
         <div className="flex items-center space-x-2">
           <button
             onClick={exportConfig}
-            className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600"
           >
             <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
             Export
           </button>
-          <label className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 cursor-pointer">
+          <label className="inline-flex items-center px-3 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 dark:bg-neutral-700 dark:text-neutral-200 dark:border-neutral-600 dark:hover:bg-neutral-600 cursor-pointer">
             <ArrowUpTrayIcon className="w-4 h-4 mr-2" />
             Import
             <input
@@ -665,8 +665,8 @@ export function DashboardBuilder({
       </div>
 
       {/* Save New Template */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4">
+        <h4 className="text-md font-medium text-neutral-900 dark:text-neutral-100 mb-3">
           Save Current Configuration
         </h4>
         <div className="flex items-center space-x-3">
@@ -675,7 +675,7 @@ export function DashboardBuilder({
             value={newTemplateName}
             onChange={(e) => setNewTemplateName(e.target.value)}
             placeholder="Template name..."
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="flex-1 px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md text-sm bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
           />
           <button
             onClick={saveTemplate}
@@ -689,24 +689,24 @@ export function DashboardBuilder({
 
       {/* Saved Templates */}
       <div>
-        <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">
+        <h4 className="text-md font-medium text-neutral-900 dark:text-neutral-100 mb-3">
           Saved Templates
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {savedTemplates.map((template, index) => (
             <div
               key={index}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+              className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-4"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">
+                  <h5 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                     {template.name}
                   </h5>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                     Created: {new Date(template.createdAt).toLocaleDateString()}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     {template.config.widgets?.length || 0} widgets
                   </p>
                 </div>
@@ -755,21 +755,21 @@ export function DashboardBuilder({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="w-full max-w-7xl transform overflow-hidden rounded-2xl bg-white dark:bg-gray-900 p-6 text-left align-middle shadow-xl transition-all">
+              <DialogPanel className="w-full max-w-7xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex items-center justify-between mb-6">
-                  <DialogTitle className="text-lg font-medium text-gray-900 dark:text-white">
+                  <DialogTitle className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
                     Dashboard Builder
                   </DialogTitle>
                   <button
                     onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                   >
                     <XMarkIcon className="w-6 h-6" />
                   </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+                <div className="border-b border-neutral-200 dark:border-neutral-700 mb-6">
                   <nav className="-mb-px flex space-x-8">
                     {tabs.map((tab) => {
                       const Icon = tab.icon;
@@ -780,7 +780,7 @@ export function DashboardBuilder({
                           className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
                             activeTab === tab.id
                               ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                              : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
                           }`}
                         >
                           <Icon className="w-4 h-4 mr-2" />
@@ -803,7 +803,7 @@ export function DashboardBuilder({
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
                     onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                    className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-200 rounded-md hover:bg-neutral-300 dark:bg-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-500"
                   >
                     Cancel
                   </button>

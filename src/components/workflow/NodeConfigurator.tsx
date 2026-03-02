@@ -79,37 +79,37 @@ export const NodeConfigurator: React.FC<NodeConfiguratorProps> = ({
       {/* Basic Info */}
       <div className="p-4 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Node Name
           </label>
           <input
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Enter node name..."
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Description
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Enter description..."
           />
         </div>
       </div>
 
-      <div className="border-t border-gray-200"></div>
+      <div className="border-t border-neutral-200"></div>
 
       {/* Node-specific configuration */}
       <div className="p-4">
-        <h4 className="text-sm font-semibold text-gray-900 mb-4">Configuration</h4>
+        <h4 className="text-sm font-semibold text-neutral-900 mb-4">Configuration</h4>
         {renderConfigForm()}
       </div>
     </div>
@@ -124,13 +124,13 @@ const ActionNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Action Type
         </label>
         <select
           value={config.actionType || 'assign'}
           onChange={(e) => onUpdate('actionType', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500"
         >
           <option value="assign">Assign Ticket</option>
           <option value="update_status">Update Status</option>
@@ -148,14 +148,14 @@ const ActionNodeConfigurator: React.FC<{
 
       {config.actionType === 'assign' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Assign To (User ID or Expression)
           </label>
           <input
             type="text"
             value={config.parameters?.assignee || ''}
             onChange={(e) => onUpdate('parameters', { ...config.parameters, assignee: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
             placeholder="e.g., 123 or ${variables.assignedTo}"
           />
         </div>
@@ -163,13 +163,13 @@ const ActionNodeConfigurator: React.FC<{
 
       {config.actionType === 'update_status' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             New Status
           </label>
           <select
             value={config.parameters?.status || ''}
             onChange={(e) => onUpdate('parameters', { ...config.parameters, status: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
           >
             <option value="">Select status...</option>
             <option value="open">Open</option>
@@ -183,14 +183,14 @@ const ActionNodeConfigurator: React.FC<{
 
       {config.actionType === 'add_comment' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Comment Text
           </label>
           <textarea
             value={config.parameters?.comment || ''}
             onChange={(e) => onUpdate('parameters', { ...config.parameters, comment: e.target.value })}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
             placeholder="Enter comment text... Use ${variable} for variables"
           />
         </div>
@@ -229,13 +229,13 @@ const ApprovalNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Approval Type
         </label>
         <select
           value={config.approvalType || 'single'}
           onChange={(e) => onUpdate('approvalType', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="single">Single Approver (any one)</option>
           <option value="multiple">Multiple Approvers (sequential)</option>
@@ -245,7 +245,7 @@ const ApprovalNodeConfigurator: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-neutral-700 mb-2">
           Approvers
         </label>
         <div className="space-y-2">
@@ -254,7 +254,7 @@ const ApprovalNodeConfigurator: React.FC<{
               <select
                 value={approver.type}
                 onChange={(e) => updateApprover(index, 'type', e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded text-sm"
+                className="px-2 py-1 border border-neutral-300 rounded text-sm"
               >
                 <option value="user">User</option>
                 <option value="role">Role</option>
@@ -265,7 +265,7 @@ const ApprovalNodeConfigurator: React.FC<{
                 type="text"
                 value={approver.value}
                 onChange={(e) => updateApprover(index, 'value', e.target.value)}
-                className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                className="flex-1 px-2 py-1 border border-neutral-300 rounded text-sm"
                 placeholder={approver.type === 'user' ? 'User ID' : approver.type === 'role' ? 'Role name' : 'Value'}
               />
               <button
@@ -287,17 +287,17 @@ const ApprovalNodeConfigurator: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Auto-approve after (hours)
         </label>
         <input
           type="number"
           value={config.autoApproveAfter || 24}
           onChange={(e) => onUpdate('autoApproveAfter', parseInt(e.target.value))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
           min="1"
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-neutral-500 mt-1">
           Automatically approve if no response within this time
         </p>
       </div>
@@ -309,7 +309,7 @@ const ApprovalNodeConfigurator: React.FC<{
           onChange={(e) => onUpdate('allowDelegation', e.target.checked)}
           className="h-4 w-4 text-blue-600 rounded"
         />
-        <label className="ml-2 text-sm text-gray-700">
+        <label className="ml-2 text-sm text-neutral-700">
           Allow delegation to other users
         </label>
       </div>
@@ -321,7 +321,7 @@ const ApprovalNodeConfigurator: React.FC<{
           onChange={(e) => onUpdate('requireComments', e.target.checked)}
           className="h-4 w-4 text-blue-600 rounded"
         />
-        <label className="ml-2 text-sm text-gray-700">
+        <label className="ml-2 text-sm text-neutral-700">
           Require comments with approval/rejection
         </label>
       </div>
@@ -362,13 +362,13 @@ const ConditionNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Condition Type
         </label>
         <select
           value={config.conditionType || 'if_else'}
           onChange={(e) => onUpdate('conditionType', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="if_else">If/Else</option>
           <option value="switch">Switch/Case</option>
@@ -379,13 +379,13 @@ const ConditionNodeConfigurator: React.FC<{
       {config.conditionType !== 'expression' && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Logical Operator
             </label>
             <select
               value={config.logicalOperator || 'AND'}
               onChange={(e) => onUpdate('logicalOperator', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
             >
               <option value="AND">AND (all conditions must match)</option>
               <option value="OR">OR (any condition must match)</option>
@@ -393,24 +393,24 @@ const ConditionNodeConfigurator: React.FC<{
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-2">
               Conditions
             </label>
             <div className="space-y-3">
               {conditions.map((condition, index) => (
-                <div key={index} className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                <div key={index} className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <input
                       type="text"
                       value={condition.field}
                       onChange={(e) => updateCondition(index, 'field', e.target.value)}
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      className="px-2 py-1 border border-neutral-300 rounded text-sm"
                       placeholder="Field name"
                     />
                     <select
                       value={condition.operator}
                       onChange={(e) => updateCondition(index, 'operator', e.target.value)}
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      className="px-2 py-1 border border-neutral-300 rounded text-sm"
                     >
                       <option value="equals">Equals</option>
                       <option value="not_equals">Not Equals</option>
@@ -428,7 +428,7 @@ const ConditionNodeConfigurator: React.FC<{
                       type="text"
                       value={condition.value}
                       onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                      className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                      className="flex-1 px-2 py-1 border border-neutral-300 rounded text-sm"
                       placeholder="Value"
                     />
                     <button
@@ -454,14 +454,14 @@ const ConditionNodeConfigurator: React.FC<{
 
       {config.conditionType === 'expression' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Custom Expression
           </label>
           <textarea
             value={config.customExpression || ''}
             onChange={(e) => onUpdate('customExpression', e.target.value)}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm"
             placeholder="e.g., ticket.priority === 'high' && ticket.category === 'urgent'"
           />
         </div>
@@ -478,13 +478,13 @@ const NotificationNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Notification Type
         </label>
         <select
           value={config.notificationType || 'email'}
           onChange={(e) => onUpdate('notificationType', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="email">Email</option>
           <option value="sms">SMS</option>
@@ -499,27 +499,27 @@ const NotificationNodeConfigurator: React.FC<{
       {config.notificationType === 'email' && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Subject
             </label>
             <input
               type="text"
               value={config.template?.subject || ''}
               onChange={(e) => onUpdate('template', { ...config.template, subject: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
               placeholder="Email subject..."
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Body
             </label>
             <textarea
               value={config.template?.body || ''}
               onChange={(e) => onUpdate('template', { ...config.template, body: e.target.value })}
               rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
               placeholder="Email body... Use ${variable} for variables"
             />
           </div>
@@ -527,7 +527,7 @@ const NotificationNodeConfigurator: React.FC<{
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Recipients (comma-separated emails or user IDs)
         </label>
         <input
@@ -538,19 +538,19 @@ const NotificationNodeConfigurator: React.FC<{
             const recipients = values.map(value => ({ type: 'email' as const, value }));
             onUpdate('recipients', recipients);
           }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
           placeholder="email@example.com, user@domain.com"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Priority
         </label>
         <select
           value={config.deliveryOptions?.priority || 'normal'}
           onChange={(e) => onUpdate('deliveryOptions', { ...config.deliveryOptions, priority: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="low">Low</option>
           <option value="normal">Normal</option>
@@ -570,26 +570,26 @@ const WebhookNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           URL
         </label>
         <input
           type="url"
           value={config.url || ''}
           onChange={(e) => onUpdate('url', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
           placeholder="https://api.example.com/endpoint"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Method
         </label>
         <select
           value={config.method || 'POST'}
           onChange={(e) => onUpdate('method', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="GET">GET</option>
           <option value="POST">POST</option>
@@ -600,7 +600,7 @@ const WebhookNodeConfigurator: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Headers (JSON)
         </label>
         <textarea
@@ -611,13 +611,13 @@ const WebhookNodeConfigurator: React.FC<{
             } catch {}
           }}
           rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm"
           placeholder='{"Content-Type": "application/json"}'
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Payload (JSON)
         </label>
         <textarea
@@ -628,7 +628,7 @@ const WebhookNodeConfigurator: React.FC<{
             } catch {}
           }}
           rows={6}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm"
           placeholder='{"key": "value"}'
         />
       </div>
@@ -644,13 +644,13 @@ const ScriptNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Script Type
         </label>
         <select
           value={config.scriptType || 'javascript'}
           onChange={(e) => onUpdate('scriptType', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="javascript">JavaScript</option>
           <option value="python">Python</option>
@@ -659,14 +659,14 @@ const ScriptNodeConfigurator: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Code
         </label>
         <textarea
           value={config.code || ''}
           onChange={(e) => onUpdate('code', e.target.value)}
           rows={12}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm"
           placeholder="// Enter your code here
 // Available: ticket, user, variables
 // Return: { success: true, data: {...} }"
@@ -674,14 +674,14 @@ const ScriptNodeConfigurator: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Timeout (seconds)
         </label>
         <input
           type="number"
           value={config.timeout || 30}
           onChange={(e) => onUpdate('timeout', parseInt(e.target.value))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
           min="1"
           max="300"
         />
@@ -698,13 +698,13 @@ const DelayNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Delay Type
         </label>
         <select
           value={config.delayType || 'fixed'}
           onChange={(e) => onUpdate('delayType', e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
         >
           <option value="fixed">Fixed Duration</option>
           <option value="dynamic">Dynamic (from variable)</option>
@@ -716,25 +716,25 @@ const DelayNodeConfigurator: React.FC<{
       {config.delayType === 'fixed' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Amount
             </label>
             <input
               type="number"
               value={config.amount || 5}
               onChange={(e) => onUpdate('amount', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
               min="1"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Unit
             </label>
             <select
               value={config.unit || 'minutes'}
               onChange={(e) => onUpdate('unit', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
             >
               <option value="seconds">Seconds</option>
               <option value="minutes">Minutes</option>
@@ -748,14 +748,14 @@ const DelayNodeConfigurator: React.FC<{
 
       {config.delayType === 'dynamic' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Dynamic Expression
           </label>
           <input
             type="text"
             value={config.dynamicExpression || ''}
             onChange={(e) => onUpdate('dynamicExpression', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
             placeholder="${variables.delayMinutes}"
           />
         </div>
@@ -763,14 +763,14 @@ const DelayNodeConfigurator: React.FC<{
 
       {config.delayType === 'until_date' && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
             Until Date (ISO format or expression)
           </label>
           <input
             type="text"
             value={config.untilDate || ''}
             onChange={(e) => onUpdate('untilDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
             placeholder="2024-12-31T23:59:59Z or ${ticket.dueDate}"
           />
         </div>
@@ -783,7 +783,7 @@ const DelayNodeConfigurator: React.FC<{
           onChange={(e) => onUpdate('businessHoursOnly', e.target.checked)}
           className="h-4 w-4 text-blue-600 rounded"
         />
-        <label className="ml-2 text-sm text-gray-700">
+        <label className="ml-2 text-sm text-neutral-700">
           Only count business hours (Mon-Fri, 9am-5pm)
         </label>
       </div>
@@ -815,14 +815,14 @@ const GenericNodeConfigurator: React.FC<{
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-neutral-700 mb-1">
           Configuration (JSON)
         </label>
         <textarea
           value={jsonConfig}
           onChange={(e) => handleJsonChange(e.target.value)}
           rows={10}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm"
           placeholder="{}"
         />
         {error && (

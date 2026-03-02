@@ -84,19 +84,19 @@ export default function WorkflowProperties({
 
   return (
     <div
-      className={`workflow-properties bg-white border-l border-gray-200 flex flex-col ${className}`}
+      className={`workflow-properties bg-white border-l border-neutral-200 flex flex-col ${className}`}
       style={{ width: '400px', minWidth: '400px' }}
     >
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-neutral-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wide">
             Properties
           </h3>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+              className="p-1 text-neutral-400 hover:text-neutral-600 rounded transition-colors"
               title="Close Properties"
             >
               <XMarkIcon className="w-5 h-5" />
@@ -105,14 +105,14 @@ export default function WorkflowProperties({
         </div>
 
         {/* Tabs */}
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mt-3">
+        <div className="flex space-x-1 bg-neutral-100 rounded-lg p-1 mt-3">
           {selectedNode && (
             <button
               onClick={() => setActiveTab('node')}
               className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeTab === 'node'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               Node
@@ -123,8 +123,8 @@ export default function WorkflowProperties({
               onClick={() => setActiveTab('edge')}
               className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeTab === 'edge'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               Edge
@@ -134,8 +134,8 @@ export default function WorkflowProperties({
             onClick={() => setActiveTab('workflow')}
             className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'workflow'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-600 hover:text-neutral-900'
             }`}
           >
             Workflow
@@ -149,13 +149,13 @@ export default function WorkflowProperties({
         {activeTab === 'node' && selectedNode && (
           <div className="space-y-4">
             <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
                 Basic Information
               </h4>
 
               {/* Node Name */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Name
                 </label>
                 <input
@@ -163,13 +163,13 @@ export default function WorkflowProperties({
                   value={selectedNode.data.label || ''}
                   onChange={(e) => handleNodeDataChange('label', e.target.value)}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
               {/* Node Description */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Description
                 </label>
                 <textarea
@@ -177,26 +177,26 @@ export default function WorkflowProperties({
                   onChange={(e) => handleNodeDataChange('description', e.target.value)}
                   disabled={readOnly}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
               {/* Node Type (Read-only) */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Type
                 </label>
                 <input
                   type="text"
                   value={selectedNode.type || ''}
                   disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-100"
                 />
               </div>
 
               {/* Timeout */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Timeout (minutes)
                 </label>
                 <input
@@ -205,7 +205,7 @@ export default function WorkflowProperties({
                   onChange={(e) => handleNodeDataChange('timeout', parseInt(e.target.value) * 60000)}
                   disabled={readOnly}
                   min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -217,16 +217,16 @@ export default function WorkflowProperties({
                     checked={selectedNode.data.isOptional || false}
                     onChange={(e) => handleNodeDataChange('isOptional', e.target.checked)}
                     disabled={readOnly}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Optional step (can fail without stopping workflow)</span>
+                  <span className="ml-2 text-sm text-neutral-700">Optional step (can fail without stopping workflow)</span>
                 </label>
               </div>
             </div>
 
             {/* Node-Specific Configuration */}
             <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
                 Configuration
               </h4>
 
@@ -235,12 +235,12 @@ export default function WorkflowProperties({
 
             {/* Retry Configuration */}
             <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
                 Retry Settings
               </h4>
 
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Max Attempts
                 </label>
                 <input
@@ -253,12 +253,12 @@ export default function WorkflowProperties({
                   disabled={readOnly}
                   min="0"
                   max="10"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Backoff Strategy
                 </label>
                 <select
@@ -268,7 +268,7 @@ export default function WorkflowProperties({
                     backoffStrategy: e.target.value
                   })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 >
                   <option value="fixed">Fixed</option>
                   <option value="linear">Linear</option>
@@ -284,13 +284,13 @@ export default function WorkflowProperties({
         {activeTab === 'edge' && selectedEdge && (
           <div className="space-y-4">
             <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
                 Edge Configuration
               </h4>
 
               {/* Edge Label */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Label
                 </label>
                 <input
@@ -301,20 +301,20 @@ export default function WorkflowProperties({
                     label: e.target.value
                   })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
               {/* Edge Type */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Type
                 </label>
                 <input
                   type="text"
                   value={selectedEdge.type || 'default'}
                   disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-neutral-100"
                 />
               </div>
 
@@ -329,15 +329,15 @@ export default function WorkflowProperties({
                       animated: e.target.checked
                     })}
                     disabled={readOnly}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Animated edge</span>
+                  <span className="ml-2 text-sm text-neutral-700">Animated edge</span>
                 </label>
               </div>
 
               {/* Priority */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Priority
                 </label>
                 <input
@@ -345,9 +345,9 @@ export default function WorkflowProperties({
                   value={selectedEdge.data?.priority || 0}
                   onChange={(e) => handleEdgeDataChange('priority', parseInt(e.target.value))}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-neutral-500 mt-1">
                   Higher priority edges are evaluated first
                 </p>
               </div>
@@ -359,13 +359,13 @@ export default function WorkflowProperties({
         {activeTab === 'workflow' && (
           <div className="space-y-4">
             <div>
-              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
                 Workflow Settings
               </h4>
 
               {/* Workflow Name */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Name
                 </label>
                 <input
@@ -373,13 +373,13 @@ export default function WorkflowProperties({
                   value={workflow.name || ''}
                   onChange={(e) => onWorkflowUpdate?.({ name: e.target.value })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
               {/* Workflow Description */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Description
                 </label>
                 <textarea
@@ -387,20 +387,20 @@ export default function WorkflowProperties({
                   onChange={(e) => onWorkflowUpdate?.({ description: e.target.value })}
                   disabled={readOnly}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
               {/* Category */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Category
                 </label>
                 <select
                   value={workflow.category || 'ticket_automation'}
                   onChange={(e) => onWorkflowUpdate?.({ category: e.target.value as any })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 >
                   <option value="ticket_automation">Ticket Automation</option>
                   <option value="notification">Notification</option>
@@ -413,7 +413,7 @@ export default function WorkflowProperties({
 
               {/* Priority */}
               <div className="mb-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Priority
                 </label>
                 <input
@@ -422,7 +422,7 @@ export default function WorkflowProperties({
                   onChange={(e) => onWorkflowUpdate?.({ priority: parseInt(e.target.value) })}
                   disabled={readOnly}
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -434,9 +434,9 @@ export default function WorkflowProperties({
                     checked={workflow.isActive || false}
                     onChange={(e) => onWorkflowUpdate?.({ isActive: e.target.checked })}
                     disabled={readOnly}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Active (workflow will execute when triggered)</span>
+                  <span className="ml-2 text-sm text-neutral-700">Active (workflow will execute when triggered)</span>
                 </label>
               </div>
 
@@ -448,9 +448,9 @@ export default function WorkflowProperties({
                     checked={workflow.isTemplate || false}
                     onChange={(e) => onWorkflowUpdate?.({ isTemplate: e.target.checked })}
                     disabled={readOnly}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Save as template</span>
+                  <span className="ml-2 text-sm text-neutral-700">Save as template</span>
                 </label>
               </div>
             </div>
@@ -460,12 +460,12 @@ export default function WorkflowProperties({
         {/* Empty State */}
         {!selectedNode && !selectedEdge && activeTab === 'node' && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="text-gray-400 mb-2">
+            <div className="text-neutral-400 mb-2">
               <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
               </svg>
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               Select a node to view and edit its properties
             </p>
           </div>
@@ -488,14 +488,14 @@ function renderNodeSpecificConfig(
       return (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Action Type
             </label>
             <select
               value={node.data.configuration?.actionType || 'assign'}
               onChange={(e) => onChange('actionType', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="assign">Assign Ticket</option>
               <option value="update_status">Update Status</option>
@@ -515,14 +515,14 @@ function renderNodeSpecificConfig(
       return (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Condition Type
             </label>
             <select
               value={node.data.configuration?.conditionType || 'if_else'}
               onChange={(e) => onChange('conditionType', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="if_else">If/Else</option>
               <option value="switch">Switch</option>
@@ -530,14 +530,14 @@ function renderNodeSpecificConfig(
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Logical Operator
             </label>
             <select
               value={node.data.configuration?.logicalOperator || 'AND'}
               onChange={(e) => onChange('logicalOperator', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="AND">AND (all conditions must match)</option>
               <option value="OR">OR (any condition must match)</option>
@@ -550,7 +550,7 @@ function renderNodeSpecificConfig(
       return (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Delay Amount
             </label>
             <input
@@ -559,18 +559,18 @@ function renderNodeSpecificConfig(
               onChange={(e) => onChange('amount', parseInt(e.target.value))}
               disabled={readOnly}
               min="1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Unit
             </label>
             <select
               value={node.data.configuration?.unit || 'minutes'}
               onChange={(e) => onChange('unit', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="seconds">Seconds</option>
               <option value="minutes">Minutes</option>
@@ -585,14 +585,14 @@ function renderNodeSpecificConfig(
       return (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Notification Type
             </label>
             <select
               value={node.data.configuration?.notificationType || 'email'}
               onChange={(e) => onChange('notificationType', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="email">Email</option>
               <option value="sms">SMS</option>
@@ -608,7 +608,7 @@ function renderNodeSpecificConfig(
 
     default:
       return (
-        <div className="text-sm text-gray-500 italic">
+        <div className="text-sm text-neutral-500 italic">
           No specific configuration available for this node type
         </div>
       );

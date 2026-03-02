@@ -333,29 +333,29 @@ export default function TemplatesPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setShowPreview(template)}
-                        className="p-2 text-icon-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
-                        title="Visualizar"
+                        className="p-2 text-icon-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label={`Visualizar template ${template.name}`}
                       >
                         <EyeIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(template)}
-                        className="p-2 text-icon-muted hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all"
-                        title="Editar"
+                        className="p-2 text-icon-muted hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label={`Editar template ${template.name}`}
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDuplicate(template)}
-                        className="p-2 text-icon-muted hover:text-success-600 dark:hover:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded-lg transition-all"
-                        title="Duplicar"
+                        className="p-2 text-icon-muted hover:text-success-600 dark:hover:text-success-400 hover:bg-success-50 dark:hover:bg-success-900/20 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label={`Duplicar template ${template.name}`}
                       >
                         <DocumentDuplicateIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(template.id)}
-                        className="p-2 text-icon-muted hover:text-error-600 dark:hover:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 rounded-lg transition-all"
-                        title="Excluir"
+                        className="p-2 text-icon-muted hover:text-error-600 dark:hover:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label={`Excluir template ${template.name}`}
                       >
                         <TrashIcon className="w-4 h-4" />
                       </button>

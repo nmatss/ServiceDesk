@@ -24,7 +24,7 @@ export function Skeleton({ className, animation = 'pulse', ...props }: SkeletonP
   return (
     <div
       className={cn(
-        'rounded-md bg-gray-200 dark:bg-gray-700',
+        'rounded-md bg-neutral-200 dark:bg-neutral-700',
         animationClasses[animation],
         className
       )}
@@ -66,7 +66,7 @@ export function SkeletonText({
 
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-lg border bg-white dark:bg-gray-800 p-6', className)}>
+    <div className={cn('rounded-lg border bg-white dark:bg-neutral-800 p-6', className)}>
       <div className="space-y-4">
         <Skeleton className="h-6 w-3/4" />
         <SkeletonText lines={3} />
@@ -97,7 +97,7 @@ export function SkeletonAvatar({ size = 'md' }: { size?: 'xs' | 'sm' | 'md' | 'l
 
 export function SkeletonTicketCard({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-lg border bg-white dark:bg-gray-800 p-4', className)}>
+    <div className={cn('rounded-lg border bg-white dark:bg-neutral-800 p-4', className)}>
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -118,7 +118,7 @@ export function SkeletonTicketCard({ className }: { className?: string }) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-700">
           <div className="flex items-center gap-2">
             <SkeletonAvatar size="sm" />
             <Skeleton className="h-3 w-20" />
@@ -165,7 +165,7 @@ export function SkeletonList({
   hasSubtitle?: boolean
 }) {
   return (
-    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+    <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
       {Array.from({ length: items }).map((_, i) => (
         <SkeletonListItem key={i} hasAvatar={hasAvatar} hasSubtitle={hasSubtitle} />
       ))}
@@ -189,7 +189,7 @@ export function SkeletonTable({
   return (
     <div className="w-full">
       {showHeader && (
-        <div className="flex gap-4 pb-3 border-b border-gray-200 dark:border-gray-700 mb-3">
+        <div className="flex gap-4 pb-3 border-b border-neutral-200 dark:border-neutral-700 mb-3">
           {Array.from({ length: columns }).map((_, i) => (
             <Skeleton key={`header-${i}`} className="h-4 flex-1" />
           ))}
@@ -221,7 +221,7 @@ export function SkeletonWidget({
   type?: 'stat' | 'chart' | 'list' | 'table'
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+    <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
       {type === 'stat' && (
         <div className="space-y-3">
           <Skeleton className="h-4 w-1/2" />
@@ -294,8 +294,8 @@ export function SkeletonDashboard() {
 export function SkeletonKanbanColumn() {
   return (
     <div className="w-72 flex-shrink-0">
-      <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-t-lg animate-pulse" />
-      <div className="min-h-96 bg-gray-100 dark:bg-gray-800 rounded-b-lg p-2 space-y-2 border border-t-0 border-gray-200 dark:border-gray-700">
+      <div className="h-10 bg-neutral-200 dark:bg-neutral-700 rounded-t-lg animate-pulse" />
+      <div className="min-h-96 bg-neutral-100 dark:bg-neutral-800 rounded-b-lg p-2 space-y-2 border border-t-0 border-neutral-200 dark:border-neutral-700">
         <SkeletonTicketCard />
         <SkeletonTicketCard />
         <Skeleton className="h-24 rounded-lg" />

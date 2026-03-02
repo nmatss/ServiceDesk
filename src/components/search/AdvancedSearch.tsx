@@ -216,12 +216,12 @@ export default function AdvancedSearch() {
   return (
     <div className="space-y-6">
       {/* Search Header */}
-      <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl p-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <MagnifyingGlassIcon className="h-8 w-8" />
-          <h1 className="text-2xl font-bold">Busca Avançada</h1>
+      <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl p-4 sm:p-6">
+        <div className="flex items-center space-x-3 mb-2 sm:mb-4">
+          <MagnifyingGlassIcon className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold">Busca Avançada</h1>
         </div>
-        <p className="text-brand-100">
+        <p className="text-brand-100 text-sm sm:text-base">
           Encontre tickets, usuários e artigos da base de conhecimento com ferramentas de busca poderosas
         </p>
       </div>
@@ -232,7 +232,7 @@ export default function AdvancedSearch() {
           <form onSubmit={handleSearch} className="space-y-4">
             {/* Main Search Input */}
             <div className="relative">
-              <div className="flex">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-0">
                 <div className="relative flex-1">
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-neutral-400" />
                   <input
@@ -241,31 +241,33 @@ export default function AdvancedSearch() {
                     placeholder="Digite sua busca..."
                     value={filters.query}
                     onChange={(e) => handleFilterChange('query', e.target.value)}
-                    className="input input-bordered w-full pl-10 pr-4 h-12 text-lg"
+                    className="input input-bordered w-full pl-10 pr-4 h-11 sm:h-12 text-base sm:text-lg"
                     autoComplete="off"
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`btn ml-3 ${showFilters ? 'btn-active' : ''} ${hasActiveFilters() ? 'btn-primary' : ''}`}
-                >
-                  <AdjustmentsHorizontalIcon className="h-5 w-5 mr-2" />
-                  Filtros
-                  {hasActiveFilters() && (
-                    <span className="badge badge-sm ml-2">
-                      {Object.values(filters).flat().filter(Boolean).length - 1}
-                    </span>
-                  )}
-                </button>
-                <button type="submit" className="btn btn-primary ml-3" disabled={loading}>
-                  {loading ? (
-                    <span className="loading loading-spinner loading-sm"></span>
-                  ) : (
-                    <MagnifyingGlassIcon className="h-5 w-5" />
-                  )}
-                  Buscar
-                </button>
+                <div className="flex gap-2 sm:gap-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`btn flex-1 sm:flex-initial sm:ml-3 ${showFilters ? 'btn-active' : ''} ${hasActiveFilters() ? 'btn-primary' : ''}`}
+                  >
+                    <AdjustmentsHorizontalIcon className="h-5 w-5 sm:mr-2" />
+                    <span className="hidden sm:inline">Filtros</span>
+                    {hasActiveFilters() && (
+                      <span className="badge badge-sm ml-2">
+                        {Object.values(filters).flat().filter(Boolean).length - 1}
+                      </span>
+                    )}
+                  </button>
+                  <button type="submit" className="btn btn-primary flex-1 sm:flex-initial sm:ml-3" disabled={loading}>
+                    {loading ? (
+                      <span className="loading loading-spinner loading-sm"></span>
+                    ) : (
+                      <MagnifyingGlassIcon className="h-5 w-5" />
+                    )}
+                    <span className="sm:ml-1">Buscar</span>
+                  </button>
+                </div>
               </div>
 
               {/* Search Suggestions */}
@@ -296,24 +298,24 @@ export default function AdvancedSearch() {
             </div>
 
             {/* Search Type Tabs */}
-            <div className="flex space-x-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
+            <div className="flex overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 space-x-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-lg">
               {[
                 { key: 'all', label: 'Tudo', icon: MagnifyingGlassIcon },
                 { key: 'tickets', label: 'Tickets', icon: DocumentTextIcon },
                 { key: 'users', label: 'Usuários', icon: UserIcon },
-                { key: 'knowledge', label: 'Base de Conhecimento', icon: SparklesIcon }
+                { key: 'knowledge', label: 'Conhecimento', icon: SparklesIcon }
               ].map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setSearchType(key as any)}
-                  className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                     searchType === key
                       ? 'bg-white dark:bg-neutral-700 text-brand-600 dark:text-brand-400 shadow-sm'
                       : 'text-description hover:text-neutral-900 dark:hover:text-neutral-200'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4 flex-shrink-0" />
                   <span>{label}</span>
                 </button>
               ))}
@@ -473,7 +475,7 @@ export default function AdvancedSearch() {
                     <DocumentTextIcon className="h-5 w-5 mr-2" />
                     Tickets ({results.tickets.length})
                   </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {results.tickets.map((ticket) => (
                       <TicketCard
                         key={ticket.id}

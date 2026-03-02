@@ -90,7 +90,7 @@ export function AgentTicketQueue({ className = '' }: AgentComponentProps) {
       case 'high': return 'text-orange-600 bg-orange-50';
       case 'medium': return 'text-amber-600 bg-amber-50';
       case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-neutral-600 bg-neutral-50';
     }
   };
 
@@ -98,9 +98,9 @@ export function AgentTicketQueue({ className = '' }: AgentComponentProps) {
     switch (status) {
       case 'open': return 'text-blue-600 bg-blue-50';
       case 'in-progress': return 'text-amber-600 bg-amber-50';
-      case 'pending': return 'text-gray-600 bg-gray-50';
+      case 'pending': return 'text-neutral-600 bg-neutral-50';
       case 'resolved': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
+      default: return 'text-neutral-600 bg-neutral-50';
     }
   };
 
@@ -272,7 +272,7 @@ export function AgentQuickActions({ className = '' }: AgentComponentProps) {
     { icon: ChatBubbleLeftRightIcon, label: 'New Ticket', shortcut: 'N', color: 'text-green-600' },
     { icon: DocumentTextIcon, label: 'Knowledge Base', shortcut: 'K', color: 'text-purple-600' },
     { icon: AdjustmentsHorizontalIcon, label: 'Bulk Edit', shortcut: 'B', color: 'text-orange-600' },
-    { icon: ArrowPathIcon, label: 'Refresh All', shortcut: 'R', color: 'text-gray-600' }
+    { icon: ArrowPathIcon, label: 'Refresh All', shortcut: 'R', color: 'text-neutral-600' }
   ];
 
   const formatTime = (seconds: number) => {
@@ -405,7 +405,7 @@ export function AgentNotificationCenter({ className = '' }: AgentComponentProps)
       case 'customer_reply':
         return <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500" />;
       default:
-        return <InformationCircleIcon className="h-4 w-4 text-gray-500" />;
+        return <InformationCircleIcon className="h-4 w-4 text-neutral-500" />;
     }
   };
 

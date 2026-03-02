@@ -106,11 +106,11 @@ export function MetricCard({
         <div className="flex flex-col h-full">
           {/* Main Value */}
           <div className="flex items-baseline space-x-2 mb-2">
-            <div className="text-3xl font-bold text-gray-900 dark:text-white">
+            <div className="text-3xl font-bold text-neutral-900 dark:text-white">
               {formatValue(value)}
             </div>
             {unit && !['percentage', 'currency', 'time'].includes(format) && (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-neutral-500 dark:text-neutral-400">
                 {unit}
               </div>
             )}
@@ -123,7 +123,7 @@ export function MetricCard({
               <span>
                 {trendData.value.toFixed(1)}%
               </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 font-normal">
                 vs previous
               </span>
             </div>
@@ -136,7 +136,7 @@ export function MetricCard({
                 <span>Progress</span>
                 <span className="font-medium">{progress.toFixed(0)}%</span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     progress >= 100

@@ -315,11 +315,11 @@ export default function TicketForm({
 
   const getPriorityColor = (priority: Priority) => {
     switch (priority.level) {
-      case 1: return 'text-success-600 bg-success-50 border-success-200'
-      case 2: return 'text-warning-600 bg-warning-50 border-warning-200'
-      case 3: return 'text-orange-600 bg-orange-50 border-orange-200'
-      case 4: return 'text-error-600 bg-error-50 border-error-200'
-      default: return 'text-neutral-600 bg-neutral-50 border-neutral-200'
+      case 1: return 'text-success-600 dark:text-success-400 bg-success-50 dark:bg-success-900/20 border-success-200 dark:border-success-800'
+      case 2: return 'text-warning-600 dark:text-warning-400 bg-warning-50 dark:bg-warning-900/20 border-warning-200 dark:border-warning-800'
+      case 3: return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+      case 4: return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+      default: return 'text-neutral-600 dark:text-neutral-400 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700'
     }
   }
 
@@ -354,7 +354,7 @@ export default function TicketForm({
             value={formData.title}
             onChange={(e) => handleInputChange('title', e.target.value)}
             placeholder="Descreva brevemente o problema ou solicitação"
-            className="input input-bordered w-full"
+            className="input input-bordered w-full h-11 text-base sm:text-sm sm:h-auto"
             maxLength={255}
             required
             aria-required="true"
@@ -523,20 +523,20 @@ export default function TicketForm({
                 </span>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 id="tag-input"
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()
                     handleTagAdd(tagInput)
                   }
                 }}
                 placeholder="Digite uma tag e pressione Enter"
-                className="input input-bordered flex-1"
+                className="input input-bordered flex-1 w-full h-11 text-base sm:text-sm sm:h-auto"
                 aria-label="Adicionar nova tag"
                 aria-describedby="tag-help"
               />
@@ -544,7 +544,7 @@ export default function TicketForm({
               <button
                 type="button"
                 onClick={() => handleTagAdd(tagInput)}
-                className="btn btn-outline"
+                className="btn btn-outline min-h-[44px] sm:min-h-0 w-full sm:w-auto"
                 disabled={!tagInput.trim()}
                 aria-label="Adicionar tag"
               >
@@ -561,7 +561,7 @@ export default function TicketForm({
             Anexos
           </label>
           <div
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors ${
               dragActive
                 ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20'
                 : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500'
@@ -602,22 +602,22 @@ export default function TicketForm({
               {formData.attachments.map((file, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg"
+                  className="flex items-center justify-between gap-2 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg"
                   role="listitem"
                 >
-                  <div className="flex items-center space-x-3">
-                    <PaperClipIcon className="h-4 w-4 text-neutral-400" aria-hidden="true" />
-                    <span className="text-sm text-neutral-700 dark:text-neutral-300">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <PaperClipIcon className="h-4 w-4 text-neutral-400 flex-shrink-0" aria-hidden="true" />
+                    <span className="text-sm text-neutral-700 dark:text-neutral-300 truncate">
                       {file.name}
                     </span>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-neutral-500 flex-shrink-0">
                       ({(file.size / 1024).toFixed(1)} KB)
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleFileRemove(index)}
-                    className="text-error-500 hover:text-error-600"
+                    className="text-error-500 hover:text-error-600 flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center sm:min-h-0 sm:min-w-0"
                     aria-label={`Remover arquivo ${file.name}`}
                   >
                     <XMarkIcon className="h-4 w-4" aria-hidden="true" />

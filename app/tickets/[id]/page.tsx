@@ -82,6 +82,7 @@ export default function TicketDetailsPage() {
 
   useEffect(() => {
     fetchTicketDetails()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketId])
 
   const fetchTicketDetails = async () => {
@@ -221,7 +222,8 @@ export default function TicketDetailsPage() {
           <p className="text-description mb-6">{error || 'Ticket não encontrado'}</p>
           <button
             onClick={() => router.back()}
-            className="btn-primary inline-flex items-center space-x-2"
+            className="btn-primary inline-flex items-center space-x-2 min-h-[44px]"
+            aria-label="Voltar à página anterior"
           >
             <ArrowLeftIcon className="h-4 w-4" />
             <span>Voltar</span>
@@ -233,7 +235,7 @@ export default function TicketDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-900 dark:via-neutral-950 dark:to-neutral-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Header with Breadcrumbs */}
         <PageHeader
           title={ticket.title}
@@ -246,48 +248,50 @@ export default function TicketDetailsPage() {
             href: '/tickets'
           }}
           actions={
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <button
                 onClick={() => router.push(`/tickets/${ticket.id}/edit`)}
-                className="btn-secondary inline-flex items-center space-x-2"
+                className="btn-secondary inline-flex items-center justify-center space-x-2 min-h-[44px]"
+                aria-label="Editar ticket"
               >
                 <PencilIcon className="h-4 w-4" />
                 <span>Editar</span>
               </button>
               <button
                 onClick={() => window.print()}
-                className="btn-secondary inline-flex items-center space-x-2"
+                className="btn-secondary inline-flex items-center justify-center space-x-2 min-h-[44px]"
+                aria-label="Imprimir ticket"
               >
                 <EyeIcon className="h-4 w-4" />
-                <span>Visualizar</span>
+                <span>Imprimir</span>
               </button>
             </div>
           }
         />
 
         {/* Status and Priority Badges */}
-        <div className="mb-6 flex flex-wrap items-center gap-3 animate-slide-up">
-          <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold shadow-sm ${getPriorityColor(ticket.priority_level)}`}>
+        <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3 animate-slide-up">
+          <span className={`inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm ${getPriorityColor(ticket.priority_level)}`}>
             {getPriorityIcon(ticket.priority_level)}
-            <span className="ml-2">{ticket.priority_name}</span>
+            <span className="ml-1.5 sm:ml-2">{ticket.priority_name}</span>
           </span>
 
-          <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold shadow-sm ${getStatusColor(ticket.status_name)}`}>
+          <span className={`inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold shadow-sm ${getStatusColor(ticket.status_name)}`}>
             {ticket.status_name}
           </span>
 
-          <div className="flex items-center space-x-4 text-sm text-muted-content ml-auto">
-            <span className="flex items-center glass-panel px-3 py-1.5 rounded-lg">
-              <UserIcon className="h-4 w-4 mr-1.5" />
-              {ticket.user_name}
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-content w-full sm:w-auto sm:ml-auto mt-2 sm:mt-0">
+            <span className="flex items-center glass-panel px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm">
+              <UserIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="truncate max-w-[120px] sm:max-w-none">{ticket.user_name}</span>
             </span>
-            <span className="flex items-center glass-panel px-3 py-1.5 rounded-lg">
-              <CalendarIcon className="h-4 w-4 mr-1.5" />
+            <span className="flex items-center glass-panel px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm">
+              <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 flex-shrink-0" />
               {new Date(ticket.created_at).toLocaleDateString('pt-BR')}
             </span>
-            <span className="flex items-center glass-panel px-3 py-1.5 rounded-lg">
-              <TagIcon className="h-4 w-4 mr-1.5" />
-              {ticket.category_name}
+            <span className="flex items-center glass-panel px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm">
+              <TagIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="truncate max-w-[120px] sm:max-w-none">{ticket.category_name}</span>
             </span>
           </div>
         </div>
@@ -326,12 +330,12 @@ export default function TicketDetailsPage() {
                     <div key={comment.id} className="relative animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
                       {/* Timeline Line */}
                       {index !== comments.length - 1 && (
-                        <div className="absolute left-6 top-12 bottom-0 w-0.5 bg-gradient-to-b from-brand-200 dark:from-brand-800 to-transparent"></div>
+                        <div className="absolute left-[18px] sm:left-6 top-10 sm:top-12 bottom-0 w-0.5 bg-gradient-to-b from-brand-200 dark:from-brand-800 to-transparent"></div>
                       )}
 
-                      <div className="flex gap-4">
+                      <div className="flex gap-3 sm:gap-4">
                         {/* Avatar Circle */}
-                        <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-semibold text-white shadow-lg ${
+                        <div className={`flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm sm:text-base font-semibold text-white shadow-lg ${
                           comment.is_internal
                             ? 'bg-gradient-to-br from-warning-400 to-warning-600'
                             : 'bg-gradient-to-br from-brand-500 to-brand-700'
@@ -341,12 +345,12 @@ export default function TicketDetailsPage() {
 
                         {/* Comment Content */}
                         <div className="flex-1">
-                          <div className={`p-5 rounded-xl shadow-sm border-2 transition-all hover:shadow-md ${
+                          <div className={`p-3 sm:p-5 rounded-xl shadow-sm border-2 transition-all hover:shadow-md ${
                             comment.is_internal
                               ? 'bg-gradient-to-br from-warning-50 to-warning-100 dark:from-warning-900/20 dark:to-warning-800/20 border-warning-200 dark:border-warning-800'
                               : 'bg-white dark:bg-neutral-800 border-neutral-100 dark:border-neutral-700'
                           }`}>
-                            <div className="flex items-start justify-between mb-3">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-0 mb-3">
                               <div className="flex items-center flex-wrap gap-2">
                                 <span className="font-semibold text-neutral-900 dark:text-white">{comment.user_name}</span>
                                 <span className="px-2 py-0.5 text-xs font-medium bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded-full">
@@ -358,7 +362,7 @@ export default function TicketDetailsPage() {
                                   </span>
                                 )}
                               </div>
-                              <span className="text-xs text-muted-content whitespace-nowrap ml-4">
+                              <span className="text-xs text-muted-content sm:whitespace-nowrap sm:ml-4">
                                 {new Date(comment.created_at).toLocaleString('pt-BR')}
                               </span>
                             </div>
@@ -389,14 +393,14 @@ export default function TicketDetailsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <label className="flex items-center cursor-pointer group">
                       <input
                         type="checkbox"
                         id="internal"
                         checked={isInternal}
                         onChange={(e) => setIsInternal(e.target.checked)}
-                        className="h-5 w-5 text-brand-600 focus:ring-brand-500 border-neutral-300 dark:border-neutral-600 rounded transition-all"
+                        className="h-5 w-5 text-brand-600 focus:ring-brand-500 border-neutral-300 dark:border-neutral-600 rounded transition-all flex-shrink-0"
                       />
                       <span className="ml-3 text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-white">
                         Comentário interno (apenas agentes e admins)
@@ -406,7 +410,7 @@ export default function TicketDetailsPage() {
                     <button
                       type="submit"
                       disabled={submittingComment || !newComment.trim()}
-                      className="btn-primary inline-flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="btn-primary inline-flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] w-full sm:w-auto"
                     >
                       <ChatBubbleLeftRightIcon className="h-4 w-4" />
                       <span>{submittingComment ? 'Enviando...' : 'Publicar Comentário'}</span>
@@ -518,8 +522,9 @@ export default function TicketDetailsPage() {
                           href={`/api/attachments/${attachment.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-shrink-0 p-2 bg-brand-600 dark:bg-brand-500 text-white rounded-lg hover:bg-brand-700 dark:hover:bg-brand-600 transition-colors group-hover:scale-110 transform"
+                          className="flex-shrink-0 p-2 bg-brand-600 dark:bg-brand-500 text-white rounded-lg hover:bg-brand-700 dark:hover:bg-brand-600 transition-colors group-hover:scale-110 transform min-h-[44px] min-w-[44px] flex items-center justify-center"
                           title="Baixar arquivo"
+                          aria-label={`Baixar arquivo ${attachment.original_name}`}
                         >
                           <DocumentArrowDownIcon className="h-5 w-5" />
                         </a>

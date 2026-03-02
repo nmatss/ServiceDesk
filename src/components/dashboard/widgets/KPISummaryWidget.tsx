@@ -68,7 +68,7 @@ function KPICard({ title, value, change, icon: Icon, color, subtitle, target, un
     if (change === undefined) return '';
     if (change > 0) return 'text-green-600';
     if (change < 0) return 'text-red-600';
-    return 'text-gray-500';
+    return 'text-neutral-500';
   };
 
   const getProgressPercentage = () => {
@@ -80,7 +80,7 @@ function KPICard({ title, value, change, icon: Icon, color, subtitle, target, un
 
   return (
     <div className={`
-      bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
+      bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700
       ${compact ? 'p-3' : 'p-4'} transition-all duration-200 hover:shadow-md
     `}>
       <div className="flex items-center justify-between">
@@ -91,11 +91,11 @@ function KPICard({ title, value, change, icon: Icon, color, subtitle, target, un
             <Icon className={`w-${compact ? '5' : '6'} h-${compact ? '5' : '6'} text-${color}-600 dark:text-${color}-400`} />
           </div>
           <div>
-            <p className={`text-${compact ? 'sm' : 'base'} font-medium text-gray-900 dark:text-white`}>
+            <p className={`text-${compact ? 'sm' : 'base'} font-medium text-neutral-900 dark:text-white`}>
               {title}
             </p>
             {subtitle && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>
             )}
           </div>
         </div>
@@ -111,11 +111,11 @@ function KPICard({ title, value, change, icon: Icon, color, subtitle, target, un
 
       <div className={`mt-${compact ? '2' : '3'}`}>
         <div className="flex items-baseline space-x-2">
-          <span className={`text-${compact ? '2xl' : '3xl'} font-bold text-gray-900 dark:text-white`}>
+          <span className={`text-${compact ? '2xl' : '3xl'} font-bold text-neutral-900 dark:text-white`}>
             {formatValue(value)}
           </span>
           {target && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">
               / {formatValue(target)}
             </span>
           )}
@@ -123,11 +123,11 @@ function KPICard({ title, value, change, icon: Icon, color, subtitle, target, un
 
         {progressPercentage !== null && (
           <div className="mt-2">
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+            <div className="flex justify-between text-xs text-neutral-500 dark:text-neutral-400 mb-1">
               <span>Progress</span>
               <span>{progressPercentage.toFixed(1)}%</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
               <div
                 className={`h-2 rounded-full bg-${color}-500 transition-all duration-300`}
                 style={{ width: `${progressPercentage}%` }}
@@ -219,14 +219,14 @@ export function KPISummaryWidget({
   ];
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+    <div className="bg-neutral-50 dark:bg-neutral-900 rounded-lg p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
             KPI Summary
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
             Real-time performance metrics
           </p>
         </div>
@@ -244,7 +244,7 @@ export function KPISummaryWidget({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.showTrends
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
             Trends
@@ -255,7 +255,7 @@ export function KPISummaryWidget({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.compactMode
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
             Compact
@@ -288,34 +288,34 @@ export function KPISummaryWidget({
       {/* Summary Stats */}
       {!config.compactMode && (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+            <h4 className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
               Volume Summary
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-description">This Week:</span>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="font-medium text-neutral-900 dark:text-white">
                   {metrics?.tickets_this_week || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-description">This Month:</span>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="font-medium text-neutral-900 dark:text-white">
                   {metrics?.tickets_this_month || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-description">Total:</span>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="font-medium text-neutral-900 dark:text-white">
                   {metrics?.total_tickets || 0}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+            <h4 className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
               SLA Performance
             </h4>
             <div className="space-y-2 text-sm">
@@ -336,8 +336,8 @@ export function KPISummaryWidget({
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-neutral-200 dark:border-neutral-700">
+            <h4 className="text-sm font-medium text-neutral-900 dark:text-white mb-2">
               System Health
             </h4>
             <div className="space-y-2 text-sm">
@@ -345,14 +345,14 @@ export function KPISummaryWidget({
                 <span className="text-description">Connection:</span>
                 <div className="flex items-center space-x-2">
                   <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium text-gray-900 dark:text-white">
+                  <span className="font-medium text-neutral-900 dark:text-white">
                     {isConnected ? 'Online' : 'Offline'}
                   </span>
                 </div>
               </div>
               <div className="flex justify-between">
                 <span className="text-description">Last Update:</span>
-                <span className="font-medium text-gray-900 dark:text-white">
+                <span className="font-medium text-neutral-900 dark:text-white">
                   {lastUpdated.toLocaleTimeString()}
                 </span>
               </div>

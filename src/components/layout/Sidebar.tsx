@@ -349,15 +349,15 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
   }
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full safe-top">
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 px-4 sm:px-6 border-b border-neutral-200 dark:border-white/10">
+      <div className="flex items-center justify-center h-14 sm:h-16 px-4 sm:px-6 border-b border-neutral-200 dark:border-white/10 flex-shrink-0">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-brand rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
             <TicketIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
           </div>
           {open && (
-            <span className="text-lg sm:text-xl font-bold text-gradient">
+            <span className="text-lg sm:text-xl font-bold text-gradient truncate">
               ServiceDesk Pro
             </span>
           )}
@@ -366,7 +366,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
       {/* Navigation */}
       <nav
-        className="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto hide-scrollbar"
+        className="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto hide-scrollbar overscroll-contain"
         role="navigation"
         aria-label="Menu principal"
       >
@@ -402,7 +402,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                       <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" aria-hidden="true" />
                       {open && (
                         <>
-                          <span className="ml-3 flex-1 text-left">{item.name}</span>
+                          <span className="ml-3 flex-1 text-left truncate">{item.name}</span>
                           {item.badge && (
                             <span className="ml-2 badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
                               {item.badge}
@@ -482,7 +482,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
                         aria-label={`Navegar para ${subItem.name}${subItem.badge ? `. ${subItem.badge} itens` : ''}`}
                       >
                         <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" aria-hidden="true" />
-                        <span className="ml-3 flex-1">{subItem.name}</span>
+                        <span className="ml-3 flex-1 truncate">{subItem.name}</span>
                         {subItem.badge && (
                           <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${subItem.badge} itens`}>
                             {subItem.badge}
@@ -500,7 +500,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
       {/* User info at bottom */}
       {open && (
-        <div className="p-4 border-t border-neutral-200 dark:border-neutral-700">
+        <div className="p-4 pb-safe border-t border-neutral-200 dark:border-neutral-700 flex-shrink-0">
           <div className="text-xs text-muted-content text-center">
             ServiceDesk Pro v2.0
           </div>
@@ -514,8 +514,9 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-200"
           onClick={() => setOpen(false)}
+          onTouchEnd={() => setOpen(false)}
           role="presentation"
           aria-hidden="true"
         />
@@ -525,13 +526,12 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
       <aside
         id="main-sidebar"
         className={`
-          fixed inset-y-0 left-0 z-50 glass-panel
-          transform transition-[width,transform] duration-150 ease-out
+          fixed inset-y-0 left-0 z-50 glass-panel rounded-none
+          transform transition-[width,transform] duration-200 ease-in-out will-change-transform
           ${open ? 'w-64 sm:w-72 translate-x-0' : 'w-20 -translate-x-full lg:translate-x-0'}
           ${open ? 'shadow-xl' : 'shadow-md'}
         `}
         aria-label="Barra lateral de navegação"
-        aria-hidden={!open}
       >
         <SidebarContent />
 
@@ -546,7 +546,7 @@ export default function Sidebar({ open, setOpen, userRole }: SidebarProps) {
 
       {/* Spacer for desktop */}
       <div
-        className={`hidden lg:block transition-[width] duration-150 ease-out ${open ? 'w-64' : 'w-20'}`}
+        className={`hidden lg:block transition-[width] duration-200 ease-in-out ${open ? 'w-64' : 'w-20'}`}
       />
     </>
   )

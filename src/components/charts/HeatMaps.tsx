@@ -263,7 +263,7 @@ export function HourlyPerformanceHeatMap({
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Performance Heatmap by Hour and Day
         </h3>
         <p className="text-sm text-description">
@@ -275,7 +275,7 @@ export function HourlyPerformanceHeatMap({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700"
       />
 
       {selectedCell && (
@@ -443,7 +443,7 @@ export function DepartmentHeatMap({
   return (
     <div className="w-full">
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
           Department Performance Matrix
         </h3>
         <p className="text-sm text-description">
@@ -455,7 +455,7 @@ export function DepartmentHeatMap({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+        className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700"
       />
     </div>
   );

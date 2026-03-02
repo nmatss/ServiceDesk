@@ -56,9 +56,9 @@ interface SkeletonTableProps {
 
 export function SkeletonTable({ rows = 5, columns = 4, className }: SkeletonTableProps) {
   return (
-    <div className={cn('w-full overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700', className)}>
+    <div className={cn('w-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700', className)}>
       {/* Table Header */}
-      <div className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 p-4">
         <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
           {Array.from({ length: columns }).map((_, i) => (
             <Skeleton key={`header-${i}`} className="h-4 w-24" />
@@ -67,7 +67,7 @@ export function SkeletonTable({ rows = 5, columns = 4, className }: SkeletonTabl
       </div>
 
       {/* Table Body */}
-      <div className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-700 bg-white dark:bg-neutral-900">
         {Array.from({ length: rows }).map((_, rowIndex) => (
           <div key={`row-${rowIndex}`} className="p-4">
             <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
@@ -93,7 +93,7 @@ interface SkeletonFormProps {
 
 export function SkeletonForm({ fields = 4, includeButton = true, className }: SkeletonFormProps) {
   return (
-    <div className={cn('space-y-6 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6', className)}>
+    <div className={cn('space-y-6 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-700 p-6', className)}>
       {Array.from({ length: fields }).map((_, i) => (
         <div key={`field-${i}`} className="space-y-2">
           <Skeleton className="h-4 w-32" /> {/* Label */}
@@ -137,8 +137,8 @@ export function ButtonLoading({
 }: ButtonLoadingProps) {
   const variants = {
     primary: 'bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-400',
-    secondary: 'bg-gray-600 hover:bg-gray-700 text-white disabled:bg-gray-400',
-    outline: 'border-2 border-gray-300 hover:border-gray-400 text-gray-700 dark:text-gray-300 disabled:border-gray-200',
+    secondary: 'bg-neutral-600 hover:bg-neutral-700 text-white disabled:bg-neutral-400',
+    outline: 'border-2 border-neutral-300 hover:border-neutral-400 text-neutral-700 dark:text-neutral-300 disabled:border-neutral-200',
     danger: 'bg-red-600 hover:bg-red-700 text-white disabled:bg-red-400',
   }
 
@@ -219,7 +219,7 @@ interface FullPageLoadingProps {
 
 export function FullPageLoading({ message = 'Carregando...', className }: FullPageLoadingProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900', className)} role="status" aria-live="polite" aria-label={message}>
+    <div className={cn('flex flex-col items-center justify-center min-h-screen bg-neutral-50 dark:bg-neutral-900', className)} role="status" aria-live="polite" aria-label={message}>
       <InlineSpinner size="lg" className="text-blue-600 mb-4" />
       <p className="text-description text-lg">{message}</p>
     </div>
@@ -231,7 +231,7 @@ export function FullPageLoading({ message = 'Carregando...', className }: FullPa
 // ========================================
 export function SkeletonCardWithImage({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-lg border bg-white dark:bg-gray-800 overflow-hidden', className)}>
+    <div className={cn('rounded-lg border bg-white dark:bg-neutral-800 overflow-hidden', className)}>
       <Skeleton className="h-48 w-full rounded-none" /> {/* Image */}
       <div className="p-6 space-y-4">
         <Skeleton className="h-6 w-3/4" /> {/* Title */}
@@ -254,7 +254,7 @@ export function SkeletonCardWithImage({ className }: { className?: string }) {
 // ========================================
 export function SkeletonListItem({ className }: { className?: string }) {
   return (
-    <div className={cn('flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border', className)}>
+    <div className={cn('flex items-center gap-4 p-4 bg-white dark:bg-neutral-800 rounded-lg border', className)}>
       <Skeleton className="h-12 w-12 rounded-full" /> {/* Avatar */}
       <div className="flex-1 space-y-2">
         <Skeleton className="h-4 w-48" />
@@ -284,7 +284,7 @@ export function ImageWithLoading({ src, alt, className, width, height }: ImageWi
     <div className={cn('relative overflow-hidden', className)}>
       {isLoading && <Skeleton className="absolute inset-0" />}
       {hasError ? (
-        <div className="flex items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400 h-full w-full">
+        <div className="flex items-center justify-center bg-neutral-100 dark:bg-neutral-800 text-neutral-400 h-full w-full">
           <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"

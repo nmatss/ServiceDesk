@@ -27,6 +27,7 @@ import {
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 import { IconButtonWithTooltip } from '@/components/ui/Tooltip'
+import { logger } from '@/lib/monitoring/logger'
 import PageHeader from '@/components/ui/PageHeader'
 
 interface Ticket {
@@ -138,7 +139,7 @@ export default function AgentWorkspacePage() {
         setQueueStats(statsData.queue_stats)
       }
     } catch {
-      console.error('Error fetching workspace data')
+      logger.error('Erro ao carregar dados do workspace')
     } finally {
       setLoading(false)
     }
@@ -337,6 +338,7 @@ export default function AgentWorkspacePage() {
                   <select
                     value={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.value)}
+                    aria-label="Filtrar por prioridade"
                     className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent transition-all"
                   >
                     <option value="">Todas</option>
@@ -407,6 +409,7 @@ export default function AgentWorkspacePage() {
                   <input
                     type="text"
                     placeholder="Buscar tickets..."
+                    aria-label="Buscar tickets"
                     className="w-full pl-10 pr-4 py-2 bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-600 focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent transition-all"
                   />
                 </div>
@@ -434,7 +437,11 @@ export default function AgentWorkspacePage() {
                       <div
                         key={ticket.id}
                         onClick={() => handleTicketClick(ticket)}
-                        className={`p-3 sm:p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-all group ${
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTicketClick(ticket) } }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Ticket #${ticket.id}: ${ticket.title}`}
+                        className={`p-3 sm:p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-all group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 ${
                           selectedTicket?.id === ticket.id ? 'bg-brand-50 dark:bg-brand-950 border-l-4 border-brand-500 dark:border-brand-400' : ''
                         }`}
                       >

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { logger } from '@/lib/monitoring/logger';
 import {
@@ -47,7 +47,7 @@ interface SearchData {
   total: number
 }
 
-export default function KnowledgeSearchPage() {
+function KnowledgeSearchContent() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -142,7 +142,7 @@ export default function KnowledgeSearchPage() {
       highlightedText += text.substring(lastIndex, start)
 
       // Adicionar texto destacado
-      highlightedText += `<mark class="bg-yellow-200 font-medium">${text.substring(start, end + 1)}</mark>`
+      highlightedText += `<mark class="bg-yellow-200 dark:bg-yellow-800/50 dark:text-yellow-200 font-medium">${text.substring(start, end + 1)}</mark>`
 
       lastIndex = end + 1
     })
@@ -187,13 +187,16 @@ export default function KnowledgeSearchPage() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar artigos, soluções, tutoriais..."
                 className="w-full pl-10 pr-4 py-3 border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                aria-label="Buscar na base de conhecimento"
                 autoFocus
               />
             </div>
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center px-4 py-3 border rounded-lg transition-all ${
+              aria-label="Mostrar filtros"
+              aria-expanded={showFilters}
+              className={`flex items-center px-4 py-3 min-h-[44px] border rounded-lg transition-all ${
                 showFilters
                   ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/20 text-brand-700 dark:text-brand-300'
                   : 'border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'
@@ -316,7 +319,11 @@ export default function KnowledgeSearchPage() {
                   <div
                     key={result.id}
                     onClick={() => router.push(`/knowledge/article/${result.slug}`)}
-                    className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/knowledge/article/${result.slug}`) } }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Abrir artigo: ${result.title}`}
+                    className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-6 hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -426,5 +433,17 @@ export default function KnowledgeSearchPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function KnowledgeSearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+      </div>
+    }>
+      <KnowledgeSearchContent />
+    </Suspense>
   )
 }

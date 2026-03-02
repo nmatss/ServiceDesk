@@ -20,10 +20,10 @@ interface User {
 }
 
 // Public routes that don't require authentication
-const publicRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password']
+const publicRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/govbr', '/onboarding', '/tenant-not-found', '/unauthorized']
 
 // Routes that don't need the full layout (auth pages and landing)
-const authRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password']
+const authRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/govbr', '/onboarding', '/tenant-not-found', '/unauthorized']
 
 // Routes that have their own layout (admin section)
 const customLayoutRoutes = ['/admin']
@@ -190,6 +190,16 @@ function AppLayoutContent({ children }: AppLayoutProps) {
     }
   }, [])
 
+  // Auth/public pages render immediately — no loading state, no spinner
+  if (isAuthPage) {
+    return (
+      <div className="min-h-screen">
+        {children}
+      </div>
+    )
+  }
+
+  // Only show loading spinner for protected routes
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
@@ -206,15 +216,6 @@ function AppLayoutContent({ children }: AppLayoutProps) {
     )
   }
 
-  // Auth pages don't need the full layout
-  if (isAuthPage) {
-    return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
-        {children}
-      </div>
-    )
-  }
-
   return (
     <NotificationProvider>
       <div className="min-h-screen bg-neutral-50 dark:bg-[#0a0a0c] bg-pattern">
@@ -226,7 +227,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         />
 
         {/* Main content area */}
-        <div className={`flex flex-col min-h-screen transition-[padding] duration-150 ease-out ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
+        <div className={`flex flex-col min-h-screen transition-[padding] duration-200 ease-in-out ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-20'}`}>
           {/* Header - Single Source of Truth */}
           <Header
             sidebarOpen={sidebarOpen}
@@ -241,33 +242,33 @@ function AppLayoutContent({ children }: AppLayoutProps) {
             role="main"
             aria-label="Conteúdo principal"
           >
-            <div className="container-responsive py-6">
+            <div className="container-responsive py-4 sm:py-6">
               {children}
             </div>
           </main>
 
           {/* Footer */}
           <footer
-            className="bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 py-4"
+            className="bg-white dark:bg-neutral-800 border-t border-neutral-200 dark:border-neutral-700 py-3 sm:py-4 pb-safe"
             role="contentinfo"
             aria-label="Rodapé"
           >
             <div className="container-responsive">
-              <div className="flex flex-col sm:flex-row justify-between items-center">
-                <div className="text-sm text-description">
-                  © 2024 ServiceDesk Pro. Todos os direitos reservados.
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
+                <div className="text-xs sm:text-sm text-description text-center sm:text-left">
+                  © {new Date().getFullYear()} ServiceDesk Pro. Todos os direitos reservados.
                 </div>
-                <nav className="flex items-center space-x-4 mt-2 sm:mt-0" aria-label="Links do rodapé">
+                <nav className="flex items-center space-x-4" aria-label="Links do rodapé">
                   <a
                     href="/knowledge"
-                    className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    className="text-xs sm:text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors min-h-[44px] inline-flex items-center"
                     aria-label="Ir para base de conhecimento"
                   >
                     Documentação
                   </a>
                   <a
                     href="/portal/create"
-                    className="text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    className="text-xs sm:text-sm text-description hover:text-brand-600 dark:hover:text-brand-400 transition-colors min-h-[44px] inline-flex items-center"
                     aria-label="Abrir novo ticket de suporte"
                   >
                     Suporte
@@ -278,13 +279,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           </footer>
         </div>
 
-        {/* Mobile sidebar backdrop */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
+        {/* Mobile sidebar backdrop is rendered inside Sidebar component (z-40) */}
       </div>
     </NotificationProvider>
   )
@@ -314,8 +309,8 @@ export class AppLayoutErrorBoundary extends React.Component<
         this.props.fallback || (
           <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-16 h-16 bg-error-100 dark:bg-error-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5C3.498 20.333 4.46 22 6 22z" />
                 </svg>
               </div>

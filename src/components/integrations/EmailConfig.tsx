@@ -175,14 +175,14 @@ export default function EmailConfig() {
   return (
     <div className="bg-white rounded-lg shadow">
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-neutral-200">
         <nav className="flex -mb-px">
           <button
             onClick={() => setActiveTab('smtp')}
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'smtp'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
             Configuração SMTP
@@ -192,7 +192,7 @@ export default function EmailConfig() {
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'templates'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
             Templates
@@ -202,7 +202,7 @@ export default function EmailConfig() {
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'queue'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
             Fila de Emails
@@ -212,7 +212,7 @@ export default function EmailConfig() {
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'test'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
             Testar Email
@@ -226,17 +226,17 @@ export default function EmailConfig() {
         {activeTab === 'smtp' && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+              <h3 className="text-lg font-medium text-neutral-900 mb-4">
                 Configuração do Servidor SMTP
               </h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-neutral-600 mb-6">
                 Configure o servidor SMTP para envio de emails. Use Gmail, Outlook, SendGrid, ou qualquer outro provedor.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Host SMTP
                 </label>
                 <Input
@@ -247,7 +247,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Porta
                 </label>
                 <Input
@@ -259,7 +259,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Usuário / Email
                 </label>
                 <Input
@@ -270,7 +270,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Senha
                 </label>
                 <Input
@@ -282,7 +282,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Nome do Remetente
                 </label>
                 <Input
@@ -293,7 +293,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 mb-2">
                   Email do Remetente
                 </label>
                 <Input
@@ -311,9 +311,9 @@ export default function EmailConfig() {
                 id="secure"
                 checked={smtpConfig.secure}
                 onChange={(e) => setSMTPConfig({ ...smtpConfig, secure: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-neutral-300 rounded"
               />
-              <label htmlFor="secure" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="secure" className="ml-2 block text-sm text-neutral-900">
                 Usar SSL/TLS (porta 465)
               </label>
             </div>
@@ -341,10 +341,10 @@ export default function EmailConfig() {
         {activeTab === 'templates' && (
           <div>
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-neutral-900 mb-2">
                 Templates de Email
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-neutral-600">
                 Gerencie os templates de email usados no sistema.
               </p>
             </div>
@@ -362,7 +362,7 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Nome do Template
                   </label>
                   <Input
@@ -372,7 +372,7 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Código
                   </label>
                   <Input
@@ -383,7 +383,7 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Assunto
                   </label>
                   <Input
@@ -393,26 +393,26 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Conteúdo HTML
                   </label>
                   <textarea
                     value={selectedTemplate.bodyHtml}
                     onChange={(e) => setSelectedTemplate({ ...selectedTemplate, bodyHtml: e.target.value })}
                     rows={10}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-2">
                     Conteúdo Texto
                   </label>
                   <textarea
                     value={selectedTemplate.bodyText}
                     onChange={(e) => setSelectedTemplate({ ...selectedTemplate, bodyText: e.target.value })}
                     rows={6}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -454,43 +454,43 @@ export default function EmailConfig() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-neutral-200">
+                    <thead className="bg-neutral-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Nome
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Código
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Categoria
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Ações
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-neutral-200">
                       {templates.map((template) => (
                         <tr key={template.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
                             {template.name}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                             {template.code}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                             {template.category}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               template.isActive
                                 ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
+                                : 'bg-neutral-100 text-neutral-800'
                             }`}>
                               {template.isActive ? 'Ativo' : 'Inativo'}
                             </span>
@@ -507,7 +507,7 @@ export default function EmailConfig() {
                       ))}
                       {templates.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                          <td colSpan={5} className="px-6 py-4 text-center text-sm text-neutral-500">
                             Nenhum template encontrado
                           </td>
                         </tr>
@@ -523,13 +523,13 @@ export default function EmailConfig() {
         {/* Queue Management */}
         {activeTab === 'queue' && (
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-neutral-900 mb-4">
               Fila de Emails
             </h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-neutral-600 mb-6">
               Visualize e gerencie a fila de emails pendentes.
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               Funcionalidade de visualização da fila será implementada em breve.
             </p>
           </div>
@@ -539,16 +539,16 @@ export default function EmailConfig() {
         {activeTab === 'test' && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-neutral-900 mb-2">
                 Enviar Email de Teste
               </h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-neutral-600 mb-6">
                 Teste sua configuração de email enviando um email de teste.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-neutral-700 mb-2">
                 Email de Destino
               </label>
               <Input

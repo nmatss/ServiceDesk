@@ -68,7 +68,8 @@ export default function TenantNotFoundPage() {
           <div className="mt-6">
             <Link
               href="/landing"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 dark:focus:ring-offset-neutral-800 transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full flex justify-center py-2 px-4 min-h-[44px] items-center border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 dark:bg-brand-700 dark:hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 dark:focus:ring-offset-neutral-800 transition-all duration-200 hover:shadow-md transform hover:scale-[1.02] active:scale-[0.98]"
+              aria-label="Voltar à página inicial"
             >
               Voltar à página inicial
             </Link>

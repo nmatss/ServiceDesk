@@ -476,7 +476,8 @@ export default function SLASettingsPage() {
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  aria-label="Fechar modal"
                 >
                   <XMarkIcon className="w-5 h-5 text-muted-content" />
                 </button>

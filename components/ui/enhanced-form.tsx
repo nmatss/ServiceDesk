@@ -88,13 +88,13 @@ export function EnhancedFormField({
   const isNearLimit = maxLength && characterCount > maxLength * 0.8
 
   const inputClasses = cn(
-    'input w-full',
+    'w-full px-3 py-2 rounded-lg border text-neutral-900 dark:text-neutral-100 bg-white dark:bg-neutral-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1',
     isError
-      ? 'input-error'
+      ? 'border-red-500 focus:ring-red-500'
       : isValid
-      ? 'input-success'
-      : 'input-bordered',
-    disabled && 'input-disabled'
+      ? 'border-green-500 focus:ring-green-500'
+      : 'border-neutral-300 dark:border-neutral-600 focus:ring-brand-500',
+    disabled && 'opacity-50 cursor-not-allowed bg-neutral-100 dark:bg-neutral-900'
   )
 
   const InputComponent = type === 'textarea' ? 'textarea' : 'input'
@@ -103,7 +103,7 @@ export function EnhancedFormField({
     <div className={cn('space-y-2', className)}>
       {/* Label */}
       <div className="flex justify-between items-center">
-        <label htmlFor={name} className="label label-text font-medium">
+        <label htmlFor={name} className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
           {label}
           {required && <span className="text-error-500 ml-1">*</span>}
         </label>
@@ -201,7 +201,7 @@ export function PasswordStrengthMeter({ password, className }: PasswordStrengthM
             key={level}
             className={cn(
               'h-1 flex-1 rounded-full transition-all duration-300',
-              level <= strength ? strengthColors[strength - 1] : 'bg-gray-200 dark:bg-gray-700'
+              level <= strength ? strengthColors[strength - 1] : 'bg-neutral-200 dark:bg-neutral-700'
             )}
           />
         ))}

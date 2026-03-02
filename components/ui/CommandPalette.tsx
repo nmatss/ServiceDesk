@@ -85,23 +85,23 @@ const categoryIcons: Record<CommandCategory, React.ReactNode> = {
 
 const categoryLabels: Record<CommandCategory, string> = {
   tickets: 'Tickets',
-  users: 'Users',
-  navigation: 'Navigation',
-  actions: 'Actions',
-  settings: 'Settings',
-  help: 'Help',
-  analytics: 'Analytics',
-  'knowledge-base': 'Knowledge Base',
-  recent: 'Recent',
-  favorites: 'Favorites',
+  users: 'Usuários',
+  navigation: 'Navegação',
+  actions: 'Ações',
+  settings: 'Configurações',
+  help: 'Ajuda',
+  analytics: 'Análises',
+  'knowledge-base': 'Base de Conhecimento',
+  recent: 'Recentes',
+  favorites: 'Favoritos',
 };
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
   commands,
-  placeholder = 'Type a command or search...',
-  emptyText = 'No results found.',
+  placeholder = 'Digite um comando ou busque...',
+  emptyText = 'Nenhum resultado encontrado.',
   persona: _persona = 'agent',
   enableCategories = true,
   enableRecents = true,
@@ -335,7 +335,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
                 {command.recent && (
                   <span className="text-xs text-muted-content">
-                    Recent
+                    Recente
                   </span>
                 )}
               </div>
@@ -401,7 +401,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-start justify-center p-4 pt-[10vh]">
+          <div className="flex min-h-full items-start justify-center p-2 sm:p-4 pt-[5vh] sm:pt-[10vh]">
             <Transition.Child
               as={React.Fragment}
               enter="ease-out duration-300"
@@ -412,7 +412,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className={cn(
-                'w-full max-w-2xl transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all',
+                'w-full max-w-[calc(100vw-1rem)] sm:max-w-2xl transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all',
                 'dark:bg-neutral-800 dark:ring-1 dark:ring-neutral-700',
                 className
               )}>
@@ -423,7 +423,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <div className="relative">
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
                     <Combobox.Input
-                      className="w-full border-0 bg-transparent py-4 pl-12 pr-12 text-neutral-900 placeholder-neutral-500 focus:ring-0 dark:text-neutral-100 dark:placeholder-neutral-400"
+                      className="w-full border-0 bg-transparent py-4 pl-12 pr-12 text-base text-neutral-900 placeholder-neutral-500 focus:ring-0 dark:text-neutral-100 dark:placeholder-neutral-400"
                       placeholder={placeholder}
                       onChange={(e) => setQuery(e.target.value)}
                       value={query}
@@ -496,11 +496,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <span>
-                          {filteredCommands.length} {filteredCommands.length === 1 ? 'result' : 'results'}
+                          {filteredCommands.length} {filteredCommands.length === 1 ? 'resultado' : 'resultados'}
                         </span>
                         {query && (
                           <span>
-                            for "{query}"
+                            para "{query}"
                           </span>
                         )}
                       </div>
@@ -508,11 +508,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         <kbd className="inline-flex h-5 select-none items-center gap-1 rounded border bg-white px-1.5 font-mono text-xs font-medium dark:bg-neutral-700">
                           ↵
                         </kbd>
-                        <span>to select</span>
+                        <span>selecionar</span>
                         <kbd className="inline-flex h-5 select-none items-center gap-1 rounded border bg-white px-1.5 font-mono text-xs font-medium dark:bg-neutral-700">
                           ↑↓
                         </kbd>
-                        <span>to navigate</span>
+                        <span>navegar</span>
                       </div>
                     </div>
                   </div>
@@ -555,32 +555,32 @@ export const createTicketCommands = (persona: 'enduser' | 'agent' | 'manager'): 
   const baseCommands: CommandItem[] = [
     {
       id: 'create-ticket',
-      title: 'Create New Ticket',
-      subtitle: 'Submit a new support request',
+      title: 'Criar Novo Ticket',
+      subtitle: 'Abrir uma nova solicitação de suporte',
       icon: <Plus />,
       action: () => {},
       category: 'tickets',
-      keywords: ['new', 'create', 'add', 'submit'],
+      keywords: ['novo', 'criar', 'adicionar', 'abrir'],
       shortcut: 'Ctrl+N',
     },
     {
       id: 'search-tickets',
-      title: 'Search Tickets',
-      subtitle: 'Find tickets by ID, title, or content',
+      title: 'Buscar Tickets',
+      subtitle: 'Encontrar tickets por ID, título ou conteúdo',
       icon: <Search />,
       action: () => {},
       category: 'tickets',
-      keywords: ['search', 'find', 'lookup'],
+      keywords: ['buscar', 'procurar', 'encontrar'],
       shortcut: 'Ctrl+F',
     },
     {
       id: 'my-tickets',
-      title: 'My Tickets',
-      subtitle: 'View tickets assigned to me',
+      title: 'Meus Tickets',
+      subtitle: 'Ver tickets atribuídos a mim',
       icon: <User />,
       action: () => {},
       category: 'tickets',
-      keywords: ['my', 'assigned', 'mine'],
+      keywords: ['meus', 'atribuídos', 'mim'],
     },
   ];
 
@@ -588,21 +588,21 @@ export const createTicketCommands = (persona: 'enduser' | 'agent' | 'manager'): 
     baseCommands.push(
       {
         id: 'assign-ticket',
-        title: 'Assign Ticket',
-        subtitle: 'Assign ticket to agent',
+        title: 'Atribuir Ticket',
+        subtitle: 'Atribuir ticket a um agente',
         icon: <UserPlus />,
         action: () => {},
         category: 'actions',
-        keywords: ['assign', 'delegate'],
+        keywords: ['atribuir', 'delegar'],
       },
       {
         id: 'escalate-ticket',
-        title: 'Escalate Ticket',
-        subtitle: 'Escalate to higher priority',
+        title: 'Escalar Ticket',
+        subtitle: 'Escalar para prioridade mais alta',
         icon: <TrendingUp />,
         action: () => {},
         category: 'actions',
-        keywords: ['escalate', 'priority', 'urgent'],
+        keywords: ['escalar', 'prioridade', 'urgente'],
       }
     );
   }
@@ -611,21 +611,21 @@ export const createTicketCommands = (persona: 'enduser' | 'agent' | 'manager'): 
     baseCommands.push(
       {
         id: 'team-performance',
-        title: 'Team Performance',
-        subtitle: 'View team metrics and KPIs',
+        title: 'Desempenho da Equipe',
+        subtitle: 'Ver métricas e KPIs da equipe',
         icon: <BarChart3 />,
         action: () => {},
         category: 'analytics',
-        keywords: ['team', 'performance', 'metrics', 'kpi'],
+        keywords: ['equipe', 'desempenho', 'métricas', 'kpi'],
       },
       {
         id: 'sla-report',
-        title: 'SLA Report',
-        subtitle: 'Service level agreement status',
+        title: 'Relatório de SLA',
+        subtitle: 'Status dos acordos de nível de serviço',
         icon: <Clock />,
         action: () => {},
         category: 'analytics',
-        keywords: ['sla', 'service', 'level', 'agreement'],
+        keywords: ['sla', 'serviço', 'nível', 'acordo'],
       }
     );
   }

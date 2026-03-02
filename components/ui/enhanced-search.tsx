@@ -198,7 +198,7 @@ export function EnhancedSearch<T>({
       {/* Search Input */}
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-neutral-400" />
+          <MagnifyingGlassIcon className="h-5 w-5 text-neutral-400 dark:text-neutral-500" />
         </div>
         <input
           ref={inputRef}
@@ -208,11 +208,12 @@ export function EnhancedSearch<T>({
           onKeyDown={handleKeyDown}
           onFocus={() => setShowSuggestions(true)}
           placeholder={placeholder}
-          className="block w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-900 dark:text-white transition-all duration-200"
+          className="block w-full h-11 pl-10 pr-10 py-2 text-base sm:text-sm border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-900 dark:text-white transition-all duration-200"
+          aria-label="Campo de busca"
         />
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
           {isSearching ? (
-            <svg className="animate-spin h-5 w-5 text-gray-400 dark:text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-5 w-5 text-neutral-400 dark:text-neutral-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path
                 className="opacity-75"
@@ -223,8 +224,8 @@ export function EnhancedSearch<T>({
           ) : query ? (
             <button
               onClick={handleClear}
-              className="text-gray-400 dark:text-neutral-400 hover:text-gray-600 dark:hover:text-neutral-300 transition-colors"
-              aria-label="Clear search"
+              className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              aria-label="Limpar busca"
             >
               <XMarkIcon className="h-5 w-5" />
             </button>
@@ -236,18 +237,18 @@ export function EnhancedSearch<T>({
       {showSuggestions && (query || (showRecentSearches && recentSearches.length > 0)) && (
         <div
           ref={suggestionsRef}
-          className="absolute z-10 mt-2 w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-h-96 overflow-auto"
+          className="absolute z-10 mt-2 w-full bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 max-h-96 overflow-auto"
         >
           {/* Recent Searches */}
           {!query && showRecentSearches && recentSearches.length > 0 && (
-            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-2 border-b border-neutral-200 dark:border-neutral-700">
               <div className="flex items-center justify-between mb-2 px-2">
-                <span className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase">
+                <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">
                   Buscas Recentes
                 </span>
                 <button
                   onClick={clearRecentSearches}
-                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                 >
                   Limpar
                 </button>
@@ -256,9 +257,9 @@ export function EnhancedSearch<T>({
                 <button
                   key={index}
                   onClick={() => handleRecentSearchClick(search)}
-                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded transition-colors flex items-center gap-2"
                 >
-                  <svg className="h-4 w-4 text-gray-400 dark:text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-4 w-4 text-neutral-400 dark:text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   {search}
@@ -271,7 +272,7 @@ export function EnhancedSearch<T>({
           {query && suggestions.length > 0 && (
             <div className="p-2">
               <div className="px-2 mb-2">
-                <span className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase">
+                <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase">
                   Sugestões
                 </span>
               </div>
@@ -282,8 +283,8 @@ export function EnhancedSearch<T>({
                   className={cn(
                     'w-full text-left px-3 py-2 text-sm rounded transition-colors',
                     selectedIndex === index
-                      ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
-                      : 'text-gray-700 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? 'bg-brand-100 dark:bg-brand-900/20 text-brand-900 dark:text-brand-100'
+                      : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
                   )}
                 >
                   {renderSuggestion ? renderSuggestion(item) : JSON.stringify(item)}
@@ -294,7 +295,7 @@ export function EnhancedSearch<T>({
 
           {/* No Results */}
           {query && suggestions.length === 0 && !isSearching && (
-            <div className="p-8 text-center text-gray-500 dark:text-neutral-400">
+            <div className="p-8 text-center text-neutral-500 dark:text-neutral-400">
               <MagnifyingGlassIcon className="h-12 w-12 mx-auto mb-2 opacity-40" />
               <p className="text-sm">Nenhum resultado encontrado</p>
               <p className="text-xs mt-1">Tente usar palavras-chave diferentes</p>

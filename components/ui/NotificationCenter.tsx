@@ -1,338 +1,137 @@
-/**
- * Notification Center Component
- *
- * Advanced notification system with real-time updates, categorization,
- * and persona-specific customization. Supports multiple notification types
- * and provides rich interaction capabilities.
- */
+'use client'
 
-'use client';
-
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { logger } from '@/lib/monitoring/logger';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   BellIcon,
   XMarkIcon,
   CheckIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  ChatBubbleLeftRightIcon,
-  UserIcon,
-  CogIcon,
+  CheckCircleIcon,
+  XCircleIcon,
   TrashIcon,
   EyeIcon,
-  EyeSlashIcon,
   FunnelIcon,
   MagnifyingGlassIcon,
-  ShieldExclamationIcon
-} from '@heroicons/react/24/outline';
-import { PersonaType } from '@/lib/design-system/tokens';
+  ClockIcon
+} from '@heroicons/react/24/outline'
 
 interface Notification {
-  id: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'ticket' | 'user' | 'system' | 'sla';
-  category: string;
-  title: string;
-  message: string;
-  timestamp: Date;
-  read: boolean;
-  starred: boolean;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  actions?: NotificationAction[];
-  metadata?: Record<string, any>;
-  expiresAt?: Date;
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message: string
+  timestamp: Date
+  read: boolean
+  actions?: NotificationAction[]
 }
 
 interface NotificationAction {
-  id: string;
-  label: string;
-  type: 'primary' | 'secondary' | 'danger';
-  action: () => void;
+  label: string
+  action: () => void
+  variant?: 'primary' | 'secondary'
 }
 
 interface NotificationCenterProps {
-  isOpen: boolean;
-  onClose: () => void;
-  persona?: PersonaType;
-  className?: string;
+  isOpen: boolean
+  onClose: () => void
+  notifications: Notification[]
+  onMarkAsRead: (id: string) => void
+  onMarkAllAsRead: () => void
+  onRemove: (id: string) => void
+  onClearAll: () => void
+  unreadCount: number
+  className?: string
 }
 
-interface NotificationFilter {
-  type?: string;
-  category?: string;
-  priority?: string;
-  read?: boolean;
-  starred?: boolean;
-}
+export const NotificationCenter = React.memo(function NotificationCenter({
+  isOpen,
+  onClose,
+  notifications,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onRemove,
+  onClearAll,
+  unreadCount,
+  className = ''
+}: NotificationCenterProps) {
+  const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
 
-export const NotificationCenter = React.memo(function NotificationCenter({ isOpen, onClose, persona = 'agent', className = '' }: NotificationCenterProps) {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'sla',
-      category: 'SLA Alert',
-      title: 'SLA Breach Warning',
-      message: 'Ticket REQ-001 will breach SLA in 30 minutes',
-      timestamp: new Date(Date.now() - 5 * 60 * 1000),
-      read: false,
-      starred: false,
-      priority: 'critical',
-      actions: [
-        { id: 'view', label: 'View Ticket', type: 'primary', action: () => logger.info('View ticket') },
-        { id: 'escalate', label: 'Escalate', type: 'secondary', action: () => logger.info('Escalate') }
-      ],
-      metadata: { ticketId: 'REQ-001', timeRemaining: 30 }
-    },
-    {
-      id: '2',
-      type: 'ticket',
-      category: 'New Assignment',
-      title: 'New Ticket Assigned',
-      message: 'High priority ticket has been assigned to you',
-      timestamp: new Date(Date.now() - 15 * 60 * 1000),
-      read: false,
-      starred: true,
-      priority: 'high',
-      actions: [
-        { id: 'accept', label: 'Accept', type: 'primary', action: () => logger.info('Accept ticket') },
-        { id: 'reassign', label: 'Reassign', type: 'secondary', action: () => logger.info('Reassign') }
-      ],
-      metadata: { ticketId: 'REQ-002', assignedBy: 'John Manager' }
-    },
-    {
-      id: '3',
-      type: 'user',
-      category: 'Customer Update',
-      title: 'Customer Reply',
-      message: 'Sarah Johnson replied to ticket REQ-003',
-      timestamp: new Date(Date.now() - 30 * 60 * 1000),
-      read: true,
-      starred: false,
-      priority: 'medium',
-      actions: [
-        { id: 'reply', label: 'Reply', type: 'primary', action: () => logger.info('Reply') }
-      ],
-      metadata: { ticketId: 'REQ-003', customerId: 'sarah-johnson' }
-    },
-    {
-      id: '4',
-      type: 'system',
-      category: 'System Update',
-      title: 'Maintenance Scheduled',
-      message: 'System maintenance scheduled for tonight at 2 AM',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      read: true,
-      starred: false,
-      priority: 'low',
-      metadata: { maintenanceWindow: '2023-12-15T02:00:00Z' }
-    },
-    {
-      id: '5',
-      type: 'success',
-      category: 'Goal Achievement',
-      title: 'SLA Target Met',
-      message: 'Your team achieved 98% SLA compliance this week',
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-      read: false,
-      starred: true,
-      priority: 'medium',
-      metadata: { slaPercentage: 98, period: 'week' }
-    }
-  ]);
-
-  const [filter, setFilter] = useState<NotificationFilter>({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
 
   // Filtered notifications
   const filteredNotifications = useMemo(() => {
     return notifications.filter(notification => {
-      // Apply filters
-      if (filter.type && notification.type !== filter.type) return false;
-      if (filter.category && notification.category !== filter.category) return false;
-      if (filter.priority && notification.priority !== filter.priority) return false;
-      if (filter.read !== undefined && notification.read !== filter.read) return false;
-      if (filter.starred !== undefined && notification.starred !== filter.starred) return false;
+      if (filter === 'unread' && notification.read) return false
 
-      // Apply search
       if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase()
         return (
           notification.title.toLowerCase().includes(query) ||
-          notification.message.toLowerCase().includes(query) ||
-          notification.category.toLowerCase().includes(query)
-        );
+          notification.message.toLowerCase().includes(query)
+        )
       }
 
-      return true;
-    }).sort((a, b) => {
-      // Sort by priority and timestamp
-      const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      const aPriority = priorityOrder[a.priority];
-      const bPriority = priorityOrder[b.priority];
+      return true
+    })
+  }, [notifications, filter, searchQuery])
 
-      if (aPriority !== bPriority) {
-        return bPriority - aPriority;
-      }
+  // Format relative time in Portuguese
+  const formatRelativeTime = useCallback((date: Date) => {
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const minutes = Math.floor(diffMs / 60000)
 
-      return b.timestamp.getTime() - a.timestamp.getTime();
-    });
-  }, [notifications, filter, searchQuery]);
+    if (minutes < 1) return 'Agora mesmo'
+    if (minutes < 60) return `${minutes}min atrás`
 
-  // Notification counts
-  const counts = useMemo(() => {
-    const unread = notifications.filter(n => !n.read).length;
-    const starred = notifications.filter(n => n.starred).length;
-    const critical = notifications.filter(n => n.priority === 'critical').length;
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h atrás`
 
-    return { unread, starred, critical, total: notifications.length };
-  }, [notifications]);
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days}d atrás`
+
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }, [])
 
   // Get notification icon
-  const getNotificationIcon = (type: string, priority: string) => {
-    const iconClass = `h-5 w-5 ${getIconColor(type, priority)}`;
-
+  const getIcon = useCallback((type: string) => {
+    const base = 'h-5 w-5'
     switch (type) {
-      case 'sla':
-        return <ExclamationTriangleIcon className={iconClass} />;
-      case 'ticket':
-        return <ChatBubbleLeftRightIcon className={iconClass} />;
-      case 'user':
-        return <UserIcon className={iconClass} />;
-      case 'system':
-        return <CogIcon className={iconClass} />;
       case 'success':
-        return <CheckIcon className={iconClass} />;
-      case 'warning':
-        return <ExclamationTriangleIcon className={iconClass} />;
+        return <CheckCircleIcon className={`${base} text-emerald-500`} />
       case 'error':
-        return <ShieldExclamationIcon className={iconClass} />;
+        return <XCircleIcon className={`${base} text-red-500`} />
+      case 'warning':
+        return <ExclamationTriangleIcon className={`${base} text-amber-500`} />
+      case 'info':
       default:
-        return <InformationCircleIcon className={iconClass} />;
+        return <InformationCircleIcon className={`${base} text-blue-500`} />
     }
-  };
+  }, [])
 
-  const getIconColor = (type: string, priority: string) => {
-    if (priority === 'critical') return 'text-error-600 dark:text-error-400';
-    if (priority === 'high') return 'text-warning-600 dark:text-warning-400';
-
+  const getIconBg = useCallback((type: string) => {
     switch (type) {
-      case 'sla':
-      case 'error':
-        return 'text-error-600 dark:text-error-400';
-      case 'warning':
-        return 'text-warning-600 dark:text-warning-400';
-      case 'success':
-        return 'text-success-600 dark:text-success-400';
-      case 'ticket':
-        return 'text-brand-600 dark:text-brand-400';
-      case 'user':
-        return 'text-purple-600 dark:text-purple-400';
-      case 'system':
-        return 'text-description';
-      default:
-        return 'text-brand-600 dark:text-brand-400';
+      case 'success': return 'bg-emerald-50 dark:bg-emerald-500/10'
+      case 'error': return 'bg-red-50 dark:bg-red-500/10'
+      case 'warning': return 'bg-amber-50 dark:bg-amber-500/10'
+      case 'info':
+      default: return 'bg-blue-50 dark:bg-blue-500/10'
     }
-  };
-
-  const getBorderColor = (priority: string, read: boolean) => {
-    if (read) return '';
-
-    switch (priority) {
-      case 'critical':
-        return 'border-l-4 border-error-500 dark:border-error-400';
-      case 'high':
-        return 'border-l-4 border-warning-500 dark:border-warning-400';
-      case 'medium':
-        return 'border-l-4 border-brand-500 dark:border-brand-400';
-      default:
-        return 'border-l-4 border-neutral-300 dark:border-neutral-600';
-    }
-  };
-
-  // Format relative time
-  const formatRelativeTime = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${days}d ago`;
-  };
-
-  // Notification actions
-  const markAsRead = useCallback((notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    );
-  }, []);
-
-  const markAsUnread = useCallback((notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read: false } : n)
-    );
-  }, []);
-
-  const toggleStar = useCallback((notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, starred: !n.starred } : n)
-    );
-  }, []);
-
-  const deleteNotification = useCallback((notificationId: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
-  }, []);
-
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
-
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  // Handle bulk actions
-  const handleBulkAction = useCallback((action: string) => {
-    switch (action) {
-      case 'markRead':
-        setNotifications(prev =>
-          prev.map(n => selectedNotifications.includes(n.id) ? { ...n, read: true } : n)
-        );
-        break;
-      case 'markUnread':
-        setNotifications(prev =>
-          prev.map(n => selectedNotifications.includes(n.id) ? { ...n, read: false } : n)
-        );
-        break;
-      case 'delete':
-        setNotifications(prev => prev.filter(n => !selectedNotifications.includes(n.id)));
-        break;
-    }
-    setSelectedNotifications([]);
-  }, [selectedNotifications]);
-
-  const toggleSelection = useCallback((notificationId: string) => {
-    setSelectedNotifications(prev =>
-      prev.includes(notificationId)
-        ? prev.filter(id => id !== notificationId)
-        : [...prev, notificationId]
-    );
-  }, []);
-
-  const selectAll = useCallback(() => {
-    setSelectedNotifications(filteredNotifications.map(n => n.id));
-  }, [filteredNotifications]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedNotifications([]);
-  }, []);
+  }, [])
 
   // Handle click outside
   useEffect(() => {
@@ -340,279 +139,217 @@ export const NotificationCenter = React.memo(function NotificationCenter({ isOpe
 
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        onClose();
+        onClose()
       }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
-
-  // Get persona-specific classes
-  const getPersonaClasses = () => {
-    switch (persona) {
-      case 'enduser':
-        return 'w-96 max-h-[32rem]';
-      case 'agent':
-        return 'w-80 max-h-96';
-      case 'manager':
-        return 'w-[28rem] max-h-[36rem]';
-      default:
-        return 'w-80 max-h-96';
     }
-  };
 
-  if (!isOpen) return null;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isOpen, onClose])
+
+  if (!isOpen || !mounted) return null
 
   return createPortal(
-    <div ref={containerRef} className={`glass-panel fixed top-16 right-4 z-50 ${getPersonaClasses()} rounded-lg shadow-2xl border border-neutral-200 dark:border-neutral-700 ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BellIcon className="h-5 w-5 text-description" />
-            <h3 className="font-semibold text-neutral-900 dark:text-white">Notifications</h3>
-            {counts.unread > 0 && (
-              <span className="badge badge-error text-xs">
-                {counts.unread}
-              </span>
-            )}
-          </div>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[60] sm:bg-transparent sm:backdrop-blur-none"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`btn btn-sm btn-ghost ${
-                showFilters ? 'bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400' : ''
-              }`}
-            >
-              <FunnelIcon className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={markAllAsRead}
-              className="btn btn-sm btn-ghost"
-              title="Mark all as read"
-            >
-              <CheckIcon className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={onClose}
-              className="btn btn-sm btn-ghost"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Quick stats */}
-        <div className="flex items-center gap-4 mt-3 text-sm text-muted-content">
-          <span>{counts.total} total</span>
-          <span>{counts.unread} unread</span>
-          <span>{counts.critical} critical</span>
-        </div>
-      </div>
-
-      {/* Filters */}
-      {showFilters && (
-        <div className="p-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 space-y-3">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search notifications..."
-              className="input input-sm w-full pl-9"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              value={filter.type || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, type: e.target.value || undefined }))}
-              className="select select-sm select-bordered"
-            >
-              <option value="">All Types</option>
-              <option value="sla">SLA</option>
-              <option value="ticket">Tickets</option>
-              <option value="user">Users</option>
-              <option value="system">System</option>
-            </select>
-
-            <select
-              value={filter.priority || ''}
-              onChange={(e) => setFilter(prev => ({ ...prev, priority: e.target.value || undefined }))}
-              className="select select-sm select-bordered"
-            >
-              <option value="">All Priorities</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilter(prev => ({ ...prev, read: false }))}
-              className={`btn btn-xs ${
-                filter.read === false ? 'btn-primary' : 'btn-outline'
-              }`}
-            >
-              Unread Only
-            </button>
-            <button
-              onClick={() => setFilter(prev => ({ ...prev, starred: true }))}
-              className={`btn btn-xs ${
-                filter.starred === true ? 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-400' : 'btn-outline'
-              }`}
-            >
-              Starred Only
-            </button>
-            <button
-              onClick={() => setFilter({})}
-              className="btn btn-xs btn-outline"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk actions */}
-      {selectedNotifications.length > 0 && (
-        <div className="p-3 border-b border-neutral-200 dark:border-neutral-700 bg-brand-50 dark:bg-brand-900/20">
+      {/* Panel */}
+      <div
+        ref={containerRef}
+        className={`fixed z-[61] bg-white dark:bg-neutral-800 shadow-2xl border border-neutral-200/80 dark:border-neutral-700/80 overflow-hidden ${className}
+          inset-x-2 top-16 bottom-auto rounded-xl sm:inset-auto sm:top-16 sm:right-4 sm:w-[26rem] sm:max-h-[calc(100vh-5rem)] sm:rounded-xl
+        `}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Central de notificações"
+        style={{ animation: 'fadeSlideDown 0.2s ease-out' }}
+      >
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-700/50">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-brand-700 dark:text-brand-300 font-medium">
-              {selectedNotifications.length} selected
-            </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center">
+                <BellIcon className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  Notificações
+                </h2>
+                <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                  {unreadCount > 0
+                    ? `${unreadCount} ${unreadCount === 1 ? 'não lida' : 'não lidas'}`
+                    : 'Tudo em dia'
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
               <button
-                onClick={() => handleBulkAction('markRead')}
-                className="btn btn-xs btn-primary"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  showFilters
+                    ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                    : 'text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:text-neutral-300 dark:hover:bg-neutral-700'
+                }`}
+                title="Filtros"
+                aria-label="Mostrar filtros"
               >
-                Mark Read
+                <FunnelIcon className="h-4 w-4" />
               </button>
+
+              {unreadCount > 0 && (
+                <button
+                  onClick={onMarkAllAsRead}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-500/10 transition-colors"
+                  title="Marcar todas como lidas"
+                  aria-label="Marcar todas como lidas"
+                >
+                  <CheckIcon className="h-4 w-4" />
+                </button>
+              )}
+
               <button
-                onClick={() => handleBulkAction('delete')}
-                className="btn btn-xs btn-error"
+                onClick={onClose}
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:text-neutral-300 dark:hover:bg-neutral-700 transition-colors"
+                aria-label="Fechar"
               >
-                Delete
-              </button>
-              <button
-                onClick={clearSelection}
-                className="btn btn-xs btn-outline"
-              >
-                Clear
+                <XMarkIcon className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Notifications list */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredNotifications.length === 0 ? (
-          <div className="p-8 text-center">
-            <BellIcon className="h-8 w-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-3" />
-            <div className="text-muted-content font-medium">No notifications</div>
-            <div className="text-sm text-icon-muted">
-              {searchQuery ? 'No notifications match your search' : 'You\'re all caught up!'}
+        {/* Filters */}
+        {showFilters && (
+          <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/50 space-y-3">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar notificações..."
+                className="w-full pl-9 pr-3 py-2 text-sm bg-white dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
+              />
             </div>
-          </div>
-        ) : (
-          <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-            {filteredNotifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors ${getBorderColor(notification.priority, notification.read)} ${
-                  !notification.read ? 'bg-brand-50/30 dark:bg-brand-900/10' : ''
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilter('all')}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  filter === 'all'
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedNotifications.includes(notification.id)}
-                    onChange={() => toggleSelection(notification.id)}
-                    className="checkbox checkbox-sm checkbox-primary mt-1"
-                  />
+                Todas
+              </button>
+              <button
+                onClick={() => setFilter('unread')}
+                className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  filter === 'unread'
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600'
+                }`}
+              >
+                Não lidas
+              </button>
+              {(searchQuery || filter !== 'all') && (
+                <button
+                  onClick={() => { setFilter('all'); setSearchQuery('') }}
+                  className="text-xs px-3 py-1.5 rounded-md font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getNotificationIcon(notification.type, notification.priority)}
+        {/* Notifications list */}
+        <div className="overflow-y-auto overscroll-contain max-h-[50vh] sm:max-h-[calc(100vh-16rem)]">
+          {filteredNotifications.length === 0 ? (
+            <div className="py-14 px-4 text-center">
+              <div className="w-14 h-14 rounded-full bg-neutral-100 dark:bg-neutral-700/50 flex items-center justify-center mx-auto mb-4">
+                <BellIcon className="h-7 w-7 text-neutral-400 dark:text-neutral-500" />
+              </div>
+              <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                {searchQuery ? 'Nenhum resultado encontrado' : 'Nenhuma notificação'}
+              </p>
+              <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                {searchQuery
+                  ? 'Tente outra busca'
+                  : 'Quando houver novidades, elas aparecerão aqui.'
+                }
+              </p>
+            </div>
+          ) : (
+            <div>
+              {filteredNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`group relative flex items-start gap-3 px-4 py-3.5 border-b border-neutral-50 dark:border-neutral-700/30 last:border-0 transition-colors ${
+                    !notification.read
+                      ? 'bg-brand-50/30 dark:bg-brand-500/5 hover:bg-brand-50/50 dark:hover:bg-brand-500/8'
+                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/30'
+                  }`}
+                >
+                  {/* Unread indicator */}
+                  {!notification.read && (
+                    <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-brand-500" />
+                  )}
+
+                  {/* Icon */}
+                  <div className={`flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${getIconBg(notification.type)}`}>
+                    {getIcon(notification.type)}
                   </div>
 
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`text-sm font-medium ${notification.read ? 'text-neutral-700 dark:text-neutral-300' : 'text-neutral-900 dark:text-white'}`}>
-                            {notification.title}
-                          </h4>
-                          {notification.starred && (
-                            <div className="w-2 h-2 bg-warning-400 rounded-full"></div>
-                          )}
-                        </div>
-                        <p className={`text-sm mt-1 ${notification.read ? 'text-muted-content' : 'text-neutral-700 dark:text-neutral-200'}`}>
-                          {notification.message}
-                        </p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="text-xs text-icon-muted">
-                            {formatRelativeTime(notification.timestamp)}
-                          </span>
-                          <span className="text-xs text-icon-muted">
-                            {notification.category}
-                          </span>
-                          {notification.priority === 'critical' && (
-                            <span className="badge badge-error badge-sm">
-                              Critical
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 ml-2">
-                        <button
-                          onClick={() => toggleStar(notification.id)}
-                          className={`btn btn-xs btn-ghost ${
-                            notification.starred ? 'text-warning-500' : 'text-neutral-300 dark:text-neutral-600 hover:text-warning-500'
-                          }`}
-                        >
-                          ★
-                        </button>
-
-                        <button
-                          onClick={() => notification.read ? markAsUnread(notification.id) : markAsRead(notification.id)}
-                          className="btn btn-xs btn-ghost"
-                          title={notification.read ? 'Mark as unread' : 'Mark as read'}
-                        >
-                          {notification.read ? <EyeSlashIcon className="h-3 w-3" /> : <EyeIcon className="h-3 w-3" />}
-                        </button>
-
-                        <button
-                          onClick={() => deleteNotification(notification.id)}
-                          className="btn btn-xs btn-ghost hover:text-error-500"
-                          title="Delete notification"
-                        >
-                          <TrashIcon className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
+                    <p className={`text-sm leading-snug ${
+                      !notification.read
+                        ? 'font-semibold text-neutral-900 dark:text-neutral-100'
+                        : 'font-medium text-neutral-700 dark:text-neutral-300'
+                    }`}>
+                      {notification.title}
+                    </p>
+                    <p className="text-[13px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
+                      {notification.message}
+                    </p>
+                    <span className="inline-flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500 mt-1.5">
+                      <ClockIcon className="h-3 w-3" />
+                      {formatRelativeTime(notification.timestamp)}
+                    </span>
 
                     {/* Actions */}
                     {notification.actions && notification.actions.length > 0 && (
-                      <div className="flex items-center gap-2 mt-3">
-                        {notification.actions.map((action) => (
+                      <div className="flex items-center gap-2 mt-2.5">
+                        {notification.actions.map((action, index) => (
                           <button
-                            key={action.id}
-                            onClick={action.action}
-                            className={`btn btn-xs ${
-                              action.type === 'primary'
-                                ? 'btn-primary'
-                                : action.type === 'danger'
-                                ? 'btn-error'
-                                : 'btn-outline'
+                            key={index}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              action.action()
+                              onRemove(notification.id)
+                            }}
+                            className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${
+                              action.variant === 'primary'
+                                ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'
+                                : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
                             }`}
                           >
                             {action.label}
@@ -621,45 +358,65 @@ export const NotificationCenter = React.memo(function NotificationCenter({ isOpe
                       </div>
                     )}
                   </div>
+
+                  {/* Hover actions */}
+                  <div className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!notification.read && (
+                      <button
+                        onClick={() => onMarkAsRead(notification.id)}
+                        className="p-1 rounded-md text-neutral-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-500/10 transition-colors"
+                        title="Marcar como lida"
+                        aria-label={`Marcar "${notification.title}" como lida`}
+                      >
+                        <EyeIcon className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onRemove(notification.id)}
+                      className="p-1 rounded-md text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                      title="Remover"
+                      aria-label={`Remover "${notification.title}"`}
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {notifications.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-neutral-100 dark:border-neutral-700/50 bg-neutral-50/50 dark:bg-neutral-800/80">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                {filteredNotifications.length} de {notifications.length}
+              </span>
+              <button
+                onClick={onClearAll}
+                className="text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+              >
+                Limpar todas
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Footer */}
-      {filteredNotifications.length > 0 && (
-        <div className="p-3 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50">
-          <div className="flex items-center justify-between text-xs text-muted-content">
-            <button
-              onClick={selectAll}
-              className="btn btn-xs btn-ghost"
-            >
-              Select All
-            </button>
-            <button
-              onClick={clearAll}
-              className="btn btn-xs btn-ghost hover:text-error-600"
-            >
-              Clear All
-            </button>
-          </div>
-        </div>
-      )}
-    </div>,
+    </>,
     document.body
-  );
-});
+  )
+})
 
 // Hook for notification center
 export function useNotificationCenter() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false)
 
   return {
     isOpen,
-    open: () => setIsOpen(true),
-    close: () => setIsOpen(false),
-    toggle: () => setIsOpen(prev => !prev)
-  };
+    open: useCallback(() => setIsOpen(true), []),
+    close: useCallback(() => setIsOpen(false), []),
+    toggle: useCallback(() => setIsOpen(prev => !prev), [])
+  }
 }

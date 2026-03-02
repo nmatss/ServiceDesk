@@ -112,7 +112,7 @@ export default function DelayNode({ data, selected }: NodeProps<DelayNodeData>) 
         {configuration.dynamicExpression && configuration.delayType === 'dynamic' && (
           <div className={`text-xs ${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
             <div className="font-medium mb-1">Expression:</div>
-            <code className="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">
+            <code className="font-mono text-xs bg-neutral-100 px-1 py-0.5 rounded">
               {configuration.dynamicExpression.length > 25
                 ? `${configuration.dynamicExpression.substring(0, 25)}...`
                 : configuration.dynamicExpression

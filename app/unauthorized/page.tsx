@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -13,19 +13,17 @@ import {
   ArrowRightIcon
 } from '@heroicons/react/24/outline'
 
-export default function Unauthorized() {
+function UnauthorizedContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [user, setUser] = useState<{ email?: string; role?: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Get error reason from URL params
   const reason = searchParams.get('reason') || 'insufficient_permissions'
   const requiredRole = searchParams.get('required_role')
   const resource = searchParams.get('resource')
 
   useEffect(() => {
-    // Try to get current user info
     const checkUser = async () => {
       try {
         const response = await fetch('/api/auth/verify', {
@@ -41,8 +39,8 @@ export default function Unauthorized() {
             })
           }
         }
-      } catch (error) {
-        console.error('[Unauthorized] Failed to fetch user:', error)
+      } catch {
+        // Silently fail
       } finally {
         setLoading(false)
       }
@@ -105,12 +103,11 @@ export default function Unauthorized() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-neutral-50 to-orange-50 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 flex items-center justify-center px-4 py-8">
       <div className="max-w-3xl w-full">
-        {/* Main Error Card */}
         <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 overflow-hidden">
-          {/* Header Section */}
+          {/* Header */}
           <div className="bg-gradient-to-r from-red-500 to-orange-500 dark:from-red-600 dark:to-orange-600 px-8 py-6">
             <div className="flex items-center justify-center mb-4">
-              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse-soft">
+              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
                 <ShieldExclamationIcon className="w-10 h-10 text-white" />
               </div>
             </div>
@@ -122,9 +119,8 @@ export default function Unauthorized() {
             </h2>
           </div>
 
-          {/* Content Section */}
+          {/* Content */}
           <div className="px-8 py-8">
-            {/* Error Message */}
             <div className="text-center mb-8">
               <p className="text-neutral-600 dark:text-neutral-300 text-lg mb-4">
                 {getErrorMessage()}
@@ -142,16 +138,16 @@ export default function Unauthorized() {
             {!loading && user && (
               <div className="mb-8 p-4 bg-neutral-50 dark:bg-neutral-700/50 rounded-lg border border-neutral-200 dark:border-neutral-600">
                 <div className="flex items-center gap-3">
-                  <UserCircleIcon className="w-6 h-6 text-muted-content flex-shrink-0" />
+                  <UserCircleIcon className="w-6 h-6 text-neutral-400 dark:text-neutral-500 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-description">
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
                       Conectado como:
                     </p>
                     <p className="text-base font-medium text-neutral-900 dark:text-neutral-100 truncate">
                       {user.email}
                     </p>
                     {user.role && (
-                      <p className="text-xs text-muted-content mt-1">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                         Função: <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
                           {user.role}
                         </span>
@@ -166,7 +162,7 @@ export default function Unauthorized() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <button
                 onClick={() => router.back()}
-                className="btn btn-secondary flex items-center justify-center gap-2 min-h-touch"
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-3 rounded-lg border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors font-medium"
               >
                 <ArrowLeftIcon className="w-5 h-5" />
                 Voltar
@@ -174,7 +170,7 @@ export default function Unauthorized() {
 
               <Link
                 href="/dashboard"
-                className="btn btn-primary flex items-center justify-center gap-2 min-h-touch"
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors shadow-sm"
               >
                 <HomeIcon className="w-5 h-5" />
                 Ir para Dashboard
@@ -183,7 +179,7 @@ export default function Unauthorized() {
 
             {/* Recommendations */}
             <div className="border-t border-neutral-200 dark:border-neutral-700 pt-8 mt-8">
-              <p className="text-sm font-medium text-muted-content mb-6 text-center">
+              <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-6 text-center">
                 O que você pode fazer?
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -202,7 +198,7 @@ export default function Unauthorized() {
                         <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                           {rec.title}
                         </h3>
-                        <p className="text-sm text-muted-content mb-4">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
                           {rec.description}
                         </p>
                         <div className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 dark:text-indigo-400 group-hover:gap-2 transition-all">
@@ -218,28 +214,19 @@ export default function Unauthorized() {
 
             {/* Help Section */}
             <div className="mt-8 pt-8 border-t border-neutral-200 dark:border-neutral-700">
-              <p className="text-sm text-muted-content mb-4 text-center">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4 text-center">
                 Precisa de mais ajuda?
               </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm">
-                <Link
-                  href="/knowledge"
-                  className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors"
-                >
+                <Link href="/knowledge" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors">
                   Base de Conhecimento
                 </Link>
                 <span className="text-neutral-300 dark:text-neutral-600">|</span>
-                <Link
-                  href="/portal/create"
-                  className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors"
-                >
+                <Link href="/portal/create" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors">
                   Abrir Ticket de Suporte
                 </Link>
                 <span className="text-neutral-300 dark:text-neutral-600">|</span>
-                <Link
-                  href="/admin"
-                  className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors"
-                >
+                <Link href="/admin" className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline transition-colors">
                   Área Administrativa
                 </Link>
               </div>
@@ -263,13 +250,24 @@ export default function Unauthorized() {
           </div>
         </div>
 
-        {/* Footer Note */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-muted-content">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
             Código do erro: 403 - Acesso negado
           </p>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Unauthorized() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+      </div>
+    }>
+      <UnauthorizedContent />
+    </Suspense>
   )
 }

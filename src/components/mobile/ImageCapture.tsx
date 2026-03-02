@@ -274,7 +274,7 @@ export const ImageCapture: React.FC<ImageCaptureProps> = ({
       {/* Trigger */}
       <div onClick={() => setIsSheetOpen(true)}>
         {children || (
-          <button className="btn btn-secondary flex items-center space-x-2">
+          <button className="flex items-center space-x-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 font-medium text-sm transition-colors">
             <PhotoIcon className="h-5 w-5" />
             <span>Adicionar Imagem</span>
           </button>
@@ -388,13 +388,13 @@ export const ImageCapture: React.FC<ImageCaptureProps> = ({
                 <div className="flex space-x-3">
                   <button
                     onClick={handleCancel}
-                    className="flex-1 btn btn-secondary"
+                    className="flex-1 px-4 py-2.5 min-h-[44px] rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 font-medium text-sm transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={handleConfirm}
-                    className="flex-1 btn btn-primary"
+                    className="flex-1 px-4 py-2.5 min-h-[44px] rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition-colors"
                   >
                     Confirmar ({capturedImages.length})
                   </button>

@@ -9,7 +9,7 @@
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
+  "theme_color": "#0ea5e9",
   "categories": ["business", "productivity", "utilities"],
   "lang": "pt-BR",
   "dir": "ltr",
@@ -141,6 +141,7 @@
   "share_target": {
     "action": "/tickets/create",
     "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
     "params": {
       "title": "title",
       "text": "description",

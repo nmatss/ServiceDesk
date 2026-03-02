@@ -289,14 +289,14 @@ export function TicketVolumeWidget({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
             Ticket Volume Trends
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
             Daily ticket creation and resolution patterns
           </p>
         </div>
@@ -305,7 +305,7 @@ export function TicketVolumeWidget({
           <select
             value={config.period}
             onChange={(e) => onUpdate({ period: e.target.value })}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
             <option value="week">Last Week</option>
             <option value="month">Last Month</option>
@@ -315,7 +315,7 @@ export function TicketVolumeWidget({
           <select
             value={config.chartType}
             onChange={(e) => onUpdate({ chartType: e.target.value })}
-            className="text-sm border border-gray-300 rounded-md px-3 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
             <option value="composed">Combined Chart</option>
             <option value="area">Area Chart</option>
@@ -327,7 +327,7 @@ export function TicketVolumeWidget({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.showForecasting
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
             Forecast
@@ -338,7 +338,7 @@ export function TicketVolumeWidget({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.includeHighPriority
                 ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
-                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
             High Priority
@@ -356,7 +356,7 @@ export function TicketVolumeWidget({
                 Daily Average
               </span>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {metrics.avgDaily.toFixed(0)}
             </div>
             <div className={`text-sm font-medium flex items-center justify-center ${
@@ -377,10 +377,10 @@ export function TicketVolumeWidget({
                 Resolution Rate
               </span>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {metrics.resolutionRate.toFixed(1)}%
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">
               {metrics.totalResolved}/{metrics.totalCreated}
             </div>
           </div>
@@ -392,10 +392,10 @@ export function TicketVolumeWidget({
                 High Priority
               </span>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-white">
               {metrics.highPriorityRate.toFixed(1)}%
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">
               {metrics.totalHighPriority} tickets
             </div>
           </div>
@@ -411,7 +411,7 @@ export function TicketVolumeWidget({
             }`}>
               {metrics.backlog}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">
               {metrics.backlog > 0 ? 'pending' : 'resolved'}
             </div>
           </div>
@@ -427,8 +427,8 @@ export function TicketVolumeWidget({
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <ChartBarIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
+              <ChartBarIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+              <p className="text-neutral-500 dark:text-neutral-400">
                 {isConnected ? 'Loading volume data...' : 'No data available'}
               </p>
             </div>

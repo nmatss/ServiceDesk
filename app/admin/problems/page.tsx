@@ -53,19 +53,19 @@ interface ProblemStats {
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
-  new: { label: 'Novo', color: 'text-brand-700', bgColor: 'bg-brand-100', icon: ExclamationTriangleIcon },
-  investigation: { label: 'Em Investigação', color: 'text-yellow-700', bgColor: 'bg-yellow-100', icon: DocumentMagnifyingGlassIcon },
-  root_cause_identified: { label: 'Causa Raiz Identificada', color: 'text-orange-700', bgColor: 'bg-orange-100', icon: LightBulbIcon },
-  known_error: { label: 'Erro Conhecido', color: 'text-purple-700', bgColor: 'bg-purple-100', icon: BugAntIcon },
-  resolved: { label: 'Resolvido', color: 'text-green-700', bgColor: 'bg-green-100', icon: CheckCircleIcon },
-  closed: { label: 'Fechado', color: 'text-neutral-700', bgColor: 'bg-neutral-100', icon: CheckCircleIcon }
+  new: { label: 'Novo', color: 'text-brand-700 dark:text-brand-400', bgColor: 'bg-brand-100 dark:bg-brand-900/30', icon: ExclamationTriangleIcon },
+  investigation: { label: 'Em Investigação', color: 'text-yellow-700 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30', icon: DocumentMagnifyingGlassIcon },
+  root_cause_identified: { label: 'Causa Raiz Identificada', color: 'text-orange-700 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900/30', icon: LightBulbIcon },
+  known_error: { label: 'Erro Conhecido', color: 'text-purple-700 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900/30', icon: BugAntIcon },
+  resolved: { label: 'Resolvido', color: 'text-green-700 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30', icon: CheckCircleIcon },
+  closed: { label: 'Fechado', color: 'text-neutral-700 dark:text-neutral-400', bgColor: 'bg-neutral-100 dark:bg-neutral-800', icon: CheckCircleIcon }
 }
 
 const priorityColors: Record<string, string> = {
-  critical: 'bg-red-100 text-red-800 border-red-200',
-  high: 'bg-orange-100 text-orange-800 border-orange-200',
-  medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  low: 'bg-green-100 text-green-800 border-green-200'
+  critical: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border-red-200 dark:border-red-800',
+  high: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-orange-200 dark:border-orange-800',
+  medium: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',
+  low: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border-green-200 dark:border-green-800'
 }
 
 export default function ProblemsPage() {
@@ -242,7 +242,7 @@ export default function ProblemsPage() {
       </StatsGrid>
 
       {/* Filters */}
-      <div className="glass-panel animate-slide-up">
+      <div className="glass-panel p-4 animate-slide-up">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="flex-1">
@@ -253,7 +253,8 @@ export default function ProblemsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por título, número ou descrição..."
-                className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                aria-label="Buscar problemas por título, número ou descrição"
+                className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all h-11"
               />
             </div>
           </div>
@@ -262,7 +263,8 @@ export default function ProblemsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
+            aria-label="Filtrar por status"
+            className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 transition-all h-11"
           >
             <option value="">Todos os status</option>
             <option value="new">Novo</option>
@@ -277,7 +279,8 @@ export default function ProblemsPage() {
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
+            aria-label="Filtrar por prioridade"
+            className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-brand-500 transition-all h-11"
           >
             <option value="">Todas as prioridades</option>
             <option value="critical">Crítica</option>
@@ -291,14 +294,16 @@ export default function ProblemsPage() {
               onClick={fetchProblems}
               className="p-2.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-description hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
               title="Atualizar"
+              aria-label="Atualizar lista de problemas"
             >
               <ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="p-2.5 rounded-lg text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 transition-colors"
+                className="p-2.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                 title="Limpar filtros"
+                aria-label="Limpar todos os filtros"
               >
                 <XCircleIcon className="w-5 h-5" />
               </button>
@@ -354,7 +359,7 @@ export default function ProblemsPage() {
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push(`/admin/problems/${problem.id}`) } }}
                   role="button"
                   tabIndex={0}
-                  className="glass-panel hover:shadow-large hover:-translate-y-1 cursor-pointer group transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                  className="glass-panel hover:shadow-large hover:-translate-y-1 cursor-pointer group transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-neutral-900"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                     {/* Status Icon */}
@@ -442,6 +447,7 @@ export default function ProblemsPage() {
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Página anterior"
                 >
                   Anterior
                 </button>
@@ -449,6 +455,7 @@ export default function ProblemsPage() {
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Próxima página"
                 >
                   Próxima
                 </button>

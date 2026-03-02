@@ -53,23 +53,23 @@ interface ChangeStats {
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ComponentType<{ className?: string }> }> = {
-  draft: { label: 'Rascunho', color: 'text-neutral-700', bgColor: 'bg-neutral-100', icon: DocumentTextIcon },
-  submitted: { label: 'Submetido', color: 'text-brand-700', bgColor: 'bg-brand-100', icon: ArrowsRightLeftIcon },
-  pending_assessment: { label: 'Aguardando Avaliação', color: 'text-yellow-700', bgColor: 'bg-yellow-100', icon: ClockIcon },
-  pending_cab: { label: 'Aguardando CAB', color: 'text-purple-700', bgColor: 'bg-purple-100', icon: UserGroupIcon },
-  approved: { label: 'Aprovado', color: 'text-green-700', bgColor: 'bg-green-100', icon: CheckCircleIcon },
-  rejected: { label: 'Rejeitado', color: 'text-red-700', bgColor: 'bg-red-100', icon: XCircleIcon },
-  scheduled: { label: 'Agendado', color: 'text-indigo-700', bgColor: 'bg-indigo-100', icon: CalendarIcon },
-  in_progress: { label: 'Em Execução', color: 'text-orange-700', bgColor: 'bg-orange-100', icon: PlayIcon },
-  completed: { label: 'Concluído', color: 'text-green-700', bgColor: 'bg-green-100', icon: CheckCircleIcon },
-  failed: { label: 'Falhou', color: 'text-red-700', bgColor: 'bg-red-100', icon: XCircleIcon },
-  cancelled: { label: 'Cancelado', color: 'text-neutral-700', bgColor: 'bg-neutral-100', icon: PauseIcon }
+  draft: { label: 'Rascunho', color: 'text-neutral-700 dark:text-neutral-300', bgColor: 'bg-neutral-100 dark:bg-neutral-800', icon: DocumentTextIcon },
+  submitted: { label: 'Submetido', color: 'text-brand-700 dark:text-brand-300', bgColor: 'bg-brand-100 dark:bg-brand-900/20', icon: ArrowsRightLeftIcon },
+  pending_assessment: { label: 'Aguardando Avaliação', color: 'text-yellow-700 dark:text-yellow-300', bgColor: 'bg-yellow-100 dark:bg-yellow-900/20', icon: ClockIcon },
+  pending_cab: { label: 'Aguardando CAB', color: 'text-purple-700 dark:text-purple-300', bgColor: 'bg-purple-100 dark:bg-purple-900/20', icon: UserGroupIcon },
+  approved: { label: 'Aprovado', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/20', icon: CheckCircleIcon },
+  rejected: { label: 'Rejeitado', color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/20', icon: XCircleIcon },
+  scheduled: { label: 'Agendado', color: 'text-indigo-700 dark:text-indigo-300', bgColor: 'bg-indigo-100 dark:bg-indigo-900/20', icon: CalendarIcon },
+  in_progress: { label: 'Em Execução', color: 'text-orange-700 dark:text-orange-300', bgColor: 'bg-orange-100 dark:bg-orange-900/20', icon: PlayIcon },
+  completed: { label: 'Concluído', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/20', icon: CheckCircleIcon },
+  failed: { label: 'Falhou', color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/20', icon: XCircleIcon },
+  cancelled: { label: 'Cancelado', color: 'text-neutral-700 dark:text-neutral-300', bgColor: 'bg-neutral-100 dark:bg-neutral-800', icon: PauseIcon }
 }
 
 const categoryConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-  standard: { label: 'Padrão', color: 'text-green-700', bgColor: 'bg-green-100' },
-  normal: { label: 'Normal', color: 'text-brand-700', bgColor: 'bg-brand-100' },
-  emergency: { label: 'Emergência', color: 'text-red-700', bgColor: 'bg-red-100' }
+  standard: { label: 'Padrão', color: 'text-green-700 dark:text-green-300', bgColor: 'bg-green-100 dark:bg-green-900/20' },
+  normal: { label: 'Normal', color: 'text-brand-700 dark:text-brand-300', bgColor: 'bg-brand-100 dark:bg-brand-900/20' },
+  emergency: { label: 'Emergência', color: 'text-red-700 dark:text-red-300', bgColor: 'bg-red-100 dark:bg-red-900/20' }
 }
 
 const riskColors: Record<string, string> = {
@@ -235,7 +235,7 @@ export default function ChangesPage() {
       </StatsGrid>
 
       {/* Filters */}
-      <div className="glass-panel animate-slide-up">
+      <div className="glass-panel p-4 animate-slide-up">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="flex-1">
@@ -246,7 +246,7 @@ export default function ChangesPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por título, número ou descrição..."
-                className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all h-11"
               />
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function ChangesPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
+            className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all h-11"
           >
             <option value="">Todos os status</option>
             <option value="draft">Rascunho</option>
@@ -272,7 +272,7 @@ export default function ChangesPage() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all"
+            className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all h-11"
           >
             <option value="">Todas as categorias</option>
             <option value="standard">Padrão</option>

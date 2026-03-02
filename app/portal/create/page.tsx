@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, memo, useMemo, Suspense } from 'react'
+import { useState, useEffect, useCallback, memo, useMemo, Suspense, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -104,7 +104,7 @@ const RadioOption = memo(({
 
 RadioOption.displayName = 'RadioOption'
 
-export default function CreateTicketPage() {
+function CreateTicketPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const typeSlug = searchParams.get('type')
@@ -426,7 +426,8 @@ export default function CreateTicketPage() {
           <div className="flex items-center space-x-4 animate-slide-up">
             <button
               onClick={() => router.push('/portal')}
-              className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
+              aria-label="Voltar ao portal"
+              className="p-2 min-w-[44px] min-h-[44px] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-all duration-200"
             >
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
@@ -525,7 +526,7 @@ export default function CreateTicketPage() {
                     id="category"
                     value={formData.category_id}
                     onChange={(e) => updateFormData('category_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                    className={`w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
                       errors.category_id ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                     }`}
                     required
@@ -552,7 +553,7 @@ export default function CreateTicketPage() {
                     id="priority"
                     value={formData.priority_id}
                     onChange={(e) => updateFormData('priority_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                    className={`w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
                       errors.priority_id ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                     }`}
                     required
@@ -635,7 +636,7 @@ export default function CreateTicketPage() {
                   min="1"
                   value={formData.affected_users_count}
                   onChange={(e) => updateFormData('affected_users_count', parseInt(e.target.value) || 1)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
 
@@ -647,7 +648,7 @@ export default function CreateTicketPage() {
                   type="text"
                   value={formData.location}
                   onChange={(e) => updateFormData('location', e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Prédio, sala, andar..."
                 />
               </div>
@@ -660,7 +661,7 @@ export default function CreateTicketPage() {
                   type="text"
                   value={formData.business_service}
                   onChange={(e) => updateFormData('business_service', e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="Sistema, aplicação ou serviço específico"
                 />
               </div>
@@ -682,7 +683,7 @@ export default function CreateTicketPage() {
                   type="text"
                   value={formData.contact_name}
                   onChange={(e) => updateFormData('contact_name', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                  className={`w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
                     errors.contact_name ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                   }`}
                   placeholder="Seu nome completo"
@@ -698,7 +699,7 @@ export default function CreateTicketPage() {
                   type="email"
                   value={formData.contact_email}
                   onChange={(e) => updateFormData('contact_email', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
+                  className={`w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-100 ${
                     errors.contact_email ? 'border-error-300' : 'border-neutral-300 dark:border-neutral-600'
                   }`}
                   placeholder="seu.email@empresa.com"
@@ -714,7 +715,7 @@ export default function CreateTicketPage() {
                   type="tel"
                   value={formData.contact_phone}
                   onChange={(e) => updateFormData('contact_phone', e.target.value)}
-                  className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm h-11 sm:h-auto border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="(11) 99999-9999"
                 />
               </div>
@@ -722,12 +723,12 @@ export default function CreateTicketPage() {
           </div>
 
           {/* Submit Button */}
-          <div className="flex items-center justify-between animate-slide-up">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 animate-slide-up">
             <Button
               type="button"
               variant="ghost"
               onClick={() => router.push('/portal')}
-              className="hover-lift"
+              className="hover-lift min-h-[44px]"
             >
               Cancelar
             </Button>
@@ -738,7 +739,7 @@ export default function CreateTicketPage() {
               size="lg"
               loading={submitting}
               loadingText="Criando..."
-              className="hover-lift"
+              className="hover-lift min-h-[44px] w-full sm:w-auto"
               aria-label={`Criar ${ticketType.name}`}
             >
               Criar {ticketType.name}
@@ -753,5 +754,17 @@ export default function CreateTicketPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function CreateTicketPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+      </div>
+    }>
+      <CreateTicketPageContent />
+    </Suspense>
   )
 }

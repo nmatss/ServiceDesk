@@ -33,7 +33,7 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
       case 'user':
         return 'bg-green-100 text-green-800 border-green-200'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-neutral-100 text-neutral-800 border-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:border-neutral-600'
     }
   }
 
@@ -64,12 +64,12 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
   if (showCompact) {
     return (
       <div
-        className="flex items-center space-x-2 text-sm text-gray-600"
+        className="flex items-center space-x-2 text-sm text-neutral-600 dark:text-neutral-400"
         role="status"
         aria-label={`${onlineUsers.length} usuários online. ${isConnected ? 'Conectado' : 'Desconectado'}`}
       >
         <div
-          className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`}
+          className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-neutral-400'}`}
           aria-hidden="true"
         />
         <UsersIcon className="w-4 h-4" aria-hidden="true" />
@@ -80,13 +80,13 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
 
   return (
     <div
-      className="bg-white rounded-lg border border-gray-200 shadow-sm"
+      className="bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-sm"
       role="region"
       aria-label="Usuários online"
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
         role="button"
         tabIndex={0}
@@ -96,33 +96,33 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
       >
         <div className="flex items-center space-x-3">
           <div
-            className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`}
+            className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-neutral-400'}`}
             aria-label={isConnected ? 'Conectado' : 'Desconectado'}
           />
           <div className="flex items-center space-x-2">
-            <UsersIcon className="w-5 h-5 text-gray-600" aria-hidden="true" />
-            <h3 className="text-sm font-medium text-gray-900">
+            <UsersIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" aria-hidden="true" />
+            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Usuários Online ({onlineUsers.length})
             </h3>
           </div>
         </div>
 
         {isExpanded ? (
-          <ChevronUpIcon className="w-4 h-4 text-gray-400" aria-hidden="true" />
+          <ChevronUpIcon className="w-4 h-4 text-neutral-400" aria-hidden="true" />
         ) : (
-          <ChevronDownIcon className="w-4 h-4 text-gray-400" aria-hidden="true" />
+          <ChevronDownIcon className="w-4 h-4 text-neutral-400" aria-hidden="true" />
         )}
       </div>
 
       {/* Lista de usuários */}
       {isExpanded && (
-        <div className="border-t border-gray-200" id="online-users-list">
+        <div className="border-t border-neutral-200 dark:border-neutral-700" id="online-users-list">
           {!isConnected ? (
-            <div className="p-4 text-center text-sm text-gray-500" role="status">
+            <div className="p-4 text-center text-sm text-neutral-500 dark:text-neutral-400" role="status">
               Desconectado - Não é possível mostrar usuários online
             </div>
           ) : onlineUsers.length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-500" role="status">
+            <div className="p-4 text-center text-sm text-neutral-500 dark:text-neutral-400" role="status">
               Nenhum usuário online no momento
             </div>
           ) : (
@@ -138,18 +138,18 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
                 if (usersInRole.length === 0) return null
 
                 return (
-                  <div key={role} className="border-b border-gray-100 last:border-b-0">
-                    <div className="px-4 py-2 bg-gray-50">
-                      <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  <div key={role} className="border-b border-neutral-100 dark:border-neutral-700 last:border-b-0">
+                    <div className="px-4 py-2 bg-neutral-50 dark:bg-neutral-800">
+                      <h4 className="text-xs font-medium text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
                         {getRoleLabel(role)}s ({usersInRole.length})
                       </h4>
                     </div>
 
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-neutral-100">
                       {usersInRole.map((user) => (
                         <div
                           key={user.id}
-                          className="p-3 hover:bg-gray-50 transition-colors"
+                          className="p-3 hover:bg-neutral-50 dark:bg-neutral-800 transition-colors"
                           role="listitem"
                           aria-label={`${user.name}, ${getRoleLabel(user.role)}, ativo ${formatLastActivity(user.last_activity)}`}
                         >
@@ -162,7 +162,7 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-gray-900 truncate">
+                                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                                   {user.name}
                                 </p>
                                 <span
@@ -178,7 +178,7 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
                                   className="w-2 h-2 bg-green-500 rounded-full mr-2"
                                   aria-label="Online"
                                 />
-                                <p className="text-xs text-gray-500">
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">
                                   {formatLastActivity(user.last_activity)}
                                 </p>
                               </div>
@@ -197,7 +197,7 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
 
       {/* Status de conexão */}
       <div
-        className={`px-4 py-2 text-xs border-t border-gray-200 ${
+        className={`px-4 py-2 text-xs border-t border-neutral-200 dark:border-neutral-700 ${
           isConnected
             ? 'text-green-700 bg-green-50'
             : 'text-red-700 bg-red-50'

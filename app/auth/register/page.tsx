@@ -107,7 +107,7 @@ export default function RegisterPage() {
   }, [password])
 
   return (
-    <div className="min-h-screen flex animate-fade-in">
+    <div className="min-h-screen flex flex-col lg:flex-row animate-fade-in">
       {/* Screen reader announcements */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {statusMessage}
@@ -214,7 +214,7 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+              <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-50">
                 Criar Conta
               </h1>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
@@ -224,7 +224,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5 bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl" aria-label="Formulário de criação de conta" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-5 bg-white dark:bg-neutral-800/80 dark:backdrop-blur-xl p-4 sm:p-8 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 shadow-xl" aria-label="Formulário de criação de conta" noValidate>
             {/* Name Input */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
@@ -307,7 +307,7 @@ export default function RegisterPage() {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center min-w-[44px] min-h-[44px] justify-center"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   aria-pressed={showPassword}
@@ -364,7 +364,7 @@ export default function RegisterPage() {
                 <span id="confirm-password-description" className="sr-only">Digite a senha novamente para confirmação</span>
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center min-w-[44px] min-h-[44px] justify-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   aria-label={showConfirmPassword ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
                   aria-pressed={showConfirmPassword}

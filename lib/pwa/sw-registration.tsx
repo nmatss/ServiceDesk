@@ -408,7 +408,7 @@ class PWAManager {
         <span className="text-2xl">📱</span>
         <div>
           <p className="font-medium">Instalar ServiceDesk</p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-neutral-600">
             Adicione à tela inicial para acesso rápido
           </p>
         </div>
@@ -424,7 +424,7 @@ class PWAManager {
           </button>
           <button
             onClick={() => toast.dismiss(t.id)}
-            className="px-3 py-1 text-gray-500 text-sm rounded hover:bg-gray-100"
+            className="px-3 py-1 text-neutral-500 text-sm rounded hover:bg-neutral-100"
           >
             Agora não
           </button>
@@ -442,7 +442,7 @@ class PWAManager {
         <span className="text-2xl">🔄</span>
         <div>
           <p className="font-medium">Atualização disponível</p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-neutral-600">
             Nova versão do ServiceDesk disponível
           </p>
         </div>
@@ -458,7 +458,7 @@ class PWAManager {
           </button>
           <button
             onClick={() => toast.dismiss(t.id)}
-            className="px-3 py-1 text-gray-500 text-sm rounded hover:bg-gray-100"
+            className="px-3 py-1 text-neutral-500 text-sm rounded hover:bg-neutral-100"
           >
             Depois
           </button>

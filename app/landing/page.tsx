@@ -1,18 +1,9 @@
 import { Metadata } from 'next'
 import { generatePageMetadata, pageSEOConfigs, generateStructuredData, generateConversationalDescription } from '@/lib/seo/metadata'
 import LandingClient from './landing-client'
-import {
-  ChartBarIcon,
-  ClockIcon,
-  ShieldCheckIcon,
-  UserGroupIcon,
-  CheckCircleIcon,
-  ArrowRightIcon,
-  PlayCircleIcon,
-  StarIcon,
-  Bars3Icon,
-  XMarkIcon
-} from '@heroicons/react/24/outline'
+
+// ISR: revalidate landing page every hour (marketing content, rarely changes)
+export const revalidate = 3600
 
 // SEO Metadata
 export const metadata: Metadata = {

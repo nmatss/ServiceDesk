@@ -9,7 +9,7 @@ import {
   ExclamationTriangleIcon,
   BoltIcon,
   ShieldCheckIcon,
-  CogIcon,
+  Cog6ToothIcon,
   DocumentTextIcon,
   ArrowsRightLeftIcon,
   BugAntIcon,
@@ -211,7 +211,7 @@ export default function ITILDashboardPage() {
         }
       })
     } catch {
-      console.error('Error fetching metrics')
+      // Error fetching metrics - silently handled
     } finally {
       setLoading(false)
     }
@@ -372,7 +372,7 @@ export default function ITILDashboardPage() {
               <StatsCard title="Pendentes" value={metrics.request.pending} icon={<ClockIcon />} color="warning" size="sm" />
               <StatsCard title="Atendidas Hoje" value={metrics.request.fulfilled_today} icon={<CheckCircleIcon />} color="success" size="sm" />
               <StatsCard title="TMA" value={`${metrics.request.avg_fulfillment_time}h`} icon={<ClockIcon />} color="info" size="sm" />
-              <StatsCard title="Uso Catálogo" value={`${metrics.request.catalog_usage}%`} icon={<CogIcon />} color="info" size="sm" />
+              <StatsCard title="Uso Catálogo" value={`${metrics.request.catalog_usage}%`} icon={<Cog6ToothIcon />} color="info" size="sm" />
               <StatsCard title="Aguardando Aprovação" value={metrics.request.approval_pending} icon={<UserGroupIcon />} color="warning" size="sm" />
             </StatsGrid>
           </div>
@@ -388,7 +388,7 @@ export default function ITILDashboardPage() {
               <StatsCard title="Abertos" value={metrics.problem.open} icon={<ExclamationTriangleIcon />} color="warning" size="sm" />
               <StatsCard title="Erros Conhecidos" value={metrics.problem.known_errors} icon={<DocumentTextIcon />} color="warning" size="sm" />
               <StatsCard title="RCA Concluídas" value={metrics.problem.rca_completed} icon={<CheckCircleIcon />} color="success" size="sm" />
-              <StatsCard title="Workarounds" value={metrics.problem.workarounds_available} icon={<CogIcon />} color="brand" size="sm" />
+              <StatsCard title="Workarounds" value={metrics.problem.workarounds_available} icon={<Cog6ToothIcon />} color="brand" size="sm" />
               <StatsCard title="Incidentes Vinculados" value={metrics.problem.linked_incidents} icon={<BoltIcon />} color="error" size="sm" />
             </StatsGrid>
           </div>

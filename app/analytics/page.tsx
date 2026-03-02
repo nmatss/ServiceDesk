@@ -186,7 +186,7 @@ export default function AnalyticsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Modern Header */}
         <PageHeader
-          title="Analytics Dashboard"
+          title="Painel de Analytics"
           description="Visão completa das métricas e performance do suporte"
           icon={ChartBarIcon}
           breadcrumbs={[
@@ -210,16 +210,17 @@ export default function AnalyticsPage() {
         />
 
         {/* Period Filter */}
-        <div className="glass-panel p-4 flex items-center justify-between">
+        <div className="glass-panel p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-2">
             <CalendarIcon className="w-5 h-5 text-muted-content" />
             <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Período:</span>
           </div>
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="appearance-none bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-neutral-900 dark:text-neutral-100"
+              aria-label="Selecionar período de análise"
+              className="appearance-none w-full sm:w-auto bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent text-neutral-900 dark:text-neutral-100"
             >
               {periodOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -355,7 +356,7 @@ export default function AnalyticsPage() {
             <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-6">
               Performance dos Agentes
             </h3>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
               <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
                 <thead className="bg-neutral-50 dark:bg-neutral-800">
                   <tr>

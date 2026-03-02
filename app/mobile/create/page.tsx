@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { logger } from '@/lib/monitoring/logger'
 import { VoiceInput } from '@/src/components/mobile/VoiceInput'
 import { MobileNav } from '@/src/components/mobile/MobileNav'
 import {
@@ -57,7 +58,7 @@ export default function MobileCreateTicketPage() {
 
       router.push('/mobile/tickets')
     } catch (error) {
-      console.error('Error creating ticket:', error)
+      logger.error('Error creating ticket:', error)
       toast.error('Erro ao criar ticket')
     } finally {
       setIsSubmitting(false)
@@ -70,12 +71,12 @@ export default function MobileCreateTicketPage() {
       <header className="sticky top-0 z-40 bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 shadow-sm">
         <div className="flex items-center justify-between px-4 py-4">
           <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
-            New Ticket
+            Novo Ticket
           </h1>
           <button
             onClick={() => router.back()}
             className="p-2 text-description hover:text-neutral-900 dark:hover:text-neutral-100 min-h-[44px] min-w-[44px]"
-            aria-label="Close"
+            aria-label="Fechar"
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
@@ -87,14 +88,14 @@ export default function MobileCreateTicketPage() {
         {/* Subject */}
         <div>
           <label htmlFor="subject" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Subject *
+            Assunto *
           </label>
           <input
             type="text"
             id="subject"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            placeholder="Brief description of the issue"
+            placeholder="Descrição breve do problema"
             className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent min-h-[44px] transition-all"
             required
           />
@@ -103,7 +104,7 @@ export default function MobileCreateTicketPage() {
         {/* Priority */}
         <div>
           <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Priority
+            Prioridade
           </label>
           <select
             id="priority"
@@ -111,17 +112,17 @@ export default function MobileCreateTicketPage() {
             onChange={(e) => setPriority(e.target.value)}
             className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent min-h-[44px] transition-all"
           >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
+            <option value="low">Baixa</option>
+            <option value="medium">Média</option>
+            <option value="high">Alta</option>
+            <option value="critical">Crítica</option>
           </select>
         </div>
 
         {/* Category */}
         <div>
           <label htmlFor="category" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Category
+            Categoria
           </label>
           <select
             id="category"
@@ -129,11 +130,11 @@ export default function MobileCreateTicketPage() {
             onChange={(e) => setCategory(e.target.value)}
             className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent min-h-[44px] transition-all"
           >
-            <option value="">Select category</option>
-            <option value="technical">Technical Issue</option>
-            <option value="billing">Billing</option>
-            <option value="feature">Feature Request</option>
-            <option value="other">Other</option>
+            <option value="">Selecione a categoria</option>
+            <option value="technical">Problema Técnico</option>
+            <option value="billing">Financeiro</option>
+            <option value="feature">Solicitação de Recurso</option>
+            <option value="other">Outro</option>
           </select>
         </div>
 
@@ -141,13 +142,13 @@ export default function MobileCreateTicketPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label htmlFor="description" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              Description *
+              Descrição *
             </label>
             <button
               type="button"
               onClick={() => setShowVoiceInput(!showVoiceInput)}
               className="p-2 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-colors min-h-[44px] min-w-[44px]"
-              aria-label="Toggle voice input"
+              aria-label="Alternar entrada de voz"
             >
               <MicrophoneIcon className="w-5 h-5" />
             </button>
@@ -157,7 +158,7 @@ export default function MobileCreateTicketPage() {
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Detailed description of the issue"
+            placeholder="Descrição detalhada do problema"
             rows={6}
             className="w-full px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-neutral-100 placeholder-neutral-500 dark:placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 focus:border-transparent resize-none transition-all"
             required
@@ -168,7 +169,7 @@ export default function MobileCreateTicketPage() {
             <div className="mt-3">
               <VoiceInput
                 onTranscript={handleVoiceTranscript}
-                language="en-US"
+                language="pt-BR"
                 continuous={true}
               />
             </div>
@@ -178,14 +179,14 @@ export default function MobileCreateTicketPage() {
         {/* Attachments */}
         <div>
           <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-            Attachments
+            Anexos
           </label>
 
           <div className="flex items-center space-x-2">
             {/* Camera Capture */}
             <label className="flex items-center space-x-2 px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:border-brand-500 dark:hover:border-brand-600 transition-all cursor-pointer min-h-[44px] group">
               <PhotoIcon className="w-5 h-5 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
-              <span className="text-sm font-medium">Camera</span>
+              <span className="text-sm font-medium">Câmera</span>
               <input
                 type="file"
                 accept="image/*"
@@ -198,7 +199,7 @@ export default function MobileCreateTicketPage() {
             {/* File Upload */}
             <label className="flex items-center space-x-2 px-4 py-3 glass-panel border border-neutral-300 dark:border-neutral-700 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900 hover:border-brand-500 dark:hover:border-brand-600 transition-all cursor-pointer min-h-[44px] group">
               <PaperClipIcon className="w-5 h-5 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors" />
-              <span className="text-sm font-medium">Files</span>
+              <span className="text-sm font-medium">Arquivos</span>
               <input
                 type="file"
                 multiple
@@ -223,7 +224,7 @@ export default function MobileCreateTicketPage() {
                     type="button"
                     onClick={() => removeAttachment(index)}
                     className="ml-2 p-1 text-priority-critical hover:bg-priority-critical/10 dark:hover:bg-priority-critical/20 rounded min-h-[36px] min-w-[36px] transition-all"
-                    aria-label="Remove attachment"
+                    aria-label="Remover anexo"
                   >
                     <XMarkIcon className="w-4 h-4" />
                   </button>
@@ -239,7 +240,7 @@ export default function MobileCreateTicketPage() {
           disabled={isSubmitting || !subject || !description}
           className="w-full px-6 py-4 bg-gradient-brand hover:opacity-90 disabled:bg-neutral-300 dark:disabled:bg-neutral-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-all disabled:cursor-not-allowed min-h-[52px] shadow-lg hover:shadow-xl"
         >
-          {isSubmitting ? 'Creating Ticket...' : 'Create Ticket'}
+          {isSubmitting ? 'Criando Ticket...' : 'Criar Ticket'}
         </button>
       </form>
 

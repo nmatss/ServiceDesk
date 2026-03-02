@@ -35,7 +35,7 @@ const colorClasses = {
   blue: 'bg-blue-500 text-white',
   green: 'bg-green-500 text-white',
   yellow: 'bg-yellow-500 text-white',
-  gray: 'bg-gray-500 text-white',
+  gray: 'bg-neutral-500 text-white',
 };
 
 export default function SwipeActions({
@@ -228,7 +228,7 @@ export default function SwipeActions({
       {/* Content */}
       <div
         className={`
-          relative bg-white dark:bg-gray-800 transition-transform
+          relative bg-white dark:bg-neutral-800 transition-transform
           ${isSwiping ? '' : 'duration-300 ease-out'}
         `}
         style={{ transform: `translateX(${translateX}px)` }}
@@ -242,11 +242,11 @@ export default function SwipeActions({
       {/* Confirmation overlay */}
       {showConfirm && (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 mx-4 shadow-xl max-w-sm">
-            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
+          <div className="bg-white dark:bg-neutral-800 rounded-lg p-6 mx-4 shadow-xl max-w-sm">
+            <h3 className="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">
               Confirmar ação
             </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+            <p className="text-neutral-600 dark:text-neutral-300 mb-4">
               {
                 (leftActions.find((a) => a.id === showConfirm) ||
                   rightActions.find((a) => a.id === showConfirm))?.confirmMessage ||
@@ -256,7 +256,7 @@ export default function SwipeActions({
             <div className="flex gap-3">
               <button
                 onClick={cancelConfirm}
-                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-medium active:brightness-90"
+                className="flex-1 px-4 py-2 bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-lg font-medium active:brightness-90"
               >
                 <XMarkIcon className="h-5 w-5 inline mr-1" />
                 Cancelar

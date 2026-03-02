@@ -201,90 +201,71 @@ function NotificationContainer() {
   const { notifications, removeNotification, markAsRead } = useNotifications()
 
   const getIcon = (type: Notification['type']) => {
-    const iconClass = "h-5 w-5"
+    const base = 'h-5 w-5 flex-shrink-0'
     switch (type) {
-      case 'success': return <CheckCircleIcon className={`${iconClass} text-success-500`} />
-      case 'error': return <XCircleIcon className={`${iconClass} text-error-500`} />
-      case 'warning': return <ExclamationTriangleIcon className={`${iconClass} text-warning-500`} />
-      case 'info': return <InformationCircleIcon className={`${iconClass} text-brand-500`} />
+      case 'success': return <CheckCircleIcon className={`${base} text-emerald-500`} />
+      case 'error': return <XCircleIcon className={`${base} text-red-500`} />
+      case 'warning': return <ExclamationTriangleIcon className={`${base} text-amber-500`} />
+      case 'info': return <InformationCircleIcon className={`${base} text-blue-500`} />
     }
   }
 
-  const getNotificationColors = (type: Notification['type']) => {
+  const getColors = (type: Notification['type']) => {
     switch (type) {
-      case 'success': return 'bg-success-50 border-success-200 text-success-800 dark:bg-success-950 dark:border-success-800 dark:text-success-200'
-      case 'error': return 'bg-error-50 border-error-200 text-error-800 dark:bg-error-950 dark:border-error-800 dark:text-error-200'
-      case 'warning': return 'bg-warning-50 border-warning-200 text-warning-800 dark:bg-warning-950 dark:border-warning-800 dark:text-warning-200'
-      case 'info': return 'bg-brand-50 border-brand-200 text-brand-800 dark:bg-brand-950 dark:border-brand-800 dark:text-brand-200'
+      case 'success': return 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-300 dark:border-emerald-700'
+      case 'error': return 'bg-red-50 dark:bg-red-950/80 border-red-300 dark:border-red-700'
+      case 'warning': return 'bg-amber-50 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700'
+      case 'info': return 'bg-blue-50 dark:bg-blue-950/80 border-blue-300 dark:border-blue-700'
     }
   }
 
-  const formatTime = (timestamp: Date) => {
-    const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - timestamp.getTime()) / (1000 * 60))
-
-    if (diffInMinutes < 1) return 'Agora mesmo'
-    if (diffInMinutes < 60) return `${diffInMinutes}min atrás`
-
-    const diffInHours = Math.floor(diffInMinutes / 60)
-    if (diffInHours < 24) return `${diffInHours}h atrás`
-
-    return timestamp.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+  const getAccent = (type: Notification['type']) => {
+    switch (type) {
+      case 'success': return 'bg-emerald-500'
+      case 'error': return 'bg-red-500'
+      case 'warning': return 'bg-amber-500'
+      case 'info': return 'bg-blue-500'
+    }
   }
 
-  if (notifications.length === 0) return null
+  // Only show non-read, recent notifications as toasts
+  const visibleToasts = notifications.filter(n => !n.read).slice(0, 3)
+
+  if (visibleToasts.length === 0) return null
 
   return (
     <div
-      className="fixed top-20 right-4 z-50 max-w-sm w-full space-y-2"
+      className="fixed top-20 right-4 z-50 w-full max-w-sm space-y-2 pointer-events-none"
       role="region"
-      aria-label="Notificações toast"
+      aria-label="Notificações"
       aria-live="polite"
-      aria-atomic="true"
     >
-      {notifications.map((notification) => (
+      {visibleToasts.map((notification) => (
         <div
           key={notification.id}
-          className={`border rounded-lg shadow-lg p-4 animate-slide-in ${getNotificationColors(notification.type)} ${
-            !notification.read ? 'ring-2 ring-brand-500/20' : ''
-          }`}
+          className={`pointer-events-auto relative overflow-hidden border rounded-xl shadow-xl ring-1 ring-black/5 dark:ring-white/5 backdrop-blur-sm ${getColors(notification.type)}`}
           onClick={() => markAsRead(notification.id)}
           role="alert"
-          aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
-          aria-atomic="true"
-          aria-label={`${notification.title}: ${notification.message}`}
+          style={{ animation: 'fadeSlideRight 0.3s ease-out' }}
         >
-          <div className="flex items-start space-x-3">
-            <div className="flex-shrink-0">
+          {/* Accent bar */}
+          <div className={`absolute left-0 top-0 bottom-0 w-1 ${getAccent(notification.type)}`} />
+
+          <div className="flex items-start gap-3 p-3.5 pl-5">
+            <div className="flex-shrink-0 mt-0.5">
               {getIcon(notification.type)}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h4 className="text-sm font-medium mb-1">{notification.title}</h4>
-                  <p className="text-sm opacity-90">{notification.message}</p>
-                  <p className="text-xs opacity-75 mt-2">{formatTime(notification.timestamp)}</p>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removeNotification(notification.id)
-                  }}
-                  className="ml-2 flex-shrink-0 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                  aria-label={`Fechar notificação: ${notification.title}`}
-                >
-                  <XMarkIcon className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
+              <h4 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                {notification.title}
+              </h4>
+              <p className="text-[13px] text-neutral-600 dark:text-neutral-300 mt-0.5 line-clamp-2">
+                {notification.message}
+              </p>
 
               {/* Actions */}
               {notification.actions && notification.actions.length > 0 && (
-                <div className="flex items-center space-x-2 mt-3" role="group" aria-label="Ações da notificação">
+                <div className="flex items-center gap-2 mt-2.5">
                   {notification.actions.map((action, index) => (
                     <button
                       key={index}
@@ -293,12 +274,11 @@ function NotificationContainer() {
                         action.action()
                         removeNotification(notification.id)
                       }}
-                      className={`text-xs px-3 py-1 rounded-md font-medium transition-colors ${
+                      className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors ${
                         action.variant === 'primary'
-                          ? 'bg-current text-white bg-opacity-90 hover:bg-opacity-100'
-                          : 'bg-current bg-opacity-10 hover:bg-opacity-20'
+                          ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'
+                          : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
                       }`}
-                      aria-label={action.label}
                     >
                       {action.label}
                     </button>
@@ -306,9 +286,20 @@ function NotificationContainer() {
                 </div>
               )}
             </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                removeNotification(notification.id)
+              }}
+              className="flex-shrink-0 p-1 rounded-lg text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 dark:hover:text-neutral-300 dark:hover:bg-neutral-700 transition-colors"
+              aria-label={`Fechar notificação: ${notification.title}`}
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
       ))}
+
     </div>
   )
 }

@@ -89,7 +89,7 @@ const DropdownMenuContent = React.forwardRef<HTMLDivElement, DropdownMenuContent
           ref={ref}
           style={{ marginTop: side === 'bottom' ? sideOffset : undefined, marginBottom: side === 'top' ? sideOffset : undefined }}
           className={cn(
-            'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border border-neutral-200 bg-white p-1 shadow-lg',
+            'absolute z-50 min-w-[8rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border border-neutral-200 bg-white p-1 shadow-lg',
             'dark:border-neutral-700 dark:bg-neutral-800',
             'focus:outline-none',
             alignmentClasses[align],
@@ -137,7 +137,7 @@ const DropdownMenuItem = React.forwardRef<HTMLButtonElement, DropdownMenuItemPro
             onClick={handleClick}
             disabled={disabled}
             className={cn(
-              'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors',
+              'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2.5 sm:py-1.5 text-sm outline-none transition-colors min-h-[44px] sm:min-h-0',
               active && 'bg-neutral-100 dark:bg-neutral-700',
               destructive
                 ? 'text-error-600 dark:text-error-400'

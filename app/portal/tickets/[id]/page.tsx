@@ -107,7 +107,7 @@ export default function TicketDetailPage() {
   const fetchTicketDetails = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/portal/tickets/${ticketId}`)
+      const response = await fetch(`/api/portal/tickets/${ticketId}`, { credentials: 'include' })
       const data = await response.json()
 
       if (data.success) {
@@ -228,10 +228,11 @@ export default function TicketDetailPage() {
       <div className="min-h-screen bg-gradient-to-br from-brand-50 to-indigo-100 dark:from-neutral-900 dark:to-neutral-800 animate-fade-in flex items-center justify-center">
         <div className="text-center">
           <ExclamationTriangleIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-neutral-900 mb-2">Ticket não encontrado</h2>
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Ticket não encontrado</h2>
           <button
             onClick={() => router.push('/portal/tickets')}
-            className="text-brand-600 hover:text-brand-700"
+            className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 min-h-[44px]"
+            aria-label="Voltar para lista de tickets"
           >
             Voltar para lista de tickets
           </button>
@@ -245,36 +246,37 @@ export default function TicketDetailPage() {
       {/* Header */}
       <div className="glass-panel shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-start gap-3 sm:gap-4">
             <button
               onClick={() => router.push('/portal/tickets')}
-              className="p-2 rounded-lg border border-neutral-200 hover:bg-neutral-50 transition-colors"
+              className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors flex-shrink-0"
+              aria-label="Voltar para lista de tickets"
             >
-              <ArrowLeftIcon className="w-5 h-5 text-neutral-600" />
+              <ArrowLeftIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
             </button>
-            <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-2">
-                <span className="text-sm font-mono text-neutral-500">#{ticket.ticket_number}</span>
-                <div className="flex items-center space-x-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-sm font-mono text-neutral-500 dark:text-neutral-400">#{ticket.ticket_number}</span>
+                <div className="flex items-center gap-1.5">
                   {getStatusIcon(ticket.status_category)}
                   <span className="text-sm font-medium" style={{ color: ticket.status_color }}>
                     {ticket.status}
                   </span>
                 </div>
                 <span
-                  className="px-2 py-1 text-xs font-medium rounded-full text-white"
+                  className="px-2 py-0.5 text-xs font-medium rounded-full text-white"
                   style={{ backgroundColor: ticket.priority_color }}
                 >
                   {ticket.priority}
                 </span>
                 {ticket.is_overdue && (
-                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-error-100 text-error-800">
+                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-error-100 text-error-800">
                     Vencido
                   </span>
                 )}
               </div>
-              <h1 className="text-xl font-bold text-neutral-900">{ticket.title}</h1>
-              <p className="text-neutral-600">{ticket.ticket_type_name} • {ticket.category_name}</p>
+              <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 break-words">{ticket.title}</h1>
+              <p className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400">{ticket.ticket_type_name} • {ticket.category_name}</p>
             </div>
           </div>
         </div>
@@ -285,22 +287,22 @@ export default function TicketDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <div className="glass-panel rounded-lg border border-neutral-200 p-6">
-              <h2 className="text-lg font-semibold text-neutral-900 mb-4">Descrição</h2>
+            <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">Descrição</h2>
               <div className="prose prose-sm max-w-none">
-                <p className="text-neutral-700 whitespace-pre-wrap">{ticket.description}</p>
+                <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap break-words">{ticket.description}</p>
               </div>
             </div>
 
             {/* Comments */}
-            <div className="glass-panel rounded-lg border border-neutral-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-neutral-900">
+            <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <h2 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                   Comentários ({comments.length})
                 </h2>
                 <button
                   onClick={() => setShowAddComment(!showAddComment)}
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-brand-600 hover:text-brand-700"
+                  className="inline-flex items-center px-3 py-2 min-h-[44px] text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                 >
                   <ChatBubbleBottomCenterTextIcon className="w-4 h-4 mr-1" />
                   Adicionar comentário
@@ -308,27 +310,27 @@ export default function TicketDetailPage() {
               </div>
 
               {showAddComment && (
-                <form onSubmit={handleAddComment} className="mb-6 p-4 bg-neutral-50 rounded-lg">
+                <form onSubmit={handleAddComment} className="mb-6 p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
                   <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Escreva seu comentário..."
                     rows={4}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-sm border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-100 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                     required
                   />
-                  <div className="mt-3 flex justify-end space-x-3">
+                  <div className="mt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
                     <button
                       type="button"
                       onClick={() => setShowAddComment(false)}
-                      className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800"
+                      className="px-4 py-2.5 sm:py-2 min-h-[44px] text-sm text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={addingComment}
-                      className="px-4 py-2 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 disabled:opacity-50"
+                      className="px-4 py-2.5 sm:py-2 min-h-[44px] bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 disabled:opacity-50"
                     >
                       {addingComment ? 'Adicionando...' : 'Adicionar comentário'}
                     </button>
@@ -338,31 +340,31 @@ export default function TicketDetailPage() {
 
               <div className="space-y-4">
                 {comments.length === 0 ? (
-                  <p className="text-neutral-500 text-center py-8">
+                  <p className="text-neutral-500 dark:text-neutral-400 text-center py-8">
                     Nenhum comentário ainda. Seja o primeiro a comentar!
                   </p>
                 ) : (
                   comments.map((comment) => (
                     <div key={comment.id} className="flex space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-neutral-300 rounded-full flex items-center justify-center">
-                          <UserIcon className="w-4 h-4 text-neutral-600" />
+                        <div className="w-8 h-8 bg-neutral-300 dark:bg-neutral-600 rounded-full flex items-center justify-center">
+                          <UserIcon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
                         </div>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className="text-sm font-medium text-neutral-900">
+                          <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                             {comment.author_name}
                           </span>
-                          <span className="text-xs text-neutral-500">
+                          <span className="text-xs text-neutral-500 dark:text-neutral-400">
                             {comment.author_role}
                           </span>
-                          <span className="text-xs text-neutral-500">•</span>
-                          <span className="text-xs text-neutral-500">
+                          <span className="text-xs text-neutral-500 dark:text-neutral-400">•</span>
+                          <span className="text-xs text-neutral-500 dark:text-neutral-400">
                             {formatDate(comment.created_at)}
                           </span>
                         </div>
-                        <div className="text-sm text-neutral-700 whitespace-pre-wrap">
+                        <div className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
                           {comment.content}
                         </div>
                       </div>
@@ -374,25 +376,28 @@ export default function TicketDetailPage() {
 
             {/* Attachments */}
             {attachments.length > 0 && (
-              <div className="glass-panel rounded-lg border border-neutral-200 p-6">
-                <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+              <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+                <h2 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">
                   Anexos ({attachments.length})
                 </h2>
                 <div className="space-y-3">
                   {attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <DocumentIcon className="w-5 h-5 text-neutral-400" />
-                        <div>
-                          <p className="text-sm font-medium text-neutral-900">
+                    <div key={attachment.id} className="flex items-center justify-between gap-2 p-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <DocumentIcon className="w-5 h-5 text-neutral-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                             {attachment.original_filename}
                           </p>
-                          <p className="text-xs text-neutral-500">
-                            {formatFileSize(attachment.file_size)} • Enviado por {attachment.uploaded_by}
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                            {formatFileSize(attachment.file_size)} • {attachment.uploaded_by}
                           </p>
                         </div>
                       </div>
-                      <button className="p-2 text-neutral-400 hover:text-neutral-600 rounded">
+                      <button
+                        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 rounded flex-shrink-0"
+                        aria-label={`Visualizar anexo ${attachment.original_filename}`}
+                      >
                         <EyeIcon className="w-4 h-4" />
                       </button>
                     </div>
@@ -405,27 +410,27 @@ export default function TicketDetailPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Ticket Info */}
-            <div className="glass-panel rounded-lg border border-neutral-200 p-6">
-              <h3 className="text-lg font-semibold text-neutral-900 mb-4">Informações do Ticket</h3>
+            <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">Informações do Ticket</h3>
               <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-neutral-600">Criado:</span>
-                  <span className="text-sm text-neutral-900">{formatDate(ticket.created_at)}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-sm text-neutral-600 dark:text-neutral-400 flex-shrink-0">Criado:</span>
+                  <span className="text-sm text-neutral-900 dark:text-neutral-100 text-right">{formatDate(ticket.created_at)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-neutral-600">Última atualização:</span>
-                  <span className="text-sm text-neutral-900">{formatDate(ticket.updated_at)}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-sm text-neutral-600 dark:text-neutral-400 flex-shrink-0">Última atualização:</span>
+                  <span className="text-sm text-neutral-900 dark:text-neutral-100 text-right">{formatDate(ticket.updated_at)}</span>
                 </div>
                 {ticket.assigned_to_name && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-neutral-600">Atribuído a:</span>
-                    <span className="text-sm text-neutral-900">{ticket.assigned_to_name}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-sm text-neutral-600 dark:text-neutral-400 flex-shrink-0">Atribuído a:</span>
+                    <span className="text-sm text-neutral-900 dark:text-neutral-100 text-right">{ticket.assigned_to_name}</span>
                   </div>
                 )}
                 {ticket.resolved_at && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-neutral-600">Resolvido em:</span>
-                    <span className="text-sm text-neutral-900">{formatDate(ticket.resolved_at)}</span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-sm text-neutral-600 dark:text-neutral-400 flex-shrink-0">Resolvido em:</span>
+                    <span className="text-sm text-neutral-900 dark:text-neutral-100 text-right">{formatDate(ticket.resolved_at)}</span>
                   </div>
                 )}
               </div>
@@ -433,29 +438,29 @@ export default function TicketDetailPage() {
 
             {/* SLA Information */}
             {ticket.sla_info && (
-              <div className="glass-panel rounded-lg border border-neutral-200 p-6">
-                <h3 className="text-lg font-semibold text-neutral-900 mb-4">SLA</h3>
+              <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">SLA</h3>
                 <div className="space-y-3">
                   {ticket.sla_info.sla_policy_name && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-neutral-600">Política:</span>
-                      <span className="text-sm text-neutral-900">{ticket.sla_info.sla_policy_name}</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-sm text-neutral-600 dark:text-neutral-400">Política:</span>
+                      <span className="text-sm text-neutral-900 dark:text-neutral-100 text-right">{ticket.sla_info.sla_policy_name}</span>
                     </div>
                   )}
 
                   {ticket.time_metrics.response_time_remaining !== null && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-neutral-600">Tempo para resposta:</span>
-                      <span className={`text-sm ${ticket.time_metrics.is_response_overdue ? 'text-error-600' : 'text-neutral-900'}`}>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-sm text-neutral-600 dark:text-neutral-400">Tempo para resposta:</span>
+                      <span className={`text-sm text-right ${ticket.time_metrics.is_response_overdue ? 'text-error-600' : 'text-neutral-900 dark:text-neutral-100'}`}>
                         {formatTimeRemaining(ticket.time_metrics.response_time_remaining)}
                       </span>
                     </div>
                   )}
 
                   {ticket.time_metrics.resolution_time_remaining !== null && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-neutral-600">Tempo para resolução:</span>
-                      <span className={`text-sm ${ticket.time_metrics.is_resolution_overdue ? 'text-error-600' : 'text-neutral-900'}`}>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-sm text-neutral-600 dark:text-neutral-400">Tempo para resolução:</span>
+                      <span className={`text-sm text-right ${ticket.time_metrics.is_resolution_overdue ? 'text-error-600' : 'text-neutral-900 dark:text-neutral-100'}`}>
                         {formatTimeRemaining(ticket.time_metrics.resolution_time_remaining)}
                       </span>
                     </div>
@@ -466,18 +471,18 @@ export default function TicketDetailPage() {
 
             {/* Activity History */}
             {history.length > 0 && (
-              <div className="glass-panel rounded-lg border border-neutral-200 p-6">
-                <h3 className="text-lg font-semibold text-neutral-900 mb-4">Histórico</h3>
+              <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">Histórico</h3>
                 <div className="space-y-3">
                   {history.slice(0, 5).map((item) => (
                     <div key={item.id} className="text-sm">
-                      <div className="flex items-start space-x-2">
+                      <div className="flex items-start gap-2">
                         <div className="w-2 h-2 bg-brand-400 rounded-full mt-2 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-neutral-700">
+                        <div className="min-w-0">
+                          <p className="text-neutral-700 dark:text-neutral-300 break-words">
                             <span className="font-medium">{item.user_name}</span> {item.action}
                           </p>
-                          <p className="text-xs text-neutral-500 mt-1">
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                             {formatDate(item.created_at)}
                           </p>
                         </div>
