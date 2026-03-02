@@ -63,6 +63,14 @@
 - Per-tenant resource quotas
 - Centralized tenant management
 
+### Super Admin Area
+- **Organization Management**: Full CRUD for tenant organizations with suspend/reactivate
+- **Global Dashboard**: Cross-tenant stats, alerts, and recent activity monitoring
+- **Cross-Tenant Users**: View and manage users across all organizations (reset password, change role, deactivate)
+- **System Audit Logs**: Cross-tenant audit trail with advanced filters (date range, org, action type)
+- **System Settings**: Global configuration (maintenance mode, limits, SMTP, security policies)
+- **Access Control**: Restricted to organization #1 (master org) or `super_admin` role
+
 ### Integrations
 - **Government SSO**: Gov.br integration for Brazilian public sector
 - **Communication**: WhatsApp Business API for ticket creation
@@ -349,6 +357,7 @@ ServiceDesk/
 │   ├── auth/                 # Authentication pages
 │   ├── tickets/              # Ticket management
 │   ├── admin/                # Admin dashboard
+│   │   └── super/            # Super Admin area (orgs, users, audit, settings)
 │   └── layout.tsx            # Root layout
 ├── lib/                      # Core libraries
 │   ├── db/                   # Database layer
@@ -390,12 +399,14 @@ ServiceDesk/
 The application uses an 18-table database schema with:
 
 - **Users & Auth**: users, refresh_tokens, permissions, roles
+- **Organizations**: organizations, tenant_configurations (multi-tenant)
 - **Tickets**: tickets, comments, attachments, templates
 - **SLA**: sla_policies, sla_tracking, escalations
 - **Knowledge Base**: kb_articles, kb_categories
 - **Analytics**: analytics_daily_metrics, analytics_agent_metrics
 - **Notifications**: notifications, notification_events
 - **Audit**: audit_logs, auth_audit_logs
+- **System Settings**: system_settings (key-value global config)
 
 See [Database Documentation](docs/development/database.md) for complete schema.
 
@@ -408,6 +419,7 @@ RESTful API with OpenAPI 3.0 specification:
 - **Users**: `/api/users/*`
 - **Knowledge Base**: `/api/kb/*`
 - **Analytics**: `/api/analytics/*`
+- **Super Admin**: `/api/admin/super/*` (dashboard, organizations, users, audit, settings)
 
 See [API Documentation](docs/api/README.md) and [OpenAPI Spec](docs/openapi.yaml).
 

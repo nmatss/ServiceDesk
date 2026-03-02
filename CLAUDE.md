@@ -58,6 +58,7 @@ This project uses a **custom SQLite-based database layer** with 18 interconnecte
 
 ### Protected Routes
 - Admin routes: `/admin/*`
+- Super Admin routes: `/admin/super/*` and `/api/admin/super/*` (org 1 only)
 - Auth routes: `/api/auth/*` (login, register, verify, profile)
 - Tenant routes: Various API endpoints require specific roles
 
@@ -74,20 +75,22 @@ This project uses a **custom SQLite-based database layer** with 18 interconnecte
 ```
 app/
 ├── api/               # API routes (auth, notifications, protected)
+│   └── admin/super/   # Super Admin APIs (dashboard, orgs, users, audit, settings)
 ├── auth/              # Authentication pages (login, register)
 ├── tickets/           # Ticket management pages
 ├── admin/             # Admin interface
+│   └── super/         # Super Admin pages (dashboard, orgs, users, audit, settings)
 └── layout.tsx         # Root layout with AppLayout component
 
 lib/
 ├── db/                # Database layer (queries, schema, connection)
-├── auth/              # Authentication utilities
+├── auth/              # Authentication utilities + super-admin-guard.ts
 ├── notifications/     # Real-time notification system
 ├── workflow/          # Workflow management
 ├── automations/       # Automation engine
 ├── monitoring/        # Logging and monitoring
 ├── validation/        # Zod schemas
-└── types/             # TypeScript type definitions
+└── types/             # TypeScript type definitions + super-admin.ts
 ```
 
 ### Key Patterns
@@ -96,6 +99,37 @@ lib/
 - **Type safety**: Comprehensive TypeScript interfaces for database entities
 - **Real-time updates**: Socket.io integration for live notifications
 - **Automated SLA**: Database triggers automatically track SLA compliance
+
+## Super Admin Area
+
+### Access Control
+- **Guard**: `lib/auth/super-admin-guard.ts` — `requireSuperAdmin(request)` verifies `organizationId === 1` OR `role === 'super_admin'`
+- **Sidebar**: Super Admin menu section (amber-themed) appears only for org 1 users
+- **Types**: `lib/types/super-admin.ts` — all interfaces for the module
+
+### API Routes (`/api/admin/super/`)
+| Route | Methods | Description |
+|---|---|---|
+| `dashboard` | GET | Aggregated cross-tenant stats, alerts, recent orgs |
+| `organizations` | GET, POST | Paginated org list with filters + create new org |
+| `organizations/[id]` | GET, PUT, DELETE | Org detail, update, soft-delete |
+| `organizations/[id]/suspend` | POST | Toggle suspend/reactivate |
+| `organizations/[id]/stats` | GET | Org metrics (tickets by status, users by role) |
+| `organizations/[id]/users` | GET | Users of specific org |
+| `users` | GET | Cross-tenant user list with filters |
+| `users/[id]` | GET, PUT | User detail + admin actions (reset pw, change role, deactivate) |
+| `audit` | GET | Cross-tenant audit logs with date/org/action filters |
+| `settings` | GET, PUT | System-wide settings (maintenance, limits, SMTP, security) |
+
+### Pages (`/admin/super/`)
+| Page | Description |
+|---|---|
+| `/admin/super` | Dashboard — StatsCards, alerts, recent orgs |
+| `/admin/super/organizations` | Org list — table/cards, filters, create modal |
+| `/admin/super/organizations/[id]` | Org detail — 4 tabs: Info, Usuários, Config, Métricas |
+| `/admin/super/users` | Cross-tenant users — table with role/status badges, actions |
+| `/admin/super/audit` | Audit logs — expandable rows, date range filters |
+| `/admin/super/settings` | System settings — 4 sections: Geral, Limites, SMTP, Segurança |
 
 ## Frontend Components
 
