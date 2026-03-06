@@ -20,11 +20,13 @@ export default function MobileScanPage() {
   const [torchEnabled, setTorchEnabled] = useState(false)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment')
   const streamRef = useRef<MediaStream | null>(null)
+  const scanFrameRef = useRef<number>(0)
 
   useEffect(() => {
     startCamera()
 
     return () => {
+      if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current)
       stopCamera()
     }
   }, [facingMode])
@@ -86,33 +88,30 @@ export default function MobileScanPage() {
 
   const scanQRCode = () => {
     // This is a placeholder - in production, use a library like jsQR or zxing
-    // For demonstration, we'll simulate scanning
-    setTimeout(() => {
-      if (!scannedData) {
-        // Simulate QR code detection
-        const canvas = canvasRef.current
-        const video = videoRef.current
+    if (scannedData) return
 
-        if (canvas && video) {
-          const context = canvas.getContext('2d')
-          if (context) {
-            canvas.width = video.videoWidth
-            canvas.height = video.videoHeight
-            context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    const canvas = canvasRef.current
+    const video = videoRef.current
 
-            // In production, use jsQR here:
-            // const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
-            // const code = jsQR(imageData.data, imageData.width, imageData.height)
-            // if (code) {
-            //   handleScan(code.data)
-            // }
-          }
-        }
+    if (canvas && video) {
+      const context = canvas.getContext('2d')
+      if (context) {
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-        // Continue scanning
-        requestAnimationFrame(scanQRCode)
+        // In production, use jsQR here:
+        // const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+        // const code = jsQR(imageData.data, imageData.width, imageData.height)
+        // if (code) {
+        //   handleScan(code.data)
+        //   return
+        // }
       }
-    }, 100)
+    }
+
+    // Continue scanning via requestAnimationFrame (cleaned up by stopCamera on unmount)
+    scanFrameRef.current = requestAnimationFrame(scanQRCode)
   }
 
   /*

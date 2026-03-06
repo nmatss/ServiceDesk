@@ -664,6 +664,16 @@ CREATE INDEX IF NOT EXISTS idx_file_storage_uploaded_by ON file_storage(uploaded
 CREATE INDEX IF NOT EXISTS idx_file_storage_file_path ON file_storage(file_path);
 CREATE INDEX IF NOT EXISTS idx_file_storage_storage_path ON file_storage(storage_path);
 
+-- Composite indexes for multi-column query patterns (tenant + filter)
+CREATE INDEX IF NOT EXISTS idx_tickets_tenant_status ON tickets(tenant_id, status_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_tenant_user ON tickets(tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_tenant_assigned ON tickets(tenant_id, assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tickets_tenant_created ON tickets(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tickets_tenant_priority ON tickets(tenant_id, priority_id);
+CREATE INDEX IF NOT EXISTS idx_comments_tenant_created ON comments(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_sla_tracking_ticket_created ON sla_tracking(ticket_id, created_at DESC);
+
 -- Índices para SLA e novas tabelas
 CREATE INDEX IF NOT EXISTS idx_sla_policies_priority_id ON sla_policies(priority_id);
 CREATE INDEX IF NOT EXISTS idx_sla_policies_category_id ON sla_policies(category_id);

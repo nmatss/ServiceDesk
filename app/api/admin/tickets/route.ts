@@ -5,6 +5,10 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { ADMIN_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+const MAX_PAGE_SIZE = 200;
+const DEFAULT_PAGE_SIZE = 50;
+
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
@@ -15,7 +19,18 @@ export async function GET(request: NextRequest) {
     if (guard.response) return guard.response
     const tenantId = guard.auth!.organizationId
 
-    // Buscar todos os tickets com informações relacionadas (com tenant isolation)
+    const searchParams = request.nextUrl.searchParams
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE)), MAX_PAGE_SIZE)
+    const offset = (page - 1) * limit
+
+    // Count total for pagination metadata
+    const totalResult = await executeQuery<{ count: number }>(`
+      SELECT COUNT(*) as count FROM tickets WHERE tenant_id = ?
+    `, [tenantId])
+    const total = totalResult[0]?.count || 0
+
+    // Buscar tickets paginados com informações relacionadas (com tenant isolation)
     const tickets = await executeQuery(`
       SELECT
         t.id,
@@ -42,11 +57,18 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users agent ON t.assigned_to = agent.id
       WHERE t.tenant_id = ?
       ORDER BY t.created_at DESC
-    `, [tenantId])
+      LIMIT ? OFFSET ?
+    `, [tenantId, limit, offset])
 
     return NextResponse.json({
       success: true,
-      tickets
+      tickets,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      }
     })
   } catch (error) {
     logger.error('Error fetching tickets', error)

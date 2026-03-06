@@ -20,6 +20,8 @@ export interface SessionInfo {
   lastActivity: Date
 }
 
+const MAX_SESSIONS = 10000;
+
 export class SocketServer {
   private io: SocketIOServer
   private db = getDb()
@@ -122,6 +124,17 @@ export class SocketServer {
         userRole: socket.userRole,
         connectedAt: now,
         lastActivity: now
+      }
+
+      // Evict oldest session if at capacity
+      if (this.activeSessions.size >= MAX_SESSIONS) {
+        let oldestKey: string | null = null
+        let oldestTime = Infinity
+        for (const [key, s] of this.activeSessions) {
+          const t = s.lastActivity.getTime()
+          if (t < oldestTime) { oldestTime = t; oldestKey = key }
+        }
+        if (oldestKey) this.activeSessions.delete(oldestKey)
       }
 
       // Armazenar sessão em memória
@@ -285,15 +298,22 @@ export class SocketServer {
 
   private sendOnlineUsers(socket: ExtendedSocket) {
     try {
-      const onlineUsers = this.db.prepare(`
-        SELECT DISTINCT u.id, u.name, u.role, s.last_activity
-        FROM users u
-        INNER JOIN user_sessions s ON u.id = s.user_id
-        WHERE s.is_active = 1
-        AND s.last_activity > datetime('now', '-5 minutes')
-        ORDER BY u.name
-      `).all()
+      // Use in-memory session data instead of DB query for every request
+      const fiveMinAgo = Date.now() - 5 * 60 * 1000
+      const seenUsers = new Map<number, { id: number; name: string; role: string; last_activity: string }>()
 
+      for (const session of this.activeSessions.values()) {
+        if (session.lastActivity.getTime() > fiveMinAgo && !seenUsers.has(session.userId)) {
+          seenUsers.set(session.userId, {
+            id: session.userId,
+            name: session.userName,
+            role: session.userRole,
+            last_activity: session.lastActivity.toISOString(),
+          })
+        }
+      }
+
+      const onlineUsers = Array.from(seenUsers.values()).sort((a, b) => a.name.localeCompare(b.name))
       socket.emit('online_users_updated', onlineUsers)
     } catch (error) {
       logger.error('Error fetching online users', error)

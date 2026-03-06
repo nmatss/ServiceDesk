@@ -49,46 +49,6 @@ const JWT_SECRET = new TextEncoder().encode(getJWTSecret())
 // ========================
 
 /**
- * Generate ETag for response caching (Edge Runtime compatible)
- *
- * Creates a hash of the response body to enable conditional requests.
- * Uses a simple hash function that works in Edge Runtime without Node.js crypto.
- * Clients can send If-None-Match header to receive 304 Not Modified responses.
- *
- * @param body - Response body (string)
- * @returns ETag header value (quoted hash)
- *
- * @example
- * ```typescript
- * const etag = generateETag('{"data": "value"}');
- * response.headers.set('ETag', etag);
- * ```
- */
-function generateETag(body: string): string {
-  // Simple FNV-1a hash (Edge Runtime compatible, no Node.js crypto)
-  let hash = 2166136261;
-  for (let i = 0; i < body.length; i++) {
-    hash ^= body.charCodeAt(i);
-    hash = (hash * 16777619) >>> 0;
-  }
-  return `"${hash.toString(16)}"`
-}
-
-/**
- * Check if request supports Brotli compression
- *
- * Checks the Accept-Encoding header to determine if the client
- * supports Brotli (br) compression for optimized response size.
- *
- * @param request - Next.js request object
- * @returns True if Brotli is supported, false otherwise
- */
-function supportsBrotli(request: NextRequest): boolean {
-  const acceptEncoding = request.headers.get('accept-encoding') || ''
-  return acceptEncoding.includes('br')
-}
-
-/**
  * Get appropriate cache control header based on route pattern
  *
  * Implements different caching strategies for different route types:
@@ -417,37 +377,15 @@ export async function middleware(request: NextRequest) {
     response.headers.set('Cache-Control', cacheControl)
   }
 
-  // Add Vary header for compression
-  response.headers.set('Vary', 'Accept-Encoding, Cookie')
-
-  // ETag support for conditional requests (only for GET requests)
-  if (request.method === 'GET') {
-    const ifNoneMatch = request.headers.get('if-none-match')
-
-    // For static routes, we can use pathname as ETag
-    if (
-      pathname.startsWith('/_next/static/') ||
-      pathname.startsWith('/static/')
-    ) {
-      const etag = generateETag(pathname)
-      response.headers.set('ETag', etag)
-
-      // Return 304 if ETag matches
-      if (ifNoneMatch === etag) {
-        return new NextResponse(null, {
-          status: 304,
-          headers: response.headers,
-        })
-      }
-    }
+  // Vary header: only include Cookie for authenticated routes (public routes can be CDN-cached)
+  if (requiresAuth(pathname)) {
+    response.headers.set('Vary', 'Accept-Encoding, Cookie')
+  } else {
+    response.headers.set('Vary', 'Accept-Encoding')
   }
 
-  // Add compression hints
-  if (supportsBrotli(request)) {
-    response.headers.set('X-Compression-Available', 'br')
-  } else if (request.headers.get('accept-encoding')?.includes('gzip')) {
-    response.headers.set('X-Compression-Available', 'gzip')
-  }
+  // Note: ETag for static assets is handled natively by Next.js — no need to duplicate here
+  // Note: Compression is handled by server.ts middleware — no need for hints
 
   // Performance timing headers (only in development)
   if (!isProduction()) {

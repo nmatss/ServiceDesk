@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
 import { logger } from '@/lib/monitoring/logger';
+import { getFromCache, setCache } from '@/lib/cache/lru-cache';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ============================================================================
@@ -148,22 +149,18 @@ interface ForecastingData {
 }
 
 // ============================================================================
-// Cache Management
+// Cache Management (uses global LRU cache)
 // ============================================================================
 
-const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_NAMESPACE = 'stats' as const;
+const CACHE_TTL = 30; // 30 seconds
 
-function getCachedData(key: string): any | null {
-  const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
-  }
-  return null;
+function getCachedData<T>(key: string): T | null {
+  return getFromCache<T>(`realtime:${key}`, CACHE_NAMESPACE);
 }
 
-function setCachedData(key: string, data: any): void {
-  cache.set(key, { data, timestamp: Date.now() });
+function setCachedData<T>(key: string, data: T): void {
+  setCache(`realtime:${key}`, data, CACHE_TTL, CACHE_NAMESPACE);
 }
 
 // ============================================================================
@@ -172,116 +169,116 @@ function setCachedData(key: string, data: any): void {
 
 async function getKPISummary(): Promise<KPISummaryData> {
   const cacheKey = 'kpi_summary';
-  const cached = getCachedData(cacheKey);
+  const cached = getCachedData<KPISummaryData>(cacheKey);
   if (cached) return cached;
 
-  // Tickets today
-  const ticketsToday = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count
-    FROM tickets
-    WHERE date(created_at) = date('now')
-  `) || { count: 0 };
-
-  // Tickets this week
-  const ticketsWeek = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count
-    FROM tickets
-    WHERE date(created_at) >= date('now', '-7 days')
-  `) || { count: 0 };
-
-  // Tickets this month
-  const ticketsMonth = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count
-    FROM tickets
-    WHERE date(created_at) >= date('now', 'start of month')
-  `) || { count: 0 };
-
-  // Total tickets
-  const totalTickets = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count FROM tickets
-  `) || { count: 0 };
-
-  // SLA metrics
-  const slaMetrics = await executeQueryOne<{ total: number; response_met: number; resolution_met: number }>(`
+  // Single CTE query consolidating all 12 sequential queries into 1 round-trip
+  const result = await executeQueryOne<{
+    tickets_today: number;
+    tickets_week: number;
+    tickets_month: number;
+    total_tickets: number;
+    tickets_yesterday: number;
+    sla_total: number;
+    sla_response_met: number;
+    sla_resolution_met: number;
+    avg_response: number;
+    avg_resolution: number;
+    sla_last_week_total: number;
+    sla_last_week_response_met: number;
+    active_agents: number;
+    open_tickets: number;
+    resolved_today: number;
+  }>(`
+    WITH ticket_counts AS (
+      SELECT
+        COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as tickets_today,
+        COUNT(CASE WHEN date(created_at) >= date('now', '-7 days') THEN 1 END) as tickets_week,
+        COUNT(CASE WHEN date(created_at) >= date('now', 'start of month') THEN 1 END) as tickets_month,
+        COUNT(*) as total_tickets,
+        COUNT(CASE WHEN date(created_at) = date('now', '-1 day') THEN 1 END) as tickets_yesterday
+      FROM tickets
+    ),
+    sla_current AS (
+      SELECT
+        COUNT(*) as sla_total,
+        COALESCE(SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END), 0) as sla_response_met,
+        COALESCE(SUM(CASE WHEN resolution_sla_met = 1 THEN 1 ELSE 0 END), 0) as sla_resolution_met
+      FROM sla_tracking
+    ),
+    sla_times AS (
+      SELECT
+        COALESCE(AVG(response_time_minutes), 0) as avg_response,
+        COALESCE(AVG(resolution_time_minutes), 0) as avg_resolution
+      FROM sla_tracking
+      WHERE created_at >= date('now', '-30 days')
+    ),
+    sla_prev_week AS (
+      SELECT
+        COUNT(*) as sla_last_week_total,
+        COALESCE(SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END), 0) as sla_last_week_response_met
+      FROM sla_tracking
+      WHERE created_at >= date('now', '-14 days')
+        AND created_at < date('now', '-7 days')
+    ),
+    agents AS (
+      SELECT COUNT(DISTINCT user_id) as active_agents
+      FROM user_sessions
+      WHERE is_active = 1
+    ),
+    open AS (
+      SELECT COUNT(*) as open_tickets
+      FROM tickets
+      WHERE status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
+    ),
+    resolved AS (
+      SELECT COUNT(*) as resolved_today
+      FROM tickets
+      WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
+        AND date(updated_at) = date('now')
+    )
     SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END) as response_met,
-      SUM(CASE WHEN resolution_sla_met = 1 THEN 1 ELSE 0 END) as resolution_met
-    FROM sla_tracking
-  `) || { total: 0, response_met: 0, resolution_met: 0 };
+      tc.tickets_today, tc.tickets_week, tc.tickets_month, tc.total_tickets, tc.tickets_yesterday,
+      sc.sla_total, sc.sla_response_met, sc.sla_resolution_met,
+      st.avg_response, st.avg_resolution,
+      sp.sla_last_week_total, sp.sla_last_week_response_met,
+      a.active_agents, o.open_tickets, r.resolved_today
+    FROM ticket_counts tc, sla_current sc, sla_times st, sla_prev_week sp, agents a, open o, resolved r
+  `);
 
-  // Average times (in minutes)
-  const avgTimes = await executeQueryOne<{ avg_response: number; avg_resolution: number }>(`
-    SELECT
-      AVG(response_time_minutes) as avg_response,
-      AVG(resolution_time_minutes) as avg_resolution
-    FROM sla_tracking
-    WHERE created_at >= date('now', '-30 days')
-  `) || { avg_response: 0, avg_resolution: 0 };
-
-  // Active agents
-  const activeAgents = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(DISTINCT user_id) as count
-    FROM user_sessions
-    WHERE is_active = 1
-  `) || { count: 0 };
-
-  // Open tickets
-  const openTickets = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count
-    FROM tickets
-    WHERE status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
-  `) || { count: 0 };
-
-  // Resolved today
-  const resolvedToday = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count
-    FROM tickets
-    WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-      AND date(updated_at) = date('now')
-  `) || { count: 0 };
-
-  // Calculate trends (compare with previous period)
-  const ticketsYesterday = await executeQueryOne<{ count: number }>(`
-    SELECT COUNT(*) as count
-    FROM tickets
-    WHERE date(created_at) = date('now', '-1 day')
-  `) || { count: 0 };
-
-  const slaLastWeek = await executeQueryOne<{ total: number; response_met: number }>(`
-    SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END) as response_met
-    FROM sla_tracking
-    WHERE created_at >= date('now', '-14 days')
-      AND created_at < date('now', '-7 days')
-  `) || { total: 0, response_met: 0 };
+  const r = result || {
+    tickets_today: 0, tickets_week: 0, tickets_month: 0, total_tickets: 0, tickets_yesterday: 0,
+    sla_total: 0, sla_response_met: 0, sla_resolution_met: 0,
+    avg_response: 0, avg_resolution: 0,
+    sla_last_week_total: 0, sla_last_week_response_met: 0,
+    active_agents: 0, open_tickets: 0, resolved_today: 0,
+  };
 
   const data: KPISummaryData = {
-    tickets_today: ticketsToday.count,
-    tickets_this_week: ticketsWeek.count,
-    tickets_this_month: ticketsMonth.count,
-    total_tickets: totalTickets.count,
-    sla_response_met: slaMetrics.response_met,
-    sla_resolution_met: slaMetrics.resolution_met,
-    total_sla_tracked: slaMetrics.total,
-    avg_response_time: avgTimes.avg_response || 0,
-    avg_resolution_time: avgTimes.avg_resolution || 0,
-    fcr_rate: null as any, // TODO: calculate from ticket data (first-contact resolution)
-    csat_score: null as any, // TODO: calculate from satisfaction_surveys table
-    csat_responses: 0, // TODO: count from satisfaction_surveys table
-    active_agents: activeAgents.count,
-    open_tickets: openTickets.count,
-    resolved_today: resolvedToday.count,
+    tickets_today: r.tickets_today,
+    tickets_this_week: r.tickets_week,
+    tickets_this_month: r.tickets_month,
+    total_tickets: r.total_tickets,
+    sla_response_met: r.sla_response_met,
+    sla_resolution_met: r.sla_resolution_met,
+    total_sla_tracked: r.sla_total,
+    avg_response_time: r.avg_response || 0,
+    avg_resolution_time: r.avg_resolution || 0,
+    fcr_rate: null as any,
+    csat_score: null as any,
+    csat_responses: 0,
+    active_agents: r.active_agents,
+    open_tickets: r.open_tickets,
+    resolved_today: r.resolved_today,
     trends: {
-      tickets_change: ticketsYesterday.count > 0
-        ? ((ticketsToday.count - ticketsYesterday.count) / ticketsYesterday.count) * 100
+      tickets_change: r.tickets_yesterday > 0
+        ? ((r.tickets_today - r.tickets_yesterday) / r.tickets_yesterday) * 100
         : 0,
-      sla_change: slaLastWeek.total > 0
-        ? (((slaMetrics.response_met / slaMetrics.total) - (slaLastWeek.response_met / slaLastWeek.total)) * 100)
+      sla_change: r.sla_last_week_total > 0 && r.sla_total > 0
+        ? (((r.sla_response_met / r.sla_total) - (r.sla_last_week_response_met / r.sla_last_week_total)) * 100)
         : 0,
-      satisfaction_change: null as any, // TODO: calculate from satisfaction_surveys trend
-      response_time_change: null as any, // TODO: calculate from sla_tracking trend
+      satisfaction_change: null as any,
+      response_time_change: null as any,
     },
   };
 
@@ -291,7 +288,7 @@ async function getKPISummary(): Promise<KPISummaryData> {
 
 async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
   const cacheKey = 'sla_performance';
-  const cached = getCachedData(cacheKey);
+  const cached = getCachedData<SLAPerformanceData[]>(cacheKey);
   if (cached) return cached;
 
   const data = await executeQuery<any>(`
@@ -325,7 +322,7 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
 
 async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
   const cacheKey = 'agent_performance';
-  const cached = getCachedData(cacheKey);
+  const cached = getCachedData<AgentPerformanceData[]>(cacheKey);
   if (cached) return cached;
 
   const data = await executeQuery<any>(`
@@ -380,7 +377,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
 
 async function getVolumeData(): Promise<VolumeData[]> {
   const cacheKey = 'volume_data';
-  const cached = getCachedData(cacheKey);
+  const cached = getCachedData<VolumeData[]>(cacheKey);
   if (cached) return cached;
 
   const data = await executeQuery<any>(`
@@ -473,35 +470,31 @@ export async function GET(request: NextRequest) {
 
     // Force cache clear if requested
     if (params.forceRefresh) {
-      cache.clear();
+      const { clearCache: clearLRU } = await import('@/lib/cache/lru-cache');
+      clearLRU(CACHE_NAMESPACE);
     }
 
     const metrics: RealtimeMetrics = {
       timestamp: new Date(),
     };
 
-    // Gather requested metrics
+    // Gather requested metrics in parallel (independent queries)
     const subscriptions = params.subscriptions || [];
+    const all = subscriptions.length === 0;
 
-    if (subscriptions.length === 0 || subscriptions.includes('kpi')) {
-      metrics.kpiSummary = await getKPISummary();
-    }
+    const [kpiSummary, slaData, agentData, volumeData, alerts] = await Promise.all([
+      (all || subscriptions.includes('kpi')) ? getKPISummary() : undefined,
+      (all || subscriptions.includes('sla')) ? getSLAPerformance() : undefined,
+      (all || subscriptions.includes('agents')) ? getAgentPerformance() : undefined,
+      (all || subscriptions.includes('volume')) ? getVolumeData() : undefined,
+      (all || subscriptions.includes('alerts')) ? getActiveAlerts() : undefined,
+    ]);
 
-    if (subscriptions.length === 0 || subscriptions.includes('sla')) {
-      metrics.slaData = await getSLAPerformance();
-    }
-
-    if (subscriptions.length === 0 || subscriptions.includes('agents')) {
-      metrics.agentData = await getAgentPerformance();
-    }
-
-    if (subscriptions.length === 0 || subscriptions.includes('volume')) {
-      metrics.volumeData = await getVolumeData();
-    }
-
-    if (subscriptions.length === 0 || subscriptions.includes('alerts')) {
-      metrics.alerts = await getActiveAlerts();
-    }
+    if (kpiSummary) metrics.kpiSummary = kpiSummary;
+    if (slaData) metrics.slaData = slaData;
+    if (agentData) metrics.agentData = agentData;
+    if (volumeData) metrics.volumeData = volumeData;
+    if (alerts) metrics.alerts = alerts;
 
     // Add forecasting if enabled
     if (params.enableForecasting) {
@@ -534,7 +527,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(metrics, {
       headers: {
-        'Cache-Control': 'no-store, must-revalidate',
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
         'Content-Type': 'application/json',
       },
     });
@@ -562,10 +555,11 @@ export async function POST(request: NextRequest) {
 
     if (action === 'invalidate_cache') {
       // Allow clients to trigger cache invalidation
+      const { removeCachePattern, clearCache: clearLRU } = await import('@/lib/cache/lru-cache');
       if (data?.keys) {
-        data.keys.forEach((key: string) => cache.delete(key));
+        data.keys.forEach((key: string) => removeCachePattern(`realtime:${key}`, CACHE_NAMESPACE));
       } else {
-        cache.clear();
+        clearLRU(CACHE_NAMESPACE);
       }
 
       return NextResponse.json({ success: true, message: 'Cache invalidated' });

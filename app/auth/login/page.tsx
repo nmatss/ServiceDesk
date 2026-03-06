@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -16,6 +16,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const router = useRouter()
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => { if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current) }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,7 +52,7 @@ export default function LoginPage() {
         customToast.success(`Bem-vindo de volta, ${data.user.name}!`)
         setStatusMessage('Login realizado com sucesso. Redirecionando...')
 
-        setTimeout(() => {
+        redirectTimerRef.current = setTimeout(() => {
           // Redirect based on user role
           const role = data.user.role
           if (role === 'admin' || role === 'super_admin' || role === 'tenant_admin') {

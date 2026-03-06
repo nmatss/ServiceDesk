@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, memo, useMemo, Suspense, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, memo, useMemo, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -108,6 +108,7 @@ function CreateTicketPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const typeSlug = searchParams.get('type')
+  const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [ticketType, setTicketType] = useState<TicketType | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -134,6 +135,7 @@ function CreateTicketPageContent() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    let redirectTimer: ReturnType<typeof setTimeout>
     // Fetch all data in parallel to reduce loading time
     const fetchAllData = async () => {
       const startTime = performance.now()
@@ -182,13 +184,17 @@ function CreateTicketPageContent() {
       } catch (error) {
         logger.error('Error fetching data', error)
         customToast.error('Erro ao carregar dados. Redirecionando...')
-        setTimeout(() => router.push('/portal'), 1500)
+        redirectTimer = setTimeout(() => router.push('/portal'), 1500)
       } finally {
         setLoading(false)
       }
     }
 
     fetchAllData()
+    return () => {
+      if (redirectTimer) clearTimeout(redirectTimer)
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
+    }
   }, [typeSlug, router])
 
   const validateForm = () => {
@@ -261,7 +267,7 @@ function CreateTicketPageContent() {
       if (data.success) {
         customToast.success('Ticket criado com sucesso!')
         // Small delay to show success message before redirect
-        setTimeout(() => {
+        submitTimerRef.current = setTimeout(() => {
           router.push(`/portal/tickets/${data.ticket.id}?created=true`)
         }, 500)
       } else {
