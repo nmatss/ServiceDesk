@@ -48,6 +48,21 @@ export default function AdminCategoriesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const trimmedName = formData.name.trim()
+    if (!trimmedName) {
+      customToast.error('O nome da categoria é obrigatório')
+      return
+    }
+    if (trimmedName.length < 2) {
+      customToast.error('O nome da categoria deve ter pelo menos 2 caracteres')
+      return
+    }
+    if (trimmedName.length > 100) {
+      customToast.error('O nome da categoria deve ter no máximo 100 caracteres')
+      return
+    }
+
     try {
       const url = editingCategory
         ? `/api/categories/${editingCategory.id}`
@@ -58,7 +73,7 @@ export default function AdminCategoriesPage() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, name: formData.name.trim() })
       })
 
       if (response.ok) {

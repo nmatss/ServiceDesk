@@ -45,12 +45,27 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
+    // SECURITY: Whitelist of allowed template names to prevent arbitrary template injection
+    const ALLOWED_TEMPLATES = [
+      'ticketCreated',
+      'ticketUpdated',
+      'ticketResolved',
+      'welcomeUser',
+      'passwordReset',
+    ] as const
+
     let emailHtml = html
     let emailText = text
     let emailSubject = subject
 
     // If using template, compile it with data
     if (template && templateData) {
+      if (!ALLOWED_TEMPLATES.includes(template)) {
+        return NextResponse.json({
+          error: 'Template não permitido. Templates válidos: ' + ALLOWED_TEMPLATES.join(', ')
+        }, { status: 400 })
+      }
+
       const { compileTemplate, emailTemplates } = await import('@/lib/email/templates')
 
       if (emailTemplates[template as keyof typeof emailTemplates]) {

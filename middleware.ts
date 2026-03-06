@@ -516,7 +516,7 @@ function isValidUser(user: UserInfo): boolean {
     typeof user.role === 'string' &&
     user.role.length > 0 &&
     typeof user.email === 'string' &&
-    user.email.includes('@')
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)
   )
 }
 

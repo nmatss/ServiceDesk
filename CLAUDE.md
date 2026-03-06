@@ -305,6 +305,30 @@ lib/
 - Database query logging
 - API request logging
 
+## Security Hardening (v2.1)
+
+### Applied Fixes
+- **Cross-tenant password change prevention**: `organization_id` now required in JWT for password changes
+- **SQL LIKE wildcard injection**: All LIKE queries escape `%` and `_` with `ESCAPE '\\'`
+- **Pagination limits enforced**: All paginated endpoints cap results (max 100-200 per request)
+- **Date input validation**: Audit route validates ISO date formats before SQL queries
+- **Super Admin guard hardened**: Requires valid `organizationId` even for `super_admin` role
+- **Template injection prevention**: Email templates validated against explicit whitelist
+- **Division by zero protection**: All analytics percentage calculations use `NULLIF(..., 0)`
+- **Input array limits**: Search filter arrays capped at 50 items to prevent DoS
+- **Email validation improved**: Middleware uses proper regex instead of simple `.includes('@')`
+- **Permissions-Policy header**: Added to restrict camera, microphone, geolocation APIs
+- **Dead code removed**: Unused escape key handler in Modal (Headless UI handles natively)
+- **Accessibility**: Button loading state announced via `aria-live="polite"` and `aria-busy`
+- **Responsive layout**: Portal tickets stats grid uses `xs:grid-cols-3` instead of forced 3-col on mobile
+
+### Security Patterns to Follow
+- Always escape LIKE wildcards: `search.replace(/%/g, '\\%').replace(/_/g, '\\_')`
+- Always cap pagination: `Math.min(parseInt(limit) || default, MAX)`
+- Always validate dates: `new Date(input)` + `isNaN()` check before SQL
+- Always require `organizationId` in tenant-scoped operations
+- Use `NULLIF(divisor, 0)` in all SQL division operations
+
 ### Next Steps for Further Optimization
 
 1. **CDN Integration**: Serve static assets from CDN

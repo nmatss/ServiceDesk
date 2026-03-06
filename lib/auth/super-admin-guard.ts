@@ -45,8 +45,9 @@ export function requireSuperAdmin(request: NextRequest): SuperAdminGuardResult {
 
   const { auth, context } = guard;
 
+  // Super Admin: must be in org 1 OR have super_admin role (which should only exist in org 1)
   const isSuperAdmin =
-    auth.organizationId === 1 || auth.role === ROLES.SUPER_ADMIN;
+    auth.organizationId === 1 || (auth.role === ROLES.SUPER_ADMIN && auth.organizationId != null);
 
   if (!isSuperAdmin) {
     return {

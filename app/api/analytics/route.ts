@@ -119,11 +119,11 @@ export async function GET(request: NextRequest) {
           ROUND(AVG(st.resolution_time_minutes), 2) as avg_resolution_time,
           ROUND(
             CAST(COUNT(CASE WHEN st.response_met = 1 THEN 1 END) AS FLOAT) /
-            CAST(COUNT(*) AS FLOAT) * 100, 2
+            NULLIF(CAST(COUNT(*) AS FLOAT), 0) * 100, 2
           ) as response_sla_rate,
           ROUND(
             CAST(COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) AS FLOAT) /
-            CAST(COUNT(*) AS FLOAT) * 100, 2
+            NULLIF(CAST(COUNT(*) AS FLOAT), 0) * 100, 2
           ) as resolution_sla_rate
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as resolved_tickets,
           ROUND(
             CAST(COUNT(CASE WHEN s.is_final = 1 THEN 1 END) AS FLOAT) /
-            CAST(COUNT(t.id) AS FLOAT) * 100, 2
+            NULLIF(CAST(COUNT(t.id) AS FLOAT), 0) * 100, 2
           ) as resolution_rate,
           ROUND(AVG(st.response_time_minutes), 2) as avg_response_time,
           ROUND(AVG(st.resolution_time_minutes), 2) as avg_resolution_time,
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as resolved_tickets,
           ROUND(
             CAST(COUNT(CASE WHEN s.is_final = 1 THEN 1 END) AS FLOAT) /
-            CAST(COUNT(t.id) AS FLOAT) * 100, 2
+            NULLIF(CAST(COUNT(t.id) AS FLOAT), 0) * 100, 2
           ) as resolution_rate,
           ROUND(AVG(st.resolution_time_minutes), 2) as avg_resolution_time,
           ROUND(AVG(ss.rating), 2) as avg_satisfaction
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
           COUNT(t.id) as ticket_count,
           ROUND(
             CAST(COUNT(t.id) AS FLOAT) /
-            CAST((SELECT COUNT(*) FROM tickets WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-' || ? || ' days')) AS FLOAT) * 100, 2
+            NULLIF(CAST((SELECT COUNT(*) FROM tickets WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-' || ? || ' days')) AS FLOAT), 0) * 100, 2
           ) as percentage
         FROM priorities p
         LEFT JOIN tickets t ON p.id = t.priority_id AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN st.response_met = 1 THEN 1 END) as sla_met,
           ROUND(
             CAST(COUNT(CASE WHEN st.response_met = 1 THEN 1 END) AS FLOAT) /
-            CAST(COUNT(st.id) AS FLOAT) * 100, 2
+            NULLIF(CAST(COUNT(st.id) AS FLOAT), 0) * 100, 2
           ) as sla_compliance
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN ss.rating <= 2 THEN 1 END) as negative_ratings,
           ROUND(
             CAST(COUNT(CASE WHEN ss.rating >= 4 THEN 1 END) AS FLOAT) /
-            CAST(COUNT(*) AS FLOAT) * 100, 2
+            NULLIF(CAST(COUNT(*) AS FLOAT), 0) * 100, 2
           ) as satisfaction_rate
         FROM satisfaction_surveys ss
         INNER JOIN tickets t ON ss.ticket_id = t.id

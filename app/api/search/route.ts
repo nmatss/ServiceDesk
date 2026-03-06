@@ -21,10 +21,11 @@ function getHybridSearch(): HybridSearchEngine {
   return hybridSearchInstance;
 }
 
-function parseNumberList(value: string | null): number[] {
+function parseNumberList(value: string | null, maxItems = 50): number[] {
   if (!value) return [];
   return value
     .split(',')
+    .slice(0, maxItems)
     .map((v) => Number(v))
     .filter((v) => Number.isFinite(v) && v > 0);
 }
@@ -82,14 +83,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ success: true, suggestions: [] });
       }
 
+      const escapedQuery = query.replace(/%/g, '\\%').replace(/_/g, '\\_')
       const suggestions = await executeQuery<{ query: string }>(
         `SELECT query
          FROM search_history
-         WHERE user_id = ? AND LOWER(query) LIKE LOWER(?)
+         WHERE user_id = ? AND LOWER(query) LIKE LOWER(?) ESCAPE '\\'
          GROUP BY query
          ORDER BY MAX(created_at) DESC
          LIMIT ?`,
-        [auth.userId, `%${query}%`, limit]
+        [auth.userId, `%${escapedQuery}%`, limit]
       );
 
       return NextResponse.json({
@@ -176,13 +178,14 @@ export async function GET(request: NextRequest) {
       let users: Array<{ id: number; name: string; email: string; role: string }> = [];
 
       if (includeUsers && query && auth.organizationId) {
+        const escapedUserQuery = query.replace(/%/g, '\\%').replace(/_/g, '\\_')
         users = await executeQuery(
           `SELECT id, name, email, role
            FROM users
-           WHERE organization_id = ? AND (LOWER(name) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?))
+           WHERE organization_id = ? AND (LOWER(name) LIKE LOWER(?) ESCAPE '\\' OR LOWER(email) LIKE LOWER(?) ESCAPE '\\')
            ORDER BY name
            LIMIT ?`,
-          [auth.organizationId, `%${query}%`, `%${query}%`, Math.max(1, Math.floor(limit / 2))]
+          [auth.organizationId, `%${escapedUserQuery}%`, `%${escapedUserQuery}%`, Math.max(1, Math.floor(limit / 2))]
         );
       }
 

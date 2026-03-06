@@ -17,7 +17,7 @@ import { NoDataEmptyState } from '@/components/ui/empty-state'
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string; role: string; is_active: boolean; created_at: string; last_login?: string; tickets_count?: number }>>([])
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearch = useDebounce(searchTerm, 300)
   const [roleFilter, setRoleFilter] = useState('all')
@@ -53,7 +53,7 @@ export default function AdminUsersPage() {
   const handleExport = () => {
     const headers = ['ID', 'Nome', 'Email', 'Papel', 'Status']
     const csvRows = [headers.join(',')]
-    users.forEach((u: any) => {
+    users.forEach((u) => {
       csvRows.push([u.id, u.name, u.email, u.role, u.is_active ? 'Ativo' : 'Inativo'].join(','))
     })
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' })

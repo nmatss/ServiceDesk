@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const ALLOWED_SORT_COLUMNS: Record<string, string> = {
   name: 'u.name',
@@ -16,6 +17,10 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
  * Lista paginada de todos os usuários de todas as organizações
  */
 export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_USER);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const guard = requireSuperAdmin(request);
   if (guard.response) return guard.response;
 

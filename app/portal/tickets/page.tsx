@@ -296,7 +296,7 @@ export default function MyTicketsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
+        <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <div className="glass-panel rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 sm:p-6">
             <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-1 sm:gap-0">
               <div className="text-center sm:text-left">

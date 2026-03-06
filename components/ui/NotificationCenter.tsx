@@ -64,7 +64,6 @@ export const NotificationCenter = React.memo(function NotificationCenter({
 
   useEffect(() => {
     setMounted(true)
-    return () => setMounted(false)
   }, [])
 
   // Filtered notifications

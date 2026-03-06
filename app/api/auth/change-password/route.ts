@@ -30,19 +30,16 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ message: 'Senha atual e nova senha são obrigatórias' }, { status: 400 })
     }
 
-    // SECURITY FIX: Buscar usuário com tenant check (organization_id)
-    // This prevents users from changing passwords across tenant boundaries
-    const user = organizationId
-      ? await executeQueryOne<{ id: number; password_hash: string; role: string; organization_id: number }>(`
-          SELECT id, password_hash, role, organization_id
-          FROM users
-          WHERE id = ? AND organization_id = ?
-        `, [parseInt(userId, 10), organizationId])
-      : await executeQueryOne<{ id: number; password_hash: string; role: string; organization_id: number }>(`
-          SELECT id, password_hash, role, organization_id
-          FROM users
-          WHERE id = ?
-        `, [parseInt(userId, 10)])
+    // SECURITY FIX: Require organization_id to prevent cross-tenant password changes
+    if (!organizationId) {
+      return NextResponse.json({ message: 'Token inválido: organização não identificada' }, { status: 401 })
+    }
+
+    const user = await executeQueryOne<{ id: number; password_hash: string; role: string; organization_id: number }>(`
+      SELECT id, password_hash, role, organization_id
+      FROM users
+      WHERE id = ? AND organization_id = ?
+    `, [parseInt(userId, 10), organizationId])
 
     if (!user) {
       return NextResponse.json({ message: 'Usuário não encontrado' }, { status: 404 })

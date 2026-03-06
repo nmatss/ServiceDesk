@@ -36,14 +36,14 @@ export async function GET(request: NextRequest) {
     const resourceId = searchParams.get('resource_id');
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '50') || 50, 1), 200);
     const explicitOffset = searchParams.get('offset');
     const page = parseInt(searchParams.get('page') || '1');
     const offset = explicitOffset ? parseInt(explicitOffset) : Math.max(0, (page - 1) * limit);
 
     // FILTRAR POR TENANT - apenas logs de usuários do tenant
     let whereClause = 'WHERE COALESCE(u.organization_id, u.tenant_id) = ?';
-    const params: any[] = [tenantId];
+    const params: (string | number)[] = [tenantId];
 
     // Filtrar por usuário
     if (userId) {
@@ -70,16 +70,22 @@ export async function GET(request: NextRequest) {
       params.push(parseInt(resourceId));
     }
 
-    // Filtrar por data de início
+    // Filtrar por data de início (validate ISO date format)
     if (startDate) {
-      whereClause += ' AND al.created_at >= ?';
-      params.push(startDate);
+      const parsedStart = new Date(startDate);
+      if (!isNaN(parsedStart.getTime())) {
+        whereClause += ' AND al.created_at >= ?';
+        params.push(parsedStart.toISOString());
+      }
     }
 
-    // Filtrar por data de fim
+    // Filtrar por data de fim (validate ISO date format)
     if (endDate) {
-      whereClause += ' AND al.created_at <= ?';
-      params.push(endDate);
+      const parsedEnd = new Date(endDate);
+      if (!isNaN(parsedEnd.getTime())) {
+        whereClause += ' AND al.created_at <= ?';
+        params.push(parsedEnd.toISOString());
+      }
     }
 
     // Buscar logs de auditoria FILTRADOS POR TENANT

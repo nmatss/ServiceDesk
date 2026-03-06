@@ -278,7 +278,7 @@ function CreateTicketPageContent() {
     }
   }
 
-  const updateFormData = useCallback((field: string, value: any) => {
+  const updateFormData = useCallback((field: string, value: string | number | boolean | null) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     setErrors(prev => {
       if (prev[field]) {

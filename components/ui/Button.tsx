@@ -170,13 +170,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         ref={ref}
         disabled={isDisabled}
+        aria-busy={loading || undefined}
         {...props}
       >
-        {loading && (
-          <>
-            <Loader2 className={cn('animate-spin', iconSize)} aria-hidden="true" />
+        <span aria-live="polite" aria-atomic="true">
+          {loading && (
             <span className="sr-only">{loadingText || 'Carregando...'}</span>
-          </>
+          )}
+        </span>
+        {loading && (
+          <Loader2 className={cn('animate-spin', iconSize)} aria-hidden="true" />
         )}
         {!loading && leftIcon && (
           <span className={cn('flex-shrink-0', iconSize)} aria-hidden="true">

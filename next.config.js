@@ -18,7 +18,7 @@ const nextConfig = {
 
   // ESLint configuration
   eslint: {
-    // ESLint warnings exist but don't block build
+    // ESLint warnings exist but don't block build (enable once all warnings resolved)
     ignoreDuringBuilds: true,
   },
 
@@ -69,6 +69,10 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(self)',
           },
         ],
       },

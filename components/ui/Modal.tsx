@@ -47,6 +47,7 @@ export interface ModalProps extends VariantProps<typeof modalVariants> {
   description?: string;
   showCloseButton?: boolean;
   closeOnOverlayClick?: boolean;
+  /** @deprecated Escape is handled natively by Headless UI Dialog */
   closeOnEscape?: boolean;
   className?: string;
   overlayClassName?: string;
@@ -61,7 +62,7 @@ export const Modal: React.FC<ModalProps> = ({
   description,
   showCloseButton = true,
   closeOnOverlayClick = true,
-  closeOnEscape = true,
+  closeOnEscape: _closeOnEscape = true,
   size,
   persona,
   className,
@@ -159,17 +160,7 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         </div>
 
-        {/* Handle escape key */}
-        {closeOnEscape && (
-          <div
-            className="sr-only"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                onClose();
-              }
-            }}
-          />
-        )}
+        {/* Escape key is handled natively by Headless UI Dialog */}
       </Dialog>
     </Transition>
   );

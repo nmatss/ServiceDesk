@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/monitoring/logger';
 import slugify from 'slugify'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -20,8 +20,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const category = searchParams.get('category')
     const status = searchParams.get('status') || 'published'
-    const limit = parseInt(searchParams.get('limit') || '10')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '10') || 10, 1), 100)
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0') || 0, 0)
 
     const isPrivileged = ['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
 
@@ -37,10 +37,11 @@ export async function GET(request: NextRequest) {
       params.push(status)
     }
 
-    // Search in title and content
+    // Search in title and content (escape LIKE wildcards to prevent injection)
     if (search) {
-      whereClause += ' AND (a.title LIKE ? OR a.content LIKE ? OR a.summary LIKE ?)'
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`)
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_')
+      whereClause += " AND (a.title LIKE ? ESCAPE '\\' OR a.content LIKE ? ESCAPE '\\' OR a.summary LIKE ? ESCAPE '\\')"
+      params.push(`%${escapedSearch}%`, `%${escapedSearch}%`, `%${escapedSearch}%`)
     }
 
     // Filter by category (name)
@@ -163,43 +164,53 @@ export async function POST(request: NextRequest) {
     }
 
     const baseSlug = slugify(title, { lower: true, strict: true })
-    let slug = baseSlug
-    let counter = 1
-    while (true) {
-      const existing = await executeQueryOne<{ id: number }>(
-        'SELECT id FROM kb_articles WHERE slug = ?',
-        [slug]
-      )
-      if (!existing) break
-      slug = `${baseSlug}-${counter}`
-      counter += 1
-    }
+    const articleStatus = status || 'draft'
 
-    // Create article
-    const result = await executeRun(`
-      INSERT INTO kb_articles (title, slug, content, summary, category_id, status, author_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      title,
-      slug,
-      content,
-      excerpt || null,
-      categoryId,
-      status || 'draft',
-      userContext.id,
-    ])
+    // Use a transaction with retry to avoid slug race conditions.
+    // INSERT OR IGNORE silently skips if the slug already exists (unique constraint),
+    // and we retry with an incremented suffix.
+    const MAX_SLUG_RETRIES = 20
+    let articleId: number | undefined
 
-    let articleId = result.lastInsertRowid
-    if (typeof articleId !== 'number') {
-      const inserted = await executeQueryOne<{ id: number }>(`
-        SELECT id
-        FROM kb_articles
-        WHERE title = ? AND author_id = ?
-        ORDER BY created_at DESC
-        LIMIT 1
-      `, [title, userContext.id])
-      articleId = inserted?.id
-    }
+    await executeTransaction(async (db) => {
+      let slug = baseSlug
+      let counter = 1
+
+      for (let attempt = 0; attempt < MAX_SLUG_RETRIES; attempt++) {
+        const runResult = db.run(`
+          INSERT OR IGNORE INTO kb_articles (title, slug, content, summary, category_id, status, author_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          title,
+          slug,
+          content,
+          excerpt || null,
+          categoryId,
+          articleStatus,
+          userContext.id,
+        ])
+        // db.run may return a Promise (PostgreSQL) or value (SQLite)
+        const result = runResult instanceof Promise ? await runResult : runResult
+
+        if (result.changes > 0) {
+          // Insert succeeded — retrieve the new row ID
+          const inserted = db.get<{ id: number }>(
+            'SELECT id FROM kb_articles WHERE slug = ?',
+            [slug]
+          )
+          // db.get may return a Promise (PostgreSQL) or value (SQLite)
+          const row = inserted instanceof Promise ? await inserted : inserted
+          articleId = row?.id ?? (result.lastInsertRowid as number | undefined)
+          return
+        }
+
+        // Slug conflict — try next suffix
+        slug = `${baseSlug}-${counter}`
+        counter += 1
+      }
+
+      throw new Error(`Failed to generate unique slug after ${MAX_SLUG_RETRIES} attempts`)
+    })
 
     // Handle tags (comma-separated string)
     if (typeof tags === 'string' && tags.trim()) {

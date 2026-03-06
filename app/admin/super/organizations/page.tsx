@@ -400,6 +400,7 @@ export default function OrganizationsPage() {
                   size="sm"
                   onClick={() => setDeleteTarget(org)}
                   className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  aria-label={`Excluir organização ${org.name}`}
                 >
                   <TrashIcon className="h-4 w-4" />
                 </Button>
