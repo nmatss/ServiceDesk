@@ -34,7 +34,7 @@ import { useRouter } from 'next/navigation';
 let _cachedAuthData: { user: User; tenant: Tenant | null; timestamp: number } | null = null;
 const AUTH_CACHE_TTL = 30_000; // 30 seconds — matches AppLayout cooldown
 
-function getCachedAuth() {
+export function getCachedAuth() {
   if (_cachedAuthData && Date.now() - _cachedAuthData.timestamp < AUTH_CACHE_TTL) {
     return _cachedAuthData;
   }

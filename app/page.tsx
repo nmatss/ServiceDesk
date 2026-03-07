@@ -2,47 +2,47 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { getCachedAuth } from '@/lib/hooks/useRequireAuth'
 
 export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    // SECURITY: Verify authentication via httpOnly cookies only
-    const checkAuth = async () => {
+    const redirect = async () => {
+      // Check global auth cache first (populated by AppLayout)
+      const cached = getCachedAuth()
+      if (cached) {
+        const role = cached.user?.role
+        router.replace(role === 'admin' || role === 'super_admin' || role === 'tenant_admin' ? '/admin' : '/dashboard')
+        return
+      }
+
+      // Fallback: verify with API
       try {
         const response = await fetch('/api/auth/verify', {
-          method: 'GET',
-          credentials: 'include' // Use httpOnly cookies
+          credentials: 'include'
         })
 
         if (!response.ok) {
-          // Se não autenticado, redirecionar para landing
-          router.push('/landing')
+          router.replace('/landing')
           return
         }
 
         const data = await response.json()
-
         if (!data.success || !data.user) {
-          router.push('/landing')
+          router.replace('/landing')
           return
         }
 
-        // Se autenticado, redirecionar para dashboard apropriado
-        if (data.user.role === 'admin') {
-          router.push('/admin')
-        } else {
-          router.push('/dashboard')
-        }
+        router.replace(data.user.role === 'admin' ? '/admin' : '/dashboard')
       } catch {
-        router.push('/landing')
+        router.replace('/landing')
       }
     }
 
-    checkAuth()
+    redirect()
   }, [router])
 
-  // Loading screen enquanto redireciona
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
       <div className="text-center">

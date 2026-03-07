@@ -5,11 +5,12 @@ module.exports = {
   // JIT mode enabled by default in Tailwind CSS 3+
   // Optimized content paths for faster builds
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './src/**/*.{js,ts,jsx,tsx,mdx}',
-    './lib/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/design-system/**/*.{js,ts,jsx,tsx}',
+    './lib/performance/**/*.{tsx}',
+    './lib/pwa/**/*.{tsx}',
   ],
   darkMode: 'class',
 

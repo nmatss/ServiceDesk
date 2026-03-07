@@ -17,54 +17,44 @@ let isInitialized = false;
  */
 export async function initializeCache(): Promise<void> {
   if (isInitialized) {
-    logger.info('✅ Cache already initialized');
     return;
   }
 
+  // Check if Redis is configured — skip entirely if not (no timeout delay)
+  const redisHost = process.env.REDIS_HOST || process.env.REDIS_URL;
+
+  if (!redisHost) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn('Redis not configured in production. Using in-memory cache.');
+    }
+    isInitialized = true;
+    return;
+  }
+
+  // Redis is configured — connect in background (don't block startup)
+  isInitialized = true;
+  connectRedisAsync().catch(() => {});
+}
+
+/** Connect to Redis without blocking server startup */
+async function connectRedisAsync(): Promise<void> {
   try {
-    // Check if Redis is configured
-    const redisHost = process.env.REDIS_HOST || process.env.REDIS_URL;
+    logger.info('Initializing Redis caching layer (background)...');
 
-    if (!redisHost && process.env.NODE_ENV === 'production') {
-      logger.warn('⚠️  WARNING: Redis not configured in production. Using in-memory cache.');
-      isInitialized = true;
-      return;
-    }
-
-    if (!redisHost) {
-      logger.info('ℹ️  Redis not configured. Using in-memory cache for development.');
-      isInitialized = true;
-      return;
-    }
-
-    logger.info('🚀 Initializing Redis caching layer...');
-
-    // Initialize Redis client
     redisClient = getRedisClient();
-
-    // Connect to Redis
     await redisClient.connect();
 
-    // Test connection
     const health = await redisClient.healthCheck();
-
     if (health.status === 'unhealthy') {
       throw new Error('Redis health check failed');
     }
 
-    // Initialize cache manager
     cacheManager = getCacheManager();
-
-    logger.info('✅ Redis caching initialized successfully');
-    logger.info(`   - Status: ${health.status}`);
-    logger.info(`   - Latency: ${health.latency}ms`);
-    logger.info(`   - Connected: ${health.connected}`);
-
-    isInitialized = true;
+    logger.info(`Redis connected (latency: ${health.latency}ms)`);
   } catch (error) {
-    logger.error('❌ Failed to initialize Redis', error);
-    logger.warn('⚠️  Falling back to in-memory cache');
-    isInitialized = true;
+    logger.error('Failed to initialize Redis, using in-memory cache', error);
+    redisClient = null;
+    cacheManager = null;
   }
 }
 
@@ -96,9 +86,9 @@ export async function shutdownCache(): Promise<void> {
   }
 }
 
-// Auto-initialize in production
+// Auto-initialize in production (non-blocking)
 if (process.env.NODE_ENV === 'production') {
-  initializeCache().catch(err => logger.error('Failed to initialize cache', err));
+  initializeCache().catch(() => {});
 }
 
 // Graceful shutdown

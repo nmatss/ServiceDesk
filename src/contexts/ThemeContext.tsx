@@ -11,55 +11,51 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+// Resolve theme to light/dark, reading from DOM (already set by inline script in layout.tsx)
+function getInitialResolved(): 'light' | 'dark' {
+  if (typeof document !== 'undefined') {
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  }
+  return 'light'
+}
+
+function getInitialTheme(): 'light' | 'dark' | 'system' {
+  if (typeof localStorage !== 'undefined') {
+    return (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system'
+  }
+  return 'system'
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>('system')
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
+  // Initialize from localStorage/DOM immediately — no flash
+  const [theme, setThemeState] = useState<'light' | 'dark' | 'system'>(getInitialTheme)
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(getInitialResolved)
 
-  // Initialize theme from localStorage or system preference
+  // Single effect: apply theme to DOM + listen for system changes
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
-    if (savedTheme) {
-      setThemeState(savedTheme)
-    }
-  }, [])
+    const applyTheme = () => {
+      const resolved: 'light' | 'dark' = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme
 
-  // Update resolved theme based on current theme and system preference
-  useEffect(() => {
-    const updateResolvedTheme = () => {
-      let newResolvedTheme: 'light' | 'dark'
+      setResolvedTheme(resolved)
 
-      if (theme === 'system') {
-        newResolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      } else {
-        newResolvedTheme = theme
-      }
-
-      setResolvedTheme(newResolvedTheme)
-
-      // Apply theme to document
-      if (newResolvedTheme === 'dark') {
+      if (resolved === 'dark') {
         document.documentElement.classList.add('dark')
       } else {
         document.documentElement.classList.remove('dark')
       }
 
-      // Update meta theme-color
       const metaThemeColor = document.querySelector('meta[name="theme-color"]')
       if (metaThemeColor) {
-        metaThemeColor.setAttribute('content', newResolvedTheme === 'dark' ? '#171717' : '#ffffff')
+        metaThemeColor.setAttribute('content', resolved === 'dark' ? '#171717' : '#ffffff')
       }
     }
 
-    updateResolvedTheme()
+    applyTheme()
 
-    // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => {
-      if (theme === 'system') {
-        updateResolvedTheme()
-      }
-    }
-
+    const handleChange = () => { if (theme === 'system') applyTheme() }
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [theme])

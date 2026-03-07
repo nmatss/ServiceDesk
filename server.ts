@@ -70,22 +70,20 @@ app.prepare().then(() => {
     pingInterval: 25000
   })
 
-  // Initialize real-time notification engine (graceful degradation if tables missing)
-  try {
-    initializeRealtimeEngine(server)
-    console.log('✅ Socket.io initialized with real-time engine')
-  } catch (error) {
-    console.warn('⚠️  Socket.io initialized without real-time features (database tables missing)')
-    console.warn('   Run migrations to enable notifications: npm run init-db')
-  }
-
-  console.log(`📡 WebSocket endpoint: ws://${hostname}:${port}/socket.io`)
-
-  // Start server
+  // Start server immediately — defer heavy initialization
   server.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`)
     console.log(`> Environment: ${process.env.NODE_ENV}`)
-    console.log(`> Compression: ${dev ? 'gzip (dev)' : 'gzip/brotli (production)'}`)
+
+    // Defer realtime engine init — don't block server startup
+    setImmediate(() => {
+      try {
+        initializeRealtimeEngine(server)
+        console.log('Socket.io initialized with real-time engine')
+      } catch (error) {
+        console.warn('Socket.io initialized without real-time features (database tables missing)')
+      }
+    })
   })
 
   // Graceful shutdown

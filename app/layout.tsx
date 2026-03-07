@@ -5,8 +5,8 @@ import { baseMetadata } from '@/lib/seo/metadata'
 import WebVitalsReporter from '@/components/WebVitalsReporter'
 import { ToastProvider } from '@/components/ui/toast'
 
-// Initialize Sentry for client-side
-import '@/sentry.client.config'
+// Sentry client config is initialized via instrumentation.ts (server) and
+// inline in sentry.client.config.ts (client) — no eager import needed here
 
 export const metadata: Metadata = {
   ...(baseMetadata as Metadata),
@@ -57,6 +57,12 @@ export default function RootLayout({
         <meta name="msapplication-config" content="/browserconfig.xml" />
       </head>
       <body className='antialiased' suppressHydrationWarning>
+        {/* Inline script to set theme before first paint — prevents FOUC */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=document.documentElement;if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.add('dark')}else{d.classList.remove('dark')}}catch(e){}})()`,
+          }}
+        />
         {/* Skip navigation link for accessibility */}
         <a
           href="#main-content"

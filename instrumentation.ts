@@ -53,9 +53,9 @@ export async function register() {
     }
 
     try {
-      // 3. Initialize cache layer
+      // 3. Initialize cache layer (non-blocking — Redis connects in background)
       const { initializeCache } = await import('./lib/cache/init');
-      await initializeCache();
+      initializeCache().catch(() => {});
       logger.info('✓ Cache layer initialized');
     } catch (error) {
       logger.error('✗ Failed to initialize cache', error);

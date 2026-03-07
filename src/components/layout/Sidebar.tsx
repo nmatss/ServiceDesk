@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { logger } from '@/lib/monitoring/logger'
 import {
   HomeIcon,
   TicketIcon,
@@ -113,7 +112,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
         })
       }
     } catch (error) {
-      logger.error('Error fetching ticket counts', error)
+      console.error('[Sidebar] Error fetching ticket counts', error)
     }
   }
 

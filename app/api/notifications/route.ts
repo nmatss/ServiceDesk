@@ -33,33 +33,30 @@ export async function GET(request: NextRequest) {
       whereClause += ' AND n.is_read = 0';
     }
 
-    const notifications = await executeQuery(`
-      SELECT
-        n.*,
-        t.title as ticket_title,
-        t.id as ticket_number
-      FROM notifications n
-      LEFT JOIN tickets t ON n.ticket_id = t.id AND t.tenant_id = ?
-      ${whereClause}
-      ORDER BY n.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [tenantContext.id, ...params, limit, offset]);
+    // Run all 3 queries in parallel
+    const [notifications, countResult] = await Promise.all([
+      executeQuery(`
+        SELECT
+          n.*,
+          t.title as ticket_title,
+          t.id as ticket_number
+        FROM notifications n
+        LEFT JOIN tickets t ON n.ticket_id = t.id AND t.tenant_id = ?
+        ${whereClause}
+        ORDER BY n.created_at DESC
+        LIMIT ? OFFSET ?
+      `, [tenantContext.id, ...params, limit, offset]),
+      executeQueryOne<{ total: number; unread: number }>(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN n.is_read = 0 THEN 1 ELSE 0 END) as unread
+        FROM notifications n
+        ${whereClause}
+      `, params),
+    ]);
 
-    // Contar total de notificações
-    
-    const { total } = await executeQueryOne<{ total: number }>(`
-      SELECT COUNT(*) as total
-      FROM notifications n
-      ${whereClause}
-    `, params) || { total: 0 };
-
-    // Contar não lidas
-
-    const { unread } = await executeQueryOne<{ unread: number }>(`
-      SELECT COUNT(*) as unread
-      FROM notifications n
-      WHERE n.user_id = ? AND n.tenant_id = ? AND n.is_read = 0
-    `, [userContext.id, tenantContext.id]) || { unread: 0 };
+    const total = countResult?.total || 0;
+    const unread = countResult?.unread || 0;
 
     return NextResponse.json({
       success: true,

@@ -382,6 +382,7 @@ const nextConfig = {
       'jose',
       'zod',
       'framer-motion',
+      'lucide-react',
     ],
   },
 

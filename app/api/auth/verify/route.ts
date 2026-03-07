@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/monitoring/logger';
-import { createRateLimitMiddleware } from '@/lib/rate-limit';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { verifyAccessToken } from '@/lib/auth/token-manager';
 import { executeQueryOne } from '@/lib/db/adapter';
-
-const verifyRateLimit = createRateLimitMiddleware('api');
 
 async function verifyTokenString(token?: string | null) {
   if (!token) {
@@ -27,32 +24,16 @@ function tokenFromCookieHeader(cookieHeader: string | null): string | null {
 }
 
 async function isActiveUser(userId: number, tenantId: number): Promise<boolean> {
-  try {
-    const user = await executeQueryOne<{ id: number }>(
-      `SELECT id FROM users WHERE id = ? AND organization_id = ? AND is_active = 1`,
-      [userId, tenantId]
-    );
-    if (user) return true;
-  } catch {
-    // Fallback for legacy schemas using tenant_id.
-  }
-
   const user = await executeQueryOne<{ id: number }>(
-    `SELECT id FROM users WHERE id = ? AND tenant_id = ? AND is_active = 1`,
-    [userId, tenantId]
+    `SELECT id FROM users WHERE id = ? AND is_active = 1 AND (organization_id = ? OR tenant_id = ?)`,
+    [userId, tenantId, tenantId]
   );
-
   return !!user;
 }
 
 export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
-
-  const rateLimitResult = await verifyRateLimit(request, '/api/auth/verify');
-  if (rateLimitResult instanceof Response) {
-    return rateLimitResult;
-  }
 
   try {
     const authHeader = request.headers.get('authorization');
@@ -100,8 +81,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    logger.info('Token verified for user', user.email);
-
     return NextResponse.json({
       success: true,
       valid: true,
@@ -131,11 +110,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
-
-  const rateLimitResult = await verifyRateLimit(request, '/api/auth/verify');
-  if (rateLimitResult instanceof Response) {
-    return rateLimitResult;
-  }
 
   try {
     const { token } = await request.json();
