@@ -1,22 +1,25 @@
 /**
  * AI module factory functions
- * Encapsulates database dependency so API routes don't import getDatabase directly
+ * Now that training-system and model-manager use the adapter pattern,
+ * these factories simply re-export the singleton module objects.
  */
 
-import { getDatabase } from '@/lib/db/adapter';
-import AITrainingSystem, { type TrainingConfig } from './training-system';
-import AIModelManager from './model-manager';
+import aiTrainingSystem, { configure, type TrainingConfig } from './training-system';
+import aiModelManager from './model-manager';
 
 /**
- * Create an AITrainingSystem instance with the current database connection
+ * Create / configure an AITrainingSystem instance
  */
-export function createTrainingSystem(config?: Partial<TrainingConfig>): AITrainingSystem {
-  return new AITrainingSystem(getDatabase() as any, config);
+export function createTrainingSystem(config?: Partial<TrainingConfig>): typeof aiTrainingSystem {
+  if (config) {
+    configure(config);
+  }
+  return aiTrainingSystem;
 }
 
 /**
- * Create an AIModelManager instance with the current database connection
+ * Get the AIModelManager singleton
  */
-export function createModelManager(): AIModelManager {
-  return new AIModelManager(getDatabase() as any);
+export function createModelManager(): typeof aiModelManager {
+  return aiModelManager;
 }

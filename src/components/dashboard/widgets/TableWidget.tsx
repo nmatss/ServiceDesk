@@ -115,7 +115,7 @@ export function TableWidget({
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Buscar..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -131,7 +131,7 @@ export function TableWidget({
         isLoading={isLoading}
         error={error}
         isEmpty={sortedData.length === 0}
-        emptyMessage="No data to display"
+        emptyMessage="Sem dados para exibir"
         padding="none"
         scrollable={true}
         maxHeight={maxHeight}
@@ -205,9 +205,9 @@ export function TableWidget({
         {totalPages > 1 && (
           <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
             <div className="text-sm text-neutral-700 dark:text-neutral-300">
-              Showing {(currentPage - 1) * pageSize + 1} to{' '}
-              {Math.min(currentPage * pageSize, sortedData.length)} of{' '}
-              {sortedData.length} results
+              Exibindo {(currentPage - 1) * pageSize + 1} a{' '}
+              {Math.min(currentPage * pageSize, sortedData.length)} de{' '}
+              {sortedData.length} resultados
             </div>
             <div className="flex items-center space-x-2">
               <button
@@ -215,7 +215,7 @@ export function TableWidget({
                 disabled={currentPage === 1}
                 className="px-3 py-1 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Previous
+                Anterior
               </button>
               <span className="text-sm text-neutral-700 dark:text-neutral-300">
                 Page {currentPage} of {totalPages}
@@ -225,7 +225,7 @@ export function TableWidget({
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
+                Próximo
               </button>
             </div>
           </div>

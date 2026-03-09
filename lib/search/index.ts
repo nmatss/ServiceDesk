@@ -1,4 +1,5 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, sqlDateSub, sqlDatetimeAddMinutes, sqlDatetimeSubHours } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { TicketWithDetails, KnowledgeArticleWithDetails, User } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -36,9 +37,9 @@ export interface SearchFacets {
 }
 
 /**
- * Busca avançada de tickets
+ * Busca avancada de tickets
  */
-export function searchTickets(filters: SearchFilters = {}): SearchResults<TicketWithDetails> {
+export async function searchTickets(filters: SearchFilters = {}): Promise<SearchResults<TicketWithDetails>> {
   try {
     const {
       query = '',
@@ -57,21 +58,26 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
       offset = 0
     } = filters;
 
+    const allowedSortBy = ['created_at', 'updated_at', 'priority', 'status', 'title'];
+    const safeSortBy = allowedSortBy.includes(sortBy) ? sortBy : 'created_at';
+    const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
     let whereConditions: string[] = [];
     let params: any[] = [];
     let joins: string[] = [];
 
     // Busca por texto
     if (query.trim()) {
+      const escapedQuery = query.trim().replace(/%/g, '\\%').replace(/_/g, '\\_');
       whereConditions.push(`(
-        t.title LIKE ? OR
-        t.description LIKE ? OR
+        t.title LIKE ? ESCAPE '\\' OR
+        t.description LIKE ? ESCAPE '\\' OR
         EXISTS (
           SELECT 1 FROM comments c
-          WHERE c.ticket_id = t.id AND c.content LIKE ?
+          WHERE c.ticket_id = t.id AND c.content LIKE ? ESCAPE '\\'
         )
       )`);
-      const searchTerm = `%${query.trim()}%`;
+      const searchTerm = `%${escapedQuery}%`;
       params.push(searchTerm, searchTerm, searchTerm);
     }
 
@@ -96,14 +102,14 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
       params.push(...statuses);
     }
 
-    // Filtros por agente responsável
+    // Filtros por agente responsavel
     if (assignedTo.length > 0) {
       const placeholders = assignedTo.map(() => '?').join(',');
       whereConditions.push(`t.assigned_to IN (${placeholders})`);
       params.push(...assignedTo);
     }
 
-    // Filtros por usuário criador
+    // Filtros por usuario criador
     if (users.length > 0) {
       const placeholders = users.map(() => '?').join(',');
       whereConditions.push(`t.user_id IN (${placeholders})`);
@@ -131,8 +137,8 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
           break;
         case 'warning':
           whereConditions.push(`(
-            (st.response_due_at > CURRENT_TIMESTAMP AND st.response_due_at <= datetime('now', '+30 minutes')) OR
-            (st.resolution_due_at > CURRENT_TIMESTAMP AND st.resolution_due_at <= datetime('now', '+2 hours'))
+            (st.response_due_at > CURRENT_TIMESTAMP AND st.response_due_at <= ${sqlDatetimeAddMinutes(30)}) OR
+            (st.resolution_due_at > CURRENT_TIMESTAMP AND st.resolution_due_at <= ${sqlDatetimeSubHours(-2)})
           )`);
           break;
         case 'breach':
@@ -182,11 +188,11 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
       LEFT JOIN statuses s ON t.status_id = s.id
       ${joinClause}
       ${whereClause}
-      ORDER BY t.${sortBy} ${sortOrder}
+      ORDER BY t.${safeSortBy} ${safeSortOrder}
       LIMIT ? OFFSET ?
     `;
 
-    const tickets = db.prepare(mainQuery).all(...params, limit, offset) as TicketWithDetails[];
+    const tickets = await executeQuery<TicketWithDetails>(mainQuery, [...params, limit, offset]);
 
     // Contar total
     const countQuery = `
@@ -196,10 +202,11 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
       ${whereClause}
     `;
 
-    const { total } = db.prepare(countQuery).get(...params) as { total: number };
+    const countResult = await executeQueryOne<{ total: number }>(countQuery, params);
+    const total = countResult?.total || 0;
 
     // Calcular facets
-    const facets = calculateTicketFacets(filters);
+    const facets = await calculateTicketFacets(filters);
 
     return {
       items: tickets,
@@ -216,12 +223,12 @@ export function searchTickets(filters: SearchFilters = {}): SearchResults<Ticket
 /**
  * Busca na Knowledge Base
  */
-export function searchKnowledgeBase(query: string, options: {
+export async function searchKnowledgeBase(query: string, options: {
   categoryId?: number;
   publishedOnly?: boolean;
   limit?: number;
   offset?: number;
-} = {}): SearchResults<KnowledgeArticleWithDetails> {
+} = {}): Promise<SearchResults<KnowledgeArticleWithDetails>> {
   try {
     const {
       categoryId,
@@ -233,15 +240,16 @@ export function searchKnowledgeBase(query: string, options: {
     let whereConditions: string[] = [];
     let params: any[] = [];
 
-    // Busca por texto (título, conteúdo, tags)
+    // Busca por texto (titulo, conteudo, tags)
     if (query.trim()) {
+      const escapedQuery = query.trim().replace(/%/g, '\\%').replace(/_/g, '\\_');
       whereConditions.push(`(
-        ka.title LIKE ? OR
-        ka.content LIKE ? OR
-        ka.summary LIKE ? OR
-        ka.tags LIKE ?
+        ka.title LIKE ? ESCAPE '\\' OR
+        ka.content LIKE ? ESCAPE '\\' OR
+        ka.summary LIKE ? ESCAPE '\\' OR
+        ka.tags LIKE ? ESCAPE '\\'
       )`);
-      const searchTerm = `%${query.trim()}%`;
+      const searchTerm = `%${escapedQuery}%`;
       params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
 
@@ -273,7 +281,7 @@ export function searchKnowledgeBase(query: string, options: {
       LIMIT ? OFFSET ?
     `;
 
-    const articles = db.prepare(mainQuery).all(...params, limit, offset) as KnowledgeArticleWithDetails[];
+    const articles = await executeQuery<KnowledgeArticleWithDetails>(mainQuery, [...params, limit, offset]);
 
     // Contar total
     const countQuery = `
@@ -282,9 +290,9 @@ export function searchKnowledgeBase(query: string, options: {
       ${whereClause}
     `;
 
-    const { total } = db.prepare(countQuery).get(...params) as { total: number };
+    const countResult = await executeQueryOne<{ total: number }>(countQuery, params);
+    const total = countResult?.total || 0;
 
-    // Para knowledge base, não precisamos de facets complexos
     const emptyFacets = getEmptyFacets();
 
     return {
@@ -300,19 +308,19 @@ export function searchKnowledgeBase(query: string, options: {
 }
 
 /**
- * Busca global (tickets + knowledge base + usuários)
+ * Busca global (tickets + knowledge base + usuarios)
  */
-export function globalSearch(query: string, options: {
+export async function globalSearch(query: string, options: {
   includeTickets?: boolean;
   includeKnowledge?: boolean;
   includeUsers?: boolean;
   limit?: number;
-} = {}): {
+} = {}): Promise<{
   tickets: TicketWithDetails[];
   articles: KnowledgeArticleWithDetails[];
   users: User[];
   total: number;
-} {
+}> {
   try {
     const {
       includeTickets = true,
@@ -327,27 +335,28 @@ export function globalSearch(query: string, options: {
 
     // Buscar tickets
     if (includeTickets) {
-      const ticketResults = searchTickets({ query, limit });
+      const ticketResults = await searchTickets({ query, limit });
       tickets = ticketResults.items.slice(0, limit);
     }
 
     // Buscar knowledge base
     if (includeKnowledge) {
-      const knowledgeResults = searchKnowledgeBase(query, { limit });
+      const knowledgeResults = await searchKnowledgeBase(query, { limit });
       articles = knowledgeResults.items.slice(0, limit);
     }
 
-    // Buscar usuários
+    // Buscar usuarios
     if (includeUsers && query.trim()) {
-      const userQuery = `
-        SELECT *
+      const escapedQuery = query.trim().replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const searchTerm = `%${escapedQuery}%`;
+      users = await executeQuery<User>(
+        `SELECT *
         FROM users
-        WHERE name LIKE ? OR email LIKE ?
+        WHERE name LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\'
         ORDER BY name
-        LIMIT ?
-      `;
-      const searchTerm = `%${query.trim()}%`;
-      users = db.prepare(userQuery).all(searchTerm, searchTerm, limit) as User[];
+        LIMIT ?`,
+        [searchTerm, searchTerm, limit]
+      );
     }
 
     return {
@@ -365,19 +374,19 @@ export function globalSearch(query: string, options: {
 /**
  * Calcula facets para filtros
  */
-function calculateTicketFacets(currentFilters: SearchFilters): SearchFacets {
+async function calculateTicketFacets(currentFilters: SearchFilters): Promise<SearchFacets> {
   try {
-    // Base query para facets (sem os filtros que estamos calculando)
     let baseWhere: string[] = [];
     let baseParams: any[] = [];
 
     if (currentFilters.query?.trim()) {
+      const escapedQuery = currentFilters.query.trim().replace(/%/g, '\\%').replace(/_/g, '\\_');
       baseWhere.push(`(
-        t.title LIKE ? OR
-        t.description LIKE ? OR
-        EXISTS (SELECT 1 FROM comments c WHERE c.ticket_id = t.id AND c.content LIKE ?)
+        t.title LIKE ? ESCAPE '\\' OR
+        t.description LIKE ? ESCAPE '\\' OR
+        EXISTS (SELECT 1 FROM comments c WHERE c.ticket_id = t.id AND c.content LIKE ? ESCAPE '\\')
       )`);
-      const searchTerm = `%${currentFilters.query.trim()}%`;
+      const searchTerm = `%${escapedQuery}%`;
       baseParams.push(searchTerm, searchTerm, searchTerm);
     }
 
@@ -394,60 +403,71 @@ function calculateTicketFacets(currentFilters: SearchFilters): SearchFacets {
     const baseWhereClause = baseWhere.length > 0 ? `WHERE ${baseWhere.join(' AND ')}` : '';
 
     // Categorias
-    const categories = db.prepare(`
+    const categories = await executeQuery<{ id: number; name: string; count: number }>(`
       SELECT c.id, c.name, COUNT(t.id) as count
       FROM categories c
       LEFT JOIN tickets t ON c.id = t.category_id
       ${baseWhereClause}
       GROUP BY c.id, c.name
-      HAVING count > 0
+      HAVING COUNT(t.id) > 0
       ORDER BY count DESC
-    `).all(...baseParams) as { id: number; name: string; count: number }[];
+    `, baseParams);
 
     // Prioridades
-    const priorities = db.prepare(`
+    const priorities = await executeQuery<{ id: number; name: string; level: number; count: number }>(`
       SELECT p.id, p.name, p.level, COUNT(t.id) as count
       FROM priorities p
       LEFT JOIN tickets t ON p.id = t.priority_id
       ${baseWhereClause}
       GROUP BY p.id, p.name, p.level
-      HAVING count > 0
+      HAVING COUNT(t.id) > 0
       ORDER BY p.level DESC
-    `).all(...baseParams) as { id: number; name: string; level: number; count: number }[];
+    `, baseParams);
 
     // Status
-    const statuses = db.prepare(`
+    const statuses = await executeQuery<{ id: number; name: string; count: number }>(`
       SELECT s.id, s.name, COUNT(t.id) as count
       FROM statuses s
       LEFT JOIN tickets t ON s.id = t.status_id
       ${baseWhereClause}
       GROUP BY s.id, s.name
-      HAVING count > 0
+      HAVING COUNT(t.id) > 0
       ORDER BY count DESC
-    `).all(...baseParams) as { id: number; name: string; count: number }[];
+    `, baseParams);
 
     // Agentes
-    const assignedAgents = db.prepare(`
+    const assignedAgents = await executeQuery<{ id: number; name: string; count: number }>(`
       SELECT u.id, u.name, COUNT(t.id) as count
       FROM users u
       LEFT JOIN tickets t ON u.id = t.assigned_to
       ${baseWhereClause}
       WHERE u.role IN ('admin', 'agent')
       GROUP BY u.id, u.name
-      HAVING count > 0
+      HAVING COUNT(t.id) > 0
       ORDER BY count DESC
-    `).all(...baseParams) as { id: number; name: string; count: number }[];
+    `, baseParams);
 
-    // Ranges de data
-    const dateRanges = db.prepare(`
-      SELECT
-        CASE
+    // Ranges de data - dialect-specific
+    const isPostgres = getDatabaseType() === 'postgresql';
+    const dateRangeCase = isPostgres
+      ? `CASE
+          WHEN (t.created_at)::date = CURRENT_DATE THEN 'today'
+          WHEN (t.created_at)::date >= CURRENT_DATE - INTERVAL '7 days' THEN 'this_week'
+          WHEN (t.created_at)::date >= CURRENT_DATE - INTERVAL '30 days' THEN 'this_month'
+          WHEN (t.created_at)::date >= CURRENT_DATE - INTERVAL '90 days' THEN 'last_3_months'
+          ELSE 'older'
+        END`
+      : `CASE
           WHEN DATE(t.created_at) = DATE('now') THEN 'today'
           WHEN DATE(t.created_at) >= DATE('now', '-7 days') THEN 'this_week'
           WHEN DATE(t.created_at) >= DATE('now', '-30 days') THEN 'this_month'
           WHEN DATE(t.created_at) >= DATE('now', '-90 days') THEN 'last_3_months'
           ELSE 'older'
-        END as period,
+        END`;
+
+    const dateRanges = await executeQuery<{ period: string; count: number }>(`
+      SELECT
+        ${dateRangeCase} as period,
         COUNT(*) as count
       FROM tickets t
       ${baseWhereClause}
@@ -460,7 +480,7 @@ function calculateTicketFacets(currentFilters: SearchFilters): SearchFacets {
           WHEN 'last_3_months' THEN 4
           ELSE 5
         END
-    `).all(...baseParams) as { period: string; count: number }[];
+    `, baseParams);
 
     return {
       categories,
@@ -489,39 +509,21 @@ function getEmptyFacets(): SearchFacets {
 }
 
 /**
- * Salva uma busca do usuário (para histórico)
+ * Salva uma busca do usuario (para historico)
  */
-export function saveSearch(userId: number, query: string, filters: SearchFilters, resultCount: number): boolean {
+export async function saveSearch(userId: number, query: string, filters: SearchFilters, resultCount: number): Promise<boolean> {
   try {
-    // Criar tabela de histórico de buscas se não existir
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS search_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        query TEXT NOT NULL,
-        filters TEXT, -- JSON
-        result_count INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_id);
-      CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at);
-    `);
-
-    const insertQuery = db.prepare(`
+    await executeRun(`
       INSERT INTO search_history (user_id, query, filters, result_count)
       VALUES (?, ?, ?, ?)
-    `);
-
-    const result = insertQuery.run(
+    `, [
       userId,
       query,
       JSON.stringify(filters),
       resultCount
-    );
+    ]);
 
-    return result.changes > 0;
+    return true;
   } catch (error) {
     logger.error('Error saving search', error);
     return false;
@@ -529,19 +531,17 @@ export function saveSearch(userId: number, query: string, filters: SearchFilters
 }
 
 /**
- * Busca histórico do usuário
+ * Busca historico do usuario
  */
-export function getSearchHistory(userId: number, limit: number = 10): any[] {
+export async function getSearchHistory(userId: number, limit: number = 10): Promise<any[]> {
   try {
-    const query = db.prepare(`
+    return await executeQuery(`
       SELECT query, filters, result_count, created_at
       FROM search_history
       WHERE user_id = ?
       ORDER BY created_at DESC
       LIMIT ?
-    `);
-
-    return query.all(userId, limit) as any[];
+    `, [userId, limit]);
   } catch (error) {
     logger.error('Error getting search history', error);
     return [];
@@ -549,21 +549,21 @@ export function getSearchHistory(userId: number, limit: number = 10): any[] {
 }
 
 /**
- * Sugestões de busca baseadas no histórico
+ * Sugestoes de busca baseadas no historico
  */
-export function getSearchSuggestions(userId: number, partialQuery: string, limit: number = 5): string[] {
+export async function getSearchSuggestions(userId: number, partialQuery: string, limit: number = 5): Promise<string[]> {
   try {
     if (!partialQuery.trim()) return [];
 
-    const query = db.prepare(`
+    const escapedQuery = partialQuery.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const results = await executeQuery<{ query: string }>(`
       SELECT DISTINCT query
       FROM search_history
-      WHERE user_id = ? AND query LIKE ?
+      WHERE user_id = ? AND query LIKE ? ESCAPE '\\'
       ORDER BY created_at DESC
       LIMIT ?
-    `);
+    `, [userId, `%${escapedQuery}%`, limit]);
 
-    const results = query.all(userId, `%${partialQuery}%`, limit) as { query: string }[];
     return results.map(r => r.query);
   } catch (error) {
     logger.error('Error getting search suggestions', error);

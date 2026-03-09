@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlCurrentDate, sqlCastDate, sqlDateSub, sqlStartOfMonth } from '@/lib/db/adapter';
 import { demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
 import { logger } from '@/lib/monitoring/logger';
 import { getFromCache, setCache } from '@/lib/cache/lru-cache';
@@ -192,11 +192,11 @@ async function getKPISummary(): Promise<KPISummaryData> {
   }>(`
     WITH ticket_counts AS (
       SELECT
-        COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as tickets_today,
-        COUNT(CASE WHEN date(created_at) >= date('now', '-7 days') THEN 1 END) as tickets_week,
-        COUNT(CASE WHEN date(created_at) >= date('now', 'start of month') THEN 1 END) as tickets_month,
+        COUNT(CASE WHEN ${sqlCastDate('created_at')} = ${sqlCurrentDate()} THEN 1 END) as tickets_today,
+        COUNT(CASE WHEN ${sqlCastDate('created_at')} >= ${sqlDateSub(7)} THEN 1 END) as tickets_week,
+        COUNT(CASE WHEN ${sqlCastDate('created_at')} >= ${sqlStartOfMonth()} THEN 1 END) as tickets_month,
         COUNT(*) as total_tickets,
-        COUNT(CASE WHEN date(created_at) = date('now', '-1 day') THEN 1 END) as tickets_yesterday
+        COUNT(CASE WHEN ${sqlCastDate('created_at')} = ${sqlDateSub(1)} THEN 1 END) as tickets_yesterday
       FROM tickets
     ),
     sla_current AS (
@@ -211,15 +211,15 @@ async function getKPISummary(): Promise<KPISummaryData> {
         COALESCE(AVG(response_time_minutes), 0) as avg_response,
         COALESCE(AVG(resolution_time_minutes), 0) as avg_resolution
       FROM sla_tracking
-      WHERE created_at >= date('now', '-30 days')
+      WHERE created_at >= ${sqlDateSub(30)}
     ),
     sla_prev_week AS (
       SELECT
         COUNT(*) as sla_last_week_total,
         COALESCE(SUM(CASE WHEN response_sla_met = 1 THEN 1 ELSE 0 END), 0) as sla_last_week_response_met
       FROM sla_tracking
-      WHERE created_at >= date('now', '-14 days')
-        AND created_at < date('now', '-7 days')
+      WHERE created_at >= ${sqlDateSub(14)}
+        AND created_at < ${sqlDateSub(7)}
     ),
     agents AS (
       SELECT COUNT(DISTINCT user_id) as active_agents
@@ -235,7 +235,7 @@ async function getKPISummary(): Promise<KPISummaryData> {
       SELECT COUNT(*) as resolved_today
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-        AND date(updated_at) = date('now')
+        AND ${sqlCastDate('updated_at')} = ${sqlCurrentDate()}
     )
     SELECT
       tc.tickets_today, tc.tickets_week, tc.tickets_month, tc.total_tickets, tc.tickets_yesterday,
@@ -293,15 +293,15 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
 
   const data = await executeQuery<any>(`
     SELECT
-      date(st.created_at) as date,
+      ${sqlCastDate('st.created_at')} as date,
       COUNT(*) as total_tickets,
       SUM(CASE WHEN st.response_sla_met = 1 THEN 1 ELSE 0 END) as response_met,
       SUM(CASE WHEN st.resolution_sla_met = 1 THEN 1 ELSE 0 END) as resolution_met,
       AVG(st.response_time_minutes) as avg_response_time,
       AVG(st.resolution_time_minutes) as avg_resolution_time
     FROM sla_tracking st
-    WHERE st.created_at >= date('now', '-30 days')
-    GROUP BY date(st.created_at)
+    WHERE st.created_at >= ${sqlDateSub(30)}
+    GROUP BY ${sqlCastDate('st.created_at')}
     ORDER BY date
   `);
 
@@ -382,15 +382,15 @@ async function getVolumeData(): Promise<VolumeData[]> {
 
   const data = await executeQuery<any>(`
     SELECT
-      date(created_at) as date,
+      ${sqlCastDate('created_at')} as date,
       COUNT(*) as created,
       COUNT(CASE WHEN status_id = (SELECT id FROM statuses WHERE name = 'resolved') THEN 1 END) as resolved,
       COUNT(CASE WHEN priority_id IN (
         SELECT id FROM priorities WHERE name IN ('high', 'critical')
       ) THEN 1 END) as high_priority
     FROM tickets
-    WHERE date(created_at) >= date('now', '-30 days')
-    GROUP BY date(created_at)
+    WHERE ${sqlCastDate('created_at')} >= ${sqlDateSub(30)}
+    GROUP BY ${sqlCastDate('created_at')}
     ORDER BY date
   `);
 
@@ -406,7 +406,7 @@ async function getActiveAlerts(): Promise<AlertData[]> {
     SELECT COUNT(*) as count
     FROM sla_tracking
     WHERE is_violated = 1
-      AND created_at >= date('now', '-1 day')
+      AND created_at >= ${sqlDateSub(1)}
   `) || { count: 0 };
 
   if (slaBreach.count > 5) {

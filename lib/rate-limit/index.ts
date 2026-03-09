@@ -1,4 +1,5 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 interface RateLimitConfig {
@@ -79,15 +80,28 @@ let tableInitialized = false;
  */
 async function initRateLimitTable() {
   try {
-    await executeRun(`
-      CREATE TABLE IF NOT EXISTS rate_limits (
-        key TEXT PRIMARY KEY,
-        count INTEGER NOT NULL DEFAULT 1,
-        reset_time DATETIME NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, []);
+    if (getDatabaseType() === 'postgresql') {
+      // PostgreSQL schema should be managed by migrations/init scripts
+      await executeRun(`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          key TEXT PRIMARY KEY,
+          count INTEGER NOT NULL DEFAULT 1,
+          reset_time TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    } else {
+      await executeRun(`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          key TEXT PRIMARY KEY,
+          count INTEGER NOT NULL DEFAULT 1,
+          reset_time DATETIME NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, []);
+    }
 
     // Indice para limpeza automatica
     await executeRun(`
@@ -123,7 +137,7 @@ async function cleanupExpiredEntries() {
   try {
     const result = await executeRun(`
       DELETE FROM rate_limits
-      WHERE reset_time < datetime('now')
+      WHERE reset_time < ${sqlNow()}
     `, []);
 
     if (result.changes > 0) {
@@ -175,7 +189,7 @@ export async function applyRateLimit(
     // Buscar entrada existente
     const existing = await executeQueryOne<RateLimitEntry>(`
       SELECT * FROM rate_limits
-      WHERE key = ? AND reset_time > datetime('now')
+      WHERE key = ? AND reset_time > ${sqlNow()}
     `, [key]);
 
     if (existing) {
@@ -184,7 +198,7 @@ export async function applyRateLimit(
 
       await executeRun(`
         UPDATE rate_limits
-        SET count = ?, updated_at = datetime('now')
+        SET count = ?, updated_at = ${sqlNow()}
         WHERE key = ?
       `, [newCount, key]);
 
@@ -200,8 +214,9 @@ export async function applyRateLimit(
     } else {
       // Criar nova entrada
       await executeRun(`
-        INSERT OR REPLACE INTO rate_limits (key, count, reset_time)
+        INSERT INTO rate_limits (key, count, reset_time)
         VALUES (?, 1, ?)
+        ON CONFLICT (key) DO UPDATE SET count = 1, reset_time = EXCLUDED.reset_time
       `, [key, resetTime.toISOString()]);
 
       return {
@@ -281,7 +296,7 @@ export async function checkRateLimit(
   try {
     const existing = await executeQueryOne<RateLimitEntry>(`
       SELECT * FROM rate_limits
-      WHERE key = ? AND reset_time > datetime('now')
+      WHERE key = ? AND reset_time > ${sqlNow()}
     `, [key]);
 
     if (existing) {
@@ -343,7 +358,7 @@ export async function getRateLimitStats(): Promise<{
 
     const active = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM rate_limits
-      WHERE reset_time > datetime('now')
+      WHERE reset_time > ${sqlNow()}
     `, []);
 
     return {

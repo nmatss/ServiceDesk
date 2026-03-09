@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { aiClassifier } from './classifier';
 import logger from '../monitoring/structured-logger';
 
@@ -20,9 +20,10 @@ export class AISuggestions {
     organizationId: number
   ): Promise<any[]> {
     // Buscar ticket
-    const ticket = db.prepare(`
-      SELECT * FROM tickets WHERE id = ? AND organization_id = ?
-    `).get(ticketId, organizationId) as any;
+    const ticket = await executeQueryOne<any>(
+      `SELECT * FROM tickets WHERE id = ? AND organization_id = ?`,
+      [ticketId, organizationId]
+    );
 
     if (!ticket) return [];
 
@@ -93,8 +94,8 @@ export class AISuggestions {
 
     // Buscar detalhes dos tickets
     const placeholders = ticketIds.map(() => '?').join(',');
-    const tickets = db.prepare(`
-      SELECT t.*, c.content as last_comment
+    const tickets = await executeQuery<any>(
+      `SELECT t.*, c.content as last_comment
       FROM tickets t
       LEFT JOIN (
         SELECT ticket_id, content
@@ -106,8 +107,9 @@ export class AISuggestions {
       WHERE t.id IN (${placeholders})
         AND t.organization_id = ?
         AND t.status_id IN (SELECT id FROM statuses WHERE is_final = 1)
-      LIMIT 3
-    `).all(...ticketIds, organizationId);
+      LIMIT 3`,
+      [...ticketIds, organizationId]
+    );
 
     return tickets;
   }
@@ -131,12 +133,13 @@ export class AISuggestions {
     if (articleIds.length === 0) return [];
 
     const placeholders = articleIds.map(() => '?').join(',');
-    const articles = db.prepare(`
-      SELECT * FROM kb_articles
+    const articles = await executeQuery<any>(
+      `SELECT * FROM kb_articles
       WHERE id IN (${placeholders})
         AND organization_id = ?
-        AND status = 'published'
-    `).all(...articleIds, organizationId);
+        AND status = 'published'`,
+      [...articleIds, organizationId]
+    );
 
     return articles;
   }
@@ -216,18 +219,20 @@ Retorne um JSON array:
     ticketId: number,
     organizationId: number
   ): Promise<string> {
-    const ticket = db.prepare(`
-      SELECT * FROM tickets WHERE id = ? AND organization_id = ?
-    `).get(ticketId, organizationId) as any;
+    const ticket = await executeQueryOne<any>(
+      `SELECT * FROM tickets WHERE id = ? AND organization_id = ?`,
+      [ticketId, organizationId]
+    );
 
     if (!ticket) return '';
 
     // Buscar contexto
-    const comments = db.prepare(`
-      SELECT * FROM comments
+    const comments = await executeQuery<any>(
+      `SELECT * FROM comments
       WHERE ticket_id = ?
-      ORDER BY created_at ASC
-    `).all(ticketId) as any[];
+      ORDER BY created_at ASC`,
+      [ticketId]
+    );
 
     const prompt = `
 Você é um agente de suporte prestativo.
@@ -279,20 +284,21 @@ Gere uma resposta profissional e útil para o usuário.
     sources: string[],
     organizationId: number
   ): Promise<number> {
-    const result = db.prepare(`
-      INSERT INTO ai_suggestions (
+    const result = await executeRun(
+      `INSERT INTO ai_suggestions (
         ticket_id, suggestion_type, content,
         confidence_score, reasoning, source_references,
         model_name, organization_id
-      ) VALUES (?, ?, ?, ?, ?, ?, 'gpt-4o', ?)
-    `).run(
-      ticketId,
-      type,
-      content,
-      confidence,
-      reasoning,
-      JSON.stringify(sources),
-      organizationId
+      ) VALUES (?, ?, ?, ?, ?, ?, 'gpt-4o', ?)`,
+      [
+        ticketId,
+        type,
+        content,
+        confidence,
+        reasoning,
+        JSON.stringify(sources),
+        organizationId
+      ]
     );
 
     return result.lastInsertRowid as number;
@@ -307,18 +313,19 @@ Gere uma resposta profissional e útil para o usuário.
     comment?: string,
     userId?: number
   ): Promise<void> {
-    db.prepare(`
-      UPDATE ai_suggestions
+    await executeRun(
+      `UPDATE ai_suggestions
       SET was_helpful = ?,
           feedback_comment = ?,
           feedback_by = ?,
           feedback_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      wasHelpful ? 1 : 0,
-      comment || null,
-      userId || null,
-      suggestionId
+      WHERE id = ?`,
+      [
+        wasHelpful ? 1 : 0,
+        comment || null,
+        userId || null,
+        suggestionId
+      ]
     );
   }
 }

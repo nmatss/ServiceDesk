@@ -6,13 +6,14 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const { slug } = await params
     const tenantContext = getTenantContextFromRequest(request)
     const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
     if (!tenantId) {
@@ -33,7 +34,7 @@ export async function POST(
     // Buscar artigo
     const article = await executeQueryOne<{ id: number }>(
       'SELECT id FROM kb_articles WHERE slug = ? AND status = ? AND (tenant_id = ? OR tenant_id IS NULL)',
-      [params.slug, 'published', tenantId]
+      [slug, 'published', tenantId]
     )
     if (!article) {
       return NextResponse.json(
@@ -125,13 +126,14 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const { slug } = await params
     const tenantContext = getTenantContextFromRequest(request)
     const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
     if (!tenantId) {
@@ -144,7 +146,7 @@ export async function GET(
     // Buscar artigo
     const article = await executeQueryOne<{ id: number }>(
       'SELECT id FROM kb_articles WHERE slug = ? AND (tenant_id = ? OR tenant_id IS NULL)',
-      [params.slug, tenantId]
+      [slug, tenantId]
     )
     if (!article) {
       return NextResponse.json(

@@ -7,7 +7,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -19,7 +19,8 @@ export async function GET(
     const tenantId = guard.context!.tenant.id
 
     const tenantManager = getTenantManager()
-    const teamId = parseInt(params.id)
+    const { id } = await params
+    const teamId = parseInt(id)
 
     if (isNaN(teamId)) {
       return NextResponse.json(
@@ -41,7 +42,7 @@ export async function GET(
       )
     }
 
-    const members = tenantManager.getTeamMembers(teamId)
+    const members = await tenantManager.getTeamMembers(teamId)
 
     return NextResponse.json({
       success: true,
@@ -58,7 +59,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -72,7 +73,8 @@ export async function POST(
     const tenantId = guard.context!.tenant.id
 
     const tenantManager = getTenantManager()
-    const teamId = parseInt(params.id)
+    const { id } = await params
+    const teamId = parseInt(id)
     const data = await request.json()
     if (isNaN(teamId)) {
       return NextResponse.json(
@@ -115,7 +117,7 @@ export async function POST(
     }
 
     // Add user to team
-    tenantManager.addUserToTeam(teamId, data.user_id, data.role || 'member')
+    await tenantManager.addUserToTeam(teamId, data.user_id, data.role || 'member')
 
     // Update user specializations if provided
     if (data.specializations) {
@@ -146,7 +148,7 @@ export async function POST(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -159,7 +161,8 @@ export async function PUT(
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id
 
-    const teamId = parseInt(params.id)
+    const { id } = await params
+    const teamId = parseInt(id)
     const data = await request.json()
     if (isNaN(teamId)) {
       return NextResponse.json(

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 interface SettingRow {
   id: number;
@@ -48,6 +49,9 @@ function parseSettingValue(value: string, type: string): string | number | boole
  * Retorna todas as configurações do sistema
  */
 export async function GET(request: NextRequest) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const guard = requireSuperAdmin(request);
   if (guard.response) return guard.response;
 
@@ -98,6 +102,9 @@ const settingsSchema = z.object({
  * Atualiza configurações do sistema
  */
 export async function PUT(request: NextRequest) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const guard = requireSuperAdmin(request);
   if (guard.response) return guard.response;
 

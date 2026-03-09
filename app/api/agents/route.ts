@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     // Inserir novo agente COM organization_id DO TENANT
     const result = await executeRun(`
       INSERT INTO users (name, email, password_hash, role, organization_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      VALUES (?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
     `, [name, email, passwordHash, role, tenantId])
 
     const newAgent = await executeQueryOne(`

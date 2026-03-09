@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeRun } from '@/lib/db/adapter'
 import { NotificationPayload } from './realtime-engine'
 import logger from '../monitoring/structured-logger';
 
@@ -80,7 +80,6 @@ interface QuietHoursReport {
 }
 
 export class QuietHoursManager {
-  private db = getDb()
   private userConfigs = new Map<number, QuietHoursConfig>()
   private scheduleCache = new Map<number, QuietHoursSchedule>()
 
@@ -105,16 +104,20 @@ export class QuietHoursManager {
   }
 
   constructor() {
-    this.loadQuietHoursConfigs()
+    this.initAsync()
     this.setupScheduleUpdates()
   }
 
-  private loadQuietHoursConfigs() {
+  private async initAsync() {
+    await this.loadQuietHoursConfigs()
+  }
+
+  private async loadQuietHoursConfigs() {
     try {
-      const configs = this.db.prepare(`
+      const configs = await executeQuery<DbQuietHoursRow>(`
         SELECT user_id, quiet_hours_config FROM users
         WHERE quiet_hours_config IS NOT NULL
-      `).all() as DbQuietHoursRow[]
+      `, [])
 
       for (const config of configs) {
         try {
@@ -392,7 +395,7 @@ export class QuietHoursManager {
     return config
   }
 
-  public updateUserConfig(userId: number, updates: Partial<QuietHoursConfig>): void {
+  public async updateUserConfig(userId: number, updates: Partial<QuietHoursConfig>): Promise<void> {
     const currentConfig = this.getUserConfig(userId)
     const newConfig = { ...currentConfig, ...updates, userId }
 
@@ -401,11 +404,11 @@ export class QuietHoursManager {
 
     // Save to database
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE users
         SET quiet_hours_config = ?
         WHERE id = ?
-      `).run(JSON.stringify(newConfig), userId)
+      `, [JSON.stringify(newConfig), userId])
 
       logger.info(`Updated quiet hours config for user ${userId}`)
     } catch (error) {
@@ -413,10 +416,10 @@ export class QuietHoursManager {
     }
   }
 
-  public addException(
+  public async addException(
     userId: number,
     exception: Omit<QuietHoursException, 'id'>
-  ): string {
+  ): Promise<string> {
     const config = this.getUserConfig(userId)
     const exceptionId = `exc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 
@@ -426,20 +429,20 @@ export class QuietHoursManager {
     }
 
     config.exceptions.push(newException)
-    this.updateUserConfig(userId, { exceptions: config.exceptions })
+    await this.updateUserConfig(userId, { exceptions: config.exceptions })
 
     logger.info(`Added quiet hours exception ${exceptionId} for user ${userId}`)
     return exceptionId
   }
 
-  public removeException(userId: number, exceptionId: string): boolean {
+  public async removeException(userId: number, exceptionId: string): Promise<boolean> {
     const config = this.getUserConfig(userId)
     const initialLength = config.exceptions.length
 
     config.exceptions = config.exceptions.filter(exc => exc.id !== exceptionId)
 
     if (config.exceptions.length !== initialLength) {
-      this.updateUserConfig(userId, { exceptions: config.exceptions })
+      await this.updateUserConfig(userId, { exceptions: config.exceptions })
       logger.info(`Removed quiet hours exception ${exceptionId} for user ${userId}`)
       return true
     }
@@ -448,9 +451,9 @@ export class QuietHoursManager {
   }
 
   // Bulk operations for admins
-  public bulkUpdateConfigs(updates: Array<{ userId: number; config: Partial<QuietHoursConfig> }>): void {
+  public async bulkUpdateConfigs(updates: Array<{ userId: number; config: Partial<QuietHoursConfig> }>): Promise<void> {
     for (const update of updates) {
-      this.updateUserConfig(update.userId, update.config)
+      await this.updateUserConfig(update.userId, update.config)
     }
   }
 
@@ -601,7 +604,7 @@ export class QuietHoursManager {
     this.scheduleCache.clear()
   }
 
-  private cleanupExpiredExceptions() {
+  private async cleanupExpiredExceptions() {
     const now = new Date()
     let cleaned = 0
 
@@ -610,7 +613,7 @@ export class QuietHoursManager {
       config.exceptions = config.exceptions.filter(exc => exc.endDate > now)
 
       if (config.exceptions.length !== initialLength) {
-        this.updateUserConfig(userId, { exceptions: config.exceptions })
+        await this.updateUserConfig(userId, { exceptions: config.exceptions })
         cleaned += initialLength - config.exceptions.length
       }
     }

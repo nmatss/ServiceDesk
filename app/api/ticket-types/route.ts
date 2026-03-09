@@ -23,10 +23,10 @@ export async function GET(request: NextRequest) {
     let ticketTypes
     if (customerVisible === 'true') {
       // Only return customer-visible ticket types for landing page
-      ticketTypes = tenantManager.getCustomerTicketTypes(tenantId)
+      ticketTypes = await tenantManager.getCustomerTicketTypes(tenantId)
     } else {
       // Return all ticket types for admin
-      ticketTypes = tenantManager.getTicketTypesByTenant(tenantId)
+      ticketTypes = await tenantManager.getTicketTypesByTenant(tenantId)
     }
 
     // Add cache control headers

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDatetimeSubMinutes, sqlDatetimeSubHours } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
           ELSE 'info'
         END as severity,
         CASE
-          WHEN created_at > datetime('now', '-5 minutes') THEN 'new'
-          WHEN created_at > datetime('now', '-1 hour') THEN 'recent'
+          WHEN created_at > ${sqlDatetimeSubMinutes(5)} THEN 'new'
+          WHEN created_at > ${sqlDatetimeSubHours(1)} THEN 'recent'
           ELSE 'old'
         END as urgency
       FROM notifications
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       // Marcar todas como lidas
       const result = await executeRun(`
         UPDATE notifications
-        SET is_read = 1, updated_at = datetime('now')
+        SET is_read = 1, updated_at = ${sqlNow()}
         WHERE user_id = ? AND is_read = 0
       `, [userContext.id])
 
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       const placeholders = notificationIds.map(() => '?').join(',')
       const result = await executeRun(`
         UPDATE notifications
-        SET is_read = 1, updated_at = datetime('now')
+        SET is_read = 1, updated_at = ${sqlNow()}
         WHERE id IN (${placeholders}) AND user_id = ?
       `, [...notificationIds, userContext.id])
 

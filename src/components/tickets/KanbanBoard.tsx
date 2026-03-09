@@ -106,7 +106,7 @@ function SortableTicketCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-white rounded-lg border border-neutral-200 p-3 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-shadow ${
+      className={`bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-shadow ${
         isDragging ? 'opacity-50 shadow-lg' : ''
       }`}
     >

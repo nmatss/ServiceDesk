@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, getDatabase } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -379,11 +379,11 @@ export async function POST(request: NextRequest) {
     }
 
     const workflowData = validationResult.data;
-// Start transaction
-    const db = getDatabase() as any;
-    const createWorkflow = db.transaction((data: any) => {
+
+    // Start transaction using adapter
+    const workflowId = await executeTransaction(async () => {
       // Insert workflow
-      const workflowResult = db.prepare(`
+      const workflowResult = await executeRun(`
         INSERT INTO workflows (
           name,
           description,
@@ -397,40 +397,42 @@ export async function POST(request: NextRequest) {
           created_by,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `).run(
-        data.name,
-        data.description || null,
-        data.triggerType,
-        JSON.stringify(data.triggerConditions),
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
+      `, [
+        workflowData.name,
+        workflowData.description || null,
+        workflowData.triggerType,
+        JSON.stringify(workflowData.triggerConditions),
         1,
-        data.isActive !== false ? 1 : 0,
-        data.isTemplate ? 1 : 0,
-        data.category || 'ticket_automation',
-        data.priority || 0,
-        userId);
+        workflowData.isActive !== false ? 1 : 0,
+        workflowData.isTemplate ? 1 : 0,
+        workflowData.category || 'ticket_automation',
+        workflowData.priority || 0,
+        userId
+      ]);
 
-      const workflowId = workflowResult.lastInsertRowid;
+      const wfId = workflowResult.lastInsertRowid!;
 
       // Insert workflow steps (nodes)
-      if (data.nodes && data.nodes.length > 0) {
-        data.nodes.forEach((node: any, index: number) => {
-          db.prepare(`
-          INSERT INTO workflow_steps (
-            workflow_id,
-            step_order,
-            step_type,
-            name,
-            description,
-            configuration,
-            timeout_minutes,
-            retry_count,
-            retry_delay_minutes,
-            is_optional,
-            parent_step_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            workflowId,
+      if (workflowData.nodes && workflowData.nodes.length > 0) {
+        for (let index = 0; index < workflowData.nodes.length; index++) {
+          const node = workflowData.nodes[index];
+          await executeRun(`
+            INSERT INTO workflow_steps (
+              workflow_id,
+              step_order,
+              step_type,
+              name,
+              description,
+              configuration,
+              timeout_minutes,
+              retry_count,
+              retry_delay_minutes,
+              is_optional,
+              parent_step_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [
+            wfId,
             index,
             node.type,
             node.name,
@@ -441,16 +443,17 @@ export async function POST(request: NextRequest) {
               retryConfig: node.retryConfig,
               metadata: node.metadata
             }),
-            node.timeout ? Math.round(node.timeout / 60000) : 60, // Convert ms to minutes
+            node.timeout ? Math.round(node.timeout / 60000) : 60,
             node.retryConfig?.maxAttempts || 3,
             node.retryConfig?.initialDelay ? Math.round(node.retryConfig.initialDelay / 60000) : 5,
             node.isOptional ? 1 : 0,
-            null);
-        });
+            null
+          ]);
+        }
       }
 
       // Store workflow definition (complete structure) in new table
-      db.prepare(`
+      await executeRun(`
         INSERT INTO workflow_definitions (
           id,
           name,
@@ -462,26 +465,25 @@ export async function POST(request: NextRequest) {
           created_by,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `).run(
-        workflowId,
-        data.name,
-        data.description || null,
-        JSON.stringify(data.triggerConditions),
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
+      `, [
+        wfId,
+        workflowData.name,
+        workflowData.description || null,
+        JSON.stringify(workflowData.triggerConditions),
         JSON.stringify({
-          nodes: data.nodes,
-          edges: data.edges,
-          variables: data.variables || [],
-          metadata: data.metadata
+          nodes: workflowData.nodes,
+          edges: workflowData.edges,
+          variables: workflowData.variables || [],
+          metadata: workflowData.metadata
         }),
-        data.isActive !== false ? 1 : 0,
+        workflowData.isActive !== false ? 1 : 0,
         1,
-        userId);
+        userId
+      ]);
 
-      return workflowId;
+      return wfId;
     });
-
-    const workflowId = createWorkflow(workflowData);
 
     // Fetch the created workflow
     const workflow = await executeQueryOne(`

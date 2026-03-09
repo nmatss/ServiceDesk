@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateJWTSecret, isProduction } from '@/lib/config/env';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import logger from '@/lib/monitoring/structured-logger';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlNow, sqlDatetimeSub } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 
 // Token configuration
@@ -489,24 +489,13 @@ export async function revokeAllUserTokens(userId: number, tenantId: number): Pro
  */
 export async function cleanupExpiredTokens(): Promise<void> {
   try {
-    let result;
-    try {
-      result = await executeRun(
-        `
-        DELETE FROM refresh_tokens
-        WHERE expires_at < CURRENT_TIMESTAMP
-        OR (revoked_at IS NOT NULL AND revoked_at < CURRENT_TIMESTAMP - INTERVAL '30 days')
-        `
-      );
-    } catch {
-      result = await executeRun(
-        `
-        DELETE FROM refresh_tokens
-        WHERE expires_at < datetime('now')
-        OR (revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days'))
-        `
-      );
-    }
+    const result = await executeRun(
+      `
+      DELETE FROM refresh_tokens
+      WHERE expires_at < ${sqlNow()}
+      OR (revoked_at IS NOT NULL AND revoked_at < ${sqlDatetimeSub(30)})
+      `
+    );
 
     logger.info(`Cleaned up ${result.changes} expired/old refresh tokens`);
   } catch (error) {

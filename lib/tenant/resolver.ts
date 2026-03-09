@@ -27,6 +27,7 @@ import {
 } from './cache';
 import { isProduction } from '@/lib/config/env';
 import { captureException } from '@/lib/monitoring/sentry-helpers';
+import logger from '@/lib/monitoring/structured-logger';
 
 /**
  * Tenant resolution result
@@ -536,7 +537,7 @@ export async function resolveTenant(
       `);
 
       if (defaultTenant) {
-        console.warn(
+        logger.warn(
           `[DEV MODE] Using default tenant: ${defaultTenant.slug} (id: ${defaultTenant.id})`
         );
         return {
@@ -610,13 +611,11 @@ export function logTenantResolution(
     cache: getTenantCacheStats(),
   };
 
-  // In production, send to structured logging system
-  // In development, console log for debugging
+  // Send to structured logging system
   if (isProduction()) {
-    // TODO: Send to structured logging system (e.g., Datadog, CloudWatch)
-    console.log(JSON.stringify(logData));
+    logger.info('Tenant resolution', logData);
   } else {
-    console.log('[Tenant Resolution]', JSON.stringify(logData, null, 2));
+    logger.info('[Tenant Resolution]', logData);
   }
 }
 

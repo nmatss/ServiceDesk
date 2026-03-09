@@ -32,13 +32,13 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
   const IconComponent = approvalTypeIcons[approvalType] || CheckBadgeIcon;
 
   const colorClasses = {
-    bg: 'from-purple-50 to-purple-100',
-    border: 'border-purple-300',
+    bg: 'from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30',
+    border: 'border-purple-300 dark:border-purple-600',
     iconBg: 'bg-purple-500',
-    text: 'text-purple-900',
-    subtext: 'text-purple-700',
+    text: 'text-purple-900 dark:text-purple-100',
+    subtext: 'text-purple-700 dark:text-purple-300',
     ring: 'ring-purple-400',
-    badge: 'bg-purple-100 text-purple-800',
+    badge: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200',
   };
 
   return (
@@ -71,7 +71,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
             {label}
           </h3>
           <p className={`text-xs ${colorClasses.subtext}`}>
-            Approval Node
+            Nó de Aprovação
           </p>
         </div>
       </div>
@@ -83,7 +83,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
         </span>
         {configuration.requireComments && (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            COMMENTS REQ.
+            COMENT. OBRIG.
           </span>
         )}
       </div>
@@ -94,7 +94,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
         {configuration.approvers && configuration.approvers.length > 0 && (
           <div className={`text-xs ${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
             <div className="font-medium mb-1">
-              Approvers ({configuration.approvers.length}):
+              Aprovadores ({configuration.approvers.length}):
             </div>
             <div className="space-y-1">
               {configuration.approvers.slice(0, 3).map((approver, index) => (
@@ -111,14 +111,14 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
                   <span className="truncate">
                     {approver.type}: {approver.value}
                     {approver.isOptional && (
-                      <span className="text-xs opacity-75"> (optional)</span>
+                      <span className="text-xs opacity-75"> (opcional)</span>
                     )}
                   </span>
                 </div>
               ))}
               {configuration.approvers.length > 3 && (
                 <div className="italic opacity-75">
-                  +{configuration.approvers.length - 3} more...
+                  +{configuration.approvers.length - 3} mais...
                 </div>
               )}
             </div>
@@ -131,7 +131,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
             <div className={`${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
               <div className="flex items-center space-x-1 mb-1">
                 <ClockIcon className="w-3 h-3" />
-                <span className="font-medium">Auto-approve:</span>
+                <span className="font-medium">Auto-aprovar:</span>
               </div>
               <span>{configuration.autoApproveAfter}h</span>
             </div>
@@ -141,9 +141,9 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
             <div className={`${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
               <div className="flex items-center space-x-1 mb-1">
                 <ArrowUpIcon className="w-3 h-3" />
-                <span className="font-medium">Delegation:</span>
+                <span className="font-medium">Delegação:</span>
               </div>
-              <span>Allowed</span>
+              <span>Permitida</span>
             </div>
           )}
         </div>
@@ -151,17 +151,17 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
         {/* Escalation Config */}
         {configuration.escalationConfig && (
           <div className={`text-xs ${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
-            <div className="font-medium mb-1">Escalation:</div>
+            <div className="font-medium mb-1">Escalonamento:</div>
             <div className="space-y-1">
               {configuration.escalationConfig.levels.slice(0, 2).map((level, index) => (
                 <div key={index} className="flex items-center justify-between">
-                  <span>Level {index + 1}:</span>
+                  <span>Nível {index + 1}:</span>
                   <span>{level.timeoutHours}h</span>
                 </div>
               ))}
               {configuration.escalationConfig.levels.length > 2 && (
                 <div className="italic opacity-75">
-                  +{configuration.escalationConfig.levels.length - 2} more levels...
+                  +{configuration.escalationConfig.levels.length - 2} mais níveis...
                 </div>
               )}
             </div>
@@ -177,7 +177,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
         {/* Custom Approval Form */}
         {configuration.customApprovalForm && (
           <div className={`text-xs ${colorClasses.subtext} bg-white bg-opacity-50 p-2 rounded border border-opacity-30`}>
-            <div className="font-medium mb-1">Custom Form:</div>
+            <div className="font-medium mb-1">Formulário Personalizado:</div>
             <span className="italic">
               {Object.keys(configuration.customApprovalForm).length} fields configured
             </span>
@@ -193,7 +193,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
           )}
           {isOptional && (
             <span className={`${colorClasses.badge} px-1 py-0.5 rounded text-xs`}>
-              Optional
+              Opcional
             </span>
           )}
         </div>
@@ -262,17 +262,17 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
       {/* Output Labels */}
       <div className="absolute -right-8 top-1/3 transform -translate-y-1/2">
         <span className="text-xs font-medium text-green-600 bg-white px-1 rounded shadow-sm">
-          APPROVED
+          APROVADO
         </span>
       </div>
       <div className="absolute -right-8 top-2/3 transform -translate-y-1/2">
         <span className="text-xs font-medium text-red-600 bg-white px-1 rounded shadow-sm">
-          REJECTED
+          REJEITADO
         </span>
       </div>
       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
         <span className="text-xs font-medium text-orange-600 bg-white px-1 rounded shadow-sm">
-          TIMEOUT
+          EXPIRADO
         </span>
       </div>
 
@@ -289,7 +289,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
 
       {/* Hover Tooltip */}
       <div className="absolute z-10 invisible group-hover:visible bg-black text-white text-xs rounded py-1 px-2 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
-        {approvalType} approval required
+        {approvalType} aprovação necessária
         <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-black"></div>
       </div>
     </div>

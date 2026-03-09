@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery } from '@/lib/db/adapter';
 import { OpenAI } from 'openai';
 import type { TicketWithDetails, KnowledgeArticle } from '../types/database';
 import logger from '../monitoring/structured-logger';
@@ -57,7 +57,7 @@ export class SolutionEngine {
 
     query += ` ORDER BY t.created_at DESC LIMIT 100`;
 
-    const potentialTickets = db.prepare(query).all(...params) as TicketWithDetails[];
+    const potentialTickets = await executeQuery<TicketWithDetails>(query, params);
 
     // Use AI to analyze similarity and provide reasoning
     const ticketsForAnalysis = potentialTickets.map(ticket => ({
@@ -177,7 +177,7 @@ Respond in JSON format:
     confidence: number;
   }> {
     // Get relevant knowledge base articles
-    const kbArticles = this.getRelevantKBArticles(ticketTitle, ticketDescription);
+    const kbArticles = await this.getRelevantKBArticles(ticketTitle, ticketDescription);
 
     // Get similar resolved tickets
     const { similarTickets } = await this.findSimilarTickets(ticketTitle, ticketDescription, category, 3);
@@ -401,13 +401,15 @@ Respond in JSON format:
   /**
    * Get relevant knowledge base articles (simplified implementation)
    */
-  private getRelevantKBArticles(title: string, description: string): KnowledgeArticle[] {
+  private async getRelevantKBArticles(title: string, description: string): Promise<KnowledgeArticle[]> {
     const keywords = this.extractKeywords(title + ' ' + description).slice(0, 5);
 
     if (keywords.length === 0) return [];
 
-    const searchQuery = keywords.map(() => 'content LIKE ?').join(' OR ');
-    const searchParams = keywords.map(k => `%${k}%`);
+    // Escape LIKE wildcards
+    const escapedKeywords = keywords.map(k => k.replace(/%/g, '\\%').replace(/_/g, '\\_'));
+    const searchQuery = escapedKeywords.map(() => "content LIKE ? ESCAPE '\\'").join(' OR ');
+    const searchParams = escapedKeywords.map(k => `%${k}%`);
 
     const query = `
       SELECT * FROM kb_articles
@@ -417,7 +419,7 @@ Respond in JSON format:
     `;
 
     try {
-      return db.prepare(query).all(...searchParams) as KnowledgeArticle[];
+      return await executeQuery<KnowledgeArticle>(query, searchParams);
     } catch (error) {
       logger.error('KB Articles Search Error', error);
       return [];

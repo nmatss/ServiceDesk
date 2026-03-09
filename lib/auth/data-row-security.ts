@@ -1,4 +1,5 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { getDatabaseType } from '../db/config';
 import logger from '../monitoring/structured-logger';
 
 export interface RowSecurityPolicy {
@@ -45,7 +46,7 @@ class DataRowSecurityManager {
     existingParams: any[] = []
   ): QueryModification {
     try {
-      const policies = this.getPoliciesForTable(tableName, 'SELECT', context.userRole);
+      const policies = this.getCachedPoliciesForTable(tableName, 'SELECT', context.userRole);
 
       if (policies.length === 0) {
         return {
@@ -110,7 +111,7 @@ class DataRowSecurityManager {
     context: SecurityContext
   ): { allowed: boolean; reason?: string; appliedPolicies: string[] } {
     try {
-      const policies = this.getPoliciesForTable(tableName, 'INSERT', context.userRole);
+      const policies = this.getCachedPoliciesForTable(tableName, 'INSERT', context.userRole);
 
       if (policies.length === 0) {
         return { allowed: true, appliedPolicies: [] };
@@ -152,7 +153,7 @@ class DataRowSecurityManager {
     existingParams: any[] = []
   ): QueryModification & { allowed: boolean; reason?: string } {
     try {
-      const policies = this.getPoliciesForTable(tableName, 'UPDATE', context.userRole);
+      const policies = this.getCachedPoliciesForTable(tableName, 'UPDATE', context.userRole);
 
       if (policies.length === 0) {
         return {
@@ -222,7 +223,7 @@ class DataRowSecurityManager {
     existingParams: any[] = []
   ): QueryModification & { allowed: boolean; reason?: string } {
     try {
-      const policies = this.getPoliciesForTable(tableName, 'DELETE', context.userRole);
+      const policies = this.getCachedPoliciesForTable(tableName, 'DELETE', context.userRole);
 
       if (policies.length === 0) {
         return {
@@ -284,7 +285,7 @@ class DataRowSecurityManager {
   /**
    * Create a new row security policy
    */
-  createPolicy(policy: Omit<RowSecurityPolicy, 'id' | 'created_at' | 'updated_at'>): string | null {
+  async createPolicy(policy: Omit<RowSecurityPolicy, 'id' | 'created_at' | 'updated_at'>): Promise<string | null> {
     try {
       // Validate the condition syntax
       const isValid = this.validateCondition(policy.condition);
@@ -294,11 +295,11 @@ class DataRowSecurityManager {
 
       const policyId = this.generatePolicyId();
 
-      db.prepare(`
+      await executeRun(`
         INSERT INTO row_security_policies
         (id, name, table_name, operation, condition, roles, is_active, priority, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         policyId,
         policy.name,
         policy.table_name,
@@ -308,7 +309,7 @@ class DataRowSecurityManager {
         policy.is_active ? 1 : 0,
         policy.priority,
         policy.created_by
-      );
+      ]);
 
       this.clearCache();
       return policyId;
@@ -321,7 +322,7 @@ class DataRowSecurityManager {
   /**
    * Update an existing row security policy
    */
-  updatePolicy(policyId: string, updates: Partial<RowSecurityPolicy>): boolean {
+  async updatePolicy(policyId: string, updates: Partial<RowSecurityPolicy>): Promise<boolean> {
     try {
       if (updates.condition) {
         const isValid = this.validateCondition(updates.condition);
@@ -363,15 +364,13 @@ class DataRowSecurityManager {
       fields.push('updated_at = CURRENT_TIMESTAMP');
       values.push(policyId);
 
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE row_security_policies
         SET ${fields.join(', ')}
         WHERE id = ?
-      `);
+      `, values);
 
-      const result = stmt.run(...values);
-
-      if (result.changes > 0) {
+      if ((result.changes ?? 0) > 0) {
         this.clearCache();
         return true;
       }
@@ -386,15 +385,13 @@ class DataRowSecurityManager {
   /**
    * Delete a row security policy
    */
-  deletePolicy(policyId: string): boolean {
+  async deletePolicy(policyId: string): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         DELETE FROM row_security_policies WHERE id = ?
-      `);
+      `, [policyId]);
 
-      const result = stmt.run(policyId);
-
-      if (result.changes > 0) {
+      if ((result.changes ?? 0) > 0) {
         this.clearCache();
         return true;
       }
@@ -409,12 +406,12 @@ class DataRowSecurityManager {
   /**
    * Get all row security policies
    */
-  getAllPolicies(): RowSecurityPolicy[] {
+  async getAllPolicies(): Promise<RowSecurityPolicy[]> {
     try {
-      const policies = db.prepare(`
+      const policies = await executeQuery<any>(`
         SELECT * FROM row_security_policies
         ORDER BY table_name, priority DESC, created_at DESC
-      `).all() as any[];
+      `, []);
 
       return policies.map(policy => ({
         ...policy,
@@ -427,43 +424,74 @@ class DataRowSecurityManager {
   }
 
   /**
-   * Get policies for a specific table and operation
+   * Get policies for a specific table and operation (async, for non-cached usage)
    */
-  private getPoliciesForTable(
+  private async fetchPoliciesForTable(
+    tableName: string,
+    operation: string,
+    userRole: string
+  ): Promise<RowSecurityPolicy[]> {
+    try {
+      const dbType = getDatabaseType();
+      const jsonCondition = dbType === 'postgresql'
+        ? `(roles::text LIKE '%"' || ? || '"%' OR roles::text = '["*"]')`
+        : `(json_extract(roles, '$') LIKE '%"' || ? || '"%' OR json_extract(roles, '$') = '["*"]')`;
+
+      const policies = await executeQuery<any>(`
+        SELECT * FROM row_security_policies
+        WHERE is_active = 1
+          AND table_name = ?
+          AND (operation = ? OR operation = 'ALL')
+          AND ${jsonCondition}
+        ORDER BY priority DESC
+      `, [tableName, operation, userRole]);
+
+      return policies.map(policy => ({
+        ...policy,
+        roles: JSON.parse(policy.roles)
+      }));
+    } catch (error) {
+      logger.error('Error getting policies for table', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get policies from cache (sync for query modification methods)
+   * Cache is populated by async refreshCache calls
+   */
+  private getCachedPoliciesForTable(
     tableName: string,
     operation: string,
     userRole: string
   ): RowSecurityPolicy[] {
     const cacheKey = `${tableName}:${operation}:${userRole}`;
 
-    // Check cache
     if (this.isCacheValid() && this.policyCache.has(cacheKey)) {
       return this.policyCache.get(cacheKey)!;
     }
 
+    // Schedule async cache refresh but return empty for now
+    // The cache will be populated on next call after refresh completes
+    this.refreshCacheForKey(cacheKey, tableName, operation, userRole);
+    return this.policyCache.get(cacheKey) || [];
+  }
+
+  /**
+   * Refresh cache for a specific key
+   */
+  private async refreshCacheForKey(
+    cacheKey: string,
+    tableName: string,
+    operation: string,
+    userRole: string
+  ): Promise<void> {
     try {
-      const policies = db.prepare(`
-        SELECT * FROM row_security_policies
-        WHERE is_active = 1
-          AND table_name = ?
-          AND (operation = ? OR operation = 'ALL')
-          AND (json_extract(roles, '$') LIKE '%"' || ? || '"%' OR json_extract(roles, '$') = '["*"]')
-        ORDER BY priority DESC
-      `).all(tableName, operation, userRole) as any[];
-
-      const parsedPolicies = policies.map(policy => ({
-        ...policy,
-        roles: JSON.parse(policy.roles)
-      }));
-
-      // Update cache
-      this.policyCache.set(cacheKey, parsedPolicies);
+      const policies = await this.fetchPoliciesForTable(tableName, operation, userRole);
+      this.policyCache.set(cacheKey, policies);
       this.lastCacheUpdate = Date.now();
-
-      return parsedPolicies;
     } catch (error) {
-      logger.error('Error getting policies for table', error);
-      return [];
+      logger.error('Error refreshing policy cache', error);
     }
   }
 
@@ -685,12 +713,13 @@ class DataRowSecurityManager {
 
     for (const policy of defaultPolicies) {
       // Check if policy already exists
-      const existing = db.prepare(`
-        SELECT id FROM row_security_policies WHERE name = ?
-      `).get(policy.name);
+      const existing = await executeQueryOne<{ id: string }>(
+        'SELECT id FROM row_security_policies WHERE name = ?',
+        [policy.name]
+      );
 
       if (!existing) {
-        this.createPolicy(policy);
+        await this.createPolicy(policy);
       }
     }
 

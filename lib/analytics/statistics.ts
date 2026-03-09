@@ -262,8 +262,9 @@ export function linearRegression(x: number[], y: number[]): { slope: number; int
   const sumXY = x.reduce((sum, xi, i) => sum + xi * (y[i] ?? 0), 0);
   const sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
 
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
+  const denominator = n * sumXX - sumX * sumX;
+  const slope = denominator === 0 ? 0 : (n * sumXY - sumX * sumY) / denominator;
+  const intercept = n === 0 ? 0 : (sumY - slope * sumX) / n;
 
   // Calculate R-squared
   const yMean = mean(y);
@@ -272,7 +273,7 @@ export function linearRegression(x: number[], y: number[]): { slope: number; int
     const predicted = slope * (x[i] ?? 0) + intercept;
     return sum + Math.pow(yi - predicted, 2);
   }, 0);
-  const rSquared = 1 - (ssResidual / ssTotal);
+  const rSquared = ssTotal === 0 ? 0 : 1 - (ssResidual / ssTotal);
 
   return { slope, intercept, rSquared };
 }
@@ -460,6 +461,7 @@ export function confidenceInterval(
 
   // Using t-distribution critical value (approximated for large n)
   const tValue = 1.96; // for 95% confidence (can be extended to use _confidenceLevel)
+  if (n === 0) return { lower: 0, upper: 0, margin: 0 };
   const margin = tValue * (stdDev / Math.sqrt(n));
 
   return {

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const ALLOWED_SORT_COLUMNS: Record<string, string> = {
   created_at: 'a.created_at',
@@ -14,6 +15,9 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
  * Lista paginada de logs de auditoria cross-tenant
  */
 export async function GET(request: NextRequest) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const guard = requireSuperAdmin(request);
   if (guard.response) return guard.response;
 
@@ -71,10 +75,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
       conditions.push(
-        '(u.name LIKE ? OR u.email LIKE ? OR o.name LIKE ? OR a.entity_type LIKE ? OR a.action LIKE ?)'
+        "(u.name LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\' OR o.name LIKE ? ESCAPE '\\' OR a.entity_type LIKE ? ESCAPE '\\' OR a.action LIKE ? ESCAPE '\\')"
       );
-      const pattern = `%${search}%`;
+      const pattern = `%${escapedSearch}%`;
       params.push(pattern, pattern, pattern, pattern, pattern);
     }
 

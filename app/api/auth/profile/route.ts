@@ -64,6 +64,13 @@ function resolveUserId(payload: jose.JWTPayload): number | null {
   )
 }
 
+function resolveOrganizationId(payload: jose.JWTPayload): number | null {
+  return (
+    parsePositiveInt((payload as Record<string, unknown>).organization_id) ??
+    parsePositiveInt((payload as Record<string, unknown>).tenant_id)
+  )
+}
+
 function sanitizeField(value: unknown): string | undefined {
   if (typeof value !== 'string') {
     return undefined
@@ -92,16 +99,30 @@ function mapProfilePayload(user: Record<string, any>) {
   }
 }
 
-async function loadUserProfile(userId: number) {
+async function loadUserProfile(userId: number, organizationId?: number) {
   try {
+    if (organizationId) {
+      return await executeQueryOne<Record<string, any>>(`
+        SELECT id, name, email, role, phone, job_title, department, avatar_url, created_at, organization_id
+        FROM users
+        WHERE id = ? AND organization_id = ?
+      `, [userId, organizationId]);
+    }
     return await executeQueryOne<Record<string, any>>(`
-      SELECT id, name, email, role, phone, job_title, department, avatar_url, created_at
+      SELECT id, name, email, role, phone, job_title, department, avatar_url, created_at, organization_id
       FROM users
       WHERE id = ?
     `, [userId]);
   } catch {
+    if (organizationId) {
+      return await executeQueryOne<Record<string, any>>(`
+        SELECT id, name, email, role, created_at, organization_id
+        FROM users
+        WHERE id = ? AND organization_id = ?
+      `, [userId, organizationId]);
+    }
     return await executeQueryOne<Record<string, any>>(`
-      SELECT id, name, email, role, created_at
+      SELECT id, name, email, role, created_at, organization_id
       FROM users
       WHERE id = ?
     `, [userId]);
@@ -124,8 +145,9 @@ export async function GET(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ success: false, message: 'Token inválido' }, { status: 401 })
     }
+    const organizationId = resolveOrganizationId(payload)
 
-    const user = await loadUserProfile(userId)
+    const user = await loadUserProfile(userId, organizationId ?? undefined)
 
     if (!user) {
       return NextResponse.json({ success: false, message: 'Usuário não encontrado' }, { status: 404 })
@@ -160,10 +182,11 @@ export async function PUT(request: NextRequest) {
     if (!userId) {
       return NextResponse.json({ success: false, message: 'Token inválido' }, { status: 401 })
     }
+    const organizationId = resolveOrganizationId(payload)
 
     const body = await request.json()
 
-    const currentUser = await loadUserProfile(userId)
+    const currentUser = await loadUserProfile(userId, organizationId ?? undefined)
     if (!currentUser) {
       return NextResponse.json({ success: false, message: 'Usuário não encontrado' }, { status: 404 })
     }
@@ -183,13 +206,18 @@ export async function PUT(request: NextRequest) {
     }
 
     if (email !== currentUser.email) {
-      const existingUser = await executeQueryOne<{ id: number }>(`
-        SELECT id FROM users WHERE email = ? AND id != ?
-      `, [email, userId])
+      const orgScope = organizationId
+        ? 'SELECT id FROM users WHERE email = ? AND id != ? AND organization_id = ?'
+        : 'SELECT id FROM users WHERE email = ? AND id != ?';
+      const orgParams = organizationId ? [email, userId, organizationId] : [email, userId];
+      const existingUser = await executeQueryOne<{ id: number }>(orgScope, orgParams)
       if (existingUser) {
         return NextResponse.json({ success: false, message: 'Email já está em uso' }, { status: 409 })
       }
     }
+
+    const updateWhereClause = organizationId ? 'WHERE id = ? AND organization_id = ?' : 'WHERE id = ?';
+    const updateWhereParams = organizationId ? [userId, organizationId] : [userId];
 
     try {
       await executeRun(`
@@ -201,23 +229,23 @@ export async function PUT(request: NextRequest) {
           job_title = ?,
           department = ?,
           avatar_url = ?
-        WHERE id = ?
+        ${updateWhereClause}
       `, [name,
         email,
         phone ?? currentUser.phone ?? null,
         jobTitle ?? currentUser.job_title ?? null,
         department ?? currentUser.department ?? null,
         avatarUrl ?? currentUser.avatar_url ?? null,
-        userId])
+        ...updateWhereParams])
     } catch {
       await executeRun(`
         UPDATE users
         SET name = ?, email = ?
-        WHERE id = ?
-      `, [name, email, userId])
+        ${updateWhereClause}
+      `, [name, email, ...updateWhereParams])
     }
 
-    const updatedUser = await loadUserProfile(userId)
+    const updatedUser = await loadUserProfile(userId, organizationId ?? undefined)
     const profileData = mapProfilePayload(updatedUser || { ...currentUser, name, email })
 
     return NextResponse.json({

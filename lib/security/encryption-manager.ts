@@ -417,8 +417,8 @@ class EncryptionManager {
   private async encryptDeterministicField(value: string, rule: FieldEncryptionRule): Promise<string> {
     const key = await this.generateFieldKey(rule.tableName, rule.fieldName, rule.keyVersion);
 
-    // Use a fixed IV based on the value for deterministic encryption
-    const iv = createHash('md5').update(value + key.toString('hex')).digest().slice(0, 12);
+    // Use a fixed IV based on the value for deterministic encryption (SHA-256 truncated to 12 bytes)
+    const iv = createHash('sha256').update(value + key.toString('hex')).digest().subarray(0, 12);
 
     const cipher = createCipheriv('aes-256-gcm', key.slice(0, 32), iv);
     cipher.setAAD(Buffer.from(`${rule.tableName}:${rule.fieldName}`));

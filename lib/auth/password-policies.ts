@@ -1,6 +1,7 @@
 import { randomInt } from 'crypto';
 import bcrypt from 'bcrypt';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 export interface PasswordPolicy {
@@ -61,10 +62,15 @@ class PasswordPolicyManager {
    */
   async getPolicyForRole(role: string): Promise<PasswordPolicy | null> {
     try {
+      const dbType = getDatabaseType();
+      const jsonCondition = dbType === 'postgresql'
+        ? `(applies_to_roles IS NULL OR applies_to_roles::text LIKE '%"' || ? || '"%')`
+        : `(applies_to_roles IS NULL OR json_extract(applies_to_roles, '$') LIKE '%"' || ? || '"%')`;
+
       const policy = await executeQueryOne<any>(`
         SELECT * FROM password_policies
         WHERE is_active = 1
-          AND (applies_to_roles IS NULL OR json_extract(applies_to_roles, '$') LIKE '%"' || ? || '"%')
+          AND ${jsonCondition}
         ORDER BY
           CASE WHEN applies_to_roles IS NOT NULL THEN 1 ELSE 2 END,
           created_at DESC

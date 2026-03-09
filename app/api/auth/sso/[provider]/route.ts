@@ -29,16 +29,16 @@ const COOKIE_NAME = 'servicedesk_token';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const { provider } = params;
+    const { provider } = await params;
 
     // Get provider configuration
-    const providerConfig = ssoManager.getProvider(provider);
+    const providerConfig = await ssoManager.getProvider(provider);
 
     if (!providerConfig) {
       return NextResponse.json(
@@ -73,9 +73,9 @@ export async function GET(
     let authUrl: string | null = null;
 
     if (providerConfig.type === 'saml2') {
-      authUrl = ssoManager.generateSamlAuthRequest(provider, state);
+      authUrl = await ssoManager.generateSamlAuthRequest(provider, state);
     } else if (providerConfig.type === 'oauth2' || providerConfig.type === 'oidc') {
-      authUrl = ssoManager.generateOAuthAuthUrl(provider, state);
+      authUrl = await ssoManager.generateOAuthAuthUrl(provider, state);
     }
 
     if (!authUrl) {
@@ -102,13 +102,13 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const { provider } = params;
+    const { provider } = await params;
     const body = await request.json();
 
     // Handle SAML POST binding

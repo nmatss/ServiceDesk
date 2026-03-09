@@ -3,6 +3,7 @@
  * Context-aware workflows with adaptive learning and A/B testing
  */
 
+import { logger } from '@/lib/monitoring/logger';
 import {
   WorkflowDefinition,
   WorkflowExecution,
@@ -533,7 +534,7 @@ export class AutomationEngine {
     selectionTime: number;
   }): Promise<void> {
     // Implementation would log the selection decision
-    console.log('Workflow selection decision:', {
+    logger.info('Workflow selection decision:', {
       workflowId: decision.selectedWorkflow.id,
       selectionTime: decision.selectionTime,
     });
@@ -876,7 +877,7 @@ export class AutomationEngine {
 
   private async applyOptimization(optimization: OptimizationRecommendation): Promise<void> {
     // Implementation would apply optimization
-    console.log('Applying optimization:', optimization.type);
+    logger.info('Applying optimization:', optimization.type);
   }
 
   private generateAlert(anomaly: Anomaly): Alert {

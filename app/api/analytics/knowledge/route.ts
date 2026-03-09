@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlDatetimeSub, sqlDatetimeSubYears, sqlDateSub } from '@/lib/db/adapter';
 import { verifyToken } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -35,16 +35,16 @@ export async function GET(request: NextRequest) {
     let dateFilter = ''
     switch (period) {
       case '7d':
-        dateFilter = "datetime('now', '-7 days')"
+        dateFilter = sqlDatetimeSub(7)
         break
       case '90d':
-        dateFilter = "datetime('now', '-90 days')"
+        dateFilter = sqlDatetimeSub(90)
         break
       case '1y':
-        dateFilter = "datetime('now', '-1 year')"
+        dateFilter = sqlDatetimeSubYears(1)
         break
       default:
-        dateFilter = "datetime('now', '-30 days')"
+        dateFilter = sqlDatetimeSub(30)
     }
 
     // Estatísticas gerais da base de conhecimento
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       FROM audit_logs al
       WHERE al.entity_type = 'kb_article'
       AND al.action = 'view'
-      AND al.created_at >= datetime('now', '-14 days')
+      AND al.created_at >= ${sqlDatetimeSub(14)}
       GROUP BY DATE(al.created_at)
       ORDER BY date ASC
     `)
@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
     const popularSearches = await executeQuery(`
       SELECT date, kb_searches_performed
       FROM analytics_daily_metrics
-      WHERE date >= date('now', '-30 days')
+      WHERE date >= ${sqlDateSub(30)}
       AND kb_searches_performed > 0
       ORDER BY date ASC
     `)

@@ -44,13 +44,23 @@ export class PostgresConnection {
       min: Number(process.env.DB_POOL_MIN || 2),
       idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_TIMEOUT || 30000),
       connectionTimeoutMillis: Number(process.env.DB_POOL_ACQUIRE_TIMEOUT || 5000),
-      ssl:
-        process.env.NODE_ENV === 'production'
-          ? {
-              rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
-              ca: process.env.DATABASE_CA_CERT || undefined,
-            }
-          : false,
+      ssl: (() => {
+        const connStr = process.env.DATABASE_URL || '';
+        const isSupabase = connStr.includes('supabase.com') || connStr.includes('supabase.co');
+        const requiresSsl = connStr.includes('sslmode=require') || isSupabase;
+
+        if (process.env.NODE_ENV === 'production' || requiresSsl) {
+          const defaultReject = isSupabase ? false : true;
+          const rejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED
+            ? process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false'
+            : defaultReject;
+          return {
+            rejectUnauthorized,
+            ca: process.env.DATABASE_CA_CERT || undefined,
+          };
+        }
+        return false;
+      })(),
     });
   }
 

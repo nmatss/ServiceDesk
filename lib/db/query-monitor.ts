@@ -23,6 +23,7 @@
  */
 
 import { db } from './connection';
+import logger from '@/lib/monitoring/structured-logger';
 
 /**
  * Threshold for slow query warnings (milliseconds)
@@ -88,7 +89,7 @@ export function wrapQuery<T>(
       trackQueryPerformance(queryName, Date.now() - start);
       return data;
     }).catch(error => {
-      console.error(`❌ Query failed: ${queryName}`, error);
+      logger.error(`Query failed: ${queryName}`, error);
       throw error;
     });
   }
@@ -127,14 +128,14 @@ function trackQueryPerformance(queryName: string, duration: number) {
 
   // Log slow queries
   if (duration > SLOW_QUERY_THRESHOLD) {
-    console.warn(
-      `🐌 SLOW QUERY: ${queryName} (${duration}ms) - ` +
+    logger.warn(
+      `SLOW QUERY: ${queryName} (${duration}ms) - ` +
       `Threshold: ${SLOW_QUERY_THRESHOLD}ms | ` +
       `Avg: ${stats.averageTime.toFixed(1)}ms | ` +
       `Max: ${stats.maxTime}ms`
     );
   } else if (process.env.NODE_ENV === 'development') {
-    console.log(`✅ ${queryName}: ${duration}ms`);
+    logger.info(`${queryName}: ${duration}ms`);
   }
 }
 
@@ -156,41 +157,23 @@ export function getAllQueryStats(): QueryStats[] {
  * Print performance summary
  */
 export function printQueryStats() {
-  console.log('\n📊 QUERY PERFORMANCE SUMMARY\n');
-  console.log('=' .repeat(80));
-  console.log(
-    'Query'.padEnd(35) +
-    'Calls'.padEnd(8) +
-    'Avg (ms)'.padEnd(10) +
-    'Min (ms)'.padEnd(10) +
-    'Max (ms)'.padEnd(10) +
-    'Slow'
-  );
-  console.log('=' .repeat(80));
-
   const stats = getAllQueryStats();
-
-  for (const stat of stats.slice(0, 20)) {
-    console.log(
-      stat.name.padEnd(35) +
-      stat.totalCalls.toString().padEnd(8) +
-      stat.averageTime.toFixed(1).padEnd(10) +
-      stat.minTime.toFixed(0).padEnd(10) +
-      stat.maxTime.toFixed(0).padEnd(10) +
-      stat.slowQueries.toString()
-    );
-  }
-
-  console.log('=' .repeat(80));
-
   const totalQueries = stats.reduce((sum, s) => sum + s.totalCalls, 0);
   const totalTime = stats.reduce((sum, s) => sum + s.totalTime, 0);
   const totalSlow = stats.reduce((sum, s) => sum + s.slowQueries, 0);
 
-  console.log(`Total queries: ${totalQueries}`);
-  console.log(`Total time: ${totalTime.toFixed(0)}ms`);
-  console.log(`Slow queries: ${totalSlow} (${((totalSlow / totalQueries) * 100).toFixed(1)}%)`);
-  console.log('\n');
+  logger.info('QUERY PERFORMANCE SUMMARY', {
+    totalQueries,
+    totalTime: `${totalTime.toFixed(0)}ms`,
+    slowQueries: `${totalSlow} (${totalQueries > 0 ? ((totalSlow / totalQueries) * 100).toFixed(1) : 0}%)`,
+    topQueries: stats.slice(0, 20).map(s => ({
+      name: s.name,
+      calls: s.totalCalls,
+      avgMs: s.averageTime.toFixed(1),
+      maxMs: s.maxTime.toFixed(0),
+      slow: s.slowQueries,
+    })),
+  });
 }
 
 /**
@@ -198,7 +181,7 @@ export function printQueryStats() {
  */
 export function resetQueryStats() {
   queryStats.clear();
-  console.log('🔄 Query statistics reset');
+  logger.info('Query statistics reset');
 }
 
 /**
@@ -208,19 +191,13 @@ export function resetQueryStats() {
  * @param params - Query parameters
  */
 export function explainQuery(sql: string, params: any[] = []) {
-  console.log('\n🔍 QUERY PLAN ANALYSIS\n');
-  console.log('SQL:', sql);
-  console.log('Params:', params);
-  console.log('\n');
-
   const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params);
 
-  console.log('Execution Plan:');
-  for (const row of plan as any[]) {
-    console.log(`  ${row.detail}`);
-  }
-
-  console.log('\n');
+  logger.info('QUERY PLAN ANALYSIS', {
+    sql,
+    params,
+    plan: (plan as any[]).map(row => row.detail),
+  });
 }
 
 /**
@@ -258,17 +235,12 @@ export function getDatabaseStats() {
     `).all() as Array<{ name: string; index_count: number }>
   };
 
-  console.log('\n📈 DATABASE STATISTICS\n');
-  console.log(`Tables: ${stats.tableCount.count}`);
-  console.log(`Indexes: ${stats.indexCount.count}`);
-  console.log(`Size: ${(stats.databaseSize.size / 1024 / 1024).toFixed(2)} MB`);
-  console.log('\nTables with index counts:');
-
-  for (const table of stats.tables) {
-    console.log(`  ${table.name}: ${table.index_count} indexes`);
-  }
-
-  console.log('\n');
+  logger.info('DATABASE STATISTICS', {
+    tables: stats.tableCount.count,
+    indexes: stats.indexCount.count,
+    sizeMB: (stats.databaseSize.size / 1024 / 1024).toFixed(2),
+    tableDetails: stats.tables.map(t => ({ name: t.name, indexes: t.index_count })),
+  });
 
   return stats;
 }

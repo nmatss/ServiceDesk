@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub } from '@/lib/db/adapter';
 
 export class AIFeedbackLoop {
   /**
@@ -6,8 +6,8 @@ export class AIFeedbackLoop {
    */
   async collectTrainingData(organizationId: number): Promise<void> {
     // Buscar classificações aceitas (corretas)
-    const correctClassifications = db.prepare(`
-      SELECT
+    const correctClassifications = await executeQuery<any>(
+      `SELECT
         ai.ticket_id,
         t.title,
         t.description,
@@ -20,12 +20,13 @@ export class AIFeedbackLoop {
       INNER JOIN priorities p ON ai.suggested_priority_id = p.id
       WHERE ai.was_accepted = 1
         AND t.organization_id = ?
-        AND ai.created_at >= datetime('now', '-30 days')
-    `).all(organizationId) as any[];
+        AND ai.created_at >= ${sqlDatetimeSub(30)}`,
+      [organizationId]
+    );
 
     // Buscar classificações corrigidas (incorretas)
-    const correctedClassifications = db.prepare(`
-      SELECT
+    const correctedClassifications = await executeQuery<any>(
+      `SELECT
         ai.ticket_id,
         t.title,
         t.description,
@@ -41,12 +42,13 @@ export class AIFeedbackLoop {
       WHERE ai.was_accepted = 0
         AND ai.corrected_category_id IS NOT NULL
         AND t.organization_id = ?
-        AND ai.created_at >= datetime('now', '-30 days')
-    `).all(organizationId) as any[];
+        AND ai.created_at >= ${sqlDatetimeSub(30)}`,
+      [organizationId]
+    );
 
     // Salvar como training data
     for (const item of correctClassifications) {
-      this.saveTrainingData(
+      await this.saveTrainingData(
         item.title + '\n' + item.description,
         item.category_name,
         'classification',
@@ -57,7 +59,7 @@ export class AIFeedbackLoop {
 
     for (const item of correctedClassifications) {
       // Salvar CORRETO
-      this.saveTrainingData(
+      await this.saveTrainingData(
         item.title + '\n' + item.description,
         item.correct_category,
         'classification',
@@ -66,7 +68,7 @@ export class AIFeedbackLoop {
       );
 
       // Salvar INCORRETO como exemplo negativo
-      this.saveTrainingData(
+      await this.saveTrainingData(
         item.title + '\n' + item.description,
         `NOT: ${item.suggested_category}`,
         'classification',
@@ -79,19 +81,20 @@ export class AIFeedbackLoop {
   /**
    * Salva dados de treinamento
    */
-  private saveTrainingData(
+  private async saveTrainingData(
     input: string,
     output: string,
     dataType: string,
     qualityScore: number,
     organizationId: number
-  ): void {
-    db.prepare(`
-      INSERT INTO ai_training_data (
+  ): Promise<void> {
+    await executeRun(
+      `INSERT INTO ai_training_data (
         input, output, data_type, quality_score,
         model_version, organization_id, is_validated
-      ) VALUES (?, ?, ?, ?, '1.0', ?, 1)
-    `).run(input, output, dataType, qualityScore, organizationId);
+      ) VALUES (?, ?, ?, ?, '1.0', ?, 1)`,
+      [input, output, dataType, qualityScore, organizationId]
+    );
   }
 
   /**
@@ -103,17 +106,18 @@ export class AIFeedbackLoop {
     priority_accuracy: number;
     total_classifications: number;
   }> {
-    const stats = db.prepare(`
-      SELECT
+    const stats = await executeQueryOne<any>(
+      `SELECT
         COUNT(*) as total,
         SUM(CASE WHEN was_accepted = 1 THEN 1 ELSE 0 END) as accepted,
         AVG(confidence_score) as avg_confidence
       FROM ai_classifications
       WHERE organization_id = ?
-        AND created_at >= datetime('now', '-30 days')
-    `).get(organizationId) as any;
+        AND created_at >= ${sqlDatetimeSub(30)}`,
+      [organizationId]
+    );
 
-    const accuracy = stats.total > 0
+    const accuracy = stats && stats.total > 0
       ? (stats.accepted / stats.total)
       : 0;
 
@@ -121,7 +125,7 @@ export class AIFeedbackLoop {
       overall_accuracy: accuracy,
       category_accuracy: accuracy,
       priority_accuracy: accuracy,
-      total_classifications: stats.total
+      total_classifications: stats?.total || 0
     };
   }
 
@@ -129,15 +133,16 @@ export class AIFeedbackLoop {
    * Exporta dados para fine-tuning
    */
   async exportForFineTuning(organizationId: number): Promise<any[]> {
-    const trainingData = db.prepare(`
-      SELECT input, output, quality_score
+    const trainingData = await executeQuery<any>(
+      `SELECT input, output, quality_score
       FROM ai_training_data
       WHERE organization_id = ?
         AND is_validated = 1
         AND quality_score >= 0.7
       ORDER BY quality_score DESC, created_at DESC
-      LIMIT 1000
-    `).all(organizationId) as any[];
+      LIMIT 1000`,
+      [organizationId]
+    );
 
     // Formatar para OpenAI fine-tuning format
     return trainingData.map(item => ({

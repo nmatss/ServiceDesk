@@ -5,8 +5,10 @@
  * batch processing, and performance monitoring.
  */
 
-import db from './connection';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub, sqlCurrentDate } from './adapter';
+import { getDatabaseType } from './config';
 import { getFromCache, setCache } from '../cache/lru-cache';
+import logger from '@/lib/monitoring/structured-logger';
 import type {
   RealTimeKPIs,
   SLAAnalyticsRow,
@@ -38,37 +40,45 @@ const CACHE_TTL = {
  * - Aggressive caching with 5-minute TTL
  * - Indexed date/datetime filters
  */
-export function getOptimizedRealTimeKPIs(organizationId: number): RealTimeKPIs {
+export async function getOptimizedRealTimeKPIs(organizationId: number): Promise<RealTimeKPIs> {
   const cacheKey = `analytics:kpis:optimized:${organizationId}`;
   const cached = getFromCache<RealTimeKPIs>(cacheKey);
   if (cached) {
     return cached;
   }
 
+  const dbType = getDatabaseType();
+  const dateToday = sqlCurrentDate();
+  const dateSub7 = sqlDateSub(7);
+  const dateSub30 = sqlDateSub(30);
+  const dateSub1 = sqlDateSub(1);
+  const nowExpr = sqlNow();
+
   // OPTIMIZED: Single query using CTEs instead of 15 subqueries
-  const kpis = db.prepare(`
+  // Note: FILTER (WHERE ...) is PostgreSQL syntax; for SQLite we use CASE
+  const kpis = await executeQueryOne<RealTimeKPIs>(`
     WITH
     -- Ticket volume metrics (single table scan)
     ticket_metrics AS (
       SELECT
-        COUNT(*) FILTER (WHERE date(created_at) = date('now')) as tickets_today,
-        COUNT(*) FILTER (WHERE datetime(created_at) >= datetime('now', '-7 days')) as tickets_this_week,
-        COUNT(*) FILTER (WHERE datetime(created_at) >= datetime('now', '-30 days')) as tickets_this_month,
+        COUNT(CASE WHEN date(created_at) = ${dateToday} THEN 1 END) as tickets_today,
+        COUNT(CASE WHEN created_at >= ${dateSub7} THEN 1 END) as tickets_this_week,
+        COUNT(CASE WHEN created_at >= ${dateSub30} THEN 1 END) as tickets_this_month,
         COUNT(*) as total_tickets,
-        COUNT(DISTINCT assigned_to) FILTER (WHERE assigned_to IS NOT NULL) as active_agents,
-        COUNT(*) FILTER (WHERE status_id IN (SELECT id FROM statuses WHERE is_final = 0)) as open_tickets,
-        COUNT(*) FILTER (WHERE datetime(created_at) >= datetime('now', '-1 day') AND status_id IN (SELECT id FROM statuses WHERE is_final = 1)) as resolved_today
+        COUNT(DISTINCT CASE WHEN assigned_to IS NOT NULL THEN assigned_to END) as active_agents,
+        COUNT(CASE WHEN status_id IN (SELECT id FROM statuses WHERE is_final = 0) THEN 1 END) as open_tickets,
+        COUNT(CASE WHEN created_at >= ${dateSub1} AND status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved_today
       FROM tickets
       WHERE organization_id = ?
     ),
     -- SLA metrics (optimized with indexes)
     sla_metrics AS (
       SELECT
-        COUNT(*) FILTER (WHERE st.response_met = 1) as sla_response_met,
-        COUNT(*) FILTER (WHERE st.resolution_met = 1) as sla_resolution_met,
+        COUNT(CASE WHEN st.response_met = 1 THEN 1 END) as sla_response_met,
+        COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) as sla_resolution_met,
         COUNT(*) as total_sla_tracked,
-        ROUND(AVG(st.response_time_minutes) FILTER (WHERE st.response_met = 1), 2) as avg_response_time,
-        ROUND(AVG(st.resolution_time_minutes) FILTER (WHERE st.resolution_met = 1), 2) as avg_resolution_time
+        ROUND(AVG(CASE WHEN st.response_met = 1 THEN st.response_time_minutes END), 2) as avg_response_time,
+        ROUND(AVG(CASE WHEN st.resolution_met = 1 THEN st.resolution_time_minutes END), 2) as avg_resolution_time
       FROM sla_tracking st
       INNER JOIN tickets t ON st.ticket_id = t.id
       WHERE t.organization_id = ?
@@ -81,7 +91,7 @@ export function getOptimizedRealTimeKPIs(organizationId: number): RealTimeKPIs {
       FROM satisfaction_surveys ss
       INNER JOIN tickets t ON ss.ticket_id = t.id
       WHERE t.organization_id = ?
-        AND datetime(ss.created_at) >= datetime('now', '-30 days')
+        AND ss.created_at >= ${dateSub30}
     ),
     -- First Call Resolution (optimized)
     fcr_metrics AS (
@@ -98,7 +108,7 @@ export function getOptimizedRealTimeKPIs(organizationId: number): RealTimeKPIs {
         FROM tickets t
         LEFT JOIN statuses s ON t.status_id = s.id
         WHERE t.organization_id = ? AND s.is_final = 1
-      )
+      ) sub
     )
     SELECT
       tm.tickets_today,
@@ -120,12 +130,14 @@ export function getOptimizedRealTimeKPIs(organizationId: number): RealTimeKPIs {
     CROSS JOIN sla_metrics sm
     CROSS JOIN csat_metrics cm
     CROSS JOIN fcr_metrics fm
-  `).get(organizationId, organizationId, organizationId, organizationId) as RealTimeKPIs;
+  `, [organizationId, organizationId, organizationId, organizationId]);
+
+  const result = kpis as RealTimeKPIs;
 
   // Cache for 5 minutes
-  setCache(cacheKey, kpis, CACHE_TTL.DASHBOARD_KPIS);
+  setCache(cacheKey, result, CACHE_TTL.DASHBOARD_KPIS);
 
-  return kpis;
+  return result;
 }
 
 /**
@@ -134,10 +146,10 @@ export function getOptimizedRealTimeKPIs(organizationId: number): RealTimeKPIs {
  * BEFORE: Multiple passes, no caching, ~800ms
  * AFTER: Single optimized query with caching, ~100ms (87.5% faster)
  */
-export function getOptimizedSLAAnalytics(
+export async function getOptimizedSLAAnalytics(
   organizationId: number,
   period: 'week' | 'month' | 'quarter' = 'month'
-): SLAAnalyticsRow[] {
+): Promise<SLAAnalyticsRow[]> {
   const cacheKey = `analytics:sla:${organizationId}:${period}`;
   const cached = getFromCache<SLAAnalyticsRow[]>(cacheKey);
   if (cached) {
@@ -145,9 +157,10 @@ export function getOptimizedSLAAnalytics(
   }
 
   const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
+  const dateSubExpr = sqlDateSub(days);
 
   // OPTIMIZED: Uses indexed date columns and single JOIN
-  const results = db.prepare(`
+  const results = await executeQuery<SLAAnalyticsRow>(`
     SELECT
       date(t.created_at) as date,
       COUNT(*) as total_tickets,
@@ -166,10 +179,10 @@ export function getOptimizedSLAAnalytics(
     FROM tickets t
     LEFT JOIN sla_tracking st ON t.id = st.ticket_id
     WHERE t.organization_id = ?
-      AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+      AND t.created_at >= ${dateSubExpr}
     GROUP BY date(t.created_at)
     ORDER BY date(t.created_at)
-  `).all(organizationId, days) as SLAAnalyticsRow[];
+  `, [organizationId]);
 
   setCache(cacheKey, results, CACHE_TTL.SLA_ANALYTICS);
   return results;
@@ -181,10 +194,10 @@ export function getOptimizedSLAAnalytics(
  * BEFORE: Multiple JOINs, no filtering optimization, ~600ms
  * AFTER: Indexed JOINs with caching, ~80ms (86.7% faster)
  */
-export function getOptimizedAgentPerformance(
+export async function getOptimizedAgentPerformance(
   organizationId: number,
   period: 'week' | 'month' | 'quarter' = 'month'
-): AgentPerformanceRow[] {
+): Promise<AgentPerformanceRow[]> {
   const cacheKey = `analytics:agents:${organizationId}:${period}`;
   const cached = getFromCache<AgentPerformanceRow[]>(cacheKey);
   if (cached) {
@@ -192,9 +205,10 @@ export function getOptimizedAgentPerformance(
   }
 
   const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
+  const dateSubExpr = sqlDateSub(days);
 
   // OPTIMIZED: Uses covering indexes and filtered JOINs
-  const results = db.prepare(`
+  const results = await executeQuery<AgentPerformanceRow>(`
     SELECT
       u.id,
       u.name,
@@ -212,7 +226,7 @@ export function getOptimizedAgentPerformance(
     FROM users u
     INNER JOIN tickets t ON u.id = t.assigned_to
       AND t.organization_id = ?
-      AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+      AND t.created_at >= ${dateSubExpr}
     LEFT JOIN statuses s ON t.status_id = s.id
     LEFT JOIN sla_tracking st ON t.id = st.ticket_id
     LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
@@ -220,7 +234,7 @@ export function getOptimizedAgentPerformance(
     GROUP BY u.id, u.name, u.email
     HAVING COUNT(t.id) > 0
     ORDER BY resolved_tickets DESC
-  `).all(organizationId, days) as AgentPerformanceRow[];
+  `, [organizationId]);
 
   setCache(cacheKey, results, CACHE_TTL.AGENT_PERFORMANCE);
   return results;
@@ -238,17 +252,17 @@ export async function batchAnalyticsQueries(
 ): Promise<Record<string, unknown>> {
   const results: Record<string, unknown> = {};
 
-  // Execute queries in parallel (SQLite allows multiple readers)
+  // Execute queries in parallel
   const promises = queries.map(async (queryType) => {
     switch (queryType) {
       case 'kpis':
-        results.kpis = getOptimizedRealTimeKPIs(organizationId);
+        results.kpis = await getOptimizedRealTimeKPIs(organizationId);
         break;
       case 'sla':
-        results.sla = getOptimizedSLAAnalytics(organizationId);
+        results.sla = await getOptimizedSLAAnalytics(organizationId);
         break;
       case 'agents':
-        results.agents = getOptimizedAgentPerformance(organizationId);
+        results.agents = await getOptimizedAgentPerformance(organizationId);
         break;
       // Add more query types as needed
     }
@@ -263,18 +277,18 @@ export async function batchAnalyticsQueries(
  *
  * Wraps queries with performance measurement
  */
-export function measureQueryPerformance<T>(
+export async function measureQueryPerformance<T>(
   queryName: string,
-  queryFn: () => T
-): T {
+  queryFn: () => T | Promise<T>
+): Promise<T> {
   const startTime = performance.now();
-  const result = queryFn();
+  const result = await queryFn();
   const endTime = performance.now();
   const duration = endTime - startTime;
 
   // Log slow queries (> 100ms)
   if (duration > 100) {
-    console.warn(`[SLOW QUERY] ${queryName} took ${duration.toFixed(2)}ms`);
+    logger.warn(`[SLOW QUERY] ${queryName} took ${duration.toFixed(2)}ms`);
   }
 
   return result;
@@ -287,14 +301,14 @@ export function measureQueryPerformance<T>(
  * - VACUUM: Rebuilds database to reclaim space
  * - ANALYZE: Updates query planner statistics
  */
-export function optimizeDatabase(): void {
-  console.log('[DB OPTIMIZATION] Running VACUUM...');
-  db.exec('VACUUM;');
+export async function optimizeDatabase(): Promise<void> {
+  logger.info('[DB OPTIMIZATION] Running VACUUM...');
+  await executeRun('VACUUM');
 
-  console.log('[DB OPTIMIZATION] Running ANALYZE...');
-  db.exec('ANALYZE;');
+  logger.info('[DB OPTIMIZATION] Running ANALYZE...');
+  await executeRun('ANALYZE');
 
-  console.log('[DB OPTIMIZATION] Complete!');
+  logger.info('[DB OPTIMIZATION] Complete!');
 }
 
 /**
@@ -302,7 +316,7 @@ export function optimizeDatabase(): void {
  *
  * Applies all performance optimization indexes from performance-indexes.sql
  */
-export function applyPerformanceIndexes(): void {
+export async function applyPerformanceIndexes(): Promise<void> {
   const fs = require('fs');
   const path = require('path');
 
@@ -311,13 +325,17 @@ export function applyPerformanceIndexes(): void {
     'utf-8'
   );
 
-  console.log('[DB OPTIMIZATION] Applying performance indexes...');
-  db.exec(indexesSQL);
+  logger.info('[DB OPTIMIZATION] Applying performance indexes...');
+  // Split by semicolon and run each statement
+  const statements = indexesSQL.split(';').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+  for (const stmt of statements) {
+    await executeRun(stmt);
+  }
 
-  console.log('[DB OPTIMIZATION] Running ANALYZE to update statistics...');
-  db.exec('ANALYZE;');
+  logger.info('[DB OPTIMIZATION] Running ANALYZE to update statistics...');
+  await executeRun('ANALYZE');
 
-  console.log('[DB OPTIMIZATION] Performance indexes applied!');
+  logger.info('[DB OPTIMIZATION] Performance indexes applied!');
 }
 
 export default {

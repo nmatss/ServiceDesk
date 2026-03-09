@@ -1,18 +1,18 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { Template, CreateTemplate, TemplateWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
 /**
  * Busca templates por tipo e categoria
  */
-export function getTemplates(options: {
+export async function getTemplates(options: {
   type?: string;
   categoryId?: number;
   isActive?: boolean;
   userId?: number;
   limit?: number;
   offset?: number;
-} = {}): { templates: TemplateWithDetails[]; total: number } {
+} = {}): Promise<{ templates: TemplateWithDetails[]; total: number }> {
   try {
     const {
       type,
@@ -47,7 +47,7 @@ export function getTemplates(options: {
     }
 
     // Buscar templates
-    const templates = db.prepare(`
+    const templates = await executeQuery<TemplateWithDetails>(`
       SELECT
         t.*,
         c.name as category_name,
@@ -60,16 +60,16 @@ export function getTemplates(options: {
       ${whereClause}
       ORDER BY t.usage_count DESC, t.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset) as TemplateWithDetails[];
+    `, [...params, limit, offset]);
 
     // Contar total
-    const { total } = db.prepare(`
+    const countResult = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM templates t
       ${whereClause}
-    `).get(...params) as { total: number };
+    `, params);
 
-    return { templates, total };
+    return { templates, total: countResult?.total || 0 };
   } catch (error) {
     logger.error('Error getting templates', error);
     return { templates: [], total: 0 };
@@ -79,9 +79,9 @@ export function getTemplates(options: {
 /**
  * Busca template por ID
  */
-export function getTemplateById(id: number): TemplateWithDetails | null {
+export async function getTemplateById(id: number): Promise<TemplateWithDetails | null> {
   try {
-    return db.prepare(`
+    const result = await executeQueryOne<TemplateWithDetails>(`
       SELECT
         t.*,
         c.name as category_name,
@@ -92,7 +92,8 @@ export function getTemplateById(id: number): TemplateWithDetails | null {
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = ?
-    `).get(id) as TemplateWithDetails | null;
+    `, [id]);
+    return result || null;
   } catch (error) {
     logger.error('Error getting template by ID', error);
     return null;
@@ -102,16 +103,14 @@ export function getTemplateById(id: number): TemplateWithDetails | null {
 /**
  * Cria um novo template
  */
-export function createTemplate(template: CreateTemplate): Template | null {
+export async function createTemplate(template: CreateTemplate): Promise<Template | null> {
   try {
-    const insertQuery = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO templates (
         name, description, type, category_id, title_template,
         content_template, variables, is_active, tags, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = insertQuery.run(
+    `, [
       template.name,
       template.description || null,
       template.type,
@@ -122,11 +121,14 @@ export function createTemplate(template: CreateTemplate): Template | null {
       template.is_active ? 1 : 0,
       template.tags ? JSON.stringify(template.tags) : null,
       template.created_by
-    );
+    ]);
 
     if (result.lastInsertRowid) {
-      return db.prepare('SELECT * FROM templates WHERE id = ?')
-        .get(result.lastInsertRowid) as Template;
+      const created = await executeQueryOne<Template>(
+        'SELECT * FROM templates WHERE id = ?',
+        [result.lastInsertRowid]
+      );
+      return created || null;
     }
 
     return null;
@@ -139,7 +141,7 @@ export function createTemplate(template: CreateTemplate): Template | null {
 /**
  * Atualiza template
  */
-export function updateTemplate(id: number, updates: Partial<Template>): boolean {
+export async function updateTemplate(id: number, updates: Partial<Template>): Promise<boolean> {
   try {
     const fields = [];
     const values = [];
@@ -161,13 +163,12 @@ export function updateTemplate(id: number, updates: Partial<Template>): boolean 
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
 
-    const updateQuery = db.prepare(`
+    const result = await executeRun(`
       UPDATE templates
       SET ${fields.join(', ')}
       WHERE id = ?
-    `);
+    `, [...values, id]);
 
-    const result = updateQuery.run(...values, id);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error updating template', error);
@@ -178,9 +179,9 @@ export function updateTemplate(id: number, updates: Partial<Template>): boolean 
 /**
  * Exclui template
  */
-export function deleteTemplate(id: number): boolean {
+export async function deleteTemplate(id: number): Promise<boolean> {
   try {
-    const result = db.prepare('DELETE FROM templates WHERE id = ?').run(id);
+    const result = await executeRun('DELETE FROM templates WHERE id = ?', [id]);
     return result.changes > 0;
   } catch (error) {
     logger.error('Error deleting template', error);
@@ -189,15 +190,15 @@ export function deleteTemplate(id: number): boolean {
 }
 
 /**
- * Processa template com variáveis
+ * Processa template com variaveis
  */
-export function processTemplate(
+export async function processTemplate(
   templateId: number,
   variables: Record<string, any> = {},
   ticketId?: number
-): { title: string; content: string; variables_used: string[] } | null {
+): Promise<{ title: string; content: string; variables_used: string[] } | null> {
   try {
-    const template = getTemplateById(templateId);
+    const template = await getTemplateById(templateId);
     if (!template || !template.is_active) {
       return null;
     }
@@ -205,7 +206,7 @@ export function processTemplate(
     // Buscar dados do ticket se fornecido
     let ticketData: any = null;
     if (ticketId) {
-      ticketData = db.prepare(`
+      ticketData = await executeQueryOne(`
         SELECT
           t.*,
           u.name as user_name,
@@ -221,16 +222,16 @@ export function processTemplate(
         LEFT JOIN statuses s ON t.status_id = s.id
         LEFT JOIN users a ON t.assigned_to = a.id
         WHERE t.id = ?
-      `).get(ticketId);
+      `, [ticketId]);
     }
 
-    // Variáveis disponíveis
-    const availableVariables = {
+    // Variaveis disponiveis
+    const availableVariables: Record<string, any> = {
       current_date: new Date().toLocaleDateString('pt-BR'),
       current_time: new Date().toLocaleTimeString('pt-BR'),
       current_datetime: new Date().toLocaleString('pt-BR'),
 
-      // Variáveis do ticket
+      // Variaveis do ticket
       ...(ticketData && {
         ticket_id: ticketData.id,
         ticket_title: ticketData.title,
@@ -245,11 +246,11 @@ export function processTemplate(
         ticket_updated_at: new Date(ticketData.updated_at).toLocaleString('pt-BR')
       }),
 
-      // Variáveis customizadas
+      // Variaveis customizadas
       ...variables
     };
 
-    // Função para substituir variáveis
+    // Funcao para substituir variaveis
     const replaceVariables = (text: string) => {
       const usedVariables: string[] = [];
       const result = text.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
@@ -263,15 +264,15 @@ export function processTemplate(
       return { result, usedVariables };
     };
 
-    // Processar título
+    // Processar titulo
     const titleResult = replaceVariables(template.title_template || '');
     const contentResult = replaceVariables(template.content_template || '');
 
-    // Combinar variáveis usadas
+    // Combinar variaveis usadas
     const variablesUsed = Array.from(new Set([...titleResult.usedVariables, ...contentResult.usedVariables]));
 
     // Registrar uso do template
-    recordTemplateUsage(templateId, ticketId);
+    await recordTemplateUsage(templateId, ticketId);
 
     return {
       title: titleResult.result,
@@ -287,21 +288,21 @@ export function processTemplate(
 /**
  * Registra uso do template
  */
-export function recordTemplateUsage(templateId: number, ticketId?: number): boolean {
+export async function recordTemplateUsage(templateId: number, ticketId?: number): Promise<boolean> {
   try {
     // Registrar na tabela de uso
-    db.prepare(`
+    await executeRun(`
       INSERT INTO template_usage (template_id, ticket_id, used_at)
       VALUES (?, ?, ?)
-    `).run(templateId, ticketId || null, new Date().toISOString());
+    `, [templateId, ticketId || null, new Date().toISOString()]);
 
     // Atualizar contador
-    db.prepare(`
+    await executeRun(`
       UPDATE templates
       SET usage_count = usage_count + 1,
           last_used_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(templateId);
+    `, [templateId]);
 
     return true;
   } catch (error) {
@@ -313,9 +314,9 @@ export function recordTemplateUsage(templateId: number, ticketId?: number): bool
 /**
  * Busca templates populares
  */
-export function getPopularTemplates(limit: number = 10): TemplateWithDetails[] {
+export async function getPopularTemplates(limit: number = 10): Promise<TemplateWithDetails[]> {
   try {
-    return db.prepare(`
+    return await executeQuery<TemplateWithDetails>(`
       SELECT
         t.*,
         c.name as category_name,
@@ -327,7 +328,7 @@ export function getPopularTemplates(limit: number = 10): TemplateWithDetails[] {
       WHERE t.is_active = 1
       ORDER BY t.usage_count DESC, t.created_at DESC
       LIMIT ?
-    `).all(limit) as TemplateWithDetails[];
+    `, [limit]);
   } catch (error) {
     logger.error('Error getting popular templates', error);
     return [];
@@ -337,11 +338,11 @@ export function getPopularTemplates(limit: number = 10): TemplateWithDetails[] {
 /**
  * Busca templates por tags
  */
-export function getTemplatesByTags(tags: string[]): TemplateWithDetails[] {
+export async function getTemplatesByTags(tags: string[]): Promise<TemplateWithDetails[]> {
   try {
     if (tags.length === 0) return [];
 
-    const templates = db.prepare(`
+    const templates = await executeQuery<TemplateWithDetails>(`
       SELECT
         t.*,
         c.name as category_name,
@@ -351,7 +352,7 @@ export function getTemplatesByTags(tags: string[]): TemplateWithDetails[] {
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.is_active = 1 AND t.tags IS NOT NULL
-    `).all() as TemplateWithDetails[];
+    `);
 
     // Filtrar por tags
     return templates.filter(template => {
@@ -366,9 +367,9 @@ export function getTemplatesByTags(tags: string[]): TemplateWithDetails[] {
 }
 
 /**
- * Busca estatísticas de uso dos templates
+ * Busca estatisticas de uso dos templates
  */
-export function getTemplateUsageStats(templateId?: number): any {
+export async function getTemplateUsageStats(templateId?: number): Promise<any> {
   try {
     let whereClause = '';
     const params: any[] = [];
@@ -378,7 +379,7 @@ export function getTemplateUsageStats(templateId?: number): any {
       params.push(templateId);
     }
 
-    const stats = db.prepare(`
+    const stats = await executeQuery(`
       SELECT
         COUNT(*) as total_usage,
         COUNT(DISTINCT tu.ticket_id) as unique_tickets,
@@ -390,7 +391,7 @@ export function getTemplateUsageStats(templateId?: number): any {
       ${whereClause}
       GROUP BY tu.template_id, t.name, t.type
       ORDER BY total_usage DESC
-    `).all(...params);
+    `, params);
 
     return templateId ? stats[0] || null : stats;
   } catch (error) {
@@ -402,26 +403,26 @@ export function getTemplateUsageStats(templateId?: number): any {
 /**
  * Duplica template
  */
-export function duplicateTemplate(templateId: number, newName: string, userId: number): Template | null {
+export async function duplicateTemplate(templateId: number, newName: string, userId: number): Promise<Template | null> {
   try {
-    const original = getTemplateById(templateId);
+    const original = await getTemplateById(templateId);
     if (!original) return null;
 
     const duplicate: CreateTemplate = {
       name: newName,
-      description: `Cópia de: ${original.description || original.name}`,
+      description: `Copia de: ${original.description || original.name}`,
       type: original.type,
       organization_id: original.organization_id,
       category_id: original.category_id,
       title_template: original.title_template,
       content_template: original.content_template,
       variables: original.variables ? JSON.parse(original.variables) : null,
-      is_active: false, // Criar como inativo por padrão
+      is_active: false, // Criar como inativo por padrao
       tags: original.tags ? JSON.parse(original.tags) : null,
       created_by: userId
     };
 
-    return createTemplate(duplicate);
+    return await createTemplate(duplicate);
   } catch (error) {
     logger.error('Error duplicating template', error);
     return null;
@@ -429,7 +430,7 @@ export function duplicateTemplate(templateId: number, newName: string, userId: n
 }
 
 /**
- * Valida variáveis do template
+ * Valida variaveis do template
  */
 export function validateTemplateVariables(content: string, variables: Record<string, any>): {
   valid: boolean;
@@ -437,7 +438,7 @@ export function validateTemplateVariables(content: string, variables: Record<str
   extra_variables: string[];
 } {
   try {
-    // Extrair variáveis do conteúdo
+    // Extrair variaveis do conteudo
     const contentVariables = new Set<string>();
     const matches = content.match(/\{\{([^}]+)\}\}/g);
 
@@ -450,12 +451,12 @@ export function validateTemplateVariables(content: string, variables: Record<str
 
     const providedVariables = new Set(Object.keys(variables));
 
-    // Variáveis em falta
+    // Variaveis em falta
     const missingVariables = Array.from(contentVariables).filter(
       variable => !providedVariables.has(variable)
     );
 
-    // Variáveis extras
+    // Variaveis extras
     const extraVariables = Array.from(providedVariables).filter(
       variable => !contentVariables.has(variable)
     );

@@ -537,4 +537,64 @@ export function sqlCastDate(expr: string): string {
     : `DATE(${expr})`;
 }
 
+export function sqlDatetimeSub(days: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() - INTERVAL '${days} days'`
+    : `datetime('now', '-${days} days')`;
+}
+
+export function sqlDatetimeSubHours(hours: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() - INTERVAL '${hours} hours'`
+    : `datetime('now', '-${hours} hours')`;
+}
+
+export function sqlDatetimeSubMinutes(minutes: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() - INTERVAL '${minutes} minutes'`
+    : `datetime('now', '-${minutes} minutes')`;
+}
+
+export function sqlDatetimeAddMinutes(minutes: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() + INTERVAL '${minutes} minutes'`
+    : `datetime('now', '+${minutes} minutes')`;
+}
+
+export function sqlColSubMinutes(col: string, minutes: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `${col} - INTERVAL '${minutes} minutes'`
+    : `datetime(${col}, '-${minutes} minutes')`;
+}
+
+export function sqlColAddMinutes(col: string, minutes: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `${col} + INTERVAL '${minutes} minutes'`
+    : `datetime(${col}, '+${minutes} minutes')`;
+}
+
+export function sqlGroupConcat(col: string, sep: string = ','): string {
+  return getDatabaseType() === 'postgresql'
+    ? `STRING_AGG(${col}::text, '${sep}')`
+    : `GROUP_CONCAT(${col}, '${sep}')`;
+}
+
+export function sqlExtractHour(col: string): string {
+  return getDatabaseType() === 'postgresql'
+    ? `EXTRACT(HOUR FROM ${col})`
+    : `CAST(strftime('%H', ${col}) AS INTEGER)`;
+}
+
+export function sqlExtractDayOfWeek(col: string): string {
+  return getDatabaseType() === 'postgresql'
+    ? `EXTRACT(DOW FROM ${col})`
+    : `CAST(strftime('%w', ${col}) AS INTEGER)`;
+}
+
+export function sqlDatetimeSubYears(years: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() - INTERVAL '${years} years'`
+    : `datetime('now', '-${years} years')`;
+}
+
 export default getDatabase;

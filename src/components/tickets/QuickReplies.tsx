@@ -229,6 +229,7 @@ export function QuickReplies({
           as="div"
           className="relative z-50"
           onClose={() => setIsOpen(false)}
+          aria-labelledby="quick-replies-title"
         >
           <Transition.Child
             as={React.Fragment}
@@ -253,10 +254,10 @@ export function QuickReplies({
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-2xl transform rounded-xl bg-white shadow-2xl transition-all">
+                <Dialog.Panel className="w-full max-w-2xl transform rounded-xl bg-white dark:bg-neutral-800 shadow-2xl transition-all">
                   {/* Header */}
                   <div className="border-b border-neutral-200 px-6 py-4">
-                    <Dialog.Title className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                    <Dialog.Title id="quick-replies-title" className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
                       <BoltIcon className="h-5 w-5 text-amber-500" />
                       Quick Replies
                     </Dialog.Title>
@@ -273,7 +274,7 @@ export function QuickReplies({
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search macros..."
+                        placeholder="Buscar macros..."
                         className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>

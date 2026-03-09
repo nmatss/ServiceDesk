@@ -181,12 +181,13 @@ export async function listChangeRequests(
   const conditions: string[] = ['organization_id = ?'];
   const params: unknown[] = [organizationId];
 
-  // Apply filters
+  // Apply filters (cap array lengths to prevent DoS)
   if (filters.status) {
     if (Array.isArray(filters.status)) {
-      if (filters.status.length > 0) {
-        conditions.push(`status IN (${filters.status.map(() => '?').join(', ')})`);
-        params.push(...filters.status);
+      const safeStatuses = filters.status.slice(0, 50);
+      if (safeStatuses.length > 0) {
+        conditions.push(`status IN (${safeStatuses.map(() => '?').join(', ')})`);
+        params.push(...safeStatuses);
       }
     } else {
       conditions.push('status = ?');
@@ -196,9 +197,10 @@ export async function listChangeRequests(
 
   if (filters.priority) {
     if (Array.isArray(filters.priority)) {
-      if (filters.priority.length > 0) {
-        conditions.push(`priority IN (${filters.priority.map(() => '?').join(', ')})`);
-        params.push(...filters.priority);
+      const safePriorities = filters.priority.slice(0, 50);
+      if (safePriorities.length > 0) {
+        conditions.push(`priority IN (${safePriorities.map(() => '?').join(', ')})`);
+        params.push(...safePriorities);
       }
     } else {
       conditions.push('priority = ?');
@@ -208,9 +210,10 @@ export async function listChangeRequests(
 
   if (filters.category) {
     if (Array.isArray(filters.category)) {
-      if (filters.category.length > 0) {
-        conditions.push(`category IN (${filters.category.map(() => '?').join(', ')})`);
-        params.push(...filters.category);
+      const safeCategories = filters.category.slice(0, 50);
+      if (safeCategories.length > 0) {
+        conditions.push(`category IN (${safeCategories.map(() => '?').join(', ')})`);
+        params.push(...safeCategories);
       }
     } else {
       conditions.push('category = ?');

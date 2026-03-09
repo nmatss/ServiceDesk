@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { isProduction } from '@/lib/config/env';
+import { logger } from '@/lib/monitoring/logger';
 
 /**
  * Security headers configuration
@@ -313,7 +314,7 @@ export interface CSPReport {
  * Log CSP violations
  */
 export function logCSPViolation(report: CSPReport): void {
-  console.warn('CSP Violation:', {
+  logger.warn('CSP Violation:', {
     documentUri: report['document-uri'],
     violatedDirective: report['violated-directive'],
     blockedUri: report['blocked-uri'],

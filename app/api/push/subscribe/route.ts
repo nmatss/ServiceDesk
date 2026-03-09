@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -28,27 +29,28 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-// Create push_subscriptions table if it doesn't exist
-    await executeRun(`
-      CREATE TABLE IF NOT EXISTS push_subscriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        endpoint TEXT NOT NULL UNIQUE,
-        p256dh_key TEXT NOT NULL,
-        auth_key TEXT NOT NULL,
-        user_agent TEXT,
-        platform TEXT,
-        language TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_used_at DATETIME,
-        is_active INTEGER DEFAULT 1,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
-      CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);
-    `);
+// Create push_subscriptions table if it doesn't exist (SQLite only; PG has it in schema)
+    if (getDatabaseType() === 'sqlite') {
+      await executeRun(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          endpoint TEXT NOT NULL UNIQUE,
+          p256dh_key TEXT NOT NULL,
+          auth_key TEXT NOT NULL,
+          user_agent TEXT,
+          platform TEXT,
+          language TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_used_at DATETIME,
+          is_active INTEGER DEFAULT 1,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+      await executeRun('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id)');
+      await executeRun('CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)');
+    }
 
     // Check if subscription already exists
     const existingSubscription = await executeQueryOne(`

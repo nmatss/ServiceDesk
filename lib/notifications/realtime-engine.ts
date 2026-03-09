@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket as BaseSocket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { verifyToken } from '@/lib/auth/auth-service'
 import { NotificationChannelManager } from './channels'
 import { NotificationBatchingEngine } from './batching'
@@ -84,7 +84,6 @@ export interface UserNotificationPreferences {
 
 export class RealtimeNotificationEngine {
   private io!: SocketIOServer
-  private db = getDb()
   private activeSessions = new Map<string, UserSession>()
   private userSockets = new Map<number, Set<string>>() // userId -> socketIds
 
@@ -215,7 +214,7 @@ export class RealtimeNotificationEngine {
     // Notify other users about user coming online
     this.broadcastPresenceUpdate(socket.userId, 'online')
 
-    logger.info(`🔗 User ${session.userName} (${session.userId}) connected [${socket.id}]`)
+    logger.info(`User ${session.userName} (${session.userId}) connected [${socket.id}]`)
   }
 
   private setupSocketEventHandlers(socket: ExtendedSocket) {
@@ -273,8 +272,8 @@ export class RealtimeNotificationEngine {
       this.markAllNotificationsAsRead(socket.userId)
     })
 
-    socket.on('notifications:get_unread_count', (callback) => {
-      const count = this.getUnreadNotificationCount(socket.userId)
+    socket.on('notifications:get_unread_count', async (callback) => {
+      const count = await this.getUnreadNotificationCount(socket.userId)
       callback(count)
     })
 
@@ -347,7 +346,7 @@ export class RealtimeNotificationEngine {
     // Update database
     this.updateUserSessionDisconnect(socket.id)
 
-    logger.info(`🔌 User ${session.userName} (${session.userId}) disconnected [${socket.id}] - ${reason}`)
+    logger.info(`User ${session.userName} (${session.userId}) disconnected [${socket.id}] - ${reason}`)
   }
 
   // Public notification methods
@@ -503,7 +502,7 @@ export class RealtimeNotificationEngine {
 
   private async getTicketParticipants(ticketId: number): Promise<number[]> {
     try {
-      const participants = this.db.prepare(`
+      const participants = await executeQuery<{ user_id: number }>(`
         SELECT DISTINCT user_id
         FROM (
           SELECT user_id FROM tickets WHERE id = ?
@@ -515,7 +514,7 @@ export class RealtimeNotificationEngine {
           SELECT user_id FROM ticket_followers WHERE ticket_id = ?
         )
         WHERE user_id IS NOT NULL
-      `).all(ticketId, ticketId, ticketId, ticketId) as Array<{ user_id: number }>
+      `, [ticketId, ticketId, ticketId, ticketId])
 
       return participants.map(p => p.user_id)
     } catch (error) {
@@ -526,11 +525,12 @@ export class RealtimeNotificationEngine {
 
   private async getUsersByRoles(roles: string[]): Promise<number[]> {
     try {
+      if (roles.length === 0) return []
       const placeholders = roles.map(() => '?').join(',')
-      const users = this.db.prepare(`
+      const users = await executeQuery<{ id: number }>(`
         SELECT id FROM users
         WHERE role IN (${placeholders}) AND is_active = 1
-      `).all(...roles) as Array<{ id: number }>
+      `, roles)
 
       return users.map(u => u.id)
     } catch (error) {
@@ -541,9 +541,9 @@ export class RealtimeNotificationEngine {
 
   private async getAllActiveUsers(): Promise<number[]> {
     try {
-      const users = this.db.prepare(`
+      const users = await executeQuery<{ id: number }>(`
         SELECT id FROM users WHERE is_active = 1
-      `).all() as Array<{ id: number }>
+      `, [])
 
       return users.map(u => u.id)
     } catch (error) {
@@ -584,14 +584,23 @@ export class RealtimeNotificationEngine {
   }
 
   // Database operations
-  private saveUserSession(session: UserSession) {
+  private async saveUserSession(session: UserSession): Promise<void> {
     try {
-      this.db.prepare(`
-        INSERT OR REPLACE INTO user_sessions (
+      await executeRun(`
+        INSERT INTO user_sessions (
           id, user_id, socket_id, user_agent, ip_address,
           is_active, last_activity, presence, device_info
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+        ON CONFLICT(id) DO UPDATE SET
+          user_id = excluded.user_id,
+          socket_id = excluded.socket_id,
+          user_agent = excluded.user_agent,
+          ip_address = excluded.ip_address,
+          is_active = excluded.is_active,
+          last_activity = excluded.last_activity,
+          presence = excluded.presence,
+          device_info = excluded.device_info
+      `, [
         session.socketId,
         session.userId,
         session.socketId,
@@ -601,37 +610,37 @@ export class RealtimeNotificationEngine {
         session.lastActivity.toISOString(),
         session.presence,
         JSON.stringify(session.deviceInfo)
-      )
+      ])
     } catch (error) {
       logger.error('Error saving user session', error)
     }
   }
 
-  private updateUserActivity(socketId: string) {
+  private async updateUserActivity(socketId: string): Promise<void> {
     const session = this.activeSessions.get(socketId)
     if (session) {
       session.lastActivity = new Date()
       this.activeSessions.set(socketId, session)
 
       try {
-        this.db.prepare(`
+        await executeRun(`
           UPDATE user_sessions
           SET last_activity = ?
           WHERE id = ?
-        `).run(session.lastActivity.toISOString(), socketId)
+        `, [session.lastActivity.toISOString(), socketId])
       } catch (error) {
         logger.error('Error updating user activity', error)
       }
     }
   }
 
-  private updateUserSessionDisconnect(socketId: string) {
+  private async updateUserSessionDisconnect(socketId: string): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE user_sessions
         SET is_active = 0, disconnected_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(socketId)
+      `, [socketId])
     } catch (error) {
       logger.error('Error updating user session disconnect', error)
     }
@@ -666,9 +675,9 @@ export class RealtimeNotificationEngine {
 
   private async getUserNotificationPreferences(userId: number): Promise<UserNotificationPreferences> {
     try {
-      const prefs = this.db.prepare(`
+      const prefs = await executeQueryOne<{ notification_preferences: string | null }>(`
         SELECT notification_preferences FROM users WHERE id = ?
-      `).get(userId) as { notification_preferences: string | null } | undefined
+      `, [userId])
 
       return prefs?.notification_preferences ? JSON.parse(prefs.notification_preferences) : {}
     } catch (error) {
@@ -705,13 +714,13 @@ export class RealtimeNotificationEngine {
     return channels.length > 0 ? channels : defaultChannels
   }
 
-  private markNotificationAsRead(notificationId: string, userId: number) {
+  private async markNotificationAsRead(notificationId: string, userId: number): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE notifications
         SET is_read = 1, read_at = CURRENT_TIMESTAMP
         WHERE id = ? AND user_id = ?
-      `).run(notificationId, userId)
+      `, [notificationId, userId])
 
       // Emit to user's sockets
       this.io.to(`user_${userId}`).emit('notification:read', { id: notificationId })
@@ -720,13 +729,13 @@ export class RealtimeNotificationEngine {
     }
   }
 
-  private markAllNotificationsAsRead(userId: number) {
+  private async markAllNotificationsAsRead(userId: number): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE notifications
         SET is_read = 1, read_at = CURRENT_TIMESTAMP
         WHERE user_id = ? AND is_read = 0
-      `).run(userId)
+      `, [userId])
 
       // Emit to user's sockets
       this.io.to(`user_${userId}`).emit('notifications:all_read')
@@ -735,13 +744,13 @@ export class RealtimeNotificationEngine {
     }
   }
 
-  private getUnreadNotificationCount(userId: number): number {
+  private async getUnreadNotificationCount(userId: number): Promise<number> {
     try {
-      const result = this.db.prepare(`
+      const result = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count
         FROM notifications
         WHERE user_id = ? AND is_read = 0
-      `).get(userId) as { count: number } | undefined
+      `, [userId])
 
       return result?.count || 0
     } catch (error) {

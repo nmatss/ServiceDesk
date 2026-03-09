@@ -3,22 +3,21 @@
  * Complete CRUD operations and specialized queries
  */
 
-import { getDb } from './index';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub, sqlDateDiff } from './adapter';
+import { getDatabaseType } from './config';
 import { Approval, ApprovalHistory, CreateApproval, CreateApprovalHistory } from '../types/database';
 
 /**
  * Create a new approval request
  */
-export function createApproval(approval: Omit<CreateApproval, 'notification_sent' | 'escalation_level'>): Approval {
-  const db = getDb();
-
-  const result = db.prepare(`
+export async function createApproval(approval: Omit<CreateApproval, 'notification_sent' | 'escalation_level'>): Promise<Approval> {
+  const result = await executeRun(`
     INSERT INTO approvals (
       entity_type, entity_id, approval_type, requested_by, assigned_to,
       assigned_group, status, priority, reason, approval_data,
       due_date, auto_approve_after
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     approval.entity_type,
     approval.entity_id,
     approval.approval_type,
@@ -31,29 +30,27 @@ export function createApproval(approval: Omit<CreateApproval, 'notification_sent
     approval.approval_data || null,
     approval.due_date || null,
     approval.auto_approve_after || null
-  );
+  ]);
 
-  return getApprovalById(result.lastInsertRowid as number)!;
+  return (await getApprovalById(result.lastInsertRowid as number))!;
 }
 
 /**
  * Get approval by ID
  */
-export function getApprovalById(id: number): Approval | null {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getApprovalById(id: number): Promise<Approval | null> {
+  const result = await executeQueryOne<Approval>(`
     SELECT * FROM approvals WHERE id = ?
-  `).get(id) as Approval | null;
+  `, [id]);
+
+  return result || null;
 }
 
 /**
  * Get approval with details (includes user information)
  */
-export function getApprovalWithDetails(id: number): any {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getApprovalWithDetails(id: number): Promise<any> {
+  return await executeQueryOne(`
     SELECT
       a.*,
       u_req.name as requested_by_name,
@@ -67,16 +64,14 @@ export function getApprovalWithDetails(id: number): any {
     LEFT JOIN users u_ass ON a.assigned_to = u_ass.id
     LEFT JOIN users u_app ON a.approved_by = u_app.id
     WHERE a.id = ?
-  `).get(id);
+  `, [id]);
 }
 
 /**
  * Get all pending approvals for a user
  */
-export function getPendingApprovalsForUser(userId: number): Approval[] {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getPendingApprovalsForUser(userId: number): Promise<Approval[]> {
+  return await executeQuery<Approval>(`
     SELECT * FROM approvals
     WHERE assigned_to = ?
       AND status = 'pending'
@@ -88,15 +83,13 @@ export function getPendingApprovalsForUser(userId: number): Approval[] {
         WHEN 'low' THEN 4
       END,
       created_at ASC
-  `).all(userId) as Approval[];
+  `, [userId]);
 }
 
 /**
  * Get pending approvals with details
  */
-export function getPendingApprovalsWithDetails(userId?: number): any[] {
-  const db = getDb();
-
+export async function getPendingApprovalsWithDetails(userId?: number): Promise<any[]> {
   let query = `
     SELECT
       a.*,
@@ -110,8 +103,11 @@ export function getPendingApprovalsWithDetails(userId?: number): any[] {
     WHERE a.status = 'pending'
   `;
 
+  const params: any[] = [];
+
   if (userId) {
     query += ` AND a.assigned_to = ?`;
+    params.push(userId);
   }
 
   query += `
@@ -125,37 +121,31 @@ export function getPendingApprovalsWithDetails(userId?: number): any[] {
       a.created_at ASC
   `;
 
-  return userId
-    ? db.prepare(query).all(userId)
-    : db.prepare(query).all();
+  return await executeQuery(query, params);
 }
 
 /**
  * Get approvals by entity
  */
-export function getApprovalsByEntity(entityType: string, entityId: number): Approval[] {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getApprovalsByEntity(entityType: string, entityId: number): Promise<Approval[]> {
+  return await executeQuery<Approval>(`
     SELECT * FROM approvals
     WHERE entity_type = ? AND entity_id = ?
     ORDER BY created_at DESC
-  `).all(entityType, entityId) as Approval[];
+  `, [entityType, entityId]);
 }
 
 /**
  * Update approval status
  */
-export function updateApprovalStatus(
+export async function updateApprovalStatus(
   id: number,
   status: 'approved' | 'rejected' | 'cancelled' | 'timeout',
   approvedBy: number,
   comments?: string,
   rejectionReason?: string
-): void {
-  const db = getDb();
-
-  db.prepare(`
+): Promise<void> {
+  await executeRun(`
     UPDATE approvals
     SET status = ?,
         approved_by = ?,
@@ -163,10 +153,10 @@ export function updateApprovalStatus(
         rejection_reason = ?,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(status, approvedBy, rejectionReason || null, id);
+  `, [status, approvedBy, rejectionReason || null, id]);
 
   // Record in history
-  createApprovalHistory({
+  await createApprovalHistory({
     approval_id: id,
     action: status,
     performed_by: approvedBy,
@@ -178,9 +168,7 @@ export function updateApprovalStatus(
 /**
  * Update approval - general update
  */
-export function updateApproval(approval: Partial<Approval> & { id: number }): void {
-  const db = getDb();
-
+export async function updateApproval(approval: Partial<Approval> & { id: number }): Promise<void> {
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -209,34 +197,32 @@ export function updateApproval(approval: Partial<Approval> & { id: number }): vo
   values.push(approval.id);
 
   if (fields.length > 1) {
-    db.prepare(`
+    await executeRun(`
       UPDATE approvals
       SET ${fields.join(', ')}
       WHERE id = ?
-    `).run(...values);
+    `, values);
   }
 }
 
 /**
  * Delegate approval to another user
  */
-export function delegateApproval(
+export async function delegateApproval(
   id: number,
   fromUserId: number,
   toUserId: number,
   reason?: string
-): void {
-  const db = getDb();
-
-  db.prepare(`
+): Promise<void> {
+  await executeRun(`
     UPDATE approvals
     SET assigned_to = ?,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ? AND assigned_to = ?
-  `).run(toUserId, id, fromUserId);
+  `, [toUserId, id, fromUserId]);
 
   // Record delegation in history
-  createApprovalHistory({
+  await createApprovalHistory({
     approval_id: id,
     action: 'delegated',
     performed_by: fromUserId,
@@ -251,15 +237,13 @@ export function delegateApproval(
 /**
  * Create approval history entry
  */
-export function createApprovalHistory(history: CreateApprovalHistory): void {
-  const db = getDb();
-
-  db.prepare(`
+export async function createApprovalHistory(history: CreateApprovalHistory): Promise<void> {
+  await executeRun(`
     INSERT INTO approval_history (
       approval_id, action, performed_by, previous_status,
       new_status, comment, metadata
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     history.approval_id,
     history.action,
     history.performed_by || null,
@@ -267,16 +251,14 @@ export function createApprovalHistory(history: CreateApprovalHistory): void {
     history.new_status || null,
     history.comment || null,
     history.metadata || null
-  );
+  ]);
 }
 
 /**
  * Get approval history
  */
-export function getApprovalHistory(approvalId: number): ApprovalHistory[] {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getApprovalHistory(approvalId: number): Promise<ApprovalHistory[]> {
+  return await executeQuery<ApprovalHistory>(`
     SELECT
       ah.*,
       u.name as performed_by_name,
@@ -285,19 +267,17 @@ export function getApprovalHistory(approvalId: number): ApprovalHistory[] {
     LEFT JOIN users u ON ah.performed_by = u.id
     WHERE ah.approval_id = ?
     ORDER BY ah.created_at DESC
-  `).all(approvalId) as ApprovalHistory[];
+  `, [approvalId]);
 }
 
 /**
  * Create approval token for link-based approval
  */
-export function createApprovalToken(approvalId: number, token: string, expiresAt: Date): number {
-  const db = getDb();
-
-  const result = db.prepare(`
+export async function createApprovalToken(approvalId: number, token: string, expiresAt: Date): Promise<number> {
+  const result = await executeRun(`
     INSERT INTO approval_tokens (approval_id, token, expires_at)
     VALUES (?, ?, ?)
-  `).run(approvalId, token, expiresAt.toISOString());
+  `, [approvalId, token, expiresAt.toISOString()]);
 
   return result.lastInsertRowid as number;
 }
@@ -305,10 +285,8 @@ export function createApprovalToken(approvalId: number, token: string, expiresAt
 /**
  * Get approval by token
  */
-export function getApprovalByToken(token: string): any | null {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getApprovalByToken(token: string): Promise<any | null> {
+  const result = await executeQueryOne(`
     SELECT
       a.*,
       at.token,
@@ -321,74 +299,73 @@ export function getApprovalByToken(token: string): any | null {
     LEFT JOIN users u_req ON a.requested_by = u_req.id
     WHERE at.token = ?
       AND at.used_at IS NULL
-      AND at.expires_at > datetime('now')
-  `).get(token);
+      AND at.expires_at > ${sqlNow()}
+  `, [token]);
+
+  return result || null;
 }
 
 /**
  * Mark token as used
  */
-export function markTokenAsUsed(token: string, ipAddress?: string, userAgent?: string): void {
-  const db = getDb();
-
-  db.prepare(`
+export async function markTokenAsUsed(token: string, ipAddress?: string, userAgent?: string): Promise<void> {
+  await executeRun(`
     UPDATE approval_tokens
     SET used_at = CURRENT_TIMESTAMP,
         ip_address = ?,
         user_agent = ?
     WHERE token = ?
-  `).run(ipAddress || null, userAgent || null, token);
+  `, [ipAddress || null, userAgent || null, token]);
 }
 
 /**
  * Get expired approvals that haven't been auto-approved
  */
-export function getExpiredApprovalsForAutoApprove(): Approval[] {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getExpiredApprovalsForAutoApprove(): Promise<Approval[]> {
+  return await executeQuery<Approval>(`
     SELECT * FROM approvals
     WHERE status = 'pending'
       AND auto_approve_after IS NOT NULL
-      AND auto_approve_after < datetime('now')
-  `).all() as Approval[];
+      AND auto_approve_after < ${sqlNow()}
+  `);
 }
 
 /**
  * Get approvals approaching timeout
  */
-export function getApprovalsApproachingTimeout(hoursBeforeTimeout: number = 2): Approval[] {
-  const db = getDb();
+export async function getApprovalsApproachingTimeout(hoursBeforeTimeout: number = 2): Promise<Approval[]> {
+  const dbType = getDatabaseType();
+  const addHoursExpr = dbType === 'postgresql'
+    ? `due_date < NOW() + INTERVAL '${hoursBeforeTimeout} hours'`
+    : `due_date < datetime('now', '+${hoursBeforeTimeout} hours')`;
 
-  return db.prepare(`
+  return await executeQuery<Approval>(`
     SELECT * FROM approvals
     WHERE status = 'pending'
       AND due_date IS NOT NULL
-      AND due_date > datetime('now')
-      AND due_date < datetime('now', '+${hoursBeforeTimeout} hours')
+      AND due_date > ${sqlNow()}
+      AND ${addHoursExpr}
       AND escalation_level = 0
-  `).all() as Approval[];
+  `);
 }
 
 /**
  * Escalate approval
  */
-export function escalateApproval(id: number, newAssignedTo: number, reason: string): void {
-  const db = getDb();
-
-  const approval = getApprovalById(id);
+export async function escalateApproval(id: number, newAssignedTo: number, reason: string): Promise<void> {
+  const approval = await getApprovalById(id);
   if (!approval) return;
 
-  db.prepare(`
+  await executeRun(`
     UPDATE approvals
     SET assigned_to = ?,
         escalation_level = escalation_level + 1,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(newAssignedTo, id);
+  `, [newAssignedTo, id]);
 
   // Record escalation
-  createApprovalHistory({
+  await createApprovalHistory({
     approval_id: id,
     action: 'escalated',
     performed_by: undefined,
@@ -404,10 +381,8 @@ export function escalateApproval(id: number, newAssignedTo: number, reason: stri
 /**
  * Get approval statistics for a user
  */
-export function getApprovalStatsForUser(userId: number, days: number = 30): any {
-  const db = getDb();
-
-  return db.prepare(`
+export async function getApprovalStatsForUser(userId: number, days: number = 30): Promise<any> {
+  return await executeQueryOne(`
     SELECT
       COUNT(*) as total_approvals,
       COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
@@ -416,19 +391,19 @@ export function getApprovalStatsForUser(userId: number, days: number = 30): any 
       COUNT(CASE WHEN status = 'timeout' THEN 1 END) as timeout,
       AVG(
         CASE WHEN approved_at IS NOT NULL
-        THEN (julianday(approved_at) - julianday(created_at)) * 24 * 60
+        THEN ${sqlDateDiff('approved_at', 'created_at')} * 24 * 60
         END
       ) as avg_approval_time_minutes
     FROM approvals
     WHERE assigned_to = ?
-      AND created_at >= datetime('now', '-${days} days')
-  `).get(userId);
+      AND created_at >= ${sqlDateSub(days)}
+  `, [userId]);
 }
 
 /**
  * Get all approvals with pagination
  */
-export function getApprovalsWithPagination(
+export async function getApprovalsWithPagination(
   page: number = 1,
   limit: number = 20,
   filters?: {
@@ -438,8 +413,7 @@ export function getApprovalsWithPagination(
     requestedBy?: number;
     entityType?: string;
   }
-): { approvals: any[]; total: number; page: number; totalPages: number } {
-  const db = getDb();
+): Promise<{ approvals: any[]; total: number; page: number; totalPages: number }> {
   const offset = (page - 1) * limit;
 
   let whereConditions: string[] = [];
@@ -471,12 +445,12 @@ export function getApprovalsWithPagination(
     : '';
 
   // Get total count
-  const total = db.prepare(`
+  const total = await executeQueryOne<{ count: number }>(`
     SELECT COUNT(*) as count FROM approvals a ${whereClause}
-  `).get(...params) as { count: number };
+  `, params);
 
   // Get approvals with details
-  const approvals = db.prepare(`
+  const approvals = await executeQuery(`
     SELECT
       a.*,
       u_req.name as requested_by_name,
@@ -499,26 +473,26 @@ export function getApprovalsWithPagination(
       END,
       a.created_at DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
+
+  const totalCount = total?.count ?? 0;
 
   return {
     approvals,
-    total: total.count,
+    total: totalCount,
     page,
-    totalPages: Math.ceil(total.count / limit)
+    totalPages: Math.ceil(totalCount / limit)
   };
 }
 
 /**
  * Clean up expired tokens
  */
-export function cleanupExpiredTokens(): number {
-  const db = getDb();
-
-  const result = db.prepare(`
+export async function cleanupExpiredTokens(): Promise<number> {
+  const result = await executeRun(`
     DELETE FROM approval_tokens
-    WHERE expires_at < datetime('now')
-  `).run();
+    WHERE expires_at < ${sqlNow()}
+  `);
 
   return result.changes;
 }

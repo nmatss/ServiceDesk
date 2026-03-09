@@ -9,6 +9,7 @@
  */
 
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 
 // ============================================================================
 // Types & Interfaces
@@ -184,6 +185,11 @@ export class SLAViolationPredictor {
    * Get active tickets from database
    */
   private async getActiveTickets(ticketIds?: number[]): Promise<TicketRecord[]> {
+    const isPg = getDatabaseType() === 'postgresql';
+    const ageHoursExpr = isPg
+      ? 'CAST(EXTRACT(EPOCH FROM (NOW() - t.created_at)) / 3600 AS INTEGER)'
+      : "CAST((julianday('now') - julianday(t.created_at)) * 24 AS INTEGER)";
+
     let query = `
       SELECT
         t.*,
@@ -194,7 +200,7 @@ export class SLAViolationPredictor {
         sla.response_time_target,
         sla.resolution_time_target,
         st.is_violated,
-        CAST((julianday('now') - julianday(t.created_at)) * 24 AS INTEGER) as age_hours
+        ${ageHoursExpr} as age_hours
       FROM tickets t
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN priorities p ON t.priority_id = p.id
@@ -218,9 +224,14 @@ export class SLAViolationPredictor {
    */
   private async extractFeatures(ticket: TicketRecord): Promise<Record<string, number>> {
     // Calculate historical performance for this category/priority combination
+    const isPg = getDatabaseType() === 'postgresql';
+    const resolutionHoursExpr = isPg
+      ? 'CAST(EXTRACT(EPOCH FROM (updated_at::timestamp - created_at::timestamp)) / 3600 AS INTEGER)'
+      : 'CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)';
+
     const historicalPerformance = await executeQueryOne<HistoricalPerformance>(`
       SELECT
-        AVG(CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)) as avg_resolution_hours,
+        AVG(${resolutionHoursExpr}) as avg_resolution_hours,
         COUNT(*) as total_tickets,
         SUM(CASE WHEN st.is_violated = 1 THEN 1 ELSE 0 END) as violated_count
       FROM tickets t
@@ -452,18 +463,22 @@ export class DemandForecaster {
    * Get historical ticket data
    */
   private async getHistoricalData(): Promise<HistoricalDataRecord[]> {
+    const isPg = getDatabaseType() === 'postgresql';
+    const dateExpr = isPg ? 'DATE(created_at)' : 'date(created_at)';
+    const date90DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '90 days'" : "date('now', '-90 days')";
+
     const data = await executeQuery<HistoricalDataRecord>(`
       SELECT
-        date(created_at) as date,
+        ${dateExpr} as date,
         COUNT(*) as count,
         p.name as priority,
         c.name as category
       FROM tickets t
       LEFT JOIN priorities p ON t.priority_id = p.id
       LEFT JOIN categories c ON t.category_id = c.id
-      WHERE created_at >= date('now', '-90 days')
-      GROUP BY date(created_at), p.name, c.name
-      ORDER BY date(created_at)
+      WHERE created_at >= ${date90DaysAgo}
+      GROUP BY ${dateExpr}, p.name, c.name
+      ORDER BY ${dateExpr}
     `);
 
     return data;
@@ -605,13 +620,17 @@ export class AnomalyDetector {
    * Detect volume anomalies
    */
   private async detectVolumeAnomalies(): Promise<AnomalyDetection[]> {
+    const isPg = getDatabaseType() === 'postgresql';
+    const dateExpr = isPg ? 'DATE(created_at)' : 'date(created_at)';
+    const date30DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '30 days'" : "date('now', '-30 days')";
+
     const data = await executeQuery<VolumeDataRecord>(`
       SELECT
-        date(created_at) as date,
+        ${dateExpr} as date,
         COUNT(*) as count
       FROM tickets
-      WHERE created_at >= date('now', '-30 days')
-      GROUP BY date(created_at)
+      WHERE created_at >= ${date30DaysAgo}
+      GROUP BY ${dateExpr}
       ORDER BY date
     `);
 
@@ -649,21 +668,29 @@ export class AnomalyDetector {
    * Detect resolution time anomalies
    */
   private async detectResolutionTimeAnomalies(): Promise<AnomalyDetection[]> {
+    const isPg = getDatabaseType() === 'postgresql';
+    const resolutionHoursExpr = isPg
+      ? 'CAST(EXTRACT(EPOCH FROM (updated_at::timestamp - created_at::timestamp)) / 3600 AS INTEGER)'
+      : 'CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)';
+    const date7DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '7 days'" : "date('now', '-7 days')";
+    const date30DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '30 days'" : "date('now', '-30 days')";
+    const dateUpdated = isPg ? 'DATE(updated_at)' : 'date(updated_at)';
+
     const data = await executeQueryOne<ResolutionTimeData>(`
       SELECT
-        AVG(CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)) as avg_hours
+        AVG(${resolutionHoursExpr}) as avg_hours
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-        AND date(updated_at) >= date('now', '-7 days')
+        AND ${dateUpdated} >= ${date7DaysAgo}
     `);
 
     const historical = await executeQueryOne<ResolutionTimeData>(`
       SELECT
-        AVG(CAST((julianday(updated_at) - julianday(created_at)) * 24 AS INTEGER)) as avg_hours
+        AVG(${resolutionHoursExpr}) as avg_hours
       FROM tickets
       WHERE status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-        AND date(updated_at) >= date('now', '-30 days')
-        AND date(updated_at) < date('now', '-7 days')
+        AND ${dateUpdated} >= ${date30DaysAgo}
+        AND ${dateUpdated} < ${date7DaysAgo}
     `);
 
     const anomalies: AnomalyDetection[] = [];
@@ -697,12 +724,16 @@ export class AnomalyDetector {
    * Detect SLA anomalies
    */
   private async detectSLAAnomalies(): Promise<AnomalyDetection[]> {
+    const isPg = getDatabaseType() === 'postgresql';
+    const date7DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '7 days'" : "date('now', '-7 days')";
+    const date30DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '30 days'" : "date('now', '-30 days')";
+
     const data = await executeQueryOne<SLATrackingData>(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN is_violated = 1 THEN 1 ELSE 0 END) as violated
       FROM sla_tracking
-      WHERE created_at >= date('now', '-7 days')
+      WHERE created_at >= ${date7DaysAgo}
     `);
 
     const historical = await executeQueryOne<SLATrackingData>(`
@@ -710,8 +741,8 @@ export class AnomalyDetector {
         COUNT(*) as total,
         SUM(CASE WHEN is_violated = 1 THEN 1 ELSE 0 END) as violated
       FROM sla_tracking
-      WHERE created_at >= date('now', '-30 days')
-        AND created_at < date('now', '-7 days')
+      WHERE created_at >= ${date30DaysAgo}
+        AND created_at < ${date7DaysAgo}
     `);
 
     const anomalies: AnomalyDetection[] = [];
@@ -828,18 +859,24 @@ export class ResourceOptimizer {
   private async identifyTrainingNeeds(): Promise<ResourceOptimization[]> {
     const recommendations: ResourceOptimization[] = [];
 
+    const isPg = getDatabaseType() === 'postgresql';
+    const resolutionHoursExpr = isPg
+      ? 'CAST(EXTRACT(EPOCH FROM (t.updated_at::timestamp - t.created_at::timestamp)) / 3600 AS INTEGER)'
+      : 'CAST((julianday(t.updated_at) - julianday(t.created_at)) * 24 AS INTEGER)';
+    const date30DaysAgo = isPg ? "CURRENT_DATE - INTERVAL '30 days'" : "date('now', '-30 days')";
+
     const agentPerformance = await executeQuery<AgentPerformanceRecord>(`
       SELECT
         u.id,
         u.name,
         COUNT(t.id) as resolved_tickets,
-        AVG(CAST((julianday(t.updated_at) - julianday(t.created_at)) * 24 AS INTEGER)) as avg_resolution_time,
+        AVG(${resolutionHoursExpr}) as avg_resolution_time,
         SUM(CASE WHEN st.is_violated = 1 THEN 1 ELSE 0 END) as sla_violations
       FROM users u
       LEFT JOIN tickets t ON t.assigned_to = u.id AND t.status_id = (SELECT id FROM statuses WHERE name = 'resolved')
       LEFT JOIN sla_tracking st ON st.ticket_id = t.id
       WHERE u.role IN ('admin', 'agent')
-        AND t.created_at >= date('now', '-30 days')
+        AND t.created_at >= ${date30DaysAgo}
       GROUP BY u.id, u.name
       HAVING COUNT(t.id) > 5
     `);

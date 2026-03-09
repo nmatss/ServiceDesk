@@ -1,14 +1,17 @@
 /**
  * Database Query Layer
  *
- * Type-safe query functions for all database entities using SQLite.
+ * Type-safe query functions for all database entities.
  * Provides CRUD operations with organization-level isolation and optimized queries.
+ * Uses the async adapter pattern for SQLite/PostgreSQL compatibility.
  *
  * @module lib/db/queries
  */
 
-import db from './connection';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlCurrentDate } from './adapter';
+import { getDatabaseType } from './config';
 import { getFromCache, setCache } from '../cache/lru-cache';
+import logger from '@/lib/monitoring/structured-logger';
 import type {
   User, CreateUser, UpdateUser,
   Category, CreateCategory, UpdateCategory,
@@ -27,6 +30,80 @@ const CACHE_TTL = {
   CATEGORY_ANALYTICS: 600, // 10 minutes
   VOLUME_TRENDS: 600,      // 10 minutes
 };
+
+/**
+ * SQL dialect helpers for dynamic date subtraction with parameter-based days.
+ * SQLite: datetime('now', '-' || ? || ' days')
+ * PostgreSQL: NOW() - (? || ' days')::interval
+ */
+function sqlDynamicDateSub(): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() - (? || ' days')::interval`
+    : `datetime('now', '-' || ? || ' days')`;
+}
+
+/**
+ * SQL dialect helper for json_group_array/json_object (SQLite) vs json_agg/json_build_object (PostgreSQL)
+ */
+function sqlJsonGroupArray(expr: string): string {
+  return getDatabaseType() === 'postgresql'
+    ? `json_agg(${expr})`
+    : `json_group_array(${expr})`;
+}
+
+function sqlJsonObject(pairs: string): string {
+  return getDatabaseType() === 'postgresql'
+    ? `json_build_object(${pairs})`
+    : `json_object(${pairs})`;
+}
+
+/**
+ * SQL dialect helper for julianday-based minute calculations.
+ * SQLite: ROUND((julianday(col) - julianday('now')) * 24 * 60)
+ * PostgreSQL: ROUND(EXTRACT(EPOCH FROM (col::timestamp - NOW())) / 60.0)
+ */
+function sqlMinutesUntil(col: string): string {
+  return getDatabaseType() === 'postgresql'
+    ? `ROUND(EXTRACT(EPOCH FROM (${col}::timestamp - NOW())) / 60.0)`
+    : `ROUND((julianday(${col}) - julianday('now')) * 24 * 60)`;
+}
+
+/**
+ * SQL dialect helper for datetime with hour offsets.
+ * SQLite: datetime('now', '+N hours')
+ * PostgreSQL: NOW() + INTERVAL 'N hours'
+ */
+function sqlDateAddHours(hours: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() + INTERVAL '${hours} hours'`
+    : `datetime('now', '+${hours} hours')`;
+}
+
+/**
+ * SQL dialect helper for date() function used in GROUP BY/SELECT.
+ * SQLite: date(expr)
+ * PostgreSQL: (expr)::date
+ */
+function sqlDate(expr: string): string {
+  return getDatabaseType() === 'postgresql'
+    ? `(${expr})::date`
+    : `date(${expr})`;
+}
+
+/**
+ * SQL dialect helper for datetime comparison.
+ * SQLite: datetime('now')
+ * PostgreSQL: NOW()
+ */
+function sqlDatetimeNow(): string {
+  return getDatabaseType() === 'postgresql' ? 'NOW()' : "datetime('now')";
+}
+
+function sqlDatetimeSub(days: number): string {
+  return getDatabaseType() === 'postgresql'
+    ? `NOW() - INTERVAL '${days} days'`
+    : `datetime('now', '-${days} days')`;
+}
 
 /**
  * Flattened TicketWithDetails type for database query results
@@ -227,136 +304,34 @@ export interface KnowledgeBaseAnalytics {
  * SECURITY: All queries now require organizationId for multi-tenant isolation.
  */
 export const userQueries = {
-  /**
-   * Retrieve all users for an organization ordered by name
-   *
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns Array of all users in the organization
-   *
-   * @example
-   * ```typescript
-   * const users = userQueries.getAll(1);
-   * console.log(`Total users: ${users.length}`);
-   * ```
-   */
-  getAll: (organizationId: number): User[] => {
-    return db.prepare('SELECT * FROM users WHERE organization_id = ? ORDER BY name').all(organizationId) as User[];
+  getAll: async (organizationId: number): Promise<User[]> => {
+    return await executeQuery<User>('SELECT * FROM users WHERE organization_id = ? ORDER BY name', [organizationId]);
   },
 
-  /**
-   * Retrieve a single user by ID with organization isolation
-   *
-   * @param id - Unique user identifier
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns User object if found, undefined otherwise
-   *
-   * @example
-   * ```typescript
-   * const user = userQueries.getById(1, 1);
-   * if (user) {
-   *   console.log(`Found user: ${user.name}`);
-   * }
-   * ```
-   */
-  getById: (id: number, organizationId: number): User | undefined => {
-    return db.prepare('SELECT * FROM users WHERE id = ? AND organization_id = ?').get(id, organizationId) as User | undefined;
+  getById: async (id: number, organizationId: number): Promise<User | undefined> => {
+    return await executeQueryOne<User>('SELECT * FROM users WHERE id = ? AND organization_id = ?', [id, organizationId]);
   },
 
-  /**
-   * Retrieve a user by email address within an organization
-   *
-   * Used for authentication and duplicate email validation.
-   * Email comparison is case-sensitive in SQLite.
-   *
-   * @param email - User email address
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns User object if found, undefined otherwise
-   *
-   * @example
-   * ```typescript
-   * const user = userQueries.getByEmail('admin@example.com', 1);
-   * if (user) {
-   *   console.log(`User role: ${user.role}`);
-   * }
-   * ```
-   */
-  getByEmail: (email: string, organizationId: number): User | undefined => {
-    return db.prepare('SELECT * FROM users WHERE email = ? AND organization_id = ?').get(email, organizationId) as User | undefined;
+  getByEmail: async (email: string, organizationId: number): Promise<User | undefined> => {
+    return await executeQueryOne<User>('SELECT * FROM users WHERE email = ? AND organization_id = ?', [email, organizationId]);
   },
 
-  /**
-   * Retrieve all users with a specific role within an organization
-   *
-   * Useful for administrative operations like agent assignment and user management.
-   *
-   * @param role - User role to filter by
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns Array of users with the specified role, ordered by name
-   *
-   * @example
-   * ```typescript
-   * const agents = userQueries.getByRole('agent', 1);
-   * console.log(`Available agents: ${agents.length}`);
-   * ```
-   */
-  getByRole: (role: 'admin' | 'agent' | 'user', organizationId: number): User[] => {
-    return db.prepare('SELECT * FROM users WHERE role = ? AND organization_id = ? ORDER BY name').all(role, organizationId) as User[];
+  getByRole: async (role: 'admin' | 'agent' | 'user', organizationId: number): Promise<User[]> => {
+    return await executeQuery<User>('SELECT * FROM users WHERE role = ? AND organization_id = ? ORDER BY name', [role, organizationId]);
   },
 
-  /**
-   * Create a new user within an organization
-   *
-   * Inserts a new user record and returns the created user with auto-generated ID.
-   * Timestamps are automatically set by database triggers.
-   *
-   * @param user - User creation data (without ID and timestamps)
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns Newly created user object
-   * @throws {Error} If email already exists (database constraint violation)
-   *
-   * @example
-   * ```typescript
-   * const newUser = userQueries.create({
-   *   name: 'John Doe',
-   *   email: 'john@example.com',
-   *   role: 'user'
-   * }, 1);
-   * console.log(`Created user with ID: ${newUser.id}`);
-   * ```
-   */
-  create: (user: CreateUser, organizationId: number): User => {
-    const stmt = db.prepare(`
-      INSERT INTO users (name, email, role, organization_id)
-      VALUES (?, ?, ?, ?)
-    `);
-    const result = stmt.run(user.name, user.email, user.role, organizationId);
-    return userQueries.getById(result.lastInsertRowid as number, organizationId)!;
+  create: async (user: CreateUser, organizationId: number): Promise<User> => {
+    const result = await executeRun(
+      `INSERT INTO users (name, email, role, organization_id) VALUES (?, ?, ?, ?)`,
+      [user.name, user.email, user.role, organizationId]
+    );
+    const created = await executeQueryOne<User>('SELECT * FROM users WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  /**
-   * Update an existing user within an organization
-   *
-   * Performs a partial update - only provided fields are updated.
-   * If no fields are provided, returns the user unchanged.
-   * Updated timestamp is automatically set by database triggers.
-   *
-   * @param user - User update data with ID and optional fields
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns Updated user object, or undefined if user not found
-   *
-   * @example
-   * ```typescript
-   * const updated = userQueries.update({
-   *   id: 1,
-   *   name: 'Jane Doe',
-   *   role: 'admin'
-   * }, 1);
-   * console.log(`Updated user: ${updated?.name}`);
-   * ```
-   */
-  update: (user: UpdateUser, organizationId: number): User | undefined => {
-    const fields = [];
-    const values = [];
+  update: async (user: UpdateUser, organizationId: number): Promise<User | undefined> => {
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (user.name !== undefined) {
       fields.push('name = ?');
@@ -371,36 +346,15 @@ export const userQueries = {
       values.push(user.role);
     }
 
-    if (fields.length === 0) return userQueries.getById(user.id, organizationId);
+    if (fields.length === 0) return await userQueries.getById(user.id, organizationId);
 
     values.push(user.id, organizationId);
-    const stmt = db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`);
-    stmt.run(...values);
-    return userQueries.getById(user.id, organizationId);
+    await executeRun(`UPDATE users SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`, values);
+    return await userQueries.getById(user.id, organizationId);
   },
 
-  /**
-   * Delete a user by ID within an organization
-   *
-   * Permanently removes a user from the database.
-   * WARNING: This operation cannot be undone. Consider soft-delete patterns
-   * for production use (e.g., is_active flag).
-   *
-   * @param id - User ID to delete
-   * @param organizationId - Organization ID for tenant isolation
-   * @returns True if user was deleted, false if user was not found
-   *
-   * @example
-   * ```typescript
-   * const deleted = userQueries.delete(5, 1);
-   * if (deleted) {
-   *   console.log('User deleted successfully');
-   * }
-   * ```
-   */
-  delete: (id: number, organizationId: number): boolean => {
-    const stmt = db.prepare('DELETE FROM users WHERE id = ? AND organization_id = ?');
-    const result = stmt.run(id, organizationId);
+  delete: async (id: number, organizationId: number): Promise<boolean> => {
+    const result = await executeRun('DELETE FROM users WHERE id = ? AND organization_id = ?', [id, organizationId]);
     return result.changes > 0;
   },
 };
@@ -408,26 +362,26 @@ export const userQueries = {
 // ===== CATEGORIES =====
 // NOTE: Categories are global (shared across organizations) - no organization_id filter needed
 export const categoryQueries = {
-  getAll: (): Category[] => {
-    return db.prepare('SELECT * FROM categories ORDER BY name').all() as Category[];
+  getAll: async (): Promise<Category[]> => {
+    return await executeQuery<Category>('SELECT id, organization_id, tenant_id, name, description, color, created_at, updated_at FROM categories ORDER BY name');
   },
 
-  getById: (id: number): Category | undefined => {
-    return db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as Category | undefined;
+  getById: async (id: number): Promise<Category | undefined> => {
+    return await executeQueryOne<Category>('SELECT id, organization_id, tenant_id, name, description, color, created_at, updated_at FROM categories WHERE id = ?', [id]);
   },
 
-  create: (category: CreateCategory): Category => {
-    const stmt = db.prepare(`
-      INSERT INTO categories (name, description, color)
-      VALUES (?, ?, ?)
-    `);
-    const result = stmt.run(category.name, category.description, category.color);
-    return categoryQueries.getById(result.lastInsertRowid as number)!;
+  create: async (category: CreateCategory): Promise<Category> => {
+    const result = await executeRun(
+      `INSERT INTO categories (name, description, color) VALUES (?, ?, ?)`,
+      [category.name, category.description, category.color]
+    );
+    const created = await executeQueryOne<Category>('SELECT id, organization_id, tenant_id, name, description, color, created_at, updated_at FROM categories WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  update: (category: UpdateCategory): Category | undefined => {
-    const fields = [];
-    const values = [];
+  update: async (category: UpdateCategory): Promise<Category | undefined> => {
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (category.name !== undefined) {
       fields.push('name = ?');
@@ -442,17 +396,15 @@ export const categoryQueries = {
       values.push(category.color);
     }
 
-    if (fields.length === 0) return categoryQueries.getById(category.id);
+    if (fields.length === 0) return await categoryQueries.getById(category.id);
 
     values.push(category.id);
-    const stmt = db.prepare(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?`);
-    stmt.run(...values);
-    return categoryQueries.getById(category.id);
+    await executeRun(`UPDATE categories SET ${fields.join(', ')} WHERE id = ?`, values);
+    return await categoryQueries.getById(category.id);
   },
 
-  delete: (id: number): boolean => {
-    const stmt = db.prepare('DELETE FROM categories WHERE id = ?');
-    const result = stmt.run(id);
+  delete: async (id: number): Promise<boolean> => {
+    const result = await executeRun('DELETE FROM categories WHERE id = ?', [id]);
     return result.changes > 0;
   },
 };
@@ -460,26 +412,26 @@ export const categoryQueries = {
 // ===== PRIORITIES =====
 // NOTE: Priorities are global (shared across organizations) - no organization_id filter needed
 export const priorityQueries = {
-  getAll: (): Priority[] => {
-    return db.prepare('SELECT * FROM priorities ORDER BY level').all() as Priority[];
+  getAll: async (): Promise<Priority[]> => {
+    return await executeQuery<Priority>('SELECT id, organization_id, tenant_id, name, level, color, created_at, updated_at FROM priorities ORDER BY level');
   },
 
-  getById: (id: number): Priority | undefined => {
-    return db.prepare('SELECT * FROM priorities WHERE id = ?').get(id) as Priority | undefined;
+  getById: async (id: number): Promise<Priority | undefined> => {
+    return await executeQueryOne<Priority>('SELECT id, organization_id, tenant_id, name, level, color, created_at, updated_at FROM priorities WHERE id = ?', [id]);
   },
 
-  create: (priority: CreatePriority): Priority => {
-    const stmt = db.prepare(`
-      INSERT INTO priorities (name, level, color)
-      VALUES (?, ?, ?)
-    `);
-    const result = stmt.run(priority.name, priority.level, priority.color);
-    return priorityQueries.getById(result.lastInsertRowid as number)!;
+  create: async (priority: CreatePriority): Promise<Priority> => {
+    const result = await executeRun(
+      `INSERT INTO priorities (name, level, color) VALUES (?, ?, ?)`,
+      [priority.name, priority.level, priority.color]
+    );
+    const created = await executeQueryOne<Priority>('SELECT id, organization_id, tenant_id, name, level, color, created_at, updated_at FROM priorities WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  update: (priority: UpdatePriority): Priority | undefined => {
-    const fields = [];
-    const values = [];
+  update: async (priority: UpdatePriority): Promise<Priority | undefined> => {
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (priority.name !== undefined) {
       fields.push('name = ?');
@@ -494,17 +446,15 @@ export const priorityQueries = {
       values.push(priority.color);
     }
 
-    if (fields.length === 0) return priorityQueries.getById(priority.id);
+    if (fields.length === 0) return await priorityQueries.getById(priority.id);
 
     values.push(priority.id);
-    const stmt = db.prepare(`UPDATE priorities SET ${fields.join(', ')} WHERE id = ?`);
-    stmt.run(...values);
-    return priorityQueries.getById(priority.id);
+    await executeRun(`UPDATE priorities SET ${fields.join(', ')} WHERE id = ?`, values);
+    return await priorityQueries.getById(priority.id);
   },
 
-  delete: (id: number): boolean => {
-    const stmt = db.prepare('DELETE FROM priorities WHERE id = ?');
-    const result = stmt.run(id);
+  delete: async (id: number): Promise<boolean> => {
+    const result = await executeRun('DELETE FROM priorities WHERE id = ?', [id]);
     return result.changes > 0;
   },
 };
@@ -512,34 +462,34 @@ export const priorityQueries = {
 // ===== STATUSES =====
 // NOTE: Statuses are global (shared across organizations) - no organization_id filter needed
 export const statusQueries = {
-  getAll: (): Status[] => {
-    return db.prepare('SELECT * FROM statuses ORDER BY is_final, name').all() as Status[];
+  getAll: async (): Promise<Status[]> => {
+    return await executeQuery<Status>('SELECT id, organization_id, tenant_id, name, description, color, is_final, created_at, updated_at FROM statuses ORDER BY is_final, name');
   },
 
-  getById: (id: number): Status | undefined => {
-    return db.prepare('SELECT * FROM statuses WHERE id = ?').get(id) as Status | undefined;
+  getById: async (id: number): Promise<Status | undefined> => {
+    return await executeQueryOne<Status>('SELECT id, organization_id, tenant_id, name, description, color, is_final, created_at, updated_at FROM statuses WHERE id = ?', [id]);
   },
 
-  getNonFinal: (): Status[] => {
-    return db.prepare('SELECT * FROM statuses WHERE is_final = 0 ORDER BY name').all() as Status[];
+  getNonFinal: async (): Promise<Status[]> => {
+    return await executeQuery<Status>('SELECT id, organization_id, tenant_id, name, description, color, is_final, created_at, updated_at FROM statuses WHERE is_final = 0 ORDER BY name');
   },
 
-  getFinal: (): Status[] => {
-    return db.prepare('SELECT * FROM statuses WHERE is_final = 1 ORDER BY name').all() as Status[];
+  getFinal: async (): Promise<Status[]> => {
+    return await executeQuery<Status>('SELECT id, organization_id, tenant_id, name, description, color, is_final, created_at, updated_at FROM statuses WHERE is_final = 1 ORDER BY name');
   },
 
-  create: (status: CreateStatus): Status => {
-    const stmt = db.prepare(`
-      INSERT INTO statuses (name, description, color, is_final)
-      VALUES (?, ?, ?, ?)
-    `);
-    const result = stmt.run(status.name, status.description, status.color, status.is_final ? 1 : 0);
-    return statusQueries.getById(result.lastInsertRowid as number)!;
+  create: async (status: CreateStatus): Promise<Status> => {
+    const result = await executeRun(
+      `INSERT INTO statuses (name, description, color, is_final) VALUES (?, ?, ?, ?)`,
+      [status.name, status.description, status.color, status.is_final ? 1 : 0]
+    );
+    const created = await executeQueryOne<Status>('SELECT id, organization_id, tenant_id, name, description, color, is_final, created_at, updated_at FROM statuses WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  update: (status: UpdateStatus): Status | undefined => {
-    const fields = [];
-    const values = [];
+  update: async (status: UpdateStatus): Promise<Status | undefined> => {
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (status.name !== undefined) {
       fields.push('name = ?');
@@ -558,17 +508,15 @@ export const statusQueries = {
       values.push(status.is_final ? 1 : 0);
     }
 
-    if (fields.length === 0) return statusQueries.getById(status.id);
+    if (fields.length === 0) return await statusQueries.getById(status.id);
 
     values.push(status.id);
-    const stmt = db.prepare(`UPDATE statuses SET ${fields.join(', ')} WHERE id = ?`);
-    stmt.run(...values);
-    return statusQueries.getById(status.id);
+    await executeRun(`UPDATE statuses SET ${fields.join(', ')} WHERE id = ?`, values);
+    return await statusQueries.getById(status.id);
   },
 
-  delete: (id: number): boolean => {
-    const stmt = db.prepare('DELETE FROM statuses WHERE id = ?');
-    const result = stmt.run(id);
+  delete: async (id: number): Promise<boolean> => {
+    const result = await executeRun('DELETE FROM statuses WHERE id = ?', [id]);
     return result.changes > 0;
   },
 };
@@ -584,41 +532,8 @@ export const statusQueries = {
  * N+1 queries, reducing database round-trips from O(n) to O(1).
  */
 export const ticketQueries = {
-  /**
-   * Retrieve all tickets for an organization with complete details
-   *
-   * Returns tickets with joined data from related tables:
-   * - User information (ticket creator)
-   * - Assigned agent information
-   * - Category details
-   * - Priority details
-   * - Status details
-   * - Comment and attachment counts
-   *
-   * SECURITY: Organization isolation is enforced - only tickets belonging
-   * to the specified organization are returned.
-   *
-   * PERFORMANCE: Uses a single optimized query with LEFT JOINs instead of
-   * N+1 subqueries for each ticket.
-   *
-   * @param organizationId - Organization ID to filter tickets
-   * @returns Array of tickets with complete details, ordered by creation date (newest first)
-   *
-   * @example
-   * ```typescript
-   * const tickets = ticketQueries.getAll(1);
-   * tickets.forEach(ticket => {
-   *   console.log(`Ticket #${ticket.id}: ${ticket.title}`);
-   *   console.log(`Status: ${ticket.status_name}`);
-   *   console.log(`Comments: ${ticket.comments_count}`);
-   * });
-   * ```
-   */
-  getAll: (organizationId: number): TicketWithDetailsFlatRow[] => {
-    // OPTIMIZED: Single query with LEFT JOINs for counts instead of subqueries
-    // Previous: N+1 subqueries for each ticket (slow)
-    // Current: Single query with aggregation JOINs (fast)
-    const stmt = db.prepare(`
+  getAll: async (organizationId: number): Promise<TicketWithDetailsFlatRow[]> => {
+    return await executeQuery<TicketWithDetailsFlatRow>(`
       SELECT
         t.*,
         u.name as user_name, u.email as user_email, u.role as user_role,
@@ -646,13 +561,11 @@ export const ticketQueries = {
       ) at ON t.id = at.ticket_id
       WHERE t.organization_id = ?
       ORDER BY t.created_at DESC
-    `);
-    return stmt.all(organizationId) as TicketWithDetailsFlatRow[];
+    `, [organizationId]);
   },
 
-  getById: (id: number): TicketWithDetailsFlatRow | undefined => {
-    // OPTIMIZED: Single query with LEFT JOINs for counts instead of subqueries
-    const stmt = db.prepare(`
+  getById: async (id: number): Promise<TicketWithDetailsFlatRow | undefined> => {
+    return await executeQueryOne<TicketWithDetailsFlatRow>(`
       SELECT
         t.*,
         u.name as user_name, u.email as user_email, u.role as user_role,
@@ -681,13 +594,11 @@ export const ticketQueries = {
         GROUP BY ticket_id
       ) at ON t.id = at.ticket_id
       WHERE t.id = ?
-    `);
-    return stmt.get(id, id, id) as TicketWithDetailsFlatRow | undefined;
+    `, [id, id, id]);
   },
 
-  getByUserId: (userId: number, organizationId: number): TicketWithDetailsFlatRow[] => {
-    // OPTIMIZED: Single query with LEFT JOINs for counts instead of subqueries
-    const stmt = db.prepare(`
+  getByUserId: async (userId: number, organizationId: number): Promise<TicketWithDetailsFlatRow[]> => {
+    return await executeQuery<TicketWithDetailsFlatRow>(`
       SELECT
         t.*,
         u.name as user_name, u.email as user_email, u.role as user_role,
@@ -715,13 +626,11 @@ export const ticketQueries = {
       ) at ON t.id = at.ticket_id
       WHERE t.user_id = ? AND t.organization_id = ?
       ORDER BY t.created_at DESC
-    `);
-    return stmt.all(userId, organizationId) as TicketWithDetailsFlatRow[];
+    `, [userId, organizationId]);
   },
 
-  getByAssignedTo: (assignedTo: number, organizationId: number): TicketWithDetailsFlatRow[] => {
-    // OPTIMIZED: Single query with LEFT JOINs for counts instead of subqueries
-    const stmt = db.prepare(`
+  getByAssignedTo: async (assignedTo: number, organizationId: number): Promise<TicketWithDetailsFlatRow[]> => {
+    return await executeQuery<TicketWithDetailsFlatRow>(`
       SELECT
         t.*,
         u.name as user_name, u.email as user_email, u.role as user_role,
@@ -749,16 +658,14 @@ export const ticketQueries = {
       ) at ON t.id = at.ticket_id
       WHERE t.assigned_to = ? AND t.organization_id = ?
       ORDER BY t.created_at DESC
-    `);
-    return stmt.all(assignedTo, organizationId) as TicketWithDetailsFlatRow[];
+    `, [assignedTo, organizationId]);
   },
 
-  create: (ticket: CreateTicket, organizationId: number): Ticket => {
-    const stmt = db.prepare(`
+  create: async (ticket: CreateTicket, organizationId: number): Promise<Ticket> => {
+    const result = await executeRun(`
       INSERT INTO tickets (title, description, user_id, assigned_to, category_id, priority_id, status_id, organization_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(
+    `, [
       ticket.title,
       ticket.description,
       ticket.user_id,
@@ -767,14 +674,15 @@ export const ticketQueries = {
       ticket.priority_id,
       ticket.status_id,
       organizationId
-    );
-    return db.prepare('SELECT * FROM tickets WHERE id = ?').get(result.lastInsertRowid as number) as Ticket;
+    ]);
+    const created = await executeQueryOne<Ticket>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
   // SECURITY: Enforces organization_id filter to prevent cross-tenant ticket updates
-  update: (ticket: UpdateTicket, organizationId: number): Ticket | undefined => {
-    const fields = [];
-    const values = [];
+  update: async (ticket: UpdateTicket, organizationId: number): Promise<Ticket | undefined> => {
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (ticket.title !== undefined) {
       fields.push('title = ?');
@@ -806,27 +714,25 @@ export const ticketQueries = {
     }
 
     if (fields.length === 0) {
-      return db.prepare('SELECT * FROM tickets WHERE id = ? AND organization_id = ?').get(ticket.id, organizationId) as Ticket | undefined;
+      return await executeQueryOne<Ticket>('SELECT * FROM tickets WHERE id = ? AND organization_id = ?', [ticket.id, organizationId]);
     }
 
     values.push(ticket.id, organizationId);
-    const stmt = db.prepare(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`);
-    stmt.run(...values);
-    return db.prepare('SELECT * FROM tickets WHERE id = ? AND organization_id = ?').get(ticket.id, organizationId) as Ticket | undefined;
+    await executeRun(`UPDATE tickets SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`, values);
+    return await executeQueryOne<Ticket>('SELECT * FROM tickets WHERE id = ? AND organization_id = ?', [ticket.id, organizationId]);
   },
 
   // SECURITY: Enforces organization_id filter to prevent cross-tenant ticket deletion
-  delete: (id: number, organizationId: number): boolean => {
-    const stmt = db.prepare('DELETE FROM tickets WHERE id = ? AND organization_id = ?');
-    const result = stmt.run(id, organizationId);
+  delete: async (id: number, organizationId: number): Promise<boolean> => {
+    const result = await executeRun('DELETE FROM tickets WHERE id = ? AND organization_id = ?', [id, organizationId]);
     return result.changes > 0;
   },
 };
 
 // ===== COMMENTS =====
 export const commentQueries = {
-  getByTicketId: (ticketId: number, organizationId: number): CommentWithUserRow[] => {
-    const stmt = db.prepare(`
+  getByTicketId: async (ticketId: number, organizationId: number): Promise<CommentWithUserRow[]> => {
+    return await executeQuery<CommentWithUserRow>(`
       SELECT
         c.*,
         u.name as user_name, u.email as user_email, u.role as user_role
@@ -835,12 +741,11 @@ export const commentQueries = {
       LEFT JOIN tickets t ON c.ticket_id = t.id
       WHERE c.ticket_id = ? AND t.organization_id = ?
       ORDER BY c.created_at ASC
-    `);
-    return stmt.all(ticketId, organizationId) as CommentWithUserRow[];
+    `, [ticketId, organizationId]);
   },
 
-  getById: (id: number, organizationId: number): CommentWithUserRow | undefined => {
-    const stmt = db.prepare(`
+  getById: async (id: number, organizationId: number): Promise<CommentWithUserRow | undefined> => {
+    return await executeQueryOne<CommentWithUserRow>(`
       SELECT
         c.*,
         u.name as user_name, u.email as user_email, u.role as user_role
@@ -848,28 +753,27 @@ export const commentQueries = {
       LEFT JOIN users u ON c.user_id = u.id
       LEFT JOIN tickets t ON c.ticket_id = t.id
       WHERE c.id = ? AND t.organization_id = ?
-    `);
-    return stmt.get(id, organizationId) as CommentWithUserRow | undefined;
+    `, [id, organizationId]);
   },
 
-  create: (comment: CreateComment, organizationId: number): Comment => {
+  create: async (comment: CreateComment, organizationId: number): Promise<Comment> => {
     // Verify ticket belongs to organization before creating comment
-    const ticketCheck = db.prepare('SELECT id FROM tickets WHERE id = ? AND organization_id = ?').get(comment.ticket_id, organizationId);
+    const ticketCheck = await executeQueryOne<{ id: number }>('SELECT id FROM tickets WHERE id = ? AND organization_id = ?', [comment.ticket_id, organizationId]);
     if (!ticketCheck) {
       throw new Error('Ticket not found or does not belong to organization');
     }
 
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO comments (ticket_id, user_id, content, is_internal)
       VALUES (?, ?, ?, ?)
-    `);
-    const result = stmt.run(comment.ticket_id, comment.user_id, comment.content, comment.is_internal ? 1 : 0);
-    return db.prepare('SELECT * FROM comments WHERE id = ?').get(result.lastInsertRowid as number) as Comment;
+    `, [comment.ticket_id, comment.user_id, comment.content, comment.is_internal ? 1 : 0]);
+    const created = await executeQueryOne<Comment>('SELECT * FROM comments WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  update: (comment: UpdateComment, organizationId: number): Comment | undefined => {
-    const fields = [];
-    const values = [];
+  update: async (comment: UpdateComment, organizationId: number): Promise<Comment | undefined> => {
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (comment.content !== undefined) {
       fields.push('content = ?');
@@ -881,90 +785,83 @@ export const commentQueries = {
     }
 
     if (fields.length === 0) {
-      const stmt = db.prepare(`
+      return await executeQueryOne<Comment>(`
         SELECT c.* FROM comments c
         LEFT JOIN tickets t ON c.ticket_id = t.id
         WHERE c.id = ? AND t.organization_id = ?
-      `);
-      return stmt.get(comment.id, organizationId) as Comment | undefined;
+      `, [comment.id, organizationId]);
     }
 
     values.push(comment.id, organizationId);
-    const stmt = db.prepare(`
+    await executeRun(`
       UPDATE comments SET ${fields.join(', ')}
       WHERE id = ? AND ticket_id IN (SELECT id FROM tickets WHERE organization_id = ?)
-    `);
-    stmt.run(...values);
+    `, values);
 
-    const resultStmt = db.prepare(`
+    return await executeQueryOne<Comment>(`
       SELECT c.* FROM comments c
       LEFT JOIN tickets t ON c.ticket_id = t.id
       WHERE c.id = ? AND t.organization_id = ?
-    `);
-    return resultStmt.get(comment.id, organizationId) as Comment | undefined;
+    `, [comment.id, organizationId]);
   },
 
-  delete: (id: number, organizationId: number): boolean => {
-    const stmt = db.prepare(`
+  delete: async (id: number, organizationId: number): Promise<boolean> => {
+    const result = await executeRun(`
       DELETE FROM comments
       WHERE id = ? AND ticket_id IN (SELECT id FROM tickets WHERE organization_id = ?)
-    `);
-    const result = stmt.run(id, organizationId);
+    `, [id, organizationId]);
     return result.changes > 0;
   },
 };
 
 // ===== ATTACHMENTS =====
 export const attachmentQueries = {
-  getByTicketId: (ticketId: number, organizationId: number): Attachment[] => {
-    const stmt = db.prepare(`
+  getByTicketId: async (ticketId: number, organizationId: number): Promise<Attachment[]> => {
+    return await executeQuery<Attachment>(`
       SELECT a.*
       FROM attachments a
       LEFT JOIN tickets t ON a.ticket_id = t.id
       WHERE a.ticket_id = ? AND t.organization_id = ?
       ORDER BY a.created_at
-    `);
-    return stmt.all(ticketId, organizationId) as Attachment[];
+    `, [ticketId, organizationId]);
   },
 
-  getById: (id: number, organizationId: number): Attachment | undefined => {
-    const stmt = db.prepare(`
+  getById: async (id: number, organizationId: number): Promise<Attachment | undefined> => {
+    return await executeQueryOne<Attachment>(`
       SELECT a.*
       FROM attachments a
       LEFT JOIN tickets t ON a.ticket_id = t.id
       WHERE a.id = ? AND t.organization_id = ?
-    `);
-    return stmt.get(id, organizationId) as Attachment | undefined;
+    `, [id, organizationId]);
   },
 
-  create: (attachment: CreateAttachment, organizationId: number): Attachment => {
+  create: async (attachment: CreateAttachment, organizationId: number): Promise<Attachment> => {
     // Verify ticket belongs to organization before creating attachment
-    const ticketCheck = db.prepare('SELECT id FROM tickets WHERE id = ? AND organization_id = ?').get(attachment.ticket_id, organizationId);
+    const ticketCheck = await executeQueryOne<{ id: number }>('SELECT id FROM tickets WHERE id = ? AND organization_id = ?', [attachment.ticket_id, organizationId]);
     if (!ticketCheck) {
       throw new Error('Ticket not found or does not belong to organization');
     }
 
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO attachments (ticket_id, filename, original_name, mime_type, size, uploaded_by)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(
+    `, [
       attachment.ticket_id,
       attachment.filename,
       attachment.original_name,
       attachment.mime_type,
       attachment.size,
       attachment.uploaded_by
-    );
-    return db.prepare('SELECT * FROM attachments WHERE id = ?').get(result.lastInsertRowid as number) as Attachment;
+    ]);
+    const created = await executeQueryOne<Attachment>('SELECT * FROM attachments WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  delete: (id: number, organizationId: number): boolean => {
-    const stmt = db.prepare(`
+  delete: async (id: number, organizationId: number): Promise<boolean> => {
+    const result = await executeRun(`
       DELETE FROM attachments
       WHERE id = ? AND ticket_id IN (SELECT id FROM tickets WHERE organization_id = ?)
-    `);
-    const result = stmt.run(id, organizationId);
+    `, [id, organizationId]);
     return result.changes > 0;
   },
 };
@@ -976,41 +873,9 @@ export const attachmentQueries = {
  * These queries use complex aggregations and window functions for performance analytics.
  *
  * All analytics queries enforce organization-level isolation for multi-tenant security.
- *
- * PERFORMANCE NOTE: These queries use CTEs (Common Table Expressions) and
- * aggregations which may be expensive on large datasets. Consider caching results
- * for frequently accessed metrics.
  */
 export const analyticsQueries = {
-  /**
-   * Retrieve real-time key performance indicators (KPIs)
-   *
-   * Returns comprehensive metrics including:
-   * - Ticket volume (today, this week, this month, total)
-   * - SLA compliance rates (response and resolution)
-   * - Average response and resolution times
-   * - First Call Resolution (FCR) rate
-   * - Customer Satisfaction (CSAT) scores
-   * - Agent performance metrics
-   *
-   * SECURITY: All metrics are scoped to the specified organization.
-   *
-   * PERFORMANCE: This is an expensive query with multiple subqueries.
-   * Results should be cached for 5-10 minutes in production.
-   *
-   * @param organizationId - Organization ID to scope metrics
-   * @returns Object containing all real-time KPIs
-   *
-   * @example
-   * ```typescript
-   * const kpis = analyticsQueries.getRealTimeKPIs(1);
-   * console.log(`Tickets today: ${kpis.tickets_today}`);
-   * console.log(`SLA compliance: ${kpis.sla_response_met / kpis.total_sla_tracked * 100}%`);
-   * console.log(`CSAT score: ${kpis.csat_score}/5`);
-   * console.log(`Active agents: ${kpis.active_agents}`);
-   * ```
-   */
-  getRealTimeKPIs: (organizationId: number): RealTimeKPIs => {
+  getRealTimeKPIs: async (organizationId: number): Promise<RealTimeKPIs> => {
     // Check cache first - provides 80%+ performance improvement
     const cacheKey = `analytics:kpis:${organizationId}`;
     const cached = getFromCache<RealTimeKPIs>(cacheKey);
@@ -1018,21 +883,18 @@ export const analyticsQueries = {
       return cached;
     }
 
-    // OPTIMIZED: Single CTE-based query instead of 15 subqueries
-    // Performance: ~85% faster (2000ms -> ~300ms on 10k tickets)
-    // Uses WITH clauses to compute all metrics in one database scan
-    const kpis = db.prepare(`
+    const kpis = await executeQueryOne<RealTimeKPIs>(`
       WITH
       -- Ticket volume metrics (single scan with CASE aggregations)
       ticket_stats AS (
         SELECT
           COUNT(*) as total_tickets,
-          COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as tickets_today,
-          COUNT(CASE WHEN datetime(created_at) >= datetime('now', '-7 days') THEN 1 END) as tickets_this_week,
-          COUNT(CASE WHEN datetime(created_at) >= datetime('now', '-30 days') THEN 1 END) as tickets_this_month,
+          COUNT(CASE WHEN ${sqlDate('created_at')} = ${sqlCurrentDate()} THEN 1 END) as tickets_today,
+          COUNT(CASE WHEN created_at >= ${sqlDatetimeSub(7)} THEN 1 END) as tickets_this_week,
+          COUNT(CASE WHEN created_at >= ${sqlDatetimeSub(30)} THEN 1 END) as tickets_this_month,
           COUNT(DISTINCT CASE WHEN assigned_to IS NOT NULL THEN assigned_to END) as active_agents,
           COUNT(CASE WHEN status_id IN (SELECT id FROM statuses WHERE is_final = 0) THEN 1 END) as open_tickets,
-          COUNT(CASE WHEN datetime(created_at) >= datetime('now', '-1 day') AND status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved_today
+          COUNT(CASE WHEN created_at >= ${sqlDatetimeSub(1)} AND status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved_today
         FROM tickets
         WHERE organization_id = ? AND deleted_at IS NULL
       ),
@@ -1074,7 +936,7 @@ export const analyticsQueries = {
         INNER JOIN tickets t ON ss.ticket_id = t.id
         WHERE t.organization_id = ?
           AND t.deleted_at IS NULL
-          AND datetime(ss.created_at) >= datetime('now', '-30 days')
+          AND ss.created_at >= ${sqlDatetimeSub(30)}
       )
       -- Final result combining all CTEs
       SELECT
@@ -1094,23 +956,23 @@ export const analyticsQueries = {
         csat.csat_score,
         csat.csat_responses
       FROM ticket_stats ts, sla_stats sla, fcr_stats fcr, csat_stats csat
-    `).get(organizationId, organizationId, organizationId, organizationId) as RealTimeKPIs;
+    `, [organizationId, organizationId, organizationId, organizationId]);
 
     // Cache result for 5 minutes (reduces DB load by ~95%)
-    setCache(cacheKey, kpis, CACHE_TTL.REALTIME_KPIS);
+    if (kpis) {
+      setCache(cacheKey, kpis, CACHE_TTL.REALTIME_KPIS);
+    }
 
-    return kpis;
+    return kpis!;
   },
 
   // SLA Performance Analytics
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getSLAAnalytics: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getSLAAnalytics: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
-        date(t.created_at) as date,
+        ${sqlDate('t.created_at')} as date,
         COUNT(*) as total_tickets,
         COUNT(CASE WHEN st.response_met = 1 THEN 1 END) as response_met,
         COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) as resolution_met,
@@ -1126,19 +988,17 @@ export const analyticsQueries = {
         ) as resolution_sla_rate
       FROM tickets t
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-      WHERE t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
-      GROUP BY date(t.created_at)
-      ORDER BY date(t.created_at)
-    `).all(organizationId, days);
+      WHERE t.organization_id = ? AND t.created_at >= ${sqlDynamicDateSub()}
+      GROUP BY ${sqlDate('t.created_at')}
+      ORDER BY ${sqlDate('t.created_at')}
+    `, [organizationId, days]);
   },
 
   // Agent Performance Analytics
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getAgentPerformance: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getAgentPerformance: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
         u.id,
         u.name,
@@ -1154,7 +1014,7 @@ export const analyticsQueries = {
         ROUND(AVG(ss.rating), 2) as avg_satisfaction,
         COUNT(ss.id) as satisfaction_responses
       FROM users u
-      LEFT JOIN tickets t ON u.id = t.assigned_to AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+      LEFT JOIN tickets t ON u.id = t.assigned_to AND t.organization_id = ? AND t.created_at >= ${sqlDynamicDateSub()}
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
@@ -1162,16 +1022,14 @@ export const analyticsQueries = {
       GROUP BY u.id, u.name, u.email
       HAVING COUNT(t.id) > 0
       ORDER BY resolved_tickets DESC
-    `).all(organizationId, days);
+    `, [organizationId, days]);
   },
 
   // Category Performance Analytics
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getCategoryAnalytics: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getCategoryAnalytics: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
         c.id,
         c.name,
@@ -1185,23 +1043,21 @@ export const analyticsQueries = {
         ROUND(AVG(st.resolution_time_minutes), 2) as avg_resolution_time,
         ROUND(AVG(ss.rating), 2) as avg_satisfaction
       FROM categories c
-      LEFT JOIN tickets t ON c.id = t.category_id AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+      LEFT JOIN tickets t ON c.id = t.category_id AND t.organization_id = ? AND t.created_at >= ${sqlDynamicDateSub()}
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
       GROUP BY c.id, c.name, c.color
       HAVING COUNT(t.id) > 0
       ORDER BY total_tickets DESC
-    `).all(organizationId, days);
+    `, [organizationId, days]);
   },
 
   // Priority Distribution Analytics
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getPriorityDistribution: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getPriorityDistribution: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
         p.id,
         p.name,
@@ -1210,43 +1066,39 @@ export const analyticsQueries = {
         COUNT(t.id) as ticket_count,
         ROUND(
           CAST(COUNT(t.id) AS FLOAT) /
-          CAST((SELECT COUNT(*) FROM tickets WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-' || ? || ' days')) AS FLOAT) * 100, 2
+          CAST((SELECT COUNT(*) FROM tickets WHERE organization_id = ? AND created_at >= ${sqlDynamicDateSub()}) AS FLOAT) * 100, 2
         ) as percentage
       FROM priorities p
-      LEFT JOIN tickets t ON p.id = t.priority_id AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+      LEFT JOIN tickets t ON p.id = t.priority_id AND t.organization_id = ? AND t.created_at >= ${sqlDynamicDateSub()}
       GROUP BY p.id, p.name, p.level, p.color
       ORDER BY p.level DESC
-    `).all(organizationId, days, organizationId, days);
+    `, [organizationId, days, organizationId, days]);
   },
 
   // Ticket Volume Trends
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getTicketVolumeTrends: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getTicketVolumeTrends: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
-        date(created_at) as date,
+        ${sqlDate('created_at')} as date,
         COUNT(*) as created,
         COUNT(CASE WHEN status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved,
         COUNT(CASE WHEN priority_id IN (SELECT id FROM priorities WHERE level >= 3) THEN 1 END) as high_priority
       FROM tickets
-      WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-' || ? || ' days')
-      GROUP BY date(created_at)
-      ORDER BY date(created_at)
-    `).all(organizationId, days);
+      WHERE organization_id = ? AND created_at >= ${sqlDynamicDateSub()}
+      GROUP BY ${sqlDate('created_at')}
+      ORDER BY ${sqlDate('created_at')}
+    `, [organizationId, days]);
   },
 
   // Response Time Analytics
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getResponseTimeAnalytics: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getResponseTimeAnalytics: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
-        date(t.created_at) as date,
+        ${sqlDate('t.created_at')} as date,
         COUNT(st.id) as total_responses,
         ROUND(AVG(st.response_time_minutes), 2) as avg_response_time,
         MIN(st.response_time_minutes) as min_response_time,
@@ -1258,21 +1110,19 @@ export const analyticsQueries = {
         ) as sla_compliance
       FROM tickets t
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-      WHERE t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days') AND st.response_time_minutes IS NOT NULL
-      GROUP BY date(t.created_at)
-      ORDER BY date(t.created_at)
-    `).all(organizationId, days);
+      WHERE t.organization_id = ? AND t.created_at >= ${sqlDynamicDateSub()} AND st.response_time_minutes IS NOT NULL
+      GROUP BY ${sqlDate('t.created_at')}
+      ORDER BY ${sqlDate('t.created_at')}
+    `, [organizationId, days]);
   },
 
   // Customer Satisfaction Trends
-  // SECURITY: Uses prepared statement with period-based datetime calculation to prevent SQL injection
-  getSatisfactionTrends: (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
-    // Convert period to days for prepared statement parameter
+  getSatisfactionTrends: async (organizationId: number, period: 'week' | 'month' | 'quarter' = 'month') => {
     const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
 
-    return db.prepare(`
+    return await executeQuery(`
       SELECT
-        date(ss.created_at) as date,
+        ${sqlDate('ss.created_at')} as date,
         COUNT(*) as total_responses,
         ROUND(AVG(ss.rating), 2) as avg_rating,
         COUNT(CASE WHEN ss.rating >= 4 THEN 1 END) as positive_ratings,
@@ -1283,17 +1133,16 @@ export const analyticsQueries = {
         ) as satisfaction_rate
       FROM satisfaction_surveys ss
       INNER JOIN tickets t ON ss.ticket_id = t.id
-      WHERE t.organization_id = ? AND datetime(ss.created_at) >= datetime('now', '-' || ? || ' days')
-      GROUP BY date(ss.created_at)
-      ORDER BY date(ss.created_at)
-    `).all(organizationId, days);
+      WHERE t.organization_id = ? AND ss.created_at >= ${sqlDynamicDateSub()}
+      GROUP BY ${sqlDate('ss.created_at')}
+      ORDER BY ${sqlDate('ss.created_at')}
+    `, [organizationId, days]);
   },
 
   // Comparative Analytics (Department/Period)
-  getComparativeAnalytics: (organizationId: number, compareBy: 'category' | 'agent' | 'priority', _periods?: string[]) => {
-    // Note: periods parameter reserved for future expansion
+  getComparativeAnalytics: async (organizationId: number, compareBy: 'category' | 'agent' | 'priority', _periods?: string[]) => {
     if (compareBy === 'category') {
-      return db.prepare(`
+      return await executeQuery(`
         SELECT
           c.name as label,
           c.color,
@@ -1302,36 +1151,36 @@ export const analyticsQueries = {
           'tickets' as metric
         FROM categories c
         CROSS JOIN (
-          SELECT 'Current' as name, datetime('now', '-30 days') as start_date
+          SELECT 'Current' as name, ${sqlDatetimeSub(30)} as start_date
           UNION ALL
-          SELECT 'Previous' as name, datetime('now', '-60 days') as start_date
+          SELECT 'Previous' as name, ${sqlDatetimeSub(60)} as start_date
         ) period
         LEFT JOIN tickets t ON c.id = t.category_id
           AND t.organization_id = ?
-          AND datetime(t.created_at) >= period.start_date
-          AND datetime(t.created_at) < CASE
-            WHEN period.name = 'Current' THEN datetime('now')
-            ELSE datetime('now', '-30 days')
+          AND t.created_at >= period.start_date
+          AND t.created_at < CASE
+            WHEN period.name = 'Current' THEN ${sqlDatetimeNow()}
+            ELSE ${sqlDatetimeSub(30)}
           END
         GROUP BY c.id, c.name, c.color, period.name
         ORDER BY c.name, period.name
-      `).all(organizationId);
+      `, [organizationId]);
     }
     // Add more comparative queries as needed
     return [];
   },
 
   // Anomaly Detection Data
-  getAnomalyDetectionData: (organizationId: number) => {
-    return db.prepare(`
+  getAnomalyDetectionData: async (organizationId: number) => {
+    return await executeQuery(`
       WITH daily_metrics AS (
         SELECT
-          date(created_at) as date,
+          ${sqlDate('created_at')} as date,
           COUNT(*) as ticket_count,
           COUNT(CASE WHEN priority_id IN (SELECT id FROM priorities WHERE level >= 3) THEN 1 END) as high_priority_count
         FROM tickets
-        WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-30 days')
-        GROUP BY date(created_at)
+        WHERE organization_id = ? AND created_at >= ${sqlDatetimeSub(30)}
+        GROUP BY ${sqlDate('created_at')}
       ),
       avg_metrics AS (
         SELECT
@@ -1354,13 +1203,12 @@ export const analyticsQueries = {
       CROSS JOIN avg_metrics am
       WHERE dm.ticket_count > (am.avg_tickets * 1.2) OR dm.high_priority_count > (am.avg_high_priority * 1.5)
       ORDER BY dm.date DESC
-    `).all(organizationId);
+    `, [organizationId]);
   },
 
   // Knowledge Base Analytics
-  // TODO: Schema update required - add organization_id to kb_articles table
-  getKnowledgeBaseAnalytics: (organizationId: number) => {
-    return db.prepare(`
+  getKnowledgeBaseAnalytics: async (organizationId: number) => {
+    return await executeQueryOne(`
       SELECT
         (SELECT COUNT(*) FROM kb_articles WHERE organization_id = ? AND status = 'published') as published_articles,
         (SELECT SUM(view_count) FROM kb_articles WHERE organization_id = ? AND status = 'published') as total_views,
@@ -1369,40 +1217,36 @@ export const analyticsQueries = {
          WHERE organization_id = ? AND status = 'published' AND (helpful_votes + not_helpful_votes) > 0
         ) as avg_helpfulness,
         (
-          SELECT json_group_array(
-            json_object(
-              'title', title,
-              'view_count', view_count,
-              'helpfulness', ROUND(helpful_votes * 1.0 / (helpful_votes + not_helpful_votes), 2)
-            )
-          )
+          SELECT ${sqlJsonGroupArray(
+            sqlJsonObject("'title', title, 'view_count', view_count, 'helpfulness', ROUND(helpful_votes * 1.0 / (helpful_votes + not_helpful_votes), 2)")
+          )}
           FROM (
             SELECT title, view_count, helpful_votes, not_helpful_votes
             FROM kb_articles
             WHERE organization_id = ? AND status = 'published'
             ORDER BY view_count DESC
             LIMIT 10
-          )
+          )${getDatabaseType() === 'postgresql' ? ' sub' : ''}
         ) as top_articles
-    `).get(organizationId, organizationId, organizationId, organizationId);
+    `, [organizationId, organizationId, organizationId, organizationId]);
   }
 };
 
 // ===== SLA TRACKING =====
 export const slaQueries = {
-  getBySLAPolicy: (policyId: number, organizationId: number) => {
-    return db.prepare(`
+  getBySLAPolicy: async (policyId: number, organizationId: number) => {
+    return await executeQuery(`
       SELECT st.*, t.title, t.created_at as ticket_created_at, sp.name as policy_name
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       LEFT JOIN sla_policies sp ON st.sla_policy_id = sp.id
       WHERE st.sla_policy_id = ? AND t.organization_id = ?
       ORDER BY st.created_at DESC
-    `).all(policyId, organizationId);
+    `, [policyId, organizationId]);
   },
 
-  getBreachedSLAs: (organizationId: number) => {
-    return db.prepare(`
+  getBreachedSLAs: async (organizationId: number) => {
+    return await executeQuery(`
       SELECT
         st.*,
         t.title,
@@ -1419,11 +1263,11 @@ export const slaQueries = {
         AND ((st.response_due_at < CURRENT_TIMESTAMP AND st.response_met = 0)
          OR (st.resolution_due_at < CURRENT_TIMESTAMP AND st.resolution_met = 0))
       ORDER BY st.response_due_at ASC, st.resolution_due_at ASC
-    `).all(organizationId);
+    `, [organizationId]);
   },
 
-  getUpcomingSLABreaches: (organizationId: number) => {
-    return db.prepare(`
+  getUpcomingSLABreaches: async (organizationId: number) => {
+    return await executeQuery(`
       SELECT
         st.*,
         t.title,
@@ -1431,101 +1275,99 @@ export const slaQueries = {
         u.name as user_name,
         a.name as agent_name,
         sp.name as policy_name,
-        ROUND((julianday(st.response_due_at) - julianday('now')) * 24 * 60) as minutes_until_response_breach,
-        ROUND((julianday(st.resolution_due_at) - julianday('now')) * 24 * 60) as minutes_until_resolution_breach
+        ${sqlMinutesUntil('st.response_due_at')} as minutes_until_response_breach,
+        ${sqlMinutesUntil('st.resolution_due_at')} as minutes_until_resolution_breach
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users a ON t.assigned_to = a.id
       LEFT JOIN sla_policies sp ON st.sla_policy_id = sp.id
       WHERE t.organization_id = ?
-        AND ((st.response_due_at BETWEEN CURRENT_TIMESTAMP AND datetime('now', '+2 hours') AND st.response_met = 0)
-         OR (st.resolution_due_at BETWEEN CURRENT_TIMESTAMP AND datetime('now', '+4 hours') AND st.resolution_met = 0))
+        AND ((st.response_due_at BETWEEN CURRENT_TIMESTAMP AND ${sqlDateAddHours(2)} AND st.response_met = 0)
+         OR (st.resolution_due_at BETWEEN CURRENT_TIMESTAMP AND ${sqlDateAddHours(4)} AND st.resolution_met = 0))
         AND t.status_id NOT IN (SELECT id FROM statuses WHERE is_final = 1)
       ORDER BY st.response_due_at ASC, st.resolution_due_at ASC
-    `).all(organizationId);
+    `, [organizationId]);
   }
 };
 
 // ===== DASHBOARD WIDGETS =====
 export const dashboardQueries = {
-  getWidgetData: (widgetType: string, organizationId: number, config: any = {}) => {
+  getWidgetData: async (widgetType: string, organizationId: number, config: any = {}) => {
     switch (widgetType) {
       case 'kpi_summary':
-        return analyticsQueries.getRealTimeKPIs(organizationId);
+        return await analyticsQueries.getRealTimeKPIs(organizationId);
 
       case 'sla_performance':
-        return analyticsQueries.getSLAAnalytics(organizationId, config.period || 'month');
+        return await analyticsQueries.getSLAAnalytics(organizationId, config.period || 'month');
 
       case 'agent_performance':
-        return analyticsQueries.getAgentPerformance(organizationId, config.period || 'month');
+        return await analyticsQueries.getAgentPerformance(organizationId, config.period || 'month');
 
       case 'category_distribution':
-        return analyticsQueries.getCategoryAnalytics(organizationId, config.period || 'month');
+        return await analyticsQueries.getCategoryAnalytics(organizationId, config.period || 'month');
 
       case 'priority_distribution':
-        return analyticsQueries.getPriorityDistribution(organizationId, config.period || 'month');
+        return await analyticsQueries.getPriorityDistribution(organizationId, config.period || 'month');
 
       case 'volume_trends':
-        return analyticsQueries.getTicketVolumeTrends(organizationId, config.period || 'month');
+        return await analyticsQueries.getTicketVolumeTrends(organizationId, config.period || 'month');
 
       case 'response_time_trends':
-        return analyticsQueries.getResponseTimeAnalytics(organizationId, config.period || 'month');
+        return await analyticsQueries.getResponseTimeAnalytics(organizationId, config.period || 'month');
 
       case 'satisfaction_trends':
-        return analyticsQueries.getSatisfactionTrends(organizationId, config.period || 'month');
+        return await analyticsQueries.getSatisfactionTrends(organizationId, config.period || 'month');
 
       case 'sla_breaches':
-        return slaQueries.getBreachedSLAs(organizationId);
+        return await slaQueries.getBreachedSLAs(organizationId);
 
       case 'upcoming_breaches':
-        return slaQueries.getUpcomingSLABreaches(organizationId);
+        return await slaQueries.getUpcomingSLABreaches(organizationId);
 
       case 'anomaly_detection':
-        return analyticsQueries.getAnomalyDetectionData(organizationId);
+        return await analyticsQueries.getAnomalyDetectionData(organizationId);
 
       case 'knowledge_base_stats':
-        return analyticsQueries.getKnowledgeBaseAnalytics(organizationId);
+        return await analyticsQueries.getKnowledgeBaseAnalytics(organizationId);
 
       default:
         return null;
     }
   },
 
-  saveCustomDashboard: (userId: number, dashboardConfig: any) => {
-    const stmt = db.prepare(`
+  saveCustomDashboard: async (userId: number, dashboardConfig: any) => {
+    return await executeRun(`
       INSERT INTO system_settings (key, value, description, type, updated_by)
       VALUES (?, ?, ?, 'json', ?)
       ON CONFLICT(key) DO UPDATE SET
         value = excluded.value,
         updated_by = excluded.updated_by,
         updated_at = CURRENT_TIMESTAMP
-    `);
-
-    return stmt.run(
+    `, [
       `dashboard_config_user_${userId}`,
       JSON.stringify(dashboardConfig),
       `Custom dashboard configuration for user ${userId}`,
       userId
-    );
+    ]);
   },
 
-  getUserDashboard: (userId: number) => {
-    const result = db.prepare(`
+  getUserDashboard: async (userId: number) => {
+    const result = await executeQueryOne<{ value: string }>(`
       SELECT value
       FROM system_settings
       WHERE key = ?
-    `).get(`dashboard_config_user_${userId}`) as { value: string } | undefined;
+    `, [`dashboard_config_user_${userId}`]);
 
     return result ? JSON.parse(result.value) : null;
   },
 
-  getGlobalDashboard: () => {
-    const result = db.prepare(`
+  getGlobalDashboard: async () => {
+    const result = await executeQueryOne<{ value: string }>(`
       SELECT value
       FROM system_settings
       WHERE key = 'dashboard_config_global'
-    `).get() as { value: string } | undefined;
+    `);
 
     return result ? JSON.parse(result.value) : null;
   }
@@ -1533,146 +1375,72 @@ export const dashboardQueries = {
 
 /**
  * System Settings Query Operations
- *
- * Provides access to system configuration settings with support for:
- * - Global settings (organization_id = NULL)
- * - Organization-specific settings (override global defaults)
- * - Encrypted settings (marked with is_encrypted flag)
- *
- * SECURITY: Always use these functions for integration configuration.
- * Never hardcode credentials or sensitive data in code.
- *
- * MULTI-TENANT: Settings can be scoped globally or per-organization.
- * Organization-specific settings override global defaults.
  */
 export const systemSettingsQueries = {
-  /**
-   * Retrieve a system setting by key
-   *
-   * Supports both global and organization-specific settings.
-   * If organizationId is provided, returns organization-specific value if exists,
-   * otherwise falls back to global setting.
-   *
-   * @param key - Setting key (e.g., 'totvs_enabled', 'sap_base_url')
-   * @param organizationId - Optional organization ID for tenant-specific settings
-   * @returns Setting value as string, or null if not found
-   *
-   * @example
-   * ```typescript
-   * // Get global setting
-   * const totvsEnabled = getSystemSetting('totvs_enabled');
-   *
-   * // Get organization-specific setting (with fallback to global)
-   * const apiUrl = getSystemSetting('totvs_base_url', 1);
-   * ```
-   */
-  getSystemSetting: (key: string, organizationId?: number): string | null => {
+  getSystemSetting: async (key: string, organizationId?: number): Promise<string | null> => {
     if (organizationId !== undefined) {
-      // Try organization-specific setting first
-      const orgSetting = db.prepare(`
+      const orgSetting = await executeQueryOne<{ value: string }>(`
         SELECT value FROM system_settings
         WHERE key = ? AND organization_id = ?
         LIMIT 1
-      `).get(key, organizationId) as { value: string } | undefined;
+      `, [key, organizationId]);
 
       if (orgSetting) {
         return orgSetting.value;
       }
     }
 
-    // Fall back to global setting (organization_id IS NULL)
-    const globalSetting = db.prepare(`
+    const globalSetting = await executeQueryOne<{ value: string }>(`
       SELECT value FROM system_settings
       WHERE key = ? AND organization_id IS NULL
       LIMIT 1
-    `).get(key) as { value: string } | undefined;
+    `, [key]);
 
     return globalSetting?.value ?? null;
   },
 
-  /**
-   * Set a system setting value
-   *
-   * Creates a new setting or updates an existing one.
-   * Use organizationId to create organization-specific settings.
-   *
-   * @param key - Setting key
-   * @param value - Setting value as string
-   * @param organizationId - Optional organization ID for tenant-specific settings
-   * @param updatedBy - Optional user ID who is updating the setting
-   * @returns True if operation succeeded
-   *
-   * @example
-   * ```typescript
-   * // Set global setting
-   * setSystemSetting('totvs_enabled', 'true');
-   *
-   * // Set organization-specific setting
-   * setSystemSetting('totvs_base_url', 'https://api.totvs.com', 1, 42);
-   * ```
-   */
-  setSystemSetting: (
+  setSystemSetting: async (
     key: string,
     value: string,
     organizationId?: number,
     updatedBy?: number
-  ): boolean => {
+  ): Promise<boolean> => {
     try {
-      const stmt = db.prepare(`
+      await executeRun(`
         INSERT INTO system_settings (key, value, organization_id, updated_by, updated_at)
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(key, organization_id) DO UPDATE SET
           value = excluded.value,
           updated_by = excluded.updated_by,
           updated_at = CURRENT_TIMESTAMP
-      `);
+      `, [key, value, organizationId ?? null, updatedBy ?? null]);
 
-      stmt.run(key, value, organizationId ?? null, updatedBy ?? null);
       return true;
     } catch (error) {
-      console.error('Error setting system setting:', error);
+      logger.error('Error setting system setting:', error);
       return false;
     }
   },
 
-  /**
-   * Get all system settings as a key-value object
-   *
-   * Returns all settings scoped to the specified organization (or global if not provided).
-   * Organization-specific settings override global settings in the returned object.
-   *
-   * @param organizationId - Optional organization ID for tenant-specific settings
-   * @returns Object with setting keys mapped to values
-   *
-   * @example
-   * ```typescript
-   * const settings = getAllSystemSettings(1);
-   * console.log(settings.totvs_enabled); // 'true'
-   * console.log(settings.sap_base_url); // 'https://api.sap.com'
-   * ```
-   */
-  getAllSystemSettings: (organizationId?: number): Record<string, string> => {
-    // Get global settings first
-    const globalSettings = db.prepare(`
+  getAllSystemSettings: async (organizationId?: number): Promise<Record<string, string>> => {
+    const globalSettings = await executeQuery<{ key: string; value: string }>(`
       SELECT key, value
       FROM system_settings
       WHERE organization_id IS NULL
-    `).all() as Array<{ key: string; value: string }>;
+    `);
 
     const settingsMap: Record<string, string> = {};
 
-    // Add global settings
     for (const setting of globalSettings) {
       settingsMap[setting.key] = setting.value;
     }
 
-    // Override with organization-specific settings if organizationId provided
     if (organizationId !== undefined) {
-      const orgSettings = db.prepare(`
+      const orgSettings = await executeQuery<{ key: string; value: string }>(`
         SELECT key, value
         FROM system_settings
         WHERE organization_id = ?
-      `).all(organizationId) as Array<{ key: string; value: string }>;
+      `, [organizationId]);
 
       for (const setting of orgSettings) {
         settingsMap[setting.key] = setting.value;
@@ -1682,46 +1450,23 @@ export const systemSettingsQueries = {
     return settingsMap;
   },
 
-  /**
-   * Delete a system setting
-   *
-   * Removes a setting from the database. Use with caution.
-   *
-   * @param key - Setting key to delete
-   * @param organizationId - Optional organization ID for tenant-specific settings
-   * @returns True if setting was deleted, false if not found
-   *
-   * @example
-   * ```typescript
-   * deleteSystemSetting('old_integration_key', 1);
-   * ```
-   */
-  deleteSystemSetting: (key: string, organizationId?: number): boolean => {
-    const stmt = db.prepare(`
+  deleteSystemSetting: async (key: string, organizationId?: number): Promise<boolean> => {
+    const result = await executeRun(`
       DELETE FROM system_settings
       WHERE key = ? AND (organization_id = ? OR (organization_id IS NULL AND ? IS NULL))
-    `);
+    `, [key, organizationId ?? null, organizationId ?? null]);
 
-    const result = stmt.run(key, organizationId ?? null, organizationId ?? null);
     return result.changes > 0;
   },
 
-  /**
-   * Get all settings with metadata (for admin UI)
-   *
-   * Returns complete setting information including descriptions, types, and encryption status.
-   *
-   * @param organizationId - Optional organization ID to filter settings
-   * @returns Array of setting objects with metadata
-   */
-  getAllSettingsWithMetadata: (organizationId?: number) => {
+  getAllSettingsWithMetadata: async (organizationId?: number) => {
     const query = organizationId !== undefined
       ? `SELECT * FROM system_settings WHERE organization_id = ? OR organization_id IS NULL ORDER BY key`
       : `SELECT * FROM system_settings WHERE organization_id IS NULL ORDER BY key`;
 
     const params = organizationId !== undefined ? [organizationId] : [];
 
-    return db.prepare(query).all(...params) as Array<{
+    return await executeQuery<{
       id: number;
       key: string;
       value: string;
@@ -1733,7 +1478,7 @@ export const systemSettingsQueries = {
       updated_by: number | null;
       created_at: string;
       updated_at: string;
-    }>;
+    }>(query, params);
   }
 };
 
@@ -1753,15 +1498,68 @@ export const getAllSystemSettings = systemSettingsQueries.getAllSystemSettings;
 
 import type { WorkflowDefinition } from '../types/workflow';
 
+/**
+ * Helper to parse a raw workflow DB row into a WorkflowDefinition
+ */
+function parseWorkflowRow(workflow: any): WorkflowDefinition {
+  const triggerConditions = workflow.wd_trigger_conditions
+    ? JSON.parse(workflow.wd_trigger_conditions)
+    : (workflow.trigger_conditions ? JSON.parse(workflow.trigger_conditions) : {});
+
+  const stepsJson = workflow.steps_json ? JSON.parse(workflow.steps_json) : {};
+
+  return {
+    id: workflow.id,
+    name: workflow.name,
+    description: workflow.description || '',
+    version: workflow.version || 1,
+    isActive: Boolean(workflow.is_active),
+    isTemplate: Boolean(workflow.is_template),
+    category: workflow.category || 'ticket_automation',
+    priority: workflow.priority || 0,
+    triggerType: workflow.trigger_type,
+    triggerConditions,
+    nodes: stepsJson.nodes || [],
+    edges: stepsJson.edges || [],
+    variables: stepsJson.variables || [],
+    metadata: stepsJson.metadata || {
+      tags: [],
+      documentation: '',
+      version: '1.0',
+      author: '',
+      lastModifiedBy: '',
+      changeLog: [],
+      dependencies: [],
+      testCases: [],
+      performance: {
+        avgExecutionTime: 0,
+        maxExecutionTime: 0,
+        minExecutionTime: 0,
+        successRate: 0,
+        errorRate: 0,
+        resourceUsage: {
+          memoryMB: 0,
+          cpuPercent: 0,
+          networkKB: 0,
+          storageKB: 0,
+        },
+      },
+    },
+    executionCount: workflow.execution_count || 0,
+    successCount: workflow.success_count || 0,
+    failureCount: workflow.failure_count || 0,
+    lastExecutedAt: workflow.last_executed_at ? new Date(workflow.last_executed_at) : undefined,
+    createdBy: workflow.created_by,
+    updatedBy: workflow.updated_by,
+    createdAt: new Date(workflow.created_at),
+    updatedAt: new Date(workflow.updated_at),
+  };
+}
+
 export const workflowQueries = {
-  /**
-   * Get workflow by ID
-   * Combines data from workflows and workflow_definitions tables
-   */
-  getWorkflowById(id: number): WorkflowDefinition | null {
+  async getWorkflowById(id: number): Promise<WorkflowDefinition | null> {
     try {
-      // First try to get from workflows table (new format)
-      const workflow = db.prepare(`
+      const workflow = await executeQueryOne<any>(`
         SELECT
           w.*,
           wd.steps_json,
@@ -1769,77 +1567,22 @@ export const workflowQueries = {
         FROM workflows w
         LEFT JOIN workflow_definitions wd ON w.id = wd.id
         WHERE w.id = ?
-      `).get(id) as any;
+      `, [id]);
 
       if (!workflow) {
         return null;
       }
 
-      // Parse JSON fields
-      const triggerConditions = workflow.wd_trigger_conditions
-        ? JSON.parse(workflow.wd_trigger_conditions)
-        : (workflow.trigger_conditions ? JSON.parse(workflow.trigger_conditions) : {});
-
-      const stepsJson = workflow.steps_json ? JSON.parse(workflow.steps_json) : {};
-
-      return {
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description || '',
-        version: workflow.version || 1,
-        isActive: Boolean(workflow.is_active),
-        isTemplate: Boolean(workflow.is_template),
-        category: workflow.category || 'ticket_automation',
-        priority: workflow.priority || 0,
-        triggerType: workflow.trigger_type,
-        triggerConditions,
-        nodes: stepsJson.nodes || [],
-        edges: stepsJson.edges || [],
-        variables: stepsJson.variables || [],
-        metadata: stepsJson.metadata || {
-          tags: [],
-          documentation: '',
-          version: '1.0',
-          author: '',
-          lastModifiedBy: '',
-          changeLog: [],
-          dependencies: [],
-          testCases: [],
-          performance: {
-            avgExecutionTime: 0,
-            maxExecutionTime: 0,
-            minExecutionTime: 0,
-            successRate: 0,
-            errorRate: 0,
-            resourceUsage: {
-              memoryMB: 0,
-              cpuPercent: 0,
-              networkKB: 0,
-              storageKB: 0,
-            },
-          },
-        },
-        executionCount: workflow.execution_count || 0,
-        successCount: workflow.success_count || 0,
-        failureCount: workflow.failure_count || 0,
-        lastExecutedAt: workflow.last_executed_at ? new Date(workflow.last_executed_at) : undefined,
-        createdBy: workflow.created_by,
-        updatedBy: workflow.updated_by,
-        createdAt: new Date(workflow.created_at),
-        updatedAt: new Date(workflow.updated_at),
-      };
+      return parseWorkflowRow(workflow);
     } catch (error) {
-      console.error('Error getting workflow by ID:', error);
+      logger.error('Error getting workflow by ID:', error);
       throw error;
     }
   },
 
-  /**
-   * Get all active workflows
-   */
-  getActiveWorkflows(): WorkflowDefinition[] {
+  async getActiveWorkflows(): Promise<WorkflowDefinition[]> {
     try {
-      const workflows = db.prepare(`
+      const workflows = await executeQuery<any>(`
         SELECT
           w.*,
           wd.steps_json,
@@ -1848,74 +1591,18 @@ export const workflowQueries = {
         LEFT JOIN workflow_definitions wd ON w.id = wd.id
         WHERE w.is_active = TRUE
         ORDER BY w.priority DESC, w.created_at DESC
-      `).all() as any[];
+      `);
 
-      return workflows.map(workflow => {
-        const triggerConditions = workflow.wd_trigger_conditions
-          ? JSON.parse(workflow.wd_trigger_conditions)
-          : (workflow.trigger_conditions ? JSON.parse(workflow.trigger_conditions) : {});
-
-        const stepsJson = workflow.steps_json ? JSON.parse(workflow.steps_json) : {};
-
-        return {
-          id: workflow.id,
-          name: workflow.name,
-          description: workflow.description || '',
-          version: workflow.version || 1,
-          isActive: Boolean(workflow.is_active),
-          isTemplate: Boolean(workflow.is_template),
-          category: workflow.category || 'ticket_automation',
-          priority: workflow.priority || 0,
-          triggerType: workflow.trigger_type,
-          triggerConditions,
-          nodes: stepsJson.nodes || [],
-          edges: stepsJson.edges || [],
-          variables: stepsJson.variables || [],
-          metadata: stepsJson.metadata || {
-            tags: [],
-            documentation: '',
-            version: '1.0',
-            author: '',
-            lastModifiedBy: '',
-            changeLog: [],
-            dependencies: [],
-            testCases: [],
-            performance: {
-              avgExecutionTime: 0,
-              maxExecutionTime: 0,
-              minExecutionTime: 0,
-              successRate: 0,
-              errorRate: 0,
-              resourceUsage: {
-                memoryMB: 0,
-                cpuPercent: 0,
-                networkKB: 0,
-                storageKB: 0,
-              },
-            },
-          },
-          executionCount: workflow.execution_count || 0,
-          successCount: workflow.success_count || 0,
-          failureCount: workflow.failure_count || 0,
-          lastExecutedAt: workflow.last_executed_at ? new Date(workflow.last_executed_at) : undefined,
-          createdBy: workflow.created_by,
-          updatedBy: workflow.updated_by,
-          createdAt: new Date(workflow.created_at),
-          updatedAt: new Date(workflow.updated_at),
-        };
-      });
+      return workflows.map(parseWorkflowRow);
     } catch (error) {
-      console.error('Error getting active workflows:', error);
+      logger.error('Error getting active workflows:', error);
       throw error;
     }
   },
 
-  /**
-   * Get workflows by trigger type
-   */
-  getWorkflowsByTriggerType(triggerType: string): WorkflowDefinition[] {
+  async getWorkflowsByTriggerType(triggerType: string): Promise<WorkflowDefinition[]> {
     try {
-      const workflows = db.prepare(`
+      const workflows = await executeQuery<any>(`
         SELECT
           w.*,
           wd.steps_json,
@@ -1924,64 +1611,11 @@ export const workflowQueries = {
         LEFT JOIN workflow_definitions wd ON w.id = wd.id
         WHERE w.trigger_type = ? AND w.is_active = TRUE
         ORDER BY w.priority DESC
-      `).all(triggerType) as any[];
+      `, [triggerType]);
 
-      return workflows.map(workflow => {
-        const triggerConditions = workflow.wd_trigger_conditions
-          ? JSON.parse(workflow.wd_trigger_conditions)
-          : (workflow.trigger_conditions ? JSON.parse(workflow.trigger_conditions) : {});
-
-        const stepsJson = workflow.steps_json ? JSON.parse(workflow.steps_json) : {};
-
-        return {
-          id: workflow.id,
-          name: workflow.name,
-          description: workflow.description || '',
-          version: workflow.version || 1,
-          isActive: Boolean(workflow.is_active),
-          isTemplate: Boolean(workflow.is_template),
-          category: workflow.category || 'ticket_automation',
-          priority: workflow.priority || 0,
-          triggerType: workflow.trigger_type,
-          triggerConditions,
-          nodes: stepsJson.nodes || [],
-          edges: stepsJson.edges || [],
-          variables: stepsJson.variables || [],
-          metadata: stepsJson.metadata || {
-            tags: [],
-            documentation: '',
-            version: '1.0',
-            author: '',
-            lastModifiedBy: '',
-            changeLog: [],
-            dependencies: [],
-            testCases: [],
-            performance: {
-              avgExecutionTime: 0,
-              maxExecutionTime: 0,
-              minExecutionTime: 0,
-              successRate: 0,
-              errorRate: 0,
-              resourceUsage: {
-                memoryMB: 0,
-                cpuPercent: 0,
-                networkKB: 0,
-                storageKB: 0,
-              },
-            },
-          },
-          executionCount: workflow.execution_count || 0,
-          successCount: workflow.success_count || 0,
-          failureCount: workflow.failure_count || 0,
-          lastExecutedAt: workflow.last_executed_at ? new Date(workflow.last_executed_at) : undefined,
-          createdBy: workflow.created_by,
-          updatedBy: workflow.updated_by,
-          createdAt: new Date(workflow.created_at),
-          updatedAt: new Date(workflow.updated_at),
-        };
-      });
+      return workflows.map(parseWorkflowRow);
     } catch (error) {
-      console.error('Error getting workflows by trigger type:', error);
+      logger.error('Error getting workflows by trigger type:', error);
       throw error;
     }
   },
@@ -2015,14 +1649,11 @@ import type {
 } from '../types/database';
 
 export const cabQueries = {
-  /**
-   * Get all CAB meetings for an organization
-   */
-  getCabMeetings: (organizationId: number, filters?: {
+  getCabMeetings: async (organizationId: number, filters?: {
     status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
     meeting_type?: 'regular' | 'emergency' | 'virtual';
     upcoming?: boolean;
-  }): CABMeeting[] => {
+  }): Promise<CABMeeting[]> => {
     let query = `
       SELECT m.*
       FROM cab_meetings m
@@ -2041,19 +1672,16 @@ export const cabQueries = {
     }
 
     if (filters?.upcoming) {
-      query += ' AND m.meeting_date >= date("now") AND m.status = "scheduled"';
+      query += ` AND m.meeting_date >= ${sqlCurrentDate()} AND m.status = 'scheduled'`;
     }
 
     query += ' ORDER BY m.meeting_date DESC, m.created_at DESC';
 
-    return db.prepare(query).all(...params) as CABMeeting[];
+    return await executeQuery<CABMeeting>(query, params);
   },
 
-  /**
-   * Get CAB meeting by ID with details
-   */
-  getCabMeetingById: (id: number, organizationId: number): CABMeetingWithDetails | undefined => {
-    const meeting = db.prepare(`
+  getCabMeetingById: async (id: number, organizationId: number): Promise<CABMeetingWithDetails | undefined> => {
+    const meeting = await executeQueryOne<any>(`
       SELECT
         m.*,
         u.name as organizer_name,
@@ -2064,12 +1692,12 @@ export const cabQueries = {
       LEFT JOIN users u ON m.created_by = u.id
       LEFT JOIN cab_configurations c ON m.cab_id = c.id
       WHERE m.id = ? AND m.organization_id = ?
-    `).get(id, organizationId) as any;
+    `, [id, organizationId]);
 
     if (!meeting) return undefined;
 
     // Get change requests for this meeting
-    const changeRequests = db.prepare(`
+    const changeRequests = await executeQuery(`
       SELECT cr.*,
         u.name as requester_name,
         ct.name as change_type_name
@@ -2078,7 +1706,7 @@ export const cabQueries = {
       LEFT JOIN change_types ct ON cr.change_type_id = ct.id
       WHERE cr.cab_meeting_id = ?
       ORDER BY cr.risk_level DESC, cr.priority DESC
-    `).all(id);
+    `, [id]);
 
     return {
       ...meeting,
@@ -2086,18 +1714,13 @@ export const cabQueries = {
     } as CABMeetingWithDetails;
   },
 
-  /**
-   * Create a new CAB meeting
-   */
-  createCabMeeting: (meeting: Omit<CreateCABMeeting, 'organization_id'>, organizationId: number, createdBy: number): CABMeeting => {
-    const stmt = db.prepare(`
+  createCabMeeting: async (meeting: Omit<CreateCABMeeting, 'organization_id'>, organizationId: number, createdBy: number): Promise<CABMeeting> => {
+    const result = await executeRun(`
       INSERT INTO cab_meetings (
         cab_id, meeting_date, meeting_type, status, attendees,
         agenda, minutes, decisions, action_items, created_by, organization_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+    `, [
       meeting.cab_id,
       meeting.meeting_date,
       meeting.meeting_type || 'regular',
@@ -2109,15 +1732,13 @@ export const cabQueries = {
       meeting.action_items ? JSON.stringify(meeting.action_items) : null,
       createdBy,
       organizationId
-    );
+    ]);
 
-    return db.prepare('SELECT * FROM cab_meetings WHERE id = ?').get(result.lastInsertRowid as number) as CABMeeting;
+    const created = await executeQueryOne<CABMeeting>('SELECT * FROM cab_meetings WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  /**
-   * Update CAB meeting
-   */
-  updateCabMeeting: (meeting: UpdateCABMeeting, organizationId: number): CABMeeting | undefined => {
+  updateCabMeeting: async (meeting: UpdateCABMeeting, organizationId: number): Promise<CABMeeting | undefined> => {
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -2155,85 +1776,69 @@ export const cabQueries = {
     }
 
     if (fields.length === 0) {
-      return db.prepare('SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?').get(meeting.id, organizationId) as CABMeeting | undefined;
+      return await executeQueryOne<CABMeeting>('SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?', [meeting.id, organizationId]);
     }
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(meeting.id, organizationId);
 
-    const stmt = db.prepare(`UPDATE cab_meetings SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`);
-    stmt.run(...values);
+    await executeRun(`UPDATE cab_meetings SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`, values);
 
-    return db.prepare('SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?').get(meeting.id, organizationId) as CABMeeting | undefined;
+    return await executeQueryOne<CABMeeting>('SELECT * FROM cab_meetings WHERE id = ? AND organization_id = ?', [meeting.id, organizationId]);
   },
 
-  /**
-   * Delete/Cancel CAB meeting
-   */
-  deleteCabMeeting: (id: number, organizationId: number): boolean => {
-    // Instead of deleting, we cancel the meeting
-    const stmt = db.prepare('UPDATE cab_meetings SET status = "cancelled", updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?');
-    const result = stmt.run(id, organizationId);
+  deleteCabMeeting: async (id: number, organizationId: number): Promise<boolean> => {
+    const result = await executeRun(
+      `UPDATE cab_meetings SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ?`,
+      [id, organizationId]
+    );
     return result.changes > 0;
   },
 
-  /**
-   * Get CAB configuration for organization
-   */
-  getCabConfiguration: (organizationId: number): CABConfiguration | undefined => {
-    return db.prepare('SELECT * FROM cab_configurations WHERE organization_id = ? AND is_active = 1').get(organizationId) as CABConfiguration | undefined;
+  getCabConfiguration: async (organizationId: number): Promise<CABConfiguration | undefined> => {
+    return await executeQueryOne<CABConfiguration>('SELECT * FROM cab_configurations WHERE organization_id = ? AND is_active = 1', [organizationId]);
   },
 
-  /**
-   * Get CAB members
-   */
-  getCabMembers: (organizationId: number, cabId?: number): CABMember[] => {
+  getCabMembers: async (organizationId: number, cabId?: number): Promise<CABMember[]> => {
     if (cabId) {
-      return db.prepare(`
+      return await executeQuery<CABMember>(`
         SELECT cm.*, u.name as user_name, u.email as user_email
         FROM cab_members cm
         LEFT JOIN users u ON cm.user_id = u.id
         WHERE cm.cab_id = ? AND cm.is_active = 1
         ORDER BY cm.role, u.name
-      `).all(cabId) as CABMember[];
+      `, [cabId]);
     }
 
-    return db.prepare(`
+    return await executeQuery<CABMember>(`
       SELECT cm.*, u.name as user_name, u.email as user_email
       FROM cab_members cm
       LEFT JOIN cab_configurations c ON cm.cab_id = c.id
       LEFT JOIN users u ON cm.user_id = u.id
       WHERE c.organization_id = ? AND cm.is_active = 1
       ORDER BY cm.role, u.name
-    `).all(organizationId) as CABMember[];
+    `, [organizationId]);
   },
 
-  /**
-   * Add CAB member
-   */
-  addCabMember: (member: CreateCABMember): CABMember => {
-    const stmt = db.prepare(`
+  addCabMember: async (member: CreateCABMember): Promise<CABMember> => {
+    const result = await executeRun(`
       INSERT INTO cab_members (cab_id, user_id, role, is_voting_member, expertise_areas, is_active)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+    `, [
       member.cab_id,
       member.user_id,
       member.role || 'member',
       member.is_voting_member !== undefined ? member.is_voting_member : true,
       member.expertise_areas ? JSON.stringify(member.expertise_areas) : null,
       member.is_active !== undefined ? member.is_active : true
-    );
+    ]);
 
-    return db.prepare('SELECT * FROM cab_members WHERE id = ?').get(result.lastInsertRowid as number) as CABMember;
+    const created = await executeQueryOne<CABMember>('SELECT * FROM cab_members WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  /**
-   * Get change requests pending CAB approval
-   */
-  getChangesPendingCab: (organizationId: number): ChangeRequest[] => {
-    return db.prepare(`
+  getChangesPendingCab: async (organizationId: number): Promise<ChangeRequest[]> => {
+    return await executeQuery<ChangeRequest>(`
       SELECT cr.*,
         u.name as requester_name,
         ct.name as change_type_name
@@ -2244,14 +1849,11 @@ export const cabQueries = {
         AND cr.status IN ('submitted', 'under_review', 'pending_cab')
         AND cr.cab_meeting_id IS NULL
       ORDER BY cr.risk_level DESC, cr.priority DESC, cr.created_at ASC
-    `).all(organizationId) as ChangeRequest[];
+    `, [organizationId]);
   },
 
-  /**
-   * Get change request by ID
-   */
-  getChangeRequestById: (id: number, organizationId: number): ChangeRequestWithDetails | undefined => {
-    const change = db.prepare(`
+  getChangeRequestById: async (id: number, organizationId: number): Promise<ChangeRequestWithDetails | undefined> => {
+    const change = await executeQueryOne<any>(`
       SELECT cr.*,
         u.name as requester_name,
         u.email as requester_email,
@@ -2264,12 +1866,12 @@ export const cabQueries = {
       LEFT JOIN users i ON cr.implementer_id = i.id
       LEFT JOIN change_types ct ON cr.change_type_id = ct.id
       WHERE cr.id = ? AND cr.organization_id = ?
-    `).get(id, organizationId) as any;
+    `, [id, organizationId]);
 
     if (!change) return undefined;
 
     // Get approvals/votes
-    const approvals = db.prepare(`
+    const approvals = await executeQuery(`
       SELECT cra.*,
         u.name as approver_name,
         u.email as approver_email
@@ -2277,7 +1879,7 @@ export const cabQueries = {
       LEFT JOIN users u ON cra.approver_id = u.id
       WHERE cra.change_request_id = ?
       ORDER BY cra.decided_at DESC
-    `).all(id);
+    `, [id]);
 
     return {
       ...change,
@@ -2285,16 +1887,13 @@ export const cabQueries = {
     } as ChangeRequestWithDetails;
   },
 
-  /**
-   * Create change request
-   */
-  createChangeRequest: (change: Omit<CreateChangeRequest, 'organization_id'>, organizationId: number): ChangeRequest => {
+  createChangeRequest: async (change: Omit<CreateChangeRequest, 'organization_id'>, organizationId: number): Promise<ChangeRequest> => {
     // Generate change number
-    const lastChange = db.prepare(`
+    const lastChange = await executeQueryOne<{ change_number: string }>(`
       SELECT change_number FROM change_requests
       WHERE organization_id = ?
       ORDER BY id DESC LIMIT 1
-    `).get(organizationId) as { change_number: string } | undefined;
+    `, [organizationId]);
 
     let changeNumber = 'CHG-0001';
     if (lastChange) {
@@ -2302,7 +1901,7 @@ export const cabQueries = {
       changeNumber = `CHG-${num.toString().padStart(4, '0')}`;
     }
 
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO change_requests (
         change_number, title, description, change_type_id, category, priority,
         risk_level, risk_assessment, impact_assessment, reason_for_change,
@@ -2310,9 +1909,7 @@ export const cabQueries = {
         communication_plan, requested_start_date, requested_end_date,
         requester_id, owner_id, implementer_id, status, organization_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+    `, [
       changeNumber,
       change.title,
       change.description,
@@ -2335,15 +1932,13 @@ export const cabQueries = {
       change.implementer_id || null,
       change.status || 'draft',
       organizationId
-    );
+    ]);
 
-    return db.prepare('SELECT * FROM change_requests WHERE id = ?').get(result.lastInsertRowid as number) as ChangeRequest;
+    const created = await executeQueryOne<ChangeRequest>('SELECT * FROM change_requests WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  /**
-   * Update change request
-   */
-  updateChangeRequest: (change: UpdateChangeRequest, organizationId: number): ChangeRequest | undefined => {
+  updateChangeRequest: async (change: UpdateChangeRequest, organizationId: number): Promise<ChangeRequest | undefined> => {
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -2368,23 +1963,19 @@ export const cabQueries = {
     }
 
     if (fields.length === 0) {
-      return db.prepare('SELECT * FROM change_requests WHERE id = ? AND organization_id = ?').get(change.id, organizationId) as ChangeRequest | undefined;
+      return await executeQueryOne<ChangeRequest>('SELECT * FROM change_requests WHERE id = ? AND organization_id = ?', [change.id, organizationId]);
     }
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(change.id, organizationId);
 
-    const stmt = db.prepare(`UPDATE change_requests SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`);
-    stmt.run(...values);
+    await executeRun(`UPDATE change_requests SET ${fields.join(', ')} WHERE id = ? AND organization_id = ?`, values);
 
-    return db.prepare('SELECT * FROM change_requests WHERE id = ? AND organization_id = ?').get(change.id, organizationId) as ChangeRequest | undefined;
+    return await executeQueryOne<ChangeRequest>('SELECT * FROM change_requests WHERE id = ? AND organization_id = ?', [change.id, organizationId]);
   },
 
-  /**
-   * Record CAB vote/decision
-   */
-  recordCabDecision: (approval: CreateChangeRequestApproval): ChangeRequestApproval => {
-    const stmt = db.prepare(`
+  recordCabDecision: async (approval: CreateChangeRequestApproval): Promise<ChangeRequestApproval> => {
+    await executeRun(`
       INSERT INTO change_request_approvals (
         change_request_id, cab_member_id, vote, voted_at, comments, conditions
       ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
@@ -2393,28 +1984,24 @@ export const cabQueries = {
         voted_at = CURRENT_TIMESTAMP,
         comments = excluded.comments,
         conditions = excluded.conditions
-    `);
-
-    const result = stmt.run(
+    `, [
       approval.change_request_id,
       approval.cab_member_id,
       approval.vote || null,
       approval.comments || null,
       approval.conditions || null
-    );
+    ]);
 
-    return db.prepare(`
+    const result = await executeQueryOne<ChangeRequestApproval>(`
       SELECT * FROM change_request_approvals
       WHERE change_request_id = ? AND cab_member_id = ?
-    `).get(approval.change_request_id, approval.cab_member_id) as ChangeRequestApproval;
+    `, [approval.change_request_id, approval.cab_member_id]);
+    return result!;
   },
 
-  /**
-   * Get CAB agenda (upcoming changes for review)
-   */
-  getCabAgenda: (organizationId: number, meetingId?: number): ChangeRequest[] => {
+  getCabAgenda: async (organizationId: number, meetingId?: number): Promise<ChangeRequest[]> => {
     if (meetingId) {
-      return db.prepare(`
+      return await executeQuery<ChangeRequest>(`
         SELECT cr.*,
           u.name as requester_name,
           ct.name as change_type_name
@@ -2423,23 +2010,19 @@ export const cabQueries = {
         LEFT JOIN change_types ct ON cr.change_type_id = ct.id
         WHERE cr.cab_meeting_id = ?
         ORDER BY cr.risk_level DESC, cr.priority DESC
-      `).all(meetingId) as ChangeRequest[];
+      `, [meetingId]);
     }
 
-    return cabQueries.getChangesPendingCab(organizationId);
+    return await cabQueries.getChangesPendingCab(organizationId);
   },
 
-  /**
-   * Add change to CAB agenda
-   */
-  addChangeToAgenda: (changeId: number, meetingId: number, organizationId: number): boolean => {
-    const stmt = db.prepare(`
+  addChangeToAgenda: async (changeId: number, meetingId: number, organizationId: number): Promise<boolean> => {
+    const result = await executeRun(`
       UPDATE change_requests
       SET cab_meeting_id = ?, status = 'pending_cab', updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND organization_id = ?
-    `);
+    `, [meetingId, changeId, organizationId]);
 
-    const result = stmt.run(meetingId, changeId, organizationId);
     return result.changes > 0;
   }
 };
@@ -2480,14 +2063,11 @@ interface CreateNotificationInput {
 }
 
 export const notificationQueries = {
-  /**
-   * Get user notifications with pagination
-   */
-  getUserNotifications: (userId: number, tenantId: number, options: {
+  getUserNotifications: async (userId: number, tenantId: number, options: {
     unreadOnly?: boolean;
     limit?: number;
     offset?: number;
-  } = {}): { notifications: NotificationType[], total: number, unread: number } => {
+  } = {}): Promise<{ notifications: NotificationType[], total: number, unread: number }> => {
     const { unreadOnly = false, limit = 50, offset = 0 } = options;
 
     let whereClause = 'WHERE user_id = ? AND tenant_id = ?';
@@ -2497,52 +2077,48 @@ export const notificationQueries = {
       whereClause += ' AND is_read = 0';
     }
 
-    const notifications = db.prepare(`
+    const notifications = await executeQuery<NotificationType>(`
       SELECT *
       FROM notifications
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...params, limit, offset) as NotificationType[];
+    `, [...params, limit, offset]);
 
-    const { total } = db.prepare(`
+    const totalRow = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM notifications
       ${whereClause}
-    `).get(...params) as { total: number };
+    `, params);
 
-    const { unread } = db.prepare(`
+    const unreadRow = await executeQueryOne<{ unread: number }>(`
       SELECT COUNT(*) as unread
       FROM notifications
       WHERE user_id = ? AND tenant_id = ? AND is_read = 0
-    `).get(userId, tenantId) as { unread: number };
+    `, [userId, tenantId]);
 
-    return { notifications, total, unread };
+    return {
+      notifications,
+      total: totalRow?.total ?? 0,
+      unread: unreadRow?.unread ?? 0
+    };
   },
 
-  /**
-   * Get unread notification count
-   */
-  getUnreadCount: (userId: number, tenantId: number): number => {
-    const { count } = db.prepare(`
+  getUnreadCount: async (userId: number, tenantId: number): Promise<number> => {
+    const row = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM notifications
       WHERE user_id = ? AND tenant_id = ? AND is_read = 0
-    `).get(userId, tenantId) as { count: number };
+    `, [userId, tenantId]);
 
-    return count;
+    return row?.count ?? 0;
   },
 
-  /**
-   * Create a new notification
-   */
-  createNotification: (notification: CreateNotificationInput): NotificationType => {
-    const stmt = db.prepare(`
+  createNotification: async (notification: CreateNotificationInput): Promise<NotificationType> => {
+    const result = await executeRun(`
       INSERT INTO notifications (user_id, tenant_id, type, title, message, data, ticket_id, is_read, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 0, datetime('now'))
-    `);
-
-    const result = stmt.run(
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ${sqlNow()})
+    `, [
       notification.user_id,
       notification.tenant_id,
       notification.type,
@@ -2550,104 +2126,80 @@ export const notificationQueries = {
       notification.message,
       notification.data ? JSON.stringify(notification.data) : null,
       notification.ticket_id || null
-    );
+    ]);
 
-    return db.prepare('SELECT * FROM notifications WHERE id = ?').get(result.lastInsertRowid) as NotificationType;
+    const created = await executeQueryOne<NotificationType>('SELECT * FROM notifications WHERE id = ?', [result.lastInsertRowid]);
+    return created!;
   },
 
-  /**
-   * Mark notification as read
-   */
-  markAsRead: (notificationId: number, userId: number, tenantId: number): boolean => {
-    const stmt = db.prepare(`
+  markAsRead: async (notificationId: number, userId: number, tenantId: number): Promise<boolean> => {
+    const result = await executeRun(`
       UPDATE notifications
-      SET is_read = 1, updated_at = datetime('now')
+      SET is_read = 1, updated_at = ${sqlNow()}
       WHERE id = ? AND user_id = ? AND tenant_id = ?
-    `);
+    `, [notificationId, userId, tenantId]);
 
-    const result = stmt.run(notificationId, userId, tenantId);
     return result.changes > 0;
   },
 
-  /**
-   * Mark all notifications as read
-   */
-  markAllAsRead: (userId: number, tenantId: number): number => {
-    const stmt = db.prepare(`
+  markAllAsRead: async (userId: number, tenantId: number): Promise<number> => {
+    const result = await executeRun(`
       UPDATE notifications
-      SET is_read = 1, updated_at = datetime('now')
+      SET is_read = 1, updated_at = ${sqlNow()}
       WHERE user_id = ? AND tenant_id = ? AND is_read = 0
-    `);
+    `, [userId, tenantId]);
 
-    const result = stmt.run(userId, tenantId);
     return result.changes;
   },
 
-  /**
-   * Mark multiple notifications as read
-   */
-  markMultipleAsRead: (notificationIds: number[], userId: number, tenantId: number): number => {
+  markMultipleAsRead: async (notificationIds: number[], userId: number, tenantId: number): Promise<number> => {
     if (notificationIds.length === 0) return 0;
 
     const placeholders = notificationIds.map(() => '?').join(',');
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       UPDATE notifications
-      SET is_read = 1, updated_at = datetime('now')
+      SET is_read = 1, updated_at = ${sqlNow()}
       WHERE id IN (${placeholders}) AND user_id = ? AND tenant_id = ?
-    `);
+    `, [...notificationIds, userId, tenantId]);
 
-    const result = stmt.run(...notificationIds, userId, tenantId);
     return result.changes;
   },
 
-  /**
-   * Delete old read notifications (cleanup)
-   */
-  deleteOldNotifications: (tenantId: number, daysOld: number = 30): number => {
-    const stmt = db.prepare(`
+  deleteOldNotifications: async (tenantId: number, daysOld: number = 30): Promise<number> => {
+    const result = await executeRun(`
       DELETE FROM notifications
       WHERE tenant_id = ?
         AND is_read = 1
-        AND created_at < datetime('now', '-' || ? || ' days')
-    `);
+        AND created_at < ${sqlDynamicDateSub()}
+    `, [tenantId, daysOld]);
 
-    const result = stmt.run(tenantId, daysOld);
     return result.changes;
   },
 
-  /**
-   * Get notification by ID
-   */
-  getNotificationById: (notificationId: number, userId: number, tenantId: number): NotificationType | undefined => {
-    return db.prepare(`
+  getNotificationById: async (notificationId: number, userId: number, tenantId: number): Promise<NotificationType | undefined> => {
+    return await executeQueryOne<NotificationType>(`
       SELECT * FROM notifications
       WHERE id = ? AND user_id = ? AND tenant_id = ?
-    `).get(notificationId, userId, tenantId) as NotificationType | undefined;
+    `, [notificationId, userId, tenantId]);
   },
 
-  /**
-   * Get notifications by type
-   */
-  getNotificationsByType: (userId: number, tenantId: number, type: string, limit: number = 20): NotificationType[] => {
-    return db.prepare(`
+  getNotificationsByType: async (userId: number, tenantId: number, type: string, limit: number = 20): Promise<NotificationType[]> => {
+    return await executeQuery<NotificationType>(`
       SELECT * FROM notifications
       WHERE user_id = ? AND tenant_id = ? AND type = ?
       ORDER BY created_at DESC
       LIMIT ?
-    `).all(userId, tenantId, type, limit) as NotificationType[];
+    `, [userId, tenantId, type, limit]);
   },
 
-  /**
-   * Create ticket-related notification
-   */
-  createTicketNotification: (params: {
+  createTicketNotification: async (params: {
     userId: number;
     tenantId: number;
     ticketId: number;
     type: 'ticket_assigned' | 'ticket_updated' | 'comment_added' | 'ticket_resolved' | 'sla_warning' | 'sla_breach';
     ticketTitle: string;
     additionalData?: Record<string, any>;
-  }): NotificationType => {
+  }): Promise<NotificationType> => {
     const messages: Record<string, string> = {
       ticket_assigned: `Ticket #${params.ticketId} foi atribuído a você`,
       ticket_updated: `Status do ticket #${params.ticketId} foi atualizado`,
@@ -2657,7 +2209,7 @@ export const notificationQueries = {
       sla_breach: `🔴 SLA violado no ticket #${params.ticketId}`,
     };
 
-    return notificationQueries.createNotification({
+    return await notificationQueries.createNotification({
       user_id: params.userId,
       tenant_id: params.tenantId,
       type: params.type,
@@ -2708,33 +2260,18 @@ export interface TicketAccessToken {
 
 /**
  * Generates a secure UUID v4 token for ticket access
- * Uses crypto.randomUUID() for cryptographically secure random generation
- *
- * @param ticketId - The ID of the ticket to generate access for
- * @param expirationDays - Number of days until token expires (default: 30)
- * @param createdBy - Optional user ID who created the token
- * @returns The generated access token string (UUID v4)
- *
- * @example
- * const token = generateTicketAccessToken(123, 30, 1);
- * // Returns: "550e8400-e29b-41d4-a716-446655440000"
- *
- * @security
- * - Uses crypto.randomUUID() for secure random generation
- * - Tokens automatically expire after specified days
- * - Each token is unique and tied to a specific ticket
  */
-export function generateTicketAccessToken(
+export async function generateTicketAccessToken(
   ticketId: number,
   expirationDays: number = 30,
   createdBy?: number
-): string {
+): Promise<string> {
   const crypto = require('crypto');
   const token = crypto.randomUUID();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
-  const stmt = db.prepare(`
+  await executeRun(`
     INSERT INTO ticket_access_tokens (
       ticket_id,
       token,
@@ -2743,37 +2280,24 @@ export function generateTicketAccessToken(
       created_by
     )
     VALUES (?, ?, ?, 1, ?)
-  `);
-
-  stmt.run(ticketId, token, expiresAt.toISOString(), createdBy || null);
+  `, [ticketId, token, expiresAt.toISOString(), createdBy || null]);
 
   return token;
 }
 
 /**
  * Validates and retrieves a ticket access token
- * Checks if token exists, is active, and not expired
- *
- * @param token - The UUID token to validate
- * @param ticketId - Optional ticket ID to verify token is for correct ticket
- * @returns Token object if valid, null otherwise
- *
- * @example
- * const tokenData = validateTicketAccessToken(token, ticketId);
- * if (!tokenData) {
- *   return NextResponse.json({ error: 'Invalid token' }, { status: 403 });
- * }
  */
-export function validateTicketAccessToken(
+export async function validateTicketAccessToken(
   token: string,
   ticketId?: number
-): TicketAccessToken | null {
+): Promise<TicketAccessToken | null> {
   let query = `
     SELECT * FROM ticket_access_tokens
     WHERE token = ?
       AND is_active = 1
       AND revoked_at IS NULL
-      AND expires_at > datetime('now')
+      AND expires_at > ${sqlNow()}
   `;
 
   const params: (string | number)[] = [token];
@@ -2783,101 +2307,82 @@ export function validateTicketAccessToken(
     params.push(ticketId);
   }
 
-  const stmt = db.prepare(query);
-  const tokenData = stmt.get(...params) as TicketAccessToken | undefined;
+  const tokenData = await executeQueryOne<TicketAccessToken>(query, params);
 
   return tokenData || null;
 }
 
 /**
  * Records token usage by updating usage_count and last_used_at
- * Optionally sets used_at on first use
- *
- * @param tokenId - The ID of the token to record usage for
- * @param metadata - Optional metadata to store (IP, user-agent, etc.)
  */
-export function recordTokenUsage(
+export async function recordTokenUsage(
   tokenId: number,
   metadata?: Record<string, unknown>
-): void {
+): Promise<void> {
   const metadataJson = metadata ? JSON.stringify(metadata) : null;
 
-  db.prepare(`
+  await executeRun(`
     UPDATE ticket_access_tokens
     SET
       usage_count = usage_count + 1,
-      last_used_at = datetime('now'),
-      used_at = COALESCE(used_at, datetime('now')),
+      last_used_at = ${sqlNow()},
+      used_at = COALESCE(used_at, ${sqlNow()}),
       metadata = COALESCE(?, metadata)
     WHERE id = ?
-  `).run(metadataJson, tokenId);
+  `, [metadataJson, tokenId]);
 }
 
 /**
  * Revokes a ticket access token, preventing further use
- *
- * @param token - The token to revoke
- * @returns True if token was revoked, false otherwise
  */
-export function revokeTicketAccessToken(token: string): boolean {
-  const result = db.prepare(`
+export async function revokeTicketAccessToken(token: string): Promise<boolean> {
+  const result = await executeRun(`
     UPDATE ticket_access_tokens
     SET
       is_active = 0,
-      revoked_at = datetime('now')
+      revoked_at = ${sqlNow()}
     WHERE token = ?
-  `).run(token);
+  `, [token]);
 
   return result.changes > 0;
 }
 
 /**
  * Revokes all tokens for a specific ticket
- * Useful when ticket is closed or deleted
- *
- * @param ticketId - The ticket ID to revoke all tokens for
- * @returns Number of tokens revoked
  */
-export function revokeAllTicketTokens(ticketId: number): number {
-  const result = db.prepare(`
+export async function revokeAllTicketTokens(ticketId: number): Promise<number> {
+  const result = await executeRun(`
     UPDATE ticket_access_tokens
     SET
       is_active = 0,
-      revoked_at = datetime('now')
+      revoked_at = ${sqlNow()}
     WHERE ticket_id = ? AND is_active = 1
-  `).run(ticketId);
+  `, [ticketId]);
 
   return result.changes;
 }
 
 /**
  * Cleans up expired tokens from the database
- * Should be run periodically (e.g., daily cron job)
- *
- * @returns Number of tokens deleted
  */
-export function cleanupExpiredTokens(): number {
-  const result = db.prepare(`
+export async function cleanupExpiredTokens(): Promise<number> {
+  const result = await executeRun(`
     DELETE FROM ticket_access_tokens
-    WHERE expires_at < datetime('now', '-30 days')
-  `).run();
+    WHERE expires_at < ${sqlDatetimeSub(30)}
+  `);
 
   return result.changes;
 }
 
 /**
  * Gets all active tokens for a ticket
- *
- * @param ticketId - The ticket ID to get tokens for
- * @returns Array of active tokens
  */
-export function getTicketTokens(ticketId: number): TicketAccessToken[] {
-  return db.prepare(`
+export async function getTicketTokens(ticketId: number): Promise<TicketAccessToken[]> {
+  return await executeQuery<TicketAccessToken>(`
     SELECT * FROM ticket_access_tokens
     WHERE ticket_id = ?
       AND is_active = 1
       AND revoked_at IS NULL
     ORDER BY created_at DESC
-  `).all(ticketId) as TicketAccessToken[];
+  `, [ticketId]);
 }
-

@@ -371,10 +371,15 @@ export async function middleware(request: NextRequest) {
   // PERFORMANCE OPTIMIZATIONS
   // ========================
 
-  // Add cache control headers (null means let next.config.js headers() handle it)
-  const cacheControl = getCacheControl(pathname)
-  if (cacheControl) {
-    response.headers.set('Cache-Control', cacheControl)
+  // Force no-store for all mutation API requests (POST, PUT, PATCH, DELETE)
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) && pathname.startsWith('/api/')) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+  } else {
+    // Add cache control headers (null means let next.config.js headers() handle it)
+    const cacheControl = getCacheControl(pathname)
+    if (cacheControl) {
+      response.headers.set('Cache-Control', cacheControl)
+    }
   }
 
   // Vary header: only include Cookie for authenticated routes (public routes can be CDN-cached)

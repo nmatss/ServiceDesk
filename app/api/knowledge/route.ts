@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
     const articleStatus = status || 'draft'
 
     // Use a transaction with retry to avoid slug race conditions.
-    // INSERT OR IGNORE silently skips if the slug already exists (unique constraint),
+    // INSERT ... ON CONFLICT DO NOTHING silently skips if the slug already exists (unique constraint),
     // and we retry with an incremented suffix.
     const MAX_SLUG_RETRIES = 20
     let articleId: number | undefined
@@ -178,8 +178,9 @@ export async function POST(request: NextRequest) {
 
       for (let attempt = 0; attempt < MAX_SLUG_RETRIES; attempt++) {
         const runResult = db.run(`
-          INSERT OR IGNORE INTO kb_articles (title, slug, content, summary, category_id, status, author_id)
+          INSERT INTO kb_articles (title, slug, content, summary, category_id, status, author_id)
           VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT DO NOTHING
         `, [
           title,
           slug,
@@ -231,7 +232,7 @@ export async function POST(request: NextRequest) {
         }
         if (typeof tagId === 'number') {
           await executeRun(
-            'INSERT OR IGNORE INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)',
+            'INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
             [articleId, tagId]
           )
         }

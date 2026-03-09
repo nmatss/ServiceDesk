@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 // Interface para cache
@@ -106,8 +106,12 @@ export async function setCache<T>(key: string, value: T, ttl: number = config.de
 
     // Inserir ou atualizar
     await executeRun(`
-      INSERT OR REPLACE INTO cache (key, value, expires_at)
+      INSERT INTO cache (key, value, expires_at)
       VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        expires_at = excluded.expires_at,
+        created_at = ${sqlNow()}
     `, [key, valueString, expiresAt]);
 
     return true;
@@ -154,7 +158,7 @@ export async function cleanupExpiredCache(): Promise<number> {
   try {
     const result = await executeRun(`
       DELETE FROM cache
-      WHERE expires_at < datetime('now')
+      WHERE expires_at < ${sqlNow()}
     `, []);
 
     if (result.changes > 0) {
@@ -232,7 +236,7 @@ export async function getCacheStats(): Promise<{
     const expiredResult = await executeQueryOne<{ expired_entries: number }>(`
       SELECT COUNT(*) as expired_entries
       FROM cache
-      WHERE expires_at < datetime('now')
+      WHERE expires_at < ${sqlNow()}
     `, []);
 
     // Tamanho aproximado em MB
@@ -410,7 +414,7 @@ export async function initializeCacheSystem(): Promise<void> {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
         expires_at TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now'))
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `, []);
 

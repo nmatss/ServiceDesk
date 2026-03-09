@@ -3,7 +3,8 @@
  * Implements time-based and hash-based partitioning for large datasets
  */
 
-import db from '../db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 export interface PartitionConfig {
@@ -143,7 +144,7 @@ export class TablePartitionManager {
 
     if (relevantPartitions.length === 0) {
       // No partitions found, execute on main table
-      return db.prepare(baseQuery).all(...params) as T;
+      return await executeQuery<any>(baseQuery, params) as T;
     }
 
     // Limit number of partitions to prevent excessive queries
@@ -155,7 +156,7 @@ export class TablePartitionManager {
     for (const partition of partitionsToQuery) {
       try {
         const partitionQuery = this.adaptQueryForPartition(baseQuery, partition);
-        const partitionResult = db.prepare(partitionQuery).all(...params);
+        const partitionResult = await executeQuery<any>(partitionQuery, params);
         results.push(...partitionResult);
       } catch (error) {
         logger.warn(`Failed to query partition ${partition}:`, error);
@@ -249,24 +250,35 @@ export class TablePartitionManager {
   async optimizePartitions(tableName: string): Promise<{ optimized: string[]; errors: string[] }> {
     const optimized: string[] = [];
     const errors: string[] = [];
+    const isPostgres = getDatabaseType() === 'postgresql';
 
     const partitions = this.getTablePartitions(tableName);
 
     for (const partition of partitions) {
       try {
         // Analyze partition
-        db.exec(`ANALYZE ${partition.partitionName}`);
+        await executeRun(`ANALYZE ${partition.partitionName}`);
 
-        // Vacuum if needed
+        // Vacuum if needed (different syntax per dialect)
         const vacuumResult = this.shouldVacuumPartition(partition);
         if (vacuumResult.shouldVacuum) {
-          db.exec(`VACUUM ${partition.partitionName}`);
+          if (isPostgres) {
+            await executeRun(`VACUUM ANALYZE ${partition.partitionName}`);
+          } else {
+            // SQLite VACUUM doesn't take a table name argument
+            // Use ANALYZE instead for per-table optimization
+            await executeRun(`ANALYZE ${partition.partitionName}`);
+          }
         }
 
         // Reindex if needed
         const reindexResult = this.shouldReindexPartition(partition);
         if (reindexResult.shouldReindex) {
-          db.exec(`REINDEX ${partition.partitionName}`);
+          if (isPostgres) {
+            await executeRun(`REINDEX TABLE ${partition.partitionName}`);
+          } else {
+            await executeRun(`REINDEX ${partition.partitionName}`);
+          }
         }
 
         optimized.push(partition.partitionName);
@@ -292,47 +304,43 @@ export class TablePartitionManager {
   }
 
   private async createTicketPartitions(): Promise<void> {
+    const isPostgres = getDatabaseType() === 'postgresql';
     const currentDate = new Date();
-    const partitions = this.generateMonthlyPartitions(currentDate, 12, 6); // 12 past, 6 future months
+    const partitions = this.generateMonthlyPartitions(currentDate, 12, 6);
 
     for (const partition of partitions) {
       const partitionName = `tickets_${partition.suffix}`;
       const startDate = partition.startDate.toISOString().split('T')[0];
       const endDate = partition.endDate.toISOString().split('T')[0];
 
-      const createSQL = `
-        CREATE TABLE IF NOT EXISTS ${partitionName} (
-          LIKE tickets INCLUDING ALL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_created_at
-        ON ${partitionName}(created_at);
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_status_priority
-        ON ${partitionName}(status_id, priority_id);
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_assigned_to
-        ON ${partitionName}(assigned_to) WHERE assigned_to IS NOT NULL;
-      `;
-
-      db.exec(createSQL);
-
-      // Create partition constraint
-      const constraintSQL = `
-        ALTER TABLE ${partitionName}
-        ADD CONSTRAINT chk_${partitionName}_created_at
-        CHECK (created_at >= '${startDate}' AND created_at < '${endDate}');
-      `;
-
-      try {
-        db.exec(constraintSQL);
-      } catch (error) {
-        // Constraint might already exist
+      if (isPostgres) {
+        // PostgreSQL native partitioning
+        try {
+          await executeRun(`
+            CREATE TABLE IF NOT EXISTS ${partitionName} PARTITION OF tickets
+            FOR VALUES FROM ('${startDate}') TO ('${endDate}')
+          `);
+        } catch (error) {
+          // Partition might already exist or table not set up for partitioning
+          logger.warn(`Could not create PG partition ${partitionName}:`, error);
+        }
+      } else {
+        // SQLite: create separate tables with indexes
+        await executeRun(`
+          CREATE TABLE IF NOT EXISTS ${partitionName} AS SELECT * FROM tickets WHERE 0
+        `);
+        try {
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_created_at ON ${partitionName}(created_at)`);
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_status_priority ON ${partitionName}(status_id, priority_id)`);
+        } catch (error) {
+          // Indexes might already exist
+        }
       }
     }
   }
 
   private async createCommentPartitions(): Promise<void> {
+    const isPostgres = getDatabaseType() === 'postgresql';
     const currentDate = new Date();
     const partitions = this.generateMonthlyPartitions(currentDate, 12, 6);
 
@@ -341,141 +349,123 @@ export class TablePartitionManager {
       const startDate = partition.startDate.toISOString().split('T')[0];
       const endDate = partition.endDate.toISOString().split('T')[0];
 
-      const createSQL = `
-        CREATE TABLE IF NOT EXISTS ${partitionName} (
-          LIKE comments INCLUDING ALL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_ticket_created
-        ON ${partitionName}(ticket_id, created_at);
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_user_created
-        ON ${partitionName}(user_id, created_at);
-      `;
-
-      db.exec(createSQL);
-
-      const constraintSQL = `
-        ALTER TABLE ${partitionName}
-        ADD CONSTRAINT chk_${partitionName}_created_at
-        CHECK (created_at >= '${startDate}' AND created_at < '${endDate}');
-      `;
-
-      try {
-        db.exec(constraintSQL);
-      } catch (error) {
-        // Constraint might already exist
+      if (isPostgres) {
+        try {
+          await executeRun(`
+            CREATE TABLE IF NOT EXISTS ${partitionName} PARTITION OF comments
+            FOR VALUES FROM ('${startDate}') TO ('${endDate}')
+          `);
+        } catch (error) {
+          logger.warn(`Could not create PG partition ${partitionName}:`, error);
+        }
+      } else {
+        await executeRun(`
+          CREATE TABLE IF NOT EXISTS ${partitionName} AS SELECT * FROM comments WHERE 0
+        `);
+        try {
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_ticket_created ON ${partitionName}(ticket_id, created_at)`);
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_user_created ON ${partitionName}(user_id, created_at)`);
+        } catch (error) {
+          // Indexes might already exist
+        }
       }
     }
   }
 
   private async createAnalyticsPartitions(): Promise<void> {
+    const isPostgres = getDatabaseType() === 'postgresql';
     const currentDate = new Date();
-    const partitions = this.generateMonthlyPartitions(currentDate, 24, 3); // Keep more history for analytics
+    const partitions = this.generateMonthlyPartitions(currentDate, 24, 3);
 
     for (const partition of partitions) {
       const partitionName = `analytics_daily_metrics_${partition.suffix}`;
       const startDate = partition.startDate.toISOString().split('T')[0];
       const endDate = partition.endDate.toISOString().split('T')[0];
 
-      const createSQL = `
-        CREATE TABLE IF NOT EXISTS ${partitionName} (
-          LIKE analytics_daily_metrics INCLUDING ALL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_date_type
-        ON ${partitionName}(date, metric_type);
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_type_value
-        ON ${partitionName}(metric_type, metric_value);
-      `;
-
-      db.exec(createSQL);
-
-      const constraintSQL = `
-        ALTER TABLE ${partitionName}
-        ADD CONSTRAINT chk_${partitionName}_date
-        CHECK (date >= '${startDate}' AND date < '${endDate}');
-      `;
-
-      try {
-        db.exec(constraintSQL);
-      } catch (error) {
-        // Constraint might already exist
+      if (isPostgres) {
+        try {
+          await executeRun(`
+            CREATE TABLE IF NOT EXISTS ${partitionName} PARTITION OF analytics_daily_metrics
+            FOR VALUES FROM ('${startDate}') TO ('${endDate}')
+          `);
+        } catch (error) {
+          logger.warn(`Could not create PG partition ${partitionName}:`, error);
+        }
+      } else {
+        await executeRun(`
+          CREATE TABLE IF NOT EXISTS ${partitionName} AS SELECT * FROM analytics_daily_metrics WHERE 0
+        `);
+        try {
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_date_type ON ${partitionName}(date, metric_type)`);
+        } catch (error) {
+          // Index might already exist
+        }
       }
     }
   }
 
   private async createNotificationPartitions(): Promise<void> {
+    const isPostgres = getDatabaseType() === 'postgresql';
     const currentDate = new Date();
-    const partitions = this.generateWeeklyPartitions(currentDate, 8, 4); // 8 past, 4 future weeks
+    const partitions = this.generateWeeklyPartitions(currentDate, 8, 4);
 
     for (const partition of partitions) {
       const partitionName = `notifications_${partition.suffix}`;
       const startDate = partition.startDate.toISOString().split('T')[0];
       const endDate = partition.endDate.toISOString().split('T')[0];
 
-      const createSQL = `
-        CREATE TABLE IF NOT EXISTS ${partitionName} (
-          LIKE notifications INCLUDING ALL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_user_read
-        ON ${partitionName}(user_id, read_at);
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_type_created
-        ON ${partitionName}(type, created_at);
-      `;
-
-      db.exec(createSQL);
-
-      const constraintSQL = `
-        ALTER TABLE ${partitionName}
-        ADD CONSTRAINT chk_${partitionName}_created_at
-        CHECK (created_at >= '${startDate}' AND created_at < '${endDate}');
-      `;
-
-      try {
-        db.exec(constraintSQL);
-      } catch (error) {
-        // Constraint might already exist
+      if (isPostgres) {
+        try {
+          await executeRun(`
+            CREATE TABLE IF NOT EXISTS ${partitionName} PARTITION OF notifications
+            FOR VALUES FROM ('${startDate}') TO ('${endDate}')
+          `);
+        } catch (error) {
+          logger.warn(`Could not create PG partition ${partitionName}:`, error);
+        }
+      } else {
+        await executeRun(`
+          CREATE TABLE IF NOT EXISTS ${partitionName} AS SELECT * FROM notifications WHERE 0
+        `);
+        try {
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_user_read ON ${partitionName}(user_id, read_at)`);
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_type_created ON ${partitionName}(type, created_at)`);
+        } catch (error) {
+          // Indexes might already exist
+        }
       }
     }
   }
 
   private async createAuditLogPartitions(): Promise<void> {
+    const isPostgres = getDatabaseType() === 'postgresql';
     const currentDate = new Date();
-    const partitions = this.generateMonthlyPartitions(currentDate, 36, 1); // Keep 3 years of audit logs
+    const partitions = this.generateMonthlyPartitions(currentDate, 36, 1);
 
     for (const partition of partitions) {
       const partitionName = `audit_logs_${partition.suffix}`;
       const startDate = partition.startDate.toISOString().split('T')[0];
       const endDate = partition.endDate.toISOString().split('T')[0];
 
-      const createSQL = `
-        CREATE TABLE IF NOT EXISTS ${partitionName} (
-          LIKE audit_logs INCLUDING ALL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_user_action
-        ON ${partitionName}(user_id, action);
-
-        CREATE INDEX IF NOT EXISTS idx_${partitionName}_timestamp
-        ON ${partitionName}(timestamp);
-      `;
-
-      db.exec(createSQL);
-
-      const constraintSQL = `
-        ALTER TABLE ${partitionName}
-        ADD CONSTRAINT chk_${partitionName}_timestamp
-        CHECK (timestamp >= '${startDate}' AND timestamp < '${endDate}');
-      `;
-
-      try {
-        db.exec(constraintSQL);
-      } catch (error) {
-        // Constraint might already exist
+      if (isPostgres) {
+        try {
+          await executeRun(`
+            CREATE TABLE IF NOT EXISTS ${partitionName} PARTITION OF audit_logs
+            FOR VALUES FROM ('${startDate}') TO ('${endDate}')
+          `);
+        } catch (error) {
+          logger.warn(`Could not create PG partition ${partitionName}:`, error);
+        }
+      } else {
+        await executeRun(`
+          CREATE TABLE IF NOT EXISTS ${partitionName} AS SELECT * FROM audit_logs WHERE 0
+        `);
+        try {
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_user_action ON ${partitionName}(user_id, action)`);
+          await executeRun(`CREATE INDEX IF NOT EXISTS idx_${partitionName}_timestamp ON ${partitionName}(timestamp)`);
+        } catch (error) {
+          // Indexes might already exist
+        }
       }
     }
   }
@@ -670,7 +660,7 @@ export class TablePartitionManager {
 
   private async dropPartition(partitionName: string): Promise<void> {
     try {
-      db.exec(`DROP TABLE IF EXISTS ${partitionName}`);
+      await executeRun(`DROP TABLE IF EXISTS ${partitionName}`);
     } catch (error) {
       throw new Error(`Failed to drop partition ${partitionName}: ${error}`);
     }

@@ -1,10 +1,10 @@
 /**
  * LGPD Data Portability Implementation
- * Implements Art. 18º - Right to data portability
+ * Implements Art. 18 - Right to data portability
  * Exports user data in JSON and CSV formats
  */
 
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '../monitoring/observability';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -31,7 +31,7 @@ export interface UserDataExport {
 
 export class DataPortabilityService {
   /**
-   * Export all user data in JSON format - LGPD Art. 18º
+   * Export all user data in JSON format - LGPD Art. 18
    */
   async exportUserData(userId: number, organizationId: number = 1): Promise<UserDataExport> {
     try {
@@ -40,20 +40,20 @@ export class DataPortabilityService {
       logger.info('Starting data export', { userId, organizationId, exportId });
 
       // 1. User Profile Data
-      const user = db.prepare(`
+      const user = await executeQueryOne(`
         SELECT
           id, name, email, role, timezone, language,
           created_at, updated_at, last_login_at
         FROM users
         WHERE id = ? AND organization_id = ?
-      `).get(userId, organizationId);
+      `, [userId, organizationId]);
 
       if (!user) {
         throw new Error('User not found');
       }
 
       // 2. Tickets Data
-      const tickets = db.prepare(`
+      const tickets = await executeQuery(`
         SELECT
           t.id, t.title, t.description, t.created_at, t.updated_at, t.resolved_at,
           c.name as category, p.name as priority, s.name as status,
@@ -65,10 +65,10 @@ export class DataPortabilityService {
         LEFT JOIN users u ON t.assigned_to = u.id
         WHERE t.user_id = ? AND t.organization_id = ?
         ORDER BY t.created_at DESC
-      `).all(userId, organizationId);
+      `, [userId, organizationId]);
 
       // 3. Comments Data
-      const comments = db.prepare(`
+      const comments = await executeQuery(`
         SELECT
           c.id, c.content, c.is_internal, c.created_at,
           t.title as ticket_title, t.id as ticket_id
@@ -76,10 +76,10 @@ export class DataPortabilityService {
         INNER JOIN tickets t ON c.ticket_id = t.id
         WHERE c.user_id = ? AND t.organization_id = ?
         ORDER BY c.created_at DESC
-      `).all(userId, organizationId);
+      `, [userId, organizationId]);
 
       // 4. Attachments Metadata
-      const attachments = db.prepare(`
+      const attachments = await executeQuery(`
         SELECT
           a.id, a.filename, a.original_name, a.mime_type, a.size, a.created_at,
           t.title as ticket_title, t.id as ticket_id
@@ -87,10 +87,10 @@ export class DataPortabilityService {
         INNER JOIN tickets t ON a.ticket_id = t.id
         WHERE a.uploaded_by = ? AND t.organization_id = ?
         ORDER BY a.created_at DESC
-      `).all(userId, organizationId);
+      `, [userId, organizationId]);
 
       // 5. Consent Records
-      const consents = db.prepare(`
+      const consents = await executeQuery(`
         SELECT
           id, consent_type, purpose, legal_basis, is_given,
           consent_method, ip_address, created_at,
@@ -98,10 +98,10 @@ export class DataPortabilityService {
         FROM lgpd_consents
         WHERE user_id = ?
         ORDER BY created_at DESC
-      `).all(userId);
+      `, [userId]);
 
       // 6. Audit Logs (last 1000 entries)
-      const auditLogs = db.prepare(`
+      const auditLogs = await executeQuery(`
         SELECT
           id, entity_type, entity_id, action, created_at,
           old_values, new_values, ip_address
@@ -109,7 +109,7 @@ export class DataPortabilityService {
         WHERE user_id = ? AND organization_id = ?
         ORDER BY created_at DESC
         LIMIT 1000
-      `).all(userId, organizationId);
+      `, [userId, organizationId]);
 
       // 7. User Preferences
       const preferences = {
@@ -152,13 +152,13 @@ export class DataPortabilityService {
         metadata: {
           totalRecords,
           dataCategories,
-          legalBasis: 'LGPD Art. 18º - Right to data portability',
+          legalBasis: 'LGPD Art. 18 - Right to data portability',
           retentionPeriod: 'As per LGPD data retention policies'
         }
       };
 
       // Log export for compliance
-      this.logDataExport(userId, 'json', totalRecords);
+      await this.logDataExport(userId, 'json', totalRecords);
 
       logger.info('Data export completed', {
         userId,
@@ -196,7 +196,7 @@ export class DataPortabilityService {
       csvFiles.auditLogs = this.convertToCSV(jsonExport.auditLogs);
 
       // Log export
-      this.logDataExport(userId, 'csv', jsonExport.metadata.totalRecords);
+      await this.logDataExport(userId, 'csv', jsonExport.metadata.totalRecords);
 
       logger.info('CSV export completed', { userId, exportId, fileCount: Object.keys(csvFiles).length });
 
@@ -217,7 +217,6 @@ export class DataPortabilityService {
     try {
       const exportDir = path.join(process.cwd(), 'exports', 'lgpd');
 
-      // Create directory if it doesn't exist
       if (!fs.existsSync(exportDir)) {
         fs.mkdirSync(exportDir, { recursive: true });
       }
@@ -232,7 +231,6 @@ export class DataPortabilityService {
         logger.info('JSON export saved', { filepath, userId: data.userId });
         return filepath;
       } else {
-        // CSV format - save as ZIP or multiple files
         const data = exportData as { files: Record<string, string>; exportId: string };
         const baseFilename = `user_export_${data.exportId}`;
         const filepaths: string[] = [];
@@ -245,7 +243,7 @@ export class DataPortabilityService {
         }
 
         logger.info('CSV exports saved', { filepaths, count: filepaths.length });
-        return exportDir; // Return directory path
+        return exportDir;
       }
     } catch (error) {
       logger.error('Failed to save export to file', { error });
@@ -261,22 +259,21 @@ export class DataPortabilityService {
       const deletionDate = new Date();
       deletionDate.setDate(deletionDate.getDate() + daysUntilDeletion);
 
-      // Store in database for automated cleanup
-      db.prepare(`
+      await executeRun(`
         INSERT INTO audit_advanced (
           entity_type, entity_id, action, new_values, organization_id
         ) VALUES (?, ?, ?, ?, ?)
-      `).run(
+      `, [
         'data_export',
         0,
         'scheduled_deletion',
         JSON.stringify({
           exportId,
           deletionDate: deletionDate.toISOString(),
-          reason: 'LGPD data minimization - Art. 16º'
+          reason: 'LGPD data minimization - Art. 16'
         }),
         1
-      );
+      ]);
 
       logger.info('Export deletion scheduled', { exportId, deletionDate });
     } catch (error) {
@@ -302,7 +299,7 @@ export class DataPortabilityService {
         ? [startDate.toISOString(), endDate.toISOString()]
         : [];
 
-      const stats = db.prepare(`
+      const stats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN new_values LIKE '%"format":"json"%' THEN 1 ELSE 0 END) as json_count,
@@ -310,12 +307,12 @@ export class DataPortabilityService {
         FROM audit_advanced
         WHERE entity_type = 'data_export' AND action = 'export_completed'
         ${dateFilter}
-      `).get(...dateParams) as any;
+      `, dateParams);
 
       return {
-        totalExports: stats.total || 0,
-        jsonExports: stats.json_count || 0,
-        csvExports: stats.csv_count || 0,
+        totalExports: stats?.total || 0,
+        jsonExports: stats?.json_count || 0,
+        csvExports: stats?.csv_count || 0,
         byUser: {},
         averageRecords: 0
       };
@@ -333,18 +330,14 @@ export class DataPortabilityService {
       return 'No data available\n';
     }
 
-    // Get headers from first object
     const headers = Object.keys(data[0]);
     const csvRows: string[] = [];
 
-    // Add header row
     csvRows.push(headers.join(','));
 
-    // Add data rows
     for (const row of data) {
       const values = headers.map(header => {
         const value = row[header];
-        // Escape values with commas or quotes
         if (value === null || value === undefined) return '';
         const escaped = String(value).replace(/"/g, '""');
         return `"${escaped}"`;
@@ -369,8 +362,6 @@ export class DataPortabilityService {
    */
   private getUserNotificationPreferences(userId: number): any {
     try {
-      // This would retrieve notification preferences from settings
-      // For now, return a placeholder
       return {
         email: true,
         browser: true,
@@ -384,13 +375,13 @@ export class DataPortabilityService {
   /**
    * Private: Log data export for compliance audit
    */
-  private logDataExport(userId: number, format: string, recordCount: number): void {
+  private async logDataExport(userId: number, format: string, recordCount: number): Promise<void> {
     try {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO audit_advanced (
           entity_type, entity_id, action, new_values, user_id, organization_id
         ) VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         'data_export',
         userId,
         'export_completed',
@@ -398,11 +389,11 @@ export class DataPortabilityService {
           format,
           recordCount,
           exportDate: new Date().toISOString(),
-          legalBasis: 'LGPD Art. 18º'
+          legalBasis: 'LGPD Art. 18'
         }),
         userId,
         1
-      );
+      ]);
     } catch (error) {
       logger.error('Failed to log data export', { error, userId });
     }

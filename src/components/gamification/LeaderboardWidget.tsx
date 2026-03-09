@@ -56,23 +56,23 @@ export default function LeaderboardWidget({
 
   if (compact) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-4">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md p-4">
         <h3 className="text-lg font-bold mb-3 flex items-center gap-2">
           <span className="text-2xl">🏆</span>
-          Top Performers
+          Melhores Desempenhos
         </h3>
         <div className="space-y-2">
           {displayLeaderboard.slice(0, 5).map((entry) => (
             <div
               key={entry.userId}
               className={`flex items-center gap-3 p-2 rounded-lg ${
-                entry.userId === currentUserId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-neutral-50'
+                entry.userId === currentUserId ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200' : 'hover:bg-neutral-50'
               }`}
             >
               <span className="text-2xl">{getRankEmoji(entry.rank) || `#${entry.rank}`}</span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{entry.username}</p>
-                <p className="text-xs text-neutral-500">{formatPoints(entry.points)} pts</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{formatPoints(entry.points)} pts</p>
               </div>
             </div>
           ))}
@@ -82,16 +82,16 @@ export default function LeaderboardWidget({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-lg">
       {/* Header */}
       <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-6 rounded-t-lg text-white">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <span className="text-4xl">🏆</span>
             <div>
-              <h2 className="text-2xl font-bold">Leaderboard</h2>
+              <h2 className="text-2xl font-bold">Classificação</h2>
               <p className="text-sm opacity-90">
-                {filteredLeaderboard.length} {filteredLeaderboard.length === 1 ? 'player' : 'players'}
+                {filteredLeaderboard.length} {filteredLeaderboard.length === 1 ? 'jogador' : 'jogadores'}
               </p>
             </div>
           </div>
@@ -100,10 +100,11 @@ export default function LeaderboardWidget({
           {showOptInToggle && currentUser && (
             <div className="flex items-center gap-2">
               <span className="text-sm">
-                {currentUser.optedIn ? 'Visible' : 'Hidden'}
+                {currentUser.optedIn ? 'Visível' : 'Oculto'}
               </span>
               <button
                 onClick={() => onOptInChange?.(!currentUser.optedIn)}
+                aria-label="Alternar visibilidade no ranking"
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                   currentUser.optedIn ? 'bg-green-500' : 'bg-neutral-400'
                 }`}
@@ -123,7 +124,7 @@ export default function LeaderboardWidget({
           <div className="bg-white bg-opacity-20 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm opacity-90">Your Rank</p>
+                <p className="text-sm opacity-90">Sua Classificação</p>
                 <p className="text-3xl font-bold">
                   {getRankEmoji(currentUser.rank)} #{currentUser.rank}
                 </p>
@@ -138,22 +139,22 @@ export default function LeaderboardWidget({
       </div>
 
       {/* Filters */}
-      <div className="p-4 border-b border-neutral-200 space-y-3">
+      <div className="p-4 border-b border-neutral-200 dark:border-neutral-700 space-y-3">
         {/* Period Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-neutral-700">Period:</span>
+          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Período:</span>
           <div className="flex gap-2">
             {(['day', 'week', 'month', 'all-time'] as const).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                   period === p
                     ? 'bg-blue-600 text-white'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
                 }`}
               >
-                {p === 'all-time' ? 'All Time' : p.charAt(0).toUpperCase() + p.slice(1)}
+                {p === 'all-time' ? 'Todos os Tempos' : p === 'day' ? 'Dia' : p === 'week' ? 'Semana' : 'Mês'}
               </button>
             ))}
           </div>
@@ -162,13 +163,14 @@ export default function LeaderboardWidget({
         {/* Team Filter */}
         {teams.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-neutral-700">Team:</span>
+            <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Equipe:</span>
             <select
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
-              className="px-3 py-1 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Filtrar por equipe"
+              className="px-3 py-1 min-h-[44px] border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-neutral-200"
             >
-              <option value="all">All Teams</option>
+              <option value="all">Todas as Equipes</option>
               {teams.map((teamId) => {
                 const teamEntry = leaderboard.find((e) => e.teamId === teamId);
                 return (
@@ -183,24 +185,24 @@ export default function LeaderboardWidget({
 
         {/* View Mode */}
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-neutral-700">View:</span>
+          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Visualizar:</span>
           <div className="flex gap-2">
             <button
               onClick={() => setViewMode('full')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                 viewMode === 'full'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
               }`}
             >
-              All
+              Todos
             </button>
             <button
               onClick={() => setViewMode('top10')}
-              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                 viewMode === 'top10'
                   ? 'bg-blue-600 text-white'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
               }`}
             >
               Top 10
@@ -208,13 +210,13 @@ export default function LeaderboardWidget({
             {currentUserId && (
               <button
                 onClick={() => setViewMode('neighbors')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                   viewMode === 'neighbors'
                     ? 'bg-blue-600 text-white'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
                 }`}
               >
-                Around Me
+                Ao Meu Redor
               </button>
             )}
           </div>
@@ -224,31 +226,31 @@ export default function LeaderboardWidget({
       {/* Leaderboard Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-neutral-50 border-b border-neutral-200">
+          <thead className="bg-neutral-50 dark:bg-neutral-700 border-b border-neutral-200 dark:border-neutral-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Rank
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                Pos.
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Player
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                Jogador
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Points
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                Pontos
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Stats
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                Estatísticas
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
-                Streak
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                Sequência
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-neutral-200">
+          <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
             {displayLeaderboard.map((entry, _index) => (
               <tr
                 key={entry.userId}
                 className={`
-                  ${entry.userId === currentUserId ? 'bg-blue-50' : 'hover:bg-neutral-50'}
+                  ${entry.userId === currentUserId ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'}
                   ${entry.rank <= 3 ? 'font-semibold' : ''}
                   transition-colors
                 `}
@@ -262,10 +264,10 @@ export default function LeaderboardWidget({
                         entry.rank === 1
                           ? 'text-yellow-600'
                           : entry.rank === 2
-                          ? 'text-neutral-500'
+                          ? 'text-neutral-500 dark:text-neutral-400'
                           : entry.rank === 3
                           ? 'text-orange-600'
-                          : 'text-neutral-900'
+                          : 'text-neutral-900 dark:text-neutral-100'
                       }`}
                     >
                       #{entry.rank}
@@ -290,16 +292,16 @@ export default function LeaderboardWidget({
                       )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">
+                      <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         {entry.username}
                         {entry.userId === currentUserId && (
                           <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                            You
+                            Você
                           </span>
                         )}
                       </p>
                       {entry.teamName && (
-                        <p className="text-xs text-neutral-500">{entry.teamName}</p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">{entry.teamName}</p>
                       )}
                     </div>
                   </div>
@@ -308,8 +310,8 @@ export default function LeaderboardWidget({
                 {/* Points */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm">
-                    <p className="font-bold text-neutral-900">{formatPoints(entry.points)}</p>
-                    <p className="text-xs text-neutral-500">{entry.badges} badges</p>
+                    <p className="font-bold text-neutral-900 dark:text-neutral-100">{formatPoints(entry.points)}</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">{entry.badges} badges</p>
                   </div>
                 </td>
 
@@ -337,8 +339,8 @@ export default function LeaderboardWidget({
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <span className="text-xl">{getStreakEmoji(entry.currentStreak)}</span>
-                    <span className="text-sm font-medium text-neutral-900">
-                      {entry.currentStreak} {entry.currentStreak === 1 ? 'day' : 'days'}
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {entry.currentStreak} {entry.currentStreak === 1 ? 'dia' : 'dias'}
                     </span>
                   </div>
                 </td>
@@ -350,16 +352,16 @@ export default function LeaderboardWidget({
 
       {/* Empty State */}
       {displayLeaderboard.length === 0 && (
-        <div className="p-12 text-center text-neutral-500">
-          <p className="text-lg font-medium mb-2">No data available</p>
-          <p className="text-sm">Start earning points to appear on the leaderboard!</p>
+        <div className="p-12 text-center text-neutral-500 dark:text-neutral-400">
+          <p className="text-lg font-medium mb-2">Sem dados disponíveis</p>
+          <p className="text-sm">Comece a ganhar pontos para aparecer na classificação!</p>
         </div>
       )}
 
       {/* Footer Info */}
       {currentUser && !currentUser.optedIn && (
-        <div className="p-4 bg-yellow-50 border-t border-yellow-200">
-          <div className="flex items-center gap-2 text-sm text-yellow-800">
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-t border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-center gap-2 text-sm text-yellow-800 dark:text-yellow-200">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
@@ -368,7 +370,7 @@ export default function LeaderboardWidget({
               />
             </svg>
             <span>
-              You're currently hidden from the leaderboard. Toggle the switch above to participate and compete with your team!
+              Você está oculto na classificação. Ative o botão acima para participar e competir com sua equipe!
             </span>
           </div>
         </div>
@@ -392,18 +394,18 @@ export function MiniLeaderboard({
   onViewAll,
 }: MiniLeaderboardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-4">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold flex items-center gap-2">
           <span className="text-2xl">🏆</span>
-          Top Performers
+          Melhores Desempenhos
         </h3>
         {onViewAll && (
           <button
             onClick={onViewAll}
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
-            View All
+            Ver Todos
           </button>
         )}
       </div>
@@ -413,13 +415,13 @@ export function MiniLeaderboard({
           <div
             key={entry.userId}
             className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-              entry.userId === currentUser?.userId ? 'bg-blue-50 border border-blue-200' : 'hover:bg-neutral-50'
+              entry.userId === currentUser?.userId ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
             }`}
           >
             <span className="text-2xl">{getRankEmoji(entry.rank) || `#${entry.rank}`}</span>
             <div className="flex-1 min-w-0">
               <p className="font-semibold truncate">{entry.username}</p>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 {formatPoints(entry.points)} pts • {getStreakEmoji(entry.currentStreak)} {entry.currentStreak}d
               </p>
             </div>
@@ -428,11 +430,11 @@ export function MiniLeaderboard({
       </div>
 
       {currentUser && currentUser.rank > 5 && (
-        <div className="mt-4 pt-4 border-t border-neutral-200">
-          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+          <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
             <span className="text-lg font-bold text-blue-600">#{currentUser.rank}</span>
             <div className="flex-1">
-              <p className="font-semibold text-blue-900">You</p>
+              <p className="font-semibold text-blue-900 dark:text-blue-200">Você</p>
               <p className="text-xs text-blue-600">
                 {formatPoints(currentUser.points)} pts
               </p>

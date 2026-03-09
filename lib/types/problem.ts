@@ -300,7 +300,7 @@ export interface UpdateKnownErrorInput {
 
 // Add Activity Input
 export interface AddActivityInput {
-  activity_type: ProblemActivityType;
+  type: ProblemActivityType;
   description: string;
   old_value?: string;
   new_value?: string;

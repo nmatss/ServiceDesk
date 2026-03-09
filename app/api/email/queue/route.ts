@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import emailService from '@/lib/email/service'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20), 100)
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
     const offset = (page - 1) * limit
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         DELETE FROM email_queue
         WHERE tenant_id = ?
           AND status = 'failed'
-          AND created_at < datetime('now', '-7 days')
+          AND created_at < ${sqlDatetimeSub(7)}
       `, [tenantContext.id])
 
       return NextResponse.json({

@@ -3,7 +3,8 @@ import { SignJWT, jwtVerify } from 'jose';
 import * as crypto from 'crypto';
 import * as speakeasy from 'speakeasy';
 import * as qrcode from 'qrcode';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub } from '../db/adapter';
+import { getDatabaseType } from '../db/config';
 import { validateJWTSecret } from '@/lib/config/env';
 import logger from '../monitoring/structured-logger';
 import {
@@ -152,12 +153,10 @@ export async function generateRefreshToken(
   };
 
   try {
-    const stmt = db.prepare(`
+    await executeRun(`
       INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address, user_agent, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+    `, [
       refreshTokenData.user_id,
       refreshTokenData.token_hash,
       refreshTokenData.expires_at,
@@ -165,7 +164,7 @@ export async function generateRefreshToken(
       refreshTokenData.ip_address,
       refreshTokenData.user_agent,
       refreshTokenData.is_active ? 1 : 0
-    );
+    ]);
 
     return { token, tokenHash, expiresAt };
   } catch (error) {
@@ -204,11 +203,11 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
   try {
     const tokenHash = hashToken(refreshToken);
 
-    const refreshTokenData = db.prepare(`
+    const refreshTokenData = await executeQueryOne<RefreshToken & User>(`
       SELECT rt.*, u.* FROM refresh_tokens rt
       JOIN users u ON rt.user_id = u.id
-      WHERE rt.token_hash = ? AND rt.is_active = 1 AND rt.expires_at > datetime('now')
-    `).get(tokenHash) as (RefreshToken & User) | undefined;
+      WHERE rt.token_hash = ? AND rt.is_active = 1 AND rt.expires_at > ${sqlNow()}
+    `, [tokenHash]);
 
     if (!refreshTokenData) {
       return { success: false, error: 'Invalid or expired refresh token' };
@@ -254,17 +253,17 @@ export async function checkRateLimit(
     const now = new Date();
 
     // Buscar tentativas existentes na janela de tempo
-    const existing = db.prepare(`
+    const existing = await executeQueryOne<RateLimit>(`
       SELECT * FROM rate_limits
       WHERE identifier = ? AND identifier_type = ? AND endpoint = ?
-    `).get(identifier, identifierType, endpoint) as RateLimit | undefined;
+    `, [identifier, identifierType, endpoint]);
 
     if (!existing) {
       // Primeira tentativa - criar registro
-      db.prepare(`
+      await executeRun(`
         INSERT INTO rate_limits (identifier, identifier_type, endpoint, attempts, first_attempt_at, last_attempt_at)
-        VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
-      `).run(identifier, identifierType, endpoint, 1);
+        VALUES (?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
+      `, [identifier, identifierType, endpoint, 1]);
 
       return { allowed: true, remainingAttempts: maxAttempts - 1 };
     }
@@ -283,11 +282,11 @@ export async function checkRateLimit(
     const firstAttempt = new Date(existing.first_attempt_at);
     if (firstAttempt < windowStart) {
       // Reset do contador
-      db.prepare(`
+      await executeRun(`
         UPDATE rate_limits
-        SET attempts = 1, first_attempt_at = datetime('now'), last_attempt_at = datetime('now'), blocked_until = NULL
+        SET attempts = 1, first_attempt_at = ${sqlNow()}, last_attempt_at = ${sqlNow()}, blocked_until = NULL
         WHERE identifier = ? AND identifier_type = ? AND endpoint = ?
-      `).run(identifier, identifierType, endpoint);
+      `, [identifier, identifierType, endpoint]);
 
       return { allowed: true, remainingAttempts: maxAttempts - 1 };
     }
@@ -302,11 +301,11 @@ export async function checkRateLimit(
       blockedUntil = blockTime.toISOString();
     }
 
-    db.prepare(`
+    await executeRun(`
       UPDATE rate_limits
-      SET attempts = ?, last_attempt_at = datetime('now'), blocked_until = ?
+      SET attempts = ?, last_attempt_at = ${sqlNow()}, blocked_until = ?
       WHERE identifier = ? AND identifier_type = ? AND endpoint = ?
-    `).run(newAttempts, blockedUntil, identifier, identifierType, endpoint);
+    `, [newAttempts, blockedUntil, identifier, identifierType, endpoint]);
 
     return {
       allowed: newAttempts < maxAttempts,
@@ -348,11 +347,11 @@ export async function setupTwoFactor(userId: number): Promise<TwoFactorSetup> {
     const qrCode = await qrcode.toDataURL(secret.otpauth_url!);
 
     // Salvar secret temporariamente (será confirmado quando o usuário verificar)
-    db.prepare(`
+    await executeRun(`
       UPDATE users
       SET two_factor_secret = ?, two_factor_backup_codes = ?
       WHERE id = ?
-    `).run(secret.base32, JSON.stringify(backupCodes), userId);
+    `, [secret.base32, JSON.stringify(backupCodes), userId]);
 
     return {
       secret: secret.base32!,
@@ -382,11 +381,11 @@ export async function enableTwoFactor(userId: number, token: string): Promise<bo
 
     if (verified) {
       // Ativar 2FA
-      db.prepare(`
+      await executeRun(`
         UPDATE users
         SET two_factor_enabled = 1
         WHERE id = ?
-      `).run(userId);
+      `, [userId]);
 
       // Log de auditoria
       await logAuthEvent(userId, AuthEventType.TWO_FACTOR_ENABLED, {
@@ -419,11 +418,11 @@ export async function verifyTwoFactor(userId: number, token: string): Promise<bo
       if (codeIndex !== -1) {
         // Remover código usado
         backupCodes.splice(codeIndex, 1);
-        db.prepare(`
+        await executeRun(`
           UPDATE users
           SET two_factor_backup_codes = ?
           WHERE id = ?
-        `).run(JSON.stringify(backupCodes), userId);
+        `, [JSON.stringify(backupCodes), userId]);
 
         return true;
       }
@@ -448,7 +447,7 @@ export async function verifyTwoFactor(userId: number, token: string): Promise<bo
 
 export async function getUserById(id: number): Promise<User | null> {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
+    const user = await executeQueryOne<User>('SELECT * FROM users WHERE id = ?', [id]);
     return user || null;
   } catch (error) {
     logger.error('Error getting user by ID', error);
@@ -456,9 +455,9 @@ export async function getUserById(id: number): Promise<User | null> {
   }
 }
 
-export function getUserByEmail(email: string): User | null {
+export async function getUserByEmail(email: string): Promise<User | null> {
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as User | undefined;
+    const user = await executeQueryOne<User>('SELECT * FROM users WHERE email = ?', [email]);
     return user || null;
   } catch (error) {
     logger.error('Error getting user by email', error);
@@ -472,21 +471,21 @@ export async function getUserWithRoles(userId: number): Promise<UserWithRoles | 
     if (!user) return null;
 
     // Buscar roles do usuário
-    const roles = db.prepare(`
+    const roles = await executeQuery<Role>(`
       SELECT r.* FROM roles r
       JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ? AND ur.is_active = 1
-      AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
-    `).all(userId) as Role[];
+      AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
+    `, [userId]);
 
     // Buscar permissões das roles
-    const permissions = db.prepare(`
+    const permissions = await executeQuery<Permission>(`
       SELECT DISTINCT p.* FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       JOIN user_roles ur ON rp.role_id = ur.role_id
       WHERE ur.user_id = ? AND ur.is_active = 1
-      AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
-    `).all(userId) as Permission[];
+      AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
+    `, [userId]);
 
     return {
       ...user,
@@ -531,7 +530,7 @@ export async function authenticateUser(
       }
     }
 
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
 
     // Log da tentativa de login
     const loginAttemptData: CreateLoginAttempt = {
@@ -579,11 +578,11 @@ export async function authenticateUser(
         lockedUntil = new Date(Date.now() + LOCKOUT_DURATION).toISOString();
       }
 
-      db.prepare(`
+      await executeRun(`
         UPDATE users
         SET failed_login_attempts = ?, locked_until = ?
         WHERE id = ?
-      `).run(newFailedAttempts, lockedUntil, user.id);
+      `, [newFailedAttempts, lockedUntil, user.id]);
 
       loginAttemptData.failure_reason = 'invalid_password';
       await logLoginAttempt(loginAttemptData);
@@ -632,11 +631,11 @@ export async function authenticateUser(
     const { token: refreshToken, expiresAt } = await generateRefreshToken(user.id, deviceInfo);
 
     // Atualizar dados do usuário
-    db.prepare(`
+    await executeRun(`
       UPDATE users
-      SET failed_login_attempts = 0, locked_until = NULL, last_login_at = datetime('now')
+      SET failed_login_attempts = 0, locked_until = NULL, last_login_at = ${sqlNow()}
       WHERE id = ?
-    `).run(user.id);
+    `, [user.id]);
 
     // Log de sucesso
     loginAttemptData.success = true;
@@ -678,7 +677,7 @@ export async function registerUser(userData: RegisterData): Promise<AuthResult> 
     const { name, email, password, role = 'user', timezone = 'America/Sao_Paulo', language = 'pt-BR' } = userData;
 
     // Verificar se email já existe
-    if (getUserByEmail(email)) {
+    if (await getUserByEmail(email)) {
       return { success: false, error: 'Email already exists' };
     }
 
@@ -692,14 +691,13 @@ export async function registerUser(userData: RegisterData): Promise<AuthResult> 
     const passwordHash = await hashPassword(password);
 
     // Criar usuário
-    const insertUser = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO users (
         name, email, password_hash, role, timezone, language,
         is_active, is_email_verified, password_changed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 1, 0, datetime('now'))
-    `);
+      ) VALUES (?, ?, ?, ?, ?, ?, 1, 0, ${sqlNow()})
+    `, [name, email, passwordHash, role, timezone, language]);
 
-    const result = insertUser.run(name, email, passwordHash, role, timezone, language);
     const userId = result.lastInsertRowid as number;
 
     // Salvar histórico de senha
@@ -733,13 +731,18 @@ export async function registerUser(userData: RegisterData): Promise<AuthResult> 
 
 export async function validatePassword(password: string, userRole?: string): Promise<{ valid: boolean; message?: string }> {
   try {
-    // Buscar política ativa
-    const policy = db.prepare(`
+    // Buscar política ativa - dialect-aware json_extract
+    const dbType = getDatabaseType();
+    const jsonCondition = dbType === 'postgresql'
+      ? `(applies_to_roles IS NULL OR applies_to_roles::text LIKE '%' || ? || '%')`
+      : `(applies_to_roles IS NULL OR json_extract(applies_to_roles, '$') LIKE '%' || ? || '%')`;
+
+    const policy = await executeQueryOne<PasswordPolicy>(`
       SELECT * FROM password_policies
       WHERE is_active = 1
-      AND (applies_to_roles IS NULL OR json_extract(applies_to_roles, '$') LIKE '%' || ? || '%')
+      AND ${jsonCondition}
       ORDER BY id DESC LIMIT 1
-    `).get(userRole || '') as PasswordPolicy | undefined;
+    `, [userRole || '']);
 
     if (!policy) {
       // Política básica se não houver configurada
@@ -783,13 +786,13 @@ export async function validatePassword(password: string, userRole?: string): Pro
 
 export async function addPasswordHistory(userId: number, passwordHash: string): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       INSERT INTO password_history (user_id, password_hash)
       VALUES (?, ?)
-    `).run(userId, passwordHash);
+    `, [userId, passwordHash]);
 
     // Limpar histórico antigo (manter apenas os últimos 10)
-    db.prepare(`
+    await executeRun(`
       DELETE FROM password_history
       WHERE user_id = ? AND id NOT IN (
         SELECT id FROM password_history
@@ -797,7 +800,7 @@ export async function addPasswordHistory(userId: number, passwordHash: string): 
         ORDER BY created_at DESC
         LIMIT 10
       )
-    `).run(userId, userId);
+    `, [userId, userId]);
   } catch (error) {
     logger.error('Error adding password history', error);
   }
@@ -805,12 +808,12 @@ export async function addPasswordHistory(userId: number, passwordHash: string): 
 
 export async function checkPasswordReuse(userId: number, newPassword: string): Promise<boolean> {
   try {
-    const history = db.prepare(`
+    const history = await executeQuery<PasswordHistory>(`
       SELECT password_hash FROM password_history
       WHERE user_id = ?
       ORDER BY created_at DESC
       LIMIT 5
-    `).all(userId) as PasswordHistory[];
+    `, [userId]);
 
     for (const entry of history) {
       if (await verifyPassword(newPassword, entry.password_hash)) {
@@ -851,10 +854,10 @@ export async function generateVerificationCode(
       max_attempts: 3
     };
 
-    db.prepare(`
+    await executeRun(`
       INSERT INTO verification_codes (user_id, email, code, code_hash, type, expires_at, attempts, max_attempts)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       verificationData.user_id,
       verificationData.email,
       verificationData.code,
@@ -863,7 +866,7 @@ export async function generateVerificationCode(
       verificationData.expires_at,
       verificationData.attempts,
       verificationData.max_attempts
-    );
+    ]);
 
     return code;
   } catch (error) {
@@ -878,11 +881,11 @@ export async function verifyCode(
   type: string
 ): Promise<{ valid: boolean; userId?: number; error?: string }> {
   try {
-    const verification = db.prepare(`
+    const verification = await executeQueryOne<VerificationCode>(`
       SELECT * FROM verification_codes
       WHERE email = ? AND code = ? AND type = ? AND used_at IS NULL
       ORDER BY created_at DESC LIMIT 1
-    `).get(email, code, type) as VerificationCode | undefined;
+    `, [email, code, type]);
 
     if (!verification) {
       return { valid: false, error: 'Invalid verification code' };
@@ -897,11 +900,11 @@ export async function verifyCode(
     }
 
     // Marcar como usado
-    db.prepare(`
+    await executeRun(`
       UPDATE verification_codes
-      SET used_at = datetime('now'), attempts = attempts + 1
+      SET used_at = ${sqlNow()}, attempts = attempts + 1
       WHERE id = ?
-    `).run(verification.id);
+    `, [verification.id]);
 
     return { valid: true, userId: verification.user_id || undefined };
 
@@ -940,12 +943,12 @@ export async function logAuthEvent(
       data_retention_expires_at: retentionExpiry.toISOString()
     };
 
-    db.prepare(`
+    await executeRun(`
       INSERT INTO auth_audit_logs (
         user_id, event_type, ip_address, user_agent, details,
         consent_given, data_retention_expires_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       auditData.user_id,
       auditData.event_type,
       auditData.ip_address,
@@ -953,7 +956,7 @@ export async function logAuthEvent(
       auditData.details,
       auditData.consent_given ? 1 : 0,
       auditData.data_retention_expires_at
-    );
+    ]);
   } catch (error) {
     logger.error('Error logging auth event', error);
   }
@@ -961,12 +964,12 @@ export async function logAuthEvent(
 
 export async function logLoginAttempt(attemptData: CreateLoginAttempt): Promise<void> {
   try {
-    db.prepare(`
+    await executeRun(`
       INSERT INTO login_attempts (
         user_id, email, ip_address, user_agent, success, failure_reason,
         two_factor_required, two_factor_success, session_id
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       attemptData.user_id,
       attemptData.email,
       attemptData.ip_address,
@@ -976,7 +979,7 @@ export async function logLoginAttempt(attemptData: CreateLoginAttempt): Promise<
       attemptData.two_factor_required ? 1 : 0,
       attemptData.two_factor_success ? 1 : 0,
       attemptData.session_id
-    );
+    ]);
   } catch (error) {
     logger.error('Error logging login attempt', error);
   }
@@ -991,11 +994,11 @@ export async function logout(refreshToken: string, userId?: number): Promise<boo
     const tokenHash = hashToken(refreshToken);
 
     // Revogar refresh token
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE refresh_tokens
-      SET is_active = 0, revoked_at = datetime('now')
+      SET is_active = 0, revoked_at = ${sqlNow()}
       WHERE token_hash = ?
-    `).run(tokenHash);
+    `, [tokenHash]);
 
     if (userId) {
       await logAuthEvent(userId, AuthEventType.LOGOUT, {
@@ -1004,7 +1007,7 @@ export async function logout(refreshToken: string, userId?: number): Promise<boo
       });
     }
 
-    return result.changes > 0;
+    return (result.changes ?? 0) > 0;
   } catch (error) {
     logger.error('Logout error', error);
     return false;
@@ -1013,11 +1016,11 @@ export async function logout(refreshToken: string, userId?: number): Promise<boo
 
 export async function revokeAllTokens(userId: number): Promise<boolean> {
   try {
-    const result = db.prepare(`
+    const result = await executeRun(`
       UPDATE refresh_tokens
-      SET is_active = 0, revoked_at = datetime('now')
+      SET is_active = 0, revoked_at = ${sqlNow()}
       WHERE user_id = ? AND is_active = 1
-    `).run(userId);
+    `, [userId]);
 
     await logAuthEvent(userId, 'tokens_revoked', {
       ip_address: 'system',
@@ -1038,36 +1041,36 @@ export async function revokeAllTokens(userId: number): Promise<boolean> {
 export async function cleanupExpiredData(): Promise<void> {
   try {
     // Limpar refresh tokens expirados
-    db.prepare(`
+    await executeRun(`
       DELETE FROM refresh_tokens
-      WHERE expires_at < datetime('now') OR
-      (revoked_at IS NOT NULL AND revoked_at < datetime('now', '-7 days'))
-    `).run();
+      WHERE expires_at < ${sqlNow()} OR
+      (revoked_at IS NOT NULL AND revoked_at < ${sqlDateSub(7)})
+    `, []);
 
     // Limpar códigos de verificação expirados
-    db.prepare(`
+    await executeRun(`
       DELETE FROM verification_codes
-      WHERE expires_at < datetime('now', '-1 day')
-    `).run();
+      WHERE expires_at < ${sqlDateSub(1)}
+    `, []);
 
     // Limpar rate limits antigos
-    db.prepare(`
+    await executeRun(`
       DELETE FROM rate_limits
-      WHERE last_attempt_at < datetime('now', '-1 day') AND
-      (blocked_until IS NULL OR blocked_until < datetime('now'))
-    `).run();
+      WHERE last_attempt_at < ${sqlDateSub(1)} AND
+      (blocked_until IS NULL OR blocked_until < ${sqlNow()})
+    `, []);
 
     // Limpar logs de auditoria expirados (LGPD)
-    db.prepare(`
+    await executeRun(`
       DELETE FROM auth_audit_logs
-      WHERE data_retention_expires_at < datetime('now')
-    `).run();
+      WHERE data_retention_expires_at < ${sqlNow()}
+    `, []);
 
     // Limpar tentativas de login antigas (manter apenas 30 dias)
-    db.prepare(`
+    await executeRun(`
       DELETE FROM login_attempts
-      WHERE created_at < datetime('now', '-30 days')
-    `).run();
+      WHERE created_at < ${sqlDateSub(30)}
+    `, []);
 
     logger.info('Cleanup completed successfully');
   } catch (error) {

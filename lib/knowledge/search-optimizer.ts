@@ -1,5 +1,6 @@
 // Search analytics e otimização de busca
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 interface SearchAnalytics {
@@ -87,6 +88,39 @@ interface SeasonalPattern {
   volume_change: number;
 }
 
+/**
+ * Build a dialect-aware date expression for dynamic timeframe intervals.
+ * PostgreSQL uses inline INTERVAL (timeframe is sanitized and interpolated).
+ * SQLite uses datetime('now', '-' || ? || '') with a parameter.
+ */
+function buildDateExpr(timeframe: string, isPg: boolean): { expr: string; params: any[] } {
+  if (isPg) {
+    const sanitized = timeframe.replace(/[^a-zA-Z0-9 ]/g, '');
+    return { expr: `NOW() - INTERVAL '${sanitized}'`, params: [] };
+  }
+  return { expr: `datetime('now', '-' || ? || '')`, params: [timeframe] };
+}
+
+/**
+ * Build a dialect-aware JSON field extraction expression.
+ */
+function jsonField(column: string, field: string, isPg: boolean): string {
+  if (isPg) {
+    return `${column}::json->>'${field}'`;
+  }
+  return `json_extract(${column}, '$.${field}')`;
+}
+
+/**
+ * Build dialect-aware "created_at + 5 minutes" expression for click window.
+ */
+function dateAdd5Min(column: string, isPg: boolean): string {
+  if (isPg) {
+    return `${column} + INTERVAL '5 minutes'`;
+  }
+  return `datetime(${column}, '+5 minutes')`;
+}
+
 export class SearchOptimizer {
   /**
    * Registra uma busca para analytics
@@ -102,7 +136,7 @@ export class SearchOptimizer {
     try {
       const queryHash = this.hashQuery(query);
 
-      const result = await db.run(`
+      const result = await executeRun(`
         INSERT INTO analytics_events (
           event_type, user_id, session_id, entity_type, properties
         ) VALUES (?, ?, ?, ?, ?)
@@ -138,7 +172,7 @@ export class SearchOptimizer {
     sessionId: string
   ): Promise<void> {
     try {
-      await db.run(`
+      await executeRun(`
         INSERT INTO analytics_events (
           event_type, session_id, entity_type, entity_id, properties
         ) VALUES (?, ?, ?, ?, ?)
@@ -172,7 +206,7 @@ export class SearchOptimizer {
     feedback?: string
   ): Promise<void> {
     try {
-      await db.run(`
+      await executeRun(`
         INSERT INTO analytics_events (
           event_type, properties
         ) VALUES (?, ?)
@@ -196,26 +230,35 @@ export class SearchOptimizer {
    */
   async analyzeSearchPatterns(timeframe: string = '30 days'): Promise<QueryPattern[]> {
     try {
-      const patterns = await db.all(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const { expr: dateExpr, params: dateParams } = buildDateExpr(timeframe, isPg);
+      const queryField = jsonField('properties', 'query', isPg);
+      const resultsField = jsonField('properties', 'results_count', isPg);
+      const clickWindow = dateAdd5Min('searches.created_at', isPg);
+
+      // For PG: json_extract(satisfaction.properties, '$.search_event_id') equivalent
+      const satSearchEventId = jsonField('satisfaction.properties', 'search_event_id', isPg);
+
+      const patterns = await executeQuery<any>(`
         SELECT
-          json_extract(properties, '$.query') as query,
+          ${queryField} as query,
           COUNT(*) as frequency,
-          AVG(CAST(json_extract(properties, '$.results_count') AS INTEGER)) as avg_results,
-          (COUNT(clicks.id) * 1.0 / COUNT(*)) as success_rate,
+          AVG(CAST(${resultsField} AS INTEGER)) as avg_results,
+          (COUNT(clicks.id) * 1.0 / NULLIF(COUNT(*), 0)) as success_rate,
           AVG(COALESCE(satisfaction.rating, 3)) as avg_satisfaction
         FROM analytics_events searches
         LEFT JOIN analytics_events clicks ON searches.session_id = clicks.session_id
           AND clicks.event_type = 'search_result_click'
-          AND clicks.created_at BETWEEN searches.created_at AND datetime(searches.created_at, '+5 minutes')
-        LEFT JOIN analytics_events satisfaction ON searches.id = json_extract(satisfaction.properties, '$.search_event_id')
+          AND clicks.created_at BETWEEN searches.created_at AND ${clickWindow}
+        LEFT JOIN analytics_events satisfaction ON searches.id = CAST(${satSearchEventId} AS INTEGER)
           AND satisfaction.event_type = 'search_satisfaction'
         WHERE searches.event_type = 'search_performed'
-          AND searches.created_at >= datetime('now', '-' || ? || '')
-        GROUP BY json_extract(properties, '$.query')
-        HAVING frequency > 1
-        ORDER BY frequency DESC
+          AND searches.created_at >= ${dateExpr}
+        GROUP BY ${queryField}
+        HAVING COUNT(*) > 1
+        ORDER BY COUNT(*) DESC
         LIMIT 50
-      `, [timeframe]);
+      `, [...dateParams]);
 
       return patterns.map(p => ({
         pattern: p.query,
@@ -235,23 +278,29 @@ export class SearchOptimizer {
    */
   async getPopularSearches(timeframe: string = '7 days'): Promise<PopularSearch[]> {
     try {
-      const popular = await db.all(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const { expr: dateExpr, params: dateParams } = buildDateExpr(timeframe, isPg);
+      const queryField = jsonField('properties', 'query', isPg);
+      const resultsField = jsonField('properties', 'results_count', isPg);
+      const clickWindow = dateAdd5Min('searches.created_at', isPg);
+
+      const popular = await executeQuery<any>(`
         SELECT
-          json_extract(properties, '$.query') as query,
+          ${queryField} as query,
           COUNT(*) as search_count,
-          COUNT(DISTINCT user_id) as unique_users,
-          AVG(CAST(json_extract(properties, '$.results_count') AS INTEGER)) as avg_results,
-          (COUNT(clicks.id) * 1.0 / COUNT(*)) as click_through_rate
+          COUNT(DISTINCT searches.user_id) as unique_users,
+          AVG(CAST(${resultsField} AS INTEGER)) as avg_results,
+          (COUNT(clicks.id) * 1.0 / NULLIF(COUNT(*), 0)) as click_through_rate
         FROM analytics_events searches
         LEFT JOIN analytics_events clicks ON searches.session_id = clicks.session_id
           AND clicks.event_type = 'search_result_click'
-          AND clicks.created_at BETWEEN searches.created_at AND datetime(searches.created_at, '+5 minutes')
+          AND clicks.created_at BETWEEN searches.created_at AND ${clickWindow}
         WHERE searches.event_type = 'search_performed'
-          AND searches.created_at >= datetime('now', '-' || ? || '')
-        GROUP BY json_extract(properties, '$.query')
+          AND searches.created_at >= ${dateExpr}
+        GROUP BY ${queryField}
         ORDER BY search_count DESC
         LIMIT 20
-      `, [timeframe]);
+      `, [...dateParams]);
 
       return popular.map(p => ({
         query: p.query,
@@ -271,23 +320,31 @@ export class SearchOptimizer {
    */
   async getFailedSearches(timeframe: string = '7 days'): Promise<FailedSearch[]> {
     try {
-      const failed = await db.all(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const { expr: dateExpr, params: dateParams } = buildDateExpr(timeframe, isPg);
+      const queryField = jsonField('properties', 'query', isPg);
+      const resultsField = jsonField('properties', 'results_count', isPg);
+      const satSearchEventId = jsonField('satisfaction.properties', 'search_event_id', isPg);
+      const satRatingField = jsonField('satisfaction.properties', 'rating', isPg);
+
+      const failed = await executeQuery<any>(`
         SELECT
-          json_extract(properties, '$.query') as query,
+          ${queryField} as query,
           COUNT(*) as frequency,
-          SUM(CASE WHEN CAST(json_extract(properties, '$.results_count') AS INTEGER) = 0 THEN 1 ELSE 0 END) as zero_results,
+          SUM(CASE WHEN CAST(${resultsField} AS INTEGER) = 0 THEN 1 ELSE 0 END) as zero_results,
           COUNT(satisfaction.id) as satisfaction_responses,
-          AVG(COALESCE(CAST(json_extract(satisfaction.properties, '$.rating') AS INTEGER), 1)) as avg_rating
+          AVG(COALESCE(CAST(${satRatingField} AS INTEGER), 1)) as avg_rating
         FROM analytics_events searches
-        LEFT JOIN analytics_events satisfaction ON searches.id = json_extract(satisfaction.properties, '$.search_event_id')
+        LEFT JOIN analytics_events satisfaction ON searches.id = CAST(${satSearchEventId} AS INTEGER)
           AND satisfaction.event_type = 'search_satisfaction'
         WHERE searches.event_type = 'search_performed'
-          AND searches.created_at >= datetime('now', '-' || ? || '')
-        GROUP BY json_extract(properties, '$.query')
-        HAVING zero_results > 0 OR avg_rating < 2.5
-        ORDER BY frequency DESC
+          AND searches.created_at >= ${dateExpr}
+        GROUP BY ${queryField}
+        HAVING SUM(CASE WHEN CAST(${resultsField} AS INTEGER) = 0 THEN 1 ELSE 0 END) > 0
+           OR AVG(COALESCE(CAST(${satRatingField} AS INTEGER), 1)) < 2.5
+        ORDER BY COUNT(*) DESC
         LIMIT 20
-      `, [timeframe]);
+      `, [...dateParams]);
 
       const failedSearches: FailedSearch[] = [];
 
@@ -314,25 +371,31 @@ export class SearchOptimizer {
    */
   async getPerformanceMetrics(timeframe: string = '30 days'): Promise<PerformanceMetrics> {
     try {
-      const metrics = await db.get(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const { expr: dateExpr, params: dateParams } = buildDateExpr(timeframe, isPg);
+      const searchTimeField = jsonField('properties', 'search_time_ms', isPg);
+      const resultsField = jsonField('properties', 'results_count', isPg);
+      const satRatingField = jsonField('properties', 'rating', isPg);
+
+      const metrics = await executeQueryOne<any>(`
         SELECT
-          AVG(CAST(json_extract(properties, '$.search_time_ms') AS INTEGER)) as avg_search_time,
-          AVG(CAST(json_extract(properties, '$.results_count') AS INTEGER)) as avg_results_count,
+          AVG(CAST(${searchTimeField} AS INTEGER)) as avg_search_time,
+          AVG(CAST(${resultsField} AS INTEGER)) as avg_results_count,
           (SELECT COUNT(*) FROM analytics_events clicks
            WHERE clicks.event_type = 'search_result_click'
-             AND clicks.created_at >= datetime('now', '-' || ? || '')) * 1.0 / COUNT(*) as click_through_rate,
-          SUM(CASE WHEN CAST(json_extract(properties, '$.results_count') AS INTEGER) = 0 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) as zero_results_rate
+             AND clicks.created_at >= ${dateExpr}) * 1.0 / NULLIF(COUNT(*), 0) as click_through_rate,
+          SUM(CASE WHEN CAST(${resultsField} AS INTEGER) = 0 THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) as zero_results_rate
         FROM analytics_events searches
         WHERE searches.event_type = 'search_performed'
-          AND searches.created_at >= datetime('now', '-' || ? || '')
-      `, [timeframe, timeframe]);
+          AND searches.created_at >= ${dateExpr}
+      `, [...dateParams, ...dateParams]);
 
-      const satisfaction = await db.get(`
-        SELECT AVG(CAST(json_extract(properties, '$.rating') AS INTEGER)) as avg_satisfaction
+      const satisfaction = await executeQueryOne<any>(`
+        SELECT AVG(CAST(${satRatingField} AS INTEGER)) as avg_satisfaction
         FROM analytics_events
         WHERE event_type = 'search_satisfaction'
-          AND created_at >= datetime('now', '-' || ? || '')
-      `, [timeframe]);
+          AND created_at >= ${dateExpr}
+      `, [...dateParams]);
 
       return {
         avg_search_time: Math.round(metrics?.avg_search_time || 0),
@@ -460,26 +523,34 @@ export class SearchOptimizer {
    */
   private async getSimilarSuccessfulQueries(query: string): Promise<Array<{query: string, confidence: number}>> {
     try {
-      const similar = await db.all(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const queryField = jsonField('properties', 'query', isPg);
+      const resultsField = jsonField('properties', 'results_count', isPg);
+
+      // Escape LIKE wildcards in user input
+      const escapedQuery = query.replace(/%/g, '\\%').replace(/_/g, '\\_');
+
+      const similar = await executeQuery<any>(`
         SELECT
-          json_extract(properties, '$.query') as query,
+          ${queryField} as query,
           COUNT(*) as frequency,
-          AVG(CAST(json_extract(properties, '$.results_count') AS INTEGER)) as avg_results,
-          (COUNT(clicks.id) * 1.0 / COUNT(*)) as success_rate
+          AVG(CAST(${resultsField} AS INTEGER)) as avg_results,
+          (COUNT(clicks.id) * 1.0 / NULLIF(COUNT(*), 0)) as success_rate
         FROM analytics_events searches
         LEFT JOIN analytics_events clicks ON searches.session_id = clicks.session_id
           AND clicks.event_type = 'search_result_click'
         WHERE searches.event_type = 'search_performed'
-          AND json_extract(properties, '$.query') != ?
+          AND ${queryField} != ?
           AND (
-            json_extract(properties, '$.query') LIKE '%' || ? || '%'
-            OR ? LIKE '%' || json_extract(properties, '$.query') || '%'
+            ${queryField} LIKE '%' || ? || '%' ESCAPE '\\'
+            OR ? LIKE '%' || ${queryField} || '%' ESCAPE '\\'
           )
-        GROUP BY json_extract(properties, '$.query')
-        HAVING avg_results > 0 AND success_rate > 0
+        GROUP BY ${queryField}
+        HAVING AVG(CAST(${resultsField} AS INTEGER)) > 0
+           AND (COUNT(clicks.id) * 1.0 / NULLIF(COUNT(*), 0)) > 0
         ORDER BY success_rate DESC, frequency DESC
         LIMIT 3
-      `, [query, query, query]);
+      `, [query, escapedQuery, escapedQuery]);
 
       return similar.map(s => ({
         query: s.query,
@@ -496,19 +567,24 @@ export class SearchOptimizer {
    */
   async identifyContentGaps(timeframe: string = '30 days'): Promise<string[]> {
     try {
-      const gaps = await db.all(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const { expr: dateExpr, params: dateParams } = buildDateExpr(timeframe, isPg);
+      const queryField = jsonField('properties', 'query', isPg);
+      const resultsField = jsonField('properties', 'results_count', isPg);
+
+      const gaps = await executeQuery<any>(`
         SELECT
-          json_extract(properties, '$.query') as query,
+          ${queryField} as query,
           COUNT(*) as frequency,
-          AVG(CAST(json_extract(properties, '$.results_count') AS INTEGER)) as avg_results
+          AVG(CAST(${resultsField} AS INTEGER)) as avg_results
         FROM analytics_events
         WHERE event_type = 'search_performed'
-          AND created_at >= datetime('now', '-' || ? || '')
-        GROUP BY json_extract(properties, '$.query')
-        HAVING avg_results < 2 AND frequency > 2
-        ORDER BY frequency DESC
+          AND created_at >= ${dateExpr}
+        GROUP BY ${queryField}
+        HAVING AVG(CAST(${resultsField} AS INTEGER)) < 2 AND COUNT(*) > 2
+        ORDER BY COUNT(*) DESC
         LIMIT 10
-      `, [timeframe]);
+      `, [...dateParams]);
 
       return gaps.map(g => g.query);
     } catch (error) {
@@ -522,36 +598,45 @@ export class SearchOptimizer {
    */
   async getUserBehaviorInsights(timeframe: string = '30 days'): Promise<UserBehavior> {
     try {
-      const behavior = await db.get(`
+      const isPg = getDatabaseType() === 'postgresql';
+      const { expr: dateExpr, params: dateParams } = buildDateExpr(timeframe, isPg);
+      const queryField = jsonField('properties', 'query', isPg);
+
+      // strftime('%H', created_at) → EXTRACT(HOUR FROM created_at) for PG
+      const hourExpr = isPg
+        ? `EXTRACT(HOUR FROM created_at)::INTEGER`
+        : `CAST(strftime('%H', created_at) AS INTEGER)`;
+
+      const behavior = await executeQueryOne<any>(`
         SELECT
-          COUNT(*) * 1.0 / COUNT(DISTINCT session_id) as avg_queries_per_session,
-          AVG(LENGTH(json_extract(properties, '$.query'))) as avg_query_length
+          COUNT(*) * 1.0 / NULLIF(COUNT(DISTINCT session_id), 0) as avg_queries_per_session,
+          AVG(LENGTH(${queryField})) as avg_query_length
         FROM analytics_events
         WHERE event_type = 'search_performed'
-          AND created_at >= datetime('now', '-' || ? || '')
-      `, [timeframe]);
+          AND created_at >= ${dateExpr}
+      `, [...dateParams]);
 
-      const resultTypes = await db.all(`
+      const resultTypes = await executeQuery<any>(`
         SELECT
           entity_type,
           COUNT(*) as clicks
         FROM analytics_events
         WHERE event_type = 'search_result_click'
-          AND created_at >= datetime('now', '-' || ? || '')
+          AND created_at >= ${dateExpr}
         GROUP BY entity_type
-      `, [timeframe]);
+      `, [...dateParams]);
 
-      const hourly = await db.all(`
+      const hourly = await executeQuery<any>(`
         SELECT
-          strftime('%H', created_at) as hour,
+          ${hourExpr} as hour,
           COUNT(*) as searches
         FROM analytics_events
         WHERE event_type = 'search_performed'
-          AND created_at >= datetime('now', '-' || ? || '')
-        GROUP BY strftime('%H', created_at)
+          AND created_at >= ${dateExpr}
+        GROUP BY ${hourExpr}
         ORDER BY searches DESC
         LIMIT 3
-      `, [timeframe]);
+      `, [...dateParams]);
 
       const preferredTypes: Record<string, number> = {};
       resultTypes.forEach(rt => {
@@ -626,7 +711,7 @@ export class SearchOptimizer {
       switch (entityType) {
         case 'kb_article':
           if (action === 'view') {
-            await db.run(`
+            await executeRun(`
               UPDATE kb_articles SET view_count = view_count + 1
               WHERE id = ?
             `, [entityId]);

@@ -4,7 +4,8 @@
  * Provides +85% performance improvement for dashboard queries
  */
 
-import db from './connection'
+import { executeQuery, executeQueryOne, executeRun, sqlCurrentDate, sqlDateSub } from './adapter'
+import { getDatabaseType } from './config'
 import { logger } from '../monitoring/logger'
 
 interface DailyMetrics {
@@ -43,12 +44,14 @@ class AnalyticsOptimizer {
       logger.info('Computing daily metrics', { date: targetDate })
 
       // Compute metrics for each organization
-      const organizations = db.prepare('SELECT DISTINCT organization_id FROM tickets').all() as { organization_id: number }[]
+      const organizations = await executeQuery<{ organization_id: number }>(
+        'SELECT DISTINCT organization_id FROM tickets'
+      )
 
       for (const org of organizations) {
-        const metrics = this.calculateDailyMetrics(org.organization_id, targetDate!)
+        const metrics = await this.calculateDailyMetrics(org.organization_id, targetDate!)
         if (metrics) {
-          this.storeDailyMetrics(metrics)
+          await this.storeDailyMetrics(metrics)
         }
       }
 
@@ -65,8 +68,8 @@ class AnalyticsOptimizer {
   /**
    * Calculate daily metrics for a specific organization and date
    */
-  private calculateDailyMetrics(organizationId: number, date: string): DailyMetrics | undefined {
-    const metrics = db.prepare(`
+  private async calculateDailyMetrics(organizationId: number, date: string): Promise<DailyMetrics | undefined> {
+    const metrics = await executeQueryOne<DailyMetrics>(`
       SELECT
         ? as date,
         ? as organization_id,
@@ -110,7 +113,7 @@ class AnalyticsOptimizer {
         -- Knowledge base (if organization_id exists in kb_articles)
         0 as kb_articles_viewed,
         0 as kb_searches_performed
-    `).get(
+    `, [
       date, organizationId,
       organizationId, date,
       organizationId, date,
@@ -118,7 +121,7 @@ class AnalyticsOptimizer {
       organizationId, date,
       organizationId, date,
       organizationId, date
-    ) as DailyMetrics | undefined
+    ])
 
     return metrics
   }
@@ -126,8 +129,8 @@ class AnalyticsOptimizer {
   /**
    * Store or update daily metrics
    */
-  private storeDailyMetrics(metrics: DailyMetrics): void {
-    const stmt = db.prepare(`
+  private async storeDailyMetrics(metrics: DailyMetrics): Promise<void> {
+    await executeRun(`
       INSERT INTO analytics_daily_metrics (
         date, tickets_created, tickets_resolved, tickets_reopened,
         avg_first_response_time, avg_resolution_time,
@@ -144,9 +147,7 @@ class AnalyticsOptimizer {
         satisfaction_responses = excluded.satisfaction_responses,
         kb_articles_viewed = excluded.kb_articles_viewed,
         kb_searches_performed = excluded.kb_searches_performed
-    `)
-
-    stmt.run(
+    `, [
       metrics.date,
       metrics.tickets_created,
       metrics.tickets_resolved,
@@ -157,7 +158,7 @@ class AnalyticsOptimizer {
       metrics.satisfaction_responses,
       metrics.kb_articles_viewed,
       metrics.kb_searches_performed
-    )
+    ])
   }
 
   /**
@@ -169,16 +170,16 @@ class AnalyticsOptimizer {
     try {
       logger.info('Computing agent metrics', { date: targetDate })
 
-      const agents = db.prepare(`
+      const agents = await executeQuery<{ agent_id: number }>(`
         SELECT DISTINCT assigned_to as agent_id
         FROM tickets
         WHERE assigned_to IS NOT NULL
-      `).all() as { agent_id: number }[]
+      `)
 
       for (const agent of agents) {
-        const metrics = this.calculateAgentMetrics(agent.agent_id, targetDate!)
+        const metrics = await this.calculateAgentMetrics(agent.agent_id, targetDate!)
         if (metrics) {
-          this.storeAgentMetrics(metrics)
+          await this.storeAgentMetrics(metrics)
         }
       }
 
@@ -195,8 +196,8 @@ class AnalyticsOptimizer {
   /**
    * Calculate agent performance for a specific date
    */
-  private calculateAgentMetrics(agentId: number, date: string): AgentMetrics | undefined {
-    const metrics = db.prepare(`
+  private async calculateAgentMetrics(agentId: number, date: string): Promise<AgentMetrics | undefined> {
+    const metrics = await executeQueryOne<AgentMetrics>(`
       SELECT
         ? as agent_id,
         ? as date,
@@ -230,7 +231,7 @@ class AnalyticsOptimizer {
          FROM satisfaction_surveys ss
          JOIN tickets t ON ss.ticket_id = t.id
          WHERE t.assigned_to = ? AND DATE(ss.created_at) = ?) as satisfaction_responses
-    `).get(
+    `, [
       agentId, date,
       agentId, date,
       agentId, date,
@@ -238,7 +239,7 @@ class AnalyticsOptimizer {
       agentId, date,
       agentId, date,
       agentId, date
-    ) as AgentMetrics | undefined
+    ])
 
     return metrics
   }
@@ -246,8 +247,8 @@ class AnalyticsOptimizer {
   /**
    * Store or update agent metrics
    */
-  private storeAgentMetrics(metrics: AgentMetrics): void {
-    const stmt = db.prepare(`
+  private async storeAgentMetrics(metrics: AgentMetrics): Promise<void> {
+    await executeRun(`
       INSERT INTO analytics_agent_metrics (
         agent_id, date, tickets_assigned, tickets_resolved,
         avg_first_response_time, avg_resolution_time,
@@ -260,9 +261,7 @@ class AnalyticsOptimizer {
         avg_resolution_time = excluded.avg_resolution_time,
         satisfaction_score = excluded.satisfaction_score,
         satisfaction_responses = excluded.satisfaction_responses
-    `)
-
-    stmt.run(
+    `, [
       metrics.agent_id,
       metrics.date,
       metrics.tickets_assigned,
@@ -271,7 +270,7 @@ class AnalyticsOptimizer {
       metrics.avg_resolution_time,
       metrics.satisfaction_score,
       metrics.satisfaction_responses
-    )
+    ])
   }
 
   /**
@@ -283,10 +282,10 @@ class AnalyticsOptimizer {
     try {
       logger.info('Computing category metrics', { date: targetDate })
 
-      const categories = db.prepare('SELECT id FROM categories').all() as { id: number }[]
+      const categories = await executeQuery<{ id: number }>('SELECT id FROM categories')
 
       for (const category of categories) {
-        const stmt = db.prepare(`
+        await executeRun(`
           INSERT INTO analytics_category_metrics (
             category_id, date, tickets_created, tickets_resolved, avg_resolution_time
           )
@@ -304,9 +303,7 @@ class AnalyticsOptimizer {
             tickets_created = excluded.tickets_created,
             tickets_resolved = excluded.tickets_resolved,
             avg_resolution_time = excluded.avg_resolution_time
-        `)
-
-        stmt.run(category.id, targetDate, category.id, targetDate)
+        `, [category.id, targetDate, category.id, targetDate])
       }
 
       logger.info('Category metrics computed successfully', {
@@ -323,45 +320,46 @@ class AnalyticsOptimizer {
    * Get optimized dashboard KPIs from pre-computed data
    * This is 85-95% faster than the original getRealTimeKPIs query
    */
-  getOptimizedDashboardKPIs(organizationId: number): any {
+  async getOptimizedDashboardKPIs(organizationId: number): Promise<any> {
     const today = new Date().toISOString().split('T')[0]
+    const dateSub30 = sqlDateSub(30)
 
     // Get today's metrics from pre-computed table
-    const todayMetrics = db.prepare(`
+    const todayMetrics = await executeQueryOne<{ tickets_created?: number }>(`
       SELECT * FROM analytics_daily_metrics
       WHERE date = ?
-    `).get(today) as { tickets_created?: number } | undefined
+    `, [today])
 
     // Get week and month aggregates
-    const periodMetrics = db.prepare(`
-      SELECT
-        SUM(tickets_created) as tickets_this_week,
-        SUM(CASE WHEN date >= date('now', '-30 days') THEN tickets_created ELSE 0 END) as tickets_this_month,
-        AVG(avg_first_response_time) as avg_response_time,
-        AVG(avg_resolution_time) as avg_resolution_time,
-        AVG(satisfaction_score) as csat_score
-      FROM analytics_daily_metrics
-      WHERE date >= date('now', '-30 days')
-    `).get() as {
+    const periodMetrics = await executeQueryOne<{
       tickets_this_week?: number
       tickets_this_month?: number
       avg_response_time?: number
       avg_resolution_time?: number
       csat_score?: number
-    } | undefined
+    }>(`
+      SELECT
+        SUM(tickets_created) as tickets_this_week,
+        SUM(CASE WHEN date >= ${dateSub30} THEN tickets_created ELSE 0 END) as tickets_this_month,
+        AVG(avg_first_response_time) as avg_response_time,
+        AVG(avg_resolution_time) as avg_resolution_time,
+        AVG(satisfaction_score) as csat_score
+      FROM analytics_daily_metrics
+      WHERE date >= ${dateSub30}
+    `)
 
     // Get current open tickets (still needs real-time query)
-    const openTickets = db.prepare(`
+    const openTickets = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM tickets t
       JOIN statuses s ON t.status_id = s.id
       WHERE t.organization_id = ? AND s.is_final = 0
-    `).get(organizationId) as { count: number }
+    `, [organizationId])
 
     return {
       tickets_today: todayMetrics?.tickets_created || 0,
       tickets_this_week: periodMetrics?.tickets_this_week || 0,
       tickets_this_month: periodMetrics?.tickets_this_month || 0,
-      open_tickets: openTickets.count,
+      open_tickets: openTickets?.count ?? 0,
       avg_response_time: periodMetrics?.avg_response_time,
       avg_resolution_time: periodMetrics?.avg_resolution_time,
       csat_score: periodMetrics?.csat_score,

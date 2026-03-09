@@ -18,10 +18,10 @@ const COOKIE_NAME = 'servicedesk_token';
  */
 export async function POST(
   _request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   try {
-    const { provider } = params;
+    const { provider } = await params;
     const cookieStore = await cookies();
 
     // Clear local authentication cookie
@@ -30,7 +30,7 @@ export async function POST(
     cookieStore.delete('sso_redirect');
 
     // Get provider configuration
-    const providerConfig = ssoManager.getProvider(provider);
+    const providerConfig = await ssoManager.getProvider(provider);
 
     if (!providerConfig) {
       return NextResponse.json({
@@ -73,7 +73,7 @@ export async function POST(
  */
 export async function GET(
   request: NextRequest,
-  { params: { provider: _provider } }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);

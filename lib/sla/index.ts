@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateDiff, sqlColSubMinutes } from '@/lib/db/adapter';
 import { SLAPolicy, SLATracking, CreateSLAPolicy } from '../types/database';
 import logger from '../monitoring/structured-logger';
 import { triggerSLABreach, triggerSLAWarning } from '../automations';
@@ -669,7 +669,7 @@ export async function getTicketsBreached(): Promise<any[]> {
         c.name as category_name,
         s.name as status_name,
         sp.name as sla_policy_name,
-        CAST((julianday('now') - julianday(t.sla_deadline)) * 24 * 60 AS INTEGER) as breach_minutes
+        CAST(${sqlDateDiff(sqlNow(), 't.sla_deadline')} * 24 * 60 AS INTEGER) as breach_minutes
       FROM tickets t
       LEFT JOIN users u ON t.user_id = u.id
       LEFT JOIN users a ON t.assigned_to = a.id
@@ -696,8 +696,8 @@ export async function updateTicketSLAStatus(ticketId: number): Promise<boolean> 
       UPDATE tickets
       SET sla_status = CASE
         WHEN sla_deadline IS NULL THEN NULL
-        WHEN datetime('now') > datetime(sla_deadline) THEN 'breached'
-        WHEN datetime('now') > datetime(sla_deadline, '-30 minutes') THEN 'at_risk'
+        WHEN ${sqlNow()} > sla_deadline THEN 'breached'
+        WHEN ${sqlNow()} > ${sqlColSubMinutes('sla_deadline', 30)} THEN 'at_risk'
         ELSE 'on_track'
       END,
       updated_at = CURRENT_TIMESTAMP

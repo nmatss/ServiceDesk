@@ -3,7 +3,8 @@
  * Provides EXPLAIN ANALYZE, query plan optimization, and performance tracking
  */
 
-import db from '../db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 export interface QueryAnalysis {
@@ -49,20 +50,24 @@ export class QueryOptimizer {
    */
   async analyzeQuery(query: string, params: any[] = []): Promise<QueryAnalysis> {
     const startTime = performance.now();
+    const isPostgres = getDatabaseType() === 'postgresql';
 
     try {
-      // Get query plan using EXPLAIN QUERY PLAN
-      const explainQuery = `EXPLAIN QUERY PLAN ${query}`;
-      const plan = db.prepare(explainQuery).all(...params) as any[];
+      // Get query plan
+      const explainQuery = isPostgres
+        ? `EXPLAIN (FORMAT JSON) ${query}`
+        : `EXPLAIN QUERY PLAN ${query}`;
+      const plan = await executeQuery<any>(explainQuery, params);
 
       // Execute the actual query to get real performance metrics
-      const stmt = db.prepare(query);
-      stmt.all(...params);
+      await executeQuery<any>(query, params);
 
       const executionTime = performance.now() - startTime;
 
       // Analyze the plan
-      const analysis = this.analyzePlan(plan, executionTime, query);
+      const analysis = isPostgres
+        ? this.analyzePlanPostgres(plan, executionTime, query)
+        : this.analyzePlan(plan, executionTime, query);
 
       // Track metrics
       this.trackQueryMetrics(query, executionTime);
@@ -152,7 +157,6 @@ export class QueryOptimizer {
       'CREATE INDEX IF NOT EXISTS idx_sla_tracking_due_dates ON sla_tracking(response_due_at, resolution_due_at);',
       'CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, read_at);',
       'CREATE INDEX IF NOT EXISTS idx_attachments_ticket_type ON attachments(ticket_id, mime_type);',
-      'CREATE INDEX IF NOT EXISTS idx_users_role_active ON users(role, created_at) WHERE role IN (\'admin\', \'agent\');',
       'CREATE INDEX IF NOT EXISTS idx_kb_articles_status_category ON kb_articles(status, category_id);',
       'CREATE INDEX IF NOT EXISTS idx_analytics_date_type ON analytics_daily_metrics(date, metric_type);'
     ];
@@ -170,7 +174,7 @@ export class QueryOptimizer {
 
     for (const indexQuery of suggestions) {
       try {
-        db.exec(indexQuery);
+        await executeRun(indexQuery);
         created.push(indexQuery);
       } catch (error) {
         errors.push(`Failed to create index: ${indexQuery} - ${error}`);
@@ -181,7 +185,7 @@ export class QueryOptimizer {
   }
 
   /**
-   * Analyze query plan details
+   * Analyze SQLite query plan details
    */
   private analyzePlan(plan: any[], executionTime: number, query: string): QueryAnalysis {
     const planText = plan.map(p => `${p.id}: ${p.detail}`).join('\n');
@@ -218,6 +222,50 @@ export class QueryOptimizer {
 
     if (hasTemporaryTable) {
       suggestions.push('Temporary table created - consider query restructuring');
+    }
+
+    if (!hasIndex && query.toUpperCase().includes('WHERE')) {
+      suggestions.push('No indexes used - create indexes on WHERE clause columns');
+    }
+
+    if (executionTime > this.slowQueryThreshold) {
+      suggestions.push(`Query execution time (${executionTime.toFixed(2)}ms) exceeds threshold`);
+    }
+
+    return {
+      query,
+      executionTime,
+      scanCount,
+      searchCount,
+      temporaryTable: hasTemporaryTable,
+      index: hasIndex,
+      fullTableScan: hasFullTableScan,
+      cost,
+      plan: planText,
+      suggestions
+    };
+  }
+
+  /**
+   * Analyze PostgreSQL query plan details
+   */
+  private analyzePlanPostgres(plan: any[], executionTime: number, query: string): QueryAnalysis {
+    const planText = JSON.stringify(plan, null, 2);
+
+    // PostgreSQL EXPLAIN JSON has different structure
+    const planStr = planText.toLowerCase();
+    const hasFullTableScan = planStr.includes('seq scan');
+    const hasTemporaryTable = planStr.includes('sort') || planStr.includes('hash');
+    const hasIndex = planStr.includes('index scan') || planStr.includes('index only scan');
+    const scanCount = (planStr.match(/seq scan/g) || []).length;
+    const searchCount = (planStr.match(/index scan/g) || []).length;
+
+    const cost = executionTime * (scanCount + 1) * (hasFullTableScan ? 2 : 1);
+
+    const suggestions: string[] = [];
+
+    if (hasFullTableScan) {
+      suggestions.push('Sequential scan detected - consider adding appropriate indexes');
     }
 
     if (!hasIndex && query.toUpperCase().includes('WHERE')) {

@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQueryOne } from '@/lib/db/adapter';
+import { executeQueryOne, sqlDateDiff } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 
@@ -146,7 +146,7 @@ const orgId = organizationId
     // MTTR (Mean Time To Resolve) in hours
     const mttrResult = await executeQueryOne<{ avg_hours: number | null }>(`
       SELECT AVG(
-        (julianday(resolved_at) - julianday(created_at)) * 24
+        ${sqlDateDiff('resolved_at', 'created_at')} * 24
       ) as avg_hours
       FROM tickets
       WHERE organization_id = ? AND created_at >= ?
@@ -187,7 +187,7 @@ const orgId = organizationId
     // Lead Time (average time from change creation to completion) in days
     const leadTimeResult = await executeQueryOne<{ avg_days: number | null }>(`
       SELECT AVG(
-        julianday(completed_at) - julianday(created_at)
+        ${sqlDateDiff('completed_at', 'created_at')}
       ) as avg_days
       FROM change_requests
       WHERE organization_id = ? AND created_at >= ?

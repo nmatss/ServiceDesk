@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlNow } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     const priority = searchParams.get('priority')
     const sortBy = searchParams.get('sort_by') || 'created_at'
     const sortOrder = searchParams.get('sort_order') || 'desc'
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20), 100)
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
 
     let query = `
       SELECT
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         assigned.name as assigned_to_name,
         c.name as category_name,
         CASE
-          WHEN t.sla_due_at < datetime('now') THEN 1
+          WHEN t.sla_due_at < ${sqlNow()} THEN 1
           ELSE 0
         END as is_overdue
       FROM tickets t

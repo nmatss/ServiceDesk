@@ -3,7 +3,8 @@
  * Manages composite indexes, analyzes usage patterns, and optimizes database performance
  */
 
-import db from '../db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 
 export interface IndexInfo {
   name: string;
@@ -48,17 +49,26 @@ export class IndexManager {
   /**
    * Get all indexes in the database
    */
-  getAllIndexes(): IndexInfo[] {
+  async getAllIndexes(): Promise<IndexInfo[]> {
     const indexes: IndexInfo[] = [];
+    const isPostgres = getDatabaseType() === 'postgresql';
 
     // Get all tables
-    const tables = db.prepare(`
-      SELECT name FROM sqlite_master
-      WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-    `).all() as { name: string }[];
+    let tables: { name: string }[];
+    if (isPostgres) {
+      tables = await executeQuery<{ name: string }>(`
+        SELECT tablename as name FROM pg_tables
+        WHERE schemaname = 'public'
+      `);
+    } else {
+      tables = await executeQuery<{ name: string }>(`
+        SELECT name FROM sqlite_master
+        WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+      `);
+    }
 
     for (const table of tables) {
-      const tableIndexes = this.getTableIndexes(table.name);
+      const tableIndexes = await this.getTableIndexes(table.name);
       indexes.push(...tableIndexes);
     }
 
@@ -68,27 +78,52 @@ export class IndexManager {
   /**
    * Get indexes for a specific table
    */
-  getTableIndexes(tableName: string): IndexInfo[] {
-    const indexes = db.prepare(`
-      SELECT name, sql, origin FROM sqlite_master
-      WHERE type = 'index' AND tbl_name = ? AND name NOT LIKE 'sqlite_%'
-    `).all(tableName) as { name: string; sql: string | null; origin: string }[];
+  async getTableIndexes(tableName: string): Promise<IndexInfo[]> {
+    const isPostgres = getDatabaseType() === 'postgresql';
 
-    return indexes.map(index => {
-      const columns = this.parseIndexColumns(index.sql || '');
-      const unique = index.sql?.includes('UNIQUE') || false;
-      const partial = index.sql?.includes('WHERE') || false;
+    if (isPostgres) {
+      const indexes = await executeQuery<{ indexname: string; indexdef: string }>(`
+        SELECT indexname, indexdef FROM pg_indexes
+        WHERE tablename = ? AND schemaname = 'public'
+      `, [tableName]);
 
-      return {
-        name: index.name,
-        table: tableName,
-        columns,
-        unique,
-        partial,
-        size: this.getIndexSize(index.name),
-        usage: this.getIndexUsage(index.name)
-      };
-    });
+      return indexes.map(index => {
+        const columns = this.parseIndexColumns(index.indexdef || '');
+        const unique = index.indexdef?.includes('UNIQUE') || false;
+        const partial = index.indexdef?.includes('WHERE') || false;
+
+        return {
+          name: index.indexname,
+          table: tableName,
+          columns,
+          unique,
+          partial,
+          size: 0, // PG size requires pg_relation_size which needs superuser
+          usage: this.getIndexUsage(index.indexname)
+        };
+      });
+    } else {
+      const indexes = await executeQuery<{ name: string; sql: string | null; origin: string }>(`
+        SELECT name, sql, origin FROM sqlite_master
+        WHERE type = 'index' AND tbl_name = ? AND name NOT LIKE 'sqlite_%'
+      `, [tableName]);
+
+      return indexes.map(index => {
+        const columns = this.parseIndexColumns(index.sql || '');
+        const unique = index.sql?.includes('UNIQUE') || false;
+        const partial = index.sql?.includes('WHERE') || false;
+
+        return {
+          name: index.name,
+          table: tableName,
+          columns,
+          unique,
+          partial,
+          size: 0, // Estimated
+          usage: this.getIndexUsage(index.name)
+        };
+      });
+    }
   }
 
   /**
@@ -110,7 +145,7 @@ export class IndexManager {
     recommendations.push(...this.recommendIndexesForOrderBy(orderByPatterns));
 
     // Find unused indexes
-    const unusedIndexes = this.findUnusedIndexes();
+    const unusedIndexes = await this.findUnusedIndexes();
     recommendations.push(...this.recommendDropUnusedIndexes(unusedIndexes));
 
     // Find missing composite indexes
@@ -227,7 +262,7 @@ export class IndexManager {
 
     for (const index of enterpriseIndexes) {
       try {
-        db.exec(index.sql);
+        await executeRun(index.sql);
         created.push(index.name);
       } catch (error) {
         errors.push(`Failed to create ${index.name}: ${error}`);
@@ -287,7 +322,7 @@ export class IndexManager {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysUnused);
 
-    const unusedIndexes = this.findUnusedIndexes().filter(indexName => {
+    const unusedIndexes = (await this.findUnusedIndexes()).filter(indexName => {
       const stats = this.indexUsageStats.get(indexName);
       return !stats?.lastUsed || stats.lastUsed < cutoffDate;
     });
@@ -295,8 +330,8 @@ export class IndexManager {
     for (const indexName of unusedIndexes) {
       try {
         // Don't drop system or primary key indexes
-        if (!indexName.startsWith('sqlite_') && !indexName.includes('pk_')) {
-          db.exec(`DROP INDEX IF EXISTS ${indexName}`);
+        if (!indexName.startsWith('sqlite_') && !indexName.includes('pk_') && !indexName.endsWith('_pkey')) {
+          await executeRun(`DROP INDEX IF EXISTS ${indexName}`);
           dropped.push(indexName);
         }
       } catch (error) {
@@ -313,13 +348,22 @@ export class IndexManager {
   async rebuildIndexes(tableName?: string): Promise<{ rebuilt: string[]; errors: string[] }> {
     const rebuilt: string[] = [];
     const errors: string[] = [];
+    const isPostgres = getDatabaseType() === 'postgresql';
 
     try {
       if (tableName) {
-        db.exec(`REINDEX ${tableName}`);
+        if (isPostgres) {
+          await executeRun(`REINDEX TABLE ${tableName}`);
+        } else {
+          await executeRun(`REINDEX ${tableName}`);
+        }
         rebuilt.push(tableName);
       } else {
-        db.exec('REINDEX');
+        if (isPostgres) {
+          await executeRun('REINDEX DATABASE CURRENT_DATABASE()');
+        } else {
+          await executeRun('REINDEX');
+        }
         rebuilt.push('ALL_INDEXES');
       }
     } catch (error) {
@@ -339,16 +383,6 @@ export class IndexManager {
       const parts = col.trim().split(' ');
       return parts[0] || '';
     }).filter(col => col !== '');
-  }
-
-  private getIndexSize(indexName: string): number {
-    try {
-      // SQLite doesn't provide direct index size, so we estimate
-      const info = db.pragma(`index_info(${indexName})`) as unknown[];
-      return Array.isArray(info) ? info.length * 1024 : 0; // Rough estimate
-    } catch {
-      return 0;
-    }
   }
 
   private getIndexUsage(indexName: string): IndexUsageStats {
@@ -536,8 +570,8 @@ export class IndexManager {
     return recommendations;
   }
 
-  private findUnusedIndexes(): string[] {
-    const allIndexes = this.getAllIndexes();
+  private async findUnusedIndexes(): Promise<string[]> {
+    const allIndexes = await this.getAllIndexes();
     const unused: string[] = [];
 
     for (const index of allIndexes) {

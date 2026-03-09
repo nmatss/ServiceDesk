@@ -4,7 +4,7 @@
  * Compliant with LGPD Art. 8º and Art. 9º
  */
 
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '../monitoring/observability';
 
 export interface ConsentRecord {
@@ -37,7 +37,7 @@ export class ConsentManager {
    */
   async recordConsent(consent: Omit<ConsentRecord, 'id' | 'timestamp'>): Promise<number> {
     try {
-      const result = db.prepare(`
+      const result = await executeRun(`
         INSERT INTO lgpd_consents (
           user_id,
           consent_type,
@@ -50,7 +50,7 @@ export class ConsentManager {
           user_agent,
           expires_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         consent.userId,
         consent.purpose,
         consent.purpose, // purpose description
@@ -61,7 +61,7 @@ export class ConsentManager {
         consent.ipAddress,
         consent.userAgent,
         consent.expiresAt?.toISOString() || null
-      );
+      ]);
 
       logger.info('Consent recorded', {
         consentId: result.lastInsertRowid,
@@ -86,13 +86,13 @@ export class ConsentManager {
     reason?: string
   ): Promise<void> {
     try {
-      const result = db.prepare(`
+      const result = await executeRun(`
         UPDATE lgpd_consents
         SET is_given = 0,
             withdrawn_at = CURRENT_TIMESTAMP,
             withdrawal_reason = ?
         WHERE user_id = ? AND consent_type = ? AND is_given = 1
-      `).run(reason || 'User requested withdrawal', userId, purpose);
+      `, [reason || 'User requested withdrawal', userId, purpose]);
 
       if (result.changes === 0) {
         throw new Error('No active consent found to withdraw');
@@ -113,7 +113,7 @@ export class ConsentManager {
    */
   async getConsentHistory(userId: number): Promise<ConsentHistory> {
     try {
-      const consents = db.prepare(`
+      const consents = await executeQuery<ConsentRecord>(`
         SELECT
           id,
           user_id as userId,
@@ -131,7 +131,7 @@ export class ConsentManager {
         FROM lgpd_consents
         WHERE user_id = ?
         ORDER BY created_at DESC
-      `).all(userId) as ConsentRecord[];
+      `, [userId]);
 
       const totalGiven = consents.filter(c => c.granted).length;
       const totalWithdrawn = consents.filter(c => c.withdrawnAt).length;
@@ -161,7 +161,7 @@ export class ConsentManager {
     reason?: string;
   }> {
     try {
-      const consent = db.prepare(`
+      const consent = await executeQueryOne<any>(`
         SELECT
           id,
           created_at as grantedAt,
@@ -171,7 +171,7 @@ export class ConsentManager {
         WHERE user_id = ? AND consent_type = ?
         ORDER BY created_at DESC
         LIMIT 1
-      `).get(userId, purpose) as any;
+      `, [userId, purpose]);
 
       if (!consent) {
         return {
@@ -222,12 +222,12 @@ export class ConsentManager {
    */
   async getActiveConsents(userId: number): Promise<string[]> {
     try {
-      const consents = db.prepare(`
+      const consents = await executeQuery<{ consent_type: string }>(`
         SELECT DISTINCT consent_type
         FROM lgpd_consents
         WHERE user_id = ? AND is_given = 1
           AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-      `).all(userId) as { consent_type: string }[];
+      `, [userId]);
 
       return consents.map(c => c.consent_type);
     } catch (error) {
@@ -241,13 +241,13 @@ export class ConsentManager {
    */
   async withdrawAllConsents(userId: number, reason: string = 'Account deletion'): Promise<number> {
     try {
-      const result = db.prepare(`
+      const result = await executeRun(`
         UPDATE lgpd_consents
         SET is_given = 0,
             withdrawn_at = CURRENT_TIMESTAMP,
             withdrawal_reason = ?
         WHERE user_id = ? AND is_given = 1
-      `).run(reason, userId);
+      `, [reason, userId]);
 
       logger.info('All consents withdrawn', { userId, count: result.changes });
 
@@ -266,7 +266,7 @@ export class ConsentManager {
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + daysBeforeExpiry);
 
-      const consents = db.prepare(`
+      const consents = await executeQuery<ConsentRecord>(`
         SELECT
           id,
           user_id as userId,
@@ -280,7 +280,7 @@ export class ConsentManager {
           AND expires_at <= ?
           AND expires_at > CURRENT_TIMESTAMP
         ORDER BY expires_at ASC
-      `).all(expiryDate.toISOString()) as ConsentRecord[];
+      `, [expiryDate.toISOString()]);
 
       return consents;
     } catch (error) {
@@ -308,7 +308,7 @@ export class ConsentManager {
         ? [startDate.toISOString(), endDate.toISOString()]
         : [];
 
-      const stats = db.prepare(`
+      const stats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN is_given = 1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) THEN 1 ELSE 0 END) as active,
@@ -316,29 +316,29 @@ export class ConsentManager {
           SUM(CASE WHEN expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP THEN 1 ELSE 0 END) as expired
         FROM lgpd_consents
         WHERE 1=1 ${dateFilter}
-      `).get(...dateParams) as any;
+      `, dateParams);
 
-      const byPurpose = db.prepare(`
+      const byPurpose = await executeQuery<{ consent_type: string; count: number }>(`
         SELECT consent_type, COUNT(*) as count
         FROM lgpd_consents
         WHERE 1=1 ${dateFilter}
         GROUP BY consent_type
-      `).all(...dateParams) as { consent_type: string; count: number }[];
+      `, dateParams);
 
-      const byLegalBasis = db.prepare(`
+      const byLegalBasis = await executeQuery<{ legal_basis: string; count: number }>(`
         SELECT legal_basis, COUNT(*) as count
         FROM lgpd_consents
         WHERE 1=1 ${dateFilter}
         GROUP BY legal_basis
-      `).all(...dateParams) as { legal_basis: string; count: number }[];
+      `, dateParams);
 
       return {
-        totalConsents: stats.total || 0,
-        activeConsents: stats.active || 0,
-        withdrawnConsents: stats.withdrawn || 0,
-        expiredConsents: stats.expired || 0,
-        byPurpose: byPurpose.reduce((acc, item) => ({ ...acc, [item.consent_type]: item.count }), {}),
-        byLegalBasis: byLegalBasis.reduce((acc, item) => ({ ...acc, [item.legal_basis]: item.count }), {})
+        totalConsents: stats?.total || 0,
+        activeConsents: stats?.active || 0,
+        withdrawnConsents: stats?.withdrawn || 0,
+        expiredConsents: stats?.expired || 0,
+        byPurpose: byPurpose.reduce((acc, item) => ({ ...acc, [item.consent_type]: item.count }), {} as Record<string, number>),
+        byLegalBasis: byLegalBasis.reduce((acc, item) => ({ ...acc, [item.legal_basis]: item.count }), {} as Record<string, number>)
       };
     } catch (error) {
       logger.error('Failed to get consent statistics', { error });
@@ -361,17 +361,17 @@ export class ConsentManager {
       // 4. Schedule data deletion if no legal basis remains
 
       // For now, we just log it for compliance audit
-      db.prepare(`
+      await executeRun(`
         INSERT INTO audit_advanced (
           entity_type, entity_id, action, new_values, organization_id
         ) VALUES (?, ?, ?, ?, ?)
-      `).run(
+      `, [
         'consent',
         userId,
         'withdrawal_review',
         JSON.stringify({ purpose, reviewDate: new Date().toISOString() }),
         1 // Default organization
-      );
+      ]);
     } catch (error) {
       logger.error('Failed to review data processing', { error, userId, purpose });
     }

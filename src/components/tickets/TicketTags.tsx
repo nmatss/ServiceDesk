@@ -258,7 +258,7 @@ export function TicketTags({
 
               {/* Suggestions dropdown */}
               {suggestions.length > 0 && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-neutral-200 z-10 max-h-48 overflow-auto">
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-neutral-800 rounded-md shadow-lg border border-neutral-200 dark:border-neutral-700 z-10 max-h-48 overflow-auto">
                   {suggestions.map((tag) => (
                     <button
                       key={tag.id}
@@ -277,10 +277,10 @@ export function TicketTags({
 
               {/* Create new tag option */}
               {searchTerm.trim() && !suggestions.some(s => s.name.toLowerCase() === searchTerm.toLowerCase()) && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-neutral-200 z-10">
+                <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-neutral-800 rounded-md shadow-lg border border-neutral-200 dark:border-neutral-700 z-10">
                   <button
                     onClick={() => addTag(undefined, searchTerm.trim())}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2 text-blue-600"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-700 flex items-center gap-2 text-blue-600"
                   >
                     <PlusIcon className="h-4 w-4" />
                     <span>Create "{searchTerm}"</span>

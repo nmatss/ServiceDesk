@@ -137,7 +137,7 @@ export function TicketVolumeWidget({
               stroke="#3B82F6"
               fill="#3B82F6"
               fillOpacity={0.6}
-              name="Created"
+              name="Criados"
             />
             <Area
               type="monotone"
@@ -146,7 +146,7 @@ export function TicketVolumeWidget({
               stroke="#10B981"
               fill="#10B981"
               fillOpacity={0.6}
-              name="Resolved"
+              name="Resolvidos"
             />
             {config.includeHighPriority && (
               <Area
@@ -156,7 +156,7 @@ export function TicketVolumeWidget({
                 stroke="#EF4444"
                 fill="#EF4444"
                 fillOpacity={0.4}
-                name="High Priority"
+                name="Alta Prioridade"
               />
             )}
             {config.showForecasting && (
@@ -204,10 +204,10 @@ export function TicketVolumeWidget({
               }}
             />
             <Legend />
-            <Bar dataKey="created" fill="#3B82F6" name="Created" />
-            <Bar dataKey="resolved" fill="#10B981" name="Resolved" />
+            <Bar dataKey="created" fill="#3B82F6" name="Criados" />
+            <Bar dataKey="resolved" fill="#10B981" name="Resolvidos" />
             {config.includeHighPriority && (
-              <Bar dataKey="high_priority" fill="#EF4444" name="High Priority" />
+              <Bar dataKey="high_priority" fill="#EF4444" name="Alta Prioridade" />
             )}
             {config.showTrendLine && (
               <Line
@@ -248,10 +248,10 @@ export function TicketVolumeWidget({
               ]}
             />
             <Legend />
-            <Bar dataKey="created" fill="#3B82F6" name="Created" />
-            <Bar dataKey="resolved" fill="#10B981" name="Resolved" />
+            <Bar dataKey="created" fill="#3B82F6" name="Criados" />
+            <Bar dataKey="resolved" fill="#10B981" name="Resolvidos" />
             {config.includeHighPriority && (
-              <Bar dataKey="high_priority" fill="#EF4444" name="High Priority" />
+              <Bar dataKey="high_priority" fill="#EF4444" name="Alta Prioridade" />
             )}
             <Line
               type="monotone"
@@ -294,10 +294,10 @@ export function TicketVolumeWidget({
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
-            Ticket Volume Trends
+            Tendências de Volume de Tickets
           </h3>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Daily ticket creation and resolution patterns
+            Padrões diários de criação e resolução de tickets
           </p>
         </div>
 
@@ -307,9 +307,9 @@ export function TicketVolumeWidget({
             onChange={(e) => onUpdate({ period: e.target.value })}
             className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
-            <option value="week">Last Week</option>
-            <option value="month">Last Month</option>
-            <option value="quarter">Last Quarter</option>
+            <option value="week">Última Semana</option>
+            <option value="month">Último Mês</option>
+            <option value="quarter">Último Trimestre</option>
           </select>
 
           <select
@@ -341,7 +341,7 @@ export function TicketVolumeWidget({
                 : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
-            High Priority
+            Alta Prioridade
           </button>
         </div>
       </div>
@@ -429,7 +429,7 @@ export function TicketVolumeWidget({
             <div className="text-center">
               <ChartBarIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
               <p className="text-neutral-500 dark:text-neutral-400">
-                {isConnected ? 'Loading volume data...' : 'No data available'}
+                {isConnected ? 'Carregando dados de volume...' : 'Sem dados disponíveis'}
               </p>
             </div>
           </div>

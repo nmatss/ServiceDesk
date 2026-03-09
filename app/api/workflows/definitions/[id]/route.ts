@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, getDatabase } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow, sqlDateDiff } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -16,7 +16,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
@@ -27,7 +27,8 @@ export async function GET(
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
 
-    const workflowId = parseInt(params.id);
+    const { id } = await params;
+    const workflowId = parseInt(id);
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
@@ -77,7 +78,7 @@ export async function GET(
         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_executions,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_executions,
         AVG(CASE WHEN completed_at IS NOT NULL
-            THEN (julianday(completed_at) - julianday(started_at)) * 24 * 60 * 60 * 1000
+            THEN ${sqlDateDiff('completed_at', 'started_at')} * 24 * 60 * 60 * 1000
             ELSE NULL END) as avg_execution_time_ms,
         MAX(started_at) as last_execution_at
       FROM workflow_executions
@@ -112,7 +113,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
@@ -124,7 +125,8 @@ export async function PUT(
     if (guard.response) return guard.response;
     const { userId, role } = guard.auth!;
 
-    const workflowId = parseInt(params.id);
+    const { id } = await params;
+    const workflowId = parseInt(id);
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
@@ -141,99 +143,99 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Start transaction
-    const db = getDatabase() as any;
-    const updateWorkflow = db.transaction((data: any) => {
+    // Start transaction using adapter
+    await executeTransaction(async () => {
       // Update main workflow record
       const updateFields: string[] = [];
       const updateParams: any[] = [];
 
-      if (data.name !== undefined) {
+      if (body.name !== undefined) {
         updateFields.push('name = ?');
-        updateParams.push(data.name);
+        updateParams.push(body.name);
       }
 
-      if (data.description !== undefined) {
+      if (body.description !== undefined) {
         updateFields.push('description = ?');
-        updateParams.push(data.description);
+        updateParams.push(body.description);
       }
 
-      if (data.triggerType !== undefined) {
+      if (body.triggerType !== undefined) {
         updateFields.push('trigger_type = ?');
-        updateParams.push(data.triggerType);
+        updateParams.push(body.triggerType);
       }
 
-      if (data.triggerConditions !== undefined) {
+      if (body.triggerConditions !== undefined) {
         updateFields.push('trigger_conditions = ?');
-        updateParams.push(JSON.stringify(data.triggerConditions));
+        updateParams.push(JSON.stringify(body.triggerConditions));
       }
 
-      if (data.isActive !== undefined) {
+      if (body.isActive !== undefined) {
         updateFields.push('is_active = ?');
-        updateParams.push(data.isActive ? 1 : 0);
+        updateParams.push(body.isActive ? 1 : 0);
       }
 
-      if (data.category !== undefined) {
+      if (body.category !== undefined) {
         updateFields.push('category = ?');
-        updateParams.push(data.category);
+        updateParams.push(body.category);
       }
 
-      if (data.priority !== undefined) {
+      if (body.priority !== undefined) {
         updateFields.push('priority = ?');
-        updateParams.push(data.priority);
+        updateParams.push(body.priority);
       }
 
       if (updateFields.length > 0) {
-        updateFields.push('updated_by = ?', 'updated_at = CURRENT_TIMESTAMP');
+        updateFields.push('updated_by = ?', `updated_at = ${sqlNow()}`);
         updateParams.push(userId);
 
-        db.prepare(`
+        await executeRun(`
           UPDATE workflows
           SET ${updateFields.join(', ')}
           WHERE id = ?
-        `).run(...updateParams, workflowId);
+        `, [...updateParams, workflowId]);
       }
 
       // Update workflow definition if nodes/edges/variables are provided
-      if (data.nodes || data.edges || data.variables || data.metadata) {
-        const currentDefinition = db.prepare('SELECT steps_json FROM workflow_definitions WHERE id = ?').get(workflowId) as { steps_json?: string } | undefined;
+      if (body.nodes || body.edges || body.variables || body.metadata) {
+        const currentDefinition = await executeQueryOne<{ steps_json?: string }>('SELECT steps_json FROM workflow_definitions WHERE id = ?', [workflowId]);
         const currentStepsJson = currentDefinition ? JSON.parse(currentDefinition.steps_json || '{}') : {};
 
         const newStepsJson = {
-          nodes: data.nodes || currentStepsJson.nodes || [],
-          edges: data.edges || currentStepsJson.edges || [],
-          variables: data.variables || currentStepsJson.variables || [],
-          metadata: data.metadata || currentStepsJson.metadata || {}
+          nodes: body.nodes || currentStepsJson.nodes || [],
+          edges: body.edges || currentStepsJson.edges || [],
+          variables: body.variables || currentStepsJson.variables || [],
+          metadata: body.metadata || currentStepsJson.metadata || {}
         };
 
-        db.prepare(`
+        await executeRun(`
           UPDATE workflow_definitions
-          SET steps_json = ?, updated_at = CURRENT_TIMESTAMP
+          SET steps_json = ?, updated_at = ${sqlNow()}
           WHERE id = ?
-        `).run(JSON.stringify(newStepsJson), workflowId);
+        `, [JSON.stringify(newStepsJson), workflowId]);
 
         // Update workflow_steps table if nodes are provided
-        if (data.nodes) {
+        if (body.nodes) {
           // Delete existing steps
-          db.prepare('DELETE FROM workflow_steps WHERE workflow_id = ?').run(workflowId);
+          await executeRun('DELETE FROM workflow_steps WHERE workflow_id = ?', [workflowId]);
 
           // Insert new steps
-          data.nodes.forEach((node: any, index: number) => {
-            db.prepare(`
-            INSERT INTO workflow_steps (
-              workflow_id,
-              step_order,
-              step_type,
-              name,
-              description,
-              configuration,
-              timeout_minutes,
-              retry_count,
-              retry_delay_minutes,
-              is_optional,
-              parent_step_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(
+          for (let index = 0; index < body.nodes.length; index++) {
+            const node = body.nodes[index];
+            await executeRun(`
+              INSERT INTO workflow_steps (
+                workflow_id,
+                step_order,
+                step_type,
+                name,
+                description,
+                configuration,
+                timeout_minutes,
+                retry_count,
+                retry_delay_minutes,
+                is_optional,
+                parent_step_id
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
               workflowId,
               index,
               node.type,
@@ -249,15 +251,12 @@ export async function PUT(
               node.retryConfig?.maxAttempts || 3,
               node.retryConfig?.initialDelay ? Math.round(node.retryConfig.initialDelay / 60000) : 5,
               node.isOptional ? 1 : 0,
-              null);
-          });
+              null
+            ]);
+          }
         }
       }
-
-      return workflowId;
     });
-
-    updateWorkflow(body);
 
     // Fetch updated workflow
     const updatedWorkflow = await executeQueryOne(`
@@ -299,7 +298,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
@@ -310,7 +309,8 @@ export async function DELETE(
     const guardDel = requireTenantUserContext(request, { requireRoles: ['admin'] });
     if (guardDel.response) return guardDel.response;
 
-    const workflowId = parseInt(params.id);
+    const { id } = await params;
+    const workflowId = parseInt(id);
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
@@ -338,18 +338,15 @@ export async function DELETE(
     }
 
     // Start transaction to delete workflow and related data
-    const dbDel = getDatabase() as any;
-    const deleteWorkflow = dbDel.transaction(() => {
+    await executeTransaction(async () => {
       // Delete in correct order due to foreign key constraints
-      dbDel.prepare('DELETE FROM workflow_step_executions WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)').run(workflowId);
-      dbDel.prepare('DELETE FROM workflow_approvals WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)').run(workflowId);
-      dbDel.prepare('DELETE FROM workflow_executions WHERE workflow_id = ?').run(workflowId);
-      dbDel.prepare('DELETE FROM workflow_steps WHERE workflow_id = ?').run(workflowId);
-      dbDel.prepare('DELETE FROM workflow_definitions WHERE id = ?').run(workflowId);
-      dbDel.prepare('DELETE FROM workflows WHERE id = ?').run(workflowId);
+      await executeRun('DELETE FROM workflow_step_executions WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)', [workflowId]);
+      await executeRun('DELETE FROM workflow_approvals WHERE execution_id IN (SELECT id FROM workflow_executions WHERE workflow_id = ?)', [workflowId]);
+      await executeRun('DELETE FROM workflow_executions WHERE workflow_id = ?', [workflowId]);
+      await executeRun('DELETE FROM workflow_steps WHERE workflow_id = ?', [workflowId]);
+      await executeRun('DELETE FROM workflow_definitions WHERE id = ?', [workflowId]);
+      await executeRun('DELETE FROM workflows WHERE id = ?', [workflowId]);
     });
-
-    deleteWorkflow();
 
     return NextResponse.json({
       message: 'Workflow deleted successfully',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlGroupConcat } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Buscar tickets similares resolvidos via busca textual (scoped by org)
     const similarTickets = await executeQuery<any>(`
       SELECT t.id, t.title, t.description,
-             GROUP_CONCAT(c.content, ' | ') as resolution
+             ${sqlGroupConcat('c.content', ' | ')} as resolution
       FROM tickets t
       LEFT JOIN comments c ON t.id = c.ticket_id
         AND c.is_internal = 0

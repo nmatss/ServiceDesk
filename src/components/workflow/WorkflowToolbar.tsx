@@ -56,16 +56,16 @@ export default function WorkflowToolbar({
         {/* Workflow Name */}
         <div className="flex items-center space-x-2">
           <h2 className="text-lg font-semibold text-neutral-900">
-            {workflow?.name || 'Untitled Workflow'}
+            {workflow?.name || 'Workflow sem título'}
           </h2>
           {hasChanges && (
             <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-              Unsaved
+              Não salvo
             </span>
           )}
           {workflow?.isActive && (
             <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-              Active
+              Ativo
             </span>
           )}
         </div>
@@ -82,7 +82,7 @@ export default function WorkflowToolbar({
               title="Validate Workflow"
             >
               <CheckCircleIcon className="w-4 h-4" />
-              <span>Validate</span>
+              <span>Validar</span>
             </button>
 
             {/* Test */}
@@ -92,7 +92,7 @@ export default function WorkflowToolbar({
               title="Test Workflow"
             >
               <PlayIcon className="w-4 h-4" />
-              <span>Test</span>
+              <span>Testar</span>
             </button>
 
             {/* Save */}
@@ -107,7 +107,7 @@ export default function WorkflowToolbar({
               title="Save Workflow"
             >
               <ArrowDownTrayIcon className="w-4 h-4" />
-              <span>Save</span>
+              <span>Salvar</span>
             </button>
 
             {/* Deploy */}
@@ -117,7 +117,7 @@ export default function WorkflowToolbar({
               title="Deploy Workflow"
             >
               <RocketLaunchIcon className="w-4 h-4" />
-              <span>Deploy</span>
+              <span>Publicar</span>
             </button>
           </>
         )}
@@ -125,7 +125,7 @@ export default function WorkflowToolbar({
         {readOnly && (
           <div className="flex items-center space-x-2 px-3 py-1.5 text-sm text-neutral-500 bg-neutral-100 rounded-lg">
             <EyeIcon className="w-4 h-4" />
-            <span>Read Only Mode</span>
+            <span>Modo Somente Leitura</span>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { getDatabaseType } from '@/lib/db/config'
 import { NotificationPayload } from './realtime-engine'
 import logger from '../monitoring/structured-logger';
 
@@ -51,7 +52,6 @@ export interface ExecutedAction {
 }
 
 export class EscalationManager {
-  private db = getDb()
   private realtimeEngine: any // Will be injected
   private escalationRules: EscalationRule[] = []
   private activeEscalations = new Map<string, EscalationInstance>()
@@ -199,17 +199,21 @@ export class EscalationManager {
 
   constructor(realtimeEngine: any) {
     this.realtimeEngine = realtimeEngine
-    this.loadEscalationRules()
-    this.loadActiveEscalations()
+    this.initAsync()
     this.setupEscalationProcessing()
   }
 
-  private loadEscalationRules() {
+  private async initAsync(): Promise<void> {
+    await this.loadEscalationRules()
+    await this.loadActiveEscalations()
+  }
+
+  private async loadEscalationRules(): Promise<void> {
     try {
-      const rules = this.db.prepare(`
+      const rules = await executeQuery<any>(`
         SELECT * FROM escalation_rules WHERE is_active = 1
         ORDER BY priority DESC
-      `).all() as any[]
+      `, [])
 
       this.escalationRules = rules.map(rule => ({
         id: rule.id,
@@ -230,30 +234,30 @@ export class EscalationManager {
 
       // Create default rules if none exist
       if (this.escalationRules.length === 0) {
-        this.createDefaultRules()
+        await this.createDefaultRules()
       }
     } catch (error) {
       logger.error('Error loading escalation rules', error)
-      this.createDefaultRules()
+      await this.createDefaultRules()
     }
   }
 
-  private createDefaultRules() {
+  private async createDefaultRules(): Promise<void> {
     for (const rule of this.DEFAULT_RULES) {
       const ruleWithCreatedBy = {
         ...rule,
         createdBy: 1
       };
-      this.createEscalationRule(ruleWithCreatedBy, 1) // System user
+      await this.createEscalationRule(ruleWithCreatedBy, 1) // System user
     }
   }
 
-  private loadActiveEscalations() {
+  private async loadActiveEscalations(): Promise<void> {
     try {
-      const escalations = this.db.prepare(`
+      const escalations = await executeQuery<any>(`
         SELECT * FROM escalation_instances
         WHERE status IN ('pending', 'executing')
-      `).all() as any[]
+      `, [])
 
       for (const escalation of escalations) {
         const instance: EscalationInstance = {
@@ -402,9 +406,22 @@ export class EscalationManager {
     }
 
     try {
+      // Atomically claim this escalation to prevent race conditions with concurrent instances.
+      // Only transitions from 'pending' to 'executing' — if another instance already claimed it,
+      // the UPDATE will affect 0 rows and we bail out.
+      const claimResult = await executeRun(`
+        UPDATE escalation_instances
+        SET status = 'executing', last_action_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND status = 'pending'
+      `, [instanceId])
+
+      if (claimResult.changes === 0) {
+        logger.info(`Escalation ${instanceId} already claimed by another instance, skipping`)
+        return
+      }
+
       instance.status = 'executing'
       instance.lastActionAt = new Date()
-      this.updateEscalationInstance(instance)
 
       logger.info(`Executing escalation ${instanceId}`)
 
@@ -422,7 +439,7 @@ export class EscalationManager {
       }
 
       // Check cooldown
-      if (this.isInCooldown(rule, notification)) {
+      if (await this.isInCooldown(rule, notification)) {
         logger.info(`Escalation ${instanceId} is in cooldown, skipping`)
         this.scheduleNextEscalation(instance, rule)
         return
@@ -483,24 +500,21 @@ export class EscalationManager {
     }
   }
 
-  private checkDeliveryFailure(_notification: any, _parameters: any): boolean {
-    // Check if specified channels have failed
-    // This would integrate with the delivery tracker
-    // For now, simulate based on notification age
-    return false // Placeholder
+  private checkDeliveryFailure(notification: any, _parameters: any): boolean {
+    logger.warn('Escalation check not implemented', { check: 'deliveryFailure', notificationId: notification?.id });
+    return false
   }
 
-  private checkNoResponse(_notification: any, parameters: any): boolean {
+  private checkNoResponse(notification: any, parameters: any): boolean {
     if (!parameters.expectedResponse) return false
 
-    // Check if notification requires response and hasn't been acknowledged
-    // This would check read receipts or response tracking
-    return false // Placeholder
+    logger.warn('Escalation check not implemented', { check: 'noResponse', notificationId: notification?.id });
+    return false
   }
 
-  private checkChannelFailure(_notification: any, _parameters: any): boolean {
-    // Check if specified channels are currently unavailable
-    return false // Placeholder
+  private checkChannelFailure(notification: any, _parameters: any): boolean {
+    logger.warn('Escalation check not implemented', { check: 'channelFailure', notificationId: notification?.id });
+    return false
   }
 
   private checkUserAvailability(notification: any, parameters: any): boolean {
@@ -547,7 +561,7 @@ export class EscalationManager {
       }
     }
 
-    this.updateEscalationInstance(instance)
+    await this.updateEscalationInstance(instance)
   }
 
   private async executeAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
@@ -637,11 +651,11 @@ export class EscalationManager {
 
     try {
       // Update the original notification priority
-      this.db.prepare(`
+      await executeRun(`
         UPDATE notifications
         SET priority = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(newPriority, notification.id)
+      `, [newPriority, notification.id])
 
       return { success: true, data: { oldPriority: notification.priority, newPriority } }
     } catch (error) {
@@ -684,12 +698,12 @@ export class EscalationManager {
     }
 
     try {
-      const ticketId = this.db.prepare(`
+      const result = await executeRun(`
         INSERT INTO tickets (title, description, priority, category_id, user_id, status)
         VALUES (?, ?, ?, (SELECT id FROM categories WHERE name = ? LIMIT 1), ?, 'open')
-      `).run(ticketData.title, ticketData.description, ticketData.priority, ticketData.category, ticketData.user_id).lastInsertRowid
+      `, [ticketData.title, ticketData.description, ticketData.priority, ticketData.category, ticketData.user_id])
 
-      return { success: true, data: { ticketId } }
+      return { success: true, data: { ticketId: result.lastInsertRowid } }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -755,16 +769,16 @@ export class EscalationManager {
     logger.info(`Scheduled next escalation for ${instance.id} at level ${instance.escalationLevel}`)
   }
 
-  private isInCooldown(rule: EscalationRule, notification: any): boolean {
+  private async isInCooldown(rule: EscalationRule, notification: any): Promise<boolean> {
     try {
-      const lastEscalation = this.db.prepare(`
+      const lastEscalation = await executeQueryOne<{ last_action: string | null }>(`
         SELECT MAX(last_action_at) as last_action
         FROM escalation_instances
         WHERE notification_id = ? AND rule_id = ?
         AND status IN ('completed', 'executing')
-      `).get(notification.id, rule.id) as { last_action: string | null }
+      `, [notification.id, rule.id])
 
-      if (!lastEscalation.last_action) return false
+      if (!lastEscalation?.last_action) return false
 
       const lastActionTime = new Date(lastEscalation.last_action)
       const cooldownEndTime = new Date(lastActionTime.getTime() + rule.cooldownPeriod * 60 * 1000)
@@ -831,14 +845,14 @@ export class EscalationManager {
   }
 
   // Database operations
-  private persistEscalationInstance(instance: EscalationInstance): void {
+  private async persistEscalationInstance(instance: EscalationInstance): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO escalation_instances (
           id, notification_id, rule_id, triggered_at, executed_actions,
           status, escalation_level, last_action_at, next_action_at, metadata
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         instance.id,
         instance.notificationId,
         instance.ruleId,
@@ -849,20 +863,20 @@ export class EscalationManager {
         instance.lastActionAt?.toISOString() || null,
         instance.nextActionAt?.toISOString() || null,
         JSON.stringify(instance.metadata)
-      )
+      ])
     } catch (error) {
       logger.error('Error persisting escalation instance', error)
     }
   }
 
-  private updateEscalationInstance(instance: EscalationInstance): void {
+  private async updateEscalationInstance(instance: EscalationInstance): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE escalation_instances
         SET executed_actions = ?, status = ?, escalation_level = ?,
             last_action_at = ?, next_action_at = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(
+      `, [
         JSON.stringify(instance.executedActions),
         instance.status,
         instance.escalationLevel,
@@ -870,7 +884,7 @@ export class EscalationManager {
         instance.nextActionAt?.toISOString() || null,
         JSON.stringify(instance.metadata),
         instance.id
-      )
+      ])
     } catch (error) {
       logger.error('Error updating escalation instance', error)
     }
@@ -878,9 +892,9 @@ export class EscalationManager {
 
   private async getNotificationDetails(notificationId: string): Promise<any> {
     try {
-      return this.db.prepare(`
+      return await executeQueryOne(`
         SELECT * FROM notifications WHERE id = ?
-      `).get(notificationId)
+      `, [notificationId])
     } catch (error) {
       logger.error('Error getting notification details', error)
       return null
@@ -888,7 +902,7 @@ export class EscalationManager {
   }
 
   // Public API methods
-  public createEscalationRule(rule: Omit<EscalationRule, 'id' | 'createdAt' | 'updatedAt'>, createdBy: number): string {
+  public async createEscalationRule(rule: Omit<EscalationRule, 'id' | 'createdAt' | 'updatedAt'>, createdBy: number): Promise<string> {
     const ruleId = `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const now = new Date()
 
@@ -901,12 +915,12 @@ export class EscalationManager {
     }
 
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO escalation_rules (
           id, name, description, conditions, actions, priority,
           is_active, cooldown_period, max_escalations, created_by, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         ruleId,
         rule.name,
         rule.description,
@@ -919,7 +933,7 @@ export class EscalationManager {
         createdBy,
         now.toISOString(),
         now.toISOString()
-      )
+      ])
 
       this.escalationRules.push(fullRule)
       this.escalationRules.sort((a, b) => b.priority - a.priority)
@@ -962,27 +976,50 @@ export class EscalationManager {
     return [...this.escalationRules]
   }
 
+  private processingInterval: NodeJS.Timeout | null = null
+  private cleanupInterval: NodeJS.Timeout | null = null
+
   private setupEscalationProcessing(): void {
     // Process escalations every minute
-    setInterval(() => {
+    this.processingInterval = setInterval(() => {
       this.processEscalations()
     }, 60000)
 
     // Cleanup completed escalations daily
-    setInterval(() => {
+    this.cleanupInterval = setInterval(() => {
       this.cleanupOldEscalations()
     }, 24 * 60 * 60 * 1000)
   }
 
-  private cleanupOldEscalations(): void {
-    try {
-      const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+  public stopEscalationMonitor(): void {
+    if (this.processingInterval) {
+      clearInterval(this.processingInterval)
+      this.processingInterval = null
+    }
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+    // Clear all scheduled escalation timers
+    for (const [id, timer] of this.escalationTimers) {
+      clearTimeout(timer)
+      this.escalationTimers.delete(id)
+    }
+    logger.info('Escalation monitor stopped')
+  }
 
-      const deleted = this.db.prepare(`
+  private async cleanupOldEscalations(): Promise<void> {
+    try {
+      const dialectIsPostgres = getDatabaseType() === 'postgresql'
+      const cutoffExpr = dialectIsPostgres
+        ? `NOW() - INTERVAL '30 days'`
+        : `datetime('now', '-30 days')`
+
+      const deleted = await executeRun(`
         DELETE FROM escalation_instances
         WHERE status IN ('completed', 'cancelled', 'failed')
-        AND triggered_at < ?
-      `).run(cutoffDate.toISOString())
+        AND triggered_at < ${cutoffExpr}
+      `, [])
 
       if (deleted.changes > 0) {
         logger.info(`Cleaned up ${deleted.changes} old escalation instances`)

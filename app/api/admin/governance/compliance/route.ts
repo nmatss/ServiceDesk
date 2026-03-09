@@ -6,7 +6,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -156,7 +156,7 @@ try {
         INSERT INTO compliance_controls (
           organization_id, framework, control_id, name, description,
           status, owner_id, last_assessment, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()}, ${sqlNow()})
       `, [organizationId,
         framework,
         control_id,
@@ -199,7 +199,7 @@ export async function PUT(request: NextRequest) {
 try {
       await executeRun(`
         UPDATE compliance_controls
-        SET status = ?, assessment_notes = ?, last_assessment = datetime('now'), updated_at = datetime('now')
+        SET status = ?, assessment_notes = ?, last_assessment = ${sqlNow()}, updated_at = ${sqlNow()}
         WHERE id = ? AND organization_id = ?
       `, [status, notes, id, organizationId])
 

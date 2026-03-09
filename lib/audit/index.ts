@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, getDbType } from '@/lib/db/adapter';
 import { AuditLog, CreateAuditLog, AuditLogWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -948,18 +948,23 @@ export async function getSuspiciousActivityStats(hours: number = 24): Promise<{
     `, [startDateStr]);
 
     // Usuarios com atividade incomum (muitas acoes)
+    const dbType = getDbType();
+    const actionsAgg = dbType === 'postgresql'
+      ? "string_agg(DISTINCT al.action::text, ',')"
+      : "GROUP_CONCAT(DISTINCT al.action)";
+
     const unusual_activity_users = await executeQuery<any>(`
       SELECT
         u.id,
         u.name,
         u.email,
         COUNT(al.id) as action_count,
-        GROUP_CONCAT(DISTINCT al.action) as actions
+        ${actionsAgg} as actions
       FROM audit_logs al
       JOIN users u ON al.user_id = u.id
       WHERE al.created_at >= ?
       GROUP BY u.id, u.name, u.email
-      HAVING action_count > 50
+      HAVING COUNT(al.id) > 50
       ORDER BY action_count DESC
     `, [startDateStr]);
 

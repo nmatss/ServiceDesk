@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 /**
  * GET /api/admin/super/organizations/[id]/users
@@ -11,6 +12,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const guard = requireSuperAdmin(request);
   if (guard.response) return guard.response;
 
@@ -39,8 +43,9 @@ export async function GET(
     const queryParams: (string | number)[] = [orgId];
 
     if (search) {
-      conditions.push('(u.name LIKE ? OR u.email LIKE ?)');
-      const searchPattern = `%${search}%`;
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      conditions.push("(u.name LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\')");
+      const searchPattern = `%${escapedSearch}%`;
       queryParams.push(searchPattern, searchPattern);
     }
 

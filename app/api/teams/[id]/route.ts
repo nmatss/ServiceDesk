@@ -7,7 +7,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -19,7 +19,8 @@ export async function GET(
     const tenantId = guard.context!.tenant.id
 
     const tenantManager = getTenantManager()
-    const teamId = parseInt(params.id)
+    const { id } = await params
+    const teamId = parseInt(id)
 
     if (isNaN(teamId)) {
       return NextResponse.json(
@@ -28,7 +29,7 @@ export async function GET(
       )
     }
 
-    const team = tenantManager.getTeamById(teamId, tenantId)
+    const team = await tenantManager.getTeamById(teamId, tenantId)
 
     if (!team) {
       return NextResponse.json(
@@ -38,7 +39,7 @@ export async function GET(
     }
 
     // Get team members
-    const members = tenantManager.getTeamMembers(teamId)
+    const members = await tenantManager.getTeamMembers(teamId)
 
     return NextResponse.json({
       success: true,
@@ -56,7 +57,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -69,7 +70,8 @@ export async function PUT(
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id
 
-    const teamId = parseInt(params.id)
+    const { id } = await params
+    const teamId = parseInt(id)
     const data = await request.json()
     if (isNaN(teamId)) {
       return NextResponse.json(
@@ -135,7 +137,7 @@ export async function PUT(
 
     // Get updated team
     const tenantManager = getTenantManager()
-    const updatedTeam = tenantManager.getTeamById(teamId, tenantId)
+    const updatedTeam = await tenantManager.getTeamById(teamId, tenantId)
 
     return NextResponse.json({
       success: true,
@@ -153,7 +155,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -166,7 +168,8 @@ export async function DELETE(
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id
 
-    const teamId = parseInt(params.id)
+    const { id } = await params
+    const teamId = parseInt(id)
     if (isNaN(teamId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid team ID' },

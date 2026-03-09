@@ -348,7 +348,7 @@ export const AISystem = {
   async initialize(db: any, config?: any): Promise<boolean> {
     try {
       // Criar tabelas de auditoria se necessário
-      await createAIAuditTableFn(db);
+      await createAIAuditTableFn();
 
       // Validar configuração
       const validationResult = AIConfig.validateConfig(config || AIConfig.getDefaultConfig());

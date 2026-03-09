@@ -1,4 +1,5 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
 export interface UserPresence {
@@ -59,13 +60,13 @@ export interface PresenceEvent {
 }
 
 export class PresenceManager {
-  private db = getDb()
   private realtimeEngine: any
   private userPresences = new Map<number, UserPresence>()
   private presenceSettings = new Map<number, PresenceSettings>()
   private presenceTimers = new Map<number, NodeJS.Timeout>()
   private activityTrackers = new Map<number, NodeJS.Timeout>()
   private hasPresenceSettingsColumn: boolean | null = null
+  private userRoleCache = new Map<number, string>()
 
   // Default presence settings
   private readonly DEFAULT_SETTINGS: Omit<PresenceSettings, 'userId'> = {
@@ -98,21 +99,27 @@ export class PresenceManager {
 
   constructor(realtimeEngine: any) {
     this.realtimeEngine = realtimeEngine
-    this.ensurePresenceSchema()
-    this.loadPresenceData()
+    this.initAsync()
     this.setupPresenceTracking()
   }
 
-  private ensurePresenceSchema() {
+  private async initAsync() {
+    await this.ensurePresenceSchema()
+    await this.loadPresenceData()
+  }
+
+  private async ensurePresenceSchema() {
+    if (getDatabaseType() !== 'sqlite') return
     try {
-      const columns = this.db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>
+      // For SQLite, check columns via pragma
+      const columns = await executeQuery<{ name: string }>(`PRAGMA table_info(users)`, [])
       this.hasPresenceSettingsColumn = columns.some((column) => column.name === 'presence_settings')
       if (!this.hasPresenceSettingsColumn) {
-        this.db.prepare(`ALTER TABLE users ADD COLUMN presence_settings TEXT`).run()
+        await executeRun(`ALTER TABLE users ADD COLUMN presence_settings TEXT`, [])
         this.hasPresenceSettingsColumn = true
       }
 
-      this.db.prepare(`
+      await executeRun(`
         CREATE TABLE IF NOT EXISTS user_presence (
           user_id INTEGER PRIMARY KEY,
           status TEXT NOT NULL,
@@ -123,9 +130,9 @@ export class PresenceManager {
           status_message TEXT,
           available_until DATETIME
         )
-      `).run()
+      `, [])
 
-      this.db.prepare(`
+      await executeRun(`
         CREATE TABLE IF NOT EXISTS presence_events (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           user_id INTEGER NOT NULL,
@@ -133,26 +140,26 @@ export class PresenceManager {
           metadata TEXT,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `).run()
+      `, [])
 
-      this.db.prepare(`
+      await executeRun(`
         CREATE INDEX IF NOT EXISTS idx_presence_events_user
         ON presence_events(user_id, timestamp DESC)
-      `).run()
+      `, [])
     } catch (error) {
       logger.warn('Presence schema ensure failed', error)
       this.hasPresenceSettingsColumn = false
     }
   }
 
-  private loadPresenceData() {
+  private async loadPresenceData() {
     try {
       // Load user presence settings
       if (this.hasPresenceSettingsColumn) {
-        const settings = this.db.prepare(`
+        const settings = await executeQuery<{ user_id: number; presence_settings: string }>(`
           SELECT id as user_id, presence_settings FROM users
           WHERE presence_settings IS NOT NULL
-        `).all() as any[]
+        `, [])
 
         for (const setting of settings) {
           try {
@@ -165,9 +172,14 @@ export class PresenceManager {
       }
 
       // Load current presence states
-      const presences = this.db.prepare(`
-        SELECT * FROM user_presence WHERE last_seen > datetime('now', '-1 hour')
-      `).all() as any[]
+      const dbType = getDatabaseType()
+      const lastHourExpr = dbType === 'sqlite'
+        ? `datetime('now', '-1 hour')`
+        : `NOW() - INTERVAL '1 hour'`
+
+      const presences = await executeQuery<any>(`
+        SELECT * FROM user_presence WHERE last_seen > ${lastHourExpr}
+      `, [])
 
       for (const presence of presences) {
         const userPresence: UserPresence = {
@@ -287,8 +299,8 @@ export class PresenceManager {
     if (!presence) return null
 
     const settings = this.getUserSettings(targetUserId)
-    const viewerRole = this.getUserRole(viewerUserId)
-    const targetRole = this.getUserRole(targetUserId)
+    const viewerRole = this.getUserRoleCached(viewerUserId)
+    const targetRole = this.getUserRoleCached(targetUserId)
 
     // Check visibility permissions
     if (!this.canViewPresence(viewerUserId, targetUserId, settings, viewerRole, targetRole)) {
@@ -432,7 +444,7 @@ export class PresenceManager {
 
     for (const [userId, presence] of this.userPresences.entries()) {
       if (presence.status === 'online' || presence.status === 'busy') {
-        if (!roleFilter || this.getUserRole(userId) === roleFilter) {
+        if (!roleFilter || this.getUserRoleCached(userId) === roleFilter) {
           onlineUsers.push(userId)
         }
       }
@@ -553,30 +565,38 @@ export class PresenceManager {
     this.realtimeEngine.getIO().to(`ticket_${ticketId}`).emit('ticket:presence', ticketPresence)
   }
 
-  private logPresenceEvent(userId: number, event: string, metadata?: any): void {
+  private async logPresenceEvent(userId: number, event: string, metadata?: any): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO presence_events (user_id, event, metadata, timestamp)
         VALUES (?, ?, ?, ?)
-      `).run(
+      `, [
         userId,
         event,
         metadata ? JSON.stringify(metadata) : null,
         new Date().toISOString()
-      )
+      ])
     } catch (error) {
       logger.error('Error logging presence event', error)
     }
   }
 
-  private persistUserPresence(presence: UserPresence): void {
+  private async persistUserPresence(presence: UserPresence): Promise<void> {
     try {
-      this.db.prepare(`
-        INSERT OR REPLACE INTO user_presence (
+      await executeRun(`
+        INSERT INTO user_presence (
           user_id, status, last_seen, device_info, location_info,
           activity_info, status_message, available_until
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+        ON CONFLICT(user_id) DO UPDATE SET
+          status = excluded.status,
+          last_seen = excluded.last_seen,
+          device_info = excluded.device_info,
+          location_info = excluded.location_info,
+          activity_info = excluded.activity_info,
+          status_message = excluded.status_message,
+          available_until = excluded.available_until
+      `, [
         presence.userId,
         presence.status,
         presence.lastSeen.toISOString(),
@@ -585,7 +605,7 @@ export class PresenceManager {
         presence.activity ? JSON.stringify(presence.activity) : null,
         presence.statusMessage || null,
         presence.availableUntil?.toISOString() || null
-      )
+      ])
     } catch (error) {
       logger.error('Error persisting user presence', error)
     }
@@ -600,16 +620,26 @@ export class PresenceManager {
     return settings
   }
 
-  private getUserRole(userId: number): string {
-    try {
-      const user = this.db.prepare(`
-        SELECT role FROM users WHERE id = ?
-      `).get(userId) as { role: string } | undefined
+  private getUserRoleCached(userId: number): string {
+    const cached = this.userRoleCache.get(userId)
+    if (cached) return cached
 
-      return user?.role || 'user'
+    // Kick off async fetch for next time
+    this.fetchUserRole(userId)
+    return 'user'
+  }
+
+  private async fetchUserRole(userId: number): Promise<void> {
+    try {
+      const user = await executeQueryOne<{ role: string }>(`
+        SELECT role FROM users WHERE id = ?
+      `, [userId])
+
+      if (user) {
+        this.userRoleCache.set(userId, user.role)
+      }
     } catch (error) {
       logger.error('Error getting user role', error)
-      return 'user'
     }
   }
 
@@ -684,14 +714,14 @@ export class PresenceManager {
     }
   }
 
-  private cleanupPresenceEvents(): void {
+  private async cleanupPresenceEvents(): Promise<void> {
     try {
       const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
 
-      const deleted = this.db.prepare(`
+      const deleted = await executeRun(`
         DELETE FROM presence_events
         WHERE timestamp < ?
-      `).run(cutoffDate.toISOString())
+      `, [cutoffDate.toISOString()])
 
       if (deleted.changes > 0) {
         logger.info(`Cleaned up ${deleted.changes} old presence events`)
@@ -702,7 +732,7 @@ export class PresenceManager {
   }
 
   // Public API methods
-  public updateUserSettings(userId: number, settings: Partial<PresenceSettings>): void {
+  public async updateUserSettings(userId: number, settings: Partial<PresenceSettings>): Promise<void> {
     const currentSettings = this.getUserSettings(userId)
     const newSettings = { ...currentSettings, ...settings, userId }
 
@@ -710,11 +740,11 @@ export class PresenceManager {
 
     // Save to database
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE users
         SET presence_settings = ?
         WHERE id = ?
-      `).run(JSON.stringify(newSettings), userId)
+      `, [JSON.stringify(newSettings), userId])
 
       logger.info(`Updated presence settings for user ${userId}`)
     } catch (error) {
@@ -749,16 +779,16 @@ export class PresenceManager {
     return stats
   }
 
-  public getPresenceHistory(userId: number, days: number = 7): PresenceEvent[] {
+  public async getPresenceHistory(userId: number, days: number = 7): Promise<PresenceEvent[]> {
     try {
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
-      const events = this.db.prepare(`
+      const events = await executeQuery<any>(`
         SELECT * FROM presence_events
         WHERE user_id = ? AND timestamp > ?
         ORDER BY timestamp DESC
         LIMIT 100
-      `).all(userId, startDate.toISOString()) as any[]
+      `, [userId, startDate.toISOString()])
 
       return events.map(event => ({
         userId: event.user_id,

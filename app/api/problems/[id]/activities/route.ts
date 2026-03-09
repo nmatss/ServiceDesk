@@ -183,7 +183,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const input: AddActivityInput = {
-      activity_type: body.activity_type || 'note',
+      type: body.activity_type || body.type || 'note',
       description: body.description,
       old_value: body.old_value,
       new_value: body.new_value,

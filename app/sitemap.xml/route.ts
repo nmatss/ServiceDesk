@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import db from '@/lib/db/connection'
+import { executeQuery } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 export async function GET(_request: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest) {
     // Get published knowledge articles for sitemap (legacy/new schema fallback)
     let articles: Array<{ id: number; slug?: string; updated_at?: string }> = []
     try {
-      articles = db.prepare(`
+      articles = await executeQuery<{ id: number; slug?: string; updated_at?: string }>(`
         SELECT
           id,
           slug,
@@ -17,10 +17,10 @@ export async function GET(_request: NextRequest) {
         FROM knowledge_articles
         WHERE status = 'published'
         ORDER BY updated_at DESC
-      `).all() as Array<{ id: number; slug?: string; updated_at?: string }>
+      `)
     } catch {
       try {
-        articles = db.prepare(`
+        articles = await executeQuery<{ id: number; slug?: string; updated_at?: string }>(`
           SELECT
             id,
             slug,
@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest) {
           FROM kb_articles
           WHERE status = 'published'
           ORDER BY updated_at DESC
-        `).all() as Array<{ id: number; slug?: string; updated_at?: string }>
+        `)
       } catch {
         articles = []
       }

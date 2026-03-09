@@ -16,7 +16,11 @@ import fs from 'fs/promises';
 import { createReadStream, existsSync } from 'fs';
 import { createHash } from 'crypto';
 import logger from '../monitoring/structured-logger';
+import { getDatabaseType } from '@/lib/db/config';
 import pool from './connection-pool';
+
+// NOTE: This module is SQLite-specific (uses better-sqlite3 backup API, WAL files, PRAGMA).
+// All backup/restore operations check getDatabaseType() and skip on PostgreSQL.
 
 export interface BackupMetadata {
   filename: string;
@@ -72,9 +76,12 @@ export class DatabaseBackupManager {
   }
 
   /**
-   * Create a full database backup
+   * Create a full database backup (SQLite-only)
    */
   async backupDatabase(destination?: string): Promise<BackupMetadata> {
+    if (getDatabaseType() !== 'sqlite') {
+      throw new Error('Database backup is only supported for SQLite. Use pg_dump for PostgreSQL.');
+    }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `servicedesk_backup_${timestamp}.db`;
     const backupPath = destination || path.join(this.config.backupDir, 'full', filename);
@@ -175,9 +182,12 @@ export class DatabaseBackupManager {
   }
 
   /**
-   * Restore database from backup
+   * Restore database from backup (SQLite-only)
    */
   async restoreDatabase(backupPath: string): Promise<void> {
+    if (getDatabaseType() !== 'sqlite') {
+      throw new Error('Database restore is only supported for SQLite. Use pg_restore for PostgreSQL.');
+    }
     try {
       logger.info(`Starting database restore from ${backupPath}`);
 

@@ -2,6 +2,9 @@
  * Database Connection Pool for better-sqlite3
  * Implements connection pooling pattern for SQLite to improve performance
  * Provides +60-80% performance improvement over single connection
+ *
+ * NOTE: This module is SQLite-specific. For PostgreSQL, use the built-in
+ * connection pooling from the pg/Pool driver in connection.postgres.ts.
  */
 
 import Database from 'better-sqlite3';

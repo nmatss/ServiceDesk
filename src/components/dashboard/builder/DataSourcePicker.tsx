@@ -26,12 +26,12 @@ export function DataSourcePicker({
   const dataSources = Object.values(dataSourceRegistry);
 
   const categories = [
-    { id: 'all', name: 'All Sources' },
+    { id: 'all', name: 'Todas as Fontes' },
     { id: 'tickets', name: 'Tickets' },
     { id: 'sla', name: 'SLA' },
-    { id: 'agents', name: 'Agents' },
-    { id: 'customers', name: 'Customers' },
-    { id: 'custom', name: 'Custom' }
+    { id: 'agents', name: 'Agentes' },
+    { id: 'customers', name: 'Clientes' },
+    { id: 'custom', name: 'Personalizado' }
   ];
 
   const filteredDataSources = dataSources.filter(ds => {
@@ -72,16 +72,17 @@ export function DataSourcePicker({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 p-6 text-left align-middle shadow-xl transition-all">
+              <DialogPanel className="w-full max-w-3xl max-w-[calc(100vw-2rem)] transform overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex items-center justify-between mb-6">
                   <DialogTitle className="text-lg font-medium text-neutral-900 dark:text-white">
-                    Select Data Source
+                    Selecionar Fonte de Dados
                   </DialogTitle>
                   <button
                     onClick={onClose}
+                    aria-label="Fechar"
                     className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
                   >
-                    <XMarkIcon className="w-6 h-6" />
+                    <XMarkIcon className="w-6 h-6" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -91,7 +92,7 @@ export function DataSourcePicker({
                     <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-400" />
                     <input
                       type="text"
-                      placeholder="Search data sources..."
+                      placeholder="Buscar fontes de dados..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-neutral-300 dark:border-neutral-600 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
@@ -170,7 +171,7 @@ export function DataSourcePicker({
                             {ds.parameters.map((param, idx) => (
                               <span
                                 key={idx}
-                                className="text-xs px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 text-description"
+                                className="text-xs px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
                               >
                                 {param.name}
                                 {param.required && <span className="text-red-500 ml-1">*</span>}
@@ -186,7 +187,7 @@ export function DataSourcePicker({
                 {filteredDataSources.length === 0 && (
                   <div className="text-center py-12">
                     <p className="text-neutral-500 dark:text-neutral-400">
-                      No data sources found matching your criteria
+                      Nenhuma fonte de dados encontrada
                     </p>
                   </div>
                 )}
@@ -197,7 +198,7 @@ export function DataSourcePicker({
                     onClick={onClose}
                     className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-200 rounded-md hover:bg-neutral-300 dark:bg-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-500"
                   >
-                    Cancel
+                    Cancelar
                   </button>
                 </div>
               </DialogPanel>

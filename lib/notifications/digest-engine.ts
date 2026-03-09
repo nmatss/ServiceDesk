@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { NotificationPayload } from './realtime-engine'
 import { QuietHoursManager } from './quiet-hours'
 import logger from '../monitoring/structured-logger';
@@ -56,7 +56,6 @@ export interface DigestContent {
 }
 
 export class DigestEngine {
-  private db = getDb()
   private userConfigs = new Map<number, DigestConfig>()
   private schedules = new Map<number, DigestSchedule>()
   private quietHoursManager: QuietHoursManager
@@ -103,16 +102,20 @@ export class DigestEngine {
 
   constructor(quietHoursManager: QuietHoursManager) {
     this.quietHoursManager = quietHoursManager
-    this.loadDigestConfigs()
+    this.initAsync()
     this.setupDigestScheduling()
   }
 
-  private loadDigestConfigs() {
+  private async initAsync() {
+    await this.loadDigestConfigs()
+  }
+
+  private async loadDigestConfigs() {
     try {
-      const configs = this.db.prepare(`
+      const configs = await executeQuery<{ user_id: number; digest_config: string }>(`
         SELECT user_id, digest_config FROM users
         WHERE digest_config IS NOT NULL
-      `).all() as any[]
+      `, [])
 
       for (const config of configs) {
         try {
@@ -156,7 +159,7 @@ export class DigestEngine {
     return config
   }
 
-  public updateUserConfig(userId: number, updates: Partial<DigestConfig>): void {
+  public async updateUserConfig(userId: number, updates: Partial<DigestConfig>): Promise<void> {
     const currentConfig = this.getUserConfig(userId)
     const newConfig = { ...currentConfig, ...updates, userId }
 
@@ -167,11 +170,11 @@ export class DigestEngine {
 
     // Save to database
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE users
         SET digest_config = ?
         WHERE id = ?
-      `).run(JSON.stringify(newConfig), userId)
+      `, [JSON.stringify(newConfig), userId])
 
       logger.info(`Updated digest config for user ${userId}`)
     } catch (error) {
@@ -179,17 +182,17 @@ export class DigestEngine {
     }
   }
 
-  public generateDigest(userId: number, endTime?: Date): DigestContent | null {
+  public async generateDigest(userId: number, endTime?: Date): Promise<DigestContent | null> {
     const config = this.getUserConfig(userId)
     if (!config.enabled) {
       return null
     }
 
     const end = endTime || new Date()
-    const start = this.calculatePeriodStart(config, end)
+    const start = await this.calculatePeriodStart(config, end)
 
     // Get notifications for the period
-    const notifications = this.getNotificationsForPeriod(userId, start, end, config)
+    const notifications = await this.getNotificationsForPeriod(userId, start, end, config)
 
     if (notifications.length < config.minNotifications) {
       logger.info(`Insufficient notifications for digest (${notifications.length} < ${config.minNotifications})`)
@@ -218,12 +221,12 @@ export class DigestEngine {
     }
 
     // Save digest to database
-    this.saveDigest(digest)
+    await this.saveDigest(digest)
 
     return digest
   }
 
-  private calculatePeriodStart(config: DigestConfig, endTime: Date): Date {
+  private async calculatePeriodStart(config: DigestConfig, endTime: Date): Promise<Date> {
     const start = new Date(endTime)
 
     switch (config.frequency) {
@@ -241,7 +244,7 @@ export class DigestEngine {
 
       case 'custom':
         // For custom frequencies, use the last delivery time or 24 hours ago
-        const lastDelivery = this.getLastDeliveryTime(config.userId)
+        const lastDelivery = await this.getLastDeliveryTime(config.userId)
         if (lastDelivery) {
           return lastDelivery
         } else {
@@ -253,12 +256,12 @@ export class DigestEngine {
     return start
   }
 
-  private getNotificationsForPeriod(
+  private async getNotificationsForPeriod(
     userId: number,
     start: Date,
     end: Date,
     config: DigestConfig
-  ): NotificationPayload[] {
+  ): Promise<NotificationPayload[]> {
     try {
       let whereClause = `
         WHERE user_id = ? AND created_at BETWEEN ? AND ?
@@ -269,11 +272,11 @@ export class DigestEngine {
         whereClause += ' AND is_read = 0'
       }
 
-      const notifications = this.db.prepare(`
+      const notifications = await executeQuery<any>(`
         SELECT * FROM notifications
         ${whereClause}
         ORDER BY created_at DESC
-      `).all(...params) as any[]
+      `, params)
 
       // Filter and transform notifications
       return notifications
@@ -570,12 +573,20 @@ export class DigestEngine {
     const schedule: DigestSchedule = {
       userId,
       nextDelivery,
-      lastDelivery: this.getLastDeliveryTime(userId),
+      lastDelivery: undefined, // Will be loaded async
       frequency: config.frequency,
       enabled: config.enabled
     }
 
     this.schedules.set(userId, schedule)
+
+    // Load last delivery time async
+    this.getLastDeliveryTime(userId).then(lastDelivery => {
+      const s = this.schedules.get(userId)
+      if (s) {
+        s.lastDelivery = lastDelivery
+      }
+    })
   }
 
   private calculateNextDeliveryTime(config: DigestConfig, currentTime: Date): Date {
@@ -656,7 +667,7 @@ export class DigestEngine {
     }
 
     // Generate digest
-    const digest = this.generateDigest(userId)
+    const digest = await this.generateDigest(userId)
     if (!digest) {
       logger.info(`No digest generated for user ${userId} (insufficient notifications)`)
       return
@@ -697,7 +708,7 @@ export class DigestEngine {
 
     // This would integrate with the main notification engine
     // For now, we'll save it as a special notification
-    this.saveDigestNotification(digestNotification)
+    await this.saveDigestNotification(digestNotification)
   }
 
   private generateDigestTitle(digest: DigestContent): string {
@@ -710,10 +721,10 @@ export class DigestEngine {
     }
 
     if (summary.criticalCount > 0) {
-      return `🚨 Resumo: ${summary.totalNotifications} notificações (${summary.criticalCount} críticas)`
+      return `Resumo: ${summary.totalNotifications} notificações (${summary.criticalCount} críticas)`
     }
 
-    return `📋 Resumo: ${summary.totalNotifications} notificações (${startDate} - ${endDate})`
+    return `Resumo: ${summary.totalNotifications} notificações (${startDate} - ${endDate})`
   }
 
   private generateDigestPreview(digest: DigestContent): string {
@@ -742,14 +753,14 @@ export class DigestEngine {
   }
 
   // Database operations
-  private saveDigest(digest: DigestContent): void {
+  private async saveDigest(digest: DigestContent): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO notification_digests (
           id, user_id, period_start, period_end, notifications_count,
           summary, grouped_content, template, delivery_channels, generated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         digest.id,
         digest.userId,
         digest.period.start.toISOString(),
@@ -760,19 +771,19 @@ export class DigestEngine {
         digest.template,
         JSON.stringify(digest.deliveryChannels),
         digest.generatedAt.toISOString()
-      )
+      ])
     } catch (error) {
       logger.error('Error saving digest', error)
     }
   }
 
-  private saveDigestNotification(notification: NotificationPayload): void {
+  private async saveDigestNotification(notification: NotificationPayload): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO notifications (
           id, user_id, type, title, message, priority, data, metadata, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         notification.id,
         notification.targetUsers![0],
         notification.type,
@@ -782,21 +793,21 @@ export class DigestEngine {
         JSON.stringify(notification.data),
         JSON.stringify(notification.metadata),
         new Date().toISOString()
-      )
+      ])
     } catch (error) {
       logger.error('Error saving digest notification', error)
     }
   }
 
-  private getLastDeliveryTime(userId: number): Date | undefined {
+  private async getLastDeliveryTime(userId: number): Promise<Date | undefined> {
     try {
-      const result = this.db.prepare(`
+      const result = await executeQueryOne<{ last_delivery: string | null }>(`
         SELECT MAX(generated_at) as last_delivery
         FROM notification_digests
         WHERE user_id = ?
-      `).get(userId) as { last_delivery: string | null }
+      `, [userId])
 
-      return result.last_delivery ? new Date(result.last_delivery) : undefined
+      return result?.last_delivery ? new Date(result.last_delivery) : undefined
     } catch (error) {
       logger.error('Error getting last delivery time', error)
       return undefined
@@ -834,14 +845,14 @@ export class DigestEngine {
   }
 
   // Public API methods
-  public getDigestHistory(userId: number, limit: number = 10): DigestContent[] {
+  public async getDigestHistory(userId: number, limit: number = 10): Promise<DigestContent[]> {
     try {
-      const digests = this.db.prepare(`
+      const digests = await executeQuery<any>(`
         SELECT * FROM notification_digests
         WHERE user_id = ?
         ORDER BY generated_at DESC
         LIMIT ?
-      `).all(userId, limit) as any[]
+      `, [userId, limit])
 
       return digests.map(digest => ({
         id: digest.id,
@@ -867,11 +878,11 @@ export class DigestEngine {
     return Array.from(this.schedules.values())
   }
 
-  public forceDigestGeneration(userId: number): DigestContent | null {
+  public async forceDigestGeneration(userId: number): Promise<DigestContent | null> {
     return this.generateDigest(userId)
   }
 
-  public previewDigest(userId: number, config?: Partial<DigestConfig>): DigestContent | null {
+  public async previewDigest(userId: number, config?: Partial<DigestConfig>): Promise<DigestContent | null> {
     // Temporarily apply preview config
     const originalConfig = this.getUserConfig(userId)
     if (config) {
@@ -879,7 +890,7 @@ export class DigestEngine {
       this.userConfigs.set(userId, previewConfig)
     }
 
-    const digest = this.generateDigest(userId)
+    const digest = await this.generateDigest(userId)
 
     // Restore original config
     this.userConfigs.set(userId, originalConfig)

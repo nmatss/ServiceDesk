@@ -17,7 +17,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(_request: NextRequest) {
   try {
     // Get all active providers
-    const providers = ssoManager.getActiveProviders();
+    const providers = await ssoManager.getActiveProviders();
 
     // Map to public format (don't expose secrets)
     const publicProviders = providers.map(p => ({
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save provider configuration
-    const success = ssoManager.saveProvider({
+    const success = await ssoManager.saveProvider({
       name,
       display_name: displayName,
       type,

@@ -8,7 +8,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlDateDiff, sqlExtractHour, sqlExtractDayOfWeek } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ========================================
 // GET - Get detailed analytics
@@ -159,10 +159,10 @@ export async function GET(request: NextRequest) {
       const slaTimes = await executeQueryOne<any>(`
         SELECT
           AVG(CASE WHEN first_response_at IS NOT NULL
-            THEN (julianday(first_response_at) - julianday(t.created_at)) * 24
+            THEN ${sqlDateDiff('first_response_at', 't.created_at')} * 24
             ELSE NULL END) as avg_first_response_hours,
           AVG(CASE WHEN t.resolved_at IS NOT NULL
-            THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+            THEN ${sqlDateDiff('t.resolved_at', 't.created_at')} * 24
             ELSE NULL END) as avg_resolution_hours
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
           ) THEN 1 ELSE 0 END) as resolved_count,
           SUM(CASE WHEN t.status_id = (SELECT id FROM statuses WHERE name = 'open' LIMIT 1) THEN 1 ELSE 0 END) as open_count,
           ROUND(AVG(CASE WHEN t.resolved_at IS NOT NULL
-            THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+            THEN ${sqlDateDiff('t.resolved_at', 't.created_at')} * 24
             ELSE NULL END), 1) as avg_resolution_hours,
           COUNT(DISTINCT DATE(t.resolved_at)) as active_days
         FROM users u
@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) as total_resolved,
           SUM(CASE WHEN st.resolution_met = 1 THEN 1 ELSE 0 END) as within_sla,
           AVG(CASE WHEN t.resolved_at IS NOT NULL
-            THEN (julianday(t.resolved_at) - julianday(t.created_at)) * 24
+            THEN ${sqlDateDiff('t.resolved_at', 't.created_at')} * 24
             ELSE NULL END) as avg_resolution_hours
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
@@ -308,7 +308,7 @@ export async function GET(request: NextRequest) {
           COUNT(*) as ticket_count,
           ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM tickets WHERE organization_id = ?), 1) as percentage,
           AVG(CASE WHEN resolved_at IS NOT NULL
-            THEN (julianday(resolved_at) - julianday(created_at)) * 24
+            THEN ${sqlDateDiff('resolved_at', 'created_at')} * 24
             ELSE NULL END) as avg_resolution_hours
         FROM tickets
         WHERE organization_id = ? AND created_at >= ?
@@ -326,7 +326,7 @@ export async function GET(request: NextRequest) {
       // Hourly distribution
       const hourlyDistribution = await executeQuery(`
         SELECT
-          CAST(strftime('%H', created_at) AS INTEGER) as hour,
+          ${sqlExtractHour('created_at')} as hour,
           COUNT(*) as count
         FROM tickets
         WHERE organization_id = ? AND created_at >= ?
@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
       // Day of week distribution
       const dayOfWeekDistribution = await executeQuery(`
         SELECT
-          CAST(strftime('%w', created_at) AS INTEGER) as day_of_week,
+          ${sqlExtractDayOfWeek('created_at')} as day_of_week,
           COUNT(*) as count
         FROM tickets
         WHERE organization_id = ? AND created_at >= ?

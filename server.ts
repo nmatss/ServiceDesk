@@ -67,7 +67,26 @@ app.prepare().then(() => {
     path: '/socket.io',
     transports: ['websocket', 'polling'],
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e6, // 1MB max message size
+    connectTimeout: 10000,  // 10 second connection timeout
+  })
+
+  // Per-IP connection limiting
+  const connectionCounts = new Map<string, number>()
+  io.use((socket, next) => {
+    const ip = socket.handshake.address
+    const count = connectionCounts.get(ip) || 0
+    if (count >= 10) {
+      return next(new Error('Too many connections'))
+    }
+    connectionCounts.set(ip, count + 1)
+    socket.on('disconnect', () => {
+      const c = connectionCounts.get(ip) || 1
+      if (c <= 1) connectionCounts.delete(ip)
+      else connectionCounts.set(ip, c - 1)
+    })
+    next()
   })
 
   // Start server immediately — defer heavy initialization

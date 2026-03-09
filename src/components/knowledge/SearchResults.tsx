@@ -128,12 +128,12 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     return (
       <div className={`bg-white rounded-lg shadow p-12 text-center ${className}`}>
         <DocumentTextIcon className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
-        <h3 className="text-lg font-medium text-neutral-900 mb-2">No results found</h3>
+        <h3 className="text-lg font-medium text-neutral-900 mb-2">Nenhum resultado encontrado</h3>
         <p className="text-neutral-600 mb-4">
-          We couldn't find any articles matching "{query}"
+          Não encontramos artigos correspondentes a &quot;{query}&quot;
         </p>
         <p className="text-sm text-neutral-500">
-          Try different keywords or browse by category
+          Tente palavras-chave diferentes ou navegue por categoria
         </p>
       </div>
     );

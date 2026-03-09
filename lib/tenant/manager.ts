@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 interface Tenant {
@@ -71,8 +71,6 @@ interface TicketType {
 }
 
 export class TenantManager {
-  private db = getDb()
-
   // ========================================
   // TENANT MANAGEMENT
   // ========================================
@@ -80,13 +78,14 @@ export class TenantManager {
   /**
    * Get tenant by slug or domain
    */
-  getTenantByIdentifier(identifier: string): Tenant | null {
+  async getTenantByIdentifier(identifier: string): Promise<Tenant | null> {
     try {
-      const tenant = this.db.prepare(`
-        SELECT * FROM tenants
+      const tenant = await executeQueryOne<any>(
+        `SELECT * FROM tenants
         WHERE (slug = ? OR domain = ? OR subdomain = ?)
-        AND is_active = 1
-      `).get(identifier, identifier, identifier) as Tenant | undefined
+        AND is_active = 1`,
+        [identifier, identifier, identifier]
+      )
 
       if (!tenant) return null
 
@@ -104,11 +103,12 @@ export class TenantManager {
   /**
    * Get tenant by ID
    */
-  getTenantById(id: number): Tenant | null {
+  async getTenantById(id: number): Promise<Tenant | null> {
     try {
-      const tenant = this.db.prepare(`
-        SELECT * FROM tenants WHERE id = ? AND is_active = 1
-      `).get(id) as Tenant | undefined
+      const tenant = await executeQueryOne<any>(
+        `SELECT * FROM tenants WHERE id = ? AND is_active = 1`,
+        [id]
+      )
 
       if (!tenant) return null
 
@@ -126,7 +126,7 @@ export class TenantManager {
   /**
    * Create new tenant
    */
-  createTenant(data: {
+  async createTenant(data: {
     name: string
     slug: string
     domain?: string
@@ -137,33 +137,34 @@ export class TenantManager {
     features?: string[]
     billing_email?: string
     technical_contact_email?: string
-  }): number {
+  }): Promise<number> {
     try {
-      const result = this.db.prepare(`
-        INSERT INTO tenants (
+      const result = await executeRun(
+        `INSERT INTO tenants (
           name, slug, domain, subdomain, subscription_plan, max_users,
           max_tickets_per_month, features, billing_email, technical_contact_email
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        data.name,
-        data.slug,
-        data.domain || null,
-        data.subdomain || null,
-        data.subscription_plan || 'basic',
-        data.max_users || 50,
-        data.max_tickets_per_month || 1000,
-        JSON.stringify(data.features || ['incidents', 'requests', 'knowledge_base']),
-        data.billing_email || null,
-        data.technical_contact_email || null
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          data.name,
+          data.slug,
+          data.domain || null,
+          data.subdomain || null,
+          data.subscription_plan || 'basic',
+          data.max_users || 50,
+          data.max_tickets_per_month || 1000,
+          JSON.stringify(data.features || ['incidents', 'requests', 'knowledge_base']),
+          data.billing_email || null,
+          data.technical_contact_email || null
+        ]
       )
 
       const tenantId = result.lastInsertRowid as number
 
       // Create default ticket types for new tenant
-      this.createDefaultTicketTypes(tenantId)
+      await this.createDefaultTicketTypes(tenantId)
 
       // Create default teams for new tenant
-      this.createDefaultTeams(tenantId)
+      await this.createDefaultTeams(tenantId)
 
       return tenantId
     } catch (error) {
@@ -175,13 +176,13 @@ export class TenantManager {
   /**
    * Get current tenant from request context
    */
-  getCurrentTenant(): Tenant | null {
+  async getCurrentTenant(): Promise<Tenant | null> {
     try {
       // Try to get tenant from subdomain or domain first
       // This would be handled by middleware in a real implementation
 
       // For now, return the default tenant
-      return this.getTenantById(1)
+      return await this.getTenantById(1)
     } catch (error) {
       logger.error('Error getting current tenant', error)
       return null
@@ -195,15 +196,16 @@ export class TenantManager {
   /**
    * Get teams for a tenant
    */
-  getTeamsByTenant(tenantId: number): Team[] {
+  async getTeamsByTenant(tenantId: number): Promise<Team[]> {
     try {
-      const teams = this.db.prepare(`
-        SELECT t.*, u.name as manager_name
+      const teams = await executeQuery<any>(
+        `SELECT t.*, u.name as manager_name
         FROM teams t
         LEFT JOIN users u ON t.manager_id = u.id
         WHERE t.tenant_id = ? AND t.is_active = 1
-        ORDER BY t.sort_order, t.name
-      `).all(tenantId) as any[]
+        ORDER BY t.sort_order, t.name`,
+        [tenantId]
+      )
 
       return teams.map(team => ({
         ...team,
@@ -220,14 +222,15 @@ export class TenantManager {
   /**
    * Get team by ID
    */
-  getTeamById(teamId: number, tenantId: number): Team | null {
+  async getTeamById(teamId: number, tenantId: number): Promise<Team | null> {
     try {
-      const team = this.db.prepare(`
-        SELECT t.*, u.name as manager_name
+      const team = await executeQueryOne<any>(
+        `SELECT t.*, u.name as manager_name
         FROM teams t
         LEFT JOIN users u ON t.manager_id = u.id
-        WHERE t.id = ? AND t.tenant_id = ? AND t.is_active = 1
-      `).get(teamId, tenantId) as any
+        WHERE t.id = ? AND t.tenant_id = ? AND t.is_active = 1`,
+        [teamId, tenantId]
+      )
 
       if (!team) return null
 
@@ -246,7 +249,7 @@ export class TenantManager {
   /**
    * Create team
    */
-  createTeam(data: {
+  async createTeam(data: {
     tenant_id: number
     name: string
     slug: string
@@ -258,25 +261,26 @@ export class TenantManager {
     color?: string
     manager_id?: number
     sla_response_time?: number
-  }): number {
+  }): Promise<number> {
     try {
-      const result = this.db.prepare(`
-        INSERT INTO teams (
+      const result = await executeRun(
+        `INSERT INTO teams (
           tenant_id, name, slug, description, team_type, specializations,
           capabilities, icon, color, manager_id, sla_response_time
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        data.tenant_id,
-        data.name,
-        data.slug,
-        data.description || null,
-        data.team_type,
-        JSON.stringify(data.specializations || []),
-        JSON.stringify(data.capabilities || []),
-        data.icon || 'UsersIcon',
-        data.color || '#3B82F6',
-        data.manager_id || null,
-        data.sla_response_time || null
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          data.tenant_id,
+          data.name,
+          data.slug,
+          data.description || null,
+          data.team_type,
+          JSON.stringify(data.specializations || []),
+          JSON.stringify(data.capabilities || []),
+          data.icon || 'UsersIcon',
+          data.color || '#3B82F6',
+          data.manager_id || null,
+          data.sla_response_time || null
+        ]
       )
 
       return result.lastInsertRowid as number
@@ -289,12 +293,14 @@ export class TenantManager {
   /**
    * Add user to team
    */
-  addUserToTeam(teamId: number, userId: number, role: string = 'member'): void {
+  async addUserToTeam(teamId: number, userId: number, role: string = 'member'): Promise<void> {
     try {
-      this.db.prepare(`
-        INSERT OR REPLACE INTO team_members (team_id, user_id, role)
+      await executeRun(
+        `INSERT INTO team_members (team_id, user_id, role)
         VALUES (?, ?, ?)
-      `).run(teamId, userId, role)
+        ON CONFLICT (team_id, user_id) DO UPDATE SET role = ?`,
+        [teamId, userId, role, role]
+      )
     } catch (error) {
       logger.error('Error adding user to team', error)
       throw error
@@ -304,10 +310,10 @@ export class TenantManager {
   /**
    * Get team members
    */
-  getTeamMembers(teamId: number): any[] {
+  async getTeamMembers(teamId: number): Promise<any[]> {
     try {
-      return this.db.prepare(`
-        SELECT tm.*, u.name, u.email, u.job_title
+      return await executeQuery<any>(
+        `SELECT tm.*, u.name, u.email, u.job_title
         FROM team_members tm
         JOIN users u ON tm.user_id = u.id
         WHERE tm.team_id = ? AND tm.is_active = 1
@@ -319,8 +325,9 @@ export class TenantManager {
             WHEN 'member' THEN 4
             WHEN 'trainee' THEN 5
           END,
-          u.name
-      `).all(teamId)
+          u.name`,
+        [teamId]
+      )
     } catch (error) {
       logger.error('Error getting team members', error)
       return []
@@ -334,13 +341,14 @@ export class TenantManager {
   /**
    * Get ticket types for tenant
    */
-  getTicketTypesByTenant(tenantId: number): TicketType[] {
+  async getTicketTypesByTenant(tenantId: number): Promise<TicketType[]> {
     try {
-      return this.db.prepare(`
-        SELECT * FROM ticket_types
+      return await executeQuery<TicketType>(
+        `SELECT * FROM ticket_types
         WHERE tenant_id = ? AND is_active = 1
-        ORDER BY sort_order, name
-      `).all(tenantId) as TicketType[]
+        ORDER BY sort_order, name`,
+        [tenantId]
+      )
     } catch (error) {
       logger.error('Error getting ticket types', error)
       return []
@@ -350,13 +358,14 @@ export class TenantManager {
   /**
    * Get customer-visible ticket types (for landing page)
    */
-  getCustomerTicketTypes(tenantId: number): TicketType[] {
+  async getCustomerTicketTypes(tenantId: number): Promise<TicketType[]> {
     try {
-      return this.db.prepare(`
-        SELECT * FROM ticket_types
+      return await executeQuery<TicketType>(
+        `SELECT * FROM ticket_types
         WHERE tenant_id = ? AND is_active = 1 AND customer_visible = 1
-        ORDER BY sort_order, name
-      `).all(tenantId) as TicketType[]
+        ORDER BY sort_order, name`,
+        [tenantId]
+      )
     } catch (error) {
       logger.error('Error getting customer ticket types', error)
       return []
@@ -367,7 +376,7 @@ export class TenantManager {
   // PRIVATE HELPER METHODS
   // ========================================
 
-  private createDefaultTicketTypes(tenantId: number): void {
+  private async createDefaultTicketTypes(tenantId: number): Promise<void> {
     const defaultTypes = [
       {
         name: 'Incidente',
@@ -410,26 +419,27 @@ export class TenantManager {
     ]
 
     for (const type of defaultTypes) {
-      this.db.prepare(`
-        INSERT INTO ticket_types (
+      await executeRun(
+        `INSERT INTO ticket_types (
           tenant_id, name, slug, description, icon, color, workflow_type,
           sla_required, customer_visible, sort_order
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-      `).run(
-        tenantId,
-        type.name,
-        type.slug,
-        type.description,
-        type.icon,
-        type.color,
-        type.workflow_type,
-        type.customer_visible !== false ? 1 : 0,
-        type.sort_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [
+          tenantId,
+          type.name,
+          type.slug,
+          type.description,
+          type.icon,
+          type.color,
+          type.workflow_type,
+          (type as any).customer_visible !== false ? 1 : 0,
+          type.sort_order
+        ]
       )
     }
   }
 
-  private createDefaultTeams(tenantId: number): void {
+  private async createDefaultTeams(tenantId: number): Promise<void> {
     const defaultTeams: Array<{
       name: string;
       slug: string;
@@ -488,7 +498,7 @@ export class TenantManager {
     ]
 
     for (const team of defaultTeams) {
-      this.createTeam({
+      await this.createTeam({
         tenant_id: tenantId,
         ...team
       })
@@ -507,12 +517,12 @@ export function getTenantManager(): TenantManager {
 }
 
 // Utility functions for getting current context
-export function getCurrentTenant(): Tenant | null {
-  return getTenantManager().getCurrentTenant()
+export async function getCurrentTenant(): Promise<Tenant | null> {
+  return await getTenantManager().getCurrentTenant()
 }
 
-export function getCurrentTenantId(): number {
-  const tenant = getCurrentTenant()
+export async function getCurrentTenantId(): Promise<number> {
+  const tenant = await getCurrentTenant()
   // Fallback to tenant 1 for development/backward compatibility
   // In production, middleware should always set tenant context
   return tenant?.id || 1

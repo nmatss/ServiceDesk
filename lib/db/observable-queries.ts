@@ -8,15 +8,12 @@
  * - Slow query detection
  */
 
-import db from './connection';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
 import { trackDatabaseQuery } from '../monitoring/observability';
-import type { Database } from 'better-sqlite3';
 
 // ========================
 // TYPE DEFINITIONS
 // ========================
-
-// type SQLiteStatement = ReturnType<Database['prepare']>;
 
 export interface QueryOptions {
   queryType: 'select' | 'insert' | 'update' | 'delete' | 'other';
@@ -43,16 +40,15 @@ export const observableQuery = {
   /**
    * Execute query and return all rows
    */
-  all<T = any>(
+  async all<T = any>(
     query: string,
     params: any[] = [],
     options: QueryOptions
   ): Promise<T[]> {
     return trackDatabaseQuery(
       query,
-      () => {
-        const stmt = db.prepare(query);
-        return stmt.all(...params) as T[];
+      async () => {
+        return await executeQuery<T>(query, params);
       },
       options
     );
@@ -61,16 +57,15 @@ export const observableQuery = {
   /**
    * Execute query and return first row
    */
-  get<T = any>(
+  async get<T = any>(
     query: string,
     params: any[] = [],
     options: QueryOptions
   ): Promise<T | undefined> {
     return trackDatabaseQuery(
       query,
-      () => {
-        const stmt = db.prepare(query);
-        return stmt.get(...params) as T | undefined;
+      async () => {
+        return await executeQueryOne<T>(query, params);
       },
       options
     );
@@ -79,18 +74,17 @@ export const observableQuery = {
   /**
    * Execute query and return run result (for INSERT/UPDATE/DELETE)
    */
-  run(
+  async run(
     query: string,
     params: any[] = [],
     options: QueryOptions
   ): Promise<{ lastInsertRowid: number; changes: number }> {
     return trackDatabaseQuery(
       query,
-      () => {
-        const stmt = db.prepare(query);
-        const result = stmt.run(...params);
+      async () => {
+        const result = await executeRun(query, params);
         return {
-          lastInsertRowid: Number(result.lastInsertRowid),
+          lastInsertRowid: Number(result.lastInsertRowid || 0),
           changes: result.changes,
         };
       },
@@ -101,15 +95,22 @@ export const observableQuery = {
   /**
    * Execute query within a transaction
    */
-  transaction<T>(
+  async transaction<T>(
     operation: string,
-    fn: (db: Database) => T
+    fn: (tx: { executeQuery: typeof executeQuery; executeQueryOne: typeof executeQueryOne; executeRun: typeof executeRun }) => Promise<T>
   ): Promise<T> {
     return trackDatabaseQuery(
       'BEGIN TRANSACTION',
-      () => {
-        const transaction = db.transaction(fn);
-        return transaction(db);
+      async () => {
+        return await executeTransaction(async (_db) => {
+          // Within executeTransaction, the adapter handles transaction scoping.
+          // We pass the global adapter functions since they operate within the active transaction.
+          return await fn({
+            executeQuery,
+            executeQueryOne,
+            executeRun,
+          });
+        });
       },
       {
         queryType: 'other',
@@ -324,21 +325,17 @@ export async function batchInsert(
 
   const columns = Object.keys(firstRecord);
   const placeholders = columns.map(() => '?').join(', ');
+  const insertSql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
 
   return observableQuery.transaction(
     `${table}.batchInsert`,
-    () => {
-      const stmt = db.prepare(
-        `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`
-      );
-
+    async (tx) => {
       const ids: number[] = [];
       for (const record of records) {
         const values = columns.map((col) => record[col]);
-        const result = stmt.run(...values);
-        ids.push(Number(result.lastInsertRowid));
+        const result = await tx.executeRun(insertSql, values);
+        ids.push(Number(result.lastInsertRowid || 0));
       }
-
       return ids;
     }
   );
@@ -355,18 +352,18 @@ export async function batchUpdate(
 
   return observableQuery.transaction(
     `${table}.batchUpdate`,
-    () => {
+    async (tx) => {
       let totalChanges = 0;
 
-      for (const update of updates) {
-        const columns = Object.keys(update.data);
+      for (const upd of updates) {
+        const columns = Object.keys(upd.data);
         const setClause = columns.map((col) => `${col} = ?`).join(', ');
-        const values = [...Object.values(update.data), update.id];
+        const values = [...Object.values(upd.data), upd.id];
 
-        const stmt = db.prepare(
-          `UPDATE ${table} SET ${setClause} WHERE id = ?`
+        const result = await tx.executeRun(
+          `UPDATE ${table} SET ${setClause} WHERE id = ?`,
+          values
         );
-        const result = stmt.run(...values);
         totalChanges += result.changes;
       }
 

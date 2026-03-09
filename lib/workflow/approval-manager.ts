@@ -6,7 +6,7 @@
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import logger from '../monitoring/structured-logger';
-import { db } from '../db';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import {
   WorkflowApproval,
   ApprovalNodeConfig,
@@ -623,15 +623,15 @@ This link expires in 48 hours.
     }
   }
 
-  // Helper methods (to be implemented with actual database)
+  // Helper methods
   private generateApprovalId(): number {
     return Date.now() + Math.floor(Math.random() * 1000);
   }
 
   private async getApproval(id: number): Promise<WorkflowApproval | null> {
     try {
-      const stmt = db.prepare(`
-        SELECT
+      const row = await executeQueryOne<any>(
+        `SELECT
           id,
           execution_id as executionId,
           step_id as stepId,
@@ -642,10 +642,9 @@ This link expires in 48 hours.
           metadata,
           created_at as createdAt
         FROM workflow_approvals
-        WHERE id = ?
-      `);
-
-      const row = stmt.get(id) as any;
+        WHERE id = ?`,
+        [id]
+      );
 
       if (!row) {
         return null;
@@ -673,8 +672,8 @@ This link expires in 48 hours.
 
   private async saveApproval(approval: WorkflowApproval): Promise<void> {
     try {
-      const stmt = db.prepare(`
-        INSERT INTO workflow_approvals (
+      await executeRun(
+        `INSERT INTO workflow_approvals (
           id,
           execution_id,
           step_id,
@@ -684,19 +683,18 @@ This link expires in 48 hours.
           approved_at,
           metadata,
           created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(
-        approval.id,
-        approval.executionId,
-        approval.stepId,
-        approval.approverId,
-        approval.status,
-        approval.comments || null,
-        approval.approvedAt ? approval.approvedAt.toISOString() : null,
-        JSON.stringify(approval.metadata || {}),
-        approval.createdAt.toISOString()
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          approval.id,
+          approval.executionId,
+          approval.stepId,
+          approval.approverId,
+          approval.status,
+          approval.comments || null,
+          approval.approvedAt ? approval.approvedAt.toISOString() : null,
+          JSON.stringify(approval.metadata || {}),
+          approval.createdAt.toISOString()
+        ]
       );
 
       logger.info('Approval saved successfully', { approvalId: approval.id });
@@ -708,8 +706,8 @@ This link expires in 48 hours.
 
   private async updateApproval(approval: WorkflowApproval): Promise<void> {
     try {
-      const stmt = db.prepare(`
-        UPDATE workflow_approvals
+      const result = await executeRun(
+        `UPDATE workflow_approvals
         SET
           execution_id = ?,
           step_id = ?,
@@ -718,18 +716,17 @@ This link expires in 48 hours.
           comments = ?,
           approved_at = ?,
           metadata = ?
-        WHERE id = ?
-      `);
-
-      const result = stmt.run(
-        approval.executionId,
-        approval.stepId,
-        approval.approverId,
-        approval.status,
-        approval.comments || null,
-        approval.approvedAt ? approval.approvedAt.toISOString() : null,
-        JSON.stringify(approval.metadata || {}),
-        approval.id
+        WHERE id = ?`,
+        [
+          approval.executionId,
+          approval.stepId,
+          approval.approverId,
+          approval.status,
+          approval.comments || null,
+          approval.approvedAt ? approval.approvedAt.toISOString() : null,
+          JSON.stringify(approval.metadata || {}),
+          approval.id
+        ]
       );
 
       if (result.changes === 0) {
@@ -745,8 +742,8 @@ This link expires in 48 hours.
 
   private async getApprovalsByExecution(executionId: number): Promise<WorkflowApproval[]> {
     try {
-      const stmt = db.prepare(`
-        SELECT
+      const rows = await executeQuery<any>(
+        `SELECT
           id,
           execution_id as executionId,
           step_id as stepId,
@@ -758,10 +755,9 @@ This link expires in 48 hours.
           created_at as createdAt
         FROM workflow_approvals
         WHERE execution_id = ?
-        ORDER BY created_at ASC
-      `);
-
-      const rows = stmt.all(executionId) as any[];
+        ORDER BY created_at ASC`,
+        [executionId]
+      );
 
       return rows.map(row => ({
         id: row.id,
@@ -782,8 +778,8 @@ This link expires in 48 hours.
 
   private async getUser(userId: number): Promise<User | null> {
     try {
-      const stmt = db.prepare(`
-        SELECT
+      const row = await executeQueryOne<any>(
+        `SELECT
           u.id,
           u.email,
           u.name,
@@ -791,10 +787,9 @@ This link expires in 48 hours.
         FROM users u
         LEFT JOIN whatsapp_contacts wc ON wc.user_id = u.id
         WHERE u.id = ?
-        LIMIT 1
-      `);
-
-      const row = stmt.get(userId) as any;
+        LIMIT 1`,
+        [userId]
+      );
 
       if (!row) {
         return null;
@@ -815,25 +810,23 @@ This link expires in 48 hours.
   private async getUsersByRole(role: string): Promise<number[]> {
     try {
       // First, try to get users by the basic role column
-      let stmt = db.prepare(`
-        SELECT id
+      let rows = await executeQuery<any>(
+        `SELECT id
         FROM users
-        WHERE role = ? AND is_active = 1
-      `);
-
-      let rows = stmt.all(role) as any[];
+        WHERE role = ? AND is_active = 1`,
+        [role]
+      );
 
       // If no results and we have a roles table, try the role-based system
       if (rows.length === 0) {
-        stmt = db.prepare(`
-          SELECT DISTINCT u.id
+        rows = await executeQuery<any>(
+          `SELECT DISTINCT u.id
           FROM users u
           INNER JOIN user_roles ur ON ur.user_id = u.id
           INNER JOIN roles r ON r.id = ur.role_id
-          WHERE r.name = ? AND u.is_active = 1 AND ur.is_active = 1
-        `);
-
-        rows = stmt.all(role) as any[];
+          WHERE r.name = ? AND u.is_active = 1 AND ur.is_active = 1`,
+          [role]
+        );
       }
 
       return rows.map(row => row.id);
@@ -845,16 +838,15 @@ This link expires in 48 hours.
 
   private async getUsersByDepartment(departmentId: number): Promise<number[]> {
     try {
-      const stmt = db.prepare(`
-        SELECT DISTINCT u.id
+      const rows = await executeQuery<any>(
+        `SELECT DISTINCT u.id
         FROM users u
         INNER JOIN user_departments ud ON ud.user_id = u.id
         WHERE ud.department_id = ?
           AND u.is_active = 1
-          AND ud.left_at IS NULL
-      `);
-
-      const rows = stmt.all(departmentId) as any[];
+          AND ud.left_at IS NULL`,
+        [departmentId]
+      );
 
       return rows.map(row => row.id);
     } catch (error) {
@@ -879,48 +871,75 @@ This link expires in 48 hours.
   }
 
   private async sendWhatsAppMessage(phone: string, message: string): Promise<void> {
-    // TODO: Implement WhatsApp API integration
-    logger.info(`WhatsApp to ${phone}: ${message}`);
+    logger.warn('WhatsApp integration not configured — message not sent', { phone, messageLength: message.length });
   }
 
   private async sendInAppNotification(
-    _userId: number,
-    _approval: WorkflowApproval,
+    userId: number,
+    approval: WorkflowApproval,
     _context: Record<string, unknown>
   ): Promise<void> {
-    // TODO: Implement in-app notification
+    try {
+      const title = `Approval Request #${approval.id}`;
+      const message = `You have a pending approval request for workflow execution #${approval.executionId}`;
+      await executeRun(
+        `INSERT INTO notifications (user_id, type, title, message, created_at)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [userId, 'approval_request', title, message]
+      );
+      logger.info('In-app notification created for approval', { userId, approvalId: approval.id });
+    } catch (error) {
+      logger.error('Failed to create in-app notification', { userId, approvalId: approval.id, error });
+    }
   }
 
   private async sendDelegationNotification(
-    _approval: WorkflowApproval,
-    _toUserId: number,
-    _fromUserId: number,
-    _reason?: string
+    approval: WorkflowApproval,
+    toUserId: number,
+    fromUserId: number,
+    reason?: string
   ): Promise<void> {
-    // TODO: Implement delegation notification
+    try {
+      const title = 'Approval Delegated to You';
+      const message = `Approval #${approval.id} has been delegated to you by user #${fromUserId}${reason ? `: ${reason}` : ''}`;
+      await executeRun(
+        `INSERT INTO notifications (user_id, type, title, message, created_at)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+        [toUserId, 'approval_delegated', title, message]
+      );
+      logger.info('Delegation notification created', { approvalId: approval.id, toUserId, fromUserId });
+    } catch (error) {
+      logger.error('Failed to create delegation notification', { approvalId: approval.id, toUserId, error });
+    }
   }
 
   private async sendEscalationNotifications(
-    _approvals: WorkflowApproval[],
-    _level: EscalationLevel,
+    approvals: WorkflowApproval[],
+    level: EscalationLevel,
     _context: Record<string, unknown>
   ): Promise<void> {
-    // TODO: Implement escalation notifications
+    logger.warn('Escalation notifications not fully implemented', {
+      approvalCount: approvals.length,
+      timeoutHours: level.timeoutHours,
+    });
   }
 
   private async sendTimeoutNotification(
-    _approvals: WorkflowApproval[],
+    approvals: WorkflowApproval[],
     _context: Record<string, unknown>
   ): Promise<void> {
-    // TODO: Implement timeout notification
+    logger.warn('Timeout notification not fully implemented', {
+      approvalCount: approvals.length,
+      approvalIds: approvals.map(a => a.id),
+    });
   }
 
   private async notifyWorkflowEngine(
-    _executionId: number,
-    _event: string,
+    executionId: number,
+    event: string,
     _data: Record<string, unknown>
   ): Promise<void> {
-    // TODO: Implement workflow engine notification
+    logger.warn('Workflow engine notification not implemented', { executionId, event });
   }
 }
 

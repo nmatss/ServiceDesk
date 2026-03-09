@@ -1,4 +1,5 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
 export interface DeliveryAttempt {
@@ -42,7 +43,6 @@ export interface DeliveryMetrics {
 }
 
 export class DeliveryTracker {
-  private db = getDb()
   private deliveryAttempts = new Map<string, DeliveryAttempt>()
 
   // Real-time tracking
@@ -55,15 +55,16 @@ export class DeliveryTracker {
     this.loadPendingDeliveries()
   }
 
-  private initializeDeliveryTracking() {
+  private async initializeDeliveryTracking() {
     // Setup database schema if needed
-    this.ensureDeliveryTables()
+    await this.ensureDeliveryTables()
   }
 
-  private ensureDeliveryTables() {
+  private async ensureDeliveryTables() {
+    if (getDatabaseType() !== 'sqlite') return
     try {
       // Create delivery attempts table
-      this.db.prepare(`
+      await executeRun(`
         CREATE TABLE IF NOT EXISTS notification_deliveries (
           id TEXT PRIMARY KEY,
           notification_id TEXT NOT NULL,
@@ -81,10 +82,10 @@ export class DeliveryTracker {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `).run()
+      `, [])
 
       // Create delivery receipts table
-      this.db.prepare(`
+      await executeRun(`
         CREATE TABLE IF NOT EXISTS delivery_receipts (
           id TEXT PRIMARY KEY,
           notification_id TEXT NOT NULL,
@@ -97,35 +98,38 @@ export class DeliveryTracker {
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `).run()
+      `, [])
 
       // Create indexes for performance
-      this.db.prepare(`
+      await executeRun(`
         CREATE INDEX IF NOT EXISTS idx_delivery_notification_user
         ON notification_deliveries(notification_id, user_id)
-      `).run()
+      `, [])
 
-      this.db.prepare(`
+      await executeRun(`
         CREATE INDEX IF NOT EXISTS idx_delivery_status_channel
         ON notification_deliveries(status, channel)
-      `).run()
+      `, [])
 
-      this.db.prepare(`
+      await executeRun(`
         CREATE INDEX IF NOT EXISTS idx_delivery_created_at
         ON notification_deliveries(created_at)
-      `).run()
+      `, [])
 
     } catch (error) {
       logger.error('Error creating delivery tracking tables', error)
     }
   }
 
-  private loadPendingDeliveries() {
+  private async loadPendingDeliveries() {
     try {
-      const pendingDeliveries = this.db.prepare(`
+      const dbType = getDatabaseType()
+      const nowExpr = dbType === 'sqlite' ? `datetime('now')` : `NOW()`
+
+      const pendingDeliveries = await executeQuery<any>(`
         SELECT * FROM notification_deliveries
-        WHERE status IN ('pending', 'failed') AND expires_at > datetime('now')
-      `).all() as any[]
+        WHERE status IN ('pending', 'failed') AND expires_at > ${nowExpr}
+      `, [])
 
       for (const delivery of pendingDeliveries) {
         const attempt: DeliveryAttempt = {
@@ -364,11 +368,11 @@ export class DeliveryTracker {
     return status
   }
 
-  public getUserDeliveryHistory(
+  public async getUserDeliveryHistory(
     userId: number,
     timeRange: { start: Date; end: Date },
     channels?: string[]
-  ): DeliveryReceipt[] {
+  ): Promise<DeliveryReceipt[]> {
     try {
       let query = `
         SELECT * FROM delivery_receipts
@@ -384,7 +388,7 @@ export class DeliveryTracker {
 
       query += ` ORDER BY timestamp DESC`
 
-      const receipts = this.db.prepare(query).all(...params) as any[]
+      const receipts = await executeQuery<any>(query, params)
 
       return receipts.map(r => ({
         notificationId: r.notification_id,
@@ -402,11 +406,11 @@ export class DeliveryTracker {
     }
   }
 
-  public getDeliveryMetrics(
+  public async getDeliveryMetrics(
     timeRange: { start: Date; end: Date },
     channels?: string[],
     userIds?: number[]
-  ): DeliveryMetrics {
+  ): Promise<DeliveryMetrics> {
     try {
       let whereClause = 'WHERE created_at BETWEEN ? AND ?'
       const params: any[] = [timeRange.start.toISOString(), timeRange.end.toISOString()]
@@ -423,25 +427,37 @@ export class DeliveryTracker {
         params.push(...userIds)
       }
 
+      const dbType = getDatabaseType()
+      let dateDiffDelivered: string
+      let dateDiffRead: string
+
+      if (dbType === 'sqlite') {
+        dateDiffDelivered = `(julianday(delivered_at) - julianday(created_at)) * 86400000`
+        dateDiffRead = `(julianday(read_at) - julianday(delivered_at)) * 86400000`
+      } else {
+        dateDiffDelivered = `EXTRACT(EPOCH FROM (delivered_at - created_at)) * 1000`
+        dateDiffRead = `EXTRACT(EPOCH FROM (read_at - delivered_at)) * 1000`
+      }
+
       // Overall metrics
-      const overallStats = this.db.prepare(`
+      const overallStats = await executeQueryOne<any>(`
         SELECT
           COUNT(*) as total_sent,
           COUNT(CASE WHEN status IN ('delivered', 'read') THEN 1 END) as total_delivered,
           COUNT(CASE WHEN status = 'read' THEN 1 END) as total_read,
           COUNT(CASE WHEN status = 'failed' THEN 1 END) as total_failed,
           AVG(CASE WHEN delivered_at IS NOT NULL
-              THEN (julianday(delivered_at) - julianday(created_at)) * 86400000
+              THEN ${dateDiffDelivered}
               END) as avg_delivery_time,
           AVG(CASE WHEN read_at IS NOT NULL
-              THEN (julianday(read_at) - julianday(delivered_at)) * 86400000
+              THEN ${dateDiffRead}
               END) as avg_read_time
         FROM notification_deliveries
         ${whereClause}
-      `).get(...params) as any
+      `, params)
 
       // Channel breakdown
-      const channelStats = this.db.prepare(`
+      const channelStats = await executeQuery<any>(`
         SELECT
           channel,
           COUNT(*) as total,
@@ -449,35 +465,35 @@ export class DeliveryTracker {
           COUNT(CASE WHEN status = 'read' THEN 1 END) as read,
           COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed,
           AVG(CASE WHEN delivered_at IS NOT NULL
-              THEN (julianday(delivered_at) - julianday(created_at)) * 86400000
+              THEN ${dateDiffDelivered}
               END) as avg_delivery_time
         FROM notification_deliveries
         ${whereClause}
         GROUP BY channel
-      `).all(...params) as any[]
+      `, params)
 
       // Failure reasons
-      const failureReasons = this.db.prepare(`
+      const failureReasons = await executeQuery<any>(`
         SELECT error, COUNT(*) as count
         FROM notification_deliveries
         ${whereClause} AND status = 'failed' AND error IS NOT NULL
         GROUP BY error
         ORDER BY count DESC
-      `).all(...params) as any[]
+      `, params)
 
       const metrics: DeliveryMetrics = {
-        totalSent: overallStats.total_sent || 0,
-        totalDelivered: overallStats.total_delivered || 0,
-        totalRead: overallStats.total_read || 0,
-        totalFailed: overallStats.total_failed || 0,
-        deliveryRate: overallStats.total_sent > 0
+        totalSent: overallStats?.total_sent || 0,
+        totalDelivered: overallStats?.total_delivered || 0,
+        totalRead: overallStats?.total_read || 0,
+        totalFailed: overallStats?.total_failed || 0,
+        deliveryRate: overallStats?.total_sent > 0
           ? (overallStats.total_delivered / overallStats.total_sent) * 100
           : 0,
-        readRate: overallStats.total_delivered > 0
+        readRate: overallStats?.total_delivered > 0
           ? (overallStats.total_read / overallStats.total_delivered) * 100
           : 0,
-        averageDeliveryTime: overallStats.avg_delivery_time || 0,
-        averageReadTime: overallStats.avg_read_time || 0,
+        averageDeliveryTime: overallStats?.avg_delivery_time || 0,
+        averageReadTime: overallStats?.avg_read_time || 0,
         channelBreakdown: channelStats.reduce((breakdown, stat) => {
           breakdown[stat.channel] = {
             total: stat.total,
@@ -556,14 +572,14 @@ export class DeliveryTracker {
   }
 
   // Database operations
-  private persistDeliveryAttempt(attempt: DeliveryAttempt): void {
+  private async persistDeliveryAttempt(attempt: DeliveryAttempt): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO notification_deliveries (
           id, notification_id, user_id, channel, attempt, status,
           message_id, error, delivered_at, read_at, expires_at, retry_after, metadata
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         attempt.id,
         attempt.notificationId,
         attempt.userId,
@@ -577,20 +593,20 @@ export class DeliveryTracker {
         attempt.expiresAt?.toISOString() || null,
         attempt.retryAfter?.toISOString() || null,
         attempt.metadata ? JSON.stringify(attempt.metadata) : null
-      )
+      ])
     } catch (error) {
       logger.error('Error persisting delivery attempt', error)
     }
   }
 
-  private updateDeliveryAttempt(attempt: DeliveryAttempt): void {
+  private async updateDeliveryAttempt(attempt: DeliveryAttempt): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE notification_deliveries
         SET status = ?, message_id = ?, error = ?, delivered_at = ?,
             read_at = ?, retry_after = ?, attempt = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(
+      `, [
         attempt.status,
         attempt.messageId || null,
         attempt.error || null,
@@ -600,22 +616,22 @@ export class DeliveryTracker {
         attempt.attempt,
         attempt.metadata ? JSON.stringify(attempt.metadata) : null,
         attempt.id
-      )
+      ])
     } catch (error) {
       logger.error('Error updating delivery attempt', error)
     }
   }
 
-  private recordDeliveryReceipt(receipt: DeliveryReceipt): void {
+  private async recordDeliveryReceipt(receipt: DeliveryReceipt): Promise<void> {
     try {
       const receiptId = `receipt_${receipt.notificationId}_${receipt.userId}_${receipt.channel}_${Date.now()}`
 
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO delivery_receipts (
           id, notification_id, user_id, channel, status, message_id,
           device_info, location_info, timestamp
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         receiptId,
         receipt.notificationId,
         receipt.userId,
@@ -625,7 +641,7 @@ export class DeliveryTracker {
         receipt.deviceInfo ? JSON.stringify(receipt.deviceInfo) : null,
         receipt.location ? JSON.stringify(receipt.location) : null,
         receipt.timestamp.toISOString()
-      )
+      ])
     } catch (error) {
       logger.error('Error recording delivery receipt', error)
     }
@@ -687,14 +703,14 @@ export class DeliveryTracker {
     }
   }
 
-  private cleanupOldReceipts(): void {
+  private async cleanupOldReceipts(): Promise<void> {
     try {
       const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
 
-      const deleted = this.db.prepare(`
+      const deleted = await executeRun(`
         DELETE FROM delivery_receipts
         WHERE timestamp < ?
-      `).run(cutoffDate.toISOString())
+      `, [cutoffDate.toISOString()])
 
       if (deleted.changes > 0) {
         logger.info(`Cleaned up ${deleted.changes} old delivery receipts`)
@@ -761,9 +777,9 @@ export class DeliveryTracker {
     return pending
   }
 
-  public getDeliveryReport(notificationId: string): any {
+  public async getDeliveryReport(notificationId: string): Promise<any> {
     const status = this.getDeliveryStatus(notificationId)
-    const receipts = this.getReceiptsForNotification(notificationId)
+    const receipts = await this.getReceiptsForNotification(notificationId)
 
     return {
       ...status,
@@ -777,13 +793,13 @@ export class DeliveryTracker {
     }
   }
 
-  private getReceiptsForNotification(notificationId: string): DeliveryReceipt[] {
+  private async getReceiptsForNotification(notificationId: string): Promise<DeliveryReceipt[]> {
     try {
-      const receipts = this.db.prepare(`
+      const receipts = await executeQuery<any>(`
         SELECT * FROM delivery_receipts
         WHERE notification_id = ?
         ORDER BY timestamp ASC
-      `).all(notificationId) as any[]
+      `, [notificationId])
 
       return receipts.map(r => ({
         notificationId: r.notification_id,

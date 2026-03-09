@@ -8,7 +8,7 @@
  * - Type-safe query construction
  */
 
-import db from './connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 // ============================================
@@ -278,12 +278,11 @@ export function buildSafeSelectQuery(options: QueryOptions): {
 /**
  * Execute a safe SELECT query
  */
-export function executeSafeSelect<T = any>(options: QueryOptions): T[] {
+export async function executeSafeSelect<T = any>(options: QueryOptions): Promise<T[]> {
   const { sql, params } = buildSafeSelectQuery(options);
 
   try {
-    const stmt = db.prepare(sql);
-    return stmt.all(...params) as T[];
+    return await executeQuery<T>(sql, params);
   } catch (error) {
     logger.error('Safe SELECT query failed', { sql, error });
     throw new Error('Database query failed');
@@ -293,12 +292,11 @@ export function executeSafeSelect<T = any>(options: QueryOptions): T[] {
 /**
  * Execute a safe SELECT query (single row)
  */
-export function executeSafeSelectOne<T = any>(options: QueryOptions): T | null {
+export async function executeSafeSelectOne<T = any>(options: QueryOptions): Promise<T | null> {
   const { sql, params } = buildSafeSelectQuery(options);
 
   try {
-    const stmt = db.prepare(sql);
-    const result = stmt.get(...params) as T | undefined;
+    const result = await executeQueryOne<T>(sql, params);
     return result || null;
   } catch (error) {
     logger.error('Safe SELECT query failed', { sql, error });
@@ -358,16 +356,15 @@ export function buildSafeUpdateQuery(
 /**
  * Execute a safe UPDATE query
  */
-export function executeSafeUpdate(
+export async function executeSafeUpdate(
   table: string,
   updates: Record<string, any>,
   where: WhereCondition[]
-): number {
+): Promise<number> {
   const { sql, params } = buildSafeUpdateQuery(table, updates, where);
 
   try {
-    const stmt = db.prepare(sql);
-    const result = stmt.run(...params);
+    const result = await executeRun(sql, params);
     return result.changes;
   } catch (error) {
     logger.error('Safe UPDATE query failed', { sql, error });
@@ -413,12 +410,11 @@ export function buildSafeDeleteQuery(
 /**
  * Execute a safe DELETE query
  */
-export function executeSafeDelete(table: string, where: WhereCondition[]): number {
+export async function executeSafeDelete(table: string, where: WhereCondition[]): Promise<number> {
   const { sql, params } = buildSafeDeleteQuery(table, where);
 
   try {
-    const stmt = db.prepare(sql);
-    const result = stmt.run(...params);
+    const result = await executeRun(sql, params);
     return result.changes;
   } catch (error) {
     logger.error('Safe DELETE query failed', { sql, error });

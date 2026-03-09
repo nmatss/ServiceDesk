@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlNow, sqlCurrentDate, sqlDatetimeSub, sqlCastDate, sqlDateDiff, sqlDatetimeSubYears } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -40,12 +40,12 @@ export async function GET(request: NextRequest) {
         ticket_stats AS (
           SELECT
             COUNT(*) as total_tickets,
-            COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as tickets_today,
-            COUNT(CASE WHEN datetime(created_at) >= datetime('now', '-7 days') THEN 1 END) as tickets_this_week,
-            COUNT(CASE WHEN datetime(created_at) >= datetime('now', '-30 days') THEN 1 END) as tickets_this_month,
+            COUNT(CASE WHEN ${sqlCastDate('created_at')} = ${sqlCurrentDate()} THEN 1 END) as tickets_today,
+            COUNT(CASE WHEN created_at >= ${sqlDatetimeSub(7)} THEN 1 END) as tickets_this_week,
+            COUNT(CASE WHEN created_at >= ${sqlDatetimeSub(30)} THEN 1 END) as tickets_this_month,
             COUNT(DISTINCT CASE WHEN assigned_to IS NOT NULL THEN assigned_to END) as active_agents,
             COUNT(CASE WHEN status_id IN (SELECT id FROM statuses WHERE is_final = 0) THEN 1 END) as open_tickets,
-            COUNT(CASE WHEN datetime(created_at) >= datetime('now', '-1 day') AND status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved_today
+            COUNT(CASE WHEN created_at >= ${sqlDatetimeSub(1)} AND status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved_today
           FROM tickets
           WHERE organization_id = ?
         ),
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
           FROM satisfaction_surveys ss
           INNER JOIN tickets t ON ss.ticket_id = t.id
           WHERE t.organization_id = ?
-            AND datetime(ss.created_at) >= datetime('now', '-30 days')
+            AND ss.created_at >= ${sqlDatetimeSub(30)}
         )
         SELECT
           ts.total_tickets,
@@ -109,9 +109,10 @@ export async function GET(request: NextRequest) {
 
     if (metricType === 'sla-analytics') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
-          date(t.created_at) as date,
+          ${sqlCastDate('t.created_at')} as date,
           COUNT(*) as total_tickets,
           COUNT(CASE WHEN st.response_met = 1 THEN 1 END) as response_met,
           COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) as resolution_met,
@@ -127,15 +128,16 @@ export async function GET(request: NextRequest) {
           ) as resolution_sla_rate
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-        WHERE t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
-        GROUP BY date(t.created_at)
-        ORDER BY date(t.created_at)
-      `, [organizationId, days]);
+        WHERE t.organization_id = ? AND t.created_at >= ?
+        GROUP BY ${sqlCastDate('t.created_at')}
+        ORDER BY ${sqlCastDate('t.created_at')}
+      `, [organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
     if (metricType === 'agent-performance') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
           u.id,
@@ -152,7 +154,7 @@ export async function GET(request: NextRequest) {
           ROUND(AVG(ss.rating), 2) as avg_satisfaction,
           COUNT(ss.id) as satisfaction_responses
         FROM users u
-        LEFT JOIN tickets t ON u.id = t.assigned_to AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+        LEFT JOIN tickets t ON u.id = t.assigned_to AND t.organization_id = ? AND t.created_at >= ?
         LEFT JOIN statuses s ON t.status_id = s.id
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
         LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
@@ -160,12 +162,13 @@ export async function GET(request: NextRequest) {
         GROUP BY u.id, u.name, u.email
         HAVING COUNT(t.id) > 0
         ORDER BY resolved_tickets DESC
-      `, [organizationId, days]);
+      `, [organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
     if (metricType === 'category-analytics') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
           c.id,
@@ -180,19 +183,20 @@ export async function GET(request: NextRequest) {
           ROUND(AVG(st.resolution_time_minutes), 2) as avg_resolution_time,
           ROUND(AVG(ss.rating), 2) as avg_satisfaction
         FROM categories c
-        LEFT JOIN tickets t ON c.id = t.category_id AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+        LEFT JOIN tickets t ON c.id = t.category_id AND t.organization_id = ? AND t.created_at >= ?
         LEFT JOIN statuses s ON t.status_id = s.id
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
         LEFT JOIN satisfaction_surveys ss ON t.id = ss.ticket_id
         GROUP BY c.id, c.name, c.color
         HAVING COUNT(t.id) > 0
         ORDER BY total_tickets DESC
-      `, [organizationId, days]);
+      `, [organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
     if (metricType === 'priority-distribution') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
           p.id,
@@ -202,37 +206,39 @@ export async function GET(request: NextRequest) {
           COUNT(t.id) as ticket_count,
           ROUND(
             CAST(COUNT(t.id) AS FLOAT) /
-            NULLIF(CAST((SELECT COUNT(*) FROM tickets WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-' || ? || ' days')) AS FLOAT), 0) * 100, 2
+            NULLIF(CAST((SELECT COUNT(*) FROM tickets WHERE organization_id = ? AND created_at >= ?) AS FLOAT), 0) * 100, 2
           ) as percentage
         FROM priorities p
-        LEFT JOIN tickets t ON p.id = t.priority_id AND t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days')
+        LEFT JOIN tickets t ON p.id = t.priority_id AND t.organization_id = ? AND t.created_at >= ?
         GROUP BY p.id, p.name, p.level, p.color
         ORDER BY p.level DESC
-      `, [organizationId, days, organizationId, days]);
+      `, [organizationId, startDate, organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
     if (metricType === 'volume-trends') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
-          date(created_at) as date,
+          ${sqlCastDate('created_at')} as date,
           COUNT(*) as created,
           COUNT(CASE WHEN status_id IN (SELECT id FROM statuses WHERE is_final = 1) THEN 1 END) as resolved,
           COUNT(CASE WHEN priority_id IN (SELECT id FROM priorities WHERE level >= 3) THEN 1 END) as high_priority
         FROM tickets
-        WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-' || ? || ' days')
-        GROUP BY date(created_at)
-        ORDER BY date(created_at)
-      `, [organizationId, days]);
+        WHERE organization_id = ? AND created_at >= ?
+        GROUP BY ${sqlCastDate('created_at')}
+        ORDER BY ${sqlCastDate('created_at')}
+      `, [organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
     if (metricType === 'response-time-analytics') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
-          date(t.created_at) as date,
+          ${sqlCastDate('t.created_at')} as date,
           COUNT(st.id) as total_responses,
           ROUND(AVG(st.response_time_minutes), 2) as avg_response_time,
           MIN(st.response_time_minutes) as min_response_time,
@@ -244,18 +250,19 @@ export async function GET(request: NextRequest) {
           ) as sla_compliance
         FROM tickets t
         LEFT JOIN sla_tracking st ON t.id = st.ticket_id
-        WHERE t.organization_id = ? AND datetime(t.created_at) >= datetime('now', '-' || ? || ' days') AND st.response_time_minutes IS NOT NULL
-        GROUP BY date(t.created_at)
-        ORDER BY date(t.created_at)
-      `, [organizationId, days]);
+        WHERE t.organization_id = ? AND t.created_at >= ? AND st.response_time_minutes IS NOT NULL
+        GROUP BY ${sqlCastDate('t.created_at')}
+        ORDER BY ${sqlCastDate('t.created_at')}
+      `, [organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
     if (metricType === 'satisfaction-trends') {
       const days = periodToDays(period);
+      const startDate = new Date(Date.now() - days * 86400000).toISOString();
       const data = await executeQuery<Record<string, unknown>>(`
         SELECT
-          date(ss.created_at) as date,
+          ${sqlCastDate('ss.created_at')} as date,
           COUNT(*) as total_responses,
           ROUND(AVG(ss.rating), 2) as avg_rating,
           COUNT(CASE WHEN ss.rating >= 4 THEN 1 END) as positive_ratings,
@@ -266,10 +273,10 @@ export async function GET(request: NextRequest) {
           ) as satisfaction_rate
         FROM satisfaction_surveys ss
         INNER JOIN tickets t ON ss.ticket_id = t.id
-        WHERE t.organization_id = ? AND datetime(ss.created_at) >= datetime('now', '-' || ? || ' days')
-        GROUP BY date(ss.created_at)
-        ORDER BY date(ss.created_at)
-      `, [organizationId, days]);
+        WHERE t.organization_id = ? AND ss.created_at >= ?
+        GROUP BY ${sqlCastDate('ss.created_at')}
+        ORDER BY ${sqlCastDate('ss.created_at')}
+      `, [organizationId, startDate]);
       return NextResponse.json({ success: true, data });
     }
 
@@ -304,8 +311,8 @@ export async function GET(request: NextRequest) {
           u.name as user_name,
           a.name as agent_name,
           sp.name as policy_name,
-          ROUND((julianday(st.response_due_at) - julianday('now')) * 24 * 60) as minutes_until_response_breach,
-          ROUND((julianday(st.resolution_due_at) - julianday('now')) * 24 * 60) as minutes_until_resolution_breach
+          ROUND(${sqlDateDiff('st.response_due_at', sqlNow())} * 24 * 60) as minutes_until_response_breach,
+          ROUND(${sqlDateDiff('st.resolution_due_at', sqlNow())} * 24 * 60) as minutes_until_resolution_breach
         FROM sla_tracking st
         LEFT JOIN tickets t ON st.ticket_id = t.id
         LEFT JOIN users u ON t.user_id = u.id
@@ -314,10 +321,10 @@ export async function GET(request: NextRequest) {
         WHERE t.organization_id = ?
           AND (
             (st.response_due_at > CURRENT_TIMESTAMP AND st.response_met = 0
-             AND julianday(st.response_due_at) - julianday('now') < 1)
+             AND ${sqlDateDiff('st.response_due_at', sqlNow())} < 1)
             OR
             (st.resolution_due_at > CURRENT_TIMESTAMP AND st.resolution_met = 0
-             AND julianday(st.resolution_due_at) - julianday('now') < 1)
+             AND ${sqlDateDiff('st.resolution_due_at', sqlNow())} < 1)
           )
         ORDER BY st.response_due_at ASC
       `, [organizationId]);
@@ -328,12 +335,12 @@ export async function GET(request: NextRequest) {
       const data = await executeQuery<Record<string, unknown>>(`
         WITH daily_metrics AS (
           SELECT
-            date(created_at) as date,
+            ${sqlCastDate('created_at')} as date,
             COUNT(*) as ticket_count,
             COUNT(CASE WHEN priority_id IN (SELECT id FROM priorities WHERE level >= 3) THEN 1 END) as high_priority_count
           FROM tickets
-          WHERE organization_id = ? AND datetime(created_at) >= datetime('now', '-30 days')
-          GROUP BY date(created_at)
+          WHERE organization_id = ? AND created_at >= ${sqlDatetimeSub(30)}
+          GROUP BY ${sqlCastDate('created_at')}
         ),
         avg_metrics AS (
           SELECT
@@ -385,16 +392,16 @@ export async function GET(request: NextRequest) {
             'tickets' as metric
           FROM categories c
           CROSS JOIN (
-            SELECT 'Current' as name, datetime('now', '-30 days') as start_date
+            SELECT 'Current' as name, ${sqlDatetimeSub(30)} as start_date
             UNION ALL
-            SELECT 'Previous' as name, datetime('now', '-60 days') as start_date
+            SELECT 'Previous' as name, ${sqlDatetimeSub(60)} as start_date
           ) period
           LEFT JOIN tickets t ON c.id = t.category_id
             AND t.organization_id = ?
-            AND datetime(t.created_at) >= period.start_date
-            AND datetime(t.created_at) < CASE
-              WHEN period.name = 'Current' THEN datetime('now')
-              ELSE datetime('now', '-30 days')
+            AND t.created_at >= period.start_date
+            AND t.created_at < CASE
+              WHEN period.name = 'Current' THEN ${sqlNow()}
+              ELSE ${sqlDatetimeSub(30)}
             END
           GROUP BY c.id, c.name, c.color, period.name
           ORDER BY c.name, period.name
@@ -408,15 +415,15 @@ export async function GET(request: NextRequest) {
       const alias = tableAlias ? `${tableAlias}.` : ''
       switch (period) {
         case '7d':
-          return `AND ${alias}created_at >= datetime('now', '-7 days')`
+          return `AND ${alias}created_at >= ${sqlDatetimeSub(7)}`
         case '30d':
-          return `AND ${alias}created_at >= datetime('now', '-30 days')`
+          return `AND ${alias}created_at >= ${sqlDatetimeSub(30)}`
         case '90d':
-          return `AND ${alias}created_at >= datetime('now', '-90 days')`
+          return `AND ${alias}created_at >= ${sqlDatetimeSub(90)}`
         case '1y':
-          return `AND ${alias}created_at >= datetime('now', '-1 year')`
+          return `AND ${alias}created_at >= ${sqlDatetimeSubYears(1)}`
         default:
-          return `AND ${alias}created_at >= datetime('now', '-30 days')`
+          return `AND ${alias}created_at >= ${sqlDatetimeSub(30)}`
       }
     }
 
@@ -447,7 +454,7 @@ export async function GET(request: NextRequest) {
             AVG(
               CASE
                 WHEN s.is_final = 1 THEN
-                  ROUND((julianday(t.updated_at) - julianday(t.created_at)) * 24, 2)
+                  ROUND(${sqlDateDiff('t.updated_at', 't.created_at')} * 24, 2)
                 ELSE NULL
               END
             ) as avg_hours
@@ -518,7 +525,7 @@ export async function GET(request: NextRequest) {
           DATE(t.updated_at) as date,
           COUNT(*) as resolved_count,
           AVG(
-            ROUND((julianday(t.updated_at) - julianday(t.created_at)) * 24, 2)
+            ROUND(${sqlDateDiff('t.updated_at', 't.created_at')} * 24, 2)
           ) as avg_resolution_hours
         FROM tickets t
         LEFT JOIN statuses s ON t.status_id = s.id

@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import { executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 // Interface para logs de auditoria
@@ -15,18 +15,16 @@ export interface AuditLog {
 // Função para registrar log de auditoria
 export async function logAuditEvent(logData: AuditLog): Promise<void> {
   try {
-    const stmt = db.prepare(`
+    await executeRun(`
       INSERT INTO audit_logs (user_id, action, path, data, ip_address, created_at)
       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `);
-
-    stmt.run(
+    `, [
       logData.user_id,
       logData.action,
       logData.path || null,
       logData.data ? JSON.stringify(logData.data) : null,
       logData.ip_address || null
-    );
+    ]);
 
   } catch (error) {
     logger.error('Erro ao registrar log de auditoria', error);
@@ -82,4 +80,3 @@ export async function logAdminAction(userId: string, action: string, target: str
     ip_address: ip,
   });
 }
-

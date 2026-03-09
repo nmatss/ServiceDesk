@@ -337,10 +337,10 @@ export function AgentPerformanceWidget({
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
-            Agent Performance
+            Desempenho dos Agentes
           </h3>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Team productivity and efficiency metrics
+            Métricas de produtividade e eficiência da equipe
           </p>
         </div>
 
@@ -350,9 +350,9 @@ export function AgentPerformanceWidget({
             onChange={(e) => onUpdate({ period: e.target.value })}
             className="text-sm border border-neutral-300 rounded-md px-3 py-1 bg-white dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
           >
-            <option value="week">Last Week</option>
-            <option value="month">Last Month</option>
-            <option value="quarter">Last Quarter</option>
+            <option value="week">Última Semana</option>
+            <option value="month">Último Mês</option>
+            <option value="quarter">Último Trimestre</option>
           </select>
 
           <select
@@ -465,7 +465,7 @@ export function AgentPerformanceWidget({
                 <div className="text-center">
                   <ChartBarIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
                   <p className="text-neutral-500 dark:text-neutral-400">
-                    {isConnected ? 'Loading agent data...' : 'No data available'}
+                    {isConnected ? 'Carregando dados dos agentes...' : 'Sem dados disponíveis'}
                   </p>
                 </div>
               </div>

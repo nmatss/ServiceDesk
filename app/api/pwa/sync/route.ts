@@ -4,7 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import logger from '@/lib/monitoring/structured-logger';
 
@@ -161,19 +162,21 @@ export async function GET(request: NextRequest) {
     const lastSyncTime = parseInt(searchParams.get('lastSync') || '0', 10);
 
     // Get counts of updated items since last sync
+    const sinceDate = new Date(lastSyncTime).toISOString();
+
     const updates = {
       tickets: await executeQueryOne(`SELECT COUNT(*) as count FROM tickets
-           WHERE (created_by = ? OR assigned_to = ?)
-           AND updated_at > datetime(?, 'unixepoch', 'localtime')`, [String(userGet.id), String(userGet.id), lastSyncTime / 1000]),
+           WHERE (user_id = ? OR assigned_to = ?)
+           AND updated_at > ?`, [String(userGet.id), String(userGet.id), sinceDate]),
 
       comments: await executeQueryOne(`SELECT COUNT(*) as count FROM comments c
            INNER JOIN tickets t ON c.ticket_id = t.id
-           WHERE (t.created_by = ? OR t.assigned_to = ?)
-           AND c.created_at > datetime(?, 'unixepoch', 'localtime')`, [String(userGet.id), String(userGet.id), lastSyncTime / 1000]),
+           WHERE (t.user_id = ? OR t.assigned_to = ?)
+           AND c.created_at > ?`, [String(userGet.id), String(userGet.id), sinceDate]),
 
       notifications: await executeQueryOne(`SELECT COUNT(*) as count FROM notifications
            WHERE user_id = ?
-           AND created_at > datetime(?, 'unixepoch', 'localtime')`, [String(userGet.id), lastSyncTime / 1000]),
+           AND created_at > ?`, [String(userGet.id), sinceDate]),
     };
 
     return NextResponse.json({
@@ -198,7 +201,7 @@ export async function GET(request: NextRequest) {
 
 async function syncCreateTicket(_db: any, userId: string, data: any): Promise<number> {
   const result = await executeRun(
-      `INSERT INTO tickets (title, description, priority, category_id, created_by)
+      `INSERT INTO tickets (title, description, priority, category_id, user_id)
        VALUES (?, ?, ?, ?, ?)`,
     [
       data.title,
@@ -289,7 +292,7 @@ async function getUpdatedData(_db: any, userId: string, lastSyncTime: number) {
 
   const tickets = await executeQuery(
       `SELECT * FROM tickets
-       WHERE (created_by = ? OR assigned_to = ?)
+       WHERE (user_id = ? OR assigned_to = ?)
        AND updated_at > ?
        LIMIT 100`,
     [userId, userId, sinceDate]);

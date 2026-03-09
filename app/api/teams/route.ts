@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const tenantContext = guard.context!.tenant
 
     const tenantManager = getTenantManager()
-    const teams = tenantManager.getTeamsByTenant(tenantContext.id)
+    const teams = await tenantManager.getTeamsByTenant(tenantContext.id)
 
     return NextResponse.json({
       success: true,
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create team
-    const teamId = tenantManager.createTeam({
+    const teamId = await tenantManager.createTeam({
       tenant_id: tenantContext.id,
       name: data.name,
       slug: data.slug,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Get the created team
-    const team = tenantManager.getTeamById(teamId, tenantContext.id)
+    const team = await tenantManager.getTeamById(teamId, tenantContext.id)
 
     return NextResponse.json({
       success: true,

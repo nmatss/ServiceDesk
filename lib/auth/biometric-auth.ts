@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from 'crypto';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface WebAuthnCredential {
@@ -98,7 +98,7 @@ class BiometricAuthManager {
    */
   async generateRegistrationOptions(userId: number, _deviceName?: string): Promise<RegistrationOptions | null> {
     try {
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+      const user = await executeQueryOne<any>('SELECT * FROM users WHERE id = ?', [userId]);
       if (!user) return null;
 
       // Generate challenge
@@ -106,13 +106,13 @@ class BiometricAuthManager {
 
       // Store challenge temporarily (expires in 5 minutes)
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-      db.prepare(`
+      await executeRun(`
         INSERT INTO verification_codes (user_id, code, code_hash, type, expires_at)
         VALUES (?, ?, ?, 'webauthn_challenge', ?)
-      `).run(userId, challenge, this.hashChallenge(challenge), expiresAt.toISOString());
+      `, [userId, challenge, this.hashChallenge(challenge), expiresAt.toISOString()]);
 
       // Get existing credentials to exclude
-      const existingCredentials = this.getUserCredentials(userId);
+      const existingCredentials = await this.getUserCredentials(userId);
       const excludeCredentials = existingCredentials.map(cred => ({
         type: 'public-key' as const,
         id: cred.credential_id
@@ -190,13 +190,11 @@ class BiometricAuthManager {
       const credentialId = registrationResponse.id;
       const publicKey = attestationObject.publicKey;
 
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         INSERT INTO webauthn_credentials
         (user_id, credential_id, public_key, counter, device_name, device_type, aaguid)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      const result = stmt.run(
+      `, [
         userId,
         credentialId,
         publicKey,
@@ -204,10 +202,10 @@ class BiometricAuthManager {
         deviceName || 'Biometric Device',
         deviceType,
         attestationObject.aaguid || null
-      );
+      ]);
 
-      if (result.changes > 0) {
-        this.logBiometricEvent(userId, 'credential_registered', deviceType);
+      if ((result.changes ?? 0) > 0) {
+        await this.logBiometricEvent(userId, 'credential_registered', deviceType);
         return true;
       }
 
@@ -230,22 +228,22 @@ class BiometricAuthManager {
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
       if (userId) {
-        db.prepare(`
+        await executeRun(`
           INSERT INTO verification_codes (user_id, code, code_hash, type, expires_at)
           VALUES (?, ?, ?, 'webauthn_auth_challenge', ?)
-        `).run(userId, challenge, this.hashChallenge(challenge), expiresAt.toISOString());
+        `, [userId, challenge, this.hashChallenge(challenge), expiresAt.toISOString()]);
       } else {
         // Store global challenge for usernameless authentication
-        db.prepare(`
+        await executeRun(`
           INSERT INTO verification_codes (code, code_hash, type, expires_at)
           VALUES (?, ?, 'webauthn_auth_challenge_global', ?)
-        `).run(challenge, this.hashChallenge(challenge), expiresAt.toISOString());
+        `, [challenge, this.hashChallenge(challenge), expiresAt.toISOString()]);
       }
 
       let allowCredentials;
       if (userId) {
         // Get user's credentials
-        const credentials = this.getUserCredentials(userId);
+        const credentials = await this.getUserCredentials(userId);
         allowCredentials = credentials.map(cred => ({
           type: 'public-key' as const,
           id: cred.credential_id,
@@ -282,7 +280,7 @@ class BiometricAuthManager {
       );
 
       // Find credential
-      const credential = this.getCredentialById(authenticationResponse.id);
+      const credential = await this.getCredentialById(authenticationResponse.id);
       if (!credential || !credential.is_active) {
         throw new Error('Credential not found or inactive');
       }
@@ -328,14 +326,14 @@ class BiometricAuthManager {
 
       // Update credential counter and last used
       if (authenticatorData.counter > credential.counter) {
-        db.prepare(`
+        await executeRun(`
           UPDATE webauthn_credentials
           SET counter = ?, last_used_at = CURRENT_TIMESTAMP
           WHERE credential_id = ?
-        `).run(authenticatorData.counter, credential.credential_id);
+        `, [authenticatorData.counter, credential.credential_id]);
       }
 
-      this.logBiometricEvent(credential.user_id, 'authentication_success', credential.device_type);
+      await this.logBiometricEvent(credential.user_id, 'authentication_success', credential.device_type);
 
       return {
         success: true,
@@ -351,13 +349,13 @@ class BiometricAuthManager {
   /**
    * Get user's biometric credentials
    */
-  getUserCredentials(userId: number): WebAuthnCredential[] {
+  async getUserCredentials(userId: number): Promise<WebAuthnCredential[]> {
     try {
-      return db.prepare(`
+      return await executeQuery<WebAuthnCredential>(`
         SELECT * FROM webauthn_credentials
         WHERE user_id = ? AND is_active = 1
         ORDER BY created_at DESC
-      `).all(userId) as WebAuthnCredential[];
+      `, [userId]);
     } catch (error) {
       logger.error('Error getting user credentials', error);
       return [];
@@ -367,12 +365,13 @@ class BiometricAuthManager {
   /**
    * Get credential by ID
    */
-  getCredentialById(credentialId: string): WebAuthnCredential | null {
+  async getCredentialById(credentialId: string): Promise<WebAuthnCredential | null> {
     try {
-      return db.prepare(`
+      const result = await executeQueryOne<WebAuthnCredential>(`
         SELECT * FROM webauthn_credentials
         WHERE credential_id = ?
-      `).get(credentialId) as WebAuthnCredential || null;
+      `, [credentialId]);
+      return result || null;
     } catch (error) {
       logger.error('Error getting credential by ID', error);
       return null;
@@ -382,18 +381,16 @@ class BiometricAuthManager {
   /**
    * Remove credential
    */
-  removeCredential(userId: number, credentialId: string): boolean {
+  async removeCredential(userId: number, credentialId: string): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE webauthn_credentials
         SET is_active = 0
         WHERE user_id = ? AND credential_id = ?
-      `);
+      `, [userId, credentialId]);
 
-      const result = stmt.run(userId, credentialId);
-
-      if (result.changes > 0) {
-        this.logBiometricEvent(userId, 'credential_removed');
+      if ((result.changes ?? 0) > 0) {
+        await this.logBiometricEvent(userId, 'credential_removed');
         return true;
       }
 
@@ -407,16 +404,14 @@ class BiometricAuthManager {
   /**
    * Update credential name
    */
-  updateCredentialName(userId: number, credentialId: string, deviceName: string): boolean {
+  async updateCredentialName(userId: number, credentialId: string, deviceName: string): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE webauthn_credentials
         SET device_name = ?
         WHERE user_id = ? AND credential_id = ? AND is_active = 1
-      `);
-
-      const result = stmt.run(deviceName, userId, credentialId);
-      return result.changes > 0;
+      `, [deviceName, userId, credentialId]);
+      return (result.changes ?? 0) > 0;
     } catch (error) {
       logger.error('Error updating credential name', error);
       return false;
@@ -426,14 +421,14 @@ class BiometricAuthManager {
   /**
    * Check if user has biometric authentication enabled
    */
-  hasBiometricAuth(userId: number): boolean {
+  async hasBiometricAuth(userId: number): Promise<boolean> {
     try {
-      const count = db.prepare(`
+      const count = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count FROM webauthn_credentials
         WHERE user_id = ? AND is_active = 1
-      `).get(userId) as any;
+      `, [userId]);
 
-      return count.count > 0;
+      return (count?.count ?? 0) > 0;
     } catch (error) {
       logger.error('Error checking biometric auth', error);
       return false;
@@ -443,9 +438,9 @@ class BiometricAuthManager {
   /**
    * Get user's biometric devices summary
    */
-  getBiometricDevices(userId: number): BiometricDevice[] {
+  async getBiometricDevices(userId: number): Promise<BiometricDevice[]> {
     try {
-      const devices = db.prepare(`
+      const devices = await executeQuery<any>(`
         SELECT
           credential_id as id,
           device_name as name,
@@ -456,7 +451,7 @@ class BiometricAuthManager {
         FROM webauthn_credentials
         WHERE user_id = ?
         ORDER BY created_at DESC
-      `).all(userId) as any[];
+      `, [userId]);
 
       return devices.map(device => ({
         ...device,
@@ -475,21 +470,21 @@ class BiometricAuthManager {
   private async verifyChallenge(userId: number, challenge: string): Promise<boolean> {
     try {
       const challengeHash = this.hashChallenge(challenge);
-      const record = db.prepare(`
+      const record = await executeQueryOne<any>(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'webauthn_challenge'
           AND code_hash = ? AND used_at IS NULL
           AND expires_at > CURRENT_TIMESTAMP
         ORDER BY created_at DESC LIMIT 1
-      `).get(userId, challengeHash) as any;
+      `, [userId, challengeHash]);
 
       if (record) {
         // Mark challenge as used
-        db.prepare(`
+        await executeRun(`
           UPDATE verification_codes
           SET used_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(record.id);
+        `, [record.id]);
         return true;
       }
 
@@ -508,32 +503,32 @@ class BiometricAuthManager {
       const challengeHash = this.hashChallenge(challenge);
 
       // Try user-specific challenge first
-      let record = db.prepare(`
+      let record = await executeQueryOne<any>(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'webauthn_auth_challenge'
           AND code_hash = ? AND used_at IS NULL
           AND expires_at > CURRENT_TIMESTAMP
         ORDER BY created_at DESC LIMIT 1
-      `).get(userId, challengeHash) as any;
+      `, [userId, challengeHash]);
 
       // If not found, try global challenge
       if (!record) {
-        record = db.prepare(`
+        record = await executeQueryOne<any>(`
           SELECT * FROM verification_codes
           WHERE type = 'webauthn_auth_challenge_global'
             AND code_hash = ? AND used_at IS NULL
             AND expires_at > CURRENT_TIMESTAMP
           ORDER BY created_at DESC LIMIT 1
-        `).get(challengeHash) as any;
+        `, [challengeHash]);
       }
 
       if (record) {
         // Mark challenge as used
-        db.prepare(`
+        await executeRun(`
           UPDATE verification_codes
           SET used_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `).run(record.id);
+        `, [record.id]);
         return true;
       }
 
@@ -636,12 +631,12 @@ class BiometricAuthManager {
   /**
    * Log biometric event for audit
    */
-  private logBiometricEvent(userId: number, eventType: string, deviceType?: string): void {
+  private async logBiometricEvent(userId: number, eventType: string, deviceType?: string): Promise<void> {
     try {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO auth_audit_logs (user_id, event_type, details)
         VALUES (?, ?, ?)
-      `).run(userId, `biometric_${eventType}`, JSON.stringify({ deviceType }));
+      `, [userId, `biometric_${eventType}`, JSON.stringify({ deviceType })]);
     } catch (error) {
       logger.error('Error logging biometric event', error);
     }

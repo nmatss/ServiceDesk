@@ -1,6 +1,10 @@
+import { getDatabaseType } from '@/lib/db/config';
 import db from './connection'
 import { logger } from '../monitoring/logger'
 import { cacheStrategy, CacheOptions } from '../cache/strategy'
+
+// NOTE: This module is SQLite-specific (uses EXPLAIN QUERY PLAN, PRAGMA, VACUUM).
+// All public methods check getDatabaseType() and skip SQLite-only operations on PostgreSQL.
 
 interface QueryStats {
   query: string
@@ -419,6 +423,10 @@ class DatabaseOptimizer {
    * Criar índices sugeridos
    */
   async createSuggestedIndexes(suggestions: IndexSuggestion[]): Promise<void> {
+    if (getDatabaseType() !== 'sqlite') {
+      logger.info('createSuggestedIndexes is SQLite-only, skipping on PostgreSQL')
+      return
+    }
     for (const suggestion of suggestions) {
       if (suggestion.priority === 'high') {
         try {
@@ -443,9 +451,13 @@ class DatabaseOptimizer {
   }
 
   /**
-   * Analisar uso de índices existentes
+   * Analisar uso de índices existentes (SQLite-only)
    */
   analyzeIndexUsage(): IndexUsageResult[] {
+    if (getDatabaseType() !== 'sqlite') {
+      logger.info('analyzeIndexUsage is SQLite-only, skipping on PostgreSQL')
+      return []
+    }
     try {
       // Obter estatísticas de índices do SQLite
       const indexes = db.prepare(`
@@ -468,9 +480,13 @@ class DatabaseOptimizer {
   }
 
   /**
-   * Otimizar tabelas (VACUUM e ANALYZE)
+   * Otimizar tabelas (VACUUM e ANALYZE) - SQLite-only
    */
   async optimizeTables(): Promise<void> {
+    if (getDatabaseType() !== 'sqlite') {
+      logger.info('optimizeTables is SQLite-only, skipping on PostgreSQL')
+      return
+    }
     try {
       logger.info('Starting database optimization')
 
@@ -500,9 +516,12 @@ class DatabaseOptimizer {
   }
 
   /**
-   * Verificar integridade do banco
+   * Verificar integridade do banco (SQLite-only)
    */
   async checkIntegrity(): Promise<{ ok: boolean; errors: string[] }> {
+    if (getDatabaseType() !== 'sqlite') {
+      return { ok: true, errors: [] }
+    }
     try {
       const result = db.prepare('PRAGMA integrity_check').all() as { integrity_check: string }[]
 
@@ -558,9 +577,12 @@ class DatabaseOptimizer {
   }
 
   /**
-   * Obter tamanho do banco de dados
+   * Obter tamanho do banco de dados (SQLite-only)
    */
   getDatabaseSize(): { pageCount: number; pageSize: number; sizeBytes: number; sizeMB: number } {
+    if (getDatabaseType() !== 'sqlite') {
+      return { pageCount: 0, pageSize: 0, sizeBytes: 0, sizeMB: 0 }
+    }
     try {
       const pageCount = db.prepare('PRAGMA page_count').get() as { page_count: number }
       const pageSize = db.prepare('PRAGMA page_size').get() as { page_size: number }

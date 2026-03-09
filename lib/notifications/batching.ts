@@ -1,5 +1,6 @@
 import { NotificationPayload } from './realtime-engine'
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
 export interface BatchConfig {
@@ -28,7 +29,6 @@ export interface BatchedNotification {
 }
 
 export class NotificationBatchingEngine {
-  private db = getDb()
   private activeBatches = new Map<string, NotificationBatch>()
   private batchConfigs = new Map<string, BatchConfig>()
   private batchTimers = new Map<string, NodeJS.Timeout>()
@@ -110,7 +110,7 @@ export class NotificationBatchingEngine {
     return grouper;
   }
 
-  private loadCustomBatchConfigs() {
+  private async loadCustomBatchConfigs() {
     try {
       interface BatchConfigRow {
         batch_key: string;
@@ -120,9 +120,9 @@ export class NotificationBatchingEngine {
         custom_grouper?: string;
       }
 
-      const configs = this.db.prepare(`
+      const configs = await executeQuery<BatchConfigRow>(`
         SELECT * FROM batch_configurations WHERE is_active = 1
-      `).all() as BatchConfigRow[]
+      `, [])
 
       for (const config of configs) {
         this.batchConfigs.set(config.batch_key, {
@@ -150,7 +150,7 @@ export class NotificationBatchingEngine {
     }, 60 * 60 * 1000)
   }
 
-  private loadPersistedBatches() {
+  private async loadPersistedBatches() {
     try {
       interface BatchRow {
         id: string;
@@ -162,10 +162,13 @@ export class NotificationBatchingEngine {
         metadata?: string;
       }
 
-      const batches = this.db.prepare(`
+      const dbType = getDatabaseType()
+      const nowExpr = dbType === 'sqlite' ? `datetime('now')` : `NOW()`
+
+      const batches = await executeQuery<BatchRow>(`
         SELECT * FROM notification_batches
-        WHERE status = 'pending' AND scheduled_at > datetime('now')
-      `).all() as BatchRow[]
+        WHERE status = 'pending' AND scheduled_at > ${nowExpr}
+      `, [])
 
       for (const batchData of batches) {
         const config = this.batchConfigs.get(batchData.batch_key);
@@ -365,7 +368,7 @@ export class NotificationBatchingEngine {
       batch.metadata = { ...batch.metadata, status: 'ready', executedAt: new Date().toISOString() }
 
       // Update database
-      this.updateBatchStatus(batchId, 'ready')
+      await this.updateBatchStatus(batchId, 'ready')
 
       // Cleanup
       this.activeBatches.delete(batchId)
@@ -378,7 +381,7 @@ export class NotificationBatchingEngine {
       return combinedNotification
     } catch (error) {
       logger.error(`Error executing batch ${batchId}:`, error)
-      this.updateBatchStatus(batchId, 'failed')
+      await this.updateBatchStatus(batchId, 'failed')
       return undefined
     }
   }
@@ -575,14 +578,14 @@ export class NotificationBatchingEngine {
   }
 
   // Database operations
-  private persistBatch(batch: NotificationBatch) {
+  private async persistBatch(batch: NotificationBatch): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO notification_batches (
           id, batch_key, notifications, target_users, created_at, scheduled_at,
           status, config, metadata
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         batch.id,
         batch.config.batchKey,
         JSON.stringify(batch.notifications),
@@ -592,36 +595,36 @@ export class NotificationBatchingEngine {
         'pending',
         JSON.stringify(batch.config),
         JSON.stringify(batch.metadata)
-      )
+      ])
     } catch (error) {
       logger.error('Error persisting batch', error)
     }
   }
 
-  private updatePersistedBatch(batch: NotificationBatch) {
+  private async updatePersistedBatch(batch: NotificationBatch): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE notification_batches
         SET notifications = ?, target_users = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(
+      `, [
         JSON.stringify(batch.notifications),
         JSON.stringify(batch.targetUsers),
         JSON.stringify(batch.metadata),
         batch.id
-      )
+      ])
     } catch (error) {
       logger.error('Error updating persisted batch', error)
     }
   }
 
-  private updateBatchStatus(batchId: string, status: string) {
+  private async updateBatchStatus(batchId: string, status: string): Promise<void> {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE notification_batches
         SET status = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(status, batchId)
+      `, [status, batchId])
     } catch (error) {
       logger.error('Error updating batch status', error)
     }
@@ -629,53 +632,23 @@ export class NotificationBatchingEngine {
 
   // Public methods for batch management
   public getReadyBatches(): Array<{ notification: NotificationPayload; targetUsers: number[] }> {
-    try {
-      interface ReadyBatchRow {
-        id: string;
-        notifications: string;
-        target_users: string;
-        created_at: string;
-        scheduled_at: string;
-        config: string;
-        metadata?: string;
-      }
+    // Process from in-memory activeBatches that are ready
+    const results: Array<{ notification: NotificationPayload; targetUsers: number[] }> = []
 
-      const readyBatches = this.db.prepare(`
-        SELECT * FROM notification_batches
-        WHERE status = 'ready'
-        ORDER BY created_at ASC
-        LIMIT 50
-      `).all() as ReadyBatchRow[]
-
-      const results: Array<{ notification: NotificationPayload; targetUsers: number[] }> = []
-
-      for (const batchData of readyBatches) {
-        const batch: NotificationBatch = {
-          id: batchData.id,
-          notifications: JSON.parse(batchData.notifications) as NotificationPayload[],
-          targetUsers: JSON.parse(batchData.target_users) as number[],
-          createdAt: new Date(batchData.created_at),
-          scheduledAt: new Date(batchData.scheduled_at),
-          config: JSON.parse(batchData.config) as BatchConfig,
-          metadata: batchData.metadata ? JSON.parse(batchData.metadata) as Record<string, unknown> : undefined
-        }
-
+    for (const [batchId, batch] of this.activeBatches.entries()) {
+      if (batch.metadata?.status === 'ready') {
         const combinedNotification = this.createCombinedNotification(batch)
-
         results.push({
           notification: combinedNotification,
           targetUsers: batch.targetUsers
         })
-
         // Mark as processed
         this.updateBatchStatus(batch.id, 'processed')
+        this.activeBatches.delete(batchId)
       }
-
-      return results
-    } catch (error) {
-      logger.error('Error getting ready batches', error)
-      return []
     }
+
+    return results
   }
 
   public forceBatchExecution(batchId: string): void {
@@ -691,7 +664,7 @@ export class NotificationBatchingEngine {
     }
   }
 
-  public getBatchStatus(batchId: string): {
+  public async getBatchStatus(batchId: string): Promise<{
     id: string;
     status: string;
     notificationCount: number;
@@ -699,7 +672,7 @@ export class NotificationBatchingEngine {
     scheduledAt: Date;
     createdAt: Date;
     updatedAt?: Date;
-  } | null {
+  } | null> {
     const activeBatch = this.activeBatches.get(batchId)
     if (activeBatch) {
       return {
@@ -724,9 +697,9 @@ export class NotificationBatchingEngine {
         updated_at?: string;
       }
 
-      const batch = this.db.prepare(`
+      const batch = await executeQueryOne<BatchStatusRow>(`
         SELECT * FROM notification_batches WHERE id = ?
-      `).get(batchId) as BatchStatusRow | undefined
+      `, [batchId])
 
       if (batch) {
         return {
@@ -746,7 +719,7 @@ export class NotificationBatchingEngine {
     return null
   }
 
-  public updateBatchConfig(batchKey: string, config: Partial<BatchConfig>): void {
+  public async updateBatchConfig(batchKey: string, config: Partial<BatchConfig>): Promise<void> {
     const existingConfig = this.batchConfigs.get(batchKey)
     if (existingConfig) {
       const updatedConfig = { ...existingConfig, ...config }
@@ -754,17 +727,23 @@ export class NotificationBatchingEngine {
 
       // Save to database
       try {
-        this.db.prepare(`
-          INSERT OR REPLACE INTO batch_configurations (
+        await executeRun(`
+          INSERT INTO batch_configurations (
             batch_key, max_batch_size, max_wait_time, group_by, is_active, updated_at
           ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `).run(
+          ON CONFLICT(batch_key) DO UPDATE SET
+            max_batch_size = excluded.max_batch_size,
+            max_wait_time = excluded.max_wait_time,
+            group_by = excluded.group_by,
+            is_active = excluded.is_active,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
           batchKey,
           updatedConfig.maxBatchSize,
           updatedConfig.maxWaitTime,
           updatedConfig.groupBy,
           1
-        )
+        ])
       } catch (error) {
         logger.error('Error saving batch configuration', error)
       }
@@ -775,21 +754,30 @@ export class NotificationBatchingEngine {
     return new Map(this.batchConfigs)
   }
 
-  public getBatchStatistics(): any {
+  public async getBatchStatistics(): Promise<any> {
     try {
-      const stats = this.db.prepare(`
+      const dbType = getDatabaseType()
+      const last7DaysExpr = dbType === 'sqlite'
+        ? `datetime('now', '-7 days')`
+        : `NOW() - INTERVAL '7 days'`
+
+      const jsonArrayLen = dbType === 'sqlite'
+        ? `json_array_length(notifications)`
+        : `jsonb_array_length(notifications::jsonb)`;
+
+      const stats = await executeQuery<any>(`
         SELECT
           batch_key,
           status,
           COUNT(*) as count,
-          AVG(json_array_length(notifications)) as avg_notifications_per_batch,
+          AVG(${jsonArrayLen}) as avg_notifications_per_batch,
           MIN(created_at) as oldest_batch,
           MAX(created_at) as newest_batch
         FROM notification_batches
-        WHERE created_at > datetime('now', '-7 days')
+        WHERE created_at > ${last7DaysExpr}
         GROUP BY batch_key, status
         ORDER BY batch_key, status
-      `).all()
+      `, [])
 
       const activeBatchStats = {
         activeBatches: this.activeBatches.size,
@@ -817,14 +805,19 @@ export class NotificationBatchingEngine {
     }
   }
 
-  private cleanupOldBatches() {
+  private async cleanupOldBatches(): Promise<void> {
     // Cleanup old database records
     try {
-      const deleted = this.db.prepare(`
+      const dbType = getDatabaseType()
+      const last30DaysExpr = dbType === 'sqlite'
+        ? `datetime('now', '-30 days')`
+        : `NOW() - INTERVAL '30 days'`
+
+      const deleted = await executeRun(`
         DELETE FROM notification_batches
         WHERE status IN ('processed', 'failed')
-        AND created_at < datetime('now', '-30 days')
-      `).run()
+        AND created_at < ${last30DaysExpr}
+      `, [])
 
       if (deleted.changes > 0) {
         logger.info(`Cleaned up ${deleted.changes} old notification batches`)

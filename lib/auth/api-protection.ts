@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes } from 'crypto';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 import { rbac as rbacEngine } from './rbac-engine';
 import logger from '../monitoring/structured-logger';
 
@@ -176,11 +176,11 @@ class APIProtectionManager {
       const apiKey = this.generateAPIKey();
       const keyHash = this.hashAPIKey(apiKey);
 
-      const result = db.prepare(`
+      const result = await executeRun(`
         INSERT INTO api_keys
         (id, name, key_hash, user_id, permissions, rate_limit, allowed_ips, expires_at, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         keyId,
         name,
         keyHash,
@@ -190,9 +190,9 @@ class APIProtectionManager {
         options.allowedIps ? JSON.stringify(options.allowedIps) : null,
         options.expiresAt || null,
         createdBy
-      );
+      ]);
 
-      if (result.changes > 0) {
+      if ((result.changes ?? 0) > 0) {
         return { id: keyId, key: apiKey };
       }
 
@@ -206,14 +206,12 @@ class APIProtectionManager {
   /**
    * Revoke API key
    */
-  revokeAPIKey(keyId: string): boolean {
+  async revokeAPIKey(keyId: string): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE api_keys SET is_active = 0 WHERE id = ?
-      `);
-
-      const result = stmt.run(keyId);
-      return result.changes > 0;
+      `, [keyId]);
+      return (result.changes ?? 0) > 0;
     } catch (error) {
       logger.error('Error revoking API key', error);
       return false;
@@ -223,13 +221,13 @@ class APIProtectionManager {
   /**
    * Get API keys for user
    */
-  getUserAPIKeys(userId: number): APIKey[] {
+  async getUserAPIKeys(userId: number): Promise<APIKey[]> {
     try {
-      const keys = db.prepare(`
+      const keys = await executeQuery<any>(`
         SELECT * FROM api_keys
         WHERE user_id = ?
         ORDER BY created_at DESC
-      `).all(userId) as any[];
+      `, [userId]);
 
       return keys.map(key => ({
         ...key,
@@ -255,20 +253,20 @@ class APIProtectionManager {
     try {
       const keyHash = this.hashAPIKey(apiKey);
 
-      const keyRecord = db.prepare(`
+      const keyRecord = await executeQueryOne<any>(`
         SELECT * FROM api_keys
         WHERE key_hash = ? AND is_active = 1
           AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-      `).get(keyHash) as any;
+      `, [keyHash]);
 
       if (!keyRecord) {
         return { valid: false };
       }
 
       // Update last used timestamp
-      db.prepare(`
+      await executeRun(`
         UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?
-      `).run(keyRecord.id);
+      `, [keyRecord.id]);
 
       return {
         valid: true,
@@ -411,16 +409,16 @@ class APIProtectionManager {
       const windowStart = new Date(now.getTime() - config.windowMs);
 
       // Clean up old rate limit records
-      db.prepare(`
+      await executeRun(`
         DELETE FROM rate_limits
         WHERE last_attempt_at < ?
-      `).run(windowStart.toISOString());
+      `, [windowStart.toISOString()]);
 
       // Get current rate limit record
-      const existing = db.prepare(`
+      const existing = await executeQueryOne<any>(`
         SELECT * FROM rate_limits
         WHERE identifier = ? AND identifier_type = ? AND endpoint = ?
-      `).get(identifier, config.identifier, endpoint) as any;
+      `, [identifier, config.identifier, endpoint]);
 
       if (existing) {
         const firstAttempt = new Date(existing.first_attempt_at);
@@ -428,11 +426,11 @@ class APIProtectionManager {
 
         if (isNewWindow) {
           // Reset the window
-          db.prepare(`
+          await executeRun(`
             UPDATE rate_limits
             SET attempts = 1, first_attempt_at = ?, last_attempt_at = ?, blocked_until = NULL
             WHERE id = ?
-          `).run(now.toISOString(), now.toISOString(), existing.id);
+          `, [now.toISOString(), now.toISOString(), existing.id]);
         } else {
           // Increment attempts
           const newAttempts = existing.attempts + 1;
@@ -441,11 +439,11 @@ class APIProtectionManager {
             // Block the request
             const blockUntil = new Date(firstAttempt.getTime() + config.windowMs);
 
-            db.prepare(`
+            await executeRun(`
               UPDATE rate_limits
               SET attempts = ?, last_attempt_at = ?, blocked_until = ?
               WHERE id = ?
-            `).run(newAttempts, now.toISOString(), blockUntil.toISOString(), existing.id);
+            `, [newAttempts, now.toISOString(), blockUntil.toISOString(), existing.id]);
 
             const resetTime = Math.ceil((blockUntil.getTime() - now.getTime()) / 1000);
 
@@ -460,11 +458,11 @@ class APIProtectionManager {
             };
           } else {
             // Update attempts
-            db.prepare(`
+            await executeRun(`
               UPDATE rate_limits
               SET attempts = ?, last_attempt_at = ?
               WHERE id = ?
-            `).run(newAttempts, now.toISOString(), existing.id);
+            `, [newAttempts, now.toISOString(), existing.id]);
 
             const remaining = config.maxRequests - newAttempts;
             const resetTime = Math.ceil((firstAttempt.getTime() + config.windowMs - now.getTime()) / 1000);
@@ -481,10 +479,10 @@ class APIProtectionManager {
         }
       } else {
         // Create new rate limit record
-        db.prepare(`
+        await executeRun(`
           INSERT INTO rate_limits (identifier, identifier_type, endpoint, attempts, first_attempt_at, last_attempt_at)
           VALUES (?, ?, ?, 1, ?, ?)
-        `).run(identifier, config.identifier, endpoint, now.toISOString(), now.toISOString());
+        `, [identifier, config.identifier, endpoint, now.toISOString(), now.toISOString()]);
       }
 
       const remaining = config.maxRequests - 1;
@@ -522,7 +520,7 @@ class APIProtectionManager {
       if (apiKey) {
         const keyResult = await this.validateAPIKey(apiKey);
         if (keyResult.valid) {
-          const user = db.prepare('SELECT * FROM users WHERE id = ?').get(keyResult.userId!) as any;
+          const user = await executeQueryOne<any>('SELECT * FROM users WHERE id = ?', [keyResult.userId!]);
           return {
             success: true,
             userId: keyResult.userId!,
@@ -693,11 +691,11 @@ class APIProtectionManager {
       const ip = this.getClientIP(request);
       const userAgent = request.headers.get('user-agent') || '';
 
-      db.prepare(`
+      await executeRun(`
         INSERT INTO api_access_logs
         (user_id, endpoint, method, ip_address, user_agent, timestamp)
         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `).run(userId || null, endpoint, method, ip, userAgent);
+      `, [userId || null, endpoint, method, ip, userAgent]);
     } catch (error) {
       logger.error('Error logging API access', error);
     }
@@ -708,11 +706,11 @@ class APIProtectionManager {
    */
   private async getUserDepartment(userId: number): Promise<string | undefined> {
     try {
-      const result = db.prepare(`
+      const result = await executeQueryOne<any>(`
         SELECT d.name FROM departments d
         JOIN user_departments ud ON d.id = ud.department_id
         WHERE ud.user_id = ? AND ud.is_primary = 1
-      `).get(userId) as any;
+      `, [userId]);
 
       return result?.name;
     } catch (error) {

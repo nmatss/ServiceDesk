@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
-import db from '../db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 import { aiCache } from './cache';
 import { cosineSimilarity } from './utils';
@@ -27,15 +28,17 @@ export class AIClassifier {
     reasoning: string;
   }> {
     // Buscar categorias e prioridades do tenant
-    const categories = db.prepare(`
-      SELECT id, name, description FROM categories
-      WHERE organization_id = ? AND is_active = 1
-    `).all(organizationId) as any[];
+    const categories = await executeQuery<any>(
+      `SELECT id, name, description FROM categories
+      WHERE organization_id = ? AND is_active = 1`,
+      [organizationId]
+    );
 
-    const priorities = db.prepare(`
-      SELECT id, name, level FROM priorities
-      WHERE organization_id = ?
-    `).all(organizationId) as any[];
+    const priorities = await executeQuery<any>(
+      `SELECT id, name, level FROM priorities
+      WHERE organization_id = ?`,
+      [organizationId]
+    );
 
     // Criar prompt
     const prompt = `
@@ -144,22 +147,23 @@ Retorne um JSON com:
     processingTime: number,
     organizationId: number
   ): Promise<void> {
-    db.prepare(`
-      INSERT INTO ai_classifications (
+    await executeRun(
+      `INSERT INTO ai_classifications (
         ticket_id, suggested_category_id, suggested_priority_id,
         confidence_score, reasoning, model_name, model_version,
         input_tokens, output_tokens, processing_time_ms,
         organization_id
-      ) VALUES (0, ?, ?, ?, ?, 'gpt-4o', '2024-08-06', ?, ?, ?, ?)
-    `).run(
-      categoryId,
-      priorityId,
-      confidence,
-      reasoning,
-      inputTokens,
-      outputTokens,
-      processingTime,
-      organizationId
+      ) VALUES (0, ?, ?, ?, ?, 'gpt-4o', '2024-08-06', ?, ?, ?, ?)`,
+      [
+        categoryId,
+        priorityId,
+        confidence,
+        reasoning,
+        inputTokens,
+        outputTokens,
+        processingTime,
+        organizationId
+      ]
     );
   }
 
@@ -210,17 +214,33 @@ Retorne um JSON com:
 
     if (embedding.length === 0) return;
 
-    db.prepare(`
-      INSERT OR REPLACE INTO vector_embeddings (
-        entity_type, entity_id, embedding_vector,
-        model_name, vector_dimension, organization_id
-      ) VALUES (?, ?, ?, 'text-embedding-3-small', 1536, ?)
-    `).run(
+    // Use ON CONFLICT DO UPDATE for cross-DB compatibility
+    const sql = getDatabaseType() === 'postgresql'
+      ? `INSERT INTO vector_embeddings (
+          entity_type, entity_id, embedding_vector,
+          model_name, vector_dimension, organization_id
+        ) VALUES (?, ?, ?, 'text-embedding-3-small', 1536, ?)
+        ON CONFLICT (entity_type, entity_id) DO UPDATE SET
+          embedding_vector = EXCLUDED.embedding_vector,
+          model_name = EXCLUDED.model_name,
+          vector_dimension = EXCLUDED.vector_dimension,
+          organization_id = EXCLUDED.organization_id`
+      : `INSERT INTO vector_embeddings (
+          entity_type, entity_id, embedding_vector,
+          model_name, vector_dimension, organization_id
+        ) VALUES (?, ?, ?, 'text-embedding-3-small', 1536, ?)
+        ON CONFLICT (entity_type, entity_id) DO UPDATE SET
+          embedding_vector = excluded.embedding_vector,
+          model_name = excluded.model_name,
+          vector_dimension = excluded.vector_dimension,
+          organization_id = excluded.organization_id`;
+
+    await executeRun(sql, [
       entityType,
       entityId,
       JSON.stringify(embedding),
       organizationId
-    );
+    ]);
   }
 
   /**
@@ -237,10 +257,11 @@ Retorne um JSON com:
     if (queryEmbedding.length === 0) return [];
 
     // Buscar todos embeddings do tipo
-    const embeddings = db.prepare(`
-      SELECT * FROM vector_embeddings
-      WHERE entity_type = ? AND organization_id = ?
-    `).all(entityType, organizationId) as any[];
+    const embeddings = await executeQuery<any>(
+      `SELECT * FROM vector_embeddings
+      WHERE entity_type = ? AND organization_id = ?`,
+      [entityType, organizationId]
+    );
 
     // Calcular similaridade
     const similarities = embeddings.map(emb => {
@@ -269,18 +290,19 @@ Retorne um JSON com:
     correctedCategoryId?: number,
     feedbackBy?: number
   ): Promise<void> {
-    db.prepare(`
-      UPDATE ai_classifications
+    await executeRun(
+      `UPDATE ai_classifications
       SET was_accepted = ?,
           corrected_category_id = ?,
           feedback_by = ?,
           feedback_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      wasCorrect ? 1 : 0,
-      correctedCategoryId || null,
-      feedbackBy || null,
-      classificationId
+      WHERE id = ?`,
+      [
+        wasCorrect ? 1 : 0,
+        correctedCategoryId || null,
+        feedbackBy || null,
+        classificationId
+      ]
     );
   }
 }

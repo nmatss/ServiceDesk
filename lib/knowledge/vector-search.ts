@@ -1,6 +1,7 @@
 // Vector embeddings para similarity search
 import openAIClient from '../ai/openai-client';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import type { VectorEmbedding } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -70,25 +71,25 @@ export class VectorSearchEngine {
       const embedding = await this.generateEmbedding(text);
 
       // Remove embedding existente se houver
-      db.prepare(`
+      await executeRun(`
         DELETE FROM vector_embeddings
         WHERE entity_type = ? AND entity_id = ? AND model_name = ?
-      `).run(entityType, entityId, this.config.model);
+      `, [entityType, entityId, this.config.model]);
 
       // Insere novo embedding
-      db.prepare(`
+      await executeRun(`
         INSERT INTO vector_embeddings (
           entity_type, entity_id, embedding_vector, model_name,
           model_version, vector_dimension
         ) VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         entityType,
         entityId,
         JSON.stringify(embedding),
         this.config.model,
         '1.0',
         this.config.dimension
-      );
+      ]);
 
       logger.info(`Embedding salvo para ${entityType}:${entityId}`);
     } catch (error) {
@@ -142,24 +143,27 @@ export class VectorSearchEngine {
       const queryEmbedding = await this.generateEmbedding(query);
 
       // Busca todos os embeddings do banco
+      const isPg = getDatabaseType() === 'postgresql';
+      const jsonObj = isPg ? 'json_build_object' : 'json_object';
+
       let sql = `
         SELECT ve.*,
                CASE
                  WHEN ve.entity_type = 'kb_article' THEN
-                   (SELECT json_object(
+                   (SELECT ${jsonObj}(
                      'title', title,
                      'content', content,
                      'summary', summary,
                      'category', (SELECT name FROM kb_categories WHERE id = category_id)
                    ) FROM kb_articles WHERE id = ve.entity_id)
                  WHEN ve.entity_type = 'ticket' THEN
-                   (SELECT json_object(
+                   (SELECT ${jsonObj}(
                      'title', title,
                      'description', description,
                      'category', (SELECT name FROM categories WHERE id = category_id)
                    ) FROM tickets WHERE id = ve.entity_id)
                  WHEN ve.entity_type = 'comment' THEN
-                   (SELECT json_object(
+                   (SELECT ${jsonObj}(
                      'content', content,
                      'ticket_title', (SELECT title FROM tickets WHERE id = ticket_id)
                    ) FROM comments WHERE id = ve.entity_id)
@@ -175,7 +179,7 @@ export class VectorSearchEngine {
         params.push(...entityTypes);
       }
 
-      const embeddings = db.prepare(sql).all(...params) as Array<VectorEmbedding & { content_data?: string }>;
+      const embeddings = await executeQuery<VectorEmbedding & { content_data?: string }>(sql, params);
 
       // Calcula similaridade para cada embedding
       const similarities: SimilarityMatch[] = [];
@@ -239,12 +243,7 @@ export class VectorSearchEngine {
    */
   async indexKnowledgeArticle(articleId: number): Promise<void> {
     try {
-      const article = db.prepare(`
-        SELECT ka.*, kc.name as category_name
-        FROM kb_articles ka
-        LEFT JOIN kb_categories kc ON ka.category_id = kc.id
-        WHERE ka.id = ?
-      `).get(articleId) as {
+      const article = await executeQueryOne<{
         id: number;
         title: string;
         summary?: string;
@@ -252,7 +251,12 @@ export class VectorSearchEngine {
         search_keywords?: string;
         category_name?: string;
         tags?: string;
-      } | undefined;
+      }>(`
+        SELECT ka.*, kc.name as category_name
+        FROM kb_articles ka
+        LEFT JOIN kb_categories kc ON ka.category_id = kc.id
+        WHERE ka.id = ?
+      `, [articleId]);
 
       if (!article) {
         throw new Error(`Artigo ${articleId} não encontrado`);
@@ -284,23 +288,28 @@ export class VectorSearchEngine {
    */
   async indexTicket(ticketId: number): Promise<void> {
     try {
-      const ticket = db.prepare(`
-        SELECT t.*, c.name as category_name, p.name as priority_name,
-               GROUP_CONCAT(com.content, ' ') as comments_content
-        FROM tickets t
-        LEFT JOIN categories c ON t.category_id = c.id
-        LEFT JOIN priorities p ON t.priority_id = p.id
-        LEFT JOIN comments com ON t.id = com.ticket_id
-        WHERE t.id = ? AND t.resolved_at IS NOT NULL
-        GROUP BY t.id
-      `).get(ticketId) as {
+      const isPg = getDatabaseType() === 'postgresql';
+      const concatExpr = isPg
+        ? `STRING_AGG(com.content, ' ')`
+        : `GROUP_CONCAT(com.content, ' ')`;
+
+      const ticket = await executeQueryOne<{
         id: number;
         title: string;
         description: string;
         category_name?: string;
         priority_name?: string;
         comments_content?: string;
-      } | undefined;
+      }>(`
+        SELECT t.*, c.name as category_name, p.name as priority_name,
+               ${concatExpr} as comments_content
+        FROM tickets t
+        LEFT JOIN categories c ON t.category_id = c.id
+        LEFT JOIN priorities p ON t.priority_id = p.id
+        LEFT JOIN comments com ON t.id = com.ticket_id
+        WHERE t.id = ? AND t.resolved_at IS NOT NULL
+        GROUP BY t.id
+      `, [ticketId]);
 
       if (!ticket) {
         return; // Só indexa tickets resolvidos
@@ -335,10 +344,10 @@ export class VectorSearchEngine {
   ): Promise<SimilarityMatch[]> {
     try {
       // Busca o embedding do artigo atual
-      const currentEmbedding = db.prepare(`
+      const currentEmbedding = await executeQueryOne<{ embedding_vector: string }>(`
         SELECT embedding_vector FROM vector_embeddings
         WHERE entity_type = 'kb_article' AND entity_id = ? AND model_name = ?
-      `).get(articleId, this.config.model) as { embedding_vector: string } | undefined;
+      `, [articleId, this.config.model]);
 
       if (!currentEmbedding) {
         return [];
@@ -347,7 +356,11 @@ export class VectorSearchEngine {
       const currentVector = JSON.parse(currentEmbedding.embedding_vector) as number[];
 
       // Busca outros embeddings de artigos
-      const otherEmbeddings = db.prepare(`
+      const otherEmbeddings = await executeQuery<VectorEmbedding & {
+        title: string;
+        summary?: string;
+        category_name?: string;
+      }>(`
         SELECT ve.*, ka.title, ka.summary, kc.name as category_name
         FROM vector_embeddings ve
         JOIN kb_articles ka ON ve.entity_id = ka.id
@@ -356,11 +369,7 @@ export class VectorSearchEngine {
           AND ve.entity_id != ?
           AND ve.model_name = ?
           AND ka.is_published = 1
-      `).all(articleId, this.config.model) as Array<VectorEmbedding & {
-        title: string;
-        summary?: string;
-        category_name?: string;
-      }>;
+      `, [articleId, this.config.model]);
 
       // Calcula similaridade
       const similarities: SimilarityMatch[] = [];
@@ -403,9 +412,9 @@ export class VectorSearchEngine {
     try {
       logger.info('Iniciando reindexação de artigos...');
 
-      const articles = db.prepare(`
+      const articles = await executeQuery<{ id: number }>(`
         SELECT id FROM kb_articles WHERE status = 'published'
-      `).all() as Array<{ id: number }>;
+      `, []);
 
       for (const article of articles) {
         await this.indexKnowledgeArticle(article.id);
@@ -426,18 +435,18 @@ export class VectorSearchEngine {
   async cleanupEmbeddings(): Promise<void> {
     try {
       // Remove embeddings de artigos deletados
-      db.prepare(`
+      await executeRun(`
         DELETE FROM vector_embeddings
         WHERE entity_type = 'kb_article'
           AND entity_id NOT IN (SELECT id FROM kb_articles)
-      `).run();
+      `, []);
 
       // Remove embeddings de tickets deletados
-      db.prepare(`
+      await executeRun(`
         DELETE FROM vector_embeddings
         WHERE entity_type = 'ticket'
           AND entity_id NOT IN (SELECT id FROM tickets)
-      `).run();
+      `, []);
 
       logger.info('Limpeza de embeddings concluída');
     } catch (error) {
@@ -456,7 +465,11 @@ export class VectorSearchEngine {
     avg_vector_dimension: number;
   }> {
     try {
-      const stats = db.prepare(`
+      const stats = await executeQuery<{
+        entity_type: string;
+        count: number;
+        avg_dimension: number | null;
+      }>(`
         SELECT
           entity_type,
           COUNT(*) as count,
@@ -464,15 +477,11 @@ export class VectorSearchEngine {
         FROM vector_embeddings
         WHERE model_name = ?
         GROUP BY entity_type
-      `).all(this.config.model) as Array<{
-        entity_type: string;
-        count: number;
-        avg_dimension: number | null;
-      }>;
+      `, [this.config.model]);
 
-      const total = db.prepare(`
+      const total = await executeQueryOne<{ total: number }>(`
         SELECT COUNT(*) as total FROM vector_embeddings WHERE model_name = ?
-      `).get(this.config.model) as { total: number } | undefined;
+      `, [this.config.model]);
 
       const byEntityType: Record<string, number> = {};
       let avgDimension = 0;

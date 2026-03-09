@@ -35,12 +35,13 @@ async function saveSearchHistory(
   query: string,
   filters: Record<string, unknown>,
   resultCount: number,
-  mode: string
+  mode: string,
+  organizationId?: number
 ) {
   await executeRun(
-    `INSERT INTO search_history (user_id, query, results_count, search_mode)
-     VALUES (?, ?, ?, ?)`,
-    [userId, query, resultCount, mode]
+    `INSERT INTO search_history (user_id, query, results_count, search_mode, organization_id)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, query, resultCount, mode, organizationId || null]
   );
 }
 
@@ -69,10 +70,10 @@ export async function GET(request: NextRequest) {
       }>(
         `SELECT query, results_count, search_mode, created_at
          FROM search_history
-         WHERE user_id = ?
+         WHERE user_id = ? AND (organization_id = ? OR organization_id IS NULL)
          ORDER BY created_at DESC
          LIMIT ?`,
-        [auth.userId, limit]
+        [auth.userId, auth.organizationId, limit]
       );
 
       return NextResponse.json({ success: true, history });
@@ -87,11 +88,11 @@ export async function GET(request: NextRequest) {
       const suggestions = await executeQuery<{ query: string }>(
         `SELECT query
          FROM search_history
-         WHERE user_id = ? AND LOWER(query) LIKE LOWER(?) ESCAPE '\\'
+         WHERE user_id = ? AND (organization_id = ? OR organization_id IS NULL) AND LOWER(query) LIKE LOWER(?) ESCAPE '\\'
          GROUP BY query
          ORDER BY MAX(created_at) DESC
          LIMIT ?`,
-        [auth.userId, `%${escapedQuery}%`, limit]
+        [auth.userId, auth.organizationId, `%${escapedQuery}%`, limit]
       );
 
       return NextResponse.json({
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
     const paginatedResults = searchResult.results.slice(offset, offset + limit);
 
     if (query) {
-      await saveSearchHistory(auth.userId, query, filters as Record<string, unknown>, paginatedResults.length, mode);
+      await saveSearchHistory(auth.userId, query, filters as Record<string, unknown>, paginatedResults.length, mode, auth.organizationId);
     }
 
     if (action === 'global') {
@@ -266,7 +267,8 @@ export async function POST(request: NextRequest) {
         query.trim(),
         effectiveFilters as Record<string, unknown>,
         searchResult.total,
-        mode
+        mode,
+        auth.organizationId
       );
     }
 

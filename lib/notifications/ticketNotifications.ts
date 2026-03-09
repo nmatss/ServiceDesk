@@ -1,5 +1,5 @@
 import { getSocketServer } from '@/lib/socket/server'
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter'
 import logger from '../monitoring/structured-logger';
 
 interface TicketData {
@@ -52,7 +52,6 @@ interface UserInfoResult {
 }
 
 export class TicketNotificationManager {
-  private db = getDb()
 
   // Notificar quando um ticket é criado
   async notifyTicketCreated(ticketData: TicketData): Promise<void> {
@@ -61,7 +60,7 @@ export class TicketNotificationManager {
 
     try {
       // Buscar informações adicionais
-      const ticketInfo = this.getTicketInfo(ticketData.id)
+      const ticketInfo = await this.getTicketInfo(ticketData.id)
 
       // Notificar todos os agentes e admins sobre novo ticket
       const notification = {
@@ -78,7 +77,7 @@ export class TicketNotificationManager {
       // Enviar para agentes e admins
       socketServer.getIO().to('agents').emit('notification', notification)
 
-      logger.info(`📢 Notified agents about new ticket #${ticketData.id}`)
+      logger.info(`Notified agents about new ticket #${ticketData.id}`)
 
     } catch (error) {
       logger.error('Error notifying ticket creation', error)
@@ -91,8 +90,8 @@ export class TicketNotificationManager {
     if (!socketServer) return
 
     try {
-      const ticketInfo = this.getTicketInfo(ticketId)
-      const assignedBy = this.getUserInfo(assignedByUserId)
+      const ticketInfo = await this.getTicketInfo(ticketId)
+      const assignedBy = await this.getUserInfo(assignedByUserId)
 
       const notification = {
         type: 'ticket_assigned',
@@ -110,7 +109,7 @@ export class TicketNotificationManager {
       // Enviar notificação específica para o usuário atribuído
       socketServer.getIO().to(`user_${assignedToUserId}`).emit('notification', notification)
 
-      logger.info(`📢 Notified user ${assignedToUserId} about ticket assignment #${ticketId}`)
+      logger.info(`Notified user ${assignedToUserId} about ticket assignment #${ticketId}`)
 
     } catch (error) {
       logger.error('Error notifying ticket assignment', error)
@@ -123,8 +122,8 @@ export class TicketNotificationManager {
     if (!socketServer) return
 
     try {
-      const ticketInfo = this.getTicketInfo(ticketId)
-      const updatedBy = this.getUserInfo(updatedByUserId)
+      const ticketInfo = await this.getTicketInfo(ticketId)
+      const updatedBy = await this.getUserInfo(updatedByUserId)
 
       // Determinar quais usuários devem ser notificados
       const usersToNotify = await this.getTicketStakeholders(ticketId)
@@ -135,7 +134,7 @@ export class TicketNotificationManager {
       let priority: 'low' | 'medium' | 'high' = 'medium'
 
       if ('status_id' in changes && typeof changes.status_id === 'number') {
-        const statusInfo = this.getStatusInfo(changes.status_id)
+        const statusInfo = await this.getStatusInfo(changes.status_id)
         title = 'Status do ticket alterado'
         message = `Ticket #${ticketId} mudou para: ${statusInfo?.name}`
 
@@ -145,7 +144,7 @@ export class TicketNotificationManager {
           priority = 'high'
         }
       } else if ('priority_id' in changes && typeof changes.priority_id === 'number') {
-        const priorityInfo = this.getPriorityInfo(changes.priority_id)
+        const priorityInfo = await this.getPriorityInfo(changes.priority_id)
         title = 'Prioridade alterada'
         message = `Ticket #${ticketId} teve sua prioridade alterada para: ${priorityInfo?.name}`
 
@@ -153,7 +152,7 @@ export class TicketNotificationManager {
           priority = 'high'
         }
       } else if ('assigned_to' in changes && typeof changes.assigned_to === 'number') {
-        const assignee = this.getUserInfo(changes.assigned_to)
+        const assignee = await this.getUserInfo(changes.assigned_to)
         title = 'Ticket reatribuído'
         message = `Ticket #${ticketId} foi atribuído para: ${assignee?.name}`
       }
@@ -182,7 +181,7 @@ export class TicketNotificationManager {
       // Notificar também a sala do ticket
       socketServer.getIO().to(`ticket_${ticketId}`).except(`user_${updatedByUserId}`).emit('notification', notification)
 
-      logger.info(`📢 Notified stakeholders about ticket update #${ticketId}`)
+      logger.info(`Notified stakeholders about ticket update #${ticketId}`)
 
     } catch (error) {
       logger.error('Error notifying ticket update', error)
@@ -195,8 +194,8 @@ export class TicketNotificationManager {
     if (!socketServer) return
 
     try {
-      const ticketInfo = this.getTicketInfo(commentData.ticket_id)
-      const author = this.getUserInfo(commentData.user_id)
+      const ticketInfo = await this.getTicketInfo(commentData.ticket_id)
+      const author = await this.getUserInfo(commentData.user_id)
       const usersToNotify = await this.getTicketStakeholders(commentData.ticket_id)
 
       const notification = {
@@ -229,7 +228,7 @@ export class TicketNotificationManager {
       // Notificar também a sala do ticket
       socketServer.getIO().to(`ticket_${commentData.ticket_id}`).except(`user_${commentData.user_id}`).emit('notification', notification)
 
-      logger.info(`📢 Notified about new comment on ticket #${commentData.ticket_id}`)
+      logger.info(`Notified about new comment on ticket #${commentData.ticket_id}`)
 
     } catch (error) {
       logger.error('Error notifying comment added', error)
@@ -242,14 +241,14 @@ export class TicketNotificationManager {
     if (!socketServer) return
 
     try {
-      const ticketInfo = this.getTicketInfo(ticketId)
+      const ticketInfo = await this.getTicketInfo(ticketId)
 
       const typeLabel = slaType === 'response' ? 'resposta' : 'resolução'
       const urgencyLabel = minutesLeft <= 15 ? 'CRÍTICO' : minutesLeft <= 60 ? 'URGENTE' : 'ATENÇÃO'
 
       const notification = {
         type: 'sla_warning',
-        title: `⚠️ ${urgencyLabel}: SLA próximo do vencimento`,
+        title: `${urgencyLabel}: SLA próximo do vencimento`,
         message: `Ticket #${ticketId} vence o SLA de ${typeLabel} em ${minutesLeft} minutos`,
         data: {
           ticketId,
@@ -268,12 +267,12 @@ export class TicketNotificationManager {
       if (minutesLeft <= 15 && ticketInfo?.assigned_to) {
         socketServer.getIO().to(`user_${ticketInfo.assigned_to}`).emit('notification', {
           ...notification,
-          title: `🚨 CRÍTICO: SLA vencendo em ${minutesLeft} minutos`,
+          title: `CRÍTICO: SLA vencendo em ${minutesLeft} minutos`,
           priority: 'high'
         })
       }
 
-      logger.info(`⚠️ Sent SLA warning for ticket #${ticketId} (${minutesLeft} minutes left)`)
+      logger.info(`Sent SLA warning for ticket #${ticketId} (${minutesLeft} minutes left)`)
 
     } catch (error) {
       logger.error('Error sending SLA warning', error)
@@ -281,9 +280,9 @@ export class TicketNotificationManager {
   }
 
   // Métodos auxiliares
-  private getTicketInfo(ticketId: number): TicketInfoResult | null {
+  private async getTicketInfo(ticketId: number): Promise<TicketInfoResult | null> {
     try {
-      const result = this.db.prepare(`
+      const result = await executeQueryOne<TicketInfoResult>(`
         SELECT
           t.*,
           c.name as category_name,
@@ -300,7 +299,7 @@ export class TicketNotificationManager {
         LEFT JOIN users u ON t.user_id = u.id
         LEFT JOIN users a ON t.assigned_to = a.id
         WHERE t.id = ?
-      `).get(ticketId) as TicketInfoResult | undefined
+      `, [ticketId])
       return result || null
     } catch (error) {
       logger.error('Error getting ticket info', error)
@@ -308,9 +307,9 @@ export class TicketNotificationManager {
     }
   }
 
-  private getUserInfo(userId: number): UserInfoResult | null {
+  private async getUserInfo(userId: number): Promise<UserInfoResult | null> {
     try {
-      const result = this.db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId) as UserInfoResult | undefined
+      const result = await executeQueryOne<UserInfoResult>('SELECT id, name, email, role FROM users WHERE id = ?', [userId])
       return result || null
     } catch (error) {
       logger.error('Error getting user info', error)
@@ -318,9 +317,9 @@ export class TicketNotificationManager {
     }
   }
 
-  private getStatusInfo(statusId: number): { id: number; name: string; is_final: boolean } | null {
+  private async getStatusInfo(statusId: number): Promise<{ id: number; name: string; is_final: boolean } | null> {
     try {
-      const result = this.db.prepare('SELECT id, name, is_final FROM statuses WHERE id = ?').get(statusId) as { id: number; name: string; is_final: boolean } | undefined
+      const result = await executeQueryOne<{ id: number; name: string; is_final: boolean }>('SELECT id, name, is_final FROM statuses WHERE id = ?', [statusId])
       return result || null
     } catch (error) {
       logger.error('Error getting status info', error)
@@ -328,9 +327,9 @@ export class TicketNotificationManager {
     }
   }
 
-  private getPriorityInfo(priorityId: number): { id: number; name: string; level: number } | null {
+  private async getPriorityInfo(priorityId: number): Promise<{ id: number; name: string; level: number } | null> {
     try {
-      const result = this.db.prepare('SELECT id, name, level FROM priorities WHERE id = ?').get(priorityId) as { id: number; name: string; level: number } | undefined
+      const result = await executeQueryOne<{ id: number; name: string; level: number }>('SELECT id, name, level FROM priorities WHERE id = ?', [priorityId])
       return result || null
     } catch (error) {
       logger.error('Error getting priority info', error)
@@ -341,7 +340,7 @@ export class TicketNotificationManager {
   private async getTicketStakeholders(ticketId: number): Promise<number[]> {
     try {
       // Buscar todos os usuários relacionados ao ticket
-      const stakeholders = this.db.prepare(`
+      const stakeholders = await executeQuery<{ id: number | null }>(`
         SELECT DISTINCT user_id as id FROM (
           -- Criador do ticket
           SELECT user_id FROM tickets WHERE id = ?
@@ -352,7 +351,7 @@ export class TicketNotificationManager {
           -- Usuários que comentaram
           SELECT user_id FROM comments WHERE ticket_id = ?
         )
-      `).all(ticketId, ticketId, ticketId) as Array<{ id: number | null }>
+      `, [ticketId, ticketId, ticketId])
 
       return stakeholders.map((s) => s.id).filter((id): id is number => id !== null)
     } catch (error) {

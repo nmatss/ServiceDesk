@@ -157,6 +157,7 @@ export function getDatabaseType(): DatabaseType {
       return 'postgresql';
     }
 
+    // eslint-disable-next-line no-console -- config module loads before logger is available
     console.warn('WARNING: DB_TYPE is set to postgresql but no PostgreSQL connection info was found. Falling back to SQLite.');
     return 'sqlite';
   }

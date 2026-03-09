@@ -15,7 +15,7 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
@@ -26,7 +26,8 @@ export async function GET(
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
 
-    const executionId = parseInt(params.id);
+    const { id } = await params;
+    const executionId = parseInt(id);
     if (isNaN(executionId)) {
       return NextResponse.json({ error: 'Invalid execution ID' }, { status: 400 });
     }
@@ -95,7 +96,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.WORKFLOW_MUTATION);
@@ -106,7 +107,8 @@ export async function PUT(
     const guardPut = requireTenantUserContext(request);
     if (guardPut.response) return guardPut.response;
 
-    const executionId = parseInt(params.id);
+    const { id } = await params;
+    const executionId = parseInt(id);
     if (isNaN(executionId)) {
       return NextResponse.json({ error: 'Invalid execution ID' }, { status: 400 });
     }

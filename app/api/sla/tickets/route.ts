@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlNow, sqlColSubMinutes, sqlDateDiff } from '@/lib/db/adapter';
 import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger'
 
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') // 'at_risk', 'breached', 'on_time'
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20), 100)
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
 
     // Build query for tickets with SLA information
     let whereClause = 'WHERE (t.tenant_id = ? OR t.tenant_id IS NULL)'
@@ -39,18 +39,18 @@ export async function GET(request: NextRequest) {
       whereClause += `
         AND (
           (t.response_due_at IS NOT NULL AND t.first_response_at IS NULL
-           AND datetime('now') > datetime(t.response_due_at, '-30 minutes'))
+           AND ${sqlNow()} > ${sqlColSubMinutes('t.response_due_at', 30)})
           OR
           (t.resolution_due_at IS NOT NULL AND st.is_final = 0
-           AND datetime('now') > datetime(t.resolution_due_at, '-60 minutes'))
+           AND ${sqlNow()} > ${sqlColSubMinutes('t.resolution_due_at', 60)})
         )
         AND t.response_breached = 0 AND t.resolution_breached = 0
       `
     } else if (status === 'on_time') {
       whereClause += `
         AND (
-          (t.response_due_at IS NULL OR t.first_response_at IS NOT NULL OR datetime('now') <= t.response_due_at)
-          AND (t.resolution_due_at IS NULL OR st.is_final = 1 OR datetime('now') <= t.resolution_due_at)
+          (t.response_due_at IS NULL OR t.first_response_at IS NOT NULL OR ${sqlNow()} <= t.response_due_at)
+          AND (t.resolution_due_at IS NULL OR st.is_final = 1 OR ${sqlNow()} <= t.resolution_due_at)
         )
         AND t.response_breached = 0 AND t.resolution_breached = 0
       `
@@ -79,17 +79,17 @@ export async function GET(request: NextRequest) {
         CASE
           WHEN t.response_breached = 1 OR t.resolution_breached = 1 THEN 'breached'
           WHEN (t.response_due_at IS NOT NULL AND t.first_response_at IS NULL
-                AND datetime('now') > datetime(t.response_due_at, '-30 minutes'))
+                AND ${sqlNow()} > ${sqlColSubMinutes('t.response_due_at', 30)})
                OR (t.resolution_due_at IS NOT NULL AND st.is_final = 0
-                   AND datetime('now') > datetime(t.resolution_due_at, '-60 minutes'))
+                   AND ${sqlNow()} > ${sqlColSubMinutes('t.resolution_due_at', 60)})
           THEN 'at_risk'
           ELSE 'on_time'
         END as sla_status,
         CASE
           WHEN t.response_due_at IS NOT NULL AND t.first_response_at IS NULL THEN
-            ROUND((julianday(t.response_due_at) - julianday('now')) * 24 * 60)
+            ROUND(${sqlDateDiff('t.response_due_at', sqlNow())} * 24 * 60)
           WHEN t.resolution_due_at IS NOT NULL AND st.is_final = 0 THEN
-            ROUND((julianday(t.resolution_due_at) - julianday('now')) * 24 * 60)
+            ROUND(${sqlDateDiff('t.resolution_due_at', sqlNow())} * 24 * 60)
           ELSE NULL
         END as minutes_remaining
       FROM tickets t
@@ -106,9 +106,9 @@ export async function GET(request: NextRequest) {
         CASE
           WHEN t.response_breached = 1 OR t.resolution_breached = 1 THEN 1
           WHEN (t.response_due_at IS NOT NULL AND t.first_response_at IS NULL
-                AND datetime('now') > datetime(t.response_due_at, '-30 minutes'))
+                AND ${sqlNow()} > ${sqlColSubMinutes('t.response_due_at', 30)})
                OR (t.resolution_due_at IS NOT NULL AND st.is_final = 0
-                   AND datetime('now') > datetime(t.resolution_due_at, '-60 minutes'))
+                   AND ${sqlNow()} > ${sqlColSubMinutes('t.resolution_due_at', 60)})
           THEN 2
           ELSE 3
         END,
@@ -123,24 +123,24 @@ export async function GET(request: NextRequest) {
         SUM(CASE WHEN t.response_breached = 1 OR t.resolution_breached = 1 THEN 1 ELSE 0 END) as breached_tickets,
         SUM(CASE
           WHEN (t.response_due_at IS NOT NULL AND t.first_response_at IS NULL
-                AND datetime('now') > datetime(t.response_due_at, '-30 minutes'))
+                AND ${sqlNow()} > ${sqlColSubMinutes('t.response_due_at', 30)})
                OR (t.resolution_due_at IS NOT NULL AND st.is_final = 0
-                   AND datetime('now') > datetime(t.resolution_due_at, '-60 minutes'))
+                   AND ${sqlNow()} > ${sqlColSubMinutes('t.resolution_due_at', 60)})
                AND t.response_breached = 0 AND t.resolution_breached = 0
           THEN 1 ELSE 0 END) as at_risk_tickets,
         SUM(CASE
-          WHEN (t.response_due_at IS NULL OR t.first_response_at IS NOT NULL OR datetime('now') <= t.response_due_at)
-               AND (t.resolution_due_at IS NULL OR st.is_final = 1 OR datetime('now') <= t.resolution_due_at)
+          WHEN (t.response_due_at IS NULL OR t.first_response_at IS NOT NULL OR ${sqlNow()} <= t.response_due_at)
+               AND (t.resolution_due_at IS NULL OR st.is_final = 1 OR ${sqlNow()} <= t.resolution_due_at)
                AND t.response_breached = 0 AND t.resolution_breached = 0
           THEN 1 ELSE 0 END) as on_time_tickets,
         AVG(CASE
           WHEN t.first_response_at IS NOT NULL THEN
-            ROUND((julianday(t.first_response_at) - julianday(t.created_at)) * 24 * 60)
+            ROUND(${sqlDateDiff('t.first_response_at', 't.created_at')} * 24 * 60)
           ELSE NULL
         END) as avg_response_time_minutes,
         AVG(CASE
           WHEN st.is_final = 1 THEN
-            ROUND((julianday(t.updated_at) - julianday(t.created_at)) * 24 * 60)
+            ROUND(${sqlDateDiff('t.updated_at', 't.created_at')} * 24 * 60)
           ELSE NULL
         END) as avg_resolution_time_minutes
       FROM tickets t

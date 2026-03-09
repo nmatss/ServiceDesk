@@ -12,6 +12,7 @@ import type {
   KnownError,
   KnownErrorWithRelations,
   ProblemActivity,
+  ProblemActivityType,
   ProblemActivityWithUser,
   RootCauseCategory,
   ProblemAttachment,
@@ -127,7 +128,7 @@ export async function createProblem(
 
   // Add creation activity
   await addProblemActivity(organizationId, result.lastInsertRowid!, createdBy, {
-    activity_type: 'note',
+    type: 'note',
     description: `Problem ${problemNumber} created`,
   });
 
@@ -518,7 +519,7 @@ export async function updateProblem(
     }
 
     await addProblemActivity(organizationId, problemId, userId, {
-      activity_type: activityType as any,
+      type: activityType as ProblemActivityType,
       description,
       old_value: String(change.oldValue || ''),
       new_value: String(change.newValue || ''),
@@ -571,7 +572,7 @@ export async function linkIncidentToProblem(
 
   // Add activity
   await addProblemActivity(organizationId, problemId, userId, {
-    activity_type: 'link',
+    type: 'link',
     description: `Incident #${input.ticket_id} linked to this problem`,
   });
 
@@ -593,8 +594,9 @@ export async function unlinkIncidentFromProblem(
 ): Promise<boolean> {
   const result = await executeRun(
     `DELETE FROM problem_incident_links
-     WHERE problem_id = ? AND ticket_id = ?`,
-    [problemId, ticketId]
+     WHERE problem_id = ? AND ticket_id = ?
+     AND problem_id IN (SELECT id FROM problems WHERE organization_id = ?)`,
+    [problemId, ticketId, organizationId]
   );
   return result.changes > 0;
 }
@@ -613,13 +615,14 @@ export async function getProblemIncidents(
        t.created_at as ticket__created_at,
        u.id as linked_by_user__id, u.name as linked_by_user__name
      FROM problem_incident_links pil
+     INNER JOIN problems p ON pil.problem_id = p.id
      LEFT JOIN tickets t ON pil.ticket_id = t.id
      LEFT JOIN statuses s ON t.status_id = s.id
      LEFT JOIN priorities pr ON t.priority_id = pr.id
      LEFT JOIN users u ON pil.linked_by = u.id
-     WHERE pil.problem_id = ?
-     ORDER BY pil.linked_at DESC`,
-    [problemId]
+     WHERE pil.problem_id = ? AND p.organization_id = ?
+     ORDER BY pil.created_at DESC`,
+    [problemId, organizationId]
   );
 
   return rows.map((row: any) => {
@@ -655,17 +658,42 @@ export async function getIncidentProblems(
   organizationId: number,
   ticketId: number
 ): Promise<ProblemWithRelations[]> {
-  const links = await executeQuery<{ problem_id: number }>(
-    `SELECT problem_id FROM problem_incident_links
-     WHERE ticket_id = ?`,
-    [ticketId]
+  const rows = await executeQuery<any>(
+    `SELECT p.*,
+       pr.id as priority__id, pr.name as priority__name, pr.color as priority__color, pr.level as priority__level,
+       cat.id as category__id, cat.name as category__name, cat.color as category__color,
+       assignee.id as assignee__id, assignee.name as assignee__name, assignee.email as assignee__email, assignee.avatar_url as assignee__avatar_url,
+       team.id as assigned_group__id, team.name as assigned_group__name,
+       creator.id as creator__id, creator.name as creator__name, creator.email as creator__email
+     FROM problems p
+     INNER JOIN problem_incident_links pil ON p.id = pil.problem_id
+     LEFT JOIN priorities pr ON p.priority_id = pr.id
+     LEFT JOIN categories cat ON p.category_id = cat.id
+     LEFT JOIN users assignee ON p.assigned_to = assignee.id
+     LEFT JOIN teams team ON p.assigned_team_id = team.id
+     LEFT JOIN users creator ON p.created_by = creator.id
+     WHERE pil.ticket_id = ? AND p.organization_id = ?
+     ORDER BY p.created_at DESC`,
+    [ticketId, organizationId]
   );
 
-  const problems = await Promise.all(
-    links.map((link) => getProblemById(organizationId, link.problem_id))
-  );
+  return rows.map((row: any) => {
+    const { priority__id, priority__name, priority__color, priority__level,
+            category__id, category__name, category__color,
+            assignee__id, assignee__name, assignee__email, assignee__avatar_url,
+            assigned_group__id, assigned_group__name,
+            creator__id, creator__name, creator__email,
+            ...problemFields } = row;
 
-  return problems.filter((p): p is ProblemWithRelations => p !== null);
+    return {
+      ...problemFields,
+      category: category__id ? { id: category__id, name: category__name, color: category__color } : undefined,
+      priority: priority__id ? { id: priority__id, name: priority__name, color: priority__color, level: priority__level } : undefined,
+      assignee: assignee__id ? { id: assignee__id, name: assignee__name, email: assignee__email, avatar_url: assignee__avatar_url } : undefined,
+      assigned_group: assigned_group__id ? { id: assigned_group__id, name: assigned_group__name } : undefined,
+      created_by_user: creator__id ? { id: creator__id, name: creator__name, email: creator__email } : undefined,
+    } as ProblemWithRelations;
+  });
 }
 
 // ============================================
@@ -709,7 +737,7 @@ export async function createKnownError(
   // If linked to problem, add activity
   if (input.problem_id) {
     await addProblemActivity(organizationId, input.problem_id, createdBy, {
-      activity_type: 'note',
+      type: 'note',
       description: `Known Error ${keNumber} created from this problem`,
     });
   }
@@ -941,19 +969,41 @@ export async function searchKnownErrorsBySymptoms(
     ...searchTerms.map((term) => `%${term}%`),
   ];
 
-  const knownErrors = await executeQuery<KnownError>(
-    `SELECT * FROM known_errors
-     WHERE organization_id = ? AND (${conditions.join(' OR ')})
-     ORDER BY created_at DESC
+  const rows = await executeQuery<any>(
+    `SELECT ke.*,
+       p.title as problem__title, p.problem_number as problem__problem_number,
+       u.id as created_by_user__id, u.name as created_by_user__name, u.email as created_by_user__email
+     FROM known_errors ke
+     LEFT JOIN problems p ON ke.problem_id = p.id
+     LEFT JOIN users u ON ke.created_by = u.id
+     WHERE ke.organization_id = ? AND (${conditions.join(' OR ')})
+     ORDER BY ke.created_at DESC
      LIMIT 10`,
     params
   );
 
-  const results = await Promise.all(
-    knownErrors.map((ke) => getKnownErrorById(organizationId, ke.id))
-  );
+  return rows.map((row: any) => {
+    const {
+      problem__title, problem__problem_number,
+      created_by_user__id, created_by_user__name, created_by_user__email,
+      ...keFields
+    } = row;
 
-  return results.filter((ke): ke is KnownErrorWithRelations => ke !== null);
+    return {
+      ...keFields,
+      problem: keFields.problem_id && problem__title ? {
+        id: keFields.problem_id,
+        title: problem__title,
+        problem_number: problem__problem_number,
+      } : null,
+      created_by_user: created_by_user__id ? {
+        id: created_by_user__id,
+        name: created_by_user__name,
+        email: created_by_user__email,
+      } : undefined,
+      reviewed_by_user: null,
+    } as KnownErrorWithRelations;
+  });
 }
 
 // ============================================
@@ -977,7 +1027,7 @@ export async function addProblemActivity(
     ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       problemId,
-      input.activity_type,
+      input.type,
       input.description,
       input.old_value || null,
       input.new_value || null,

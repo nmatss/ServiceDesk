@@ -7,7 +7,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDatetimeSubHours, sqlDatetimeSub } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50), 200)
     const dateRange = searchParams.get('dateRange') || '7d'
     const action = searchParams.get('action') || 'all'
     const riskLevel = searchParams.get('riskLevel') || 'all'
@@ -34,19 +34,19 @@ const offset = (page - 1) * limit
     let dateFilter = ''
     switch (dateRange) {
       case '1h':
-        dateFilter = "datetime('now', '-1 hour')"
+        dateFilter = sqlDatetimeSubHours(1)
         break
       case '24h':
-        dateFilter = "datetime('now', '-1 day')"
+        dateFilter = sqlDatetimeSub(1)
         break
       case '7d':
-        dateFilter = "datetime('now', '-7 days')"
+        dateFilter = sqlDatetimeSub(7)
         break
       case '30d':
-        dateFilter = "datetime('now', '-30 days')"
+        dateFilter = sqlDatetimeSub(30)
         break
       default:
-        dateFilter = "datetime('now', '-7 days')"
+        dateFilter = sqlDatetimeSub(7)
     }
 
     // Build WHERE clause
@@ -198,7 +198,7 @@ try {
           organization_id, user_id, action, resource_type, resource_id,
           resource_name, ip_address, user_agent, old_values, new_values,
           status, risk_level, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?, ${sqlNow()})
       `, [organizationId,
         userId,
         action,

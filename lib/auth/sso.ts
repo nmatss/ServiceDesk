@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 import {
   SSOProvider,
@@ -117,35 +117,33 @@ export interface SSOUserProfile {
 // FUNÇÕES DE GERENCIAMENTO DE PROVEDORES SSO
 // ========================================
 
-export function createSSOProvider(providerData: CreateSSOProvider): SSOProvider | null {
+export async function createSSOProvider(providerData: CreateSSOProvider): Promise<SSOProvider | null> {
   try {
     // Criptografar configurações sensíveis
     const encryptedConfig = encryptSSOConfiguration(providerData.configuration);
 
-    const stmt = db.prepare(`
+    const result = await executeRun(`
       INSERT INTO sso_providers (name, display_name, type, is_active, configuration, metadata)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
+    `, [
       providerData.name,
       providerData.display_name,
       providerData.type,
       providerData.is_active ? 1 : 0,
       encryptedConfig,
       providerData.metadata
-    );
+    ]);
 
-    return getSSOProviderById(result.lastInsertRowid as number);
+    return await getSSOProviderById(result.lastInsertRowid as number);
   } catch (error) {
     logger.error('Error creating SSO provider', error);
     return null;
   }
 }
 
-export function getSSOProviderById(id: number): SSOProvider | null {
+export async function getSSOProviderById(id: number): Promise<SSOProvider | null> {
   try {
-    const provider = db.prepare('SELECT * FROM sso_providers WHERE id = ?').get(id) as SSOProvider;
+    const provider = await executeQueryOne<SSOProvider>('SELECT * FROM sso_providers WHERE id = ?', [id]);
     if (!provider) return null;
 
     // Descriptografar configuração
@@ -157,9 +155,9 @@ export function getSSOProviderById(id: number): SSOProvider | null {
   }
 }
 
-export function getSSOProviderByName(name: string): SSOProvider | null {
+export async function getSSOProviderByName(name: string): Promise<SSOProvider | null> {
   try {
-    const provider = db.prepare('SELECT * FROM sso_providers WHERE name = ? AND is_active = 1').get(name) as SSOProvider;
+    const provider = await executeQueryOne<SSOProvider>('SELECT * FROM sso_providers WHERE name = ? AND is_active = 1', [name]);
     if (!provider) return null;
 
     provider.configuration = decryptSSOConfiguration(provider.configuration);
@@ -170,9 +168,9 @@ export function getSSOProviderByName(name: string): SSOProvider | null {
   }
 }
 
-export function getAllSSOProviders(): SSOProvider[] {
+export async function getAllSSOProviders(): Promise<SSOProvider[]> {
   try {
-    const providers = db.prepare('SELECT * FROM sso_providers ORDER BY display_name').all() as SSOProvider[];
+    const providers = await executeQuery<SSOProvider>('SELECT * FROM sso_providers ORDER BY display_name', []);
     return providers.map(provider => ({
       ...provider,
       configuration: decryptSSOConfiguration(provider.configuration)
@@ -183,9 +181,9 @@ export function getAllSSOProviders(): SSOProvider[] {
   }
 }
 
-export function getActiveSSOProviders(): SSOProvider[] {
+export async function getActiveSSOProviders(): Promise<SSOProvider[]> {
   try {
-    const providers = db.prepare('SELECT * FROM sso_providers WHERE is_active = 1 ORDER BY display_name').all() as SSOProvider[];
+    const providers = await executeQuery<SSOProvider>('SELECT * FROM sso_providers WHERE is_active = 1 ORDER BY display_name', []);
     return providers.map(provider => ({
       ...provider,
       configuration: decryptSSOConfiguration(provider.configuration)
@@ -196,7 +194,7 @@ export function getActiveSSOProviders(): SSOProvider[] {
   }
 }
 
-export function updateSSOProvider(id: number, updates: Partial<Omit<SSOProvider, 'id' | 'created_at'>>): boolean {
+export async function updateSSOProvider(id: number, updates: Partial<Omit<SSOProvider, 'id' | 'created_at'>>): Promise<boolean> {
   try {
     const fields = [];
     const values = [];
@@ -218,20 +216,18 @@ export function updateSSOProvider(id: number, updates: Partial<Omit<SSOProvider,
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
 
-    const stmt = db.prepare(`UPDATE sso_providers SET ${fields.join(', ')} WHERE id = ?`);
-    const result = stmt.run(...values);
-
-    return result.changes > 0;
+    const result = await executeRun(`UPDATE sso_providers SET ${fields.join(', ')} WHERE id = ?`, values);
+    return (result.changes ?? 0) > 0;
   } catch (error) {
     logger.error('Error updating SSO provider', error);
     return false;
   }
 }
 
-export function deleteSSOProvider(id: number): boolean {
+export async function deleteSSOProvider(id: number): Promise<boolean> {
   try {
-    const result = db.prepare('DELETE FROM sso_providers WHERE id = ?').run(id);
-    return result.changes > 0;
+    const result = await executeRun('DELETE FROM sso_providers WHERE id = ?', [id]);
+    return (result.changes ?? 0) > 0;
   } catch (error) {
     logger.error('Error deleting SSO provider', error);
     return false;
@@ -342,7 +338,7 @@ function decryptSSOConfiguration(encryptedConfig: string): string {
 
 export async function initiateSAMLAuth(request: SSOAuthRequest): Promise<SSOAuthResponse> {
   try {
-    const provider = getSSOProviderById(request.providerId);
+    const provider = await getSSOProviderById(request.providerId);
     if (!provider || provider.type !== 'saml2') {
       return { success: false, error: 'Invalid SAML provider' };
     }
@@ -374,7 +370,7 @@ export async function handleSAMLResponse(
   userAgent?: string
 ): Promise<SSOAuthResponse> {
   try {
-    const provider = getSSOProviderById(providerId);
+    const provider = await getSSOProviderById(providerId);
     if (!provider || provider.type !== 'saml2') {
       return { success: false, error: 'Invalid SAML provider' };
     }
@@ -460,7 +456,7 @@ async function validateSAMLResponse(samlResponse: string, _samlConfig: NonNullab
 
 export async function initiateOAuth2Auth(request: SSOAuthRequest): Promise<SSOAuthResponse> {
   try {
-    const provider = getSSOProviderById(request.providerId);
+    const provider = await getSSOProviderById(request.providerId);
     if (!provider || provider.type !== 'oauth2') {
       return { success: false, error: 'Invalid OAuth2 provider' };
     }
@@ -502,7 +498,7 @@ export async function handleOAuth2Callback(
   userAgent?: string
 ): Promise<SSOAuthResponse> {
   try {
-    const provider = getSSOProviderById(providerId);
+    const provider = await getSSOProviderById(providerId);
     if (!provider || provider.type !== 'oauth2') {
       return { success: false, error: 'Invalid OAuth2 provider' };
     }
@@ -602,7 +598,7 @@ async function fetchOAuth2UserProfile(accessToken: string, oauthConfig: NonNulla
 
 export async function initiateGovBrAuth(request: SSOAuthRequest): Promise<SSOAuthResponse> {
   try {
-    const provider = getSSOProviderById(request.providerId);
+    const provider = await getSSOProviderById(request.providerId);
     if (!provider || provider.type !== 'oidc' || provider.name !== 'govbr') {
       return { success: false, error: 'Invalid gov.br provider' };
     }
@@ -648,7 +644,7 @@ export async function handleGovBrCallback(
   userAgent?: string
 ): Promise<SSOAuthResponse> {
   try {
-    const provider = getSSOProviderById(providerId);
+    const provider = await getSSOProviderById(providerId);
     if (!provider || provider.name !== 'govbr') {
       return { success: false, error: 'Invalid gov.br provider' };
     }
@@ -756,7 +752,7 @@ async function processExternalUser(
 ): Promise<SSOAuthResponse> {
   try {
     // Buscar usuário existente por email
-    let user = getUserByEmail(profile.email);
+    let user = await getUserByEmail(profile.email);
 
     if (!user) {
       // Criar novo usuário
@@ -784,11 +780,11 @@ async function processExternalUser(
     } else {
       // Atualizar dados do usuário existente se necessário
       if (user.sso_provider !== provider.name) {
-        db.prepare(`
+        await executeRun(`
           UPDATE users
-          SET sso_provider = ?, sso_user_id = ?, last_login_at = datetime('now')
+          SET sso_provider = ?, sso_user_id = ?, last_login_at = ${sqlNow()}
           WHERE id = ?
-        `).run(provider.name, profile.metadata?.sub || profile.email, user.id);
+        `, [provider.name, profile.metadata?.sub || profile.email, user.id]);
       }
     }
 
@@ -842,7 +838,7 @@ async function processExternalUser(
 // FUNÇÕES DE INICIALIZAÇÃO
 // ========================================
 
-export function initializeDefaultSSOProviders(): boolean {
+export async function initializeDefaultSSOProviders(): Promise<boolean> {
   try {
     const defaultProviders: CreateSSOProvider[] = [
       {
@@ -921,20 +917,20 @@ export function initializeDefaultSSOProviders(): boolean {
       }
     ];
 
-    const insertStmt = db.prepare(`
-      INSERT OR IGNORE INTO sso_providers (name, display_name, type, is_active, configuration, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
     for (const provider of defaultProviders) {
-      insertStmt.run(
+      await executeRun(`
+        INSERT INTO sso_providers (name, display_name, type, is_active, configuration, metadata)
+        SELECT ?, ?, ?, ?, ?, ?
+        WHERE NOT EXISTS (SELECT 1 FROM sso_providers WHERE name = ?)
+      `, [
         provider.name,
         provider.display_name,
         provider.type,
         provider.is_active ? 1 : 0,
         encryptSSOConfiguration(provider.configuration),
-        provider.metadata
-      );
+        provider.metadata,
+        provider.name
+      ]);
     }
 
     return true;

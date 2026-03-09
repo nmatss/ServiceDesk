@@ -4,7 +4,7 @@
  * Manages dashboard templates - loading, saving, and applying them
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface DashboardTemplate {
@@ -148,7 +148,7 @@ export async function saveDashboardTemplate(
         is_active,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
     `, [
       template.name,
       template.display_name,
@@ -247,7 +247,7 @@ export async function updateDashboardTemplate(
       return null;
     }
 
-    updateFields.push('updated_at = datetime("now")');
+    updateFields.push(`updated_at = ${sqlNow()}`);
     params.push(id);
 
     await executeRun(`
@@ -328,7 +328,7 @@ export async function applyTemplate(
         is_shared,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      ) VALUES (?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
     `, [
       customizations?.name || template.display_name,
       customizations?.description || template.description,

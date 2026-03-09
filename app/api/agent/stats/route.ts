@@ -6,7 +6,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQueryOne } from '@/lib/db/adapter';
+import { executeQueryOne, sqlCurrentDate, sqlCastDate, sqlDateDiff, sqlDateSub, sqlDatetimeAddMinutes } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -40,18 +40,18 @@ const today = new Date().toISOString().split('T')[0]
       SELECT COUNT(*) as count FROM tickets
       WHERE assigned_to = ? AND organization_id = ?
       AND status IN ('resolved', 'closed')
-      AND date(resolved_at) = date('now')
+      AND ${sqlCastDate('resolved_at')} = ${sqlCurrentDate()}
     `, [userId, organizationId]) || { count: 0 }
 
     // Average response time (last 30 days)
     const avgResponse = await executeQueryOne<{ avg_minutes: number | null }>(`
       SELECT AVG(
-        (julianday(first_response_at) - julianday(created_at)) * 24 * 60
+        ${sqlDateDiff('first_response_at', 'created_at')} * 24 * 60
       ) as avg_minutes
       FROM tickets
       WHERE assigned_to = ? AND organization_id = ?
       AND first_response_at IS NOT NULL
-      AND created_at >= date('now', '-30 days')
+      AND created_at >= ${sqlDateSub(30)}
     `, [userId, organizationId]) || { avg_minutes: null }
 
     // SLA compliance (last 30 days)
@@ -62,7 +62,7 @@ const today = new Date().toISOString().split('T')[0]
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       WHERE t.assigned_to = ? AND t.organization_id = ?
-      AND st.created_at >= date('now', '-30 days')
+      AND st.created_at >= ${sqlDateSub(30)}
     `, [userId, organizationId]) || { total: 0, met: 0 }
 
     const slaCompliance = slaMetrics.total > 0
@@ -89,8 +89,8 @@ const today = new Date().toISOString().split('T')[0]
       WHERE t.organization_id = ?
       AND t.status IN ('open', 'in_progress')
       AND (
-        (st.response_deadline IS NOT NULL AND st.response_deadline <= datetime('now', '+30 minutes') AND st.response_breach = 0)
-        OR (st.resolution_deadline IS NOT NULL AND st.resolution_deadline <= datetime('now', '+30 minutes') AND st.resolution_breach = 0)
+        (st.response_deadline IS NOT NULL AND st.response_deadline <= ${sqlDatetimeAddMinutes(30)} AND st.response_breach = 0)
+        OR (st.resolution_deadline IS NOT NULL AND st.resolution_deadline <= ${sqlDatetimeAddMinutes(30)} AND st.resolution_breach = 0)
       )
     `, [organizationId]) || { count: 0 }
 

@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 import * as crypto from 'crypto';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 import {
   User,
@@ -317,9 +317,10 @@ export async function saveSession(sessionData: SessionData): Promise<boolean> {
 
     // Salvar/atualizar no database
     await executeRun(`
-      INSERT OR REPLACE INTO user_sessions (
+      INSERT INTO user_sessions (
         id, user_id, socket_id, user_agent, ip_address, is_active, last_activity
       ) VALUES (?, ?, ?, ?, ?, 1, ?)
+      ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, socket_id = EXCLUDED.socket_id, user_agent = EXCLUDED.user_agent, ip_address = EXCLUDED.ip_address, is_active = 1, last_activity = EXCLUDED.last_activity
     `, [
       sessionData.sessionId,
       sessionData.userId,
@@ -669,12 +670,16 @@ export async function cleanupExpiredSessions(): Promise<number> {
       }
     }
 
-    // Limpar sessoes expiradas no database
+    // Limpar sessoes expiradas no database (sessions older than 8 hours)
+    const dbType = (await import('../db/config')).getDatabaseType();
+    const expiredCondition = dbType === 'postgresql'
+      ? `last_activity < NOW() - INTERVAL '8 hours'`
+      : `datetime(last_activity, '+8 hours') < datetime('now')`;
     const result = await executeRun(`
       UPDATE user_sessions
       SET is_active = 0
       WHERE is_active = 1
-        AND datetime(last_activity, '+8 hours') < datetime('now')
+        AND ${expiredCondition}
     `, []);
 
     cleanedCount += result.changes ?? 0;

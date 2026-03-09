@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const status = searchParams.get('status') || 'published'
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10) || 20), 100)
     const offset = (page - 1) * limit
     // Support both single and multi-tenant setups
     let whereClause = 'WHERE (a.tenant_id = ? OR a.tenant_id IS NULL)'

@@ -1,4 +1,5 @@
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 interface TicketData {
@@ -92,18 +93,17 @@ interface WorkflowResult {
 }
 
 export class WorkflowManager {
-  private db = getDb()
-
   /**
    * Process ticket creation based on workflow type
    */
   async processTicketCreation(ticketData: TicketData): Promise<WorkflowResult> {
     try {
       // Get ticket type information
-      const ticketType = this.db.prepare(`
-        SELECT * FROM ticket_types
-        WHERE id = ? AND tenant_id = ? AND is_active = 1
-      `).get(ticketData.ticket_type_id, ticketData.tenant_id) as TicketType | undefined
+      const ticketType = await executeQueryOne<TicketType>(
+        `SELECT * FROM ticket_types
+        WHERE id = ? AND tenant_id = ? AND is_active = 1`,
+        [ticketData.ticket_type_id, ticketData.tenant_id]
+      )
 
       if (!ticketType) {
         return { success: false, error: 'Invalid ticket type' }
@@ -139,12 +139,13 @@ export class WorkflowManager {
     )
 
     // Get initial status for incidents (usually "Open" or "New")
-    const initialStatus = this.db.prepare(`
-      SELECT id FROM statuses
+    const initialStatus = await executeQueryOne<Status>(
+      `SELECT id FROM statuses
       WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = 1
       ORDER BY is_initial DESC, sort_order
-      LIMIT 1
-    `).get(ticketData.tenant_id) as Status | undefined
+      LIMIT 1`,
+      [ticketData.tenant_id]
+    )
 
     // Auto-assign to appropriate team based on category
     const assignmentResult = await this.autoAssignIncident(ticketData)
@@ -172,12 +173,13 @@ export class WorkflowManager {
 
     // Get appropriate initial status
     const initialStatusType = approvalRequired ? 'waiting' : 'open'
-    const initialStatus = this.db.prepare(`
-      SELECT id FROM statuses
+    const initialStatus = await executeQueryOne<Status>(
+      `SELECT id FROM statuses
       WHERE tenant_id = ? AND status_type = ? AND is_active = 1
       ORDER BY sort_order
-      LIMIT 1
-    `).get(ticketData.tenant_id, initialStatusType) as Status | undefined
+      LIMIT 1`,
+      [ticketData.tenant_id, initialStatusType]
+    )
 
     // For requests, assignment might be delayed until approval
     let assignmentResult: { team_id: number | null; agent_id: number | null } = { team_id: null, agent_id: null }
@@ -206,19 +208,21 @@ export class WorkflowManager {
     const approvalRequired = ticketType.approval_required !== false
 
     // Get CAB (Change Advisory Board) team or change management team
-    const changeTeam = this.db.prepare(`
-      SELECT id FROM teams
+    const changeTeam = await executeQueryOne<Team>(
+      `SELECT id FROM teams
       WHERE tenant_id = ? AND (slug = 'change-management' OR team_type = 'management')
-      ORDER BY slug = 'change-management' DESC
-      LIMIT 1
-    `).get(ticketData.tenant_id) as Team | undefined
+      ORDER BY CASE WHEN slug = 'change-management' THEN 0 ELSE 1 END
+      LIMIT 1`,
+      [ticketData.tenant_id]
+    )
 
-    const initialStatus = this.db.prepare(`
-      SELECT id FROM statuses
+    const initialStatus = await executeQueryOne<Status>(
+      `SELECT id FROM statuses
       WHERE tenant_id = ? AND status_type = 'waiting' AND is_active = 1
       ORDER BY sort_order
-      LIMIT 1
-    `).get(ticketData.tenant_id) as Status | undefined
+      LIMIT 1`,
+      [ticketData.tenant_id]
+    )
 
     return {
       success: true,
@@ -236,22 +240,32 @@ export class WorkflowManager {
    */
   private async processProblemWorkflow(ticketData: TicketData, _ticketType: TicketType): Promise<WorkflowResult> {
     // Assign to senior technical team or problem management team
-    const problemTeam = this.db.prepare(`
-      SELECT id FROM teams
-      WHERE tenant_id = ? AND (
-        JSON_EXTRACT(capabilities, '$') LIKE '%problem_analysis%' OR
-        team_type = 'technical'
-      )
-      ORDER BY JSON_EXTRACT(capabilities, '$') LIKE '%problem_analysis%' DESC
-      LIMIT 1
-    `).get(ticketData.tenant_id) as Team | undefined
+    // Note: JSON_EXTRACT is SQLite-specific, use dialect check
+    const problemTeamSql = getDatabaseType() === 'postgresql'
+      ? `SELECT id FROM teams
+        WHERE tenant_id = ? AND (
+          capabilities::text LIKE '%problem_analysis%' OR
+          team_type = 'technical'
+        )
+        ORDER BY CASE WHEN capabilities::text LIKE '%problem_analysis%' THEN 0 ELSE 1 END
+        LIMIT 1`
+      : `SELECT id FROM teams
+        WHERE tenant_id = ? AND (
+          JSON_EXTRACT(capabilities, '$') LIKE '%problem_analysis%' OR
+          team_type = 'technical'
+        )
+        ORDER BY CASE WHEN JSON_EXTRACT(capabilities, '$') LIKE '%problem_analysis%' THEN 0 ELSE 1 END
+        LIMIT 1`;
 
-    const initialStatus = this.db.prepare(`
-      SELECT id FROM statuses
+    const problemTeam = await executeQueryOne<Team>(problemTeamSql, [ticketData.tenant_id])
+
+    const initialStatus = await executeQueryOne<Status>(
+      `SELECT id FROM statuses
       WHERE tenant_id = ? AND status_type = 'in_progress' AND is_active = 1
       ORDER BY sort_order
-      LIMIT 1
-    `).get(ticketData.tenant_id) as Status | undefined
+      LIMIT 1`,
+      [ticketData.tenant_id]
+    )
 
     return {
       success: true,
@@ -268,12 +282,13 @@ export class WorkflowManager {
    * Default workflow for unspecified types
    */
   private async processDefaultWorkflow(ticketData: TicketData, _ticketType: TicketType): Promise<WorkflowResult> {
-    const initialStatus = this.db.prepare(`
-      SELECT id FROM statuses
+    const initialStatus = await executeQueryOne<Status>(
+      `SELECT id FROM statuses
       WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = 1
       ORDER BY is_initial DESC, sort_order
-      LIMIT 1
-    `).get(ticketData.tenant_id) as Status | undefined
+      LIMIT 1`,
+      [ticketData.tenant_id]
+    )
 
     return {
       success: true,
@@ -313,29 +328,32 @@ export class WorkflowManager {
    */
   private async autoAssignIncident(ticketData: TicketData): Promise<{team_id: number | null, agent_id: number | null}> {
     // Get category's default team
-    const category = this.db.prepare(`
-      SELECT default_team_id FROM categories
-      WHERE id = ? AND tenant_id = ?
-    `).get(ticketData.category_id, ticketData.tenant_id) as Category | undefined
+    const category = await executeQueryOne<Category>(
+      `SELECT default_team_id FROM categories
+      WHERE id = ? AND tenant_id = ?`,
+      [ticketData.category_id, ticketData.tenant_id]
+    )
 
     if (!category?.default_team_id) {
       return { team_id: null, agent_id: null }
     }
 
     // Get available team members
-    const availableAgents = this.db.prepare(`
-      SELECT tm.user_id, tm.workload_percentage, u.name
+    const randomFn = getDatabaseType() === 'postgresql' ? 'RANDOM()' : 'RANDOM()';
+    const availableAgent = await executeQueryOne<TeamMember>(
+      `SELECT tm.user_id, tm.workload_percentage, u.name
       FROM team_members tm
       JOIN users u ON tm.user_id = u.id
       WHERE tm.team_id = ? AND tm.is_active = 1 AND tm.availability_status = 'available'
       AND u.role IN ('agent', 'team_manager', 'tenant_admin')
-      ORDER BY tm.workload_percentage ASC, RANDOM()
-      LIMIT 1
-    `).get(category.default_team_id) as TeamMember | undefined
+      ORDER BY tm.workload_percentage ASC, ${randomFn}
+      LIMIT 1`,
+      [category.default_team_id]
+    )
 
     return {
       team_id: category.default_team_id,
-      agent_id: availableAgents?.user_id || null
+      agent_id: availableAgent?.user_id || null
     }
   }
 
@@ -352,10 +370,11 @@ export class WorkflowManager {
    */
   private async requiresApproval(ticketData: TicketData): Promise<boolean> {
     // Check category settings
-    const category = this.db.prepare(`
-      SELECT requires_approval FROM categories
-      WHERE id = ? AND tenant_id = ?
-    `).get(ticketData.category_id, ticketData.tenant_id) as Category | undefined
+    const category = await executeQueryOne<Category>(
+      `SELECT requires_approval FROM categories
+      WHERE id = ? AND tenant_id = ?`,
+      [ticketData.category_id, ticketData.tenant_id]
+    )
 
     return category?.requires_approval === 1
   }

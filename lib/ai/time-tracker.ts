@@ -1,4 +1,5 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub, sqlColAddMinutes, sqlCastDate } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import type { User } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -14,7 +15,7 @@ export class TimeTracker {
   }> {
     try {
       // Check if there's already an active tracking session
-      const activeSession = this.getActiveSession(userId);
+      const activeSession = await this.getActiveSession(userId);
 
       if (activeSession) {
         // Auto-stop the previous session
@@ -22,16 +23,15 @@ export class TimeTracker {
       }
 
       // Create new tracking entry
-      const stmt = db.prepare(`
-        INSERT INTO time_tracking (
+      const result = await executeRun(
+        `INSERT INTO time_tracking (
           ticket_id, user_id, activity_type, started_at, is_active, created_at
-        ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP)
-      `);
-
-      const result = stmt.run(ticketId, userId, activityType);
+        ) VALUES (?, ?, ?, CURRENT_TIMESTAMP, 1, CURRENT_TIMESTAMP)`,
+        [ticketId, userId, activityType]
+      );
 
       // Log the start event
-      this.logTimeEvent(ticketId, userId, 'tracking_started', {
+      await this.logTimeEvent(ticketId, userId, 'tracking_started', {
         trackingId: result.lastInsertRowid,
         activityType
       });
@@ -61,9 +61,10 @@ export class TimeTracker {
   }> {
     try {
       // Get the tracking session
-      const session = db.prepare(`
-        SELECT * FROM time_tracking WHERE id = ? AND user_id = ? AND is_active = 1
-      `).get(trackingId, userId) as any;
+      const session = await executeQueryOne<any>(
+        `SELECT * FROM time_tracking WHERE id = ? AND user_id = ? AND is_active = 1`,
+        [trackingId, userId]
+      );
 
       if (!session) {
         return {
@@ -76,23 +77,22 @@ export class TimeTracker {
       const totalMinutes = this.calculateDuration(session.started_at);
 
       // Update the tracking session
-      const updateStmt = db.prepare(`
-        UPDATE time_tracking
+      await executeRun(
+        `UPDATE time_tracking
         SET ended_at = CURRENT_TIMESTAMP,
             total_minutes = ?,
             is_active = 0,
             stop_reason = ?,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `);
-
-      updateStmt.run(totalMinutes, stopReason, trackingId);
+        WHERE id = ?`,
+        [totalMinutes, stopReason, trackingId]
+      );
 
       // Add to ticket's total time
-      this.updateTicketTotalTime(session.ticket_id);
+      await this.updateTicketTotalTime(session.ticket_id);
 
       // Log the stop event
-      this.logTimeEvent(session.ticket_id, userId, 'tracking_stopped', {
+      await this.logTimeEvent(session.ticket_id, userId, 'tracking_stopped', {
         trackingId,
         totalMinutes,
         stopReason
@@ -118,19 +118,23 @@ export class TimeTracker {
    */
   async autoDetectActivity(userId: number, activity: 'comment_added' | 'status_changed' | 'assignment_changed' | 'attachment_uploaded' | 'view_ticket', ticketId: number): Promise<void> {
     try {
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as User;
+      const user = await executeQueryOne<User>(
+        'SELECT * FROM users WHERE id = ?',
+        [userId]
+      );
 
       if (!user || !['admin', 'agent'].includes(user.role)) {
         return; // Only track time for agents and admins
       }
 
-      const activeSession = this.getActiveSession(userId);
-      const ticket = db.prepare(`
-        SELECT t.*, s.is_final
+      const activeSession = await this.getActiveSession(userId);
+      const ticket = await executeQueryOne<any>(
+        `SELECT t.*, s.is_final
         FROM tickets t
         LEFT JOIN statuses s ON t.status_id = s.id
-        WHERE t.id = ?
-      `).get(ticketId) as any;
+        WHERE t.id = ?`,
+        [ticketId]
+      );
 
       if (!ticket) return;
 
@@ -140,7 +144,7 @@ export class TimeTracker {
           await this.startTracking(ticketId, userId, 'work');
         } else {
           // Update last activity to prevent auto-stop
-          this.updateLastActivity(activeSession.id);
+          await this.updateLastActivity(activeSession.id);
         }
       }
 
@@ -161,11 +165,12 @@ export class TimeTracker {
    */
   async autoStopInactiveSessions(): Promise<void> {
     try {
-      const inactiveSessions = db.prepare(`
-        SELECT * FROM time_tracking
+      const inactiveSessions = await executeQuery<any>(
+        `SELECT * FROM time_tracking
         WHERE is_active = 1
-        AND datetime(last_activity, '+30 minutes') < CURRENT_TIMESTAMP
-      `).all() as any[];
+        AND ${sqlColAddMinutes('last_activity', 30)} < CURRENT_TIMESTAMP`,
+        []
+      );
 
       for (const session of inactiveSessions) {
         await this.stopTracking(session.id, session.user_id, 'auto_stopped');
@@ -179,7 +184,7 @@ export class TimeTracker {
   /**
    * Get comprehensive time analytics for a ticket
    */
-  getTicketTimeAnalytics(ticketId: number): {
+  async getTicketTimeAnalytics(ticketId: number): Promise<{
     totalMinutes: number;
     totalHours: number;
     sessionCount: number;
@@ -200,20 +205,21 @@ export class TimeTracker {
       totalMinutes: number;
       sessionCount: number;
     }>;
-  } {
+  }> {
     // Get total time statistics
-    const totalStats = db.prepare(`
-      SELECT
+    const totalStats = await executeQueryOne<any>(
+      `SELECT
         COALESCE(SUM(total_minutes), 0) as total_minutes,
         COUNT(*) as session_count,
         ROUND(AVG(total_minutes), 2) as avg_session_minutes
       FROM time_tracking
-      WHERE ticket_id = ? AND total_minutes IS NOT NULL
-    `).get(ticketId) as any;
+      WHERE ticket_id = ? AND total_minutes IS NOT NULL`,
+      [ticketId]
+    );
 
     // Get time by user
-    const timeByUser = db.prepare(`
-      SELECT
+    const timeByUser = await executeQuery<any>(
+      `SELECT
         u.id as userId,
         u.name as userName,
         COALESCE(SUM(tt.total_minutes), 0) as totalMinutes,
@@ -222,38 +228,41 @@ export class TimeTracker {
       LEFT JOIN time_tracking tt ON u.id = tt.user_id AND tt.ticket_id = ? AND tt.total_minutes IS NOT NULL
       WHERE u.id IN (SELECT DISTINCT user_id FROM time_tracking WHERE ticket_id = ?)
       GROUP BY u.id, u.name
-      ORDER BY totalMinutes DESC
-    `).all(ticketId, ticketId) as any[];
+      ORDER BY totalMinutes DESC`,
+      [ticketId, ticketId]
+    );
 
     // Get time by activity type
-    const timeByActivity = db.prepare(`
-      SELECT
+    const timeByActivity = await executeQuery<any>(
+      `SELECT
         activity_type as activityType,
         COALESCE(SUM(total_minutes), 0) as totalMinutes,
         COUNT(*) as sessionCount
       FROM time_tracking
       WHERE ticket_id = ? AND total_minutes IS NOT NULL
       GROUP BY activity_type
-      ORDER BY totalMinutes DESC
-    `).all(ticketId) as any[];
+      ORDER BY totalMinutes DESC`,
+      [ticketId]
+    );
 
     // Get daily breakdown
-    const dailyBreakdown = db.prepare(`
-      SELECT
-        date(started_at) as date,
+    const dailyBreakdown = await executeQuery<any>(
+      `SELECT
+        ${sqlCastDate('started_at')} as date,
         COALESCE(SUM(total_minutes), 0) as totalMinutes,
         COUNT(*) as sessionCount
       FROM time_tracking
       WHERE ticket_id = ? AND total_minutes IS NOT NULL
-      GROUP BY date(started_at)
-      ORDER BY date(started_at)
-    `).all(ticketId) as any[];
+      GROUP BY ${sqlCastDate('started_at')}
+      ORDER BY ${sqlCastDate('started_at')}`,
+      [ticketId]
+    );
 
     return {
-      totalMinutes: totalStats.total_minutes || 0,
-      totalHours: Math.round((totalStats.total_minutes || 0) / 60 * 100) / 100,
-      sessionCount: totalStats.session_count || 0,
-      averageSessionMinutes: totalStats.avg_session_minutes || 0,
+      totalMinutes: totalStats?.total_minutes || 0,
+      totalHours: Math.round((totalStats?.total_minutes || 0) / 60 * 100) / 100,
+      sessionCount: totalStats?.session_count || 0,
+      averageSessionMinutes: totalStats?.avg_session_minutes || 0,
       timeByUser: timeByUser || [],
       timeByActivity: timeByActivity || [],
       dailyBreakdown: dailyBreakdown || []
@@ -263,7 +272,7 @@ export class TimeTracker {
   /**
    * Get agent productivity analytics
    */
-  getAgentProductivityAnalytics(userId: number, period: 'week' | 'month' | 'quarter' = 'month'): {
+  async getAgentProductivityAnalytics(userId: number, period: 'week' | 'month' | 'quarter' = 'month'): Promise<{
     totalWorkMinutes: number;
     totalWorkHours: number;
     ticketsWorkedOn: number;
@@ -286,34 +295,35 @@ export class TimeTracker {
       timeToResolution: number;
       multitaskingIndex: number;
     };
-  } {
-    const periodFilter = period === 'week' ? "datetime('now', '-7 days')" :
-                        period === 'month' ? "datetime('now', '-30 days')" :
-                        "datetime('now', '-90 days')";
+  }> {
+    const periodDays = period === 'week' ? 7 : period === 'month' ? 30 : 90;
+    const periodFilter = sqlDatetimeSub(periodDays);
 
     // Get total work statistics
-    const workStats = db.prepare(`
-      SELECT
+    const workStats = await executeQueryOne<any>(
+      `SELECT
         COALESCE(SUM(total_minutes), 0) as total_work_minutes,
         COUNT(DISTINCT ticket_id) as tickets_worked_on,
         ROUND(AVG(total_minutes), 2) as avg_time_per_session
       FROM time_tracking
       WHERE user_id = ?
-        AND datetime(started_at) >= ${periodFilter}
-        AND total_minutes IS NOT NULL
-    `).get(userId) as any;
+        AND started_at >= ${periodFilter}
+        AND total_minutes IS NOT NULL`,
+      [userId]
+    );
 
     // Get time distribution by activity
-    const timeDistribution = db.prepare(`
-      SELECT
+    const timeDistribution = await executeQuery<any>(
+      `SELECT
         activity_type,
         COALESCE(SUM(total_minutes), 0) as total_minutes
       FROM time_tracking
       WHERE user_id = ?
-        AND datetime(started_at) >= ${periodFilter}
+        AND started_at >= ${periodFilter}
         AND total_minutes IS NOT NULL
-      GROUP BY activity_type
-    `).all(userId) as any[];
+      GROUP BY activity_type`,
+      [userId]
+    );
 
     const distribution = {
       work: 0,
@@ -327,24 +337,25 @@ export class TimeTracker {
     });
 
     // Get daily breakdown
-    const dailyPattern = db.prepare(`
-      SELECT
-        date(started_at) as date,
+    const dailyPattern = await executeQuery<any>(
+      `SELECT
+        ${sqlCastDate('started_at')} as date,
         COALESCE(SUM(total_minutes), 0) as totalMinutes,
         COUNT(DISTINCT ticket_id) as ticketsWorkedOn
       FROM time_tracking
       WHERE user_id = ?
-        AND datetime(started_at) >= ${periodFilter}
+        AND started_at >= ${periodFilter}
         AND total_minutes IS NOT NULL
-      GROUP BY date(started_at)
-      ORDER BY date(started_at)
-    `).all(userId) as any[];
+      GROUP BY ${sqlCastDate('started_at')}
+      ORDER BY ${sqlCastDate('started_at')}`,
+      [userId]
+    );
 
     // Calculate efficiency metrics
-    const efficiency = this.calculateEfficiencyMetrics(userId, periodFilter);
+    const efficiency = await this.calculateEfficiencyMetrics(userId, periodDays);
 
-    const totalWorkMinutes = workStats.total_work_minutes || 0;
-    const ticketsWorkedOn = workStats.tickets_worked_on || 0;
+    const totalWorkMinutes = workStats?.total_work_minutes || 0;
+    const ticketsWorkedOn = workStats?.tickets_worked_on || 0;
     const averageTimePerTicket = ticketsWorkedOn > 0 ? totalWorkMinutes / ticketsWorkedOn : 0;
 
     // Calculate productivity score (0-100)
@@ -373,7 +384,7 @@ export class TimeTracker {
   /**
    * Get team time analytics
    */
-  getTeamTimeAnalytics(departmentId?: number, period: 'week' | 'month' | 'quarter' = 'month'): {
+  async getTeamTimeAnalytics(departmentId?: number, period: 'week' | 'month' | 'quarter' = 'month'): Promise<{
     totalTeamHours: number;
     agentCount: number;
     averageHoursPerAgent: number;
@@ -389,10 +400,9 @@ export class TimeTracker {
       averageTimeToResolution: number;
       teamCollaborationIndex: number;
     };
-  } {
-    const periodFilter = period === 'week' ? "datetime('now', '-7 days')" :
-                        period === 'month' ? "datetime('now', '-30 days')" :
-                        "datetime('now', '-90 days')";
+  }> {
+    const periodDays = period === 'week' ? 7 : period === 'month' ? 30 : 90;
+    const periodFilter = sqlDatetimeSub(periodDays);
 
     let userFilter = "u.role IN ('admin', 'agent')";
     const params: any[] = [];
@@ -403,38 +413,42 @@ export class TimeTracker {
     }
 
     // Get team statistics
-    const teamStats = db.prepare(`
-      SELECT
+    const teamStatsRows = await executeQuery<any>(
+      `SELECT
         COUNT(DISTINCT u.id) as agent_count,
         COALESCE(SUM(tt.total_minutes), 0) / 60.0 as total_team_hours
       FROM users u
       LEFT JOIN time_tracking tt ON u.id = tt.user_id
-        AND datetime(tt.started_at) >= ${periodFilter}
+        AND tt.started_at >= ${periodFilter}
         AND tt.total_minutes IS NOT NULL
-      WHERE ${userFilter}
-    `).all(...params)[0] as any;
+      WHERE ${userFilter}`,
+      params
+    );
+    const teamStats = teamStatsRows[0] || { agent_count: 0, total_team_hours: 0 };
 
     // Get top performers
-    const topPerformers = db.prepare(`
-      SELECT
+    const topPerformers = await executeQuery<any>(
+      `SELECT
         u.id as userId,
         u.name as userName,
         COALESCE(SUM(tt.total_minutes), 0) / 60.0 as totalHours,
         COUNT(DISTINCT tt.ticket_id) as ticketsWorkedOn
       FROM users u
       LEFT JOIN time_tracking tt ON u.id = tt.user_id
-        AND datetime(tt.started_at) >= ${periodFilter}
+        AND tt.started_at >= ${periodFilter}
         AND tt.total_minutes IS NOT NULL
       WHERE ${userFilter}
       GROUP BY u.id, u.name
-      HAVING totalHours > 0
+      HAVING COALESCE(SUM(tt.total_minutes), 0) > 0
       ORDER BY totalHours DESC
-      LIMIT 10
-    `).all(...params) as any[];
+      LIMIT 10`,
+      params
+    );
 
     // Calculate productivity scores for each performer
-    const topPerformersWithScores = topPerformers.map(performer => {
-      const efficiency = this.calculateEfficiencyMetrics(performer.userId, periodFilter);
+    const topPerformersWithScores = [];
+    for (const performer of topPerformers) {
+      const efficiency = await this.calculateEfficiencyMetrics(performer.userId, periodDays);
       const productivityScore = this.calculateProductivityScore({
         totalWorkMinutes: performer.totalHours * 60,
         ticketsWorkedOn: performer.ticketsWorkedOn,
@@ -442,13 +456,13 @@ export class TimeTracker {
         efficiency
       });
 
-      return {
+      topPerformersWithScores.push({
         ...performer,
         productivityScore: Math.round(productivityScore)
-      };
-    });
+      });
+    }
 
-    const teamEfficiency = this.calculateTeamEfficiency(params, periodFilter, userFilter);
+    const teamEfficiency = await this.calculateTeamEfficiency(params, periodDays, userFilter);
 
     return {
       totalTeamHours: Math.round(teamStats.total_team_hours * 100) / 100,
@@ -461,13 +475,14 @@ export class TimeTracker {
 
   // Private helper methods
 
-  private getActiveSession(userId: number): any {
-    return db.prepare(`
-      SELECT * FROM time_tracking
+  private async getActiveSession(userId: number): Promise<any> {
+    return await executeQueryOne<any>(
+      `SELECT * FROM time_tracking
       WHERE user_id = ? AND is_active = 1
       ORDER BY started_at DESC
-      LIMIT 1
-    `).get(userId);
+      LIMIT 1`,
+      [userId]
+    );
   }
 
   private calculateDuration(startTime: string): number {
@@ -476,33 +491,37 @@ export class TimeTracker {
     return Math.round((end.getTime() - start.getTime()) / (1000 * 60)); // Minutes
   }
 
-  private updateTicketTotalTime(ticketId: number): void {
-    const totalMinutes = db.prepare(`
-      SELECT COALESCE(SUM(total_minutes), 0) as total
+  private async updateTicketTotalTime(ticketId: number): Promise<void> {
+    const totalMinutes = await executeQueryOne<any>(
+      `SELECT COALESCE(SUM(total_minutes), 0) as total
       FROM time_tracking
-      WHERE ticket_id = ? AND total_minutes IS NOT NULL
-    `).get(ticketId) as any;
+      WHERE ticket_id = ? AND total_minutes IS NOT NULL`,
+      [ticketId]
+    );
 
-    db.prepare(`
-      UPDATE tickets
+    await executeRun(
+      `UPDATE tickets
       SET total_time_minutes = ?
-      WHERE id = ?
-    `).run(totalMinutes.total, ticketId);
+      WHERE id = ?`,
+      [totalMinutes?.total || 0, ticketId]
+    );
   }
 
-  private updateLastActivity(trackingId: number): void {
-    db.prepare(`
-      UPDATE time_tracking
+  private async updateLastActivity(trackingId: number): Promise<void> {
+    await executeRun(
+      `UPDATE time_tracking
       SET last_activity = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(trackingId);
+      WHERE id = ?`,
+      [trackingId]
+    );
   }
 
-  private logTimeEvent(ticketId: number, userId: number, eventType: string, data: any): void {
-    db.prepare(`
-      INSERT INTO audit_logs (user_id, entity_type, entity_id, action, new_values)
-      VALUES (?, 'ticket', ?, ?, ?)
-    `).run(userId, ticketId, eventType, JSON.stringify(data));
+  private async logTimeEvent(ticketId: number, userId: number, eventType: string, data: any): Promise<void> {
+    await executeRun(
+      `INSERT INTO audit_logs (user_id, entity_type, entity_id, action, new_values)
+      VALUES (?, 'ticket', ?, ?, ?)`,
+      [userId, ticketId, eventType, JSON.stringify(data)]
+    );
   }
 
   private formatDuration(minutes: number): string {
@@ -515,40 +534,45 @@ export class TimeTracker {
     return `${mins}m`;
   }
 
-  private calculateEfficiencyMetrics(userId: number, periodFilter: string): any {
+  private async calculateEfficiencyMetrics(userId: number, periodDays: number): Promise<any> {
+    const periodFilter = sqlDatetimeSub(periodDays);
+
     // Calculate time to first response
-    const firstResponseTime = db.prepare(`
-      SELECT AVG(st.response_time_minutes) as avg_response_time
+    const firstResponseTime = await executeQueryOne<any>(
+      `SELECT AVG(st.response_time_minutes) as avg_response_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       WHERE t.assigned_to = ?
-        AND datetime(t.created_at) >= ${periodFilter}
-        AND st.response_time_minutes IS NOT NULL
-    `).get(userId) as any;
+        AND t.created_at >= ${periodFilter}
+        AND st.response_time_minutes IS NOT NULL`,
+      [userId]
+    );
 
     // Calculate time to resolution
-    const resolutionTime = db.prepare(`
-      SELECT AVG(st.resolution_time_minutes) as avg_resolution_time
+    const resolutionTime = await executeQueryOne<any>(
+      `SELECT AVG(st.resolution_time_minutes) as avg_resolution_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       WHERE t.assigned_to = ?
-        AND datetime(t.created_at) >= ${periodFilter}
-        AND st.resolution_time_minutes IS NOT NULL
-    `).get(userId) as any;
+        AND t.created_at >= ${periodFilter}
+        AND st.resolution_time_minutes IS NOT NULL`,
+      [userId]
+    );
 
     // Calculate multitasking index (how many tickets worked on simultaneously)
-    const multitaskingIndex = db.prepare(`
-      SELECT AVG(concurrent_tickets) as avg_multitasking
+    const multitaskingIndex = await executeQueryOne<any>(
+      `SELECT AVG(concurrent_tickets) as avg_multitasking
       FROM (
         SELECT
-          date(started_at) as work_date,
+          ${sqlCastDate('started_at')} as work_date,
           COUNT(DISTINCT ticket_id) as concurrent_tickets
         FROM time_tracking
         WHERE user_id = ?
-          AND datetime(started_at) >= ${periodFilter}
-        GROUP BY date(started_at)
-      )
-    `).get(userId) as any;
+          AND started_at >= ${periodFilter}
+        GROUP BY ${sqlCastDate('started_at')}
+      ) sub`,
+      [userId]
+    );
 
     return {
       timeToFirstResponse: firstResponseTime?.avg_response_time || 0,
@@ -592,45 +616,53 @@ export class TimeTracker {
     return Math.min(100, Math.max(0, Math.round(score)));
   }
 
-  private calculateTeamEfficiency(params: any[], periodFilter: string, userFilter: string): any {
+  private async calculateTeamEfficiency(params: any[], periodDays: number, userFilter: string): Promise<any> {
+    const periodFilter = sqlDatetimeSub(periodDays);
+
     // Average team response time
-    const teamResponseTime = db.prepare(`
-      SELECT AVG(st.response_time_minutes) as avg_response_time
+    const teamResponseTimeRows = await executeQuery<any>(
+      `SELECT AVG(st.response_time_minutes) as avg_response_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       LEFT JOIN users u ON t.assigned_to = u.id
       WHERE ${userFilter}
-        AND datetime(t.created_at) >= ${periodFilter}
-        AND st.response_time_minutes IS NOT NULL
-    `).all(...params)[0] as any;
+        AND t.created_at >= ${periodFilter}
+        AND st.response_time_minutes IS NOT NULL`,
+      params
+    );
+    const teamResponseTime = teamResponseTimeRows[0];
 
     // Average team resolution time
-    const teamResolutionTime = db.prepare(`
-      SELECT AVG(st.resolution_time_minutes) as avg_resolution_time
+    const teamResolutionTimeRows = await executeQuery<any>(
+      `SELECT AVG(st.resolution_time_minutes) as avg_resolution_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
       LEFT JOIN users u ON t.assigned_to = u.id
       WHERE ${userFilter}
-        AND datetime(t.created_at) >= ${periodFilter}
-        AND st.resolution_time_minutes IS NOT NULL
-    `).all(...params)[0] as any;
+        AND t.created_at >= ${periodFilter}
+        AND st.resolution_time_minutes IS NOT NULL`,
+      params
+    );
+    const teamResolutionTime = teamResolutionTimeRows[0];
 
     // Team collaboration index (tickets with multiple agents working)
-    const collaborationIndex = db.prepare(`
-      SELECT
-        COUNT(CASE WHEN agent_count > 1 THEN 1 END) * 1.0 / COUNT(*) as collaboration_rate
+    const collaborationIndexRows = await executeQuery<any>(
+      `SELECT
+        COUNT(CASE WHEN agent_count > 1 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) as collaboration_rate
       FROM (
         SELECT
           ticket_id,
-          COUNT(DISTINCT user_id) as agent_count
+          COUNT(DISTINCT tt.user_id) as agent_count
         FROM time_tracking tt
         LEFT JOIN users u ON tt.user_id = u.id
         WHERE ${userFilter}
-          AND datetime(tt.started_at) >= ${periodFilter}
+          AND tt.started_at >= ${periodFilter}
           AND tt.total_minutes IS NOT NULL
         GROUP BY ticket_id
-      )
-    `).all(...params)[0] as any;
+      ) sub`,
+      params
+    );
+    const collaborationIndex = collaborationIndexRows[0];
 
     return {
       averageTimeToFirstResponse: teamResponseTime?.avg_response_time || 0,

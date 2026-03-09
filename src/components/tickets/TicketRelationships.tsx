@@ -403,13 +403,13 @@ export function TicketRelationships({
                     {/* Search */}
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-2">
-                        Search Ticket
+                        Buscar Ticket
                       </label>
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search by number or title..."
+                        placeholder="Buscar por número ou título..."
                         className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>

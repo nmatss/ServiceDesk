@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, type DatabaseAdapter } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow, type DatabaseAdapter } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 import type {
   Permission,
@@ -45,7 +45,7 @@ export async function createPermission(permissionData: CreatePermission): Promis
 
 export async function getPermissionById(id: number): Promise<Permission | null> {
   try {
-    const result = await executeQueryOne<Permission>('SELECT * FROM permissions WHERE id = ?', [id]);
+    const result = await executeQueryOne<Permission>('SELECT id, name, description, resource, action, conditions, created_at FROM permissions WHERE id = ?', [id]);
     return result || null;
   } catch (error) {
     logger.error('Error getting permission by ID', error);
@@ -55,7 +55,7 @@ export async function getPermissionById(id: number): Promise<Permission | null> 
 
 export async function getPermissionByName(name: string): Promise<Permission | null> {
   try {
-    const result = await executeQueryOne<Permission>('SELECT * FROM permissions WHERE name = ?', [name]);
+    const result = await executeQueryOne<Permission>('SELECT id, name, description, resource, action, conditions, created_at FROM permissions WHERE name = ?', [name]);
     return result || null;
   } catch (error) {
     logger.error('Error getting permission by name', error);
@@ -65,7 +65,7 @@ export async function getPermissionByName(name: string): Promise<Permission | nu
 
 export async function getAllPermissions(): Promise<Permission[]> {
   try {
-    return await executeQuery<Permission>('SELECT * FROM permissions ORDER BY resource, action', []);
+    return await executeQuery<Permission>('SELECT id, name, description, resource, action, conditions, created_at FROM permissions ORDER BY resource, action', []);
   } catch (error) {
     logger.error('Error getting all permissions', error);
     return [];
@@ -74,7 +74,7 @@ export async function getAllPermissions(): Promise<Permission[]> {
 
 export async function getPermissionsByResource(resource: string): Promise<Permission[]> {
   try {
-    return await executeQuery<Permission>('SELECT * FROM permissions WHERE resource = ? ORDER BY action', [resource]);
+    return await executeQuery<Permission>('SELECT id, name, description, resource, action, conditions, created_at FROM permissions WHERE resource = ? ORDER BY action', [resource]);
   } catch (error) {
     logger.error('Error getting permissions by resource', error);
     return [];
@@ -120,7 +120,7 @@ export async function createRole(roleData: CreateRole): Promise<Role | null> {
 
 export async function getRoleById(id: number): Promise<Role | null> {
   try {
-    const result = await executeQueryOne<Role>('SELECT * FROM roles WHERE id = ?', [id]);
+    const result = await executeQueryOne<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE id = ?', [id]);
     return result || null;
   } catch (error) {
     logger.error('Error getting role by ID', error);
@@ -130,7 +130,7 @@ export async function getRoleById(id: number): Promise<Role | null> {
 
 export async function getRoleByName(name: string): Promise<Role | null> {
   try {
-    const result = await executeQueryOne<Role>('SELECT * FROM roles WHERE name = ?', [name]);
+    const result = await executeQueryOne<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', [name]);
     return result || null;
   } catch (error) {
     logger.error('Error getting role by name', error);
@@ -140,7 +140,7 @@ export async function getRoleByName(name: string): Promise<Role | null> {
 
 export async function getAllRoles(): Promise<Role[]> {
   try {
-    return await executeQuery<Role>('SELECT * FROM roles WHERE is_active = 1 ORDER BY display_name', []);
+    return await executeQuery<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE is_active = 1 ORDER BY display_name', []);
   } catch (error) {
     logger.error('Error getting all roles', error);
     return [];
@@ -196,8 +196,9 @@ export async function deleteRole(id: number): Promise<boolean> {
 export async function assignPermissionToRole(roleId: number, permissionId: number, grantedBy?: number): Promise<boolean> {
   try {
     const result = await executeRun(`
-      INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_by)
+      INSERT INTO role_permissions (role_id, permission_id, granted_by)
       VALUES (?, ?, ?)
+      ON CONFLICT DO NOTHING
     `, [roleId, permissionId, grantedBy]);
 
     return result.changes > 0;
@@ -224,7 +225,7 @@ export async function removePermissionFromRole(roleId: number, permissionId: num
 export async function getRolePermissions(roleId: number): Promise<Permission[]> {
   try {
     return await executeQuery<Permission>(`
-      SELECT p.* FROM permissions p
+      SELECT p.id, p.name, p.description, p.resource, p.action, p.conditions, p.created_at FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       WHERE rp.role_id = ?
       ORDER BY p.resource, p.action
@@ -269,8 +270,9 @@ export async function assignRoleToUser(
 ): Promise<boolean> {
   try {
     const result = await executeRun(`
-      INSERT OR REPLACE INTO user_roles (user_id, role_id, granted_by, expires_at, is_active)
+      INSERT INTO user_roles (user_id, role_id, granted_by, expires_at, is_active)
       VALUES (?, ?, ?, ?, 1)
+      ON CONFLICT (user_id, role_id) DO UPDATE SET granted_by = EXCLUDED.granted_by, expires_at = EXCLUDED.expires_at, is_active = 1
     `, [userId, roleId, grantedBy, expiresAt]);
 
     return result.changes > 0;
@@ -298,12 +300,12 @@ export async function removeRoleFromUser(userId: number, roleId: number): Promis
 export async function getUserRoles(userId: number): Promise<Role[]> {
   try {
     return await executeQuery<Role>(`
-      SELECT r.* FROM roles r
+      SELECT r.id, r.name, r.display_name, r.description, r.is_system, r.is_active, r.created_at, r.updated_at FROM roles r
       JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ?
         AND ur.is_active = 1
         AND r.is_active = 1
-        AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
+        AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
       ORDER BY r.display_name
     `, [userId]);
   } catch (error) {
@@ -315,12 +317,12 @@ export async function getUserRoles(userId: number): Promise<Role[]> {
 export async function getUserPermissions(userId: number): Promise<Permission[]> {
   try {
     return await executeQuery<Permission>(`
-      SELECT DISTINCT p.* FROM permissions p
+      SELECT DISTINCT p.id, p.name, p.description, p.resource, p.action, p.conditions, p.created_at FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       JOIN user_roles ur ON rp.role_id = ur.role_id
       WHERE ur.user_id = ?
         AND ur.is_active = 1
-        AND (ur.expires_at IS NULL OR ur.expires_at > datetime('now'))
+        AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
       ORDER BY p.resource, p.action
     `, [userId]);
   } catch (error) {
@@ -338,8 +340,9 @@ export async function setUserRoles(userId: number, roleIds: number[], grantedBy?
       // Adicionar novas roles
       for (const roleId of roleIds) {
         await db.run(`
-          INSERT OR REPLACE INTO user_roles (user_id, role_id, granted_by, is_active)
+          INSERT INTO user_roles (user_id, role_id, granted_by, is_active)
           VALUES (?, ?, ?, 1)
+          ON CONFLICT (user_id, role_id) DO UPDATE SET granted_by = EXCLUDED.granted_by, is_active = 1
         `, [userId, roleId, grantedBy]);
       }
     });
@@ -582,8 +585,9 @@ export async function initializeDefaultRolesAndPermissions(): Promise<boolean> {
       // Inserir permissões se não existem
       for (const permission of defaultPermissions) {
         await db.run(`
-          INSERT OR IGNORE INTO permissions (name, description, resource, action)
+          INSERT INTO permissions (name, description, resource, action)
           VALUES (?, ?, ?, ?)
+          ON CONFLICT DO NOTHING
         `, [
           permission.name,
           permission.description,
@@ -641,8 +645,9 @@ export async function initializeDefaultRolesAndPermissions(): Promise<boolean> {
       // Inserir papéis se não existem
       for (const role of defaultRoles) {
         await db.run(`
-          INSERT OR IGNORE INTO roles (name, display_name, description, is_system, is_active)
+          INSERT INTO roles (name, display_name, description, is_system, is_active)
           VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT DO NOTHING
         `, [
           role.name,
           role.display_name,
@@ -665,14 +670,14 @@ export async function initializeDefaultRolesAndPermissions(): Promise<boolean> {
 
 async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
   // Admin - todas as permissões
-  const adminRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['admin']);
+  const adminRole = await db.get<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', ['admin']);
   if (adminRole) {
     const adminPermissions = ['admin:manage'];
     await assignPermissionsToRoleWithDb(db, adminRole.id, adminPermissions);
   }
 
   // Manager - gerenciamento de equipe e relatórios
-  const managerRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['manager']);
+  const managerRole = await db.get<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', ['manager']);
   if (managerRole) {
     const managerPermissions = [
       'tickets:read', 'tickets:update', 'tickets:assign', 'tickets:close',
@@ -685,7 +690,7 @@ async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
   }
 
   // Agent - atendimento de tickets
-  const agentRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['agent']);
+  const agentRole = await db.get<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', ['agent']);
   if (agentRole) {
     const agentPermissions = [
       'tickets:read', 'tickets:update', 'tickets:close',
@@ -696,7 +701,7 @@ async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
   }
 
   // User - criação e acompanhamento de tickets
-  const userRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['user']);
+  const userRole = await db.get<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', ['user']);
   if (userRole) {
     const userPermissions = [
       'tickets:create', 'tickets:read',
@@ -706,7 +711,7 @@ async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
   }
 
   // Read Only - apenas visualização
-  const readOnlyRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['read_only']);
+  const readOnlyRole = await db.get<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', ['read_only']);
   if (readOnlyRole) {
     const readOnlyPermissions = [
       'tickets:read',
@@ -717,7 +722,7 @@ async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
   }
 
   // API Client - acesso programático
-  const apiClientRole = await db.get<Role>('SELECT * FROM roles WHERE name = ?', ['api_client']);
+  const apiClientRole = await db.get<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE name = ?', ['api_client']);
   if (apiClientRole) {
     const apiClientPermissions = [
       'tickets:create', 'tickets:read', 'tickets:update',
@@ -730,11 +735,12 @@ async function setupDefaultRolePermissions(db: DatabaseAdapter): Promise<void> {
 
 async function assignPermissionsToRoleWithDb(db: DatabaseAdapter, roleId: number, permissionNames: string[]): Promise<void> {
   for (const permissionName of permissionNames) {
-    const permission = await db.get<Permission>('SELECT * FROM permissions WHERE name = ?', [permissionName]);
+    const permission = await db.get<Permission>('SELECT id, name, description, resource, action, conditions, created_at FROM permissions WHERE name = ?', [permissionName]);
     if (permission) {
       await db.run(`
-        INSERT OR IGNORE INTO role_permissions (role_id, permission_id, granted_by)
+        INSERT INTO role_permissions (role_id, permission_id, granted_by)
         VALUES (?, ?, ?)
+        ON CONFLICT DO NOTHING
       `, [roleId, permission.id, undefined]);
     }
   }

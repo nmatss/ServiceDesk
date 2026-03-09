@@ -47,7 +47,7 @@ export default function RecognitionFeed({
   });
 
   return (
-    <div className="bg-white rounded-lg shadow-lg">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-lg">
       {/* Header */}
       <div className="bg-gradient-to-r from-pink-500 to-purple-500 p-6 rounded-t-lg text-white">
         <div className="flex items-center justify-between">
@@ -115,8 +115,8 @@ export default function RecognitionFeed({
       {/* Empty State */}
       {filteredRecognitions.length === 0 && (
         <div className="p-12 text-center text-neutral-500">
-          <p className="text-lg font-medium mb-2">No recognition yet</p>
-          <p className="text-sm">Be the first to send kudos to a teammate!</p>
+          <p className="text-lg font-medium mb-2">Nenhum reconhecimento ainda</p>
+          <p className="text-sm">Seja o primeiro a enviar um reconhecimento para um colega!</p>
         </div>
       )}
 
@@ -265,6 +265,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
                   <button
                     key={emoji}
                     onClick={() => onReact?.(recognition.id, emoji)}
+                    aria-label={`${emoji} ${count} ${count === 1 ? 'reação' : 'reações'}`}
                     className="flex items-center gap-1 px-2 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors"
                   >
                     <span className="text-sm">{emoji}</span>
@@ -279,6 +280,8 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
               <div className="relative">
                 <button
                   onClick={() => setShowReactions(!showReactions)}
+                  aria-label="Adicionar reação"
+                  aria-expanded={showReactions}
                   className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                     userReacted
                       ? 'bg-blue-100 text-blue-700'
@@ -290,7 +293,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
 
                 {/* Reaction Picker */}
                 {showReactions && (
-                  <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg border border-neutral-200 p-2 flex gap-1 z-10">
+                  <div role="group" aria-label="Selecionar reação" className="absolute bottom-full left-0 mb-2 bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 p-2 flex gap-1 z-10">
                     {reactionEmojis.map((emoji) => (
                       <button
                         key={emoji}
@@ -298,7 +301,8 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
                           onReact(recognition.id, emoji);
                           setShowReactions(false);
                         }}
-                        className="text-2xl hover:scale-125 transition-transform"
+                        aria-label={`Reagir com ${emoji}`}
+                        className="text-2xl hover:scale-125 transition-transform p-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
                       >
                         {emoji}
                       </button>
@@ -352,15 +356,16 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-lg w-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200">
+        <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
           <h3 className="text-xl font-bold text-neutral-900">Send Kudos 👏</h3>
           <button
             onClick={onClose}
+            aria-label="Fechar"
             className="text-neutral-400 hover:text-neutral-600 transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -384,7 +389,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search for a teammate..."
+                  placeholder="Buscar um colega..."
                   className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 {searchResults.length > 0 && (

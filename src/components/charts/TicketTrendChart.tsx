@@ -470,7 +470,7 @@ export default function TicketTrendChart({
           renderChart()
         ) : (
           <div className="flex items-center justify-center h-64 text-neutral-500">
-            No data available for the selected time range
+            Sem dados disponíveis para o período selecionado
           </div>
         )}
       </div>

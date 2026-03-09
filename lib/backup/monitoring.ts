@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import logger from '@/lib/monitoring/structured-logger';
 
 // Backup job status types
 export enum BackupStatus {
@@ -77,7 +78,7 @@ export class BackupMonitor {
     };
 
     this.jobs.set(jobId, job);
-    console.log(`[BackupMonitor] Registered job: ${jobId}`);
+    logger.info(`[BackupMonitor] Registered job: ${jobId}`);
 
     return jobId;
   }
@@ -118,7 +119,7 @@ export class BackupMonitor {
     // Check for anomalies
     await this.checkAnomalies(job);
 
-    console.log(`[BackupMonitor] Updated job ${jobId}: ${status}`);
+    logger.info(`[BackupMonitor] Updated job ${jobId}: ${status}`);
   }
 
   /**
@@ -265,7 +266,7 @@ export class BackupMonitor {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`[BackupMonitor] ALERT [${severity.toUpperCase()}]:`, alert);
+    logger.warn(`[BackupMonitor] ALERT [${severity.toUpperCase()}]:`, alert);
 
     if (this.notificationWebhook) {
       try {
@@ -275,7 +276,7 @@ export class BackupMonitor {
           body: JSON.stringify(alert),
         });
       } catch (error) {
-        console.error('[BackupMonitor] Failed to send alert:', error);
+        logger.error('[BackupMonitor] Failed to send alert:', error);
       }
     }
   }
@@ -336,7 +337,7 @@ export class BackupMonitor {
       }
     }
 
-    console.log(`[BackupMonitor] Cleaned up ${deleted} old job records`);
+    logger.info(`[BackupMonitor] Cleaned up ${deleted} old job records`);
     return deleted;
   }
 }
@@ -406,8 +407,8 @@ export class S3LifecycleManager {
     const policy = this.generateLifecyclePolicy();
 
     // This would use AWS SDK to apply the policy
-    console.log('S3 Lifecycle Policy:', JSON.stringify(policy, null, 2));
-    console.log(`Apply to bucket: ${bucketName}`);
+    logger.info('S3 Lifecycle Policy:', { policy });
+    logger.info(`Apply to bucket: ${bucketName}`);
 
     // Example implementation:
     // const s3 = new AWS.S3();

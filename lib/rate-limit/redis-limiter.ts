@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTrustedClientIP } from '@/lib/api/get-client-ip';
+import { logger } from '@/lib/monitoring/logger';
 
 // High-performance sliding window rate limiter using fixed-size circular buffer
 interface RateLimitEntry {
@@ -142,7 +143,7 @@ export async function applyRateLimit(
   // Explicit bypass for specific environments/jobs (never in production).
   if (process.env.BYPASS_RATE_LIMIT === 'true') {
     if (process.env.NODE_ENV === 'production') {
-      console.warn('BYPASS_RATE_LIMIT cannot be used in production');
+      logger.warn('BYPASS_RATE_LIMIT cannot be used in production');
       // Don't bypass in production -- fall through to normal rate limiting
     } else {
       return null;

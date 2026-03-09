@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlNow, sqlDatetimeSub, sqlDatetimeSubYears } from '@/lib/db/adapter';
 import { verifyToken } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -35,16 +35,16 @@ export async function GET(request: NextRequest) {
     let dateFilter = ''
     switch (period) {
       case '7d':
-        dateFilter = "datetime('now', '-7 days')"
+        dateFilter = sqlDatetimeSub(7)
         break
       case '90d':
-        dateFilter = "datetime('now', '-90 days')"
+        dateFilter = sqlDatetimeSub(90)
         break
       case '1y':
-        dateFilter = "datetime('now', '-1 year')"
+        dateFilter = sqlDatetimeSubYears(1)
         break
       default: // 30d
-        dateFilter = "datetime('now', '-30 days')"
+        dateFilter = sqlDatetimeSub(30)
     }
 
     // Métricas gerais
@@ -70,8 +70,8 @@ export async function GET(request: NextRequest) {
       INNER JOIN statuses s ON t.status_id = s.id
       WHERE s.is_final = 0
       AND (
-        (sla.response_due_at < datetime('now') AND sla.response_met = 0)
-        OR (sla.resolution_due_at < datetime('now') AND sla.resolution_met = 0)
+        (sla.response_due_at < ${sqlNow()} AND sla.response_met = 0)
+        OR (sla.resolution_due_at < ${sqlNow()} AND sla.resolution_met = 0)
       )
     `) || { count: 0 }
 
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
           WHERE DATE(t2.resolved_at) = DATE(t1.created_at)
         ) as resolved
       FROM tickets t1
-      WHERE created_at >= datetime('now', '-14 days')
+      WHERE created_at >= ${sqlDatetimeSub(14)}
       GROUP BY DATE(created_at)
       ORDER BY date ASC
     `)

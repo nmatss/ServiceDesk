@@ -20,13 +20,14 @@ async function txGet<T = any>(tx: DatabaseAdapter, sql: string, params: any[]): 
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const { slug } = await params
     const tenantContext = getTenantContextFromRequest(request)
     const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
     if (!tenantId) {
@@ -70,7 +71,7 @@ export async function GET(
       LEFT JOIN users r ON a.reviewer_id = r.id
       WHERE a.slug = ? AND a.status = 'published'
       AND (a.tenant_id = ? OR a.tenant_id IS NULL)
-    `, [params.slug, tenantId])
+    `, [slug, tenantId])
 
     if (!article) {
       return NextResponse.json(
@@ -153,13 +154,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const { slug } = await params
     const guard = requireTenantUserContext(request, {
       requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
     })
@@ -170,7 +172,7 @@ export async function PUT(
     // Verificar se artigo existe
     const existingArticle = await executeQueryOne<{ id: number; author_id: number }>(
       'SELECT id, author_id FROM kb_articles WHERE slug = ? AND tenant_id = ?',
-      [params.slug, tenantContext.id]
+      [slug, tenantContext.id]
     )
     if (!existingArticle) {
       return NextResponse.json(
@@ -274,13 +276,14 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
+    const { slug } = await params
     const guard = requireTenantUserContext(request, {
       requireRoles: ['admin', 'super_admin', 'tenant_admin'],
     })
@@ -290,7 +293,7 @@ export async function DELETE(
     // Verificar se artigo existe
     const article = await executeQueryOne<{ id: number }>(
       'SELECT id FROM kb_articles WHERE slug = ? AND tenant_id = ?',
-      [params.slug, tenantContext.id]
+      [slug, tenantContext.id]
     )
     if (!article) {
       return NextResponse.json(

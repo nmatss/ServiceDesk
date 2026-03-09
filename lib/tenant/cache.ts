@@ -14,6 +14,7 @@
 
 import { LRUCache } from 'lru-cache';
 import type { Organization } from '@/lib/types/database';
+import logger from '@/lib/monitoring/structured-logger';
 
 /**
  * Tenant cache entry with metadata
@@ -175,7 +176,7 @@ export function warmupCache(tenants: Organization[]): void {
     try {
       setTenantInCache(tenant);
     } catch (error) {
-      console.error(`Failed to warmup cache for tenant ${tenant.slug}:`, error);
+      logger.error(`Failed to warmup cache for tenant ${tenant.slug}:`, error);
     }
   });
 }

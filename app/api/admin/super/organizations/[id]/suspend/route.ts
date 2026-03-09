@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 /**
  * POST /api/admin/super/organizations/[id]/suspend
@@ -11,6 +12,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const guard = requireSuperAdmin(request);
   if (guard.response) return guard.response;
 

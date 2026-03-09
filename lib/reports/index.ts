@@ -1,4 +1,5 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 export interface ReportFilters {
@@ -63,7 +64,7 @@ export interface SatisfactionMetrics {
 }
 
 /**
- * Constrói cláusula WHERE baseada nos filtros
+ * Constroi clausula WHERE baseada nos filtros
  * SECURITY: tenant_id filter is ALWAYS applied first for multi-tenant isolation
  */
 function buildWhereClause(filters: ReportFilters, tableAlias: string = 't'): { whereClause: string; params: any[] } {
@@ -118,14 +119,14 @@ function buildWhereClause(filters: ReportFilters, tableAlias: string = 't'): { w
 }
 
 /**
- * Relatório de métricas gerais de tickets
+ * Relatorio de metricas gerais de tickets
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getTicketMetrics(filters: ReportFilters): TicketMetrics {
+export async function getTicketMetrics(filters: ReportFilters): Promise<TicketMetrics> {
   try {
     const { whereClause, params } = buildWhereClause(filters);
 
-    const query = db.prepare(`
+    const result = await executeQueryOne<any>(`
       SELECT
         COUNT(*) as total,
         COUNT(CASE WHEN s.name IN ('Novo', 'Aberto') THEN 1 END) as open,
@@ -134,24 +135,22 @@ export function getTicketMetrics(filters: ReportFilters): TicketMetrics {
         COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as closed,
         AVG(CASE WHEN st.resolution_met = 1 THEN st.resolution_time_minutes END) as avgResolutionTime,
         AVG(CASE WHEN st.response_met = 1 THEN st.response_time_minutes END) as avgResponseTime,
-        (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / COUNT(*)) as slaCompliance
+        (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0)) as slaCompliance
       FROM tickets t
       LEFT JOIN statuses s ON t.status_id = s.id
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
       ${whereClause}
-    `);
-
-    const result = query.get(...params) as any;
+    `, params);
 
     return {
-      total: result.total || 0,
-      open: result.open || 0,
-      inProgress: result.inProgress || 0,
-      resolved: result.resolved || 0,
-      closed: result.closed || 0,
-      avgResolutionTime: Math.round(result.avgResolutionTime || 0),
-      avgResponseTime: Math.round(result.avgResponseTime || 0),
-      slaCompliance: Math.round((result.slaCompliance || 0) * 100) / 100
+      total: result?.total || 0,
+      open: result?.open || 0,
+      inProgress: result?.inProgress || 0,
+      resolved: result?.resolved || 0,
+      closed: result?.closed || 0,
+      avgResolutionTime: Math.round(result?.avgResolutionTime || 0),
+      avgResponseTime: Math.round(result?.avgResponseTime || 0),
+      slaCompliance: Math.round((result?.slaCompliance || 0) * 100) / 100
     };
   } catch (error) {
     logger.error('Error getting ticket metrics', error);
@@ -169,19 +168,18 @@ export function getTicketMetrics(filters: ReportFilters): TicketMetrics {
 }
 
 /**
- * Relatório de performance de agentes
+ * Relatorio de performance de agentes
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getAgentPerformance(filters: ReportFilters): AgentPerformance[] {
+export async function getAgentPerformance(filters: ReportFilters): Promise<AgentPerformance[]> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for agent performance report');
     }
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const query = db.prepare(`
+    const results = await executeQuery<any>(`
       SELECT
         u.id as agentId,
         u.name as agentName,
@@ -189,7 +187,7 @@ export function getAgentPerformance(filters: ReportFilters): AgentPerformance[] 
         COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as ticketsResolved,
         AVG(CASE WHEN st.resolution_met = 1 THEN st.resolution_time_minutes END) as avgResolutionTime,
         AVG(CASE WHEN st.response_met = 1 THEN st.response_time_minutes END) as avgResponseTime,
-        (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / COUNT(t.id)) as slaCompliance,
+        (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(t.id), 0)) as slaCompliance,
         AVG(ss.agent_rating) as satisfactionRating
       FROM users u
       LEFT JOIN tickets t ON u.id = t.assigned_to AND t.tenant_id = ?
@@ -202,12 +200,9 @@ export function getAgentPerformance(filters: ReportFilters): AgentPerformance[] 
       GROUP BY u.id, u.name
       HAVING COUNT(t.id) > 0
       ORDER BY ticketsAssigned DESC
-    `);
+    `, [filters.tenantId, filters.tenantId, ...params]);
 
-    // Add tenant_id for the JOIN and organization filter, then spread other params
-    const results = query.all(filters.tenantId, filters.tenantId, ...params) as any[];
-
-    return results.map(result => ({
+    return results.map((result: any) => ({
       agentId: result.agentId,
       agentName: result.agentName,
       ticketsAssigned: result.ticketsAssigned || 0,
@@ -224,26 +219,25 @@ export function getAgentPerformance(filters: ReportFilters): AgentPerformance[] 
 }
 
 /**
- * Relatório de estatísticas por categoria
+ * Relatorio de estatisticas por categoria
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getCategoryStats(filters: ReportFilters): CategoryStats[] {
+export async function getCategoryStats(filters: ReportFilters): Promise<CategoryStats[]> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for category stats report');
     }
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const query = db.prepare(`
+    const results = await executeQuery<any>(`
       SELECT
         c.id as categoryId,
         c.name as categoryName,
         COUNT(t.id) as totalTickets,
         COUNT(CASE WHEN s.is_final = 1 THEN 1 END) as resolvedTickets,
         AVG(CASE WHEN st.resolution_met = 1 THEN st.resolution_time_minutes END) as avgResolutionTime,
-        (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / COUNT(t.id)) as slaCompliance
+        (COUNT(CASE WHEN st.resolution_met = 1 THEN 1 END) * 100.0 / NULLIF(COUNT(t.id), 0)) as slaCompliance
       FROM categories c
       LEFT JOIN tickets t ON c.id = t.category_id AND t.tenant_id = ?
       LEFT JOIN statuses s ON t.status_id = s.id
@@ -253,12 +247,9 @@ export function getCategoryStats(filters: ReportFilters): CategoryStats[] {
       GROUP BY c.id, c.name
       HAVING COUNT(t.id) > 0
       ORDER BY totalTickets DESC
-    `);
+    `, [filters.tenantId, filters.tenantId, ...params]);
 
-    // Add tenant_id for JOIN and categories filter, then spread other params
-    const results = query.all(filters.tenantId, filters.tenantId, ...params) as any[];
-
-    return results.map(result => ({
+    return results.map((result: any) => ({
       categoryId: result.categoryId,
       categoryName: result.categoryName,
       totalTickets: result.totalTickets || 0,
@@ -273,29 +264,27 @@ export function getCategoryStats(filters: ReportFilters): CategoryStats[] {
 }
 
 /**
- * Distribuição por prioridade
+ * Distribuicao por prioridade
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getPriorityDistribution(filters: ReportFilters): PriorityDistribution[] {
+export async function getPriorityDistribution(filters: ReportFilters): Promise<PriorityDistribution[]> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for priority distribution report');
     }
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    // Primeiro, obter o total de tickets para calcular percentuais
-    const totalQuery = db.prepare(`
+    const totalResult = await executeQueryOne<{ total: number }>(`
       SELECT COUNT(*) as total
       FROM tickets t
       ${whereClause}
-    `);
-    const { total } = totalQuery.get(...params) as { total: number };
+    `, params);
+    const total = totalResult?.total || 0;
 
     if (total === 0) return [];
 
-    const query = db.prepare(`
+    const results = await executeQuery<any>(`
       SELECT
         p.id as priorityId,
         p.name as priorityName,
@@ -310,12 +299,9 @@ export function getPriorityDistribution(filters: ReportFilters): PriorityDistrib
       GROUP BY p.id, p.name, p.level
       HAVING COUNT(t.id) > 0
       ORDER BY p.level DESC
-    `);
+    `, [filters.tenantId, filters.tenantId, ...params]);
 
-    // Add tenant_id for JOIN and priorities filter, then spread other params
-    const results = query.all(filters.tenantId, filters.tenantId, ...params) as any[];
-
-    return results.map(result => ({
+    return results.map((result: any) => ({
       priorityId: result.priorityId,
       priorityName: result.priorityName,
       priorityLevel: result.priorityLevel,
@@ -330,19 +316,18 @@ export function getPriorityDistribution(filters: ReportFilters): PriorityDistrib
 }
 
 /**
- * Métricas de satisfação
+ * Metricas de satisfacao
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getSatisfactionMetrics(filters: ReportFilters): SatisfactionMetrics {
+export async function getSatisfactionMetrics(filters: ReportFilters): Promise<SatisfactionMetrics> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for satisfaction metrics report');
     }
 
     const { whereClause, params } = buildWhereClause(filters, 't');
 
-    const query = db.prepare(`
+    const result = await executeQueryOne<any>(`
       SELECT
         COUNT(ss.id) as totalSurveys,
         AVG(ss.rating) as avgRating,
@@ -352,12 +337,9 @@ export function getSatisfactionMetrics(filters: ReportFilters): SatisfactionMetr
       FROM satisfaction_surveys ss
       JOIN tickets t ON ss.ticket_id = t.id
       ${whereClause}
-    `);
+    `, params);
 
-    const result = query.get(...params) as any;
-
-    // Distribuição de ratings
-    const distributionQuery = db.prepare(`
+    const distribution = await executeQuery<{ rating: number; count: number }>(`
       SELECT
         ss.rating,
         COUNT(*) as count
@@ -366,16 +348,14 @@ export function getSatisfactionMetrics(filters: ReportFilters): SatisfactionMetr
       ${whereClause}
       GROUP BY ss.rating
       ORDER BY ss.rating
-    `);
-
-    const distribution = distributionQuery.all(...params) as { rating: number; count: number }[];
+    `, params);
 
     return {
-      totalSurveys: result.totalSurveys || 0,
-      avgRating: Math.round((result.avgRating || 0) * 100) / 100,
-      avgAgentRating: Math.round((result.avgAgentRating || 0) * 100) / 100,
-      avgResolutionSpeedRating: Math.round((result.avgResolutionSpeedRating || 0) * 100) / 100,
-      avgCommunicationRating: Math.round((result.avgCommunicationRating || 0) * 100) / 100,
+      totalSurveys: result?.totalSurveys || 0,
+      avgRating: Math.round((result?.avgRating || 0) * 100) / 100,
+      avgAgentRating: Math.round((result?.avgAgentRating || 0) * 100) / 100,
+      avgResolutionSpeedRating: Math.round((result?.avgResolutionSpeedRating || 0) * 100) / 100,
+      avgCommunicationRating: Math.round((result?.avgCommunicationRating || 0) * 100) / 100,
       ratingDistribution: distribution
     };
   } catch (error) {
@@ -392,31 +372,45 @@ export function getSatisfactionMetrics(filters: ReportFilters): SatisfactionMetr
 }
 
 /**
- * Relatório de tendências (dados por período)
+ * Relatorio de tendencias (dados por periodo)
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getTrendData(filters: ReportFilters, groupBy: 'day' | 'week' | 'month' = 'day'): any[] {
+export async function getTrendData(filters: ReportFilters, groupBy: 'day' | 'week' | 'month' = 'day'): Promise<any[]> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for trend data report');
     }
 
+    const isPostgres = getDatabaseType() === 'postgresql';
     let dateFormat: string;
-    switch (groupBy) {
-      case 'week':
-        dateFormat = "strftime('%Y-W%W', t.created_at)";
-        break;
-      case 'month':
-        dateFormat = "strftime('%Y-%m', t.created_at)";
-        break;
-      default:
-        dateFormat = "strftime('%Y-%m-%d', t.created_at)";
+
+    if (isPostgres) {
+      switch (groupBy) {
+        case 'week':
+          dateFormat = "to_char(t.created_at, 'IYYY-\"W\"IW')";
+          break;
+        case 'month':
+          dateFormat = "to_char(t.created_at, 'YYYY-MM')";
+          break;
+        default:
+          dateFormat = "to_char(t.created_at, 'YYYY-MM-DD')";
+      }
+    } else {
+      switch (groupBy) {
+        case 'week':
+          dateFormat = "strftime('%Y-W%W', t.created_at)";
+          break;
+        case 'month':
+          dateFormat = "strftime('%Y-%m', t.created_at)";
+          break;
+        default:
+          dateFormat = "strftime('%Y-%m-%d', t.created_at)";
+      }
     }
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const query = db.prepare(`
+    const results = await executeQuery<any>(`
       SELECT
         ${dateFormat} as period,
         COUNT(*) as ticketsCreated,
@@ -428,11 +422,9 @@ export function getTrendData(filters: ReportFilters, groupBy: 'day' | 'week' | '
       ${whereClause}
       GROUP BY ${dateFormat}
       ORDER BY period
-    `);
+    `, params);
 
-    const results = query.all(...params) as any[];
-
-    return results.map(result => ({
+    return results.map((result: any) => ({
       period: result.period,
       ticketsCreated: result.ticketsCreated || 0,
       ticketsResolved: result.ticketsResolved || 0,
@@ -445,19 +437,18 @@ export function getTrendData(filters: ReportFilters, groupBy: 'day' | 'week' | '
 }
 
 /**
- * Relatório de SLA
+ * Relatorio de SLA
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getSLAReport(filters: ReportFilters): any {
+export async function getSLAReport(filters: ReportFilters): Promise<any> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for SLA report');
     }
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const query = db.prepare(`
+    const results = await executeQuery<any>(`
       SELECT
         sp.name as slaName,
         COUNT(st.id) as totalTickets,
@@ -473,12 +464,9 @@ export function getSLAReport(filters: ReportFilters): any {
       ${whereClause}
       GROUP BY sp.id, sp.name
       ORDER BY totalTickets DESC
-    `);
+    `, [filters.tenantId, ...params]);
 
-    // Add tenant_id for SLA policies filter, then spread other params
-    const results = query.all(filters.tenantId, ...params) as any[];
-
-    return results.map(result => ({
+    return results.map((result: any) => ({
       slaName: result.slaName,
       totalTickets: result.totalTickets || 0,
       responseCompliance: result.totalTickets > 0 ? Math.round((result.responseMet / result.totalTickets) * 10000) / 100 : 0,
@@ -495,38 +483,37 @@ export function getSLAReport(filters: ReportFilters): any {
 }
 
 /**
- * Dashboard executivo com métricas principais
+ * Dashboard executivo com metricas principais
  * SECURITY: Requires tenantId in filters for multi-tenant isolation
  */
-export function getExecutiveDashboard(filters: ReportFilters): any {
+export async function getExecutiveDashboard(filters: ReportFilters): Promise<any> {
   try {
-    // SECURITY: Validate tenant_id is provided
     if (!filters.tenantId || filters.tenantId <= 0) {
       throw new Error('Security violation: tenantId is required for executive dashboard');
     }
 
-    const ticketMetrics = getTicketMetrics(filters);
-    const agentPerformance = getAgentPerformance(filters);
-    const categoryStats = getCategoryStats(filters);
-    const satisfactionMetrics = getSatisfactionMetrics(filters);
-    const trendData = getTrendData(filters, 'week');
+    const ticketMetricsData = await getTicketMetrics(filters);
+    const agentPerformance = await getAgentPerformance(filters);
+    const categoryStats = await getCategoryStats(filters);
+    const satisfactionMetricsData = await getSatisfactionMetrics(filters);
+    const trendData = await getTrendData(filters, 'week');
 
     return {
       summary: {
-        totalTickets: ticketMetrics.total,
-        openTickets: ticketMetrics.open,
-        slaCompliance: ticketMetrics.slaCompliance,
-        avgResolutionTime: ticketMetrics.avgResolutionTime,
-        satisfactionRating: satisfactionMetrics.avgRating
+        totalTickets: ticketMetricsData.total,
+        openTickets: ticketMetricsData.open,
+        slaCompliance: ticketMetricsData.slaCompliance,
+        avgResolutionTime: ticketMetricsData.avgResolutionTime,
+        satisfactionRating: satisfactionMetricsData.avgRating
       },
       agents: {
         totalAgents: agentPerformance.length,
         topPerformer: agentPerformance[0]?.agentName || 'N/A',
         avgTicketsPerAgent: agentPerformance.length > 0 ? Math.round(agentPerformance.reduce((sum, agent) => sum + agent.ticketsAssigned, 0) / agentPerformance.length) : 0
       },
-      categories: categoryStats.slice(0, 5), // Top 5 categorias
-      satisfaction: satisfactionMetrics,
-      trends: trendData.slice(-8) // Últimas 8 semanas
+      categories: categoryStats.slice(0, 5),
+      satisfaction: satisfactionMetricsData,
+      trends: trendData.slice(-8)
     };
   } catch (error) {
     logger.error('Error getting executive dashboard', error);
@@ -535,7 +522,7 @@ export function getExecutiveDashboard(filters: ReportFilters): any {
 }
 
 /**
- * Exporta dados de relatório em formato CSV
+ * Exporta dados de relatorio em formato CSV
  */
 export function exportToCSV(data: any[], filename: string): string {
   try {
@@ -547,7 +534,6 @@ export function exportToCSV(data: any[], filename: string): string {
       ...data.map(row =>
         headers.map(header => {
           const value = row[header];
-          // Escape aspas duplas e envolve em aspas se contém vírgula
           const stringValue = String(value || '');
           if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
             return `"${stringValue.replace(/"/g, '""')}"`;

@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import db from '../db/connection';
+import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface SentimentResult {
@@ -83,9 +83,10 @@ Retorne um JSON com:
     ticketId: number,
     organizationId: number
   ): Promise<void> {
-    const ticket = db.prepare(`
-      SELECT * FROM tickets WHERE id = ? AND organization_id = ?
-    `).get(ticketId, organizationId) as any;
+    const ticket = await executeQueryOne<any>(
+      `SELECT * FROM tickets WHERE id = ? AND organization_id = ?`,
+      [ticketId, organizationId]
+    );
 
     if (!ticket) return;
 
@@ -94,23 +95,25 @@ Retorne um JSON com:
     // Se sentimento muito negativo + alta urgência, aumentar prioridade
     if (sentiment.score < -0.5 && sentiment.emotions.urgency > 0.7) {
       // Buscar prioridade mais alta
-      const highPriority = db.prepare(`
-        SELECT id FROM priorities
+      const highPriority = await executeQueryOne<any>(
+        `SELECT id FROM priorities
         WHERE organization_id = ?
         ORDER BY level DESC
-        LIMIT 1
-      `).get(organizationId) as any;
+        LIMIT 1`,
+        [organizationId]
+      );
 
       if (highPriority && ticket.priority_id !== highPriority.id) {
-        db.prepare(`
-          UPDATE tickets
+        await executeRun(
+          `UPDATE tickets
           SET priority_id = ?
-          WHERE id = ?
-        `).run(highPriority.id, ticketId);
+          WHERE id = ?`,
+          [highPriority.id, ticketId]
+        );
 
         // Criar notificação para managers
-        db.prepare(`
-          INSERT INTO notifications (
+        await executeRun(
+          `INSERT INTO notifications (
             user_id, ticket_id, type, title, message, organization_id
           )
           SELECT
@@ -119,8 +122,9 @@ Retorne um JSON com:
             'Ticket #' || ? || ' foi escalado automaticamente devido a análise de sentimento negativo',
             ?
           FROM users
-          WHERE role = 'manager' AND organization_id = ?
-        `).run(ticketId, ticketId, organizationId, organizationId);
+          WHERE role = 'manager' AND organization_id = ?`,
+          [ticketId, ticketId, organizationId, organizationId]
+        );
       }
     }
   }

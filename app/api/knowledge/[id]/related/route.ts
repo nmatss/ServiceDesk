@@ -13,9 +13,9 @@ import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const vectorDb = new VectorDatabase();
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
@@ -33,7 +33,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const articleId = parseInt(params.id);
+    const { id } = await params;
+    const articleId = parseInt(id);
     if (isNaN(articleId)) {
       return NextResponse.json(
         { error: 'Invalid article id' },

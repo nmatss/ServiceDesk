@@ -592,7 +592,7 @@ export function CollaborativeEditor({
 
         <div className="flex items-center space-x-2">
           {editorState.saveError && (
-            <span className="text-red-500">Save failed</span>
+            <span className="text-red-500">Falha ao salvar</span>
           )}
           {onSave && !autoSave && (
             <button
@@ -600,7 +600,7 @@ export function CollaborativeEditor({
               disabled={!editorState.isDirty || editorState.isSaving}
               className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {editorState.isSaving ? 'Saving...' : 'Save'}
+              {editorState.isSaving ? 'Salvando...' : 'Salvar'}
             </button>
           )}
         </div>

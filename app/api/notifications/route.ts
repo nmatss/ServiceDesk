@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get('unread_only') === 'true';
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50), 100);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     let whereClause = 'WHERE n.user_id = ? AND n.tenant_id = ?';
     const params = [userContext.id, tenantContext.id];

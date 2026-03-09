@@ -3,7 +3,8 @@ import nodemailer from 'nodemailer'
 type WebClient = any // Slack client - install @slack/web-api for full typing
 type GraphClient = any // MS Graph client - install @microsoft/microsoft-graph-client for full typing
 import { NotificationPayload } from './realtime-engine'
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
 export interface ChannelConfig {
@@ -89,7 +90,6 @@ interface UserInfo {
 }
 
 export class NotificationChannelManager {
-  private db = getDb()
   private channels = new Map<string, NotificationChannel>()
   private rateLimiters = new Map<string, RateLimiter>()
   private retryQueues = new Map<string, RetryQueueItem[]>()
@@ -123,7 +123,7 @@ export class NotificationChannelManager {
     this.initializeSMSChannel()
   }
 
-  private loadChannelConfigurations() {
+  private async loadChannelConfigurations() {
     try {
       // Load from database if available
       interface DbChannelConfig {
@@ -136,9 +136,9 @@ export class NotificationChannelManager {
         retry_policy?: string
       }
 
-      const configs = this.db.prepare(`
+      const configs = await executeQuery<DbChannelConfig>(`
         SELECT * FROM notification_channels WHERE is_enabled = 1
-      `).all() as DbChannelConfig[]
+      `, [])
 
       for (const config of configs) {
         this.channels.set(config.name, {
@@ -174,16 +174,8 @@ export class NotificationChannelManager {
         from: process.env.SMTP_FROM || 'noreply@servicedesk.com'
       },
       priority: 1,
-      rateLimit: {
-        maxPerMinute: 60,
-        maxPerHour: 1000,
-        maxPerDay: 10000
-      },
-      retryPolicy: {
-        maxRetries: 3,
-        retryDelay: 5000,
-        backoffMultiplier: 2
-      }
+      rateLimit: { maxPerMinute: 60, maxPerHour: 1000, maxPerDay: 10000 },
+      retryPolicy: { maxRetries: 3, retryDelay: 5000, backoffMultiplier: 2 }
     })
 
     // Slack channel
@@ -196,16 +188,8 @@ export class NotificationChannelManager {
         defaultChannel: process.env.SLACK_DEFAULT_CHANNEL || '#servicedesk'
       },
       priority: 2,
-      rateLimit: {
-        maxPerMinute: 60,
-        maxPerHour: 3600,
-        maxPerDay: 10000
-      },
-      retryPolicy: {
-        maxRetries: 3,
-        retryDelay: 2000,
-        backoffMultiplier: 2
-      }
+      rateLimit: { maxPerMinute: 60, maxPerHour: 3600, maxPerDay: 10000 },
+      retryPolicy: { maxRetries: 3, retryDelay: 2000, backoffMultiplier: 2 }
     })
 
     // Teams channel
@@ -220,16 +204,8 @@ export class NotificationChannelManager {
         tenantId: process.env.TEAMS_TENANT_ID
       },
       priority: 2,
-      rateLimit: {
-        maxPerMinute: 30,
-        maxPerHour: 1000,
-        maxPerDay: 5000
-      },
-      retryPolicy: {
-        maxRetries: 3,
-        retryDelay: 3000,
-        backoffMultiplier: 2
-      }
+      rateLimit: { maxPerMinute: 30, maxPerHour: 1000, maxPerDay: 5000 },
+      retryPolicy: { maxRetries: 3, retryDelay: 3000, backoffMultiplier: 2 }
     })
 
     // WhatsApp channel (via Twilio)
@@ -243,16 +219,8 @@ export class NotificationChannelManager {
         fromNumber: process.env.TWILIO_WHATSAPP_FROM
       },
       priority: 3,
-      rateLimit: {
-        maxPerMinute: 10,
-        maxPerHour: 100,
-        maxPerDay: 1000
-      },
-      retryPolicy: {
-        maxRetries: 2,
-        retryDelay: 10000,
-        backoffMultiplier: 3
-      }
+      rateLimit: { maxPerMinute: 10, maxPerHour: 100, maxPerDay: 1000 },
+      retryPolicy: { maxRetries: 2, retryDelay: 10000, backoffMultiplier: 3 }
     })
 
     // Push notifications
@@ -266,11 +234,7 @@ export class NotificationChannelManager {
         vapidSubject: process.env.PUSH_VAPID_SUBJECT || 'mailto:admin@servicedesk.com'
       },
       priority: 1,
-      rateLimit: {
-        maxPerMinute: 100,
-        maxPerHour: 2000,
-        maxPerDay: 10000
-      }
+      rateLimit: { maxPerMinute: 100, maxPerHour: 2000, maxPerDay: 10000 }
     })
 
     // SMS channel
@@ -284,16 +248,8 @@ export class NotificationChannelManager {
         fromNumber: process.env.TWILIO_PHONE_FROM
       },
       priority: 4,
-      rateLimit: {
-        maxPerMinute: 5,
-        maxPerHour: 50,
-        maxPerDay: 500
-      },
-      retryPolicy: {
-        maxRetries: 2,
-        retryDelay: 5000,
-        backoffMultiplier: 2
-      }
+      rateLimit: { maxPerMinute: 5, maxPerHour: 50, maxPerDay: 500 },
+      retryPolicy: { maxRetries: 2, retryDelay: 5000, backoffMultiplier: 2 }
     })
   }
 
@@ -302,9 +258,9 @@ export class NotificationChannelManager {
     if (emailChannel?.isEnabled) {
       try {
         this.emailTransporter = nodemailer.createTransport(emailChannel.config as nodemailer.TransportOptions)
-        logger.info('✅ Email channel initialized')
+        logger.info('Email channel initialized')
       } catch (error) {
-        logger.error('❌ Failed to initialize email channel', error)
+        logger.error('Failed to initialize email channel', error)
         emailChannel.isEnabled = false
       }
     }
@@ -314,13 +270,10 @@ export class NotificationChannelManager {
     const slackChannel = this.channels.get('slack')
     if (slackChannel?.isEnabled) {
       try {
-        // Initialize Slack client if @slack/web-api is installed
-        // This requires the @slack/web-api package to be installed
-        // For now, mark as initialized but client will be null
         this.slackClient = null
-        logger.info('✅ Slack channel initialized (stub)')
+        logger.info('Slack channel initialized (stub)')
       } catch (error) {
-        logger.error('❌ Failed to initialize Slack channel', error)
+        logger.error('Failed to initialize Slack channel', error)
         slackChannel.isEnabled = false
       }
     }
@@ -330,13 +283,10 @@ export class NotificationChannelManager {
     const teamsChannel = this.channels.get('teams')
     if (teamsChannel?.isEnabled && teamsChannel.config.clientId) {
       try {
-        // Initialize Microsoft Graph client for Teams
-        // Note: This requires @microsoft/microsoft-graph-client package
-        // For now, mark as initialized but client will be null
         this.teamsClient = null
-        logger.info('✅ Teams channel initialized (stub)')
+        logger.info('Teams channel initialized (stub)')
       } catch (error) {
-        logger.error('❌ Failed to initialize Teams channel', error)
+        logger.error('Failed to initialize Teams channel', error)
         teamsChannel.isEnabled = false
       }
     }
@@ -346,27 +296,25 @@ export class NotificationChannelManager {
     const whatsappChannel = this.channels.get('whatsapp')
     if (whatsappChannel?.isEnabled) {
       this.whatsappConfig = whatsappChannel.config
-      logger.info('✅ WhatsApp channel initialized')
+      logger.info('WhatsApp channel initialized')
     }
   }
 
   private initializePushChannel() {
     const pushChannel = this.channels.get('push')
     if (pushChannel?.isEnabled) {
-      // Web Push will be handled in the browser
-      logger.info('✅ Push notification channel configured')
+      logger.info('Push notification channel configured')
     }
   }
 
   private initializeSMSChannel() {
     const smsChannel = this.channels.get('sms')
     if (smsChannel?.isEnabled) {
-      logger.info('✅ SMS channel initialized')
+      logger.info('SMS channel initialized')
     }
   }
 
   private setupRateLimiters() {
-    // Initialize rate limiters for each channel
     for (const [channelName, channel] of this.channels.entries()) {
       if (channel.rateLimit) {
         this.rateLimiters.set(channelName, {
@@ -378,17 +326,11 @@ export class NotificationChannelManager {
       }
     }
 
-    // Cleanup rate limiters periodically
-    setInterval(() => {
-      this.cleanupRateLimiters()
-    }, 60000) // Every minute
+    setInterval(() => { this.cleanupRateLimiters() }, 60000)
   }
 
   private setupRetryProcessing() {
-    // Process retry queues periodically
-    setInterval(() => {
-      this.processRetryQueues()
-    }, 30000) // Every 30 seconds
+    setInterval(() => { this.processRetryQueues() }, 30000)
   }
 
   public async deliverViaChannel(
@@ -399,59 +341,27 @@ export class NotificationChannelManager {
   ): Promise<DeliveryResult> {
     const channel = this.channels.get(channelName)
     if (!channel || !channel.isEnabled) {
-      return {
-        success: false,
-        channel: channelName,
-        error: 'Channel not available',
-        timestamp: new Date()
-      }
+      return { success: false, channel: channelName, error: 'Channel not available', timestamp: new Date() }
     }
 
-    // Check rate limits
     if (!(await this.checkRateLimit(channelName, userId))) {
-      return {
-        success: false,
-        channel: channelName,
-        error: 'Rate limit exceeded',
-        timestamp: new Date()
-      }
+      return { success: false, channel: channelName, error: 'Rate limit exceeded', timestamp: new Date() }
     }
 
     try {
       let result: DeliveryResult
 
       switch (channel.type) {
-        case 'email':
-          result = await this.deliverViaEmail(notification, userId, userPreferences)
-          break
-        case 'slack':
-          result = await this.deliverViaSlack(notification, userId, userPreferences)
-          break
-        case 'teams':
-          result = await this.deliverViaTeams(notification, userId, userPreferences)
-          break
-        case 'whatsapp':
-          result = await this.deliverViaWhatsApp(notification, userId, userPreferences)
-          break
-        case 'push':
-          result = await this.deliverViaPush(notification, userId, userPreferences)
-          break
-        case 'sms':
-          result = await this.deliverViaSMS(notification, userId, userPreferences)
-          break
-        default:
-          result = {
-            success: false,
-            channel: channelName,
-            error: 'Unknown channel type',
-            timestamp: new Date()
-          }
+        case 'email': result = await this.deliverViaEmail(notification, userId, userPreferences); break
+        case 'slack': result = await this.deliverViaSlack(notification, userId, userPreferences); break
+        case 'teams': result = await this.deliverViaTeams(notification, userId, userPreferences); break
+        case 'whatsapp': result = await this.deliverViaWhatsApp(notification, userId, userPreferences); break
+        case 'push': result = await this.deliverViaPush(notification, userId, userPreferences); break
+        case 'sms': result = await this.deliverViaSMS(notification, userId, userPreferences); break
+        default: result = { success: false, channel: channelName, error: 'Unknown channel type', timestamp: new Date() }
       }
 
-      // Update rate limiter
       this.updateRateLimit(channelName, userId)
-
-      // Log delivery
       this.logDelivery(result, notification, userId)
 
       return result
@@ -463,7 +373,6 @@ export class NotificationChannelManager {
         timestamp: new Date()
       }
 
-      // Add to retry queue if retry policy exists
       if (channel.retryPolicy) {
         this.addToRetryQueue(channelName, notification, userId, userPreferences, 0)
       }
@@ -472,22 +381,13 @@ export class NotificationChannelManager {
     }
   }
 
-  private async deliverViaEmail(
-    notification: NotificationPayload,
-    userId: number,
-    _userPreferences: UserPreferences
-  ): Promise<DeliveryResult> {
-    if (!this.emailTransporter) {
-      throw new Error('Email transporter not configured')
-    }
+  private async deliverViaEmail(notification: NotificationPayload, userId: number, _userPreferences: UserPreferences): Promise<DeliveryResult> {
+    if (!this.emailTransporter) throw new Error('Email transporter not configured')
 
     const user = await this.getUserInfo(userId)
-    if (!user?.email) {
-      throw new Error('User email not found')
-    }
+    if (!user?.email) throw new Error('User email not found')
 
     const emailContent = await this.generateEmailContent(notification, user)
-
     const mailOptions = {
       from: this.channels.get('email')!.config.from,
       to: user.email,
@@ -497,183 +397,84 @@ export class NotificationChannelManager {
     }
 
     const info = await this.emailTransporter.sendMail(mailOptions)
-
-    return {
-      success: true,
-      channel: 'email',
-      messageId: info.messageId,
-      timestamp: new Date()
-    }
+    return { success: true, channel: 'email', messageId: info.messageId, timestamp: new Date() }
   }
 
-  private async deliverViaSlack(
-    notification: NotificationPayload,
-    userId: number,
-    userPreferences: UserPreferences
-  ): Promise<DeliveryResult> {
-    if (!this.slackClient) {
-      throw new Error('Slack client not configured')
-    }
+  private async deliverViaSlack(notification: NotificationPayload, userId: number, userPreferences: UserPreferences): Promise<DeliveryResult> {
+    if (!this.slackClient) throw new Error('Slack client not configured')
 
     const user = await this.getUserInfo(userId)
     const slackUserId = userPreferences.slackUserId || this.getSlackUserByEmail(user?.email)
 
     if (!slackUserId) {
-      // Send to default channel
       const channel = userPreferences.slackChannel || this.channels.get('slack')!.config.defaultChannel
       const slackMessage = this.formatSlackMessage(notification, user)
-
-      const result = await this.slackClient.chat.postMessage({
-        channel,
-        ...slackMessage
-      })
-
-      return {
-        success: true,
-        channel: 'slack',
-        messageId: result.ts,
-        timestamp: new Date()
-      }
+      const result = await this.slackClient.chat.postMessage({ channel, ...slackMessage })
+      return { success: true, channel: 'slack', messageId: result.ts, timestamp: new Date() }
     } else {
-      // Send DM to user
       const slackMessage = this.formatSlackMessage(notification, user)
-
-      const result = await this.slackClient.chat.postMessage({
-        channel: slackUserId,
-        ...slackMessage
-      })
-
-      return {
-        success: true,
-        channel: 'slack',
-        messageId: result.ts,
-        timestamp: new Date()
-      }
+      const result = await this.slackClient.chat.postMessage({ channel: slackUserId, ...slackMessage })
+      return { success: true, channel: 'slack', messageId: result.ts, timestamp: new Date() }
     }
   }
 
-  private async deliverViaTeams(
-    notification: NotificationPayload,
-    userId: number,
-    userPreferences: UserPreferences
-  ): Promise<DeliveryResult> {
+  private async deliverViaTeams(notification: NotificationPayload, userId: number, userPreferences: UserPreferences): Promise<DeliveryResult> {
     const teamsChannel = this.channels.get('teams')!
     const user = await this.getUserInfo(userId)
 
-    // Use webhook for simple messages
     if (teamsChannel.config.webhookUrl) {
       const _teamsMessage = this.formatTeamsMessage(notification, user)
-
       const response = await fetch(teamsChannel.config.webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(_teamsMessage)
       })
-
-      if (!response.ok) {
-        throw new Error(`Teams webhook failed: ${response.statusText}`)
-      }
-
-      return {
-        success: true,
-        channel: 'teams',
-        messageId: `webhook_${Date.now()}`,
-        timestamp: new Date()
-      }
+      if (!response.ok) throw new Error(`Teams webhook failed: ${response.statusText}`)
+      return { success: true, channel: 'teams', messageId: `webhook_${Date.now()}`, timestamp: new Date() }
     }
 
-    // Use Graph API for more advanced features
     if (this.teamsClient && userPreferences.teamsUserId) {
-      // Send message via Graph API
-      // Implementation would depend on specific Teams integration requirements
-      // const teamsMessage = this.formatTeamsMessage(notification, user)
-      // await this.teamsClient.api('/chats/{chat-id}/messages').post(teamsMessage)
-
-      return {
-        success: true,
-        channel: 'teams',
-        messageId: `graph_${Date.now()}`,
-        timestamp: new Date()
-      }
+      return { success: true, channel: 'teams', messageId: `graph_${Date.now()}`, timestamp: new Date() }
     }
 
     throw new Error('Teams delivery method not configured')
   }
 
-  private async deliverViaWhatsApp(
-    notification: NotificationPayload,
-    userId: number,
-    userPreferences: UserPreferences
-  ): Promise<DeliveryResult> {
-    if (!this.whatsappConfig) {
-      throw new Error('WhatsApp not configured')
-    }
+  private async deliverViaWhatsApp(notification: NotificationPayload, userId: number, userPreferences: UserPreferences): Promise<DeliveryResult> {
+    if (!this.whatsappConfig) throw new Error('WhatsApp not configured')
 
     const user = await this.getUserInfo(userId)
     const phoneNumber = user?.phone || userPreferences.whatsappNumber
+    if (!phoneNumber) throw new Error('User phone number not found')
 
-    if (!phoneNumber) {
-      throw new Error('User phone number not found')
-    }
-
-    const twilio = require('twilio')(
-      this.whatsappConfig.accountSid,
-      this.whatsappConfig.authToken
-    )
-
+    const twilio = require('twilio')(this.whatsappConfig.accountSid, this.whatsappConfig.authToken)
     const message = await twilio.messages.create({
       from: `whatsapp:${this.whatsappConfig.fromNumber}`,
       to: `whatsapp:${phoneNumber}`,
       body: this.formatWhatsAppMessage(notification, user)
     })
 
-    return {
-      success: true,
-      channel: 'whatsapp',
-      messageId: message.sid,
-      timestamp: new Date()
-    }
+    return { success: true, channel: 'whatsapp', messageId: message.sid, timestamp: new Date() }
   }
 
-  private async deliverViaPush(
-    notification: NotificationPayload,
-    userId: number,
-    _userPreferences: UserPreferences
-  ): Promise<DeliveryResult> {
-    // Get user's push subscriptions
+  private async deliverViaPush(notification: NotificationPayload, userId: number, _userPreferences: UserPreferences): Promise<DeliveryResult> {
     const subscriptions = await this.getUserPushSubscriptions(userId)
-
-    if (subscriptions.length === 0) {
-      throw new Error('No push subscriptions found for user')
-    }
+    if (subscriptions.length === 0) throw new Error('No push subscriptions found for user')
 
     const webpush = require('web-push')
     const pushChannel = this.channels.get('push')!
 
-    webpush.setVapidDetails(
-      pushChannel.config.vapidSubject,
-      pushChannel.config.vapidPublicKey,
-      pushChannel.config.vapidPrivateKey
-    )
+    webpush.setVapidDetails(pushChannel.config.vapidSubject, pushChannel.config.vapidPublicKey, pushChannel.config.vapidPrivateKey)
 
     const pushPayload = {
       title: notification.title,
       body: notification.message,
       icon: '/icons/notification-icon.png',
       badge: '/icons/badge-icon.png',
-      data: {
-        id: notification.id,
-        type: notification.type,
-        ticketId: notification.ticketId,
-        url: this.getNotificationUrl(notification)
-      }
+      data: { id: notification.id, type: notification.type, ticketId: notification.ticketId, url: this.getNotificationUrl(notification) }
     }
 
-    interface PushSubscription {
-      id: string
-      endpoint: string
-      [key: string]: unknown
-    }
+    interface PushSubscription { id: string; endpoint: string; [key: string]: unknown }
 
     const promises = (subscriptions as PushSubscription[]).map(async (subscription: PushSubscription) => {
       try {
@@ -681,7 +482,6 @@ export class NotificationChannelManager {
         return { success: true, subscription: subscription.endpoint }
       } catch (error: unknown) {
         logger.error('Push notification failed', error)
-        // Remove invalid subscription
         if (error && typeof error === 'object' && 'statusCode' in error && error.statusCode === 410) {
           await this.removeInvalidPushSubscription(subscription.id)
         }
@@ -692,44 +492,23 @@ export class NotificationChannelManager {
     const results = await Promise.allSettled(promises)
     const successCount = results.filter(r => r.status === 'fulfilled' && r.value.success).length
 
-    return {
-      success: successCount > 0,
-      channel: 'push',
-      messageId: `push_${Date.now()}`,
-      timestamp: new Date()
-    }
+    return { success: successCount > 0, channel: 'push', messageId: `push_${Date.now()}`, timestamp: new Date() }
   }
 
-  private async deliverViaSMS(
-    notification: NotificationPayload,
-    userId: number,
-    userPreferences: UserPreferences
-  ): Promise<DeliveryResult> {
+  private async deliverViaSMS(notification: NotificationPayload, userId: number, userPreferences: UserPreferences): Promise<DeliveryResult> {
     const smsChannel = this.channels.get('sms')!
     const user = await this.getUserInfo(userId)
     const phoneNumber = user?.phone || userPreferences.smsNumber
+    if (!phoneNumber) throw new Error('User phone number not found')
 
-    if (!phoneNumber) {
-      throw new Error('User phone number not found')
-    }
-
-    const twilio = require('twilio')(
-      smsChannel.config.accountSid,
-      smsChannel.config.authToken
-    )
-
+    const twilio = require('twilio')(smsChannel.config.accountSid, smsChannel.config.authToken)
     const message = await twilio.messages.create({
       from: smsChannel.config.fromNumber,
       to: phoneNumber,
       body: this.formatSMSMessage(notification, user)
     })
 
-    return {
-      success: true,
-      channel: 'sms',
-      messageId: message.sid,
-      timestamp: new Date()
-    }
+    return { success: true, channel: 'sms', messageId: message.sid, timestamp: new Date() }
   }
 
   // Message formatting methods
@@ -740,10 +519,7 @@ export class NotificationChannelManager {
     const html = `
       <!DOCTYPE html>
       <html>
-        <head>
-          <meta charset="utf-8">
-          <title>${notification.title}</title>
-        </head>
+        <head><meta charset="utf-8"><title>${notification.title}</title></head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px;">
           <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <div style="background: ${this.getPriorityColor(notification.priority)}; color: white; padding: 20px; text-align: center;">
@@ -752,20 +528,8 @@ export class NotificationChannelManager {
             <div style="padding: 30px;">
               <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Olá ${user?.name || 'Usuário'},</p>
               <p style="font-size: 16px; color: #333; margin-bottom: 20px;">${notification.message}</p>
-
-              ${notification.ticketId ? `
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                  <p style="margin: 0; color: #666;"><strong>Ticket:</strong> #${notification.ticketId}</p>
-                </div>
-              ` : ''}
-
-              ${notification.data ? `
-                <div style="margin: 20px 0;">
-                  <h3 style="color: #333; margin-bottom: 10px;">Detalhes:</h3>
-                  <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;">${JSON.stringify(notification.data, null, 2)}</pre>
-                </div>
-              ` : ''}
-
+              ${notification.ticketId ? `<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;"><p style="margin: 0; color: #666;"><strong>Ticket:</strong> #${notification.ticketId}</p></div>` : ''}
+              ${notification.data ? `<div style="margin: 20px 0;"><h3 style="color: #333; margin-bottom: 10px;">Detalhes:</h3><pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;">${JSON.stringify(notification.data, null, 2)}</pre></div>` : ''}
               <div style="text-align: center; margin-top: 30px;">
                 <a href="${ticketUrl}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Ver no ServiceDesk</a>
               </div>
@@ -779,153 +543,46 @@ export class NotificationChannelManager {
       </html>
     `
 
-    const text = `
-      ${notification.title}
+    const text = `${notification.title}\n\nOlá ${user?.name || 'Usuário'},\n\n${notification.message}\n\n${notification.ticketId ? `Ticket: #${notification.ticketId}` : ''}\n\nAcesse: ${ticketUrl}\n\nServiceDesk - Sistema de Atendimento`
 
-      Olá ${user?.name || 'Usuário'},
-
-      ${notification.message}
-
-      ${notification.ticketId ? `Ticket: #${notification.ticketId}` : ''}
-
-      Acesse: ${ticketUrl}
-
-      ServiceDesk - Sistema de Atendimento
-    `
-
-    return {
-      subject: `[ServiceDesk] ${notification.title}`,
-      html,
-      text
-    }
+    return { subject: `[ServiceDesk] ${notification.title}`, html, text }
   }
 
   private formatSlackMessage(notification: NotificationPayload, _user: UserInfo | null) {
-    const blocks: Array<{
-      type: string
-      text?: { type: string; text: string }
-      fields?: Array<{ type: string; text: string }>
-      elements?: Array<{ type: string; text: { type: string; text: string }; url: string }>
-    }> = [
-      {
-        type: 'header',
-        text: {
-          type: 'plain_text',
-          text: notification.title
-        }
-      },
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: notification.message
-        }
-      }
+    const blocks: Array<{ type: string; text?: { type: string; text: string }; fields?: Array<{ type: string; text: string }>; elements?: Array<{ type: string; text: { type: string; text: string }; url: string }> }> = [
+      { type: 'header', text: { type: 'plain_text', text: notification.title } },
+      { type: 'section', text: { type: 'mrkdwn', text: notification.message } }
     ]
 
     if (notification.ticketId) {
-      blocks.push({
-        type: 'section',
-        fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Ticket:* #${notification.ticketId}`
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Prioridade:* ${notification.priority}`
-          }
-        ]
-      })
-
-      blocks.push({
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: {
-              type: 'plain_text',
-              text: 'Ver Ticket'
-            },
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/tickets/${notification.ticketId}`
-          }
-        ]
-      })
+      blocks.push({ type: 'section', fields: [{ type: 'mrkdwn', text: `*Ticket:* #${notification.ticketId}` }, { type: 'mrkdwn', text: `*Prioridade:* ${notification.priority}` }] })
+      blocks.push({ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'Ver Ticket' }, url: `${process.env.NEXT_PUBLIC_APP_URL}/tickets/${notification.ticketId}` }] })
     }
 
-    return {
-      text: notification.title,
-      blocks
-    }
+    return { text: notification.title, blocks }
   }
 
   private formatTeamsMessage(notification: NotificationPayload, _user: UserInfo | null) {
     return {
-      '@type': 'MessageCard',
-      '@context': 'http://schema.org/extensions',
-      themeColor: this.getPriorityColor(notification.priority),
-      summary: notification.title,
-      sections: [
-        {
-          activityTitle: notification.title,
-          activitySubtitle: notification.message,
-          activityImage: 'https://servicedesk.com/logo.png',
-          facts: notification.ticketId ? [
-            {
-              name: 'Ticket',
-              value: `#${notification.ticketId}`
-            },
-            {
-              name: 'Prioridade',
-              value: notification.priority
-            }
-          ] : [],
-          markdown: true
-        }
-      ],
-      potentialAction: notification.ticketId ? [
-        {
-          '@type': 'OpenUri',
-          name: 'Ver Ticket',
-          targets: [
-            {
-              os: 'default',
-              uri: `${process.env.NEXT_PUBLIC_APP_URL}/tickets/${notification.ticketId}`
-            }
-          ]
-        }
-      ] : []
+      '@type': 'MessageCard', '@context': 'http://schema.org/extensions',
+      themeColor: this.getPriorityColor(notification.priority), summary: notification.title,
+      sections: [{ activityTitle: notification.title, activitySubtitle: notification.message, activityImage: 'https://servicedesk.com/logo.png', facts: notification.ticketId ? [{ name: 'Ticket', value: `#${notification.ticketId}` }, { name: 'Prioridade', value: notification.priority }] : [], markdown: true }],
+      potentialAction: notification.ticketId ? [{ '@type': 'OpenUri', name: 'Ver Ticket', targets: [{ os: 'default', uri: `${process.env.NEXT_PUBLIC_APP_URL}/tickets/${notification.ticketId}` }] }] : []
     }
   }
 
   private formatWhatsAppMessage(notification: NotificationPayload, _user: UserInfo | null): string {
-    let message = `🔔 *${notification.title}*\n\n${notification.message}`
-
-    if (notification.ticketId) {
-      message += `\n\n📋 Ticket: #${notification.ticketId}`
-    }
-
-    if (notification.priority === 'critical' || notification.priority === 'high') {
-      message = `🚨 ${message}`
-    }
-
-    message += `\n\n🔗 ${process.env.NEXT_PUBLIC_APP_URL}/tickets/${notification.ticketId || ''}`
-
+    let message = `*${notification.title}*\n\n${notification.message}`
+    if (notification.ticketId) message += `\n\nTicket: #${notification.ticketId}`
+    if (notification.priority === 'critical' || notification.priority === 'high') message = `URGENTE: ${message}`
+    message += `\n\n${process.env.NEXT_PUBLIC_APP_URL}/tickets/${notification.ticketId || ''}`
     return message
   }
 
   private formatSMSMessage(notification: NotificationPayload, _user: UserInfo | null): string {
     let message = `ServiceDesk: ${notification.title}`
-
-    if (notification.ticketId) {
-      message += ` - Ticket #${notification.ticketId}`
-    }
-
-    // SMS has character limits
-    if (message.length > 160) {
-      message = message.substring(0, 155) + '...'
-    }
-
+    if (notification.ticketId) message += ` - Ticket #${notification.ticketId}`
+    if (message.length > 160) message = message.substring(0, 155) + '...'
     return message
   }
 
@@ -933,155 +590,76 @@ export class NotificationChannelManager {
   private async checkRateLimit(channelName: string, userId: number): Promise<boolean> {
     const channel = this.channels.get(channelName)
     if (!channel?.rateLimit) return true
-
     const limiter = this.rateLimiters.get(channelName)
     if (!limiter) return true
 
     const now = Date.now()
     const userKey = `${channelName}_${userId}`
 
-    // Check minute limit
     if (channel.rateLimit.maxPerMinute) {
       const minuteKey = Math.floor(now / 60000)
       const minuteCount = limiter.minute.get(`${userKey}_${minuteKey}`) || 0
       if (minuteCount >= channel.rateLimit.maxPerMinute) return false
     }
-
-    // Check hour limit
     if (channel.rateLimit.maxPerHour) {
       const hourKey = Math.floor(now / 3600000)
       const hourCount = limiter.hour.get(`${userKey}_${hourKey}`) || 0
       if (hourCount >= channel.rateLimit.maxPerHour) return false
     }
-
-    // Check day limit
     if (channel.rateLimit.maxPerDay) {
       const dayKey = Math.floor(now / 86400000)
       const dayCount = limiter.day.get(`${userKey}_${dayKey}`) || 0
       if (dayCount >= channel.rateLimit.maxPerDay) return false
     }
-
     return true
   }
 
   private updateRateLimit(channelName: string, userId: number) {
     const channel = this.channels.get(channelName)
     if (!channel?.rateLimit) return
-
     const limiter = this.rateLimiters.get(channelName)
     if (!limiter) return
 
     const now = Date.now()
     const userKey = `${channelName}_${userId}`
 
-    // Update minute counter
-    if (channel.rateLimit.maxPerMinute) {
-      const minuteKey = Math.floor(now / 60000)
-      const key = `${userKey}_${minuteKey}`
-      limiter.minute.set(key, (limiter.minute.get(key) || 0) + 1)
-    }
-
-    // Update hour counter
-    if (channel.rateLimit.maxPerHour) {
-      const hourKey = Math.floor(now / 3600000)
-      const key = `${userKey}_${hourKey}`
-      limiter.hour.set(key, (limiter.hour.get(key) || 0) + 1)
-    }
-
-    // Update day counter
-    if (channel.rateLimit.maxPerDay) {
-      const dayKey = Math.floor(now / 86400000)
-      const key = `${userKey}_${dayKey}`
-      limiter.day.set(key, (limiter.day.get(key) || 0) + 1)
-    }
+    if (channel.rateLimit.maxPerMinute) { const k = `${userKey}_${Math.floor(now / 60000)}`; limiter.minute.set(k, (limiter.minute.get(k) || 0) + 1) }
+    if (channel.rateLimit.maxPerHour) { const k = `${userKey}_${Math.floor(now / 3600000)}`; limiter.hour.set(k, (limiter.hour.get(k) || 0) + 1) }
+    if (channel.rateLimit.maxPerDay) { const k = `${userKey}_${Math.floor(now / 86400000)}`; limiter.day.set(k, (limiter.day.get(k) || 0) + 1) }
   }
 
   private cleanupRateLimiters() {
     const now = Date.now()
-
     for (const [_channelName, limiter] of this.rateLimiters.entries()) {
-      // Clean minute counters older than 1 hour
       const oneHourAgo = Math.floor((now - 3600000) / 60000)
-      for (const key of limiter.minute.keys()) {
-        const keyTime = parseInt(key.split('_').pop() || '0')
-        if (keyTime < oneHourAgo) {
-          limiter.minute.delete(key)
-        }
-      }
-
-      // Clean hour counters older than 1 day
+      for (const key of limiter.minute.keys()) { const keyTime = parseInt(key.split('_').pop() || '0'); if (keyTime < oneHourAgo) limiter.minute.delete(key) }
       const oneDayAgo = Math.floor((now - 86400000) / 3600000)
-      for (const key of limiter.hour.keys()) {
-        const keyTime = parseInt(key.split('_').pop() || '0')
-        if (keyTime < oneDayAgo) {
-          limiter.hour.delete(key)
-        }
-      }
-
-      // Clean day counters older than 30 days
+      for (const key of limiter.hour.keys()) { const keyTime = parseInt(key.split('_').pop() || '0'); if (keyTime < oneDayAgo) limiter.hour.delete(key) }
       const thirtyDaysAgo = Math.floor((now - 30 * 86400000) / 86400000)
-      for (const key of limiter.day.keys()) {
-        const keyTime = parseInt(key.split('_').pop() || '0')
-        if (keyTime < thirtyDaysAgo) {
-          limiter.day.delete(key)
-        }
-      }
+      for (const key of limiter.day.keys()) { const keyTime = parseInt(key.split('_').pop() || '0'); if (keyTime < thirtyDaysAgo) limiter.day.delete(key) }
     }
   }
 
   // Retry logic
-  private addToRetryQueue(
-    channelName: string,
-    notification: NotificationPayload,
-    userId: number,
-    userPreferences: UserPreferences,
-    retryCount: number
-  ) {
-    if (!this.retryQueues.has(channelName)) {
-      this.retryQueues.set(channelName, [])
-    }
-
+  private addToRetryQueue(channelName: string, notification: NotificationPayload, userId: number, userPreferences: UserPreferences, retryCount: number) {
+    if (!this.retryQueues.has(channelName)) this.retryQueues.set(channelName, [])
     const channel = this.channels.get(channelName)
-    if (!channel?.retryPolicy || retryCount >= channel.retryPolicy.maxRetries) {
-      return
-    }
-
+    if (!channel?.retryPolicy || retryCount >= channel.retryPolicy.maxRetries) return
     const retryDelay = channel.retryPolicy.retryDelay * Math.pow(channel.retryPolicy.backoffMultiplier, retryCount)
-    const retryAt = Date.now() + retryDelay
-
-    this.retryQueues.get(channelName)!.push({
-      notification,
-      userId,
-      userPreferences,
-      retryCount: retryCount + 1,
-      retryAt
-    })
+    this.retryQueues.get(channelName)!.push({ notification, userId, userPreferences, retryCount: retryCount + 1, retryAt: Date.now() + retryDelay })
   }
 
   private async processRetryQueues() {
     const now = Date.now()
-
     for (const [channelName, queue] of this.retryQueues.entries()) {
       const readyItems = queue.filter(item => item.retryAt <= now)
-
       for (const item of readyItems) {
         try {
           await this.deliverViaChannel(channelName, item.notification, item.userId, item.userPreferences)
-          // Remove from queue on success
-          const index = queue.indexOf(item)
-          if (index > -1) queue.splice(index, 1)
+          const index = queue.indexOf(item); if (index > -1) queue.splice(index, 1)
         } catch (error) {
-          // Add back to retry queue with incremented count
-          const index = queue.indexOf(item)
-          if (index > -1) queue.splice(index, 1)
-
-          this.addToRetryQueue(
-            channelName,
-            item.notification,
-            item.userId,
-            item.userPreferences,
-            item.retryCount
-          )
+          const index = queue.indexOf(item); if (index > -1) queue.splice(index, 1)
+          this.addToRetryQueue(channelName, item.notification, item.userId, item.userPreferences, item.retryCount)
         }
       }
     }
@@ -1090,9 +668,9 @@ export class NotificationChannelManager {
   // Helper methods
   private async getUserInfo(userId: number): Promise<UserInfo | null> {
     try {
-      return this.db.prepare(`
+      return await executeQueryOne<UserInfo>(`
         SELECT id, name, email, phone FROM users WHERE id = ?
-      `).get(userId) as UserInfo | undefined || null
+      `, [userId]) || null
     } catch (error) {
       logger.error('Error getting user info', error)
       return null
@@ -1101,7 +679,6 @@ export class NotificationChannelManager {
 
   private async getSlackUserByEmail(email: string | undefined): Promise<string | null> {
     if (!this.slackClient || !email) return null
-
     try {
       const result = await this.slackClient.users.lookupByEmail({ email })
       return (result.user?.id as string | undefined) || null
@@ -1113,10 +690,10 @@ export class NotificationChannelManager {
 
   private async getUserPushSubscriptions(userId: number): Promise<unknown[]> {
     try {
-      return this.db.prepare(`
+      return await executeQuery<unknown>(`
         SELECT * FROM push_subscriptions
         WHERE user_id = ? AND is_active = 1
-      `).all(userId) as unknown[]
+      `, [userId])
     } catch (error) {
       logger.error('Error getting push subscriptions', error)
       return []
@@ -1125,11 +702,11 @@ export class NotificationChannelManager {
 
   private async removeInvalidPushSubscription(subscriptionId: string) {
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE push_subscriptions
         SET is_active = 0, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(subscriptionId)
+      `, [subscriptionId])
     } catch (error) {
       logger.error('Error removing invalid push subscription', error)
     }
@@ -1137,73 +714,43 @@ export class NotificationChannelManager {
 
   private getNotificationUrl(notification: NotificationPayload): string {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
-    if (notification.ticketId) {
-      return `${baseUrl}/tickets/${notification.ticketId}`
-    }
-
-    return `${baseUrl}/notifications`
+    return notification.ticketId ? `${baseUrl}/tickets/${notification.ticketId}` : `${baseUrl}/notifications`
   }
 
   private getPriorityColor(priority: string): string {
     switch (priority) {
-      case 'low': return '#28a745'
-      case 'medium': return '#ffc107'
-      case 'high': return '#fd7e14'
-      case 'critical': return '#dc3545'
-      default: return '#6c757d'
+      case 'low': return '#28a745'; case 'medium': return '#ffc107'; case 'high': return '#fd7e14'; case 'critical': return '#dc3545'; default: return '#6c757d'
     }
   }
 
-  private logDelivery(result: DeliveryResult, notification: NotificationPayload, userId: number) {
+  private async logDelivery(result: DeliveryResult, notification: NotificationPayload, userId: number) {
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO notification_deliveries (
           notification_id, user_id, channel, success, message_id, error, timestamp
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        notification.id,
-        userId,
-        result.channel,
-        result.success ? 1 : 0,
-        result.messageId || null,
-        result.error || null,
-        result.timestamp.toISOString()
-      )
+      `, [notification.id, userId, result.channel, result.success ? 1 : 0, result.messageId || null, result.error || null, result.timestamp.toISOString()])
     } catch (error) {
       logger.error('Error logging delivery', error)
     }
   }
 
   // Public methods
-  public getAvailableChannels(): NotificationChannel[] {
-    return Array.from(this.channels.values()).filter(c => c.isEnabled)
-  }
-
-  public getChannelStatus(channelName: string): NotificationChannel | null {
-    return this.channels.get(channelName) || null
-  }
+  public getAvailableChannels(): NotificationChannel[] { return Array.from(this.channels.values()).filter(c => c.isEnabled) }
+  public getChannelStatus(channelName: string): NotificationChannel | null { return this.channels.get(channelName) || null }
 
   public async testChannel(channelName: string, testUserId: number): Promise<DeliveryResult> {
-    const testNotification: NotificationPayload = {
-      type: 'test',
-      title: 'Teste de Notificação',
-      message: 'Esta é uma mensagem de teste do sistema de notificações.',
-      priority: 'low',
-      channels: [channelName]
-    }
-
+    const testNotification: NotificationPayload = { type: 'test', title: 'Teste de Notificação', message: 'Esta é uma mensagem de teste do sistema de notificações.', priority: 'low', channels: [channelName] }
     return this.deliverViaChannel(channelName, testNotification, testUserId, {})
   }
 
-  public getDeliveryStats(channelName?: string): unknown {
+  public async getDeliveryStats(channelName?: string): Promise<unknown> {
     try {
-      interface DeliveryStats {
-        channel: string
-        total: number
-        successful: number
-        failed: number
-      }
+      const sqlDateExpr = getDatabaseType() === 'postgresql'
+        ? "NOW() - INTERVAL '24 hours'"
+        : "datetime('now', '-24 hours')"
+
+      interface DeliveryStats { channel: string; total: number; successful: number; failed: number }
 
       let query = `
         SELECT
@@ -1212,16 +759,16 @@ export class NotificationChannelManager {
           COUNT(CASE WHEN success = 1 THEN 1 END) as successful,
           COUNT(CASE WHEN success = 0 THEN 1 END) as failed
         FROM notification_deliveries
-        WHERE timestamp > datetime('now', '-24 hours')
+        WHERE timestamp > ${sqlDateExpr}
       `
 
       if (channelName) {
         query += ' AND channel = ?'
         query += ' GROUP BY channel'
-        return this.db.prepare(query).get(channelName) as DeliveryStats | undefined
+        return await executeQueryOne<DeliveryStats>(query, [channelName])
       } else {
         query += ' GROUP BY channel'
-        return this.db.prepare(query).all() as DeliveryStats[]
+        return await executeQuery<DeliveryStats>(query, [])
       }
     } catch (error) {
       logger.error('Error getting delivery stats', error)

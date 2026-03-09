@@ -1,6 +1,7 @@
 // FAQ generator automático por categoria
 import { Configuration, OpenAIApi } from 'openai';
-import { db } from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 interface FAQEntry {
@@ -125,7 +126,7 @@ export class FAQGenerator {
   ): Promise<CategoryAnalysis> {
     try {
       // Busca categoria
-      const category = await db.get(`
+      const category = await executeQueryOne<any>(`
         SELECT id, name FROM categories WHERE id = ?
       `, [categoryId]);
 
@@ -133,24 +134,46 @@ export class FAQGenerator {
         throw new Error(`Categoria ${categoryId} não encontrada`);
       }
 
+      const isPg = getDatabaseType() === 'postgresql';
+      const concatExpr = isPg
+        ? `STRING_AGG(c.content, ' | ')`
+        : `GROUP_CONCAT(c.content, ' | ')`;
+
+      // For dynamic interval: SQLite uses '-' || ? || '', PG uses direct interpolation
+      // Sanitize timeframe to prevent injection (only allow digits + spaces + letters)
+      const sanitizedTimeframe = timeframe.replace(/[^a-zA-Z0-9 ]/g, '');
+      const dateExpr = isPg
+        ? `NOW() - INTERVAL '${sanitizedTimeframe}'`
+        : `datetime('now', '-' || ? || '')`;
+
+      const params: any[] = [categoryId];
+      if (!isPg) {
+        params.push(timeframe);
+      }
+
+      // In PostgreSQL, HAVING can't use column alias — must repeat aggregate
+      const havingExpr = isPg
+        ? `HAVING ${concatExpr} IS NOT NULL`
+        : `HAVING resolution IS NOT NULL`;
+
       // Busca tickets resolvidos da categoria
-      const tickets = await db.all(`
+      const tickets = await executeQuery<any>(`
         SELECT
           t.id,
           t.title,
           t.description,
-          GROUP_CONCAT(c.content, ' | ') as resolution
+          ${concatExpr} as resolution
         FROM tickets t
         LEFT JOIN comments c ON t.id = c.ticket_id AND c.user_id IN (
           SELECT id FROM users WHERE role IN ('admin', 'agent')
         )
         WHERE t.category_id = ?
           AND t.resolved_at IS NOT NULL
-          AND t.resolved_at >= datetime('now', '-' || ? || '')
-        GROUP BY t.id
-        HAVING resolution IS NOT NULL
+          AND t.resolved_at >= ${dateExpr}
+        GROUP BY t.id, t.title, t.description
+        ${havingExpr}
         ORDER BY t.created_at DESC
-      `, [categoryId, timeframe]);
+      `, params);
 
       // Agrupa problemas similares
       const problemGroups = this.groupSimilarProblems(tickets);
@@ -406,13 +429,19 @@ Diretrizes:
    */
   async saveFAQ(faq: FAQCollection, authorId: number): Promise<number> {
     try {
+      const isPg = getDatabaseType() === 'postgresql';
+      const nowExpr = isPg ? 'NOW()' : "datetime('now')";
+      const insertOrIgnore = isPg
+        ? `INSERT INTO kb_tags (name, slug) VALUES ('FAQ', 'faq') ON CONFLICT DO NOTHING`
+        : `INSERT OR IGNORE INTO kb_tags (name, slug) VALUES ('FAQ', 'faq')`;
+
       // Cria artigo principal do FAQ
-      const result = await db.run(`
+      const result = await executeRun(`
         INSERT INTO kb_articles (
           title, summary, content, category_id, author_id,
           status, visibility, search_keywords, meta_title, meta_description,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${nowExpr}, ${nowExpr})
       `, [
         faq.title,
         faq.description,
@@ -429,22 +458,22 @@ Diretrizes:
       const articleId = result.lastInsertRowid as number;
 
       // Adiciona tag FAQ
-      await db.run(`INSERT OR IGNORE INTO kb_tags (name, slug) VALUES ('FAQ', 'faq')`);
-      const faqTag = await db.get(`SELECT id FROM kb_tags WHERE slug = 'faq'`);
+      await executeRun(insertOrIgnore, []);
+      const faqTag = await executeQueryOne<any>(`SELECT id FROM kb_tags WHERE slug = 'faq'`, []);
 
       if (faqTag) {
-        await db.run(`
+        await executeRun(`
           INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)
         `, [articleId, faqTag.id]);
       }
 
       // Registra metadados de geração
-      await db.run(`
+      await executeRun(`
         INSERT INTO ai_suggestions (
           entity_type, entity_id, suggestion_type, suggested_content,
           reasoning, source_type, source_references, confidence_score,
           model_name, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${nowExpr})
       `, [
         'kb_article',
         articleId,
@@ -536,8 +565,13 @@ Diretrizes:
     try {
       logger.info('Gerando FAQs para todas as categorias...');
 
+      const isPg = getDatabaseType() === 'postgresql';
+      const dateExpr60Days = isPg
+        ? `NOW() - INTERVAL '60 days'`
+        : `datetime('now', '-60 days')`;
+
       // Busca categorias elegíveis
-      const categories = await db.all(`
+      const categories = await executeQuery<any>(`
         SELECT
           c.id,
           c.name,
@@ -545,11 +579,11 @@ Diretrizes:
         FROM categories c
         JOIN tickets t ON c.id = t.category_id
         WHERE t.resolved_at IS NOT NULL
-          AND t.resolved_at >= datetime('now', '-60 days')
+          AND t.resolved_at >= ${dateExpr60Days}
         GROUP BY c.id, c.name
-        HAVING ticket_count >= 5
-        ORDER BY ticket_count DESC
-      `);
+        HAVING COUNT(t.id) >= 5
+        ORDER BY COUNT(t.id) DESC
+      `, []);
 
       const results: any[] = [];
 
@@ -598,8 +632,11 @@ Diretrizes:
    */
   async updateExistingFAQ(articleId: number): Promise<void> {
     try {
+      const isPg = getDatabaseType() === 'postgresql';
+      const nowExpr = isPg ? 'NOW()' : "datetime('now')";
+
       // Busca artigo existente
-      const article = await db.get(`
+      const article = await executeQueryOne<any>(`
         SELECT ka.*, c.name as category_name
         FROM kb_articles ka
         JOIN categories c ON ka.category_id = c.id
@@ -618,9 +655,9 @@ Diretrizes:
       });
 
       // Atualiza conteúdo
-      await db.run(`
+      await executeRun(`
         UPDATE kb_articles
-        SET content = ?, summary = ?, search_keywords = ?, updated_at = datetime('now')
+        SET content = ?, summary = ?, search_keywords = ?, updated_at = ${nowExpr}
         WHERE id = ?
       `, [
         this.formatFAQContent(newFaq),
@@ -648,7 +685,7 @@ Diretrizes:
     quality_score: number;
   }> {
     try {
-      const article = await db.get(`
+      const article = await executeQueryOne<any>(`
         SELECT * FROM kb_articles WHERE id = ?
       `, [articleId]);
 

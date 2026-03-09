@@ -16,7 +16,7 @@ interface ElasticsearchClient {
     delete: (params: unknown) => Promise<unknown>;
   };
 }
-import db from '../db/connection';
+import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 interface ElasticsearchConfig {
@@ -721,7 +721,7 @@ export class ElasticsearchIntegration {
    */
   async indexKnowledgeArticle(articleId: number): Promise<void> {
     try {
-      const article = db.prepare(`
+      const article = await executeQueryOne<any>(`
         SELECT ka.*, kc.name as category_name, u.name as author_name,
                ka.view_count, ka.helpful_votes as helpful_count,
                ka.not_helpful_votes as not_helpful_count
@@ -729,7 +729,7 @@ export class ElasticsearchIntegration {
         LEFT JOIN kb_categories kc ON ka.category_id = kc.id
         LEFT JOIN users u ON ka.author_id = u.id
         WHERE ka.id = ?
-      `).get(articleId) as any;
+      `, [articleId]);
 
       if (!article) {
         throw new Error(`Artigo ${articleId} não encontrado`);
@@ -813,9 +813,9 @@ export class ElasticsearchIntegration {
       await this.createIndex();
 
       // Indexa todos os artigos publicados
-      const articles = db.prepare(`
+      const articles = await executeQuery<{ id: number }>(`
         SELECT id FROM kb_articles WHERE status = 'published'
-      `).all() as Array<{ id: number }>;
+      `, []);
 
       for (const article of articles) {
         await this.indexKnowledgeArticle(article.id);

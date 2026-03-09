@@ -1,6 +1,7 @@
 // Guide builder para step-by-step guides interativos
 import { Configuration, OpenAIApi } from 'openai';
-import { db } from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 interface GuideStep {
@@ -269,6 +270,11 @@ export class GuideBuilder {
    * Analisa tickets fonte para extração de dados
    */
   private async analyzeSourceTickets(request: any): Promise<any> {
+    const isPg = getDatabaseType() === 'postgresql';
+    const concatExpr = isPg
+      ? `STRING_AGG(com.content, ' | ')`
+      : `GROUP_CONCAT(com.content, ' | ')`;
+
     let sql = `
       SELECT
         t.id,
@@ -276,7 +282,7 @@ export class GuideBuilder {
         t.description,
         t.category_id,
         c.name as category_name,
-        GROUP_CONCAT(com.content, ' | ') as resolution_steps,
+        ${concatExpr} as resolution_steps,
         COUNT(DISTINCT com.id) as solution_steps_count,
         AVG(ss.rating) as avg_satisfaction
       FROM tickets t
@@ -299,14 +305,19 @@ export class GuideBuilder {
       params.push(request.category_id);
     }
 
+    // In PostgreSQL, HAVING can't use column alias — must repeat aggregate
+    const havingExpr = isPg
+      ? `HAVING ${concatExpr} IS NOT NULL`
+      : `HAVING resolution_steps IS NOT NULL`;
+
     sql += `
-      GROUP BY t.id
-      HAVING resolution_steps IS NOT NULL
+      GROUP BY t.id, t.title, t.description, t.category_id, c.name
+      ${havingExpr}
       ORDER BY solution_steps_count DESC, avg_satisfaction DESC
       LIMIT 10
     `;
 
-    const tickets = await db.all(sql, params);
+    const tickets = await executeQuery<any>(sql, params);
 
     if (tickets.length === 0) {
       throw new Error('Nenhum ticket adequado encontrado para geração de guia');
@@ -840,16 +851,19 @@ Diretrizes:
    */
   async saveInteractiveGuide(guide: InteractiveGuide, authorId: number): Promise<number> {
     try {
+      const isPg = getDatabaseType() === 'postgresql';
+      const nowExpr = isPg ? 'NOW()' : "datetime('now')";
+
       // Formata conteúdo do guia
       const content = this.formatGuideContent(guide);
 
       // Salva artigo principal
-      const result = await db.run(`
+      const result = await executeRun(`
         INSERT INTO kb_articles (
           title, summary, content, category_id, author_id,
           status, visibility, search_keywords, meta_title, meta_description,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${nowExpr}, ${nowExpr})
       `, [
         guide.title,
         guide.summary,
@@ -866,29 +880,33 @@ Diretrizes:
       const articleId = result.lastInsertRowid as number;
 
       // Adiciona tags
+      const insertOrIgnore = isPg
+        ? 'INSERT INTO kb_tags (name, slug) VALUES (?, ?) ON CONFLICT DO NOTHING'
+        : 'INSERT OR IGNORE INTO kb_tags (name, slug) VALUES (?, ?)';
+
       for (const tag of guide.tags) {
-        await db.run(`INSERT OR IGNORE INTO kb_tags (name, slug) VALUES (?, ?)`, [
+        await executeRun(insertOrIgnore, [
           tag, tag.toLowerCase().replace(/\s+/g, '-')
         ]);
 
-        const tagResult = await db.get(`SELECT id FROM kb_tags WHERE slug = ?`, [
+        const tagResult = await executeQueryOne<any>(`SELECT id FROM kb_tags WHERE slug = ?`, [
           tag.toLowerCase().replace(/\s+/g, '-')
         ]);
 
         if (tagResult) {
-          await db.run(`
+          await executeRun(`
             INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)
           `, [articleId, tagResult.id]);
         }
       }
 
       // Registra metadados
-      await db.run(`
+      await executeRun(`
         INSERT INTO ai_suggestions (
           entity_type, entity_id, suggestion_type, suggested_content,
           reasoning, source_type, source_references, confidence_score,
           model_name, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${nowExpr})
       `, [
         'kb_article',
         articleId,
@@ -958,11 +976,11 @@ Diretrizes:
       content += `${step.content}\n\n`;
 
       if (step.validation_criteria) {
-        content += `**✅ Como verificar se deu certo**:\n${step.validation_criteria}\n\n`;
+        content += `**Como verificar se deu certo**:\n${step.validation_criteria}\n\n`;
       }
 
       if (step.troubleshooting.length > 0) {
-        content += `**🔧 Solução de problemas**:\n`;
+        content += `**Solução de problemas**:\n`;
         step.troubleshooting.forEach(trouble => {
           content += `- ${trouble}\n`;
         });
@@ -970,7 +988,7 @@ Diretrizes:
       }
 
       if (step.alternative_approaches.length > 0) {
-        content += `**🔄 Abordagens alternativas**:\n`;
+        content += `**Abordagens alternativas**:\n`;
         step.alternative_approaches.forEach(alt => {
           content += `- ${alt}\n`;
         });
@@ -1010,8 +1028,11 @@ Diretrizes:
     feedback?: { rating: number; comment?: string; difficulty: number }
   ): Promise<void> {
     try {
+      const isPg = getDatabaseType() === 'postgresql';
+      const nowExpr = isPg ? 'NOW()' : "datetime('now')";
+
       // Busca ou cria progresso do usuário
-      let progress = await db.get(`
+      let progress = await executeQueryOne<any>(`
         SELECT * FROM analytics_events
         WHERE event_type = 'guide_progress'
           AND user_id = ?
@@ -1044,10 +1065,10 @@ Diretrizes:
       }
 
       // Salva progresso
-      await db.run(`
+      await executeRun(`
         INSERT INTO analytics_events (
           event_type, user_id, entity_type, entity_id, properties, created_at
-        ) VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ${nowExpr})
       `, [
         'guide_progress',
         userId,
@@ -1076,12 +1097,25 @@ Diretrizes:
     common_feedback_themes: string[];
   }> {
     try {
-      const stats = await db.all(`
+      const isPg = getDatabaseType() === 'postgresql';
+
+      // For json_extract vs PostgreSQL JSON operator
+      const completedStepsExpr = isPg
+        ? `properties::json->>'completed_steps'`
+        : `json_extract(properties, '$.completed_steps')`;
+      const currentStepExpr = isPg
+        ? `properties::json->>'current_step'`
+        : `json_extract(properties, '$.current_step')`;
+      const feedbackExpr = isPg
+        ? `properties::json->>'feedback'`
+        : `json_extract(properties, '$.feedback')`;
+
+      const stats = await executeQuery<any>(`
         SELECT
           user_id,
-          json_extract(properties, '$.completed_steps') as completed_steps,
-          json_extract(properties, '$.current_step') as current_step,
-          json_extract(properties, '$.feedback') as feedback,
+          ${completedStepsExpr} as completed_steps,
+          ${currentStepExpr} as current_step,
+          ${feedbackExpr} as feedback,
           created_at
         FROM analytics_events
         WHERE event_type = 'guide_progress'

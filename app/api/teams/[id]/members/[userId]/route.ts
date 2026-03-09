@@ -6,7 +6,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -19,8 +19,9 @@ export async function DELETE(
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id
 
-    const teamId = parseInt(params.id)
-    const userId = parseInt(params.userId)
+    const { id, userId: userIdParam } = await params;
+    const teamId = parseInt(id)
+    const userId = parseInt(userIdParam)
     if (isNaN(teamId) || isNaN(userId)) {
       return NextResponse.json(
         { success: false, error: 'Invalid team ID or user ID' },

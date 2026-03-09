@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -25,7 +25,7 @@ async function validateTicketAccessToken(
     WHERE token = ?
       AND is_active = 1
       AND revoked_at IS NULL
-      AND expires_at > datetime('now')
+      AND expires_at > ${sqlNow()}
   `;
   const params: (string | number)[] = [token];
 
@@ -47,8 +47,8 @@ async function recordTokenUsage(
     UPDATE ticket_access_tokens
     SET
       usage_count = usage_count + 1,
-      last_used_at = datetime('now'),
-      used_at = COALESCE(used_at, datetime('now')),
+      last_used_at = ${sqlNow()},
+      used_at = COALESCE(used_at, ${sqlNow()}),
       metadata = COALESCE(?, metadata)
     WHERE id = ?
   `, [metadataJson, tokenId]);
@@ -173,7 +173,7 @@ export async function GET(
         tt.workflow_type,
         tenant.name as tenant_name,
         CASE
-          WHEN t.sla_due_at < datetime('now') THEN 1
+          WHEN t.sla_due_at < ${sqlNow()} THEN 1
           ELSE 0
         END as is_overdue
       FROM tickets t
@@ -420,13 +420,13 @@ export async function POST(
         is_internal,
         created_at,
         user_id
-      ) VALUES (?, ?, 0, datetime('now'), NULL)
+      ) VALUES (?, ?, 0, ${sqlNow()}, NULL)
     `, [ticketId, content.trim()])
 
     // 8. UPDATE TICKET TIMESTAMP
     await executeRun(`
       UPDATE tickets
-      SET updated_at = datetime('now')
+      SET updated_at = ${sqlNow()}
       WHERE id = ?
     `, [ticketId])
 
@@ -438,7 +438,7 @@ export async function POST(
         action,
         details,
         created_at
-      ) VALUES (?, ?, ?, ?, datetime('now'))
+      ) VALUES (?, ?, ?, ?, ${sqlNow()})
     `, ['ticket',
       ticketId,
       'comment_added',

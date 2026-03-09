@@ -4,7 +4,8 @@
  * Provides connectors for various data sources to power dashboard widgets
  */
 
-import { executeQuery } from '@/lib/db/adapter';
+import { executeQuery, sqlNow, sqlDateDiff } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
 export interface DataSource {
@@ -54,17 +55,25 @@ export const ticketDataSources = {
       groupBy = 'day'
     } = options;
 
-    const groupByFormat = groupBy === 'day' ? '%Y-%m-%d' : groupBy === 'week' ? '%Y-W%W' : '%Y-%m';
+    const dbType = getDatabaseType();
+    let dateExpr: string;
+    if (dbType === 'postgresql') {
+      const pgFormat = groupBy === 'day' ? 'YYYY-MM-DD' : groupBy === 'week' ? 'IYYY-"W"IW' : 'YYYY-MM';
+      dateExpr = `to_char(created_at, '${pgFormat}')`;
+    } else {
+      const sqliteFormat = groupBy === 'day' ? '%Y-%m-%d' : groupBy === 'week' ? '%Y-W%W' : '%Y-%m';
+      dateExpr = `strftime('${sqliteFormat}', created_at)`;
+    }
 
     const query = `
       SELECT
-        strftime('${groupByFormat}', created_at) as date,
+        ${dateExpr} as date,
         COUNT(*) as created,
         SUM(CASE WHEN status_id = (SELECT id FROM statuses WHERE name = 'resolved') THEN 1 ELSE 0 END) as resolved,
         SUM(CASE WHEN priority_id = (SELECT id FROM priorities WHERE level = 4) THEN 1 ELSE 0 END) as high_priority
       FROM tickets
       WHERE created_at >= ? AND created_at <= ?
-      GROUP BY strftime('${groupByFormat}', created_at)
+      GROUP BY ${dateExpr}
       ORDER BY date ASC
     `;
 
@@ -129,7 +138,7 @@ export const ticketDataSources = {
         p.level,
         p.color,
         COUNT(t.id) as count,
-        ROUND(AVG(CAST((julianday(COALESCE(t.resolved_at, datetime('now'))) - julianday(t.created_at)) * 24 AS INTEGER)), 2) as avg_resolution_time
+        ROUND(AVG(CAST((${sqlDateDiff(`COALESCE(t.resolved_at, ${sqlNow()})`, 't.created_at')}) * 24 AS INTEGER)), 2) as avg_resolution_time
       FROM priorities p
       LEFT JOIN tickets t ON t.priority_id = p.id
         AND t.created_at >= ? AND t.created_at <= ?
@@ -193,8 +202,8 @@ export const slaDataSources = {
         COUNT(*) as total_tickets,
         SUM(CASE WHEN is_violated = 0 THEN 1 ELSE 0 END) as response_met,
         SUM(CASE WHEN is_violated = 1 THEN 1 ELSE 0 END) as response_violated,
-        ROUND(AVG(CAST((julianday(first_response_at) - julianday(created_at)) * 24 * 60 AS INTEGER)), 2) as avg_response_time,
-        ROUND(AVG(CAST((julianday(resolved_at) - julianday(created_at)) * 24 * 60 AS INTEGER)), 2) as avg_resolution_time
+        ROUND(AVG(CAST((${sqlDateDiff('first_response_at', 'created_at')}) * 24 * 60 AS INTEGER)), 2) as avg_response_time,
+        ROUND(AVG(CAST((${sqlDateDiff('resolved_at', 'created_at')}) * 24 * 60 AS INTEGER)), 2) as avg_resolution_time
       FROM sla_tracking
       WHERE created_at >= ? AND created_at <= ?
       GROUP BY DATE(created_at)
@@ -229,7 +238,7 @@ export const slaDataSources = {
         p.color,
         COUNT(st.id) as total,
         SUM(CASE WHEN st.is_violated = 0 THEN 1 ELSE 0 END) as met,
-        ROUND(AVG(CAST((julianday(st.first_response_at) - julianday(st.created_at)) * 24 * 60 AS INTEGER)), 2) as avg_response_time,
+        ROUND(AVG(CAST((${sqlDateDiff('st.first_response_at', 'st.created_at')}) * 24 * 60 AS INTEGER)), 2) as avg_response_time,
         sp.response_time_minutes as target_response_time
       FROM sla_tracking st
       JOIN tickets t ON st.ticket_id = t.id
@@ -277,12 +286,12 @@ export const agentDataSources = {
         SUM(CASE WHEN t.status_id = (SELECT id FROM statuses WHERE name = 'resolved') THEN 1 ELSE 0 END) as resolved_tickets,
         ROUND(AVG(CASE
           WHEN t.status_id = (SELECT id FROM statuses WHERE name = 'resolved')
-          THEN CAST((julianday(t.resolved_at) - julianday(t.created_at)) * 24 AS INTEGER)
+          THEN CAST((${sqlDateDiff('t.resolved_at', 't.created_at')}) * 24 AS INTEGER)
           ELSE NULL
         END), 2) as avg_resolution_time,
         ROUND(AVG(CASE
           WHEN st.first_response_at IS NOT NULL
-          THEN CAST((julianday(st.first_response_at) - julianday(st.created_at)) * 24 AS INTEGER)
+          THEN CAST((${sqlDateDiff('st.first_response_at', 'st.created_at')}) * 24 AS INTEGER)
           ELSE NULL
         END), 2) as avg_response_time,
         COUNT(DISTINCT CASE WHEN st.is_violated = 0 THEN st.id END) as sla_met,

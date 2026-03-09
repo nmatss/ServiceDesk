@@ -9,7 +9,8 @@
  * - Session revocation
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDatetimeSub } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '@/lib/monitoring/structured-logger';
 import * as crypto from 'crypto';
 
@@ -61,7 +62,13 @@ export interface FailedLoginAttempt {
  */
 export async function initializeSessionTables(): Promise<void> {
   try {
-    // Create user_sessions table
+    if (getDatabaseType() === 'postgresql') {
+      // PostgreSQL schema should be managed by migrations/init scripts
+      logger.info('Session tables initialization skipped for PostgreSQL');
+      return;
+    }
+
+    // Create user_sessions table (SQLite only)
     await executeRun(`
       CREATE TABLE IF NOT EXISTS user_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +87,7 @@ export async function initializeSessionTables(): Promise<void> {
       )
     `);
 
-    // Create failed_login_attempts table
+    // Create failed_login_attempts table (SQLite only)
     await executeRun(`
       CREATE TABLE IF NOT EXISTS failed_login_attempts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,7 +157,7 @@ export async function createSession(
     const activeSessions = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM user_sessions
       WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
-        AND expires_at > datetime('now')
+        AND expires_at > ${sqlNow()}
     `, [userId, tenantId]);
 
     if ((activeSessions?.count ?? 0) >= SESSION_CONFIG.MAX_CONCURRENT_SESSIONS) {
@@ -229,7 +236,7 @@ export async function validateSession(sessionId: string): Promise<Session | null
       SELECT * FROM user_sessions
       WHERE session_id = ?
         AND revoked_at IS NULL
-        AND expires_at > datetime('now')
+        AND expires_at > ${sqlNow()}
     `, [sessionId]);
 
     if (!session) {
@@ -250,7 +257,7 @@ export async function validateSession(sessionId: string): Promise<Session | null
     // Update last activity
     await executeRun(`
       UPDATE user_sessions
-      SET last_activity_at = datetime('now')
+      SET last_activity_at = ${sqlNow()}
       WHERE id = ?
     `, [session.id]);
 
@@ -269,7 +276,7 @@ export async function revokeSession(sessionId: number | string): Promise<boolean
     const field = typeof sessionId === 'number' ? 'id' : 'session_id';
     const result = await executeRun(`
       UPDATE user_sessions
-      SET revoked_at = datetime('now')
+      SET revoked_at = ${sqlNow()}
       WHERE ${field} = ? AND revoked_at IS NULL
     `, [sessionId]);
 
@@ -288,7 +295,7 @@ export async function revokeAllUserSessions(userId: number, tenantId: number): P
   try {
     const result = await executeRun(`
       UPDATE user_sessions
-      SET revoked_at = datetime('now')
+      SET revoked_at = ${sqlNow()}
       WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
     `, [userId, tenantId]);
 
@@ -353,7 +360,7 @@ export async function recordFailedLogin(
             locked_until = ?,
             ip_address = ?,
             user_agent = ?,
-            updated_at = datetime('now')
+            updated_at = ${sqlNow()}
         WHERE id = ?
       `, [newCount, lockedUntil, ipAddress, userAgent, existing.id]);
 
@@ -431,7 +438,7 @@ export async function getUserSessions(userId: number, tenantId: number): Promise
       SELECT * FROM user_sessions
       WHERE user_id = ? AND tenant_id = ?
         AND revoked_at IS NULL
-        AND expires_at > datetime('now')
+        AND expires_at > ${sqlNow()}
       ORDER BY last_activity_at DESC
     `, [userId, tenantId]);
   } catch (error) {
@@ -447,13 +454,13 @@ export async function cleanupExpiredData(): Promise<{ sessionsDeleted: number; a
   try {
     const sessions = await executeRun(`
       DELETE FROM user_sessions
-      WHERE expires_at < datetime('now')
-        OR revoked_at < datetime('now', '-30 days')
+      WHERE expires_at < ${sqlNow()}
+        OR revoked_at < ${sqlDatetimeSub(30)}
     `);
 
     const attempts = await executeRun(`
       DELETE FROM failed_login_attempts
-      WHERE updated_at < datetime('now', '-7 days')
+      WHERE updated_at < ${sqlDatetimeSub(7)}
     `);
 
     logger.info('Expired data cleaned up', {
@@ -485,26 +492,26 @@ export async function getSessionStats(tenantId: number): Promise<{
       SELECT COUNT(*) as count FROM user_sessions
       WHERE tenant_id = ?
         AND revoked_at IS NULL
-        AND expires_at > datetime('now')
+        AND expires_at > ${sqlNow()}
     `, [tenantId]);
 
     const failedAttempts = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM failed_login_attempts
       WHERE tenant_id = ?
-        AND updated_at > datetime('now', '-1 day')
+        AND updated_at > ${sqlDatetimeSub(1)}
     `, [tenantId]);
 
     const lockedAccounts = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM failed_login_attempts
       WHERE tenant_id = ?
-        AND locked_until > datetime('now')
+        AND locked_until > ${sqlNow()}
     `, [tenantId]);
 
     const sessionsByUser = await executeQuery<{ user_id: number; count: number }>(`
       SELECT user_id, COUNT(*) as count FROM user_sessions
       WHERE tenant_id = ?
         AND revoked_at IS NULL
-        AND expires_at > datetime('now')
+        AND expires_at > ${sqlNow()}
       GROUP BY user_id
       ORDER BY count DESC
       LIMIT 10

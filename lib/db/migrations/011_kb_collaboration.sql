@@ -68,9 +68,11 @@ CREATE TABLE IF NOT EXISTS search_history (
     results_count INTEGER NOT NULL DEFAULT 0,
     search_mode TEXT DEFAULT 'hybrid', -- semantic, keyword, hybrid
     user_id INTEGER,
+    organization_id INTEGER,
     session_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 -- Search Analytics (click tracking)

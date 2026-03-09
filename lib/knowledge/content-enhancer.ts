@@ -1,6 +1,7 @@
 // Content enhancer com IA para melhorar qualidade de artigos
 import { Configuration, OpenAIApi } from 'openai';
-import { db } from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { semanticIndexer } from './semantic-indexer';
 import logger from '../monitoring/structured-logger';
 
@@ -103,11 +104,11 @@ export class ContentEnhancer {
   }
 
   /**
-   * Analisa qualidade do conteúdo
+   * Analisa qualidade do conteudo
    */
   async analyzeContent(articleId: number): Promise<ContentAnalysis> {
     try {
-      const article = await db.get(`
+      const article = await executeQueryOne<any>(`
         SELECT ka.*, kc.name as category_name
         FROM kb_articles ka
         LEFT JOIN kb_categories kc ON ka.category_id = kc.id
@@ -115,16 +116,16 @@ export class ContentEnhancer {
       `, [articleId]);
 
       if (!article) {
-        throw new Error(`Artigo ${articleId} não encontrado`);
+        throw new Error(`Artigo ${articleId} nao encontrado`);
       }
 
-      // Calcula métricas básicas
+      // Calcula metricas basicas
       const metrics = this.calculateQualityMetrics(article.content);
 
       // Analisa com IA
       const aiAnalysis = await this.performAIAnalysis(article);
 
-      // Combina análises
+      // Combina analises
       const analysis: ContentAnalysis = {
         readability_score: this.calculateReadabilityScore(metrics),
         complexity_level: this.determineComplexityLevel(metrics),
@@ -140,16 +141,15 @@ export class ContentEnhancer {
       return analysis;
 
     } catch (error) {
-      logger.error('Erro ao analisar conteúdo', error);
+      logger.error('Erro ao analisar conteudo', error);
       throw error;
     }
   }
 
   /**
-   * Calcula métricas de qualidade do conteúdo
+   * Calcula metricas de qualidade do conteudo
    */
   private calculateQualityMetrics(content: string): ContentQualityMetrics {
-    // Remove markdown para análise de texto puro
     const plainText = this.stripMarkdown(content);
 
     const words = plainText.split(/\s+/).filter(word => word.length > 0);
@@ -168,25 +168,19 @@ export class ContentEnhancer {
     };
   }
 
-  /**
-   * Remove markdown do texto
-   */
   private stripMarkdown(content: string): string {
     return content
-      .replace(/#{1,6}\s+/g, '') // Remove headers
-      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
-      .replace(/\*(.*?)\*/g, '$1') // Remove italic
-      .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links
-      .replace(/`{1,3}[^`]*`{1,3}/g, '') // Remove code blocks
-      .replace(/^\s*[-*+]\s+/gm, '') // Remove list markers
-      .replace(/^\s*\d+\.\s+/gm, '') // Remove numbered lists
-      .replace(/\n{2,}/g, '\n') // Normalize line breaks
+      .replace(/#{1,6}\s+/g, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+      .replace(/`{1,3}[^`]*`{1,3}/g, '')
+      .replace(/^\s*[-*+]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      .replace(/\n{2,}/g, '\n')
       .trim();
   }
 
-  /**
-   * Analisa estrutura de cabeçalhos
-   */
   private analyzeHeadingStructure(content: string): HeadingAnalysis {
     const h1Count = (content.match(/^# /gm) || []).length;
     const h2Count = (content.match(/^## /gm) || []).length;
@@ -195,7 +189,7 @@ export class ContentEnhancer {
     const hierarchyIssues: string[] = [];
 
     if (h1Count > 1) {
-      hierarchyIssues.push('Múltiplos H1 encontrados');
+      hierarchyIssues.push('Multiplos H1 encontrados');
     }
 
     if (h1Count === 0) {
@@ -203,7 +197,7 @@ export class ContentEnhancer {
     }
 
     if (h2Count === 0 && content.length > 500) {
-      hierarchyIssues.push('Artigo longo sem subdivisões (H2)');
+      hierarchyIssues.push('Artigo longo sem subdivisoes (H2)');
     }
 
     return {
@@ -215,9 +209,6 @@ export class ContentEnhancer {
     };
   }
 
-  /**
-   * Calcula densidade de palavras-chave
-   */
   private calculateKeywordDensity(words: string[]): Record<string, number> {
     const frequency: Record<string, number> = {};
     const totalWords = words.length;
@@ -234,7 +225,6 @@ export class ContentEnhancer {
       density[word] = (count / totalWords) * 100;
     });
 
-    // Retorna top 10 palavras mais frequentes
     return Object.fromEntries(
       Object.entries(density)
         .sort(([,a], [,b]) => b - a)
@@ -242,28 +232,21 @@ export class ContentEnhancer {
     );
   }
 
-  /**
-   * Calcula indicadores de legibilidade
-   */
   private calculateReadabilityIndicators(words: string[], sentences: string[]): ReadabilityMetrics {
     const avgWordsPerSentence = words.length / sentences.length;
 
-    // Conta palavras complexas (3+ sílabas)
     const complexWords = words.filter(word => this.countSyllables(word) >= 3);
     const complexWordsPercentage = (complexWords.length / words.length) * 100;
 
-    // Aproximação do Flesch Reading Ease para português
     const fleschScore = 248.835 - (1.015 * avgWordsPerSentence) - (84.6 * (complexWords.length / words.length));
 
-    // Conta voz passiva (aproximação)
     const passiveVoiceCount = sentences.filter(sentence =>
-      /\b(foi|foram|é|são|está|estão|sendo)\s+\w+[oa]d[oa]\b/i.test(sentence)
+      /\b(foi|foram|e|sao|esta|estao|sendo)\s+\w+[oa]d[oa]\b/i.test(sentence)
     ).length;
     const passiveVoicePercentage = (passiveVoiceCount / sentences.length) * 100;
 
-    // Conta palavras de transição
     const transitionWords = [
-      'portanto', 'assim', 'então', 'além disso', 'por outro lado', 'entretanto',
+      'portanto', 'assim', 'entao', 'alem disso', 'por outro lado', 'entretanto',
       'contudo', 'primeiramente', 'finalmente', 'em resumo'
     ];
     const transitionCount = words.filter(word =>
@@ -279,14 +262,11 @@ export class ContentEnhancer {
     };
   }
 
-  /**
-   * Conta sílabas em uma palavra (aproximação)
-   */
   private countSyllables(word: string): number {
     word = word.toLowerCase();
     if (word.length <= 3) return 1;
 
-    const vowels = 'aeiouáéíóúâêîôûàèùãõy';
+    const vowels = 'aeiouaeiouaeouy';
     let syllables = 0;
     let previousWasVowel = false;
 
@@ -301,66 +281,52 @@ export class ContentEnhancer {
     return Math.max(1, syllables);
   }
 
-  /**
-   * Analisa elementos estruturais
-   */
   private analyzeStructuralElements(content: string): StructuralElements {
-    const lowerContent = content.toLowerCase();
-
     return {
       has_introduction: this.hasIntroduction(content),
       has_conclusion: this.hasConclusion(content),
       has_step_by_step: /\d+\.\s|\n-\s|^\s*\*\s/m.test(content),
       has_examples: /exemplo|por exemplo|vamos ver/i.test(content),
-      has_troubleshooting: /problema|erro|solução|corrigir|resolver/i.test(content),
-      has_prerequisites: /pré-requisito|antes de|necessário|requer/i.test(content),
+      has_troubleshooting: /problema|erro|solucao|corrigir|resolver/i.test(content),
+      has_prerequisites: /pre-requisito|antes de|necessario|requer/i.test(content),
       code_blocks_count: (content.match(/```[\s\S]*?```/g) || []).length,
       lists_count: (content.match(/^\s*[-*+]\s+/gm) || []).length,
       images_count: (content.match(/!\[.*?\]\(.*?\)/g) || []).length
     };
   }
 
-  /**
-   * Verifica se tem introdução
-   */
   private hasIntroduction(content: string): boolean {
     const firstParagraph = content.split('\n\n')[0];
     return firstParagraph.length > 100 && !firstParagraph.startsWith('#');
   }
 
-  /**
-   * Verifica se tem conclusão
-   */
   private hasConclusion(content: string): boolean {
     const lastParagraphs = content.split('\n\n').slice(-2);
     const lastText = lastParagraphs.join(' ').toLowerCase();
 
-    return /conclusão|resumo|em resumo|para finalizar|concluindo/.test(lastText);
+    return /conclusao|resumo|em resumo|para finalizar|concluindo/.test(lastText);
   }
 
-  /**
-   * Realiza análise com IA
-   */
   private async performAIAnalysis(article: any): Promise<{ clarity_issues: string[] }> {
     try {
       const prompt = `
-Analise este artigo da base de conhecimento quanto à clareza e compreensibilidade:
+Analise este artigo da base de conhecimento quanto a clareza e compreensibilidade:
 
-Título: ${article.title}
+Titulo: ${article.title}
 Categoria: ${article.category_name || 'N/A'}
-Conteúdo: ${article.content.substring(0, 2000)}...
+Conteudo: ${article.content.substring(0, 2000)}...
 
 Identifique problemas de clareza:
-1. Frases confusas ou ambíguas
-2. Jargão técnico não explicado
+1. Frases confusas ou ambiguas
+2. Jargao tecnico nao explicado
 3. Passos mal explicados
 4. Falta de contexto
-5. Informações desorganizadas
+5. Informacoes desorganizadas
 
 Responda em JSON:
 {
   "clarity_issues": [
-    "Problema específico identificado",
+    "Problema especifico identificado",
     "Outro problema encontrado"
   ]
 }
@@ -373,7 +339,7 @@ Foque em problemas que realmente prejudicam o entendimento.
         messages: [
           {
             role: 'system',
-            content: 'Você é especialista em análise de conteúdo técnico. Identifique problemas de clareza objetivamente.'
+            content: 'Voce e especialista em analise de conteudo tecnico. Identifique problemas de clareza objetivamente.'
           },
           { role: 'user', content: prompt }
         ],
@@ -397,54 +363,39 @@ Foque em problemas que realmente prejudicam o entendimento.
       };
 
     } catch (error) {
-      logger.error('Erro na análise com IA', error);
+      logger.error('Erro na analise com IA', error);
       return { clarity_issues: [] };
     }
   }
 
-  /**
-   * Calcula score de legibilidade
-   */
   private calculateReadabilityScore(metrics: ContentQualityMetrics): number {
     const { readability_indicators } = metrics;
 
-    let score = 0.5; // Base
+    let score = 0.5;
 
-    // Score baseado no Flesch Reading Ease
     if (readability_indicators.flesch_reading_ease >= 70) score += 0.3;
     else if (readability_indicators.flesch_reading_ease >= 50) score += 0.2;
     else if (readability_indicators.flesch_reading_ease < 30) score -= 0.2;
 
-    // Penaliza frases muito longas
     if (readability_indicators.avg_words_per_sentence > 25) score -= 0.1;
     else if (readability_indicators.avg_words_per_sentence < 15) score += 0.1;
 
-    // Penaliza excesso de palavras complexas
     if (readability_indicators.complex_words_percentage > 20) score -= 0.1;
-
-    // Penaliza excesso de voz passiva
     if (readability_indicators.passive_voice_percentage > 25) score -= 0.1;
-
-    // Bonifica palavras de transição
     if (readability_indicators.transition_words_count > 0) score += 0.1;
 
     return Math.max(0, Math.min(1, score));
   }
 
-  /**
-   * Determina nível de complexidade
-   */
   private determineComplexityLevel(metrics: ContentQualityMetrics): 'low' | 'medium' | 'high' {
     const { readability_indicators, structural_elements } = metrics;
 
     let complexity = 0;
 
-    // Baseado na legibilidade
     if (readability_indicators.flesch_reading_ease < 50) complexity += 1;
     if (readability_indicators.avg_words_per_sentence > 20) complexity += 1;
     if (readability_indicators.complex_words_percentage > 15) complexity += 1;
 
-    // Baseado na estrutura
     if (structural_elements.code_blocks_count > 3) complexity += 1;
     if (!structural_elements.has_examples) complexity += 1;
 
@@ -453,45 +404,34 @@ Foque em problemas que realmente prejudicam o entendimento.
     return 'medium';
   }
 
-  /**
-   * Calcula qualidade da estrutura
-   */
   private calculateStructureQuality(metrics: ContentQualityMetrics): number {
-    let score = 0.5; // Base
+    let score = 0.5;
 
     const { heading_structure, structural_elements } = metrics;
 
-    // Estrutura de cabeçalhos
     if (heading_structure.h1_count === 1) score += 0.1;
     if (heading_structure.h2_count >= 2) score += 0.1;
     if (heading_structure.hierarchy_issues.length === 0) score += 0.1;
 
-    // Elementos estruturais
     if (structural_elements.has_introduction) score += 0.1;
     if (structural_elements.has_conclusion) score += 0.1;
     if (structural_elements.lists_count > 0) score += 0.1;
     if (structural_elements.has_step_by_step) score += 0.1;
 
-    // Penaliza falta de organização
     if (metrics.paragraph_count < 3 && metrics.word_count > 300) score -= 0.2;
 
     return Math.max(0, Math.min(1, score));
   }
 
-  /**
-   * Calcula score de completude
-   */
   private calculateCompletenessScore(metrics: ContentQualityMetrics): number {
-    let score = 0.5; // Base
+    let score = 0.5;
 
     const { structural_elements, word_count } = metrics;
 
-    // Tamanho adequado
     if (word_count >= 300) score += 0.1;
     if (word_count >= 500) score += 0.1;
     if (word_count < 150) score -= 0.2;
 
-    // Elementos essenciais
     if (structural_elements.has_prerequisites) score += 0.1;
     if (structural_elements.has_examples) score += 0.1;
     if (structural_elements.has_troubleshooting) score += 0.1;
@@ -500,47 +440,21 @@ Foque em problemas que realmente prejudicam o entendimento.
     return Math.max(0, Math.min(1, score));
   }
 
-  /**
-   * Identifica elementos em falta
-   */
   private identifyMissingElements(metrics: ContentQualityMetrics): string[] {
     const missing: string[] = [];
     const { structural_elements, heading_structure } = metrics;
 
-    if (heading_structure.h1_count === 0) {
-      missing.push('Título principal (H1)');
-    }
-
-    if (heading_structure.h2_count === 0 && metrics.word_count > 400) {
-      missing.push('Subdivisões (H2)');
-    }
-
-    if (!structural_elements.has_introduction) {
-      missing.push('Introdução explicativa');
-    }
-
-    if (!structural_elements.has_examples && metrics.word_count > 300) {
-      missing.push('Exemplos práticos');
-    }
-
-    if (!structural_elements.has_step_by_step && metrics.word_count > 400) {
-      missing.push('Instruções passo a passo');
-    }
-
-    if (!structural_elements.has_troubleshooting) {
-      missing.push('Seção de solução de problemas');
-    }
-
-    if (!structural_elements.has_conclusion && metrics.word_count > 500) {
-      missing.push('Conclusão ou resumo');
-    }
+    if (heading_structure.h1_count === 0) missing.push('Titulo principal (H1)');
+    if (heading_structure.h2_count === 0 && metrics.word_count > 400) missing.push('Subdivisoes (H2)');
+    if (!structural_elements.has_introduction) missing.push('Introducao explicativa');
+    if (!structural_elements.has_examples && metrics.word_count > 300) missing.push('Exemplos praticos');
+    if (!structural_elements.has_step_by_step && metrics.word_count > 400) missing.push('Instrucoes passo a passo');
+    if (!structural_elements.has_troubleshooting) missing.push('Secao de solucao de problemas');
+    if (!structural_elements.has_conclusion && metrics.word_count > 500) missing.push('Conclusao ou resumo');
 
     return missing;
   }
 
-  /**
-   * Gera sugestões de melhoria
-   */
   private async generateSuggestions(
     article: any,
     metrics: ContentQualityMetrics,
@@ -548,56 +462,51 @@ Foque em problemas que realmente prejudicam o entendimento.
   ): Promise<ContentSuggestion[]> {
     const suggestions: ContentSuggestion[] = [];
 
-    // Sugestões de estrutura
     if (metrics.heading_structure.missing_structure) {
       suggestions.push({
         type: 'structure',
         priority: 'high',
-        description: 'Melhorar estrutura de cabeçalhos',
-        suggested_change: 'Adicionar H1 principal e H2 para seções',
-        rationale: 'Facilita navegação e compreensão',
+        description: 'Melhorar estrutura de cabecalhos',
+        suggested_change: 'Adicionar H1 principal e H2 para secoes',
+        rationale: 'Facilita navegacao e compreensao',
         implementation_effort: 'easy'
       });
     }
 
-    // Sugestões de legibilidade
     if (metrics.readability_indicators.avg_words_per_sentence > 25) {
       suggestions.push({
         type: 'clarity',
         priority: 'medium',
         description: 'Reduzir tamanho das frases',
         suggested_change: 'Dividir frases longas em frases menores',
-        rationale: 'Melhora compreensão e fluidez da leitura',
+        rationale: 'Melhora compreensao e fluidez da leitura',
         implementation_effort: 'moderate'
       });
     }
 
-    // Sugestões de completude
     const missingElements = this.identifyMissingElements(metrics);
     missingElements.forEach(element => {
       suggestions.push({
         type: 'completeness',
         priority: 'medium',
         description: `Adicionar ${element.toLowerCase()}`,
-        suggested_change: `Incluir seção com ${element.toLowerCase()}`,
-        rationale: 'Torna o artigo mais completo e útil',
+        suggested_change: `Incluir secao com ${element.toLowerCase()}`,
+        rationale: 'Torna o artigo mais completo e util',
         implementation_effort: 'moderate'
       });
     });
 
-    // Sugestões baseadas na análise de IA
     aiAnalysis.clarity_issues.forEach((issue: string) => {
       suggestions.push({
         type: 'clarity',
         priority: 'high',
         description: 'Resolver problema de clareza',
         suggested_change: `Clarificar: ${issue}`,
-        rationale: 'Melhora compreensão do conteúdo',
+        rationale: 'Melhora compreensao do conteudo',
         implementation_effort: 'moderate'
       });
     });
 
-    // Sugestões de SEO
     if (!article.meta_description || article.meta_description.length < 120) {
       suggestions.push({
         type: 'seo',
@@ -609,105 +518,58 @@ Foque em problemas que realmente prejudicam o entendimento.
       });
     }
 
-    return suggestions.slice(0, 8); // Limita a 8 sugestões
+    return suggestions.slice(0, 8);
   }
 
-  /**
-   * Calcula score de SEO
-   */
   private calculateSEOScore(article: any, metrics: ContentQualityMetrics): number {
-    let score = 0.5; // Base
+    let score = 0.5;
 
-    // Título adequado
-    if (article.title && article.title.length >= 30 && article.title.length <= 60) {
-      score += 0.1;
-    }
+    if (article.title && article.title.length >= 30 && article.title.length <= 60) score += 0.1;
+    if (article.meta_description && article.meta_description.length >= 120 && article.meta_description.length <= 160) score += 0.1;
 
-    // Meta description
-    if (article.meta_description && article.meta_description.length >= 120 && article.meta_description.length <= 160) {
-      score += 0.1;
-    }
-
-    // Palavras-chave no título
     const titleWords = article.title.toLowerCase().split(/\s+/);
     const contentKeywords = Object.keys(metrics.keyword_density);
     const titleKeywordMatch = titleWords.some(word => contentKeywords.includes(word));
     if (titleKeywordMatch) score += 0.1;
 
-    // Estrutura de cabeçalhos
-    if (metrics.heading_structure.h1_count === 1 && metrics.heading_structure.h2_count >= 2) {
-      score += 0.1;
-    }
-
-    // Tamanho adequado do conteúdo
+    if (metrics.heading_structure.h1_count === 1 && metrics.heading_structure.h2_count >= 2) score += 0.1;
     if (metrics.word_count >= 300) score += 0.1;
 
-    // Links internos (aproximação)
     const internalLinks = (article.content.match(/\[.*?\]\(\/.*?\)/g) || []).length;
     if (internalLinks > 0) score += 0.1;
 
     return Math.max(0, Math.min(1, score));
   }
 
-  /**
-   * Calcula score de acessibilidade
-   */
   private calculateAccessibilityScore(metrics: ContentQualityMetrics): number {
-    let score = 0.5; // Base
+    let score = 0.5;
 
-    // Estrutura de cabeçalhos clara
-    if (metrics.heading_structure.hierarchy_issues.length === 0) {
-      score += 0.2;
-    }
-
-    // Presença de listas (facilita leitura)
-    if (metrics.structural_elements.lists_count > 0) {
-      score += 0.1;
-    }
-
-    // Presença de imagens com alt text (aproximação)
-    if (metrics.structural_elements.images_count > 0) {
-      score += 0.1;
-    }
-
-    // Legibilidade adequada
-    if (metrics.readability_indicators.flesch_reading_ease >= 60) {
-      score += 0.2;
-    }
+    if (metrics.heading_structure.hierarchy_issues.length === 0) score += 0.2;
+    if (metrics.structural_elements.lists_count > 0) score += 0.1;
+    if (metrics.structural_elements.images_count > 0) score += 0.1;
+    if (metrics.readability_indicators.flesch_reading_ease >= 60) score += 0.2;
 
     return Math.max(0, Math.min(1, score));
   }
 
   /**
-   * Melhora conteúdo automaticamente
+   * Melhora conteudo automaticamente
    */
   async enhanceContent(request: EnhancementRequest): Promise<EnhancedContent> {
     try {
-      const article = await db.get(`
+      const article = await executeQueryOne<any>(`
         SELECT * FROM kb_articles WHERE id = ?
       `, [request.article_id]);
 
       if (!article) {
-        throw new Error(`Artigo ${request.article_id} não encontrado`);
+        throw new Error(`Artigo ${request.article_id} nao encontrado`);
       }
 
-      logger.info(`Melhorando conteúdo: ${article.title}`);
+      logger.info(`Melhorando conteudo: ${article.title}`);
 
-      // Analisa conteúdo atual
       const currentAnalysis = await this.analyzeContent(request.article_id);
-
-      // Gera versão melhorada
-      const enhanced = await this.generateEnhancedVersion(
-        article,
-        currentAnalysis,
-        request
-      );
-
-      // Calcula métricas de melhoria
-      const qualityMetrics = await this.calculateImprovementMetrics(
-        article.content,
-        enhanced.enhanced_content
-      );
+      const enhanced = await this.generateEnhancedVersion(article, currentAnalysis, request);
+      const qualityMetrics = await this.calculateImprovementMetrics(article.content, enhanced.enhanced_content);
 
       return {
         original_content: article.content,
@@ -719,14 +581,11 @@ Foque em problemas que realmente prejudicam o entendimento.
       };
 
     } catch (error) {
-      logger.error('Erro ao melhorar conteúdo', error);
+      logger.error('Erro ao melhorar conteudo', error);
       throw error;
     }
   }
 
-  /**
-   * Gera versão melhorada do conteúdo
-   */
   private async generateEnhancedVersion(
     article: any,
     analysis: ContentAnalysis,
@@ -744,10 +603,10 @@ Foque em problemas que realmente prejudicam o entendimento.
 Melhore este artigo da base de conhecimento:
 
 ARTIGO ORIGINAL:
-Título: ${article.title}
-Conteúdo: ${article.content}
+Titulo: ${article.title}
+Conteudo: ${article.content}
 
-ANÁLISE DE QUALIDADE:
+ANALISE DE QUALIDADE:
 - Score de legibilidade: ${Math.round(analysis.readability_score * 100)}%
 - Complexidade: ${analysis.complexity_level}
 - Qualidade estrutural: ${Math.round(analysis.structure_quality * 100)}%
@@ -755,10 +614,10 @@ ANÁLISE DE QUALIDADE:
 - Elementos em falta: ${analysis.missing_elements.join(', ')}
 
 FOCO DO APRIMORAMENTO: ${enhancementFocus.join(', ')}
-PÚBLICO-ALVO: ${request.target_audience || 'geral'}
+PUBLICO-ALVO: ${request.target_audience || 'geral'}
 
 DIRETRIZES:
-1. ${request.preserve_tone ? 'Preserve o tom original' : 'Adapte o tom conforme necessário'}
+1. ${request.preserve_tone ? 'Preserve o tom original' : 'Adapte o tom conforme necessario'}
 2. Melhore clareza e estrutura
 3. Adicione elementos em falta
 4. ${request.max_length_increase ? `Limite aumento a ${request.max_length_increase}%` : 'Mantenha tamanho similar'}
@@ -766,12 +625,12 @@ DIRETRIZES:
 
 Responda em JSON:
 {
-  "enhanced_content": "Conteúdo melhorado em markdown",
-  "summary_changes": "Resumo das principais mudanças feitas",
+  "enhanced_content": "Conteudo melhorado em markdown",
+  "summary_changes": "Resumo das principais mudancas feitas",
   "improvements_made": [
     {
       "type": "structure|clarity|completeness|seo",
-      "description": "Descrição da melhoria",
+      "description": "Descricao da melhoria",
       "before_snippet": "Trecho original (max 100 chars)",
       "after_snippet": "Trecho melhorado (max 100 chars)"
     }
@@ -784,7 +643,7 @@ Responda em JSON:
         messages: [
           {
             role: 'system',
-            content: 'Você é especialista em melhoria de conteúdo técnico. Foque em clareza, estrutura e completude.'
+            content: 'Voce e especialista em melhoria de conteudo tecnico. Foque em clareza, estrutura e completude.'
           },
           { role: 'user', content: prompt }
         ],
@@ -794,12 +653,12 @@ Responda em JSON:
 
       const content = response.data.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('IA não gerou conteúdo melhorado');
+        throw new Error('IA nao gerou conteudo melhorado');
       }
 
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('Resposta não está em formato JSON válido');
+        throw new Error('Resposta nao esta em formato JSON valido');
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
@@ -812,14 +671,11 @@ Responda em JSON:
       };
 
     } catch (error) {
-      logger.error('Erro ao gerar versão melhorada', error);
+      logger.error('Erro ao gerar versao melhorada', error);
       throw error;
     }
   }
 
-  /**
-   * Determina foco do aprimoramento
-   */
   private determineEnhancementFocus(analysis: ContentAnalysis, request: EnhancementRequest): string[] {
     if (request.enhancement_type === 'comprehensive') {
       return ['estrutura', 'clareza', 'completude', 'SEO'];
@@ -828,72 +684,47 @@ Responda em JSON:
     const focus: string[] = [];
 
     switch (request.enhancement_type) {
-      case 'readability':
-        focus.push('clareza', 'simplificação');
-        break;
-      case 'structure':
-        focus.push('organização', 'hierarquia');
-        break;
-      case 'completeness':
-        focus.push('elementos em falta', 'detalhamento');
-        break;
-      case 'seo':
-        focus.push('otimização para busca', 'palavras-chave');
-        break;
-      case 'accessibility':
-        focus.push('acessibilidade', 'navegação');
-        break;
+      case 'readability': focus.push('clareza', 'simplificacao'); break;
+      case 'structure': focus.push('organizacao', 'hierarquia'); break;
+      case 'completeness': focus.push('elementos em falta', 'detalhamento'); break;
+      case 'seo': focus.push('otimizacao para busca', 'palavras-chave'); break;
+      case 'accessibility': focus.push('acessibilidade', 'navegacao'); break;
     }
 
-    // Adiciona focos baseados na análise
     if (analysis.readability_score < 0.6) focus.push('legibilidade');
     if (analysis.structure_quality < 0.6) focus.push('estrutura');
     if (analysis.completeness_score < 0.6) focus.push('completude');
 
-    return [...new Set(focus)]; // Remove duplicatas
+    return [...new Set(focus)];
   }
 
-  /**
-   * Calcula confiança do aprimoramento
-   */
   private calculateEnhancementConfidence(original: string, enhanced: string): number {
-    let confidence = 0.5; // Base
+    let confidence = 0.5;
 
-    // Baseado no aumento de tamanho (moderado é bom)
     const lengthIncrease = (enhanced.length - original.length) / original.length;
-    if (lengthIncrease >= 0.1 && lengthIncrease <= 0.5) {
-      confidence += 0.2;
-    } else if (lengthIncrease > 0.5) {
-      confidence -= 0.1; // Penaliza aumento excessivo
-    }
+    if (lengthIncrease >= 0.1 && lengthIncrease <= 0.5) confidence += 0.2;
+    else if (lengthIncrease > 0.5) confidence -= 0.1;
 
-    // Baseado na estrutura (conta cabeçalhos)
     const originalHeadings = (original.match(/^#{1,6}\s/gm) || []).length;
     const enhancedHeadings = (enhanced.match(/^#{1,6}\s/gm) || []).length;
     if (enhancedHeadings > originalHeadings) confidence += 0.1;
 
-    // Baseado na organização (conta listas)
     const originalLists = (original.match(/^\s*[-*+]\s/gm) || []).length;
     const enhancedLists = (enhanced.match(/^\s*[-*+]\s/gm) || []).length;
     if (enhancedLists > originalLists) confidence += 0.1;
 
-    // Baseado na qualidade do markdown
     const markdownElements = enhanced.match(/\*\*.*?\*\*|`.*?`|###?\s/g) || [];
     if (markdownElements.length > 3) confidence += 0.1;
 
     return Math.max(0.3, Math.min(1.0, confidence));
   }
 
-  /**
-   * Calcula métricas de melhoria
-   */
   private async calculateImprovementMetrics(original: string, enhanced: string): Promise<{
     readability_improvement: number;
     structure_improvement: number;
     completeness_improvement: number;
     seo_improvement: number;
   }> {
-    // Calcula métricas para ambas as versões
     const originalMetrics = this.calculateQualityMetrics(original);
     const enhancedMetrics = this.calculateQualityMetrics(enhanced);
 
@@ -901,7 +732,7 @@ Responda em JSON:
       readability_improvement: this.calculateReadabilityScore(enhancedMetrics) - this.calculateReadabilityScore(originalMetrics),
       structure_improvement: this.calculateStructureQuality(enhancedMetrics) - this.calculateStructureQuality(originalMetrics),
       completeness_improvement: this.calculateCompletenessScore(enhancedMetrics) - this.calculateCompletenessScore(originalMetrics),
-      seo_improvement: 0.1 // Placeholder - seria preciso comparar SEO scores
+      seo_improvement: 0.1
     };
   }
 
@@ -910,12 +741,14 @@ Responda em JSON:
    */
   async applyEnhancement(articleId: number, enhancedContent: EnhancedContent, userId: number): Promise<void> {
     try {
-      // Salva versão atual como backup
-      await db.run(`
+      const nowExpr = getDatabaseType() === 'postgresql' ? 'NOW()' : `datetime('now')`;
+
+      // Salva versao atual como backup
+      await executeRun(`
         INSERT INTO ai_suggestions (
           entity_type, entity_id, suggestion_type, suggested_content,
           reasoning, confidence_score, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ${nowExpr})
       `, [
         'kb_article',
         articleId,
@@ -925,18 +758,18 @@ Responda em JSON:
         enhancedContent.confidence_score
       ]);
 
-      // Atualiza artigo com conteúdo melhorado
-      await db.run(`
+      // Atualiza artigo com conteudo melhorado
+      await executeRun(`
         UPDATE kb_articles
-        SET content = ?, updated_at = datetime('now')
+        SET content = ?, updated_at = ${nowExpr}
         WHERE id = ?
       `, [enhancedContent.enhanced_content, articleId]);
 
       // Registra log de auditoria
-      await db.run(`
+      await executeRun(`
         INSERT INTO audit_logs (
           entity_type, entity_id, action, new_values, user_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ${nowExpr})
       `, [
         'kb_article',
         articleId,
@@ -949,7 +782,7 @@ Responda em JSON:
         userId
       ]);
 
-      // Agenda reindexação
+      // Agenda reindexacao
       await semanticIndexer.queueIndexing('kb_article', articleId, 'update', 1);
 
       logger.info(`Aprimoramento aplicado ao artigo ${articleId}`);
@@ -961,7 +794,7 @@ Responda em JSON:
   }
 
   /**
-   * Obtém estatísticas de aprimoramentos
+   * Obtem estatisticas de aprimoramentos
    */
   async getEnhancementStats(timeframe: string = '30 days'): Promise<{
     total_enhancements: number;
@@ -975,22 +808,38 @@ Responda em JSON:
     }>;
   }> {
     try {
-      const enhancements = await db.all(`
+      const dateExpr = getDatabaseType() === 'postgresql'
+        ? `NOW() - INTERVAL '${timeframe}'`
+        : `datetime('now', '-' || ? || '')`;
+
+      const dateParams = getDatabaseType() === 'postgresql' ? [] : [timeframe];
+
+      // Dialect-aware JSON extraction
+      const jsonExtractQuality = getDatabaseType() === 'postgresql'
+        ? `(new_values::json->>'quality_improvement')`
+        : `json_extract(new_values, '$.quality_improvement')`;
+
+      const jsonExtractCount = getDatabaseType() === 'postgresql'
+        ? `(new_values::json->>'improvements_count')`
+        : `json_extract(new_values, '$.improvements_count')`;
+
+      const enhancements = await executeQuery<any>(`
         SELECT
           entity_id,
           confidence_score,
-          json_extract(new_values, '$.quality_improvement') as quality_improvement,
-          json_extract(new_values, '$.improvements_count') as improvements_count
+          ${jsonExtractQuality} as quality_improvement,
+          ${jsonExtractCount} as improvements_count
         FROM audit_logs
         WHERE action = 'content_enhanced'
-          AND created_at >= datetime('now', '-' || ? || '')
-      `, [timeframe]);
+          AND created_at >= ${dateExpr}
+      `, dateParams);
 
       const totalEnhancements = enhancements.length;
-      const avgConfidence = enhancements.reduce((sum, e) => sum + (e.confidence_score || 0), 0) / totalEnhancements;
+      const avgConfidence = totalEnhancements > 0
+        ? enhancements.reduce((sum, e) => sum + (e.confidence_score || 0), 0) / totalEnhancements
+        : 0;
 
-      // Busca títulos dos artigos mais melhorados
-      const mostImproved = await db.all(`
+      const mostImproved = await executeQuery<any>(`
         SELECT
           ka.id,
           ka.title,
@@ -998,16 +847,16 @@ Responda em JSON:
         FROM audit_logs al
         JOIN kb_articles ka ON al.entity_id = ka.id
         WHERE al.action = 'content_enhanced'
-          AND al.created_at >= datetime('now', '-' || ? || '')
+          AND al.created_at >= ${dateExpr}
         ORDER BY al.confidence_score DESC
         LIMIT 5
-      `, [timeframe]);
+      `, dateParams);
 
       return {
         total_enhancements: totalEnhancements,
         avg_confidence_score: Number(avgConfidence.toFixed(3)),
-        improvement_types: { comprehensive: totalEnhancements }, // Simplificado
-        avg_quality_improvement: 0.15, // Placeholder
+        improvement_types: { comprehensive: totalEnhancements },
+        avg_quality_improvement: 0.15,
         most_improved_articles: mostImproved.map(a => ({
           article_id: a.id,
           title: a.title,
@@ -1016,11 +865,11 @@ Responda em JSON:
       };
 
     } catch (error) {
-      logger.error('Erro ao obter estatísticas de aprimoramento', error);
+      logger.error('Erro ao obter estatisticas de aprimoramento', error);
       throw error;
     }
   }
 }
 
-// Instância singleton
+// Instancia singleton
 export const contentEnhancer = new ContentEnhancer();

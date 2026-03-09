@@ -10,13 +10,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -33,7 +33,8 @@ export async function GET(
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
     }
 
-    const templateId = parseInt(params.id);
+    const { id } = await params;
+    const templateId = parseInt(id);
 
     const template = await executeQueryOne<any>(`
       SELECT * FROM email_templates
@@ -76,7 +77,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -98,7 +99,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
-    const templateId = parseInt(params.id);
+    const { id } = await params;
+    const templateId = parseInt(id);
     const data = await request.json();
 
     // Check if template exists and belongs to tenant
@@ -142,7 +144,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -164,7 +166,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
-    const templateId = parseInt(params.id);
+    const { id } = await params;
+    const templateId = parseInt(id);
 
     // Check if template exists and belongs to tenant
     const existing = await executeQueryOne<any>(`
@@ -182,7 +185,7 @@ export async function DELETE(
     // Soft delete (mark as inactive) instead of hard delete
     await executeRun(`
       UPDATE email_templates
-      SET is_active = 0, updated_at = datetime('now')
+      SET is_active = 0, updated_at = ${sqlNow()}
       WHERE id = ?
     `, [templateId]);
 

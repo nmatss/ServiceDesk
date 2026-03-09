@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface AuditLogEntry {
@@ -22,14 +22,14 @@ export class AuditLogger {
    */
   async log(entry: AuditLogEntry): Promise<void> {
     try {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO audit_advanced (
           entity_type, entity_id, action,
           old_values, new_values,
           user_id, session_id, ip_address, user_agent,
           request_id, api_endpoint, organization_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         entry.entityType,
         entry.entityId,
         entry.action,
@@ -42,7 +42,7 @@ export class AuditLogger {
         entry.requestId || null,
         entry.apiEndpoint || null,
         entry.organizationId
-      );
+      ]);
     } catch (error) {
       logger.error('Audit log error', error);
     }
@@ -103,7 +103,7 @@ export class AuditLogger {
     query += ` ORDER BY a.created_at DESC LIMIT ?`;
     params.push(filters.limit || 100);
 
-    return db.prepare(query).all(...params);
+    return await executeQuery<any>(query, params);
   }
 
   /**

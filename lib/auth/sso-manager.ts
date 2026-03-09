@@ -1,7 +1,6 @@
 import { randomBytes } from 'crypto';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import db from '../db/connection';
-import { executeRun, executeQueryOne } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 import { User } from '../types/database';
 import { createUser, getUserByEmail } from './sqlite-auth';
 import logger from '../monitoring/structured-logger';
@@ -66,13 +65,13 @@ class SSOManager {
   /**
    * Get active SSO providers
    */
-  getActiveProviders(): SSOProvider[] {
+  async getActiveProviders(): Promise<SSOProvider[]> {
     try {
-      const providers = db.prepare(`
+      const providers = await executeQuery<any>(`
         SELECT * FROM sso_providers
         WHERE is_active = 1
         ORDER BY name
-      `).all() as any[];
+      `, []);
 
       return providers.map(p => ({
         ...p,
@@ -88,12 +87,12 @@ class SSOManager {
   /**
    * Get SSO provider by name
    */
-  getProvider(name: string): SSOProvider | null {
+  async getProvider(name: string): Promise<SSOProvider | null> {
     try {
-      const provider = db.prepare(`
+      const provider = await executeQueryOne<any>(`
         SELECT * FROM sso_providers
         WHERE name = ? AND is_active = 1
-      `).get(name) as any;
+      `, [name]);
 
       if (!provider) return null;
 
@@ -111,35 +110,33 @@ class SSOManager {
   /**
    * Create or update SSO provider
    */
-  saveProvider(provider: Omit<SSOProvider, 'id'> & { id?: number }): boolean {
+  async saveProvider(provider: Omit<SSOProvider, 'id'> & { id?: number }): Promise<boolean> {
     try {
       const configJson = JSON.stringify(provider.configuration);
       const metadataJson = provider.metadata ? JSON.stringify(provider.metadata) : null;
 
       if (provider.id) {
         // Update
-        const stmt = db.prepare(`
+        const result = await executeRun(`
           UPDATE sso_providers
           SET display_name = ?, type = ?, is_active = ?, configuration = ?,
               metadata = ?, updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
-        `);
-        const result = stmt.run(
+        `, [
           provider.display_name, provider.type, provider.is_active ? 1 : 0,
           configJson, metadataJson, provider.id
-        );
-        return result.changes > 0;
+        ]);
+        return (result.changes ?? 0) > 0;
       } else {
         // Insert
-        const stmt = db.prepare(`
+        const result = await executeRun(`
           INSERT INTO sso_providers (name, display_name, type, is_active, configuration, metadata)
           VALUES (?, ?, ?, ?, ?, ?)
-        `);
-        const result = stmt.run(
+        `, [
           provider.name, provider.display_name, provider.type,
           provider.is_active ? 1 : 0, configJson, metadataJson
-        );
-        return result.changes > 0;
+        ]);
+        return (result.changes ?? 0) > 0;
       }
     } catch (error) {
       logger.error('Error saving SSO provider', error);
@@ -150,9 +147,9 @@ class SSOManager {
   /**
    * Generate SAML 2.0 authentication request
    */
-  generateSamlAuthRequest(providerName: string, relayState?: string): string | null {
+  async generateSamlAuthRequest(providerName: string, relayState?: string): Promise<string | null> {
     try {
-      const provider = this.getProvider(providerName);
+      const provider = await this.getProvider(providerName);
       if (!provider || provider.type !== 'saml2') return null;
 
       const config = provider.configuration;
@@ -206,7 +203,7 @@ class SSOManager {
    */
   async processSamlResponse(providerName: string, samlResponse: string): Promise<SSOUser | null> {
     try {
-      const provider = this.getProvider(providerName);
+      const provider = await this.getProvider(providerName);
       if (!provider || provider.type !== 'saml2') return null;
 
       const config = provider.configuration;
@@ -281,9 +278,9 @@ class SSOManager {
   /**
    * Generate OAuth 2.0 authorization URL
    */
-  generateOAuthAuthUrl(providerName: string, state?: string): string | null {
+  async generateOAuthAuthUrl(providerName: string, state?: string): Promise<string | null> {
     try {
-      const provider = this.getProvider(providerName);
+      const provider = await this.getProvider(providerName);
       if (!provider || !['oauth2', 'oidc'].includes(provider.type)) return null;
 
       const config = provider.configuration;
@@ -314,7 +311,7 @@ class SSOManager {
    */
   async processOAuthCallback(providerName: string, code: string, _state?: string): Promise<SSOUser | null> {
     try {
-      const provider = this.getProvider(providerName);
+      const provider = await this.getProvider(providerName);
       if (!provider || !['oauth2', 'oidc'].includes(provider.type)) return null;
 
       const config = provider.configuration;
@@ -393,7 +390,7 @@ class SSOManager {
     try {
       // Check if user exists
       let user: User | undefined = await getUserByEmail(ssoUser.email);
-      const provider = this.getProvider(ssoUser.provider);
+      const provider = await this.getProvider(ssoUser.provider);
 
       if (!user && provider?.configuration.autoCreateUsers) {
         // Create new user
@@ -460,15 +457,14 @@ class SSOManager {
   /**
    * Link user to SSO provider
    */
-  linkUserToSSO(userId: number, provider: string, externalId: string): boolean {
+  async linkUserToSSO(userId: number, provider: string, externalId: string): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE users
         SET sso_provider = ?, sso_user_id = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `);
-      const result = stmt.run(provider, externalId, userId);
-      return result.changes > 0;
+      `, [provider, externalId, userId]);
+      return (result.changes ?? 0) > 0;
     } catch (error) {
       logger.error('Error linking user to SSO', error);
       return false;
@@ -478,15 +474,14 @@ class SSOManager {
   /**
    * Unlink user from SSO provider
    */
-  unlinkUserFromSSO(userId: number): boolean {
+  async unlinkUserFromSSO(userId: number): Promise<boolean> {
     try {
-      const stmt = db.prepare(`
+      const result = await executeRun(`
         UPDATE users
         SET sso_provider = NULL, sso_user_id = NULL, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `);
-      const result = stmt.run(userId);
-      return result.changes > 0;
+      `, [userId]);
+      return (result.changes ?? 0) > 0;
     } catch (error) {
       logger.error('Error unlinking user from SSO', error);
       return false;

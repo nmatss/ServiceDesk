@@ -1,12 +1,12 @@
 /**
- * LGPD (Lei Geral de Proteção de Dados) Compliance Framework
+ * LGPD (Lei Geral de Protecao de Dados) Compliance Framework
  * Automated compliance features for Brazilian data protection law
  */
 
 import { getSecurityConfig } from './config';
 // import { DatabasePiiScanner } from './pii-detection'; // TODO: Uncomment when PII scanning is integrated
 import logger from '../monitoring/structured-logger';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import type { LGPDConsent, CreateLGPDConsent } from '../types/database';
 
 export interface LgpdConsentRecord {
@@ -81,7 +81,6 @@ export enum LgpdErasureReason {
  */
 export class LgpdComplianceManager {
   private config = getSecurityConfig();
-  // private piiScanner = new DatabasePiiScanner(); // TODO: Implement PII scanning integration
 
   /**
    * Record consent for data processing
@@ -369,7 +368,7 @@ export class LgpdComplianceManager {
     try {
       const consentData: CreateLGPDConsent = {
         user_id: parseInt(record.userId),
-        consent_type: record.purpose, // Using purpose as consent_type
+        consent_type: record.purpose,
         purpose: record.purpose,
         legal_basis: record.lawfulBasis,
         is_given: record.consentGiven,
@@ -386,15 +385,13 @@ export class LgpdComplianceManager {
         withdrawal_reason: undefined
       };
 
-      const stmt = db.prepare(`
+      await executeRun(`
         INSERT INTO lgpd_consents (
           user_id, consent_type, purpose, legal_basis, is_given,
           consent_method, consent_evidence, ip_address, user_agent,
           expires_at, withdrawn_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(
+      `, [
         consentData.user_id,
         consentData.consent_type,
         consentData.purpose,
@@ -406,7 +403,7 @@ export class LgpdComplianceManager {
         consentData.user_agent,
         consentData.expires_at,
         consentData.withdrawn_at
-      );
+      ]);
 
       logger.info('Consent record stored successfully', { id: record.id, userId: record.userId });
     } catch (error) {
@@ -417,14 +414,13 @@ export class LgpdComplianceManager {
 
   private async getConsentRecord(consentId: string): Promise<LgpdConsentRecord | null> {
     try {
-      const stmt = db.prepare(`
+      const searchPattern = `%"consentId":"${consentId}"%`;
+      const row = await executeQueryOne<LGPDConsent>(`
         SELECT * FROM lgpd_consents
         WHERE consent_evidence LIKE ?
         ORDER BY created_at DESC
         LIMIT 1
-      `);
-
-      const row = stmt.get(`%"consentId":"${consentId}"%`) as LGPDConsent | undefined;
+      `, [searchPattern]);
 
       if (!row) {
         return null;
@@ -455,29 +451,17 @@ export class LgpdComplianceManager {
 
   private async updateConsentRecord(record: LgpdConsentRecord): Promise<void> {
     try {
-      // First, get the existing database record to update
-      const existingStmt = db.prepare(`
+      const searchPattern = `%"consentId":"${record.id}"%`;
+      const existingRow = await executeQueryOne<{ id: number }>(`
         SELECT id FROM lgpd_consents
         WHERE consent_evidence LIKE ?
         ORDER BY created_at DESC
         LIMIT 1
-      `);
-
-      const existingRow = existingStmt.get(`%"consentId":"${record.id}"%`) as { id: number } | undefined;
+      `, [searchPattern]);
 
       if (!existingRow) {
         throw new Error(`Consent record not found: ${record.id}`);
       }
-
-      // Update the consent record
-      const updateStmt = db.prepare(`
-        UPDATE lgpd_consents
-        SET is_given = ?,
-            withdrawn_at = ?,
-            withdrawal_reason = ?,
-            consent_evidence = ?
-        WHERE id = ?
-      `);
 
       const evidence = JSON.stringify({
         dataTypes: record.dataTypes,
@@ -485,13 +469,20 @@ export class LgpdComplianceManager {
         consentId: record.id
       });
 
-      updateStmt.run(
+      await executeRun(`
+        UPDATE lgpd_consents
+        SET is_given = ?,
+            withdrawn_at = ?,
+            withdrawal_reason = ?,
+            consent_evidence = ?
+        WHERE id = ?
+      `, [
         record.consentGiven ? 1 : 0,
         record.revokedDate?.toISOString() || null,
         record.metadata?.revocationReason as string || null,
         evidence,
         existingRow.id
-      );
+      ]);
 
       logger.info('Consent record updated successfully', { id: record.id, userId: record.userId });
     } catch (error) {

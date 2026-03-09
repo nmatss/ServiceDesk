@@ -103,9 +103,9 @@ export async function GET(
     // Get file info from database scoped by tenant
     let fileRecord: any;
     try {
-      fileRecord = await executeQueryOne<any>('SELECT * FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND COALESCE(tenant_id, organization_id) = ?', [decodedPath, decodedPath, tenantContext.id])
+      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND COALESCE(tenant_id, organization_id) = ?', [decodedPath, decodedPath, tenantContext.id])
     } catch {
-      fileRecord = await executeQueryOne<any>('SELECT * FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND organization_id = ?', [decodedPath, decodedPath, tenantContext.id])
+      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND organization_id = ?', [decodedPath, decodedPath, tenantContext.id])
     }
 
     if (!fileRecord) {
@@ -257,9 +257,9 @@ export async function DELETE(
     // Get file record
     let fileRecord: any;
     try {
-      fileRecord = await executeQueryOne<any>('SELECT * FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND COALESCE(tenant_id, organization_id) = ?', [decodedPath, decodedPath, tenantContext.id])
+      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND COALESCE(tenant_id, organization_id) = ?', [decodedPath, decodedPath, tenantContext.id])
     } catch {
-      fileRecord = await executeQueryOne<any>('SELECT * FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND organization_id = ?', [decodedPath, decodedPath, tenantContext.id])
+      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND organization_id = ?', [decodedPath, decodedPath, tenantContext.id])
     }
 
     if (!fileRecord) {

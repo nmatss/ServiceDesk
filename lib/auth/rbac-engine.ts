@@ -268,8 +268,9 @@ export class RBACEngine {
 
     for (const perm of defaultPermissions) {
       await executeRun(`
-        INSERT OR IGNORE INTO permissions (name, resource, action, description, organization_id)
+        INSERT INTO permissions (name, resource, action, description, organization_id)
         VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING
       `, [
         `${perm.resource}:${perm.action}`,
         perm.resource,

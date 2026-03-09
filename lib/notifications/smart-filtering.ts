@@ -1,5 +1,5 @@
 import { NotificationPayload } from './realtime-engine'
-import { getDb } from '@/lib/db'
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
 import logger from '../monitoring/structured-logger';
 
 export interface FilterActionParams {
@@ -89,7 +89,6 @@ export interface FilterContext {
 }
 
 export class SmartFilteringEngine {
-  private db = getDb()
   private globalRules: FilterRule[] = []
   private userRules = new Map<number, FilterRule[]>()
   private userPreferences = new Map<number, UserPreferences>()
@@ -100,12 +99,16 @@ export class SmartFilteringEngine {
   // private notificationScores = new Map<string, number>()
 
   constructor() {
-    this.loadFilterRules()
-    this.loadUserPreferences()
+    this.initAsync()
     this.setupFilteringTasks()
   }
 
-  private loadFilterRules() {
+  private async initAsync() {
+    await this.loadFilterRules()
+    await this.loadUserPreferences()
+  }
+
+  private async loadFilterRules() {
     try {
       // Load global rules
       interface DbFilterRule {
@@ -122,20 +125,20 @@ export class SmartFilteringEngine {
         updated_at: string
       }
 
-      const globalRules = this.db.prepare(`
+      const globalRules = await executeQuery<DbFilterRule>(`
         SELECT * FROM filter_rules
         WHERE user_id IS NULL AND is_active = 1
         ORDER BY priority DESC
-      `).all() as DbFilterRule[]
+      `, [])
 
       this.globalRules = globalRules.map(this.mapDatabaseRuleToFilterRule)
 
       // Load user-specific rules
-      const userRules = this.db.prepare(`
+      const userRules = await executeQuery<DbFilterRule>(`
         SELECT * FROM filter_rules
         WHERE user_id IS NOT NULL AND is_active = 1
         ORDER BY user_id, priority DESC
-      `).all() as DbFilterRule[]
+      `, [])
 
       for (const rule of userRules) {
         const filterRule = this.mapDatabaseRuleToFilterRule(rule)
@@ -152,7 +155,7 @@ export class SmartFilteringEngine {
       logger.info(`Loaded ${this.globalRules.length} global filter rules and ${userRules.length} user-specific rules`)
     } catch (error) {
       logger.error('Error loading filter rules', error)
-      this.createDefaultFilterRules()
+      await this.createDefaultFilterRules()
     }
   }
 
@@ -184,7 +187,7 @@ export class SmartFilteringEngine {
     }
   }
 
-  private createDefaultFilterRules() {
+  private async createDefaultFilterRules() {
     const defaultRules: Omit<FilterRule, 'id' | 'createdAt' | 'updatedAt'>[] = [
       {
         name: 'Block Spam Notifications',
@@ -232,21 +235,21 @@ export class SmartFilteringEngine {
     ]
 
     for (const rule of defaultRules) {
-      this.createFilterRule(rule)
+      await this.createFilterRule(rule)
     }
   }
 
-  private loadUserPreferences() {
+  private async loadUserPreferences() {
     try {
       interface DbUserPreference {
         id: number
         notification_preferences: string
       }
 
-      const preferences = this.db.prepare(`
+      const preferences = await executeQuery<DbUserPreference>(`
         SELECT id, notification_preferences FROM users
         WHERE notification_preferences IS NOT NULL
-      `).all() as DbUserPreference[]
+      `, [])
 
       for (const pref of preferences) {
         const userPrefs = JSON.parse(pref.notification_preferences) as Partial<UserPreferences>
@@ -396,7 +399,7 @@ export class SmartFilteringEngine {
     }
 
     // 7. Apply ML-based filtering (if available)
-    const mlResult = this.applyMLFiltering(context)
+    const mlResult = await this.applyMLFiltering(context)
     if (!mlResult.allowed) {
       return mlResult
     }
@@ -735,17 +738,17 @@ export class SmartFilteringEngine {
     }
   }
 
-  private applyMLFiltering(context: FilterContext): {
+  private async applyMLFiltering(context: FilterContext): Promise<{
     allowed: boolean
     reason?: string
     modifications?: Partial<NotificationPayload>
-  } {
+  }> {
     // Placeholder for machine learning-based filtering
     // This would integrate with ML models for predicting user engagement
     const { notification, user } = context
 
     // Simple heuristic-based scoring for now
-    const score = this.calculateNotificationScore(notification, user)
+    const score = await this.calculateNotificationScore(notification, user)
 
     if (score < 0.3) {
       return { allowed: false, reason: 'Low relevance score' }
@@ -754,7 +757,7 @@ export class SmartFilteringEngine {
     return { allowed: true }
   }
 
-  private calculateNotificationScore(notification: NotificationPayload, user: UserInfo): number {
+  private async calculateNotificationScore(notification: NotificationPayload, user: UserInfo): Promise<number> {
     let score = 0.5 // Base score
 
     // Priority boost
@@ -778,7 +781,7 @@ export class SmartFilteringEngine {
     // Ticket involvement
     if (notification.ticketId && notification.authorId !== user.id) {
       // Check if user is involved with this ticket
-      const isInvolved = this.isUserInvolvedWithTicket(user.id, notification.ticketId)
+      const isInvolved = await this.isUserInvolvedWithTicket(user.id, notification.ticketId)
       if (isInvolved) {
         score += 0.2
       } else {
@@ -802,9 +805,9 @@ export class SmartFilteringEngine {
 
   private async getUserInfo(userId: number): Promise<UserInfo> {
     try {
-      const user = this.db.prepare(`
+      const user = await executeQueryOne<UserInfo>(`
         SELECT id, name, email, role, timezone FROM users WHERE id = ?
-      `).get(userId) as UserInfo | undefined
+      `, [userId])
 
       return user || { id: userId, role: 'user' }
     } catch (error) {
@@ -874,17 +877,17 @@ export class SmartFilteringEngine {
     }
   }
 
-  private isUserInvolvedWithTicket(userId: number, ticketId: number): boolean {
+  private async isUserInvolvedWithTicket(userId: number, ticketId: number): Promise<boolean> {
     try {
-      const involvement = this.db.prepare(`
-        SELECT 1 FROM (
+      const involvement = await executeQueryOne<{ c: number }>(`
+        SELECT 1 as c FROM (
           SELECT user_id FROM tickets WHERE id = ? AND user_id = ?
           UNION
           SELECT assigned_to FROM tickets WHERE id = ? AND assigned_to = ?
           UNION
           SELECT author_id FROM comments WHERE ticket_id = ? AND author_id = ?
         ) LIMIT 1
-      `).get(ticketId, userId, ticketId, userId, ticketId, userId)
+      `, [ticketId, userId, ticketId, userId, ticketId, userId])
 
       return !!involvement
     } catch (error) {
@@ -894,7 +897,7 @@ export class SmartFilteringEngine {
   }
 
   // Public management methods
-  public createFilterRule(rule: Omit<FilterRule, 'id' | 'createdAt' | 'updatedAt'>): string {
+  public async createFilterRule(rule: Omit<FilterRule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const ruleId = `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const now = new Date()
 
@@ -906,12 +909,12 @@ export class SmartFilteringEngine {
     }
 
     try {
-      this.db.prepare(`
+      await executeRun(`
         INSERT INTO filter_rules (
           id, name, description, conditions, action, action_params,
           priority, is_active, user_id, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `, [
         ruleId,
         rule.name,
         rule.description,
@@ -923,7 +926,7 @@ export class SmartFilteringEngine {
         rule.userId || null,
         now.toISOString(),
         now.toISOString()
-      )
+      ])
 
       // Add to appropriate cache
       if (rule.userId) {
@@ -945,18 +948,18 @@ export class SmartFilteringEngine {
     }
   }
 
-  public updateUserPreferences(userId: number, preferences: Partial<UserPreferences>): void {
+  public async updateUserPreferences(userId: number, preferences: Partial<UserPreferences>): Promise<void> {
     const current = this.getUserPreferences(userId)
     const updated = { ...current, ...preferences }
 
     this.userPreferences.set(userId, updated)
 
     try {
-      this.db.prepare(`
+      await executeRun(`
         UPDATE users
         SET notification_preferences = ?
         WHERE id = ?
-      `).run(JSON.stringify(updated), userId)
+      `, [JSON.stringify(updated), userId])
     } catch (error) {
       logger.error('Error updating user preferences', error)
     }

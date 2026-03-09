@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const categoryId = searchParams.get('category_id');
     const isActive = searchParams.get('is_active');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '50', 10) || 50), 100);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     // FILTRAR POR TENANT - templates criados por usuários do tenant
     let whereClause = 'WHERE u.organization_id = ?';

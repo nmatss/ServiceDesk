@@ -22,13 +22,13 @@ const COOKIE_NAME = 'servicedesk_token';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const { provider } = params;
+    const { provider } = await params;
     const searchParams = request.nextUrl.searchParams;
 
     // Get OAuth parameters
@@ -124,13 +124,13 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { provider: string } }
+  { params }: { params: Promise<{ provider: string }> }
 ) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_LOGIN);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const { provider } = params;
+    const { provider } = await params;
     const formData = await request.formData();
 
     // Get SAML parameters

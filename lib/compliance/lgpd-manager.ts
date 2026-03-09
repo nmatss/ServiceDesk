@@ -1,4 +1,4 @@
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
 
 export class LGPDManager {
   /**
@@ -13,12 +13,12 @@ export class LGPDManager {
     ipAddress?: string,
     userAgent?: string
   ): Promise<void> {
-    db.prepare(`
+    await executeRun(`
       INSERT INTO lgpd_consents (
         user_id, consent_type, purpose, legal_basis, is_given,
         ip_address, user_agent, consent_method
       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'web_form')
-    `).run(userId, consentType, purpose, legalBasis, isGiven ? 1 : 0, ipAddress, userAgent);
+    `, [userId, consentType, purpose, legalBasis, isGiven ? 1 : 0, ipAddress, userAgent]);
   }
 
   /**
@@ -34,34 +34,34 @@ export class LGPDManager {
     };
 
     // User data
-    userData.user = db.prepare(`
+    userData.user = await executeQueryOne<any>(`
       SELECT id, name, email, role, created_at, updated_at
       FROM users WHERE id = ? AND organization_id = ?
-    `).get(userId, organizationId);
+    `, [userId, organizationId]);
 
     // Tickets
-    userData.tickets = db.prepare(`
+    userData.tickets = await executeQuery<any>(`
       SELECT * FROM tickets WHERE user_id = ? AND organization_id = ?
-    `).all(userId, organizationId);
+    `, [userId, organizationId]);
 
     // Comments
-    userData.comments = db.prepare(`
+    userData.comments = await executeQuery<any>(`
       SELECT c.* FROM comments c
       INNER JOIN tickets t ON c.ticket_id = t.id
       WHERE c.user_id = ? AND t.organization_id = ?
-    `).all(userId, organizationId);
+    `, [userId, organizationId]);
 
     // Consents
-    userData.consents = db.prepare(`
+    userData.consents = await executeQuery<any>(`
       SELECT * FROM lgpd_consents WHERE user_id = ?
-    `).all(userId);
+    `, [userId]);
 
     // Audit logs
-    userData.auditLogs = db.prepare(`
+    userData.auditLogs = await executeQuery<any>(`
       SELECT * FROM audit_advanced
       WHERE user_id = ? AND organization_id = ?
       ORDER BY created_at DESC LIMIT 1000
-    `).all(userId, organizationId);
+    `, [userId, organizationId]);
 
     return userData;
   }
@@ -70,9 +70,9 @@ export class LGPDManager {
    * Direito ao esquecimento - anonimiza dados do usuário
    */
   async anonymizeUser(userId: number, organizationId: number): Promise<void> {
-    const transaction = db.transaction(() => {
+    await executeTransaction(async (db) => {
       // Anonimiza dados do usuário
-      db.prepare(`
+      await db.run(`
         UPDATE users SET
           name = 'Usuário Anonimizado',
           email = 'anonymized_' || id || '@deleted.local',
@@ -80,35 +80,33 @@ export class LGPDManager {
           avatar_url = NULL,
           metadata = NULL
         WHERE id = ? AND organization_id = ?
-      `).run(userId, organizationId);
+      `, [userId, organizationId]);
 
       // Anonimiza comentários
-      db.prepare(`
+      await db.run(`
         UPDATE comments SET
           content = '[CONTEÚDO REMOVIDO POR SOLICITAÇÃO DO USUÁRIO]'
         WHERE user_id = ? AND ticket_id IN (
           SELECT id FROM tickets WHERE organization_id = ?
         )
-      `).run(userId, organizationId);
+      `, [userId, organizationId]);
 
       // Marca consents como withdrawn
-      db.prepare(`
+      await db.run(`
         UPDATE lgpd_consents SET
           is_given = 0,
           withdrawn_at = CURRENT_TIMESTAMP,
           withdrawal_reason = 'User requested data deletion'
         WHERE user_id = ?
-      `).run(userId);
+      `, [userId]);
 
       // Log da anonimização
-      db.prepare(`
+      await db.run(`
         INSERT INTO audit_advanced (
           entity_type, entity_id, action, organization_id
         ) VALUES ('user', ?, 'anonymize', ?)
-      `).run(userId, organizationId);
+      `, [userId, organizationId]);
     });
-
-    transaction();
   }
 
   /**
@@ -118,11 +116,11 @@ export class LGPDManager {
     userId: number,
     consentType: string
   ): Promise<boolean> {
-    const consent = db.prepare(`
+    const consent = await executeQueryOne<any>(`
       SELECT is_given FROM lgpd_consents
       WHERE user_id = ? AND consent_type = ?
       ORDER BY created_at DESC LIMIT 1
-    `).get(userId, consentType) as any;
+    `, [userId, consentType]);
 
     return consent?.is_given === 1;
   }

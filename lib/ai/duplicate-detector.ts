@@ -1,4 +1,5 @@
-import db from '../db/connection';
+import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { OpenAI } from 'openai';
 import type { Ticket } from '../types/database';
 import logger from '../monitoring/structured-logger';
@@ -93,7 +94,7 @@ export class DuplicateDetector {
     recommendedAction: string;
   }> {
     // First, get recent tickets to analyze
-    const recentTickets = this.getRecentTickets(timeWindowHours, userId);
+    const recentTickets = await this.getRecentTickets(timeWindowHours, userId);
 
     if (recentTickets.length === 0) {
       return {
@@ -300,7 +301,11 @@ Respond in JSON format:
   /**
    * Get recent tickets for comparison
    */
-  private getRecentTickets(hours: number, userId?: number): TicketWithDetailsFlat[] {
+  private async getRecentTickets(hours: number, userId?: number): Promise<TicketWithDetailsFlat[]> {
+    const dateExpr = getDatabaseType() === 'postgresql'
+      ? `NOW() - INTERVAL '${hours} hours'`
+      : `datetime('now', '-${hours} hours')`;
+
     let query = `
       SELECT
         t.*,
@@ -317,7 +322,7 @@ Respond in JSON format:
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN priorities p ON t.priority_id = p.id
       LEFT JOIN statuses s ON t.status_id = s.id
-      WHERE t.created_at >= datetime('now', '-${hours} hours')
+      WHERE t.created_at >= ${dateExpr}
     `;
 
     const params: (number | string)[] = [];
@@ -333,7 +338,7 @@ Respond in JSON format:
     query += ` LIMIT 50`; // Reasonable limit for performance
 
     try {
-      return db.prepare(query).all(...params) as TicketWithDetailsFlat[];
+      return await executeQuery<TicketWithDetailsFlat>(query, params);
     } catch (error) {
       logger.error('Error fetching recent tickets', error);
       return [];
@@ -482,16 +487,15 @@ Respond in JSON format:
     try {
       if (confidence > 0.9 && duplicateType === 'exact') {
         // Auto-close with reference to original
-        const updateStmt = db.prepare(`
+        await executeRun(`
           UPDATE tickets
           SET status_id = (SELECT id FROM statuses WHERE name = 'Closed' LIMIT 1),
               description = description || '\n\n[AUTO-CLOSED] Duplicate of ticket #' || ?
           WHERE id = ?
-        `);
-        updateStmt.run(originalTicketId, duplicateTicketId);
+        `, [originalTicketId, duplicateTicketId]);
 
         // Log the action
-        this.logDuplicateAction(duplicateTicketId, originalTicketId, 'auto_closed', handledBy);
+        await this.logDuplicateAction(duplicateTicketId, originalTicketId, 'auto_closed', handledBy);
 
         return {
           success: true,
@@ -500,7 +504,7 @@ Respond in JSON format:
         };
       } else if (confidence > 0.8) {
         // Link tickets for review
-        this.linkTickets(originalTicketId, duplicateTicketId, 'potential_duplicate', handledBy);
+        await this.linkTickets(originalTicketId, duplicateTicketId, 'potential_duplicate', handledBy);
 
         return {
           success: true,
@@ -509,7 +513,7 @@ Respond in JSON format:
         };
       } else {
         // Flag for manual review
-        this.flagForReview(duplicateTicketId, originalTicketId, confidence, handledBy);
+        await this.flagForReview(duplicateTicketId, originalTicketId, confidence, handledBy);
 
         return {
           success: true,
@@ -530,58 +534,54 @@ Respond in JSON format:
   /**
    * Log duplicate handling action
    */
-  private logDuplicateAction(ticketId: number, originalTicketId: number, action: string, userId: number) {
-    const logStmt = db.prepare(`
+  private async logDuplicateAction(ticketId: number, originalTicketId: number, action: string, userId: number) {
+    await executeRun(`
       INSERT INTO audit_logs (user_id, entity_type, entity_id, action, new_values, created_at)
       VALUES (?, 'ticket', ?, 'duplicate_' || ?, ?, CURRENT_TIMESTAMP)
-    `);
-
-    logStmt.run(
+    `, [
       userId,
       ticketId,
       action,
       JSON.stringify({ originalTicketId, action, automated: true })
-    );
+    ]);
   }
 
   /**
    * Link tickets for review
    */
-  private linkTickets(originalId: number, duplicateId: number, _linkType: string, userId: number) {
+  private async linkTickets(originalId: number, duplicateId: number, _linkType: string, userId: number) {
     // This would typically involve a ticket_relationships table
     // For now, we'll add a comment to both tickets
-    const commentStmt = db.prepare(`
+    const sql = `
       INSERT INTO comments (ticket_id, user_id, content, is_internal, created_at)
       VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
-    `);
+    `;
 
-    commentStmt.run(
+    await executeRun(sql, [
       duplicateId,
       userId,
       `[SYSTEM] Potential duplicate of ticket #${originalId} - flagged for review`
-    );
+    ]);
 
-    commentStmt.run(
+    await executeRun(sql, [
       originalId,
       userId,
       `[SYSTEM] Potential duplicate: ticket #${duplicateId}`
-    );
+    ]);
   }
 
   /**
    * Flag ticket for manual review
    */
-  private flagForReview(ticketId: number, originalTicketId: number, confidence: number, userId: number) {
-    const commentStmt = db.prepare(`
+  private async flagForReview(ticketId: number, originalTicketId: number, confidence: number, userId: number) {
+    await executeRun(`
       INSERT INTO comments (ticket_id, user_id, content, is_internal, created_at)
       VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
-    `);
-
-    commentStmt.run(
+    `, [
       ticketId,
       userId,
       `[SYSTEM] Flagged for duplicate review - ${Math.round(confidence * 100)}% similarity to ticket #${originalTicketId}`
-    );
+    ]);
   }
 }
 

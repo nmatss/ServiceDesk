@@ -172,7 +172,14 @@ class EmailService {
         subject: email.subject,
         html: email.html_content,
         text: email.text_content,
-        attachments: email.attachments ? JSON.parse(email.attachments) : undefined
+        attachments: (() => {
+          if (!email.attachments) return undefined;
+          try {
+            return JSON.parse(email.attachments);
+          } catch {
+            return undefined;
+          }
+        })()
       }
 
       const success = await this.sendEmail(emailOptions)

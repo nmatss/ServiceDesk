@@ -13,12 +13,13 @@
  * SAFE TO RUN: Uses IF NOT EXISTS - can be run multiple times
  */
 
-import { db } from '../connection';
+import { executeRun, executeQuery } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 export async function up() {
-  console.log('🚀 Starting critical indexes migration...\n');
+  console.log('Starting critical indexes migration...\n');
 
   try {
     // Read the SQL file (use simple version that matches actual schema)
@@ -28,9 +29,8 @@ export async function up() {
     // Track execution time
     const startTime = Date.now();
 
-    // Execute the SQL (multiple statements)
-    // better-sqlite3 requires exec() for multiple statements
-    db.exec(sql);
+    // Execute the SQL
+    await executeRun(sql);
 
     const duration = Date.now() - startTime;
 
@@ -38,13 +38,19 @@ export async function up() {
     console.log(`⏱️  Migration completed in ${duration}ms\n`);
 
     // Verify indexes were created
-    const indexes = db.prepare(`
-      SELECT name, tbl_name, sql
-      FROM sqlite_master
-      WHERE type = 'index'
-        AND name LIKE 'idx_%'
-      ORDER BY tbl_name, name
-    `).all() as Array<{ name: string; tbl_name: string; sql: string }>;
+    const isPg = getDatabaseType() === 'postgresql';
+    const indexQuery = isPg
+      ? `SELECT indexname as name, tablename as tbl_name, indexdef as sql
+         FROM pg_indexes
+         WHERE indexname LIKE 'idx_%'
+         ORDER BY tablename, indexname`
+      : `SELECT name, tbl_name, sql
+         FROM sqlite_master
+         WHERE type = 'index'
+           AND name LIKE 'idx_%'
+         ORDER BY tbl_name, name`;
+
+    const indexes = await executeQuery<{ name: string; tbl_name: string; sql: string }>(indexQuery);
 
     console.log(`📊 Total indexes in database: ${indexes.length}`);
     console.log('\n🔍 Newly created indexes:');
@@ -63,7 +69,7 @@ export async function up() {
     ];
 
     criticalIndexes.forEach((indexName, i) => {
-      const found = indexes.find((idx: { name: string; tbl_name: string }) => idx.name === indexName);
+      const found = indexes.find((idx) => idx.name === indexName);
       if (found) {
         console.log(`  ${i + 1}. ✅ ${indexName} on ${found.tbl_name}`);
       } else {
@@ -101,8 +107,8 @@ export async function down() {
 
     for (const indexName of indexes) {
       try {
-        db.prepare(`DROP INDEX IF EXISTS ${indexName}`).run();
-        console.log(`  ✅ Dropped ${indexName}`);
+        await executeRun(`DROP INDEX IF EXISTS ${indexName}`);
+        console.log(`  Dropped ${indexName}`);
       } catch (error) {
         console.log(`  ⚠️  Could not drop ${indexName}:`, error);
       }

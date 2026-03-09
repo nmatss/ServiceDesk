@@ -12,7 +12,8 @@
  */
 
 import * as crypto from 'crypto';
-import db from '../db/connection';
+import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { encryptionManager, EncryptedData } from './encryption-manager';
 import { PiiDetector } from './pii-detection';
 import { dataMasking } from './data-masking';
@@ -99,8 +100,18 @@ export class DataProtectionManager {
       const protectedFields: string[] = [];
       const detectedFields: string[] = [];
 
-      // Get table schema
-      const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string; type: string; notnull: number; dflt_value: string | null; pk: number }>;
+      // Get table schema - dialect-specific
+      let tableInfo: Array<{ name: string }>;
+      if (getDatabaseType() === 'postgresql') {
+        tableInfo = await executeQuery<{ name: string }>(
+          `SELECT column_name as name FROM information_schema.columns WHERE table_name = ?`,
+          [tableName]
+        );
+      } else {
+        tableInfo = await executeQuery<{ name: string }>(
+          `PRAGMA table_info(${tableName})`
+        );
+      }
 
       for (const column of tableInfo) {
         const fieldName = column.name;
@@ -323,9 +334,6 @@ export class DataProtectionManager {
         return value;
       }
 
-      // Mask pattern available for future use
-      // const pattern = piiField.mask_pattern || this.getMaskPattern(piiField.pii_type);
-
       // Apply masking based on PII type
       const masked = await dataMasking.autoMask(value, fieldName);
       return typeof masked === 'string' ? masked : String(masked);
@@ -453,19 +461,28 @@ export class DataProtectionManager {
       const userData: Record<string, unknown> = {};
 
       // User profile
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as Record<string, unknown> | undefined;
+      const user = await executeQueryOne<Record<string, unknown>>(
+        'SELECT id, name, email, role, organization_id, created_at, updated_at FROM users WHERE id = ?',
+        [userId]
+      );
       if (user) {
         userData.profile = await this.decryptRecord('users', user, organizationId);
       }
 
       // Tickets
-      const tickets = db.prepare('SELECT * FROM tickets WHERE created_by = ?').all(userId) as Record<string, unknown>[];
+      const tickets = await executeQuery<Record<string, unknown>>(
+        'SELECT id, title, description, status_id, priority_id, category_id, user_id, assigned_to, organization_id, created_at, updated_at FROM tickets WHERE user_id = ?',
+        [userId]
+      );
       userData.tickets = await Promise.all(
         tickets.map(t => this.decryptRecord('tickets', t, organizationId))
       );
 
       // Comments
-      const comments = db.prepare('SELECT * FROM comments WHERE user_id = ?').all(userId) as Record<string, unknown>[];
+      const comments = await executeQuery<Record<string, unknown>>(
+        'SELECT id, ticket_id, user_id, content, is_internal, created_at FROM comments WHERE user_id = ?',
+        [userId]
+      );
       userData.comments = await Promise.all(
         comments.map(c => this.decryptRecord('comments', c, organizationId))
       );
@@ -485,11 +502,7 @@ export class DataProtectionManager {
     _organizationId: number
   ): Promise<boolean> {
     try {
-      // Get all PII fields (available for future use)
-      // const piiFields = await this.getAllPIIFields(_organizationId);
-
-      // Anonymize user record
-      db.prepare(`
+      await executeRun(`
         UPDATE users
         SET email = ?,
             name = ?,
@@ -499,14 +512,14 @@ export class DataProtectionManager {
             sso_user_id = NULL,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `).run(
+      `, [
         `anonymized_${userId}@deleted.local`,
         `Anonymized User ${userId}`,
         userId
-      );
+      ]);
 
       // Log anonymization
-      this.logDataAccess({
+      await this.logDataAccess({
         userId,
         tableName: 'users',
         recordId: userId,
@@ -525,15 +538,15 @@ export class DataProtectionManager {
   /**
    * DATA ACCESS LOGGING
    */
-  logDataAccess(entry: DataAccessLog): void {
+  async logDataAccess(entry: DataAccessLog): Promise<void> {
     try {
-      db.prepare(`
+      await executeRun(`
         INSERT INTO data_access_log (
           user_id, table_name, record_id, action,
           field_name, contains_pii, masked, created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `).run(
+      `, [
         entry.userId,
         entry.tableName,
         entry.recordId.toString(),
@@ -541,7 +554,7 @@ export class DataProtectionManager {
         entry.fieldName || null,
         entry.containsPII ? 1 : 0,
         entry.masked ? 1 : 0
-      );
+      ]);
     } catch (error) {
       logger.error('Data access log error', error);
     }
@@ -577,11 +590,11 @@ export class DataProtectionManager {
 
   private async getSampleData(tableName: string, fieldName: string): Promise<string> {
     try {
-      const result = db.prepare(`
+      const result = await executeQueryOne<Record<string, unknown>>(`
         SELECT ${fieldName} FROM ${tableName}
         WHERE ${fieldName} IS NOT NULL
         LIMIT 1
-      `).get() as Record<string, unknown> | undefined;
+      `);
 
       return result ? String(result[fieldName]) : '';
     } catch {
@@ -610,20 +623,21 @@ export class DataProtectionManager {
     organizationId: number
   ): Promise<void> {
     try {
-      db.prepare(`
-        INSERT OR IGNORE INTO pii_fields (
+      await executeRun(`
+        INSERT INTO pii_fields (
           table_name, field_name, pii_type, sensitivity_level,
           mask_pattern, organization_id
         )
         VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
+        ON CONFLICT DO NOTHING
+      `, [
         tableName,
         fieldName,
         piiType,
         sensitivity,
         this.getMaskPattern(piiType),
         organizationId
-      );
+      ]);
     } catch (error) {
       logger.error('Register PII field error', error);
     }
@@ -635,19 +649,20 @@ export class DataProtectionManager {
     organizationId: number
   ): Promise<void> {
     try {
-      db.prepare(`
-        INSERT OR IGNORE INTO encrypted_fields (
+      await executeRun(`
+        INSERT INTO encrypted_fields (
           table_name, field_name, encryption_algorithm,
           key_version, organization_id
         )
         VALUES (?, ?, ?, ?, ?)
-      `).run(
+        ON CONFLICT DO NOTHING
+      `, [
         tableName,
         fieldName,
         this.ENCRYPTION_ALGORITHM,
         1,
         organizationId
-      );
+      ]);
     } catch (error) {
       logger.error('Enable field encryption error', error);
     }
@@ -660,11 +675,11 @@ export class DataProtectionManager {
     organizationId: number
   ): Promise<void> {
     try {
-      db.prepare(`
+      await executeRun(`
         UPDATE pii_fields
         SET mask_pattern = ?
         WHERE table_name = ? AND field_name = ? AND organization_id = ?
-      `).run(maskPattern, tableName, fieldName, organizationId);
+      `, [maskPattern, tableName, fieldName, organizationId]);
     } catch (error) {
       logger.error('Enable field masking error', error);
     }
@@ -675,10 +690,10 @@ export class DataProtectionManager {
     organizationId: number
   ): Promise<EncryptedField[]> {
     try {
-      return db.prepare(`
-        SELECT * FROM encrypted_fields
+      return await executeQuery<EncryptedField>(`
+        SELECT id, table_name, field_name, encryption_algorithm, key_version, is_active, created_at FROM encrypted_fields
         WHERE table_name = ? AND organization_id = ? AND is_active = 1
-      `).all(tableName, organizationId) as EncryptedField[];
+      `, [tableName, organizationId]);
     } catch {
       return [];
     }
@@ -690,10 +705,11 @@ export class DataProtectionManager {
     organizationId: number
   ): Promise<EncryptedField | null> {
     try {
-      return db.prepare(`
-        SELECT * FROM encrypted_fields
+      const result = await executeQueryOne<EncryptedField>(`
+        SELECT id, table_name, field_name, encryption_algorithm, key_version, is_active, created_at FROM encrypted_fields
         WHERE table_name = ? AND field_name = ? AND organization_id = ? AND is_active = 1
-      `).get(tableName, fieldName, organizationId) as EncryptedField | null;
+      `, [tableName, fieldName, organizationId]);
+      return result || null;
     } catch {
       return null;
     }
@@ -705,10 +721,11 @@ export class DataProtectionManager {
     organizationId: number
   ): Promise<PIIField | null> {
     try {
-      return db.prepare(`
-        SELECT * FROM pii_fields
+      const result = await executeQueryOne<PIIField>(`
+        SELECT id, table_name, field_name, pii_type, sensitivity_level, mask_pattern, is_active FROM pii_fields
         WHERE table_name = ? AND field_name = ? AND organization_id = ? AND is_active = 1
-      `).get(tableName, fieldName, organizationId) as PIIField | null;
+      `, [tableName, fieldName, organizationId]);
+      return result || null;
     } catch {
       return null;
     }
@@ -718,10 +735,10 @@ export class DataProtectionManager {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private async getAllPIIFields(organizationId: number): Promise<PIIField[]> {
     try {
-      return db.prepare(`
-        SELECT * FROM pii_fields
+      return await executeQuery<PIIField>(`
+        SELECT id, table_name, field_name, pii_type, sensitivity_level, mask_pattern, is_active FROM pii_fields
         WHERE organization_id = ? AND is_active = 1
-      `).all(organizationId) as PIIField[];
+      `, [organizationId]);
     } catch {
       return [];
     }
