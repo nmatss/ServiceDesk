@@ -203,9 +203,15 @@ export async function middleware(request: NextRequest) {
   // This happens early to reject invalid requests before expensive operations
   const needsCSRFValidation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method.toUpperCase())
 
-  // SECURITY FIX: Remove auth endpoints from CSRF exemption
-  // Only SSO callbacks are exempt (they use their own state validation)
-  const isPublicCSRFPath = pathname.startsWith('/api/auth/sso/') && pathname.includes('/callback')
+  // CSRF exemptions:
+  // - SSO callbacks use their own state validation
+  // - Login/register are pre-auth (no session to bind CSRF token)
+  const isPublicCSRFPath =
+    (pathname.startsWith('/api/auth/sso/') && pathname.includes('/callback')) ||
+    pathname === '/api/auth/login' ||
+    pathname === '/api/auth/login-v2' ||
+    pathname === '/api/auth/register' ||
+    pathname === '/api/auth/csrf-token'
 
   if (needsCSRFValidation && !isPublicCSRFPath) {
     const isValidCSRF = await validateCSRFToken(request)
