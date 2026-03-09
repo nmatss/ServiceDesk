@@ -120,7 +120,7 @@ export default function TicketList({
       try {
         const [catRes, agentRes] = await Promise.all([
           fetch('/api/categories', { credentials: 'include' }).catch(() => null),
-          fetch('/api/users?role=agent', { credentials: 'include' }).catch(() => null),
+          fetch('/api/agents', { credentials: 'include' }).catch(() => null),
         ])
         if (catRes?.ok) {
           const catData = await catRes.json()
@@ -129,7 +129,7 @@ export default function TicketList({
         }
         if (agentRes?.ok) {
           const agentData = await agentRes.json()
-          const users = agentData.users || agentData.data || []
+          const users = agentData.data?.agents || agentData.users || agentData.data || []
           setAgents(users.map((u: Record<string, unknown>) => ({ id: Number(u.id), name: String(u.name || '') })))
         }
       } catch {

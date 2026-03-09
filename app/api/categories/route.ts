@@ -5,9 +5,8 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-// Enable caching for this route - static lookup data
-export const dynamic = 'force-static'
-export const revalidate = 1800 // 30 minutes
+// Dynamic route - needs request cookies/headers for tenant resolution
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting

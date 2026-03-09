@@ -298,9 +298,15 @@ export async function verifyToken(token: string, expectedTenantId?: number): Pro
 
     const { payload } = await jwtVerify(token, secret);
 
-    if (!payload.id || !payload.email || !payload.role) {
+    // Support both old (id/organization_id) and new (user_id/tenant_id) token formats
+    const userId = payload.id ?? payload.user_id;
+    const orgId = payload.organization_id ?? payload.tenant_id;
+    if (!userId || !payload.email || !payload.role) {
       return null;
     }
+    // Normalize to old format for downstream code
+    payload.id = userId;
+    payload.organization_id = orgId;
 
     // Validar tenant se fornecido
     if (expectedTenantId && payload.organization_id !== expectedTenantId) {

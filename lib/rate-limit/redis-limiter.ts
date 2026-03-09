@@ -195,7 +195,7 @@ export function withRateLimitHeaders(
 export const RATE_LIMITS = {
   // Auth endpoints - CRÍTICO
   AUTH_REGISTER: { windowMs: 60 * 60 * 1000, max: 3, keyPrefix: 'auth:register' }, // 3/hora
-  AUTH_LOGIN: { windowMs: 15 * 60 * 1000, max: 5, keyPrefix: 'auth:login' }, // 5/15min
+  AUTH_LOGIN: { windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === 'production' ? 5 : 50, keyPrefix: 'auth:login' }, // 5/15min prod, 50 dev
   AUTH_FORGOT_PASSWORD: { windowMs: 60 * 60 * 1000, max: 3, keyPrefix: 'auth:forgot' }, // 3/hora
 
   // AI endpoints - ALTO CUSTO

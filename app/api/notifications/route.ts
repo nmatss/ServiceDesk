@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlFalse, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const params = [userContext.id, tenantContext.id];
 
     if (unreadOnly) {
-      whereClause += ' AND n.is_read = 0';
+      whereClause += ` AND n.is_read = ${sqlFalse()}`;
     }
 
     // Run all 3 queries in parallel
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       executeQueryOne<{ total: number; unread: number }>(`
         SELECT
           COUNT(*) as total,
-          SUM(CASE WHEN n.is_read = 0 THEN 1 ELSE 0 END) as unread
+          SUM(CASE WHEN n.is_read = ${sqlFalse()} THEN 1 ELSE 0 END) as unread
         FROM notifications n
         ${whereClause}
       `, params),

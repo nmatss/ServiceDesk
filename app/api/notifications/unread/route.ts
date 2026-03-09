@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDatetimeSubMinutes, sqlDatetimeSubHours } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDatetimeSubMinutes, sqlDatetimeSubHours, sqlFalse, sqlTrue } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
           ELSE 'old'
         END as urgency
       FROM notifications
-      WHERE user_id = ? AND is_read = 0
+      WHERE user_id = ? AND is_read = ${sqlFalse()}
       ORDER BY created_at DESC
       LIMIT 50
     `, [userContext.id])
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     const unreadCount = await executeQueryOne(`
       SELECT COUNT(*) as count
       FROM notifications
-      WHERE user_id = ? AND is_read = 0
+      WHERE user_id = ? AND is_read = ${sqlFalse()}
     `, [userContext.id])
 
     // Contar por tipo
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         type,
         COUNT(*) as count
       FROM notifications
-      WHERE user_id = ? AND is_read = 0
+      WHERE user_id = ? AND is_read = ${sqlFalse()}
       GROUP BY type
     `, [userContext.id])
 
@@ -161,8 +161,8 @@ export async function POST(request: NextRequest) {
       // Marcar todas como lidas
       const result = await executeRun(`
         UPDATE notifications
-        SET is_read = 1, updated_at = ${sqlNow()}
-        WHERE user_id = ? AND is_read = 0
+        SET is_read = ${sqlTrue()}, updated_at = ${sqlNow()}
+        WHERE user_id = ? AND is_read = ${sqlFalse()}
       `, [userContext.id])
 
       return NextResponse.json({
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
       const placeholders = notificationIds.map(() => '?').join(',')
       const result = await executeRun(`
         UPDATE notifications
-        SET is_read = 1, updated_at = ${sqlNow()}
+        SET is_read = ${sqlTrue()}, updated_at = ${sqlNow()}
         WHERE id IN (${placeholders}) AND user_id = ?
       `, [...notificationIds, userContext.id])
 

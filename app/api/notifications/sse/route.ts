@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlFalse } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
@@ -27,10 +28,9 @@ interface Notification {
 async function fetchUserNotifications(userId: number, tenantId: number, since: string): Promise<Notification[]> {
   try {
     // Check if notifications table exists
-    const tableExists = await executeQueryOne(`
-      SELECT name FROM sqlite_master
-      WHERE type='table' AND name='notifications'
-    `);
+    const tableExists = getDatabaseType() === 'postgresql'
+      ? await executeQueryOne(`SELECT tablename as name FROM pg_tables WHERE schemaname='public' AND tablename='notifications'`)
+      : await executeQueryOne(`SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'`);
 
     if (!tableExists) {
       return [];
@@ -42,7 +42,7 @@ async function fetchUserNotifications(userId: number, tenantId: number, since: s
       WHERE user_id = ?
         AND tenant_id = ?
         AND created_at > ?
-        AND is_read = 0
+        AND is_read = ${sqlFalse()}
       ORDER BY created_at DESC
       LIMIT 50
     `, [userId, tenantId, since]);
@@ -59,10 +59,9 @@ async function fetchUserNotifications(userId: number, tenantId: number, since: s
  */
 async function getUnreadCount(userId: number, tenantId: number): Promise<number> {
   try {
-    const tableExists = await executeQueryOne(`
-      SELECT name FROM sqlite_master
-      WHERE type='table' AND name='notifications'
-    `);
+    const tableExists = getDatabaseType() === 'postgresql'
+      ? await executeQueryOne(`SELECT tablename as name FROM pg_tables WHERE schemaname='public' AND tablename='notifications'`)
+      : await executeQueryOne(`SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'`);
 
     if (!tableExists) {
       return 0;
@@ -71,7 +70,7 @@ async function getUnreadCount(userId: number, tenantId: number): Promise<number>
     const result = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM notifications
-      WHERE user_id = ? AND tenant_id = ? AND is_read = 0
+      WHERE user_id = ? AND tenant_id = ? AND is_read = ${sqlFalse()}
     `, [userId, tenantId]) || { count: 0 };
 
     return result.count;
