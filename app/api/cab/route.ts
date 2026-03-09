@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     if (!['admin', 'manager'].includes(role)) {
       // Check if user is a CAB member
       const isCabMember = await executeQueryOne<{ result: number }>(
-        `SELECT 1 as result FROM cab_members WHERE user_id = ? AND is_active = 1`,
+        `SELECT 1 as result FROM cab_members WHERE user_id = ? AND is_active = ${sqlTrue()}`,
         [userId]
       )
 
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
         (SELECT COUNT(*) FROM change_requests WHERE cab_meeting_id = m.id) as change_count,
         (SELECT COUNT(*) FROM cab_members cm
          LEFT JOIN users cu ON cm.user_id = cu.id
-         WHERE cm.organization_id = m.organization_id AND cm.is_active = 1) as member_count
+         WHERE cm.organization_id = m.organization_id AND cm.is_active = ${sqlTrue()}) as member_count
       FROM cab_meetings m
       LEFT JOIN users u ON m.organizer_id = u.id
       ${whereClause}

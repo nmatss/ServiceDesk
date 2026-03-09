@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantManager } from '@/lib/tenant/manager'
-import { executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
@@ -192,7 +192,7 @@ export async function DELETE(
 
     // Soft delete team
     await executeRun(
-      'UPDATE teams SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?',
+      `UPDATE teams SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?`,
       [teamId, tenantId]
     )
 

@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from 'crypto';
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface WebAuthnCredential {
@@ -353,7 +353,7 @@ class BiometricAuthManager {
     try {
       return await executeQuery<WebAuthnCredential>(`
         SELECT * FROM webauthn_credentials
-        WHERE user_id = ? AND is_active = 1
+        WHERE user_id = ? AND is_active = ${sqlTrue()}
         ORDER BY created_at DESC
       `, [userId]);
     } catch (error) {
@@ -385,7 +385,7 @@ class BiometricAuthManager {
     try {
       const result = await executeRun(`
         UPDATE webauthn_credentials
-        SET is_active = 0
+        SET is_active = ${sqlFalse()}
         WHERE user_id = ? AND credential_id = ?
       `, [userId, credentialId]);
 
@@ -409,7 +409,7 @@ class BiometricAuthManager {
       const result = await executeRun(`
         UPDATE webauthn_credentials
         SET device_name = ?
-        WHERE user_id = ? AND credential_id = ? AND is_active = 1
+        WHERE user_id = ? AND credential_id = ? AND is_active = ${sqlTrue()}
       `, [deviceName, userId, credentialId]);
       return (result.changes ?? 0) > 0;
     } catch (error) {
@@ -425,7 +425,7 @@ class BiometricAuthManager {
     try {
       const count = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count FROM webauthn_credentials
-        WHERE user_id = ? AND is_active = 1
+        WHERE user_id = ? AND is_active = ${sqlTrue()}
       `, [userId]);
 
       return (count?.count ?? 0) > 0;

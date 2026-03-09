@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
@@ -100,7 +100,7 @@ export async function GET(
       FROM cab_members cm
       LEFT JOIN users u ON cm.user_id = u.id
       LEFT JOIN teams t ON cm.team_id = t.id
-      WHERE cm.organization_id = ? AND cm.is_active = 1
+      WHERE cm.organization_id = ? AND cm.is_active = ${sqlTrue()}
       ORDER BY cm.role DESC, u.name`,
       [organizationId]
     )
@@ -119,7 +119,7 @@ export async function GET(
 
     // Check if current user is a CAB member
     const userMembership = await executeQueryOne<any>(
-      `SELECT * FROM cab_members WHERE user_id = ? AND organization_id = ? AND is_active = 1`,
+      `SELECT * FROM cab_members WHERE user_id = ? AND organization_id = ? AND is_active = ${sqlTrue()}`,
       [userId, organizationId]
     )
 

@@ -1,5 +1,5 @@
 import { NotificationPayload } from './realtime-engine'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import logger from '../monitoring/structured-logger';
 
 export interface FilterActionParams {
@@ -127,7 +127,7 @@ export class SmartFilteringEngine {
 
       const globalRules = await executeQuery<DbFilterRule>(`
         SELECT * FROM filter_rules
-        WHERE user_id IS NULL AND is_active = 1
+        WHERE user_id IS NULL AND is_active = ${sqlTrue()}
         ORDER BY priority DESC
       `, [])
 
@@ -136,7 +136,7 @@ export class SmartFilteringEngine {
       // Load user-specific rules
       const userRules = await executeQuery<DbFilterRule>(`
         SELECT * FROM filter_rules
-        WHERE user_id IS NOT NULL AND is_active = 1
+        WHERE user_id IS NOT NULL AND is_active = ${sqlTrue()}
         ORDER BY user_id, priority DESC
       `, [])
 

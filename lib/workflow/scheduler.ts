@@ -1,5 +1,5 @@
 import { getWorkflowEngine } from './engine';
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateDiff, sqlColAddMinutes } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateDiff, sqlColAddMinutes, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -64,7 +64,7 @@ export class WorkflowScheduler {
     const workflowEngine = getWorkflowEngine();
     const workflows = await executeQuery<any>(`
       SELECT * FROM workflows
-      WHERE is_active = 1 AND trigger_type = 'time_based'
+      WHERE is_active = ${sqlTrue()} AND trigger_type = 'time_based'
     `);
 
     for (const workflow of workflows) {
@@ -197,7 +197,7 @@ export class WorkflowScheduler {
     const workflow = await executeQueryOne<any>(`
       SELECT * FROM workflows
       WHERE trigger_type = 'sla_warning'
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
         AND organization_id = ?
       LIMIT 1
     `, [sla.organization_id]);

@@ -12,7 +12,7 @@
  */
 
 import * as crypto from 'crypto';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { encryptionManager, EncryptedData } from './encryption-manager';
 import { PiiDetector } from './pii-detection';
@@ -692,7 +692,7 @@ export class DataProtectionManager {
     try {
       return await executeQuery<EncryptedField>(`
         SELECT id, table_name, field_name, encryption_algorithm, key_version, is_active, created_at FROM encrypted_fields
-        WHERE table_name = ? AND organization_id = ? AND is_active = 1
+        WHERE table_name = ? AND organization_id = ? AND is_active = ${sqlTrue()}
       `, [tableName, organizationId]);
     } catch {
       return [];
@@ -707,7 +707,7 @@ export class DataProtectionManager {
     try {
       const result = await executeQueryOne<EncryptedField>(`
         SELECT id, table_name, field_name, encryption_algorithm, key_version, is_active, created_at FROM encrypted_fields
-        WHERE table_name = ? AND field_name = ? AND organization_id = ? AND is_active = 1
+        WHERE table_name = ? AND field_name = ? AND organization_id = ? AND is_active = ${sqlTrue()}
       `, [tableName, fieldName, organizationId]);
       return result || null;
     } catch {
@@ -723,7 +723,7 @@ export class DataProtectionManager {
     try {
       const result = await executeQueryOne<PIIField>(`
         SELECT id, table_name, field_name, pii_type, sensitivity_level, mask_pattern, is_active FROM pii_fields
-        WHERE table_name = ? AND field_name = ? AND organization_id = ? AND is_active = 1
+        WHERE table_name = ? AND field_name = ? AND organization_id = ? AND is_active = ${sqlTrue()}
       `, [tableName, fieldName, organizationId]);
       return result || null;
     } catch {
@@ -737,7 +737,7 @@ export class DataProtectionManager {
     try {
       return await executeQuery<PIIField>(`
         SELECT id, table_name, field_name, pii_type, sensitivity_level, mask_pattern, is_active FROM pii_fields
-        WHERE organization_id = ? AND is_active = 1
+        WHERE organization_id = ? AND is_active = ${sqlTrue()}
       `, [organizationId]);
     } catch {
       return [];

@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
 import { verifyToken } from '@/lib/auth/auth-service'
 import logger from '../monitoring/structured-logger';
@@ -74,7 +74,7 @@ export class SocketServer {
         try {
           await executeRun(`
             UPDATE user_sessions
-            SET is_active = 0
+            SET is_active = ${sqlFalse()}
             WHERE id = ?
           `, [socketId])
         } catch (error) {
@@ -198,7 +198,7 @@ export class SocketServer {
       // Atualizar banco
       await executeRun(`
         UPDATE user_sessions
-        SET is_active = 0, last_activity = CURRENT_TIMESTAMP
+        SET is_active = ${sqlFalse()}, last_activity = CURRENT_TIMESTAMP
         WHERE id = ?
       `, [socket.id])
 

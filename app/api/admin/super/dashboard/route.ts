@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
-import { executeQuery, executeQueryOne, sqlDateSub, sqlDateAdd } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlDateSub, sqlDateAdd, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 interface OrgRow {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       inactiveWithUsers,
     ] = await Promise.all([
       executeQueryOne<CountRow>('SELECT COUNT(*) as count FROM organizations'),
-      executeQueryOne<CountRow>('SELECT COUNT(*) as count FROM organizations WHERE is_active = 1'),
+      executeQueryOne<CountRow>(`SELECT COUNT(*) as count FROM organizations WHERE is_active = ${sqlTrue()}`),
       executeQueryOne<CountRow>('SELECT COUNT(*) as count FROM users'),
       executeQueryOne<CountRow>('SELECT COUNT(*) as count FROM tickets'),
       executeQueryOne<CountRow>(
@@ -70,14 +70,14 @@ export async function GET(request: NextRequest) {
          WHERE subscription_status = 'trial'
            AND subscription_expires_at IS NOT NULL
            AND subscription_expires_at <= ${sqlDateAdd(7)}
-           AND is_active = 1`
+           AND is_active = ${sqlTrue()}`
       ),
       // Inactive orgs that still have active users
       executeQuery<{ name: string; slug: string; user_count: number }>(
         `SELECT o.name, o.slug,
-           (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_active = 1) as user_count
+           (SELECT COUNT(*) FROM users WHERE organization_id = o.id AND is_active = ${sqlTrue()}) as user_count
          FROM organizations o
-         WHERE o.is_active = 0
+         WHERE o.is_active = ${sqlFalse()}
          HAVING user_count > 0`
       ),
     ]);

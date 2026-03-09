@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateJWTSecret, isProduction } from '@/lib/config/env';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import logger from '@/lib/monitoring/structured-logger';
-import { executeQueryOne, executeRun, sqlNow, sqlDatetimeSub } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlNow, sqlDatetimeSub, sqlFalse } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 
 // Token configuration
@@ -439,7 +439,7 @@ export async function revokeRefreshToken(token: string): Promise<boolean> {
     const tokenHash = hashToken(token);
     const result = await executeRun(`
       UPDATE refresh_tokens
-      SET revoked_at = CURRENT_TIMESTAMP, is_active = 0
+      SET revoked_at = CURRENT_TIMESTAMP, is_active = ${sqlFalse()}
       WHERE token_hash = ? AND revoked_at IS NULL
     `, [tokenHash]);
 
@@ -460,7 +460,7 @@ export async function revokeAllUserTokens(userId: number, tenantId: number): Pro
       result = await executeRun(
         `
         UPDATE refresh_tokens
-        SET revoked_at = CURRENT_TIMESTAMP, is_active = 0
+        SET revoked_at = CURRENT_TIMESTAMP, is_active = ${sqlFalse()}
         WHERE user_id = ? AND tenant_id = ? AND revoked_at IS NULL
         `,
         [userId, tenantId]
@@ -469,7 +469,7 @@ export async function revokeAllUserTokens(userId: number, tenantId: number): Pro
       result = await executeRun(
         `
         UPDATE refresh_tokens
-        SET revoked_at = CURRENT_TIMESTAMP, is_active = 0
+        SET revoked_at = CURRENT_TIMESTAMP, is_active = ${sqlFalse()}
         WHERE user_id = ? AND revoked_at IS NULL
         `,
         [userId]

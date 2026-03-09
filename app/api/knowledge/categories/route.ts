@@ -3,7 +3,7 @@ import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at
       FROM kb_categories
-      WHERE is_active = 1 AND (tenant_id = ? OR tenant_id IS NULL)
+      WHERE is_active = ${sqlTrue()} AND (tenant_id = ? OR tenant_id IS NULL)
       ORDER BY sort_order ASC, name ASC
     `, [tenantId, tenantId])
 

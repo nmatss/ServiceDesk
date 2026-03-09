@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
-import { executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlNow, sqlFalse } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 /**
@@ -216,7 +216,7 @@ export async function DELETE(
 
     const now = sqlNow();
     await executeRun(
-      `UPDATE organizations SET is_active = 0, subscription_status = 'suspended', updated_at = ${now} WHERE id = ?`,
+      `UPDATE organizations SET is_active = ${sqlFalse()}, subscription_status = 'suspended', updated_at = ${now} WHERE id = ?`,
       [orgId]
     );
 

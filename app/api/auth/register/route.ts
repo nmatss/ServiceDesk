@@ -3,7 +3,7 @@ import { hashPassword } from '@/lib/auth/auth-service';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { stripHTML } from '@/lib/security/sanitize';
 
 type TenantContext = { id: number; slug: string; name: string };
@@ -48,7 +48,7 @@ async function resolveTenantContext(request: NextRequest, tenantSlug?: string): 
 
   if (tenantSlug) {
     const org = await executeQueryOne<{ id: number; slug: string; name: string }>(
-      `SELECT id, slug, name FROM organizations WHERE slug = ? AND is_active = 1`,
+      `SELECT id, slug, name FROM organizations WHERE slug = ? AND is_active = ${sqlTrue()}`,
       [tenantSlug]
     );
 
@@ -61,7 +61,7 @@ async function resolveTenantContext(request: NextRequest, tenantSlug?: string): 
 
   if (process.env.NODE_ENV !== 'production') {
     const fallback = await executeQueryOne<{ id: number; slug: string; name: string }>(
-      `SELECT id, slug, name FROM organizations WHERE is_active = 1 ORDER BY id LIMIT 1`
+      `SELECT id, slug, name FROM organizations WHERE is_active = ${sqlTrue()} ORDER BY id LIMIT 1`
     );
 
     if (fallback) {
@@ -91,13 +91,13 @@ async function userExists(email: string, tenantId: number): Promise<boolean> {
 async function activeUserCount(tenantId: number): Promise<number> {
   try {
     const row = await executeQueryOne<{ count: number }>(
-      `SELECT COUNT(*) AS count FROM users WHERE organization_id = ? AND is_active = 1`,
+      `SELECT COUNT(*) AS count FROM users WHERE organization_id = ? AND is_active = ${sqlTrue()}`,
       [tenantId]
     );
     return Number(row?.count ?? 0);
   } catch {
     const row = await executeQueryOne<{ count: number }>(
-      `SELECT COUNT(*) AS count FROM users WHERE tenant_id = ? AND is_active = 1`,
+      `SELECT COUNT(*) AS count FROM users WHERE tenant_id = ? AND is_active = ${sqlTrue()}`,
       [tenantId]
     );
     return Number(row?.count ?? 0);

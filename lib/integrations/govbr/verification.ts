@@ -7,7 +7,7 @@
  * @module lib/integrations/govbr/verification
  */
 
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { captureException } from '@/lib/monitoring/sentry-helpers';
 import type { GovBrUserProfile, GovBrTokens, TrustLevel } from './oauth-client';
@@ -233,7 +233,7 @@ export async function syncGovBrUser(
              profile_data = ?,
              verification_level = ?,
              last_sync_at = CURRENT_TIMESTAMP,
-             is_active = 1,
+             is_active = ${sqlTrue()},
              updated_at = CURRENT_TIMESTAMP
          WHERE user_id = ?`,
         [
@@ -328,7 +328,7 @@ export async function refreshGovBrTokens(
     const integration = await executeQueryOne<{ refresh_token: string; token_expires_at: string }>(
       `SELECT refresh_token, token_expires_at
        FROM govbr_integrations
-       WHERE user_id = ? AND is_active = 1`,
+       WHERE user_id = ? AND is_active = ${sqlTrue()}`,
       [userId]
     );
 

@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer'
 type WebClient = any // Slack client - install @slack/web-api for full typing
 type GraphClient = any // MS Graph client - install @microsoft/microsoft-graph-client for full typing
 import { NotificationPayload } from './realtime-engine'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
@@ -692,7 +692,7 @@ export class NotificationChannelManager {
     try {
       return await executeQuery<unknown>(`
         SELECT * FROM push_subscriptions
-        WHERE user_id = ? AND is_active = 1
+        WHERE user_id = ? AND is_active = ${sqlTrue()}
       `, [userId])
     } catch (error) {
       logger.error('Error getting push subscriptions', error)
@@ -704,7 +704,7 @@ export class NotificationChannelManager {
     try {
       await executeRun(`
         UPDATE push_subscriptions
-        SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+        SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `, [subscriptionId])
     } catch (error) {

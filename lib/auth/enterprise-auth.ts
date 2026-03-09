@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import * as crypto from 'crypto';
 import * as speakeasy from 'speakeasy';
 import * as qrcode from 'qrcode';
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub, sqlTrue, sqlFalse } from '../db/adapter';
 import { getDatabaseType } from '../db/config';
 import { validateJWTSecret } from '@/lib/config/env';
 import logger from '../monitoring/structured-logger';
@@ -206,7 +206,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
     const refreshTokenData = await executeQueryOne<RefreshToken & User>(`
       SELECT rt.*, u.* FROM refresh_tokens rt
       JOIN users u ON rt.user_id = u.id
-      WHERE rt.token_hash = ? AND rt.is_active = 1 AND rt.expires_at > ${sqlNow()}
+      WHERE rt.token_hash = ? AND rt.is_active = ${sqlTrue()} AND rt.expires_at > ${sqlNow()}
     `, [tokenHash]);
 
     if (!refreshTokenData) {
@@ -474,7 +474,7 @@ export async function getUserWithRoles(userId: number): Promise<UserWithRoles | 
     const roles = await executeQuery<Role>(`
       SELECT r.* FROM roles r
       JOIN user_roles ur ON r.id = ur.role_id
-      WHERE ur.user_id = ? AND ur.is_active = 1
+      WHERE ur.user_id = ? AND ur.is_active = ${sqlTrue()}
       AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
     `, [userId]);
 
@@ -483,7 +483,7 @@ export async function getUserWithRoles(userId: number): Promise<UserWithRoles | 
       SELECT DISTINCT p.* FROM permissions p
       JOIN role_permissions rp ON p.id = rp.permission_id
       JOIN user_roles ur ON rp.role_id = ur.role_id
-      WHERE ur.user_id = ? AND ur.is_active = 1
+      WHERE ur.user_id = ? AND ur.is_active = ${sqlTrue()}
       AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
     `, [userId]);
 
@@ -739,7 +739,7 @@ export async function validatePassword(password: string, userRole?: string): Pro
 
     const policy = await executeQueryOne<PasswordPolicy>(`
       SELECT * FROM password_policies
-      WHERE is_active = 1
+      WHERE is_active = ${sqlTrue()}
       AND ${jsonCondition}
       ORDER BY id DESC LIMIT 1
     `, [userRole || '']);
@@ -996,7 +996,7 @@ export async function logout(refreshToken: string, userId?: number): Promise<boo
     // Revogar refresh token
     const result = await executeRun(`
       UPDATE refresh_tokens
-      SET is_active = 0, revoked_at = ${sqlNow()}
+      SET is_active = ${sqlFalse()}, revoked_at = ${sqlNow()}
       WHERE token_hash = ?
     `, [tokenHash]);
 
@@ -1018,8 +1018,8 @@ export async function revokeAllTokens(userId: number): Promise<boolean> {
   try {
     const result = await executeRun(`
       UPDATE refresh_tokens
-      SET is_active = 0, revoked_at = ${sqlNow()}
-      WHERE user_id = ? AND is_active = 1
+      SET is_active = ${sqlFalse()}, revoked_at = ${sqlNow()}
+      WHERE user_id = ? AND is_active = ${sqlTrue()}
     `, [userId]);
 
     await logAuthEvent(userId, 'tokens_revoked', {

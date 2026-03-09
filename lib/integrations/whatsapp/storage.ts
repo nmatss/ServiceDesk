@@ -3,8 +3,7 @@
  * Camada de persistência para dados do WhatsApp
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { sqlDateSub, getDbType } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse, sqlDateSub, getDbType } from '@/lib/db/adapter';
 import type {
   WhatsAppContact,
   WhatsAppMessage,
@@ -262,7 +261,7 @@ export async function getWhatsAppSessionById(id: number): Promise<WhatsAppSessio
 export async function getActiveSessionByPhone(phoneNumber: string): Promise<WhatsAppSession | null> {
   const session = await executeQueryOne<DbSession>(`
     SELECT * FROM whatsapp_sessions
-    WHERE phone_number = ? AND is_active = 1
+    WHERE phone_number = ? AND is_active = ${sqlTrue()}
     ORDER BY last_activity DESC
     LIMIT 1
   `, [phoneNumber]);
@@ -292,8 +291,8 @@ export async function deactivateExpiredSessions(timeoutHours = 24): Promise<numb
 
   const result = await executeRun(`
     UPDATE whatsapp_sessions
-    SET is_active = 0, updated_at = CURRENT_TIMESTAMP
-    WHERE is_active = 1
+    SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
+    WHERE is_active = ${sqlTrue()}
       AND last_activity < ${cutoff}
   `, []);
 

@@ -4,7 +4,7 @@
  * Provides connectors for various data sources to power dashboard widgets
  */
 
-import { executeQuery, sqlNow, sqlDateDiff } from '@/lib/db/adapter';
+import { executeQuery, sqlNow, sqlDateDiff, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -301,7 +301,7 @@ export const agentDataSources = {
         AND t.created_at >= ? AND t.created_at <= ?
       LEFT JOIN sla_tracking st ON st.ticket_id = t.id
       WHERE u.role IN ('admin', 'agent')
-        AND u.is_active = 1
+        AND u.is_active = ${sqlTrue()}
       GROUP BY u.id, u.name, u.email
       HAVING assigned_tickets > 0
       ORDER BY resolved_tickets DESC
@@ -345,7 +345,7 @@ export const agentDataSources = {
         AND t.status_id IN (SELECT id FROM statuses WHERE name IN ('open', 'in_progress'))
       LEFT JOIN priorities p ON t.priority_id = p.id
       WHERE u.role IN ('admin', 'agent')
-        AND u.is_active = 1
+        AND u.is_active = ${sqlTrue()}
       GROUP BY u.id, u.name
       ORDER BY active_tickets DESC
     `;

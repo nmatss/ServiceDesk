@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
@@ -46,7 +46,7 @@ export async function DELETE(
     // Remove user from team
     const result = await executeRun(`
       UPDATE team_members SET
-        is_active = 0,
+        is_active = ${sqlFalse()},
         left_at = CURRENT_TIMESTAMP
       WHERE team_id = ? AND user_id = ?
       AND team_id IN (SELECT id FROM teams WHERE tenant_id = ?)

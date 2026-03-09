@@ -3,7 +3,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, executeTransaction, sqlFalse } from '@/lib/db/adapter';
 import { getTrustedClientIP } from '@/lib/api/get-client-ip';
 import { createAuditLog } from '@/lib/audit/logger';
 import { logger } from '@/lib/monitoring/logger';
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
             password_hash = NULL,
             avatar_url = NULL,
             metadata = NULL,
-            is_active = 0
+            is_active = ${sqlFalse()}
           WHERE id = ? AND tenant_id = ?
         `,
         [guard.auth.userId, guard.auth.organizationId]

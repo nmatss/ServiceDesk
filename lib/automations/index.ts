@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { Automation } from '../types/database';
 import { createNotification } from '../notifications';
 import { logAuditAction } from '../audit';
@@ -34,7 +34,7 @@ export async function getActiveAutomations(triggerType: string): Promise<Automat
   try {
     return await executeQuery<Automation>(`
       SELECT * FROM automations
-      WHERE trigger_type = ? AND is_active = 1
+      WHERE trigger_type = ? AND is_active = ${sqlTrue()}
       ORDER BY created_at ASC
     `, [triggerType]);
   } catch (error) {

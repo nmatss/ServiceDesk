@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -101,7 +101,7 @@ export class WorkflowManager {
       // Get ticket type information
       const ticketType = await executeQueryOne<TicketType>(
         `SELECT * FROM ticket_types
-        WHERE id = ? AND tenant_id = ? AND is_active = 1`,
+        WHERE id = ? AND tenant_id = ? AND is_active = ${sqlTrue()}`,
         [ticketData.ticket_type_id, ticketData.tenant_id]
       )
 
@@ -141,7 +141,7 @@ export class WorkflowManager {
     // Get initial status for incidents (usually "Open" or "New")
     const initialStatus = await executeQueryOne<Status>(
       `SELECT id FROM statuses
-      WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = 1
+      WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = ${sqlTrue()}
       ORDER BY is_initial DESC, sort_order
       LIMIT 1`,
       [ticketData.tenant_id]
@@ -175,7 +175,7 @@ export class WorkflowManager {
     const initialStatusType = approvalRequired ? 'waiting' : 'open'
     const initialStatus = await executeQueryOne<Status>(
       `SELECT id FROM statuses
-      WHERE tenant_id = ? AND status_type = ? AND is_active = 1
+      WHERE tenant_id = ? AND status_type = ? AND is_active = ${sqlTrue()}
       ORDER BY sort_order
       LIMIT 1`,
       [ticketData.tenant_id, initialStatusType]
@@ -218,7 +218,7 @@ export class WorkflowManager {
 
     const initialStatus = await executeQueryOne<Status>(
       `SELECT id FROM statuses
-      WHERE tenant_id = ? AND status_type = 'waiting' AND is_active = 1
+      WHERE tenant_id = ? AND status_type = 'waiting' AND is_active = ${sqlTrue()}
       ORDER BY sort_order
       LIMIT 1`,
       [ticketData.tenant_id]
@@ -261,7 +261,7 @@ export class WorkflowManager {
 
     const initialStatus = await executeQueryOne<Status>(
       `SELECT id FROM statuses
-      WHERE tenant_id = ? AND status_type = 'in_progress' AND is_active = 1
+      WHERE tenant_id = ? AND status_type = 'in_progress' AND is_active = ${sqlTrue()}
       ORDER BY sort_order
       LIMIT 1`,
       [ticketData.tenant_id]
@@ -284,7 +284,7 @@ export class WorkflowManager {
   private async processDefaultWorkflow(ticketData: TicketData, _ticketType: TicketType): Promise<WorkflowResult> {
     const initialStatus = await executeQueryOne<Status>(
       `SELECT id FROM statuses
-      WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = 1
+      WHERE tenant_id = ? AND (status_type = 'open' OR is_initial = 1) AND is_active = ${sqlTrue()}
       ORDER BY is_initial DESC, sort_order
       LIMIT 1`,
       [ticketData.tenant_id]
@@ -344,7 +344,7 @@ export class WorkflowManager {
       `SELECT tm.user_id, tm.workload_percentage, u.name
       FROM team_members tm
       JOIN users u ON tm.user_id = u.id
-      WHERE tm.team_id = ? AND tm.is_active = 1 AND tm.availability_status = 'available'
+      WHERE tm.team_id = ? AND tm.is_active = ${sqlTrue()} AND tm.availability_status = 'available'
       AND u.role IN ('agent', 'team_manager', 'tenant_admin')
       ORDER BY tm.workload_percentage ASC, ${randomFn}
       LIMIT 1`,

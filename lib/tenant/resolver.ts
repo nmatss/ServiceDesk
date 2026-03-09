@@ -17,7 +17,7 @@
  * CRITICAL: NO HARDCODED TENANT DATA
  */
 
-import { executeQueryOne } from '@/lib/db/adapter';
+import { executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 import type { Organization } from '@/lib/types/database';
 import {
   getTenantFromCache,
@@ -272,7 +272,7 @@ async function getTenantById(id: number): Promise<Organization | null> {
         updated_at
       FROM organizations
       WHERE id = ?
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
       LIMIT 1
     `, [id]);
 
@@ -314,7 +314,7 @@ async function getTenantBySlug(slug: string): Promise<Organization | null> {
         updated_at
       FROM organizations
       WHERE slug = ?
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
       LIMIT 1
     `, [slug]);
 
@@ -356,7 +356,7 @@ async function getTenantByDomain(domain: string): Promise<Organization | null> {
         updated_at
       FROM organizations
       WHERE domain = ?
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
       LIMIT 1
     `, [domain]);
 
@@ -530,7 +530,7 @@ export async function resolveTenant(
           created_at,
           updated_at
         FROM organizations
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
           AND subscription_status IN ('active', 'trialing')
         ORDER BY id ASC
         LIMIT 1

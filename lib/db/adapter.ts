@@ -597,4 +597,20 @@ export function sqlDatetimeSubYears(years: number): string {
     : `datetime('now', '-${years} years')`;
 }
 
+/**
+ * Returns the boolean TRUE literal for the current database.
+ * PostgreSQL uses native BOOLEAN, SQLite uses INTEGER 1.
+ */
+export function sqlTrue(): string {
+  return getDatabaseType() === 'postgresql' ? 'TRUE' : '1';
+}
+
+/**
+ * Returns the boolean FALSE literal for the current database.
+ * PostgreSQL uses native BOOLEAN, SQLite uses INTEGER 0.
+ */
+export function sqlFalse(): string {
+  return getDatabaseType() === 'postgresql' ? 'FALSE' : '0';
+}
+
 export default getDatabase;

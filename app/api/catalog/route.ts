@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     const categories = await executeQuery<any>(
       `SELECT id, name, slug, icon, color, description
       FROM service_categories
-      WHERE organization_id = ? AND is_active = 1
+      WHERE organization_id = ? AND is_active = ${sqlTrue()}
       ORDER BY display_order ASC, name ASC`,
       [organizationId]
     )

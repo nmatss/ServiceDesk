@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
@@ -180,7 +180,7 @@ export async function DELETE(
     }
 
     // Soft delete ticket type
-    await executeRun('UPDATE ticket_types SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?', [ticketTypeId, tenantId])
+    await executeRun(`UPDATE ticket_types SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND tenant_id = ?`, [ticketTypeId, tenantId])
 
     return NextResponse.json({
       success: true,

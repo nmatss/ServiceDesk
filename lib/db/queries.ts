@@ -8,7 +8,7 @@
  * @module lib/db/queries
  */
 
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlCurrentDate } from './adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlCurrentDate, sqlTrue, sqlFalse } from './adapter';
 import { getDatabaseType } from './config';
 import { getFromCache, setCache } from '../cache/lru-cache';
 import logger from '@/lib/monitoring/structured-logger';
@@ -1796,7 +1796,7 @@ export const cabQueries = {
   },
 
   getCabConfiguration: async (organizationId: number): Promise<CABConfiguration | undefined> => {
-    return await executeQueryOne<CABConfiguration>('SELECT * FROM cab_configurations WHERE organization_id = ? AND is_active = 1', [organizationId]);
+    return await executeQueryOne<CABConfiguration>(`SELECT * FROM cab_configurations WHERE organization_id = ? AND is_active = ${sqlTrue()}`, [organizationId]);
   },
 
   getCabMembers: async (organizationId: number, cabId?: number): Promise<CABMember[]> => {
@@ -1805,7 +1805,7 @@ export const cabQueries = {
         SELECT cm.*, u.name as user_name, u.email as user_email
         FROM cab_members cm
         LEFT JOIN users u ON cm.user_id = u.id
-        WHERE cm.cab_id = ? AND cm.is_active = 1
+        WHERE cm.cab_id = ? AND cm.is_active = ${sqlTrue()}
         ORDER BY cm.role, u.name
       `, [cabId]);
     }
@@ -1815,7 +1815,7 @@ export const cabQueries = {
       FROM cab_members cm
       LEFT JOIN cab_configurations c ON cm.cab_id = c.id
       LEFT JOIN users u ON cm.user_id = u.id
-      WHERE c.organization_id = ? AND cm.is_active = 1
+      WHERE c.organization_id = ? AND cm.is_active = ${sqlTrue()}
       ORDER BY cm.role, u.name
     `, [organizationId]);
   },
@@ -2295,7 +2295,7 @@ export async function validateTicketAccessToken(
   let query = `
     SELECT * FROM ticket_access_tokens
     WHERE token = ?
-      AND is_active = 1
+      AND is_active = ${sqlTrue()}
       AND revoked_at IS NULL
       AND expires_at > ${sqlNow()}
   `;
@@ -2339,7 +2339,7 @@ export async function revokeTicketAccessToken(token: string): Promise<boolean> {
   const result = await executeRun(`
     UPDATE ticket_access_tokens
     SET
-      is_active = 0,
+      is_active = ${sqlFalse()},
       revoked_at = ${sqlNow()}
     WHERE token = ?
   `, [token]);
@@ -2354,9 +2354,9 @@ export async function revokeAllTicketTokens(ticketId: number): Promise<number> {
   const result = await executeRun(`
     UPDATE ticket_access_tokens
     SET
-      is_active = 0,
+      is_active = ${sqlFalse()},
       revoked_at = ${sqlNow()}
-    WHERE ticket_id = ? AND is_active = 1
+    WHERE ticket_id = ? AND is_active = ${sqlTrue()}
   `, [ticketId]);
 
   return result.changes;
@@ -2381,7 +2381,7 @@ export async function getTicketTokens(ticketId: number): Promise<TicketAccessTok
   return await executeQuery<TicketAccessToken>(`
     SELECT * FROM ticket_access_tokens
     WHERE ticket_id = ?
-      AND is_active = 1
+      AND is_active = ${sqlTrue()}
       AND revoked_at IS NULL
     ORDER BY created_at DESC
   `, [ticketId]);

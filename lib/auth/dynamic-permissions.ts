@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '../db/adapter';
 import { rbac as rbacEngine } from './rbac-engine';
 
 // AccessContext type for compatibility
@@ -295,7 +295,7 @@ class DynamicPermissionManager {
     try {
       const rules = await executeQuery<DynamicRule>(`
         SELECT * FROM dynamic_permission_rules
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
           AND (resource = ? OR resource = '*')
           AND (action = ? OR action = '*')
         ORDER BY priority DESC

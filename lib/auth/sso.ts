@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import { executeQuery, executeQueryOne, executeRun, sqlNow } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlTrue } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 import {
   SSOProvider,
@@ -157,7 +157,7 @@ export async function getSSOProviderById(id: number): Promise<SSOProvider | null
 
 export async function getSSOProviderByName(name: string): Promise<SSOProvider | null> {
   try {
-    const provider = await executeQueryOne<SSOProvider>('SELECT * FROM sso_providers WHERE name = ? AND is_active = 1', [name]);
+    const provider = await executeQueryOne<SSOProvider>(`SELECT * FROM sso_providers WHERE name = ? AND is_active = ${sqlTrue()}`, [name]);
     if (!provider) return null;
 
     provider.configuration = decryptSSOConfiguration(provider.configuration);
@@ -183,7 +183,7 @@ export async function getAllSSOProviders(): Promise<SSOProvider[]> {
 
 export async function getActiveSSOProviders(): Promise<SSOProvider[]> {
   try {
-    const providers = await executeQuery<SSOProvider>('SELECT * FROM sso_providers WHERE is_active = 1 ORDER BY display_name', []);
+    const providers = await executeQuery<SSOProvider>(`SELECT * FROM sso_providers WHERE is_active = ${sqlTrue()} ORDER BY display_name`, []);
     return providers.map(provider => ({
       ...provider,
       configuration: decryptSSOConfiguration(provider.configuration)

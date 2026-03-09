@@ -9,7 +9,7 @@ import * as semanticSearchModule from '@/lib/knowledge/semantic-search'
 import Fuse from 'fuse.js'
 import type { KBArticle } from '@/lib/types/database'
 import { logger } from '@/lib/monitoring/logger';
-import { executeQuery, executeQueryOne, executeRun, getDbType } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, getDbType, sqlTrue } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
       categorySuggestions = await executeQuery(`
         SELECT name, slug, icon, color
         FROM kb_categories
-        WHERE LOWER(name) LIKE ? AND is_active = 1
+        WHERE LOWER(name) LIKE ? AND is_active = ${sqlTrue()}
         AND (tenant_id = ? OR tenant_id IS NULL)
         LIMIT 3
       `, [`%${categoryQuery}%`, tenantId])
@@ -314,7 +314,7 @@ export async function GET(request: NextRequest) {
       const fallbackCategorySuggestions = await executeQuery<{ name: string; slug: string; color: string | null }>(`
         SELECT name, slug, color
         FROM kb_categories
-        WHERE LOWER(name) LIKE ? AND is_active = 1
+        WHERE LOWER(name) LIKE ? AND is_active = ${sqlTrue()}
         AND (tenant_id = ? OR tenant_id IS NULL)
         LIMIT 3
       `, [`%${categoryQuery}%`, tenantId])

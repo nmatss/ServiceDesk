@@ -4,7 +4,7 @@
  * Manages dashboard templates - loading, saving, and applying them
  */
 
-import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlTrue } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface DashboardTemplate {
@@ -52,7 +52,7 @@ export async function loadDashboardTemplates(
     }
 
     if (!includeInactive) {
-      query += ` AND is_active = 1`;
+      query += ` AND is_active = ${sqlTrue()}`;
     }
 
     query += ` ORDER BY is_system DESC, display_name ASC`;
@@ -110,7 +110,7 @@ export async function loadDashboardTemplate(name: string): Promise<DashboardTemp
         is_system,
         is_active
       FROM dashboard_templates
-      WHERE name = ? AND is_active = 1
+      WHERE name = ? AND is_active = ${sqlTrue()}
     `, [name]);
 
     if (!template) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import { executeQuery, executeQueryOne, sqlNow, sqlColSubMinutes, sqlDateDiff } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlNow, sqlColSubMinutes, sqlDateDiff, sqlTrue } from '@/lib/db/adapter';
 import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
 import { logger } from '@/lib/monitoring/logger'
 
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN sla_policies sla ON
         (sla.priority_id = t.priority_id OR sla.priority_id IS NULL)
         AND (sla.category_id = t.category_id OR sla.category_id IS NULL)
-        AND (sla.tenant_id = ? OR sla.tenant_id IS NULL) AND sla.is_active = 1
+        AND (sla.tenant_id = ? OR sla.tenant_id IS NULL) AND sla.is_active = ${sqlTrue()}
       ${whereClause}
       ORDER BY
         CASE

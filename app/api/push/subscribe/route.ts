@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             platform = ?,
             language = ?,
             updated_at = CURRENT_TIMESTAMP,
-            is_active = 1
+            is_active = ${sqlTrue()}
         WHERE endpoint = ?
       `, [userId,
         keys.p256dh,
@@ -139,7 +139,7 @@ const subscriptions = await executeQuery(`
         last_used_at,
         is_active
       FROM push_subscriptions
-      WHERE user_id = ? AND is_active = 1
+      WHERE user_id = ? AND is_active = ${sqlTrue()}
       ORDER BY created_at DESC
     `, [userIdGet]);
 

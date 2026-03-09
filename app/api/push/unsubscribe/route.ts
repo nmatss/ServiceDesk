@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeRun } from '@/lib/db/adapter';
+import { executeRun, sqlFalse } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 // Soft delete - mark as inactive
     const result = await executeRun(`
       UPDATE push_subscriptions
-      SET is_active = 0,
+      SET is_active = ${sqlFalse()},
           updated_at = CURRENT_TIMESTAMP
       WHERE endpoint = ? AND user_id = ?
     `, [endpoint, userId]);

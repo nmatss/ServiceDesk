@@ -5,7 +5,7 @@
  * Manages CAB configurations, members, meetings, and voting processes
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '../adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlTrue, sqlFalse } from '../adapter';
 import type {
   CABConfiguration,
   CABMember,
@@ -191,7 +191,7 @@ export async function addCABMember(
     if (!existing.is_active) {
       await executeRun(
         `UPDATE cab_members
-         SET is_active = 1, role = ?, is_voting_member = ?, expertise_areas = ?
+         SET is_active = ${sqlTrue()}, role = ?, is_voting_member = ?, expertise_areas = ?
          WHERE id = ?`,
         [
           input.role || 'member',
@@ -235,7 +235,7 @@ export async function removeCABMember(
   userId: number
 ): Promise<boolean> {
   const result = await executeRun(
-    `UPDATE cab_members SET is_active = 0 WHERE cab_id = ? AND user_id = ?`,
+    `UPDATE cab_members SET is_active = ${sqlFalse()} WHERE cab_id = ? AND user_id = ?`,
     [cabId, userId]
   );
 
@@ -813,7 +813,7 @@ export async function checkQuorum(
   // Count active voting members
   const totalVotingMembers = await executeQueryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM cab_members
-     WHERE cab_id = ? AND is_active = 1 AND is_voting_member = 1`,
+     WHERE cab_id = ? AND is_active = ${sqlTrue()} AND is_voting_member = 1`,
     [meeting.cab_id]
   );
 
@@ -828,7 +828,7 @@ export async function checkQuorum(
         const presentVoting = await executeQueryOne<{ count: number }>(
           `SELECT COUNT(*) as count FROM cab_members
            WHERE cab_id = ? AND user_id IN (${attendeeIds.map(() => '?').join(',')})
-           AND is_active = 1 AND is_voting_member = 1`,
+           AND is_active = ${sqlTrue()} AND is_voting_member = 1`,
           [meeting.cab_id, ...attendeeIds]
         );
         present = presentVoting?.count || 0;
@@ -927,7 +927,7 @@ export async function getCABStatistics(
     `SELECT COUNT(DISTINCT cm.id) as count
      FROM cab_members cm
      INNER JOIN cab_configurations cc ON cm.cab_id = cc.id
-     WHERE cc.organization_id = ? AND cm.is_active = 1`,
+     WHERE cc.organization_id = ? AND cm.is_active = ${sqlTrue()}`,
     [organizationId]
   );
 

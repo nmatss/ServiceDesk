@@ -3,7 +3,7 @@
  * ITIL 4 Compliant - Supabase Ready
  */
 
-import { getDatabase, executeQuery, executeQueryOne, executeRun, executeTransaction, sqlStartOfMonth, sqlDateSub } from '../adapter';
+import { getDatabase, executeQuery, executeQueryOne, executeRun, executeTransaction, sqlStartOfMonth, sqlDateSub, sqlTrue } from '../adapter';
 import type {
   Problem,
   ProblemWithRelations,
@@ -1084,7 +1084,7 @@ export async function getRootCauseCategories(
 ): Promise<RootCauseCategory[]> {
   return executeQuery<RootCauseCategory>(
     `SELECT * FROM root_cause_categories
-     WHERE organization_id = ? AND is_active = 1
+     WHERE organization_id = ? AND is_active = ${sqlTrue()}
      ORDER BY name`,
     [organizationId]
   );

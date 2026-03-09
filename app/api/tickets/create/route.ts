@@ -11,7 +11,7 @@ import {
   ValidationError,
 } from '@/lib/errors/error-handler'
 import { ticketSchemas } from '@/lib/validation/schemas'
-import { executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter'
+import { executeQueryOne, executeRun, executeTransaction, sqlTrue } from '@/lib/db/adapter'
 import { getWorkflowManager } from '@/lib/workflow/manager'
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
 import { cacheInvalidation } from '@/lib/api/cache'
@@ -43,13 +43,13 @@ async function getScopedEntityById(table: 'categories' | 'priorities', id: numbe
 
 async function getScopedTicketType(ticketTypeId: number, tenantId: number) {
   let result = await executeQueryOne<Record<string, unknown>>(
-    `SELECT * FROM ticket_types WHERE id = ? AND tenant_id = ? AND is_active = 1`,
+    `SELECT * FROM ticket_types WHERE id = ? AND tenant_id = ? AND is_active = ${sqlTrue()}`,
     [ticketTypeId, tenantId]
   );
   if (result) return result;
 
   result = await executeQueryOne<Record<string, unknown>>(
-    `SELECT * FROM ticket_types WHERE id = ? AND organization_id = ? AND is_active = 1`,
+    `SELECT * FROM ticket_types WHERE id = ? AND organization_id = ? AND is_active = ${sqlTrue()}`,
     [ticketTypeId, tenantId]
   );
   if (result) return result;
@@ -354,7 +354,7 @@ async function createApprovalWorkflow(ticketId: number, tenantId: number, ticket
   const workflow = await executeQueryOne<any>(`
     SELECT * FROM approval_workflows
     WHERE tenant_id = ? AND (ticket_type_id = ? OR ticket_type_id IS NULL)
-    AND is_active = 1
+    AND is_active = ${sqlTrue()}
     ORDER BY ticket_type_id IS NOT NULL DESC
     LIMIT 1
   `, [tenantId, ticketType.id]);

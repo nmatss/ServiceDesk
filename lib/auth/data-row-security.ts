@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '../db/adapter';
 import { getDatabaseType } from '../db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -439,7 +439,7 @@ class DataRowSecurityManager {
 
       const policies = await executeQuery<any>(`
         SELECT * FROM row_security_policies
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
           AND table_name = ?
           AND (operation = ? OR operation = 'ALL')
           AND ${jsonCondition}

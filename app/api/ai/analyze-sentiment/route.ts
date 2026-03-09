@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import SolutionSuggester from '@/lib/ai/solution-suggester';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
             SELECT u.id, ?, 'ticket_escalated', ?, ?
             FROM users u
             WHERE u.role IN ('agent', 'admin', 'manager')
-              AND u.is_active = 1
+              AND u.is_active = ${sqlTrue()}
               AND u.organization_id = ?
           `, [ticketId,
             'Ticket escalado por análise de sentimento',
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
           SELECT u.id, ?, 'urgent_attention', ?, ?
           FROM users u
           WHERE u.role IN ('agent', 'admin', 'manager')
-            AND u.is_active = 1
+            AND u.is_active = ${sqlTrue()}
             AND u.organization_id = ?
         `, [ticketId,
           'Atenção imediata necessária',

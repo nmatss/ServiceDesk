@@ -6,7 +6,7 @@
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import logger from '../monitoring/structured-logger';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import {
   WorkflowApproval,
   ApprovalNodeConfig,
@@ -813,7 +813,7 @@ This link expires in 48 hours.
       let rows = await executeQuery<any>(
         `SELECT id
         FROM users
-        WHERE role = ? AND is_active = 1`,
+        WHERE role = ? AND is_active = ${sqlTrue()}`,
         [role]
       );
 
@@ -824,7 +824,7 @@ This link expires in 48 hours.
           FROM users u
           INNER JOIN user_roles ur ON ur.user_id = u.id
           INNER JOIN roles r ON r.id = ur.role_id
-          WHERE r.name = ? AND u.is_active = 1 AND ur.is_active = 1`,
+          WHERE r.name = ? AND u.is_active = ${sqlTrue()} AND ur.is_active = ${sqlTrue()}`,
           [role]
         );
       }
@@ -843,7 +843,7 @@ This link expires in 48 hours.
         FROM users u
         INNER JOIN user_departments ud ON ud.user_id = u.id
         WHERE ud.department_id = ?
-          AND u.is_active = 1
+          AND u.is_active = ${sqlTrue()}
           AND ud.left_at IS NULL`,
         [departmentId]
       );

@@ -8,7 +8,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       FROM macros m
       LEFT JOIN users u ON m.created_by = u.id
       LEFT JOIN categories c ON m.category_id = c.id
-      WHERE m.organization_id = ? AND m.is_active = 1
+      WHERE m.organization_id = ? AND m.is_active = ${sqlTrue()}
     `;
     const params: (string | number)[] = [organizationId];
 

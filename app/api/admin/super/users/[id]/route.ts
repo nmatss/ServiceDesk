@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
-import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 /**
@@ -182,7 +182,7 @@ export async function PUT(
 
       case 'deactivate': {
         await executeRun(
-          `UPDATE users SET is_active = 0, updated_at = ${now} WHERE id = ?`,
+          `UPDATE users SET is_active = ${sqlFalse()}, updated_at = ${now} WHERE id = ?`,
           [userId]
         );
         await executeRun(
@@ -195,7 +195,7 @@ export async function PUT(
 
       case 'activate': {
         await executeRun(
-          `UPDATE users SET is_active = 1, updated_at = ${now} WHERE id = ?`,
+          `UPDATE users SET is_active = ${sqlTrue()}, updated_at = ${now} WHERE id = ?`,
           [userId]
         );
         await executeRun(

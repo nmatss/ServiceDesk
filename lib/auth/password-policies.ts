@@ -1,6 +1,6 @@
 import { randomInt } from 'crypto';
 import bcrypt from 'bcrypt';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -69,7 +69,7 @@ class PasswordPolicyManager {
 
       const policy = await executeQueryOne<any>(`
         SELECT * FROM password_policies
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
           AND ${jsonCondition}
         ORDER BY
           CASE WHEN applies_to_roles IS NOT NULL THEN 1 ELSE 2 END,

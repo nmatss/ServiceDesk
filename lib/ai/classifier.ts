@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 import { aiCache } from './cache';
@@ -30,7 +30,7 @@ export class AIClassifier {
     // Buscar categorias e prioridades do tenant
     const categories = await executeQuery<any>(
       `SELECT id, name, description FROM categories
-      WHERE organization_id = ? AND is_active = 1`,
+      WHERE organization_id = ? AND is_active = ${sqlTrue()}`,
       [organizationId]
     );
 

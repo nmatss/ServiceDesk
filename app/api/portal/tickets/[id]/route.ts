@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
 
@@ -23,7 +23,7 @@ async function validateTicketAccessToken(
   let query = `
     SELECT * FROM ticket_access_tokens
     WHERE token = ?
-      AND is_active = 1
+      AND is_active = ${sqlTrue()}
       AND revoked_at IS NULL
       AND expires_at > ${sqlNow()}
   `;

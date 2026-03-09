@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (activeOnly) {
-      query += ' AND is_active = 1';
+      query += ` AND is_active = ${sqlTrue()}`;
     }
 
     query += ' ORDER BY category, name';

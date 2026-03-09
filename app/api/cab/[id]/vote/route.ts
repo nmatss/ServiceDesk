@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
@@ -65,7 +65,7 @@ export async function POST(
 
     // Verify user is a CAB member or admin/manager
     const isCabMember = await executeQueryOne<any>(
-      `SELECT * FROM cab_members WHERE user_id = ? AND organization_id = ? AND is_active = 1`,
+      `SELECT * FROM cab_members WHERE user_id = ? AND organization_id = ? AND is_active = ${sqlTrue()}`,
       [userId, organizationId]
     )
 

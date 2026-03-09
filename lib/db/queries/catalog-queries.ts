@@ -4,6 +4,8 @@ import {
   executeRun,
   executeTransaction,
   sqlDateDiff,
+  sqlTrue,
+  sqlFalse,
 } from '../adapter';
 import type {
   ServiceCategory,
@@ -70,7 +72,7 @@ export async function listServiceCategories(
     `SELECT *
      FROM service_categories
      WHERE organization_id = ?
-       AND is_active = 1
+       AND is_active = ${sqlTrue()}
      ORDER BY display_order ASC, name ASC`,
     [organizationId]
   );
@@ -234,7 +236,7 @@ export async function updateServiceCategory(
  */
 export async function deleteServiceCategory(id: number): Promise<void> {
   await executeRun(
-    `UPDATE service_categories SET is_active = 0, updated_at = ? WHERE id = ?`,
+    `UPDATE service_categories SET is_active = ${sqlFalse()}, updated_at = ? WHERE id = ?`,
     [new Date().toISOString(), id]
   );
 }
@@ -277,7 +279,7 @@ export async function listServiceCatalogItems(
     values.push(searchPattern, searchPattern, searchPattern);
   }
 
-  conditions.push('sci.is_active = 1');
+  conditions.push(`sci.is_active = ${sqlTrue()}`);
 
   let sql = `
     SELECT sci.*
@@ -547,7 +549,7 @@ export async function deleteServiceCatalogItem(
 ): Promise<void> {
   await executeRun(
     `UPDATE service_catalog_items
-     SET is_active = 0, is_published = 0, updated_at = ?
+     SET is_active = ${sqlFalse()}, is_published = 0, updated_at = ?
      WHERE id = ? AND organization_id = ?`,
     [new Date().toISOString(), id, organizationId]
   );
@@ -1193,7 +1195,7 @@ export async function getCatalogStatistics(
       COUNT(*) as total_items,
       SUM(CASE WHEN is_published = 1 THEN 1 ELSE 0 END) as published_items
     FROM service_catalog_items
-    WHERE organization_id = ? AND is_active = 1`,
+    WHERE organization_id = ? AND is_active = ${sqlTrue()}`,
     [organizationId]
   );
 
@@ -1251,7 +1253,7 @@ export async function getCatalogStatistics(
       satisfaction_rating
     FROM service_catalog_items
     WHERE organization_id = ?
-      AND is_active = 1
+      AND is_active = ${sqlTrue()}
       AND request_count > 0
     ORDER BY request_count DESC
     LIMIT 10`,

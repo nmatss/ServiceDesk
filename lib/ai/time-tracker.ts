@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub, sqlColAddMinutes, sqlCastDate } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub, sqlColAddMinutes, sqlCastDate, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import type { User } from '../types/database';
 import logger from '../monitoring/structured-logger';
@@ -62,7 +62,7 @@ export class TimeTracker {
     try {
       // Get the tracking session
       const session = await executeQueryOne<any>(
-        `SELECT * FROM time_tracking WHERE id = ? AND user_id = ? AND is_active = 1`,
+        `SELECT * FROM time_tracking WHERE id = ? AND user_id = ? AND is_active = ${sqlTrue()}`,
         [trackingId, userId]
       );
 
@@ -81,7 +81,7 @@ export class TimeTracker {
         `UPDATE time_tracking
         SET ended_at = CURRENT_TIMESTAMP,
             total_minutes = ?,
-            is_active = 0,
+            is_active = ${sqlFalse()},
             stop_reason = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`,
@@ -167,7 +167,7 @@ export class TimeTracker {
     try {
       const inactiveSessions = await executeQuery<any>(
         `SELECT * FROM time_tracking
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
         AND ${sqlColAddMinutes('last_activity', 30)} < CURRENT_TIMESTAMP`,
         []
       );
@@ -478,7 +478,7 @@ export class TimeTracker {
   private async getActiveSession(userId: number): Promise<any> {
     return await executeQueryOne<any>(
       `SELECT * FROM time_tracking
-      WHERE user_id = ? AND is_active = 1
+      WHERE user_id = ? AND is_active = ${sqlTrue()}
       ORDER BY started_at DESC
       LIMIT 1`,
       [userId]

@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
 import { NotificationPayload } from './realtime-engine'
 import logger from '../monitoring/structured-logger';
@@ -211,7 +211,7 @@ export class EscalationManager {
   private async loadEscalationRules(): Promise<void> {
     try {
       const rules = await executeQuery<any>(`
-        SELECT * FROM escalation_rules WHERE is_active = 1
+        SELECT * FROM escalation_rules WHERE is_active = ${sqlTrue()}
         ORDER BY priority DESC
       `, [])
 

@@ -4,7 +4,7 @@ import { verifyPassword } from '@/lib/auth/auth-service';
 import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 
 interface TenantContext {
   id: number;
@@ -43,7 +43,7 @@ async function resolveTenantContext(request: NextRequest, tenantSlug?: string): 
 
   if (tenantSlug) {
     const org = await executeQueryOne<{ id: number; name: string; slug: string }>(
-      `SELECT id, name, slug FROM organizations WHERE slug = ? AND is_active = 1`
+      `SELECT id, name, slug FROM organizations WHERE slug = ? AND is_active = ${sqlTrue()}`
       ,
       [tenantSlug]
     );
@@ -57,7 +57,7 @@ async function resolveTenantContext(request: NextRequest, tenantSlug?: string): 
 
   if (process.env.NODE_ENV !== 'production') {
     const defaultOrg = await executeQueryOne<{ id: number; name: string; slug: string }>(
-      `SELECT id, name, slug FROM organizations WHERE is_active = 1 ORDER BY id LIMIT 1`
+      `SELECT id, name, slug FROM organizations WHERE is_active = ${sqlTrue()} ORDER BY id LIMIT 1`
     );
 
     if (defaultOrg) {
@@ -75,7 +75,7 @@ async function getUserByEmailForTenant(email: string, tenantId: number): Promise
       SELECT id, name, email, password_hash, role, organization_id,
              last_login_at, is_active, failed_login_attempts, locked_until
       FROM users
-      WHERE email = ? AND organization_id = ? AND is_active = 1
+      WHERE email = ? AND organization_id = ? AND is_active = ${sqlTrue()}
       `,
       [email, tenantId]
     );
@@ -85,7 +85,7 @@ async function getUserByEmailForTenant(email: string, tenantId: number): Promise
       SELECT id, name, email, password_hash, role, tenant_id AS organization_id,
              last_login_at, is_active, failed_login_attempts, locked_until
       FROM users
-      WHERE email = ? AND tenant_id = ? AND is_active = 1
+      WHERE email = ? AND tenant_id = ? AND is_active = ${sqlTrue()}
       `,
       [email, tenantId]
     );

@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 interface Tenant {
@@ -83,7 +83,7 @@ export class TenantManager {
       const tenant = await executeQueryOne<any>(
         `SELECT * FROM tenants
         WHERE (slug = ? OR domain = ? OR subdomain = ?)
-        AND is_active = 1`,
+        AND is_active = ${sqlTrue()}`,
         [identifier, identifier, identifier]
       )
 
@@ -106,7 +106,7 @@ export class TenantManager {
   async getTenantById(id: number): Promise<Tenant | null> {
     try {
       const tenant = await executeQueryOne<any>(
-        `SELECT * FROM tenants WHERE id = ? AND is_active = 1`,
+        `SELECT * FROM tenants WHERE id = ? AND is_active = ${sqlTrue()}`,
         [id]
       )
 
@@ -202,7 +202,7 @@ export class TenantManager {
         `SELECT t.*, u.name as manager_name
         FROM teams t
         LEFT JOIN users u ON t.manager_id = u.id
-        WHERE t.tenant_id = ? AND t.is_active = 1
+        WHERE t.tenant_id = ? AND t.is_active = ${sqlTrue()}
         ORDER BY t.sort_order, t.name`,
         [tenantId]
       )
@@ -228,7 +228,7 @@ export class TenantManager {
         `SELECT t.*, u.name as manager_name
         FROM teams t
         LEFT JOIN users u ON t.manager_id = u.id
-        WHERE t.id = ? AND t.tenant_id = ? AND t.is_active = 1`,
+        WHERE t.id = ? AND t.tenant_id = ? AND t.is_active = ${sqlTrue()}`,
         [teamId, tenantId]
       )
 
@@ -316,7 +316,7 @@ export class TenantManager {
         `SELECT tm.*, u.name, u.email, u.job_title
         FROM team_members tm
         JOIN users u ON tm.user_id = u.id
-        WHERE tm.team_id = ? AND tm.is_active = 1
+        WHERE tm.team_id = ? AND tm.is_active = ${sqlTrue()}
         ORDER BY
           CASE tm.role
             WHEN 'manager' THEN 1
@@ -345,7 +345,7 @@ export class TenantManager {
     try {
       return await executeQuery<TicketType>(
         `SELECT * FROM ticket_types
-        WHERE tenant_id = ? AND is_active = 1
+        WHERE tenant_id = ? AND is_active = ${sqlTrue()}
         ORDER BY sort_order, name`,
         [tenantId]
       )
@@ -362,7 +362,7 @@ export class TenantManager {
     try {
       return await executeQuery<TicketType>(
         `SELECT * FROM ticket_types
-        WHERE tenant_id = ? AND is_active = 1 AND customer_visible = 1
+        WHERE tenant_id = ? AND is_active = ${sqlTrue()} AND customer_visible = 1
         ORDER BY sort_order, name`,
         [tenantId]
       )

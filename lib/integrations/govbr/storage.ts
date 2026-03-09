@@ -3,8 +3,7 @@
  * Camada de persistência para dados do Gov.br
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { sqlDateSub } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse, sqlDateSub } from '@/lib/db/adapter';
 import type {
   GovBrIntegration,
   CreateGovBrIntegration
@@ -50,7 +49,7 @@ export async function getGovBrIntegrationById(id: number): Promise<GovBrIntegrat
 export async function getGovBrIntegrationByUserId(userId: number): Promise<GovBrIntegration | null> {
   const integration = await executeQueryOne<any>(`
     SELECT * FROM govbr_integrations
-    WHERE user_id = ? AND is_active = 1
+    WHERE user_id = ? AND is_active = ${sqlTrue()}
     ORDER BY created_at DESC
     LIMIT 1
   `, [userId]);
@@ -63,7 +62,7 @@ export async function getGovBrIntegrationByCpf(cpf: string): Promise<GovBrIntegr
 
   const integration = await executeQueryOne<any>(`
     SELECT * FROM govbr_integrations
-    WHERE cpf = ? AND is_active = 1
+    WHERE cpf = ? AND is_active = ${sqlTrue()}
     ORDER BY created_at DESC
     LIMIT 1
   `, [cleanCpf]);
@@ -97,7 +96,7 @@ export async function updateGovBrIntegration(integration: GovBrIntegration): Pro
 export async function deactivateGovBrIntegration(id: number): Promise<void> {
   await executeRun(`
     UPDATE govbr_integrations
-    SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+    SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `, [id]);
 }
@@ -105,7 +104,7 @@ export async function deactivateGovBrIntegration(id: number): Promise<void> {
 export async function getExpiredTokens(): Promise<GovBrIntegration[]> {
   const integrations = await executeQuery<any>(`
     SELECT * FROM govbr_integrations
-    WHERE is_active = 1
+    WHERE is_active = ${sqlTrue()}
       AND token_expires_at IS NOT NULL
       AND token_expires_at <= CURRENT_TIMESTAMP
   `, []);
@@ -121,7 +120,7 @@ export async function getUserByGovBrCpf(cpf: string): Promise<{ id: number; emai
     SELECT u.id, u.email, u.name
     FROM users u
     JOIN govbr_integrations g ON u.id = g.user_id
-    WHERE g.cpf = ? AND g.is_active = 1 AND u.is_active = 1
+    WHERE g.cpf = ? AND g.is_active = ${sqlTrue()} AND u.is_active = ${sqlTrue()}
     LIMIT 1
   `, [cleanCpf]);
 
@@ -146,7 +145,7 @@ export async function getGovBrStats(days = 30): Promise<{
   }>(`
     SELECT
       COUNT(*) as total_integrations,
-      SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_integrations,
+      SUM(CASE WHEN is_active = ${sqlTrue()} THEN 1 ELSE 0 END) as active_integrations,
       COUNT(CASE WHEN last_sync_at >= ${sqlDateSub(days)} THEN 1 END) as recent_logins
     FROM govbr_integrations
   `, []);
@@ -155,7 +154,7 @@ export async function getGovBrStats(days = 30): Promise<{
   const verificationStats = await executeQuery<{ verification_level: string; count: number }>(`
     SELECT verification_level, COUNT(*) as count
     FROM govbr_integrations
-    WHERE is_active = 1
+    WHERE is_active = ${sqlTrue()}
     GROUP BY verification_level
   `, []);
 
@@ -181,7 +180,7 @@ export async function getGovBrIntegrationsByVerificationLevel(
     SELECT g.*, u.name as user_name, u.email as user_email
     FROM govbr_integrations g
     JOIN users u ON g.user_id = u.id
-    WHERE g.verification_level LIKE ? AND g.is_active = 1
+    WHERE g.verification_level LIKE ? AND g.is_active = ${sqlTrue()}
     ORDER BY g.last_sync_at DESC
   `, [`%${level}%`]);
 

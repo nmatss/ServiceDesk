@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 import * as crypto from 'crypto';
-import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 import {
   User,
@@ -225,7 +225,7 @@ export async function getSession(sessionId: string): Promise<SessionData | null>
       last_activity: string;
       is_active: number;
     }>(`
-      SELECT * FROM user_sessions WHERE id = ? AND is_active = 1
+      SELECT * FROM user_sessions WHERE id = ? AND is_active = ${sqlTrue()}
     `, [sessionId]);
 
     if (!session) return null;
@@ -320,7 +320,7 @@ export async function saveSession(sessionData: SessionData): Promise<boolean> {
       INSERT INTO user_sessions (
         id, user_id, socket_id, user_agent, ip_address, is_active, last_activity
       ) VALUES (?, ?, ?, ?, ?, 1, ?)
-      ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, socket_id = EXCLUDED.socket_id, user_agent = EXCLUDED.user_agent, ip_address = EXCLUDED.ip_address, is_active = 1, last_activity = EXCLUDED.last_activity
+      ON CONFLICT (id) DO UPDATE SET user_id = EXCLUDED.user_id, socket_id = EXCLUDED.socket_id, user_agent = EXCLUDED.user_agent, ip_address = EXCLUDED.ip_address, is_active = ${sqlTrue()}, last_activity = EXCLUDED.last_activity
     `, [
       sessionData.sessionId,
       sessionData.userId,
@@ -349,7 +349,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
 
     // Remover do database
     const result = await executeRun(`
-      UPDATE user_sessions SET is_active = 0 WHERE id = ?
+      UPDATE user_sessions SET is_active = ${sqlFalse()} WHERE id = ?
     `, [sessionId]);
 
     // Log de auditoria
@@ -383,13 +383,13 @@ export async function deleteAllUserSessions(userId: number, exceptSessionId?: st
 
     // Atualizar database
     const whereClause = exceptSessionId
-      ? 'user_id = ? AND id != ? AND is_active = 1'
-      : 'user_id = ? AND is_active = 1';
+      ? `user_id = ? AND id != ? AND is_active = ${sqlTrue()}`
+      : `user_id = ? AND is_active = ${sqlTrue()}`;
 
     const params = exceptSessionId ? [userId, exceptSessionId] : [userId];
 
     const result = await executeRun(`
-      UPDATE user_sessions SET is_active = 0 WHERE ${whereClause}
+      UPDATE user_sessions SET is_active = ${sqlFalse()} WHERE ${whereClause}
     `, params);
 
     deletedCount = Math.max(deletedCount, result.changes ?? 0);
@@ -477,7 +477,7 @@ export async function getUserActiveSessions(userId: number): Promise<ActiveSessi
         is_active: number;
       }>(`
         SELECT * FROM user_sessions
-        WHERE user_id = ? AND is_active = 1
+        WHERE user_id = ? AND is_active = ${sqlTrue()}
         ORDER BY last_activity DESC
       `, [userId]);
 
@@ -677,8 +677,8 @@ export async function cleanupExpiredSessions(): Promise<number> {
       : `datetime(last_activity, '+8 hours') < datetime('now')`;
     const result = await executeRun(`
       UPDATE user_sessions
-      SET is_active = 0
-      WHERE is_active = 1
+      SET is_active = ${sqlFalse()}
+      WHERE is_active = ${sqlTrue()}
         AND ${expiredCondition}
     `, []);
 
@@ -703,7 +703,7 @@ export async function enforceSessionLimits(userId: number, maxSessions: number =
     }>(`
       SELECT id, user_agent, ip_address, last_activity
       FROM user_sessions
-      WHERE user_id = ? AND is_active = 1
+      WHERE user_id = ? AND is_active = ${sqlTrue()}
       ORDER BY last_activity ASC
     `, [userId]);
 
@@ -716,7 +716,7 @@ export async function enforceSessionLimits(userId: number, maxSessions: number =
 
     // Delete sessions from database
     for (const session of sessionsToRemove) {
-      await executeRun('UPDATE user_sessions SET is_active = 0 WHERE id = ?', [session.id]);
+      await executeRun(`UPDATE user_sessions SET is_active = ${sqlFalse()} WHERE id = ?`, [session.id]);
     }
 
     const removedSessionIds = sessionsToRemove.map(s => s.id);
@@ -782,7 +782,7 @@ export async function getSessionAnalytics(userId?: number): Promise<SessionAnaly
       // Sessoes ativas
       const activeResult = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count FROM user_sessions
-        ${whereClause} ${whereClause ? 'AND' : 'WHERE'} is_active = 1
+        ${whereClause} ${whereClause ? 'AND' : 'WHERE'} is_active = ${sqlTrue()}
       `, params);
       analytics.activeSessions = activeResult?.count ?? 0;
     }

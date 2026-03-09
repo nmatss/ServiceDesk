@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { Template, CreateTemplate, TemplateWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -325,7 +325,7 @@ export async function getPopularTemplates(limit: number = 10): Promise<TemplateW
       FROM templates t
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.created_by = u.id
-      WHERE t.is_active = 1
+      WHERE t.is_active = ${sqlTrue()}
       ORDER BY t.usage_count DESC, t.created_at DESC
       LIMIT ?
     `, [limit]);
@@ -351,7 +351,7 @@ export async function getTemplatesByTags(tags: string[]): Promise<TemplateWithDe
       FROM templates t
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN users u ON t.created_by = u.id
-      WHERE t.is_active = 1 AND t.tags IS NOT NULL
+      WHERE t.is_active = ${sqlTrue()} AND t.tags IS NOT NULL
     `);
 
     // Filtrar por tags

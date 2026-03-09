@@ -23,7 +23,7 @@
  * @module lib/auth/rbac-engine
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '../db/adapter';
 import { Permission, Role } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -119,7 +119,7 @@ export class RBACEngine {
       INNER JOIN user_roles ur ON rp.role_id = ur.role_id
       WHERE ur.user_id = ?
         AND ur.organization_id = ?
-        AND ur.is_active = 1
+        AND ur.is_active = ${sqlTrue()}
         AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
         AND p.organization_id = ?
       ORDER BY p.resource, p.action
@@ -141,9 +141,9 @@ export class RBACEngine {
       INNER JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ?
         AND ur.organization_id = ?
-        AND ur.is_active = 1
+        AND ur.is_active = ${sqlTrue()}
         AND (ur.expires_at IS NULL OR ur.expires_at > CURRENT_TIMESTAMP)
-        AND r.is_active = 1
+        AND r.is_active = ${sqlTrue()}
       ORDER BY r.name
     `;
 
@@ -177,7 +177,7 @@ export class RBACEngine {
         INSERT INTO user_roles (user_id, role_id, organization_id, granted_by, expires_at)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(user_id, role_id) DO UPDATE SET
-          is_active = 1,
+          is_active = ${sqlTrue()},
           expires_at = excluded.expires_at,
           granted_by = excluded.granted_by
       `, [userId, roleId, organizationId, grantedBy, expiresAt || null]);
@@ -199,7 +199,7 @@ export class RBACEngine {
     try {
       const result = await executeRun(`
         UPDATE user_roles
-        SET is_active = 0
+        SET is_active = ${sqlFalse()}
         WHERE user_id = ? AND role_id = ? AND organization_id = ?
       `, [userId, roleId, organizationId]);
 
@@ -377,7 +377,7 @@ export class RBACEngine {
         AND resource_id = ?
         AND action = ?
         AND organization_id = ?
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
       LIMIT 1
     `;
@@ -553,7 +553,7 @@ export class RBACEngine {
       SELECT * FROM row_level_policies
       WHERE table_name = ?
         AND policy_type = ?
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
         AND (
           user_id = ?
           OR role_id IN (${roleIds.map(() => '?').join(',')})
@@ -668,7 +668,7 @@ export class RBACEngine {
       INNER JOIN time_based_permissions tbp ON p.id = tbp.permission_id
       WHERE tbp.user_id = ?
         AND tbp.organization_id = ?
-        AND tbp.is_active = 1
+        AND tbp.is_active = ${sqlTrue()}
         AND (
           tbp.day_of_week IS NULL OR tbp.day_of_week = ?
         )
@@ -800,7 +800,7 @@ export class RBACEngine {
         VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, resource_type, resource_id, action)
         DO UPDATE SET
-          is_active = 1,
+          is_active = ${sqlTrue()},
           granted_by = excluded.granted_by,
           expires_at = excluded.expires_at,
           updated_at = CURRENT_TIMESTAMP
@@ -845,7 +845,7 @@ export class RBACEngine {
     try {
       const result = await executeRun(`
         UPDATE resource_permissions
-        SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+        SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
         WHERE user_id = ?
           AND resource_type = ?
           AND resource_id = ?

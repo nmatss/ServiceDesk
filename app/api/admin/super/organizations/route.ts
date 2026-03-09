@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
-import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const ALLOWED_SORT_COLUMNS: Record<string, string> = {
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (status === 'active') {
-      conditions.push('o.is_active = 1');
+      conditions.push(`o.is_active = ${sqlTrue()}`);
     } else if (status === 'suspended') {
-      conditions.push('o.is_active = 0');
+      conditions.push(`o.is_active = ${sqlFalse()}`);
     }
 
     if (plan && ['basic', 'professional', 'enterprise'].includes(plan)) {

@@ -1,5 +1,5 @@
 import { NotificationPayload } from './realtime-engine'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
@@ -121,7 +121,7 @@ export class NotificationBatchingEngine {
       }
 
       const configs = await executeQuery<BatchConfigRow>(`
-        SELECT * FROM batch_configurations WHERE is_active = 1
+        SELECT * FROM batch_configurations WHERE is_active = ${sqlTrue()}
       `, [])
 
       for (const config of configs) {

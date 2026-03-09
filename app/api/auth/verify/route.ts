@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { verifyAccessToken } from '@/lib/auth/token-manager';
-import { executeQueryOne } from '@/lib/db/adapter';
+import { executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 
 async function verifyTokenString(token?: string | null) {
   if (!token) {
@@ -25,7 +25,7 @@ function tokenFromCookieHeader(cookieHeader: string | null): string | null {
 
 async function isActiveUser(userId: number, tenantId: number): Promise<boolean> {
   const user = await executeQueryOne<{ id: number }>(
-    `SELECT id FROM users WHERE id = ? AND is_active = 1 AND (organization_id = ? OR tenant_id = ?)`,
+    `SELECT id FROM users WHERE id = ? AND is_active = ${sqlTrue()} AND (organization_id = ? OR tenant_id = ?)`,
     [userId, tenantId, tenantId]
   );
   return !!user;

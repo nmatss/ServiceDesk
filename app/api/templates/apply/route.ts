@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/auth-service';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Buscar template
     const template = await executeQueryOne(`
       SELECT * FROM templates
-      WHERE id = ? AND is_active = 1
+      WHERE id = ? AND is_active = ${sqlTrue()}
     `, [template_id]);
 
     if (!template) {
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
     // Buscar template
     const template = await executeQueryOne(`
       SELECT * FROM templates
-      WHERE id = ? AND is_active = 1
+      WHERE id = ? AND is_active = ${sqlTrue()}
     `, [parseInt(templateId)]);
 
     if (!template) {

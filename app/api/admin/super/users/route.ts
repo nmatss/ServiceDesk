@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireSuperAdmin } from '@/lib/auth/super-admin-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 const ALLOWED_SORT_COLUMNS: Record<string, string> = {
@@ -59,9 +59,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (status === 'active') {
-      conditions.push('u.is_active = 1');
+      conditions.push(`u.is_active = ${sqlTrue()}`);
     } else if (status === 'inactive') {
-      conditions.push('u.is_active = 0');
+      conditions.push(`u.is_active = ${sqlFalse()}`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

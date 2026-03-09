@@ -3,7 +3,7 @@
  * ITIL 4 Compliant - Adapter Pattern
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlCastDate, sqlCurrentDate, sqlDateAdd } from '../adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlCastDate, sqlCurrentDate, sqlDateAdd, sqlTrue } from '../adapter';
 import type {
   CIType,
   CIStatus,
@@ -70,7 +70,7 @@ export async function listCITypes(organizationId?: number): Promise<CIType[]> {
   if (organizationId !== undefined) {
     return executeQuery<CIType>(
       `SELECT * FROM ci_types
-       WHERE organization_id = ? AND is_active = 1
+       WHERE organization_id = ? AND is_active = ${sqlTrue()}
        ORDER BY name`,
       [organizationId]
     );
@@ -78,7 +78,7 @@ export async function listCITypes(organizationId?: number): Promise<CIType[]> {
 
   return executeQuery<CIType>(
     `SELECT * FROM ci_types
-     WHERE is_active = 1
+     WHERE is_active = ${sqlTrue()}
      ORDER BY name`
   );
 }
@@ -231,7 +231,7 @@ export async function createCIStatus(input: CreateCIStatus): Promise<CIStatus> {
 export async function listCIRelationshipTypes(): Promise<CIRelationshipType[]> {
   return executeQuery<CIRelationshipType>(
     `SELECT * FROM ci_relationship_types
-     WHERE is_active = 1
+     WHERE is_active = ${sqlTrue()}
      ORDER BY name`
   );
 }
@@ -838,7 +838,7 @@ export async function listCIRelationships(ciId: number): Promise<CIRelationshipW
      LEFT JOIN configuration_items src ON r.source_ci_id = src.id
      LEFT JOIN configuration_items tgt ON r.target_ci_id = tgt.id
      LEFT JOIN ci_relationship_types rt ON r.relationship_type_id = rt.id
-     WHERE (r.source_ci_id = ? OR r.target_ci_id = ?) AND r.is_active = 1
+     WHERE (r.source_ci_id = ? OR r.target_ci_id = ?) AND r.is_active = ${sqlTrue()}
      ORDER BY r.created_at DESC`,
     [ciId, ciId]
   );
@@ -1000,7 +1000,7 @@ export async function getImpactAnalysis(
   const getDependentCIs = async (targetId: number): Promise<number[]> => {
     const relationships = await executeQuery<{ source_ci_id: number }>(
       `SELECT DISTINCT source_ci_id FROM ci_relationships
-       WHERE target_ci_id = ? AND is_active = 1`,
+       WHERE target_ci_id = ? AND is_active = ${sqlTrue()}`,
       [targetId]
     );
     return relationships.map((r) => r.source_ci_id);

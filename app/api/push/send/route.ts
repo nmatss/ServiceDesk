@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeRun, sqlTrue, sqlFalse } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import webpush from 'web-push';
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         auth_key
       FROM push_subscriptions
       WHERE user_id IN (${placeholders})
-        AND is_active = 1
+        AND is_active = ${sqlTrue()}
     `, targetUserIds);
 
     if (subscriptions.length === 0) {
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
           if (error.statusCode === 410) {
             await executeRun(`
               UPDATE push_subscriptions
-              SET is_active = 0,
+              SET is_active = ${sqlFalse()},
                   updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
             `, [subscription.id]);

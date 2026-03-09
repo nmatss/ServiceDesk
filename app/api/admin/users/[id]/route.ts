@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth/auth-service';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -311,13 +311,13 @@ export async function DELETE(
     try {
       success = (await executeRun(`
         UPDATE users
-        SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+        SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND organization_id = ?
       `, [userId, user.organization_id])).changes > 0;
     } catch {
       success = (await executeRun(`
         UPDATE users
-        SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+        SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND tenant_id = ?
       `, [userId, user.organization_id])).changes > 0;
     }

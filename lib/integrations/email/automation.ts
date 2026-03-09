@@ -11,8 +11,7 @@
  * - Email threading and conversation tracking
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlNow } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { emailParser, ParsedEmail } from './parser';
 import { emailSender } from './sender';
@@ -365,7 +364,7 @@ export class EmailAutomation {
     try {
       const rules = await executeQuery<any>(
         `SELECT * FROM email_automation_rules
-         WHERE tenant_id = ? AND trigger_type = ? AND is_active = 1
+         WHERE tenant_id = ? AND trigger_type = ? AND is_active = ${sqlTrue()}
          ORDER BY priority DESC, id ASC`,
         [tenantId, triggerType]
       );

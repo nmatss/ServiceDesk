@@ -1,5 +1,4 @@
-import { executeQuery, executeRun } from '../db/adapter';
-import { sqlNow } from '../db/adapter';
+import { executeQuery, executeRun, sqlTrue, sqlNow } from '../db/adapter';
 import crypto from 'crypto';
 import logger from '../monitoring/structured-logger';
 
@@ -51,12 +50,12 @@ export class WebhookManager {
     // Buscar webhooks ativos para este evento
     const webhooks = await executeQuery<any>(
       `SELECT * FROM webhooks
-       WHERE is_active = 1
+       WHERE is_active = ${sqlTrue()}
          AND (
            integration_id IS NULL
            OR integration_id IN (
              SELECT id FROM integrations
-             WHERE organization_id = ? AND is_active = 1
+             WHERE organization_id = ? AND is_active = ${sqlTrue()}
            )
          )
          AND event_types LIKE ?`,

@@ -3,7 +3,7 @@
  * ITIL 4 Compliant - Adapter Pattern
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlDateDiff } from '../adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlDateDiff, sqlTrue } from '../adapter';
 import type {
   ChangeType,
   ChangeRequest,
@@ -569,7 +569,7 @@ export async function listChangeTypes(
 ): Promise<ChangeType[]> {
   return executeQuery<ChangeType>(
     `SELECT * FROM change_types
-     WHERE organization_id = ? AND is_active = 1
+     WHERE organization_id = ? AND is_active = ${sqlTrue()}
      ORDER BY name`,
     [organizationId]
   );

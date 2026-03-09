@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateDiff, sqlColSubMinutes } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateDiff, sqlColSubMinutes, sqlTrue } from '@/lib/db/adapter';
 import { SLAPolicy, SLATracking, CreateSLAPolicy } from '../types/database';
 import logger from '../monitoring/structured-logger';
 import { triggerSLABreach, triggerSLAWarning } from '../automations';
@@ -205,7 +205,7 @@ export async function findApplicableSLAPolicy(priorityId: number, categoryId?: n
     if (categoryId) {
       const specificPolicy = await executeQueryOne<SLAPolicy>(`
         SELECT * FROM sla_policies
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
           AND priority_id = ?
           AND category_id = ?
         ORDER BY id
@@ -218,7 +218,7 @@ export async function findApplicableSLAPolicy(priorityId: number, categoryId?: n
     // Senao, busca politica geral para a prioridade
     const generalPolicy = await executeQueryOne<SLAPolicy>(`
       SELECT * FROM sla_policies
-      WHERE is_active = 1
+      WHERE is_active = ${sqlTrue()}
         AND priority_id = ?
         AND category_id IS NULL
       ORDER BY id
@@ -717,7 +717,7 @@ export async function updateTicketSLAStatus(ticketId: number): Promise<boolean> 
 export async function assignSLAPolicyToTicket(ticketId: number, policyId: number): Promise<boolean> {
   try {
     const policy = await executeQueryOne<SLAPolicy>(
-      'SELECT * FROM sla_policies WHERE id = ? AND is_active = 1',
+      `SELECT * FROM sla_policies WHERE id = ? AND is_active = ${sqlTrue()}`,
       [policyId]
     );
 

@@ -13,8 +13,7 @@
  */
 
 import * as Handlebars from 'handlebars';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { sqlNow } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue, sqlNow } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
 export interface EmailTemplate {
@@ -271,7 +270,7 @@ export class TemplateEngine {
         tenant_id?: number;
       }>(
         `SELECT * FROM email_templates
-         WHERE code = ? AND language = ? AND is_active = 1
+         WHERE code = ? AND language = ? AND is_active = ${sqlTrue()}
          LIMIT 1`,
         [code, language]
       );

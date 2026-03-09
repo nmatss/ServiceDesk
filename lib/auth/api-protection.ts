@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomBytes } from 'crypto';
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '../db/adapter';
 import { rbac as rbacEngine } from './rbac-engine';
 import logger from '../monitoring/structured-logger';
 
@@ -209,7 +209,7 @@ class APIProtectionManager {
   async revokeAPIKey(keyId: string): Promise<boolean> {
     try {
       const result = await executeRun(`
-        UPDATE api_keys SET is_active = 0 WHERE id = ?
+        UPDATE api_keys SET is_active = ${sqlFalse()} WHERE id = ?
       `, [keyId]);
       return (result.changes ?? 0) > 0;
     } catch (error) {
@@ -255,7 +255,7 @@ class APIProtectionManager {
 
       const keyRecord = await executeQueryOne<any>(`
         SELECT * FROM api_keys
-        WHERE key_hash = ? AND is_active = 1
+        WHERE key_hash = ? AND is_active = ${sqlTrue()}
           AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
       `, [keyHash]);
 

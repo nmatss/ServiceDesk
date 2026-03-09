@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne, sqlCurrentDate, sqlCastDate, sqlDateSub, sqlStartOfMonth } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlCurrentDate, sqlCastDate, sqlDateSub, sqlStartOfMonth, sqlTrue } from '@/lib/db/adapter';
 import { demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
 import { logger } from '@/lib/monitoring/logger';
 import { getFromCache, setCache } from '@/lib/cache/lru-cache';
@@ -224,7 +224,7 @@ async function getKPISummary(): Promise<KPISummaryData> {
     agents AS (
       SELECT COUNT(DISTINCT user_id) as active_agents
       FROM user_sessions
-      WHERE is_active = 1
+      WHERE is_active = ${sqlTrue()}
     ),
     open AS (
       SELECT COUNT(*) as open_tickets

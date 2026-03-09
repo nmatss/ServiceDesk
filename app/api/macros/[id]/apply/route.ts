@@ -8,7 +8,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isPrivileged } from '@/lib/auth/roles';
@@ -49,7 +49,7 @@ export async function POST(
     }
 
     // Get macro scoped to organization
-    const macro = await executeQueryOne<any>('SELECT * FROM macros WHERE id = ? AND is_active = 1 AND organization_id = ?', [macroId, auth.organizationId]);
+    const macro = await executeQueryOne<any>(`SELECT * FROM macros WHERE id = ? AND is_active = ${sqlTrue()} AND organization_id = ?`, [macroId, auth.organizationId]);
     if (!macro) {
       return NextResponse.json(
         { error: 'Macro not found' },

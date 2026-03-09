@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isAdmin } from '@/lib/auth/roles';
 import { apiError } from '@/lib/api/api-helpers';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     const stats = await executeQueryOne(`
       SELECT
         COUNT(*) as total_automations,
-        COUNT(CASE WHEN a.is_active = 1 THEN 1 END) as active_automations,
+        COUNT(CASE WHEN a.is_active = ${sqlTrue()} THEN 1 END) as active_automations,
         SUM(a.execution_count) as total_executions
       FROM automations a
       LEFT JOIN users u ON a.created_by = u.id

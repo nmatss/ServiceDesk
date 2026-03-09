@@ -3,7 +3,7 @@
  * Manages composite indexes, analyzes usage patterns, and optimizes database performance
  */
 
-import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 
 export interface IndexInfo {
@@ -243,7 +243,7 @@ export class IndexManager {
         name: 'idx_user_sessions_enterprise_active',
         sql: `CREATE INDEX IF NOT EXISTS idx_user_sessions_enterprise_active
               ON user_sessions(user_id, is_active, last_activity DESC)
-              WHERE is_active = 1`
+              WHERE is_active = ${sqlTrue()}`
       },
 
       // Workflow and automation indexes
@@ -256,7 +256,7 @@ export class IndexManager {
         name: 'idx_automations_enterprise_trigger',
         sql: `CREATE INDEX IF NOT EXISTS idx_automations_enterprise_trigger
               ON automations(trigger_type, is_active, priority DESC)
-              WHERE is_active = 1`
+              WHERE is_active = ${sqlTrue()}`
       }
     ];
 

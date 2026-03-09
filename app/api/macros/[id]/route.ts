@@ -8,7 +8,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
@@ -203,7 +203,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Soft delete by setting is_active to false
-    await executeRun('UPDATE macros SET is_active = 0 WHERE id = ? AND organization_id = ?', [macroId, organizationId]);
+    await executeRun(`UPDATE macros SET is_active = ${sqlFalse()} WHERE id = ? AND organization_id = ?`, [macroId, organizationId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

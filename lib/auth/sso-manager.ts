@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '../db/adapter';
 import { User } from '../types/database';
 import { createUser, getUserByEmail } from './sqlite-auth';
 import logger from '../monitoring/structured-logger';
@@ -69,7 +69,7 @@ class SSOManager {
     try {
       const providers = await executeQuery<any>(`
         SELECT * FROM sso_providers
-        WHERE is_active = 1
+        WHERE is_active = ${sqlTrue()}
         ORDER BY name
       `, []);
 
@@ -91,7 +91,7 @@ class SSOManager {
     try {
       const provider = await executeQueryOne<any>(`
         SELECT * FROM sso_providers
-        WHERE name = ? AND is_active = 1
+        WHERE name = ? AND is_active = ${sqlTrue()}
       `, [name]);
 
       if (!provider) return null;

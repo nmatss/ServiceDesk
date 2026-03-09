@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow, type DatabaseAdapter } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow, type DatabaseAdapter, sqlTrue, sqlFalse } from '../db/adapter';
 import logger from '../monitoring/structured-logger';
 import type {
   Permission,
@@ -140,7 +140,7 @@ export async function getRoleByName(name: string): Promise<Role | null> {
 
 export async function getAllRoles(): Promise<Role[]> {
   try {
-    return await executeQuery<Role>('SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE is_active = 1 ORDER BY display_name', []);
+    return await executeQuery<Role>(`SELECT id, name, display_name, description, is_system, is_active, created_at, updated_at FROM roles WHERE is_active = ${sqlTrue()} ORDER BY display_name`, []);
   } catch (error) {
     logger.error('Error getting all roles', error);
     return [];
@@ -272,7 +272,7 @@ export async function assignRoleToUser(
     const result = await executeRun(`
       INSERT INTO user_roles (user_id, role_id, granted_by, expires_at, is_active)
       VALUES (?, ?, ?, ?, 1)
-      ON CONFLICT (user_id, role_id) DO UPDATE SET granted_by = EXCLUDED.granted_by, expires_at = EXCLUDED.expires_at, is_active = 1
+      ON CONFLICT (user_id, role_id) DO UPDATE SET granted_by = EXCLUDED.granted_by, expires_at = EXCLUDED.expires_at, is_active = ${sqlTrue()}
     `, [userId, roleId, grantedBy, expiresAt]);
 
     return result.changes > 0;
@@ -286,7 +286,7 @@ export async function removeRoleFromUser(userId: number, roleId: number): Promis
   try {
     const result = await executeRun(`
       UPDATE user_roles
-      SET is_active = 0
+      SET is_active = ${sqlFalse()}
       WHERE user_id = ? AND role_id = ?
     `, [userId, roleId]);
 
@@ -303,8 +303,8 @@ export async function getUserRoles(userId: number): Promise<Role[]> {
       SELECT r.id, r.name, r.display_name, r.description, r.is_system, r.is_active, r.created_at, r.updated_at FROM roles r
       JOIN user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ?
-        AND ur.is_active = 1
-        AND r.is_active = 1
+        AND ur.is_active = ${sqlTrue()}
+        AND r.is_active = ${sqlTrue()}
         AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
       ORDER BY r.display_name
     `, [userId]);
@@ -321,7 +321,7 @@ export async function getUserPermissions(userId: number): Promise<Permission[]> 
       JOIN role_permissions rp ON p.id = rp.permission_id
       JOIN user_roles ur ON rp.role_id = ur.role_id
       WHERE ur.user_id = ?
-        AND ur.is_active = 1
+        AND ur.is_active = ${sqlTrue()}
         AND (ur.expires_at IS NULL OR ur.expires_at > ${sqlNow()})
       ORDER BY p.resource, p.action
     `, [userId]);
@@ -335,14 +335,14 @@ export async function setUserRoles(userId: number, roleIds: number[], grantedBy?
   try {
     await executeTransaction(async (db) => {
       // Desativar todas as roles existentes
-      await db.run('UPDATE user_roles SET is_active = 0 WHERE user_id = ?', [userId]);
+      await db.run(`UPDATE user_roles SET is_active = ${sqlFalse()} WHERE user_id = ?`, [userId]);
 
       // Adicionar novas roles
       for (const roleId of roleIds) {
         await db.run(`
           INSERT INTO user_roles (user_id, role_id, granted_by, is_active)
           VALUES (?, ?, ?, 1)
-          ON CONFLICT (user_id, role_id) DO UPDATE SET granted_by = EXCLUDED.granted_by, is_active = 1
+          ON CONFLICT (user_id, role_id) DO UPDATE SET granted_by = EXCLUDED.granted_by, is_active = ${sqlTrue()}
         `, [userId, roleId, grantedBy]);
       }
     });

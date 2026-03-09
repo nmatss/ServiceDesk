@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
-import { executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlNow, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -185,7 +185,7 @@ export async function DELETE(
     // Soft delete (mark as inactive) instead of hard delete
     await executeRun(`
       UPDATE email_templates
-      SET is_active = 0, updated_at = ${sqlNow()}
+      SET is_active = ${sqlFalse()}, updated_at = ${sqlNow()}
       WHERE id = ?
     `, [templateId]);
 

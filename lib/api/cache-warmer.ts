@@ -3,7 +3,7 @@
  * Preloads critical caches on server start for optimal performance
  */
 
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, sqlTrue } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger'
 
 /**
@@ -34,7 +34,7 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm priorities cache
     try {
       const priorityStart = Date.now()
-      const priorities = await executeQuery('SELECT * FROM priorities WHERE is_active = 1')
+      const priorities = await executeQuery(`SELECT * FROM priorities WHERE is_active = ${sqlTrue()}`)
       results.push({
         cache: 'priorities',
         status: 'success',
@@ -49,7 +49,7 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm categories cache
     try {
       const categoryStart = Date.now()
-      const categories = await executeQuery('SELECT * FROM categories WHERE is_active = 1')
+      const categories = await executeQuery(`SELECT * FROM categories WHERE is_active = ${sqlTrue()}`)
       results.push({
         cache: 'categories',
         status: 'success',
@@ -87,7 +87,7 @@ export async function warmCriticalCaches(): Promise<void> {
       const catalogStart = Date.now()
       const catalogItems = await executeQuery(
         `SELECT * FROM service_catalog_items
-         WHERE is_active = 1
+         WHERE is_active = ${sqlTrue()}
          ORDER BY is_featured DESC, display_order ASC`
       )
       results.push({
@@ -104,7 +104,7 @@ export async function warmCriticalCaches(): Promise<void> {
     // Warm active teams
     try {
       const teamsStart = Date.now()
-      const teams = await executeQuery('SELECT * FROM teams WHERE is_active = 1')
+      const teams = await executeQuery(`SELECT * FROM teams WHERE is_active = ${sqlTrue()}`)
       results.push({
         cache: 'teams',
         status: 'success',

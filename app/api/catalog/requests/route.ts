@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
       estimated_fulfillment_time: number | null
       fulfillment_team_id: number | null
     }>(
-      `SELECT * FROM service_catalog_items WHERE id = ? AND is_active = 1`,
+      `SELECT * FROM service_catalog_items WHERE id = ? AND is_active = ${sqlTrue()}`,
       [data.catalog_item_id]
     )
 

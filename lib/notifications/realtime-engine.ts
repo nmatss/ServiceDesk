@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket as BaseSocket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '@/lib/db/adapter'
 import { verifyToken } from '@/lib/auth/auth-service'
 import { NotificationChannelManager } from './channels'
 import { NotificationBatchingEngine } from './batching'
@@ -529,7 +529,7 @@ export class RealtimeNotificationEngine {
       const placeholders = roles.map(() => '?').join(',')
       const users = await executeQuery<{ id: number }>(`
         SELECT id FROM users
-        WHERE role IN (${placeholders}) AND is_active = 1
+        WHERE role IN (${placeholders}) AND is_active = ${sqlTrue()}
       `, roles)
 
       return users.map(u => u.id)
@@ -542,7 +542,7 @@ export class RealtimeNotificationEngine {
   private async getAllActiveUsers(): Promise<number[]> {
     try {
       const users = await executeQuery<{ id: number }>(`
-        SELECT id FROM users WHERE is_active = 1
+        SELECT id FROM users WHERE is_active = ${sqlTrue()}
       `, [])
 
       return users.map(u => u.id)
@@ -638,7 +638,7 @@ export class RealtimeNotificationEngine {
     try {
       await executeRun(`
         UPDATE user_sessions
-        SET is_active = 0, disconnected_at = CURRENT_TIMESTAMP
+        SET is_active = ${sqlFalse()}, disconnected_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `, [socketId])
     } catch (error) {
