@@ -1,559 +1,451 @@
-# ServiceDesk - Enterprise Help Desk & Ticket Management System
+# ServiceDesk - Enterprise ITSM & Help Desk Platform
 
-[![CI Pipeline](https://github.com/YOUR_USERNAME/ServiceDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/ServiceDesk/actions/workflows/ci.yml)
-[![Security Scanning](https://github.com/YOUR_USERNAME/ServiceDesk/actions/workflows/security.yml/badge.svg)](https://github.com/YOUR_USERNAME/ServiceDesk/actions/workflows/security.yml)
-[![Deploy Staging](https://github.com/YOUR_USERNAME/ServiceDesk/actions/workflows/deploy-staging.yml/badge.svg)](https://github.com/YOUR_USERNAME/ServiceDesk/actions/workflows/deploy-staging.yml)
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/ServiceDesk/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/ServiceDesk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-> A modern, production-ready help desk and ticket management system built with Next.js 15, TypeScript, and enterprise-grade features including multi-tenancy, advanced security, real-time notifications, and comprehensive monitoring.
-
-## Features
-
-### Core Ticket Management
-- Create, track, and manage support tickets with full lifecycle management
-- Advanced categorization with customizable categories and priorities
-- SLA policies with automatic tracking and breach detection
-- Rich text editor for ticket descriptions and comments
-- File attachments with multi-cloud storage support (S3, GCS, Azure)
-- Smart ticket assignment and workload distribution
-- Ticket templates for common issues
-
-### User & Access Management
-- Role-based access control (RBAC) with granular permissions
-- Multi-factor authentication (2FA/TOTP, WebAuthn/FIDO2)
-- Single Sign-On (SSO) with OAuth2, SAML, LDAP, Gov.br
-- Password policies with complexity requirements and expiration
-- Account lockout protection with rate limiting
-- Audit logging for compliance (LGPD/GDPR compliant)
-
-### Real-time Features
-- Live notifications via WebSockets
-- Real-time ticket updates across users
-- SLA deadline warnings and alerts
-- Push notifications (Web Push API)
-- Email notifications with customizable templates
-
-### Knowledge Base
-- Searchable knowledge base with full-text search
-- Article version control and approval workflow
-- Article ratings and feedback
-- AI-powered duplicate detection
-- Markdown support with syntax highlighting
-
-### Analytics & Reporting
-- Real-time dashboards with Recharts
-- Agent performance metrics
-- Ticket trend analysis
-- SLA compliance reports
-- Customer satisfaction surveys (CSAT)
-- Exportable reports (CSV, PDF)
-
-### Automation & Workflows
-- Automated ticket routing and assignment
-- Custom automation rules with condition builders
-- Email notifications and webhooks
-- Escalation workflows
-- Scheduled tasks and reminders
-
-### Multi-tenancy
-- Full organization isolation
-- Tenant-specific branding and configuration
-- Subdomain routing support
-- Per-tenant resource quotas
-- Centralized tenant management
-
-### Super Admin Area
-- **Organization Management**: Full CRUD for tenant organizations with suspend/reactivate
-- **Global Dashboard**: Cross-tenant stats, alerts, and recent activity monitoring
-- **Cross-Tenant Users**: View and manage users across all organizations (reset password, change role, deactivate)
-- **System Audit Logs**: Cross-tenant audit trail with advanced filters (date range, org, action type)
-- **System Settings**: Global configuration (maintenance mode, limits, SMTP, security policies)
-- **Access Control**: Restricted to organization #1 (master org) or `super_admin` role
-
-### Integrations
-- **Government SSO**: Gov.br integration for Brazilian public sector
-- **Communication**: WhatsApp Business API for ticket creation
-- **External Services**: Slack, Discord, Jira, Zendesk
-- **Email**: SMTP, SendGrid, Mailgun, AWS SES
-- **AI**: OpenAI integration for classification and sentiment analysis
-- **Search**: Elasticsearch for advanced search capabilities
-
-### Enterprise Security
-- JWT-based authentication with refresh tokens
-- HTTPS-only with strict CSP headers
-- SQL injection protection with prepared statements
-- XSS protection with input sanitization
-- CSRF protection
-- Rate limiting on all endpoints
-- Security headers (Helmet.js)
-- Secrets encryption at rest
-- Regular security scanning (Snyk, Trivy, CodeQL)
-
-### Monitoring & Observability
-- **APM**: Datadog integration for distributed tracing
-- **Error Tracking**: Sentry with source maps
-- **Metrics**: Prometheus with custom metrics
-- **Visualization**: Grafana dashboards
-- **Logging**: Structured logging with Pino
-- **Health Checks**: Kubernetes-ready health endpoints
-
-### Performance
-- Redis caching with LRU eviction
-- Database query optimization with indexes
-- CDN support for static assets
-- Image optimization with Sharp
-- Code splitting and lazy loading
-- Service workers for offline support
-- Progressive Web App (PWA) features
-
-### Accessibility
-- WCAG 2.1 Level AA compliant
-- Screen reader support with ARIA labels
-- Keyboard navigation
-- High contrast mode
-- Focus management
-- Automated accessibility testing
-
-## Technology Stack
-
-### Frontend
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript 5
-- **Styling**: Tailwind CSS 3 with custom design system
-- **UI Components**: Headless UI, Radix UI
-- **Icons**: Heroicons, Lucide React
-- **Forms**: React Hook Form with Zod validation
-- **Rich Text**: React Quill
-- **Charts**: Recharts
-- **Animations**: Framer Motion
-- **Real-time**: Socket.io Client
-
-### Backend
-- **Runtime**: Node.js 20
-- **Framework**: Next.js 15 API Routes
-- **Database**: SQLite (dev), PostgreSQL 16 (production)
-- **ORM**: Custom query builder with TypeScript
-- **Cache**: Redis 7 with ioredis
-- **Authentication**: JWT with NextAuth.js 5
-- **Real-time**: Socket.io
-- **Email**: Nodemailer
-- **File Storage**: Local, AWS S3, GCS, Azure Blob
-- **Queue**: Bull (Redis-based)
-- **Search**: Fuse.js (built-in), Elasticsearch (optional)
-
-### DevOps & Infrastructure
-- **Containerization**: Docker multi-stage builds
-- **Orchestration**: Kubernetes with Helm charts
-- **IaC**: Terraform for AWS, Azure, GCP
-- **CI/CD**: GitHub Actions with automated deployments
-- **Monitoring**: Prometheus, Grafana, Datadog
-- **Error Tracking**: Sentry
-- **CDN**: Cloudflare support
-- **Reverse Proxy**: NGINX
-
-### Testing
-- **Unit Tests**: Vitest with coverage
-- **E2E Tests**: Playwright with parallel execution
-- **Security Tests**: OWASP ZAP, Snyk, Trivy
-- **Accessibility Tests**: axe-core, Pa11y
-- **Performance Tests**: Lighthouse CI, k6
-
-## Quick Start
-
-### Prerequisites
-- Node.js 18+ (recommended: 20 LTS)
-- npm or yarn
-- Git
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/your-org/ServiceDesk.git
-cd ServiceDesk
-
-# Install dependencies
-npm install
-
-# Copy environment variables
-cp .env.local.example .env.local
-
-# Initialize database
-npm run init-db
-
-# Start development server
-npm run dev
-```
-
-Visit [http://localhost:3000](http://localhost:3000)
-
-### Default Credentials (Development)
-
-- **Admin**: admin@example.com / Admin123!
-- **Agent**: agent1@example.com / Agent123!
-- **User**: user1@example.com / User123!
-
-> **Warning**: Change these credentials immediately in production!
-
-## Environment Setup
-
-### Development
-
-```bash
-# Use development environment template
-cp .env.local.example .env.local
-
-# No additional configuration needed for development
-# SQLite database is used automatically
-```
-
-### Production
-
-```bash
-# Use production environment template
-cp .env.production.example .env.production
-
-# Generate secure secrets
-JWT_SECRET=$(openssl rand -hex 32)
-SESSION_SECRET=$(openssl rand -hex 32)
-
-# Edit .env.production and set REQUIRED variables:
-# - JWT_SECRET
-# - SESSION_SECRET
-# - DATABASE_URL (PostgreSQL)
-# - REDIS_URL (recommended)
-# - SENTRY_DSN (recommended)
-# - Email provider credentials
-```
-
-See [Environment Variables Reference](docs/deployment/environment-variables.md) for complete documentation.
-
-## Documentation
-
-### For Users
-- [Getting Started Guide](docs/user-guide/getting-started.md) - First-time user tutorial
-- [Ticket Management](docs/user-guide/tickets.md) - Creating and tracking tickets
-- [Knowledge Base](docs/user-guide/knowledge-base.md) - Using the knowledge base
-- [Admin Features](docs/user-guide/admin.md) - Administrative functions
-
-### For Developers
-- [Development Setup](docs/development/setup.md) - Development environment
-- [Database Guide](docs/development/database.md) - Database schema and migrations
-- [Authentication System](docs/development/authentication.md) - Auth architecture
-- [Testing Guide](docs/development/testing.md) - Running tests
-- [Contributing Guide](docs/development/contributing.md) - How to contribute
-
-### API Documentation
-- **[API Documentation](API_DOCUMENTATION.md)** - Complete REST API reference
-- **[Quick Start Guide](API_QUICK_START.md)** - Get started with the API in 5 minutes
-- **[Interactive Swagger UI](http://localhost:3000/api/docs)** - Try the API in your browser
-- **[OpenAPI Specification](http://localhost:3000/api/docs/openapi.yaml)** - Download OpenAPI 3.0 spec
-- **[Postman Collection](postman-collection.json)** - Import into Postman for testing
-
-### For DevOps
-- [Docker Deployment](docs/deployment/docker.md) - Docker deployment guide
-- [Kubernetes Deployment](docs/deployment/kubernetes.md) - K8s deployment
-- [Production Checklist](docs/deployment/production.md) - Go-live checklist
-- [Environment Variables](docs/deployment/environment-variables.md) - Configuration reference
-
-### For Operations
-- [Monitoring Guide](docs/operations/monitoring.md) - Observability setup
-- [Backup & Restore](docs/operations/backup-restore.md) - Disaster recovery
-- [Troubleshooting](docs/operations/troubleshooting.md) - Common issues
-- [Security Best Practices](docs/operations/security.md) - Security hardening
-
-## Deployment
-
-### Docker (Recommended)
-
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-
-# Application: http://localhost:3000
-# PostgreSQL: localhost:5432
-# Redis: localhost:6379
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3001
-```
-
-See [Docker Deployment Guide](docs/deployment/docker.md) for details.
-
-### Kubernetes
-
-```bash
-# Deploy to Kubernetes cluster
-kubectl apply -k k8s/overlays/production
-
-# Check deployment status
-kubectl get pods -n servicedesk
-```
-
-See [Kubernetes Deployment Guide](docs/deployment/kubernetes.md) for details.
-
-### Cloud Platforms
-
-- **AWS**: Use provided Terraform modules in `terraform/aws/`
-- **Azure**: Use provided Terraform modules in `terraform/azure/`
-- **GCP**: Use provided Terraform modules in `terraform/gcp/`
-
-See [Infrastructure Documentation](docs/INFRASTRUCTURE.md) for details.
-
-## Scripts
-
-### Development
-```bash
-npm run dev              # Start development server
-npm run build            # Build for production
-npm run start            # Start production server
-npm run lint             # Run ESLint
-npm run lint:fix         # Fix ESLint issues
-npm run type-check       # TypeScript type checking
-npm run format           # Format code with Prettier
-```
-
-### Database
-```bash
-npm run init-db          # Initialize database with schema and seed data
-npm run test-db          # Test database connection
-npm run db:seed          # Add seed data only
-npm run db:clear         # Clear all data
-npm run migrate          # Run database migrations
-npm run migrate:status   # Check migration status
-```
-
-### Testing
-```bash
-npm test                 # Run all tests
-npm run test:unit        # Run unit tests
-npm run test:e2e         # Run E2E tests
-npm run test:a11y        # Run accessibility tests
-npm run test:security    # Run security tests
-npm run test:unit:coverage # Generate coverage report
-```
-
-### Security
-```bash
-npm run security:scan         # Full security scan
-npm run security:scan-deps    # Scan dependencies
-npm run security:scan-secrets # Scan for secrets
-npm run security:report       # Generate security report
-```
-
-### Performance
-```bash
-npm run lighthouse        # Run Lighthouse audit
-npm run build:analyze     # Analyze bundle size
-npm run db:benchmark      # Database performance test
-```
-
-## Project Structure
-
-```
-ServiceDesk/
-├── app/                      # Next.js App Router
-│   ├── api/                  # API routes
-│   ├── auth/                 # Authentication pages
-│   ├── tickets/              # Ticket management
-│   ├── admin/                # Admin dashboard
-│   │   └── super/            # Super Admin area (orgs, users, audit, settings)
-│   └── layout.tsx            # Root layout
-├── lib/                      # Core libraries
-│   ├── db/                   # Database layer
-│   │   ├── schema.sql        # Database schema
-│   │   ├── queries.ts        # Type-safe queries
-│   │   ├── connection.ts     # Database connection
-│   │   └── migrations/       # Database migrations
-│   ├── auth/                 # Authentication
-│   ├── cache/                # Redis caching
-│   ├── notifications/        # Real-time notifications
-│   ├── workflow/             # Automation engine
-│   ├── monitoring/           # Logging & metrics
-│   └── types/                # TypeScript types
-├── components/               # React components
-│   ├── ui/                   # Base UI components
-│   ├── tickets/              # Ticket components
-│   └── admin/                # Admin components
-├── docs/                     # Documentation
-│   ├── deployment/           # Deployment guides
-│   ├── user-guide/           # User documentation
-│   ├── development/          # Developer guides
-│   └── operations/           # Operations guides
-├── tests/                    # Test suites
-│   ├── unit/                 # Unit tests
-│   ├── e2e/                  # E2E tests
-│   ├── security/             # Security tests
-│   └── accessibility/        # A11y tests
-├── k8s/                      # Kubernetes manifests
-├── terraform/                # Infrastructure as Code
-├── monitoring/               # Monitoring configs
-├── .github/                  # GitHub Actions workflows
-├── Dockerfile                # Multi-stage Docker build
-├── docker-compose.yml        # Docker Compose config
-└── package.json              # Dependencies and scripts
-```
-
-## Database Schema
-
-The application uses an 18-table database schema with:
-
-- **Users & Auth**: users, refresh_tokens, permissions, roles
-- **Organizations**: organizations, tenant_configurations (multi-tenant)
-- **Tickets**: tickets, comments, attachments, templates
-- **SLA**: sla_policies, sla_tracking, escalations
-- **Knowledge Base**: kb_articles, kb_categories
-- **Analytics**: analytics_daily_metrics, analytics_agent_metrics
-- **Notifications**: notifications, notification_events
-- **Audit**: audit_logs, auth_audit_logs
-- **System Settings**: system_settings (key-value global config)
-
-See [Database Documentation](docs/development/database.md) for complete schema.
-
-## API Reference
-
-RESTful API with OpenAPI 3.0 specification:
-
-- **Authentication**: `/api/auth/*`
-- **Tickets**: `/api/tickets/*`
-- **Users**: `/api/users/*`
-- **Knowledge Base**: `/api/kb/*`
-- **Analytics**: `/api/analytics/*`
-- **Super Admin**: `/api/admin/super/*` (dashboard, organizations, users, audit, settings)
-
-See [API Documentation](docs/api/README.md) and [OpenAPI Spec](docs/openapi.yaml).
-
-## Security
-
-### Reporting Vulnerabilities
-
-Please report security vulnerabilities to: **security@servicedesk.com**
-
-Do NOT create public GitHub issues for security vulnerabilities.
-
-### Security Features
-
-- JWT authentication with rotation
-- Password hashing with bcrypt
-- 2FA/TOTP support
-- WebAuthn/FIDO2 support
-- Rate limiting on all endpoints
-- SQL injection protection
-- XSS/CSRF protection
-- Security headers (Helmet.js)
-- Regular dependency scanning
-- Automated security testing
-
-See [Security Best Practices](docs/operations/security.md) for details.
-
-## Contributing
-
-We welcome contributions! Please read our [Contributing Guide](docs/development/contributing.md) before submitting PRs.
-
-### Contribution Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests (`npm test`)
-5. Commit with conventional commits (`git commit -m "feat: add amazing feature"`)
-6. Push to your fork (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Development Guidelines
-
-- Follow TypeScript strict mode
-- Write tests for new features
-- Update documentation
-- Follow existing code style
-- Use meaningful commit messages
-
-## CI/CD Pipeline
-
-Automated workflows powered by GitHub Actions:
-
-- **CI**: Lint, type-check, test, security scan (on every push/PR)
-- **Security**: Daily security scans with multiple tools
-- **Dependencies**: Weekly dependency updates via Dependabot
-- **Deploy Staging**: Auto-deploy to staging on merge to main
-- **Deploy Production**: Manual approval required for production
-
-See [CI/CD Guide](docs/CI_CD_GUIDE.md) for complete documentation.
-
-## Performance
-
-### Key Metrics
-- **Lighthouse Score**: 95+
-- **First Contentful Paint**: < 1.5s
-- **Time to Interactive**: < 3.0s
-- **Bundle Size**: < 200KB (gzipped)
-- **API Response Time**: < 100ms (p95)
-- **Database Query Time**: < 50ms (p95)
-
-### Optimization Techniques
-- Redis caching for frequent queries
-- Database query optimization with indexes
-- Image optimization with Sharp
-- Code splitting and lazy loading
-- CDN for static assets
-- Service worker caching
-
-## Accessibility
-
-- WCAG 2.1 Level AA compliant
-- Tested with screen readers (NVDA, JAWS, VoiceOver)
-- Full keyboard navigation support
-- High contrast mode
-- Automated testing with axe-core
-- Regular accessibility audits
-
-See [Accessibility Documentation](docs/ACCESSIBILITY.md).
-
-## Browser Support
-
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/ServiceDesk/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/ServiceDesk/discussions)
-- **Email**: support@servicedesk.com
-
-## Acknowledgments
-
-Built with:
-- [Next.js](https://nextjs.org/)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [PostgreSQL](https://www.postgresql.org/)
-- [Redis](https://redis.io/)
-
-## Roadmap
-
-### Version 2.0 (Q1 2026)
-- AI-powered ticket classification
-- Advanced analytics with machine learning
-- Mobile apps (iOS/Android)
-- Multi-channel support (SMS, Telegram)
-- Advanced workflow builder (visual editor)
-
-### Future Enhancements
-- GraphQL API
-- Real-time collaboration features
-- Video call integration
-- Advanced reporting with BI tools
-- Self-service portal improvements
+[![TypeScript](https://img.shields.io/badge/TypeScript-0%20errors-blue.svg)](https://www.typescriptlang.org/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-336791.svg)](https://supabase.com/)
+
+> Plataforma enterprise de ITSM e help desk construida com Next.js 15, TypeScript, PostgreSQL (Supabase) e recursos de nivel corporativo: multi-tenancy, ITIL completo, IA/ML, seguranca avancada, notificacoes em tempo real e monitoramento abrangente.
 
 ---
 
-**Made with love by the ServiceDesk Team**
+## Visao Geral
 
-[⬆ Back to top](#servicedesk---enterprise-help-desk--ticket-management-system)
+| Metrica | Valor |
+|---|---|
+| **Tabelas no Banco** | 117 |
+| **Rotas de API** | 197 arquivos / 358 handlers |
+| **Paginas Frontend** | 76 |
+| **Componentes** | 174 (125 feature + 49 UI) |
+| **Modulos em lib/** | 49 diretorios / 398 arquivos |
+| **Custom Hooks** | 19 |
+| **Dependencias** | 73 prod + 40 dev |
+| **TypeScript Errors** | 0 |
+| **Lighthouse Score** | 92-95/100 |
+
+---
+
+## Stack Tecnologico
+
+### Frontend
+- **Framework**: Next.js 15 (App Router)
+- **Linguagem**: TypeScript 5 (strict mode)
+- **Estilizacao**: Tailwind CSS 3 com design system customizado
+- **UI**: Headless UI, Heroicons, Lucide React
+- **Graficos**: Recharts, D3
+- **Animacoes**: Framer Motion
+- **Workflow Builder**: ReactFlow
+- **Real-time**: Socket.io Client
+- **PWA**: Service Worker, Push Notifications, Offline Support
+
+### Backend
+- **Runtime**: Node.js 20
+- **API**: Next.js 15 API Routes (197 arquivos)
+- **Banco Producao**: PostgreSQL 16 (Supabase) — 117 tabelas, 362 indices, 59 triggers
+- **Banco Dev**: SQLite (better-sqlite3)
+- **Adapter**: Dual-database com 16 dialect helpers
+- **Cache**: Redis 7 + LRU in-memory
+- **Auth**: JWT (jose) + bcrypt + MFA + SSO + WebAuthn
+- **Real-time**: Socket.io
+- **Email**: Nodemailer + IMAP
+- **AI**: OpenAI API
+- **Filas**: Bull (Redis-based)
+- **Busca**: Fuse.js + Elasticsearch (opcional)
+
+### DevOps
+- **Container**: Docker multi-stage (<200MB)
+- **Orquestracao**: Kubernetes-ready (health probes)
+- **Monitoramento**: Sentry + Datadog + Prometheus
+- **CI/CD**: GitHub Actions
+- **Deploy**: Vercel / Docker / Kubernetes
+
+---
+
+## Features
+
+### Gerenciamento de Tickets
+- CRUD completo com ciclo de vida
+- Categorias, prioridades e status configuraveis
+- SLA com tracking automatico e breach detection
+- Editor rich text para descricoes e comentarios
+- Anexos com armazenamento multi-cloud
+- Kanban board, timeline, relacionamentos entre tickets
+- Templates de tickets para problemas comuns
+- Operacoes em massa (bulk operations)
+- Tags e busca avancada
+
+### ITIL Completo
+
+| Modulo | Tabelas | Funcionalidades |
+|---|---|---|
+| **Problem Management** | 6 | RCA, known errors, incident links, activities |
+| **Change Management** | 5 | Requests, approvals, tasks, calendario |
+| **CMDB** | 7 | CIs, relationships, historico, ticket links |
+| **Service Catalog** | 5 | Items, requests, approvals, tasks |
+| **CAB** | 3 | Meetings, members, votacao |
+
+### Inteligencia Artificial
+- Classificacao automatica de tickets (NLP)
+- Deteccao de duplicatas (vector similarity)
+- Analise de sentimento em tempo real
+- Sugestao de solucoes baseada em knowledge base
+- Sistema de treinamento com feedback loop
+- Geracao automatica de artigos para KB
+
+### Analytics & Predicao
+- Dashboards em tempo real (12 widgets)
+- Metricas de performance de agentes
+- Analise de tendencias com ML
+- Previsao de demanda (demand forecasting)
+- Deteccao de anomalias
+- Scoring de risco
+- Relatorios COBIT e executivos
+- Export PDF/Excel
+
+### Knowledge Base
+- Busca semantica com vector embeddings
+- Geracao automatica de artigos e FAQs
+- Controle de versao e workflow de aprovacao
+- Rating e feedback de artigos
+- Colaboracao multi-autor
+
+### Seguranca Enterprise
+
+| Camada | Implementacao |
+|---|---|
+| **Autenticacao** | JWT (15min access + 7d refresh), httpOnly cookies, device fingerprint |
+| **Senha** | bcrypt 12 rounds, entropy check, dicionario, historico (5), expiracao 90d |
+| **MFA** | TOTP + SMS + Email + Backup codes (10) |
+| **Biometria** | WebAuthn/FIDO2 (fingerprint, face) |
+| **SSO** | OAuth2, SAML, LDAP, Gov.br |
+| **RBAC** | 6 roles, 29 permissoes, condicoes dinamicas |
+| **CSRF** | Double Submit Cookie + HMAC-SHA256, session-bound |
+| **Criptografia** | AES-256-GCM com key rotation |
+| **Headers** | CSP strict, HSTS, X-Frame-Options DENY, Permissions-Policy |
+| **Rate Limiting** | Per-endpoint (login 5/15min, register 3/hr, default 60/min) |
+| **SQL Injection** | Queries parametrizadas + LIKE escaping |
+| **XSS** | isomorphic-dompurify |
+| **LGPD/GDPR** | Consentimento, portabilidade, erasure, retencao 3 anos |
+
+### Multi-Tenancy
+- Isolamento completo por organization_id
+- Resolucao de tenant por subdomain/header/path
+- Configuracoes por tenant
+- Super Admin para gestao cross-tenant (org 1)
+- Quotas de recursos por tenant
+
+### Super Admin
+- Dashboard com estatisticas cross-tenant
+- CRUD de organizacoes (criar, suspender, reativar)
+- Gestao de usuarios cross-tenant
+- Logs de auditoria com filtros avancados
+- Configuracoes globais do sistema (manutencao, limites, SMTP, seguranca)
+
+### Real-time
+- Notificacoes via WebSocket (Socket.io)
+- Atualizacoes de tickets em tempo real
+- Alertas de SLA
+- Push notifications (Web Push API)
+- Sistema de presenca de usuarios
+- Escalation automatico
+
+### Workflow Engine
+- Builder visual com 15 tipos de no
+- 3 tipos de edge (conditional, error, default)
+- Automacoes com condicoes
+- Aprovacoes multi-nivel
+- Scheduler para triggers agendados
+
+### Integracoes
+- **WhatsApp**: Business API, templates, contatos
+- **Email**: SMTP, IMAP, templates Handlebars
+- **Gov.br**: Autenticacao CPF/CNPJ
+- **Banking**: Integracoes bancarias
+- **ERP**: SAP/Oracle connectors
+- **Webhooks**: Envio e recebimento com HMAC
+
+### PWA & Mobile
+- Offline mode com queue de operacoes
+- Push notifications
+- Biometric auth no mobile
+- Gestos (swipe, pinch, long-press)
+- Install prompt
+- Background sync
+
+### Acessibilidade
+- WCAG 2.1 Level AA
+- Touch targets 44px
+- ARIA labels e roles
+- Navegacao por teclado
+- Focus management
+- Dark mode completo
+
+---
+
+## Quick Start
+
+### Pre-requisitos
+- Node.js 18+ (recomendado: 20 LTS)
+- npm
+- Git
+
+### Instalacao
+
+```bash
+# Clone o repositorio
+git clone https://github.com/nmatss/ServiceDesk.git
+cd ServiceDesk
+
+# Instale as dependencias
+npm install
+
+# Copie as variaveis de ambiente
+cp .env.local.example .env.local
+
+# Inicialize o banco de dados (SQLite para dev)
+npm run init-db
+
+# Inicie o servidor de desenvolvimento
+npm run dev
+```
+
+Acesse [http://localhost:3000](http://localhost:3000)
+
+### Credenciais de Desenvolvimento
+
+| Role | Email | Senha |
+|---|---|---|
+| Admin | admin@servicedesk.com | 123456 |
+
+> **Aviso**: Altere as credenciais imediatamente em producao!
+
+### Producao (Supabase PostgreSQL)
+
+```bash
+# Configure as variaveis de ambiente
+DB_TYPE=postgresql
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+JWT_SECRET=$(openssl rand -hex 32)
+CSRF_SECRET=$(openssl rand -hex 32)
+
+# Execute o schema e seed no Supabase
+# lib/db/schema.postgres.sql + lib/db/seed.postgres.sql
+
+# Build e start
+npm run build
+npm run start
+```
+
+---
+
+## Estrutura do Projeto
+
+```
+ServiceDesk/
+├── app/                          # Next.js App Router (76 paginas)
+│   ├── api/                      # 197 arquivos de rota API
+│   │   ├── auth/                 # Auth (login, register, SSO, GovBR, MFA)
+│   │   ├── admin/super/          # Super Admin (10 rotas)
+│   │   ├── tickets/              # Tickets CRUD + subrecursos
+│   │   ├── problems/             # ITIL Problem Management
+│   │   ├── changes/              # ITIL Change Management
+│   │   ├── cmdb/                 # ITIL CMDB
+│   │   ├── catalog/              # ITIL Service Catalog
+│   │   ├── cab/                  # Change Advisory Board
+│   │   ├── knowledge/            # Knowledge Base (20 rotas)
+│   │   ├── ai/                   # AI/ML (9 rotas)
+│   │   ├── analytics/            # Analytics & reporting
+│   │   ├── workflows/            # Workflow engine
+│   │   ├── integrations/         # Email, WhatsApp
+│   │   ├── notifications/        # Notificacoes
+│   │   └── health/               # Health probes
+│   ├── auth/                     # Paginas de autenticacao
+│   ├── tickets/                  # Gestao de tickets
+│   ├── problems/                 # Problem management
+│   ├── knowledge/                # Knowledge base
+│   ├── portal/                   # Portal do usuario final
+│   ├── admin/                    # Area administrativa
+│   │   └── super/                # Super Admin (6 paginas)
+│   ├── workflows/                # Workflow builder
+│   └── layout.tsx                # Root layout
+│
+├── lib/                          # 49 modulos, 398 arquivos
+│   ├── db/                       # Banco de dados (adapter, queries, schemas)
+│   │   ├── adapter.ts            # Adapter dual-database
+│   │   ├── schema.sql            # Schema SQLite (117 tabelas)
+│   │   ├── schema.postgres.sql   # Schema PostgreSQL (117 tabelas)
+│   │   ├── queries.ts            # Query functions principais
+│   │   └── queries/              # ITIL query modules (5 arquivos)
+│   ├── auth/                     # Autenticacao (25 arquivos)
+│   ├── security/                 # Seguranca (25 arquivos)
+│   ├── ai/                       # IA/ML (24 arquivos)
+│   ├── notifications/            # Notificacoes (11 arquivos)
+│   ├── cache/                    # Cache Redis/LRU (18 arquivos)
+│   ├── monitoring/               # Monitoramento (21 arquivos)
+│   ├── performance/              # Otimizacao (20 arquivos)
+│   ├── knowledge/                # Knowledge base (12 arquivos)
+│   ├── workflow/                 # Workflows (11 arquivos)
+│   ├── analytics/                # Analytics (11 arquivos)
+│   ├── integrations/             # Integracoes (21 arquivos)
+│   ├── tenant/                   # Multi-tenancy (9 arquivos)
+│   ├── pwa/                      # PWA (12 arquivos)
+│   ├── api/                      # API utilities (21 arquivos)
+│   ├── validation/               # Validacao Zod (50+ schemas)
+│   ├── hooks/                    # Custom hooks (13 arquivos)
+│   ├── types/                    # TypeScript types (4 arquivos)
+│   └── design-system/            # Design system (5 arquivos)
+│
+├── src/components/               # 125 componentes
+│   ├── workflow/                 # 27 (builder, 15 node types, edges)
+│   ├── dashboard/                # 24 (12 widgets, builder, COBIT)
+│   ├── mobile/                   # 13 (gestos, biometria, voz)
+│   ├── tickets/                  # 12 (kanban, timeline, editor)
+│   ├── charts/                   # 7 (heatmaps, sankey, radar)
+│   └── ...                       # + pwa, admin, notifications, knowledge
+│
+├── components/ui/                # 49 componentes base
+├── server.ts                     # Custom server (Socket.io + compression)
+├── middleware.ts                  # Auth, tenant, rate limiting, headers
+├── Dockerfile                    # Multi-stage build (<200MB)
+└── docker-compose.yml            # Docker Compose config
+```
+
+---
+
+## Banco de Dados
+
+### 117 Tabelas organizadas em 18 modulos
+
+| Modulo | Tabelas | Descricao |
+|---|---|---|
+| Core Tickets | 12 | tickets, comments, attachments, categories, priorities, statuses, tags |
+| Auth & Security | 15 | users, roles, permissions, refresh_tokens, password_policies, SSO, MFA |
+| SLA & Escalation | 5 | sla_policies, sla_tracking, escalations |
+| Notifications | 5 | notifications, batches, filters |
+| Workflows | 10 | definitions, executions, approvals |
+| Knowledge Base | 8 | articles, categories, tags, feedback |
+| Analytics | 6 | daily, agent, category, realtime metrics |
+| Multi-Tenancy | 6 | organizations, tenants, teams, departments |
+| AI/ML | 4 | classifications, suggestions, training, embeddings |
+| Integrations | 10 | webhooks, WhatsApp, GovBR |
+| ITIL Problem | 6 | problems, known_errors, incidents, activities |
+| ITIL Change | 5 | change_requests, approvals, tasks, calendar |
+| ITIL CMDB | 7 | CIs, relationships, history |
+| ITIL Catalog | 5 | catalog_items, service_requests, tasks |
+| ITIL CAB | 3 | meetings, members, configurations |
+| Audit | 4 | audit_logs, api_usage, sessions |
+| Compliance | 3 | surveys, reports, LGPD consents |
+| Config | 3 | templates, settings, cache |
+
+### PostgreSQL (Supabase)
+- **362 indices** otimizados
+- **59 triggers** (updated_at + SLA tracking)
+- **84 foreign keys**
+- **28 CHECK constraints**
+- Seed data completo (16 entidades)
+
+---
+
+## API Reference
+
+### 358 Handlers HTTP em 197 Rotas
+
+| Categoria | Rotas | Handlers |
+|---|---|---|
+| Authentication | 17 | 38 |
+| Admin | 16 | 36 |
+| Super Admin | 10 | 17 |
+| Tickets | 14 | 31 |
+| ITIL (Problem, Change, CMDB, CAB, Catalog) | 17 | 40 |
+| Knowledge Base | 20 | 32 |
+| AI/ML | 9 | 17 |
+| Analytics | 7 | 10 |
+| Workflows | 4 | 7 |
+| Integrations | 13 | 22 |
+| Notifications & Push | 10 | 19 |
+| Search | 4 | 8 |
+| Dashboard | 5 | 8 |
+| Health & Monitoring | 7 | 9 |
+| Others (files, SLA, teams, portal, etc.) | 44+ | 64+ |
+
+Documentacao OpenAPI disponivel em `/api/docs`.
+
+---
+
+## Performance
+
+| Metrica | Valor |
+|---|---|
+| Lighthouse Performance | 92-95/100 |
+| Mobile Score | 90-95/100 |
+| TTFB | 300-450ms |
+| Bundle Size | 245KB gzipped |
+| DB Query Avg | 45ms |
+| LCP | 2.1s (Good) |
+| FID | 85ms (Good) |
+| CLS | 0.05 (Good) |
+
+### Otimizacoes
+- SSR/ISR com 18 estrategias de cache
+- Code splitting e lazy loading
+- gzip/brotli compression (~70% reducao)
+- 362 indices no banco
+- Auth cache in-memory (30s)
+- Tree-shaking otimizado
+
+---
+
+## Scripts
+
+```bash
+# Desenvolvimento
+npm run dev              # Servidor de desenvolvimento
+npm run build            # Build para producao
+npm run start            # Servidor de producao
+npm run lint             # ESLint
+npm run type-check       # TypeScript check
+
+# Banco de dados
+npm run init-db          # Inicializar SQLite
+npm run test-db          # Testar conexao
+npm run db:seed          # Seed data
+npm run db:clear         # Limpar dados
+```
+
+---
+
+## Deploy
+
+### Docker
+
+```bash
+docker-compose up -d
+# App: http://localhost:3000
+# PostgreSQL: localhost:5432
+# Redis: localhost:6379
+```
+
+### Supabase (Producao)
+
+1. Crie um projeto no Supabase
+2. Execute `lib/db/schema.postgres.sql` no SQL Editor
+3. Execute `lib/db/seed.postgres.sql` para dados iniciais
+4. Configure `DATABASE_URL` no `.env.production`
+5. `npm run build && npm run start`
+
+### Kubernetes
+
+Health probes disponiveis:
+- Liveness: `/api/health/live`
+- Readiness: `/api/health/ready`
+- Startup: `/api/health/startup`
+
+---
+
+## Licenca
+
+Este projeto esta licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+---
+
+**Construido com Next.js 15, TypeScript, PostgreSQL (Supabase) e Socket.io**

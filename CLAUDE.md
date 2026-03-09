@@ -23,82 +23,179 @@ npm run db:clear     # Clear all data from database
 
 ## Database Architecture
 
-This project uses a **custom SQLite-based database layer** with 18 interconnected tables. The database is the core of the application and understanding it is crucial.
+This project uses a **dual-database adapter pattern** supporting both SQLite (development) and PostgreSQL/Supabase (production) with **117 tables**.
 
 ### Key Database Files
-- **Schema**: `lib/db/schema.sql` - Complete table definitions with triggers and indexes
-- **Connection**: `lib/db/connection.ts` - SQLite database connection
-- **Queries**: `lib/db/queries.ts` - Type-safe query functions for all entities
-- **Initialization**: `lib/db/init.ts` - Database setup and seeding logic
-- **Types**: `lib/types/database.ts` - TypeScript interfaces for all database entities
+- **SQLite Schema**: `lib/db/schema.sql` — 3,400+ lines, 117 tables
+- **PostgreSQL Schema**: `lib/db/schema.postgres.sql` — 2,720+ lines, full parity
+- **Adapter**: `lib/db/adapter.ts` — Unified interface for both databases
+- **Connection**: `lib/db/connection.ts` (SQLite) / `lib/db/connection.postgres.ts` (PostgreSQL)
+- **Main Queries**: `lib/db/queries.ts` — Type-safe query functions
+- **ITIL Queries**: `lib/db/queries/` — problem, change, cmdb, catalog, cab query modules
+- **Initialization**: `lib/db/init.ts` (SQLite) / `lib/db/seed.postgres.sql` (PostgreSQL)
+- **Types**: `lib/types/database.ts` — TypeScript interfaces for all entities
+- **Config**: `lib/db/config.ts` — Database type selector (DB_TYPE=sqlite|postgresql)
 
-### Core Tables
-- **users** - Admin/agent/user roles with bcrypt password hashing
-- **tickets** - Support tickets with SLA tracking
-- **categories, priorities, statuses** - Ticket classification
-- **comments, attachments** - Ticket interactions
-- **sla_policies, sla_tracking** - Automated SLA management with triggers
-- **notifications** - Real-time notification system
-- **kb_articles, kb_categories** - Knowledge base system
-- **analytics_daily_metrics, analytics_agent_metrics** - Performance tracking
+### Database Stats (PostgreSQL/Supabase)
+| Metric | Count |
+|---|---|
+| Tables | 117 |
+| Indexes | 362 |
+| Triggers | 59 |
+| Foreign Keys | 84 |
+| CHECK Constraints | 28 |
 
-### Database Initialization
-- Database file: `servicedesk.db` (created automatically)
-- **Always run `npm run init-db` after fresh clone**
-- Includes comprehensive seed data (users, tickets, categories, etc.)
-- Uses database triggers for automatic timestamp updates and SLA tracking
+### Table Modules
+- **Core Tickets** (12): tickets, comments, attachments, categories, priorities, statuses, tags, ticket_tags, ticket_followers, ticket_relationships, ticket_activities, file_storage
+- **Auth & Security** (15): users, refresh_tokens, permissions, roles, role_permissions, user_roles, password_policies, password_history, rate_limits, sso_providers, login_attempts, webauthn_credentials, verification_codes, auth_audit_logs, ticket_access_tokens
+- **SLA & Escalation** (5): sla_policies, sla_tracking, escalations, escalation_rules, escalation_instances
+- **Notifications** (5): notifications, notification_events, notification_batches, batch_configurations, filter_rules
+- **Workflows** (10): automations, workflow_definitions, workflows, workflow_steps, workflow_executions, workflow_step_executions, workflow_approvals, approvals, approval_history, approval_tokens
+- **Knowledge Base** (8): knowledge_articles, kb_categories, kb_articles, kb_tags, kb_article_tags, kb_article_feedback, kb_article_attachments, kb_article_suggestions
+- **Analytics** (6): analytics_daily_metrics, analytics_agent_metrics, analytics_category_metrics, analytics_realtime_metrics, analytics_events, analytics_agent_performance
+- **Multi-Tenancy** (6): organizations, tenants, tenant_configurations, teams, departments, user_departments
+- **AI/ML** (4): ai_classifications, ai_suggestions, ai_training_data, vector_embeddings
+- **Integrations** (10): integrations, integration_logs, webhooks, webhook_deliveries, communication_channels, communication_messages, whatsapp_contacts, whatsapp_sessions, whatsapp_messages, govbr_integrations
+- **ITIL Problem** (6): root_cause_categories, problems, known_errors, problem_incident_links, problem_activities, problem_attachments
+- **ITIL Change** (5): change_types, change_requests, change_request_approvals, change_tasks, change_calendar
+- **ITIL CMDB** (7): ci_types, ci_statuses, ci_relationship_types, configuration_items, ci_relationships, ci_history, ci_ticket_links
+- **ITIL Catalog** (5): service_categories, service_catalog_items, service_requests, service_request_approvals, service_request_tasks
+- **ITIL CAB** (3): cab_configurations, cab_members, cab_meetings
+- **Audit** (4): audit_logs, audit_advanced, api_usage_tracking, user_sessions
+- **Compliance** (3): satisfaction_surveys, scheduled_reports, lgpd_consents
+- **Config** (3): ticket_templates, system_settings, cache
+
+### Adapter Pattern
+All database access uses the adapter from `lib/db/adapter.ts`:
+```typescript
+import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter'
+```
+
+**Query execution helpers:**
+- `executeQuery<T>(sql, params)` — SELECT returning T[]
+- `executeQueryOne<T>(sql, params)` — SELECT returning T | undefined
+- `executeRun(sql, params)` — INSERT/UPDATE/DELETE returning {changes, lastInsertRowid?}
+- `executeTransaction<T>(callback)` — Transaction with isolation
+
+**16 Dialect helpers** for cross-database SQL:
+- `sqlNow()`, `sqlDateSub()`, `sqlDateDiff()`, `sqlGroupConcat()`, `sqlCastDate()`
+- `sqlStartOfMonth()`, `sqlDateAdd()`, `sqlDatetimeSub()`, `sqlDatetimeSubHours()`
+- `sqlDatetimeSubMinutes()`, `sqlExtractHour()`, `sqlExtractDayOfWeek()`
+- `sqlDatetimeSubYears()`, `sqlColSubMinutes()`, `sqlColAddMinutes()`, `sqlDatetimeAddMinutes()`
+- `getDatabaseType()` — Returns 'sqlite' | 'postgresql'
 
 ## Authentication System
 
 ### Implementation
-- **JWT-based authentication** in `lib/auth/sqlite-auth.ts`
-- **Middleware protection** in `middleware.ts` - handles route protection and role verification
-- **Password hashing** using bcrypt
-- **Role-based access**: admin, agent, user
+- **JWT tokens**: Access (15min) + Refresh (7d) via `lib/auth/token-manager.ts`
+- **Password hashing**: bcrypt 12 rounds via `lib/auth/password-policies.ts`
+- **MFA**: TOTP, SMS, Email, Backup codes via `lib/auth/mfa-manager.ts`
+- **SSO**: OAuth2, SAML via `lib/auth/sso-manager.ts`
+- **Biometric**: WebAuthn via `lib/auth/biometric-auth.ts`
+- **CSRF**: Double Submit Cookie + HMAC-SHA256 via `lib/security/csrf.ts`
+- **Middleware**: `middleware.ts` — route protection, tenant resolution, auth verification
+- **Unified guard**: `lib/tenant/request-guard.ts` — `requireTenantUserContext(request)`
+
+### RBAC (6 roles, 29 permissions)
+```
+super_admin → admin → tenant_admin → team_manager → agent → user
+```
+- Roles defined in `lib/auth/roles.ts`
+- Permission engine in `lib/auth/rbac.ts`
+- Conditional permissions: owner_only, department_only, business_hours
 
 ### Protected Routes
-- Admin routes: `/admin/*`
-- Super Admin routes: `/admin/super/*` and `/api/admin/super/*` (org 1 only)
-- Auth routes: `/api/auth/*` (login, register, verify, profile)
-- Tenant routes: Various API endpoints require specific roles
+- Admin routes: `/admin/*` — requires admin/tenant_admin
+- Super Admin routes: `/admin/super/*` and `/api/admin/super/*` — requires org 1 or super_admin role
+- Auth routes: `/api/auth/*` — login, register, verify, profile, SSO, GovBR
+- All API routes: Protected via `requireTenantUserContext()` with tenant isolation
 
 ## Application Architecture
 
 ### Framework & Stack
 - **Next.js 15** with App Router
-- **TypeScript** with strict mode and path mapping (`@/*` aliases)
-- **Tailwind CSS** with custom ServiceDesk theme (priority colors, status colors, animations)
-- **SQLite** for development (migration-ready for PostgreSQL/Neon)
+- **TypeScript** strict mode, 0 errors, path mapping (`@/*`)
+- **Tailwind CSS** with custom design system (brand-*, neutral-* classes)
+- **SQLite** for development / **PostgreSQL (Supabase)** for production
 - **Socket.io** for real-time notifications
+- **Redis** for caching (optional, graceful fallback)
 
 ### Directory Structure
 ```
-app/
-├── api/               # API routes (auth, notifications, protected)
-│   └── admin/super/   # Super Admin APIs (dashboard, orgs, users, audit, settings)
-├── auth/              # Authentication pages (login, register)
-├── tickets/           # Ticket management pages
-├── admin/             # Admin interface
-│   └── super/         # Super Admin pages (dashboard, orgs, users, audit, settings)
-└── layout.tsx         # Root layout with AppLayout component
+app/                          # Next.js App Router (76 pages)
+├── api/                      # 197 API route files, 358 HTTP handlers
+│   ├── auth/                 # Authentication (login, register, SSO, GovBR, MFA)
+│   ├── admin/super/          # Super Admin (dashboard, orgs, users, audit, settings)
+│   ├── tickets/              # Ticket CRUD + comments, attachments, tags
+│   ├── problems/             # ITIL Problem Management
+│   ├── changes/              # ITIL Change Management
+│   ├── cmdb/                 # ITIL Configuration Management
+│   ├── catalog/              # ITIL Service Catalog
+│   ├── cab/                  # Change Advisory Board
+│   ├── knowledge/            # Knowledge Base (20 routes)
+│   ├── ai/                   # AI features (9 routes)
+│   ├── analytics/            # Analytics & reporting
+│   ├── workflows/            # Workflow engine
+│   ├── integrations/         # Email, WhatsApp
+│   ├── notifications/        # Notification management
+│   └── health/               # Health probes (live, ready, startup)
+├── auth/                     # Auth pages (login, register, forgot-password, govbr)
+├── tickets/                  # Ticket pages
+├── problems/                 # Problem management pages
+├── knowledge/                # Knowledge base pages
+├── portal/                   # End-user portal
+├── admin/                    # Admin interface
+│   └── super/                # Super Admin pages
+├── workflows/                # Workflow builder
+└── layout.tsx                # Root layout with AppLayout
 
-lib/
-├── db/                # Database layer (queries, schema, connection)
-├── auth/              # Authentication utilities + super-admin-guard.ts
-├── notifications/     # Real-time notification system
-├── workflow/          # Workflow management
-├── automations/       # Automation engine
-├── monitoring/        # Logging and monitoring
-├── validation/        # Zod schemas
-└── types/             # TypeScript type definitions + super-admin.ts
+lib/                          # 49 modules, 398 files
+├── db/                       # Database layer (adapter, queries, schemas, migrations)
+├── auth/                     # Authentication (25 files: JWT, RBAC, MFA, SSO, biometric)
+├── security/                 # Security (25 files: encryption, CSRF, CSP, audit, PII)
+├── ai/                       # AI/ML (24 files: classifier, NLP, sentiment, training)
+├── notifications/            # Notifications (11 files: multi-channel, escalation, digest)
+├── integrations/             # Integrations (21 files: email, WhatsApp, banking, ERP, GovBR)
+├── monitoring/               # Monitoring (21 files: logger, Datadog, Sentry, metrics)
+├── cache/                    # Caching (18 files: Redis, LRU, browser, warming)
+├── performance/              # Performance (20 files: query optimizer, CDN, compression)
+├── knowledge/                # Knowledge (12 files: auto-generator, semantic search, vector)
+├── workflow/                 # Workflows (11 files: engine, automation, approval)
+├── analytics/                # Analytics (11 files: predictive, anomaly, demand forecasting)
+├── pwa/                      # PWA (12 files: offline, push, sync, biometric)
+├── api/                      # API utilities (21 files: helpers, validation, versioning)
+├── tenant/                   # Multi-tenancy (9 files: context, resolver, guard)
+├── validation/               # Validation (4 files: 50+ Zod schemas)
+├── hooks/                    # Custom hooks (13 files: auth cache, debounce, gestures)
+├── types/                    # Types (4 files: database, problem, workflow, super-admin)
+├── design-system/            # Design system (5 files: tokens, themes, personas)
+└── ...                       # + email, reports, sla, search, compliance, lgpd, gamification
+
+src/components/               # 125 components
+├── workflow/                 # 27 components (15 node types, 3 edge types, builder)
+├── dashboard/                # 24 components (12 widgets, builder, COBIT)
+├── mobile/                   # 13 components (gestures, biometria, voice)
+├── tickets/                  # 12 components (kanban, timeline, collaborative editor)
+├── charts/                   # 7 components (heatmaps, sankey, radar)
+├── pwa/                      # 6 components (install, offline, sync)
+├── admin/                    # 5 components (super admin dashboard)
+├── notifications/            # 4 components
+├── knowledge/                # 4 components
+├── gamification/             # 3 components (badges, leaderboard, recognition)
+└── layout/                   # 3 components (AppLayout, Header, Sidebar)
+
+components/ui/                # 49 base UI components
 ```
 
 ### Key Patterns
-- **Custom ORM**: Hand-built query functions in `lib/db/queries.ts` with full TypeScript support
-- **Middleware-first auth**: All routes protected via `middleware.ts`
-- **Type safety**: Comprehensive TypeScript interfaces for database entities
-- **Real-time updates**: Socket.io integration for live notifications
-- **Automated SLA**: Database triggers automatically track SLA compliance
+- **Adapter Pattern**: All DB access via `lib/db/adapter.ts` (zero direct SQLite in production)
+- **Unified Auth Guard**: `requireTenantUserContext(request)` from `lib/tenant/request-guard.ts`
+- **Super Admin Guard**: `requireSuperAdmin(request)` from `lib/auth/super-admin-guard.ts`
+- **API Responses**: `apiSuccess(data, meta?)` and `apiError(message, status)` from `lib/api/api-helpers.ts`
+- **Tenant Isolation**: All queries scope by `organization_id`
+- **Rate Limiting**: `applyRateLimit(request, RATE_LIMITS.*)` on all endpoints
+- **Dialect-aware SQL**: Use `getDatabaseType()` + helpers for cross-DB compatibility
+- **Type Safety**: Comprehensive TypeScript interfaces for all database entities
 
 ## Super Admin Area
 
@@ -126,213 +223,129 @@ lib/
 |---|---|
 | `/admin/super` | Dashboard — StatsCards, alerts, recent orgs |
 | `/admin/super/organizations` | Org list — table/cards, filters, create modal |
-| `/admin/super/organizations/[id]` | Org detail — 4 tabs: Info, Usuários, Config, Métricas |
+| `/admin/super/organizations/[id]` | Org detail — 4 tabs: Info, Usuarios, Config, Metricas |
 | `/admin/super/users` | Cross-tenant users — table with role/status badges, actions |
 | `/admin/super/audit` | Audit logs — expandable rows, date range filters |
-| `/admin/super/settings` | System settings — 4 sections: Geral, Limites, SMTP, Segurança |
+| `/admin/super/settings` | System settings — 4 sections: Geral, Limites, SMTP, Seguranca |
 
 ## Frontend Components
 
 ### Styling System
-- **Custom Tailwind theme** with ServiceDesk branding
+- **Design System**: `lib/design-system/tokens.ts` — colors, spacing, typography
+- **Brand colors**: Use `brand-*` classes (sky-blue #0ea5e9) for CTAs, links, accents
+- **Neutrals**: Use `neutral-*` classes (NEVER `gray-*`) for backgrounds, borders, text
 - **Priority colors**: low (green), medium (yellow), high (orange), critical (red)
-- **Status colors**: open (blue), in-progress (yellow), resolved (green), closed (gray)
-- **Custom animations**: fade-in, slide-up, pulse-soft, etc.
-- **Dark mode** support via class-based toggling
+- **Status colors**: open (blue), in-progress (yellow), resolved (green), closed (neutral)
+- **Dark mode**: Always pair light classes with `dark:` variants
+- **Custom animations**: fade-in, slide-up, pulse-soft
 
 ### UI Components
 - **Headless UI** for accessible components (Dialog, Menu, etc.)
-- **Heroicons** for consistent iconography
+- **Heroicons + Lucide React** for iconography
+- **Framer Motion** for animations
 - **React Hot Toast** for notifications
-- **React Quill** for rich text editing
-- **Recharts** for analytics visualization
+- **Recharts + D3** for analytics visualization
+- **ReactFlow** for workflow builder
 
-## Real-time Features
+## Security
 
-### Socket.io Integration
-- **User sessions** tracked in `user_sessions` table
-- **Live notifications** via `notification_events` table
-- **Real-time ticket updates** broadcast to relevant users
-- **SLA warnings** pushed automatically when deadlines approach
+### Implemented Protections
+- **JWT**: HS256, access (15min) + refresh (7d), httpOnly cookies, device fingerprinting
+- **Password**: bcrypt 12 rounds, entropy check, dictionary, history (5), 90-day expiration
+- **MFA**: TOTP + SMS + Email + Backup codes (10), HMAC-SHA256 hashed storage
+- **CSRF**: Double Submit Cookie + HMAC-SHA256, session-bound, 1-hour expiry
+- **Encryption**: AES-256-GCM with key rotation for sensitive fields
+- **CSP**: Strict mode in production, Permissions-Policy, HSTS, X-Frame-Options DENY
+- **Rate Limiting**: Per-endpoint limits (login 5/15min, register 3/hr, default 60/min)
+- **SQL Injection**: Parameterized queries + LIKE wildcard escaping
+- **XSS**: isomorphic-dompurify sanitization
+- **Tenant Isolation**: organization_id scoping + JWT validation in middleware
+- **LGPD/GDPR**: Consent tracking, data portability, erasure, 3-year retention
 
-### Automation System
-- **Trigger-based automations** in `automations` table
-- **SLA tracking** with automatic escalation
-- **Email notifications** (Nodemailer integration)
-- **Audit logging** for all user actions
+### Security Patterns to Follow
+```typescript
+// LIKE escaping
+const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+conditions.push("(name LIKE ? ESCAPE '\\')");
 
-## Development Notes
+// Pagination cap
+const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100);
 
-### Configuration
-- **Standalone build** configured in `next.config.js`
-- **CSP headers** for security (fonts, styles)
-- **TypeScript strict mode** with comprehensive type checking
-- **ESLint** with Next.js configuration
+// Division by zero
+`NULLIF(divisor, 0)`
 
-### Migration Readiness
-- Schema designed for **PostgreSQL compatibility**
-- Database configuration centralized in `lib/db/config.ts`
-- Ready for **Neon PostgreSQL** migration with environment variable switching
+// Date validation
+const date = new Date(input); if (isNaN(date.getTime())) return apiError('Invalid date', 400);
 
-### Missing Testing Framework
-- No test setup currently implemented
-- Consider adding Jest or Vitest for future development
-- Database queries are prime candidates for unit testing
+// Array input limit
+const ids = requestIds.slice(0, 50);
+```
+
+## Performance
+
+### Metrics
+| Metric | Value |
+|---|---|
+| Lighthouse Performance | 92-95/100 |
+| Mobile Score | 90-95/100 |
+| TTFB | 300-450ms |
+| Bundle Size | 245KB gzipped |
+| DB Query Avg | 45ms |
+| LCP | 2.1s (Good) |
+| FID | 85ms (Good) |
+| CLS | 0.05 (Good) |
+
+### Optimizations
+- **SSR/ISR**: 10+ critical pages, 18 API endpoints with cache strategies
+- **Code Splitting**: Lazy loading for admin, charts, editors, PDF/Excel
+- **Compression**: gzip/brotli in server.ts (~70% reduction)
+- **Auth Cache**: 30s in-memory cache eliminates redundant /api/auth/verify calls
+- **DB Indexes**: 362 indexes, N+1 queries eliminated with JOINs
+- **Tree-shaking**: optimizePackageImports for heroicons, headlessui, lucide-react, recharts, framer-motion, date-fns
 
 ## Common Development Tasks
 
-### Adding New Ticket Features
-1. Update database schema in `schema.sql`
+### Adding New Features
+1. Update database schema in both `schema.sql` and `schema.postgres.sql`
 2. Add TypeScript types in `lib/types/database.ts`
-3. Create query functions in `lib/db/queries.ts`
-4. Implement API routes in `app/api/`
-5. Build frontend components
+3. Create query functions using adapter (`executeQuery`, `executeRun`)
+4. Use dialect helpers (`sqlNow()`, etc.) for cross-DB SQL
+5. Implement API routes with `requireTenantUserContext()` guard
+6. Add rate limiting with `applyRateLimit(request, RATE_LIMITS.*)`
+7. Return responses with `apiSuccess()` / `apiError()`
+8. Build frontend components with dark mode (`dark:` variants) and Portuguese i18n
 
-### Modifying SLA Rules
-- Edit `sla_policies` table structure
-- Update database triggers in `schema.sql`
-- Modify SLA tracking logic in relevant API routes
+### Adding New API Routes
+```typescript
+import { NextRequest } from 'next/server';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { apiSuccess, apiError } from '@/lib/api/api-helpers';
+import { executeQuery } from '@/lib/db/adapter';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
-### Adding New User Roles
-- Update role enum in database schema
-- Modify middleware route protection logic
-- Update TypeScript types and query functions
+export async function GET(request: NextRequest) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
 
-## Performance Optimizations (v2.0)
+  const { auth, context, response } = requireTenantUserContext(request);
+  if (response) return response;
 
-### Implemented Optimizations
+  const data = await executeQuery('SELECT * FROM table WHERE organization_id = ?', [context.organizationId]);
+  return apiSuccess(data);
+}
+```
 
-#### 1. Server-Side Rendering & Caching
-- **SSR/ISR**: 10+ critical pages with server-side rendering
-- **API Route Caching**: 18 API endpoints with intelligent cache strategies
-  - Static lookups: 30 min cache (statuses, priorities, categories)
-  - Knowledge Base: 10 min cache
-  - Analytics: 5 min cache with stale-while-revalidate
-  - Real-time APIs: 30 sec cache
-- **Cache Headers**: Comprehensive HTTP caching in `next.config.js`
+## Build & Deploy
 
-#### 2. Database Performance
-- **10 Critical Indexes**: Optimized query performance on high-traffic tables
-  - tickets: composite indexes on status_id, priority_id, assigned_to
-  - comments: ticket_id index for fast lookups
-  - attachments: ticket_id index
-  - sla_tracking: ticket_id index
-  - notifications: user_id + is_read composite index
-- **Query Optimization**: Eliminated N+1 queries with JOIN statements
-- **Connection Pooling**: SQLite WAL mode for concurrent reads
+### Build Status
+- **TypeScript**: 0 errors
+- **Next.js Build**: SUCCESS (203 pages)
+- **SQLite→PG Migration**: 100% complete
+- **QA Score**: 22/22 checks (100%)
 
-#### 3. Frontend Performance
-- **Code Splitting**: Lazy loading for:
-  - Admin dashboard components
-  - Rich text editors (React Quill)
-  - Charts (Recharts)
-  - File upload components
-  - PDF/Excel export libraries
-- **Bundle Optimization**:
-  - Tree-shaking enabled
-  - Package imports optimized (@heroicons, @headlessui)
-  - Server external packages configured
-- **Image Optimization**:
-  - Next.js Image component with AVIF/WebP
-  - Responsive image sizes
-  - 1-year cache TTL
-
-#### 4. Compression Middleware
-- **HTTP Compression**: gzip/brotli compression in `server.ts`
-  - Threshold: 1KB (only compress responses > 1KB)
-  - Level: 6 (optimal balance between speed and compression)
-  - Content-Type filtering
-  - **Impact**: ~70% payload size reduction
-
-#### 5. Mobile Responsiveness
-- **Viewport Optimization**: Fixed mobile viewport issues
-- **Touch-Friendly**: Improved mobile interactions
-- **Responsive Design**: All pages mobile-optimized
-
-### Performance Metrics
-
-#### Before Optimizations (Baseline)
-- Lighthouse Performance: 70/100
-- Mobile Score: 65/100
-- TTFB: 1200ms
-- Bundle Size: 450KB
-- Database Queries: 150ms avg
-
-#### After Optimizations (Current)
-- Lighthouse Performance: 92-95/100 (+32%)
-- Mobile Score: 90-95/100 (+46%)
-- TTFB: 300-450ms (-75%)
-- Bundle Size: 245KB gzipped (-45%)
-- Database Queries: 45ms avg (-70%)
-
-### Core Web Vitals
-- **LCP** (Largest Contentful Paint): 2.1s (Good)
-- **FID** (First Input Delay): 85ms (Good)
-- **CLS** (Cumulative Layout Shift): 0.05 (Good)
-
-### Build Configuration
-
-#### next.config.js Highlights
-- Compression enabled
-- Bundle analyzer ready (ANALYZE=true)
-- Security headers (CSP, HSTS, X-Frame-Options)
-- Static asset caching (1 year)
-- Sentry integration for error tracking
-
-#### Custom Server (server.ts)
-- Socket.io for real-time features
-- Compression middleware
-- Graceful shutdown handling
-- WebSocket support
-
-### Production Readiness
-
-#### Environment Validation
-- Automated env validation in prebuild
-- Required secrets checked
-- Database connection verified
-
-#### Security
-- JWT-based authentication
-- HTTPS-only in production
-- CSP headers
-- XSS protection
-- CSRF protection
-
-#### Monitoring
-- Sentry error tracking
-- Performance monitoring
-- Database query logging
-- API request logging
-
-## Security Hardening (v2.1)
-
-### Applied Fixes
-- **Cross-tenant password change prevention**: `organization_id` now required in JWT for password changes
-- **SQL LIKE wildcard injection**: All LIKE queries escape `%` and `_` with `ESCAPE '\\'`
-- **Pagination limits enforced**: All paginated endpoints cap results (max 100-200 per request)
-- **Date input validation**: Audit route validates ISO date formats before SQL queries
-- **Super Admin guard hardened**: Requires valid `organizationId` even for `super_admin` role
-- **Template injection prevention**: Email templates validated against explicit whitelist
-- **Division by zero protection**: All analytics percentage calculations use `NULLIF(..., 0)`
-- **Input array limits**: Search filter arrays capped at 50 items to prevent DoS
-- **Email validation improved**: Middleware uses proper regex instead of simple `.includes('@')`
-- **Permissions-Policy header**: Added to restrict camera, microphone, geolocation APIs
-- **Dead code removed**: Unused escape key handler in Modal (Headless UI handles natively)
-- **Accessibility**: Button loading state announced via `aria-live="polite"` and `aria-busy`
-- **Responsive layout**: Portal tickets stats grid uses `xs:grid-cols-3` instead of forced 3-col on mobile
-
-### Security Patterns to Follow
-- Always escape LIKE wildcards: `search.replace(/%/g, '\\%').replace(/_/g, '\\_')`
-- Always cap pagination: `Math.min(parseInt(limit) || default, MAX)`
-- Always validate dates: `new Date(input)` + `isNaN()` check before SQL
-- Always require `organizationId` in tenant-scoped operations
-- Use `NULLIF(divisor, 0)` in all SQL division operations
-
-### Next Steps for Further Optimization
-
-1. **CDN Integration**: Serve static assets from CDN
-2. **Service Worker**: PWA support for offline functionality
-3. **GraphQL**: Replace REST APIs for complex queries
-4. **Redis Caching**: Add Redis for distributed caching
-5. **PostgreSQL Migration**: Move from SQLite to PostgreSQL for production scale
+### Infrastructure
+- **Docker**: Multi-stage build (<200MB), non-root user, tini init
+- **Kubernetes**: Health probes at /api/health/live, /ready, /startup
+- **Supabase**: PostgreSQL with 117 tables, 362 indexes, 59 triggers
+- **Monitoring**: Sentry (server/client/edge) + Datadog APM + Prometheus metrics
+- **Custom Server**: server.ts with Socket.io + compression + graceful shutdown
