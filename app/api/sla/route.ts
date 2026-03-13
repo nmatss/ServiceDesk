@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
-import { logger } from '@/lib/monitoring/logger'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { ADMIN_ROLES } from '@/lib/auth/roles';
+import { logger } from '@/lib/monitoring/logger'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -12,17 +12,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Verificar autenticação via cookies httpOnly
-    const decoded = await verifyTokenFromCookies(request)
-    if (!decoded) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    // SECURITY: Get tenant ID from authenticated user - fail if missing
-    const tenantId = decoded.organization_id
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 })
-    }
+    const tenantId = auth.organizationId;
 
     // Get SLA policies
     const slaList = await executeQuery(`
@@ -64,20 +57,13 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Verificar autenticação via cookies httpOnly
-    const decoded = await verifyTokenFromCookies(request)
-    if (!decoded) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    // SECURITY: Get tenant ID from authenticated user - fail if missing
-    const tenantId = decoded.organization_id
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 })
-    }
+    const tenantId = auth.organizationId;
 
     // Only admin users can create SLA policies
-    if (!ADMIN_ROLES.includes(decoded.role)) {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 

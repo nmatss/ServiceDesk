@@ -5,9 +5,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/auth-service';
-import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import problemQueries from '@/lib/db/queries/problem-queries';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -23,46 +21,21 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Only agents and admins can view statistics
-    if (payload.role === 'user') {
+    if (auth.role === 'user') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
-
     // Fetch statistics
     const [problemStats, knownErrorStats] = await Promise.all([
-      problemQueries.getProblemStatistics(tenant.organizationId),
-      problemQueries.getKnownErrorStatistics(tenant.organizationId),
+      problemQueries.getProblemStatistics(auth.organizationId),
+      problemQueries.getKnownErrorStatistics(auth.organizationId),
     ]);
 
     return NextResponse.json({

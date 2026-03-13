@@ -56,8 +56,9 @@ export async function GET(request: NextRequest) {
 
     // Search
     if (search) {
-      query += ` AND (m.name LIKE ? OR m.content LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`);
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      query += ` AND (m.name LIKE ? ESCAPE '\\' OR m.content LIKE ? ESCAPE '\\')`;
+      params.push(`%${escapedSearch}%`, `%${escapedSearch}%`);
     }
 
     query += ` ORDER BY m.usage_count DESC, m.name ASC`;

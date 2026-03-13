@@ -109,6 +109,10 @@ export function sanitizeCSS(css: string): string {
 /**
  * Sanitiza URL removendo javascript:, data:, vbscript:
  */
+// Lowercase aliases for backward compatibility
+export const sanitizeHtml = sanitizeHTML;
+export const sanitizeText = stripHTML;
+
 export function sanitizeURL(url: string): string {
   if (!url || typeof url !== 'string') {
     return '';

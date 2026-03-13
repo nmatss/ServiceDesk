@@ -228,14 +228,15 @@ export async function GET(request: NextRequest) {
     if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 100);
     const category = searchParams.get('category');
     const isActive = searchParams.get('isActive');
     const isTemplate = searchParams.get('isTemplate');
     const search = searchParams.get('search');
-    const sortBy = searchParams.get('sortBy') || 'created_at';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const allowedSorts = ['created_at', 'updated_at', 'name', 'priority', 'execution_count', 'last_executed_at'];
+    const sortBy = allowedSorts.includes(searchParams.get('sortBy') || '') ? searchParams.get('sortBy')! : 'created_at';
+    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
 
     const offset = (page - 1) * limit;
 // Build query with filters
@@ -258,8 +259,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      whereClause += ' AND (name LIKE ? OR description LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      whereClause += " AND (name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\')";
+      params.push(`%${escapedSearch}%`, `%${escapedSearch}%`);
     }
 
     // Get total count

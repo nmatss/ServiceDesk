@@ -7,9 +7,8 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/auth-service';
-import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateKnownErrorInput } from '@/lib/types/problem';
 
@@ -39,37 +38,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Fetch known error
     const knownError = await problemQueries.getKnownErrorById(
-      tenant.organizationId,
+      auth.organizationId,
       knownErrorId
     );
 
@@ -81,7 +55,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check visibility for end users - only show active known errors
-    if (payload.role === 'user' && knownError.status !== 'active') {
+    if (auth.role === 'user' && knownError.status !== 'active') {
       return NextResponse.json(
         { success: false, error: 'Known error not found' },
         { status: 404 }
@@ -120,45 +94,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Only agents and admins can update known errors
-    if (payload.role === 'user') {
+    if (auth.role === 'user') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
-
     // Check if known error exists
     const existingKnownError = await problemQueries.getKnownErrorById(
-      tenant.organizationId,
+      auth.organizationId,
       knownErrorId
     );
 
@@ -186,7 +135,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update known error
     const updatedKnownError = await problemQueries.updateKnownError(
-      tenant.organizationId,
+      auth.organizationId,
       knownErrorId,
       input
     );
@@ -223,45 +172,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Only admins can delete known errors
-    if (payload.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Admin access required' },
         { status: 403 }
       );
     }
 
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
-
     // Instead of deleting, retire the known error
     await problemQueries.updateKnownError(
-      tenant.organizationId,
+      auth.organizationId,
       knownErrorId,
       { status: 'retired' }
     );

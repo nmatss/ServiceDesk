@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
-import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -11,33 +11,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const user = await verifyTokenFromCookies(request)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      )
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 400 }
-      )
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json(
-        { error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' },
-        { status: 403 }
-      )
-    }
-
-    const tenantId = tenantContext.id
+    const tenantId = auth.organizationId;
 
     // Buscar agentes FILTRADOS POR TENANT (organization_id)
     const agents = await executeQuery(`
@@ -78,7 +55,7 @@ export async function GET(request: NextRequest) {
       AND organization_id = ?
       AND id != ?
       ORDER BY name ASC
-    `, [tenantId, tenantId, tenantId, tenantId, user.id])
+    `, [tenantId, tenantId, tenantId, tenantId, auth.userId])
 
     // Formattar dados dos agentes
     const formattedAgents = agents.map((agent: any) => ({
@@ -117,41 +94,18 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const user = await verifyTokenFromCookies(request)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
-        { status: 401 }
-      )
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Verificar permissão de admin
-    if (user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json(
         { error: 'Permission denied. Only administrators can create agents.', code: 'PERMISSION_DENIED' },
         { status: 403 }
       )
     }
 
-    // Verificar tenant context
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant not found', code: 'TENANT_NOT_FOUND' },
-        { status: 400 }
-      )
-    }
-
-    // Verificar se usuário pertence ao tenant
-    if (user.organization_id !== tenantContext.id) {
-      return NextResponse.json(
-        { error: 'Access denied to this tenant', code: 'TENANT_ACCESS_DENIED' },
-        { status: 403 }
-      )
-    }
-
-    const tenantId = tenantContext.id
+    const tenantId = auth.organizationId;
     const { name, email, password, role = 'agent' } = await request.json()
 
     if (!name || !email || !password) {

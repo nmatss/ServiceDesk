@@ -117,8 +117,8 @@ export async function GET(request: NextRequest) {
           : searchParams.get('has_attachments') === 'false'
             ? false
             : undefined,
-      sortBy: (searchParams.get('sort_by') as SearchFilters['sortBy']) || 'created_at',
-      sortOrder: (searchParams.get('sort_order') as SearchFilters['sortOrder']) || 'DESC',
+      sortBy: (['created_at', 'updated_at', 'priority', 'status', 'title'].includes(searchParams.get('sort_by') || '') ? searchParams.get('sort_by') as SearchFilters['sortBy'] : 'created_at'),
+      sortOrder: (searchParams.get('sort_order') === 'ASC' ? 'ASC' : 'DESC') as SearchFilters['sortOrder'],
       limit,
       offset,
     };

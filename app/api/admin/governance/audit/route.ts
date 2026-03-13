@@ -67,13 +67,14 @@ const offset = (page - 1) * limit
     }
 
     if (search) {
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_')
       conditions.push(`(
-        u.name LIKE ? OR
-        u.email LIKE ? OR
-        al.resource_name LIKE ? OR
-        al.action LIKE ?
+        u.name LIKE ? ESCAPE '\\' OR
+        u.email LIKE ? ESCAPE '\\' OR
+        al.resource_name LIKE ? ESCAPE '\\' OR
+        al.action LIKE ? ESCAPE '\\'
       )`)
-      const searchPattern = `%${search}%`
+      const searchPattern = `%${escapedSearch}%`
       params.push(searchPattern, searchPattern, searchPattern, searchPattern)
     }
 

@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
-import { sanitizeHtml } from '@/lib/validation/sanitize';
+import { sanitizeHtml } from '@/lib/security/sanitize';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {

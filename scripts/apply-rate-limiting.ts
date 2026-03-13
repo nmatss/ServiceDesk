@@ -13,7 +13,6 @@ const RATE_LIMIT_CONFIG_MAP: Record<string, string> = {
   // Auth endpoints (CRITICAL)
   '/api/auth/register': 'RATE_LIMITS.AUTH_REGISTER',
   '/api/auth/login': 'RATE_LIMITS.AUTH_LOGIN',
-  '/api/auth/login-v2': 'RATE_LIMITS.AUTH_LOGIN',
   '/api/auth/change-password': 'RATE_LIMITS.AUTH_FORGOT_PASSWORD',
   '/api/auth/': 'RATE_LIMITS.AUTH_LOGIN', // Default for auth
 

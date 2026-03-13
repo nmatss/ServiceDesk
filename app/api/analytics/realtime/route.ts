@@ -10,6 +10,7 @@ import { executeQuery, executeQueryOne, sqlCurrentDate, sqlCastDate, sqlDateSub,
 import { demandForecaster, anomalyDetector } from '@/lib/analytics/predictive';
 import { logger } from '@/lib/monitoring/logger';
 import { getFromCache, setCache } from '@/lib/cache/lru-cache';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // ============================================================================
@@ -458,6 +459,9 @@ export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
   if (rateLimitResponse) return rateLimitResponse;
 
+  const { context, response } = requireTenantUserContext(request);
+  if (response) return response;
+
   try {
     const searchParams = request.nextUrl.searchParams;
 
@@ -548,6 +552,9 @@ export async function POST(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
   if (rateLimitResponse) return rateLimitResponse;
+
+  const { response: authResponse } = requireTenantUserContext(request);
+  if (authResponse) return authResponse;
 
   try {
     const body = await request.json();

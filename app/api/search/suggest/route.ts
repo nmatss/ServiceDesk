@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
@@ -44,17 +44,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
@@ -124,17 +115,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const body = await request.json();
     const {

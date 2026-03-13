@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
 
       case 'deployments':
         // Get deployment history
-        const limit = parseInt(searchParams.get('limit') || '10');
+        const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 100);
         const deployments = await modelManager.getDeploymentHistory(limit);
         return NextResponse.json({ success: true, deployments });
 

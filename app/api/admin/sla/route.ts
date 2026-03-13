@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { getAllSLAPolicies, createSLAPolicy, getSLAMetrics } from '@/lib/sla';
 import { CreateSLAPolicy } from '@/lib/types/database';
 import { logger } from '@/lib/monitoring/logger';
@@ -12,15 +13,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -66,15 +62,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
+    const { auth, context, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -89,7 +80,6 @@ export async function POST(request: NextRequest) {
       escalation_time_minutes: _escalation_time_minutes,
       business_hours_only,
       is_active,
-      organization_id
     } = body;
 
     if (!name || !priority_id || !response_time_minutes || !resolution_time_minutes) {
@@ -107,7 +97,7 @@ export async function POST(request: NextRequest) {
       resolution_time_hours: Math.ceil(parseInt(resolution_time_minutes) / 60),
       business_hours_only: business_hours_only === true,
       is_active: is_active !== false,
-      organization_id: organization_id || user.organization_id
+      organization_id: context.tenant.id
     };
 
     const policy = createSLAPolicy(policyData);

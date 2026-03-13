@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -16,15 +17,10 @@ export async function GET(request: NextRequest, { params }: Context) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -56,15 +52,10 @@ export async function PUT(request: NextRequest, { params }: Context) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -81,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: Context) {
       is_active
     } = body;
 
-    
+
 
     const result = await executeRun(`
       UPDATE sla_policies
@@ -136,15 +127,10 @@ export async function DELETE(request: NextRequest, { params }: Context) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autenticação necessário' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -161,7 +147,7 @@ export async function DELETE(request: NextRequest, { params }: Context) {
       }, { status: 400 });
     }
 
-    
+
     const result = await executeRun('DELETE FROM sla_policies WHERE id = ?', [(await params).id]);
 
     if (result.changes === 0) {

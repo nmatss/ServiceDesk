@@ -92,8 +92,9 @@ export async function GET(request: NextRequest) {
     const queryParams: (string | number | boolean)[] = [organizationId]
 
     if (params.search) {
-      whereClause += ` AND (sc.name LIKE ? OR sc.short_description LIKE ? OR sc.keywords LIKE ?)`
-      const searchPattern = `%${params.search}%`
+      const escapedSearch = params.search.replace(/%/g, '\\%').replace(/_/g, '\\_')
+      whereClause += ` AND (sc.name LIKE ? ESCAPE '\\' OR sc.short_description LIKE ? ESCAPE '\\' OR sc.keywords LIKE ? ESCAPE '\\')`
+      const searchPattern = `%${escapedSearch}%`
       queryParams.push(searchPattern, searchPattern, searchPattern)
     }
 

@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
 
     // Buscar artigos relevantes da knowledge base usando busca textual (scoped by org)
     const queryText = `${title} ${description}`;
+    const escapedQueryText = queryText.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const escapedTitle = title.replace(/%/g, '\\%').replace(/_/g, '\\_');
 
     const knowledgeArticles = await executeQuery<any>(`
       SELECT id, title, summary, content
@@ -50,19 +52,19 @@ export async function POST(request: NextRequest) {
       WHERE is_published = 1
         AND (organization_id = ? OR organization_id IS NULL)
         AND (
-          LOWER(title) LIKE LOWER(?) OR
-          LOWER(content) LIKE LOWER(?) OR
-          LOWER(search_keywords) LIKE LOWER(?)
+          LOWER(title) LIKE LOWER(?) ESCAPE '\\' OR
+          LOWER(content) LIKE LOWER(?) ESCAPE '\\' OR
+          LOWER(search_keywords) LIKE LOWER(?) ESCAPE '\\'
         )
       ORDER BY
-        CASE WHEN LOWER(title) LIKE LOWER(?) THEN 1 ELSE 2 END,
+        CASE WHEN LOWER(title) LIKE LOWER(?) ESCAPE '\\' THEN 1 ELSE 2 END,
         helpful_votes DESC
       LIMIT ?
     `, [organizationId,
-      `%${queryText}%`,
-      `%${queryText}%`,
-      `%${queryText}%`,
-      `%${title}%`,
+      `%${escapedQueryText}%`,
+      `%${escapedQueryText}%`,
+      `%${escapedQueryText}%`,
+      `%${escapedTitle}%`,
       maxKnowledgeArticles]);
 
     // Buscar tickets similares resolvidos via busca textual (scoped by org)
@@ -77,13 +79,13 @@ export async function POST(request: NextRequest) {
         AND t.organization_id = ?
         AND t.id != COALESCE(?, 0)
         AND (
-          LOWER(t.title) LIKE LOWER(?) OR
-          LOWER(t.description) LIKE LOWER(?)
+          LOWER(t.title) LIKE LOWER(?) ESCAPE '\\' OR
+          LOWER(t.description) LIKE LOWER(?) ESCAPE '\\'
         )
       GROUP BY t.id, t.title, t.description
       ORDER BY t.resolved_at DESC
       LIMIT ?
-    `, [organizationId, ticketId, `%${title}%`, `%${description}%`, maxSimilarTickets]);
+    `, [organizationId, ticketId, `%${escapedTitle}%`, `%${description.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`, maxSimilarTickets]);
 
     // Buscar contexto do usuário se solicitado (scoped by org)
     let userContext;

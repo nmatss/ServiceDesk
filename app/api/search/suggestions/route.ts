@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       })
     }
     const suggestions: any[] = []
+    const escapedQuery = query.replace(/%/g, '\\%').replace(/_/g, '\\_')
 
     // Buscar tickets se type for 'all' ou 'tickets'
     if (type === 'all' || type === 'tickets') {
@@ -55,9 +56,9 @@ export async function GET(request: NextRequest) {
           created_at
         FROM tickets
         WHERE (
-          title LIKE ? OR
-          description LIKE ? OR
-          CAST(id as TEXT) LIKE ?
+          title LIKE ? ESCAPE '\\' OR
+          description LIKE ? ESCAPE '\\' OR
+          CAST(id as TEXT) LIKE ? ESCAPE '\\'
         )
         AND (
           ? = 'admin' OR
@@ -66,16 +67,16 @@ export async function GET(request: NextRequest) {
         )
         ORDER BY
           CASE
-            WHEN title LIKE ? THEN 1
-            WHEN CAST(id as TEXT) LIKE ? THEN 2
+            WHEN title LIKE ? ESCAPE '\\' THEN 1
+            WHEN CAST(id as TEXT) LIKE ? ESCAPE '\\' THEN 2
             ELSE 3
           END,
           created_at DESC
         LIMIT ?
       `, [
-        `%${query}%`, `%${query}%`, `%${query}%`,
+        `%${escapedQuery}%`, `%${escapedQuery}%`, `%${escapedQuery}%`,
         user.role, user.id, user.id,
-        `${query}%`, `${query}%`,
+        `${escapedQuery}%`, `${escapedQuery}%`,
         Math.floor(limit / 2)
       ])
 
@@ -101,20 +102,20 @@ export async function GET(request: NextRequest) {
           role
         FROM users
         WHERE (
-          name LIKE ? OR
-          email LIKE ?
+          name LIKE ? ESCAPE '\\' OR
+          email LIKE ? ESCAPE '\\'
         )
         ORDER BY
           CASE
-            WHEN name LIKE ? THEN 1
-            WHEN email LIKE ? THEN 2
+            WHEN name LIKE ? ESCAPE '\\' THEN 1
+            WHEN email LIKE ? ESCAPE '\\' THEN 2
             ELSE 3
           END,
           name ASC
         LIMIT ?
       `, [
-        `%${query}%`, `%${query}%`,
-        `${query}%`, `${query}%`,
+        `%${escapedQuery}%`, `%${escapedQuery}%`,
+        `${escapedQuery}%`, `${escapedQuery}%`,
         Math.floor(limit / 4)
       ])
 
@@ -138,12 +139,12 @@ export async function GET(request: NextRequest) {
           name,
           description
         FROM categories
-        WHERE name LIKE ?
+        WHERE name LIKE ? ESCAPE '\\'
         ORDER BY
-          CASE WHEN name LIKE ? THEN 1 ELSE 2 END,
+          CASE WHEN name LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,
           name ASC
         LIMIT ?
-      `, [`%${query}%`, `${query}%`, Math.floor(limit / 4)])
+      `, [`%${escapedQuery}%`, `${escapedQuery}%`, Math.floor(limit / 4)])
 
       suggestions.push(...categorySuggestions.map((category: any) => ({
         type: 'category',
@@ -166,18 +167,18 @@ export async function GET(request: NextRequest) {
           status
         FROM knowledge_articles
         WHERE (
-          title LIKE ? OR
-          content LIKE ? OR
-          summary LIKE ?
+          title LIKE ? ESCAPE '\\' OR
+          content LIKE ? ESCAPE '\\' OR
+          summary LIKE ? ESCAPE '\\'
         )
         AND status = 'published'
         ORDER BY
-          CASE WHEN title LIKE ? THEN 1 ELSE 2 END,
+          CASE WHEN title LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,
           title ASC
         LIMIT ?
       `, [
-        `%${query}%`, `%${query}%`, `%${query}%`,
-        `${query}%`,
+        `%${escapedQuery}%`, `%${escapedQuery}%`, `%${escapedQuery}%`,
+        `${escapedQuery}%`,
         Math.floor(limit / 4)
       ])
 
@@ -215,10 +216,10 @@ export async function GET(request: NextRequest) {
         FROM audit_logs
         WHERE action = 'SEARCH_PERFORMED'
         AND created_at > ?
-        AND details->>'search_query' LIKE ?
+        AND details->>'search_query' LIKE ? ESCAPE '\\'
         ORDER BY created_at DESC
         LIMIT 3
-      `, [cutoffDate, `%${query}%`])
+      `, [cutoffDate, `%${escapedQuery}%`])
 
       relatedTerms.push(...recentSearches
         .map((row) => row.term)

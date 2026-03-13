@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { autoGenerateEmbeddings, updateEmbeddingOnChange } from '@/lib/ai/embedding-utils';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
@@ -35,20 +36,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Only admins can generate embeddings
-    if (user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -161,15 +153,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
@@ -204,15 +191,10 @@ export async function DELETE(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 

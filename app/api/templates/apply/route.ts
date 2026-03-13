@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -11,17 +11,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const body = await request.json();
     const { template_id, variables = {}, ticket_id } = body;
@@ -79,10 +70,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Variáveis disponíveis para substituição
-    const availableVariables = {
+    const availableVariables: Record<string, any> = {
       // Variáveis do usuário atual
-      current_user_name: user.name,
-      current_user_email: user.email,
+      current_user_name: auth.name || '',
+      current_user_email: auth.email,
       current_date: new Date().toLocaleDateString('pt-BR'),
       current_time: new Date().toLocaleTimeString('pt-BR'),
       current_datetime: new Date().toLocaleString('pt-BR'),
@@ -128,7 +119,7 @@ export async function POST(request: NextRequest) {
       INSERT INTO template_usage (template_id, used_by, ticket_id, used_at)
       VALUES (?, ?, ?, ?)
     `, [template_id,
-      user.id,
+      auth.userId,
       ticket_id || null,
       new Date().toISOString()]);
 
@@ -167,17 +158,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const { searchParams } = new URL(request.url);
     const templateId = searchParams.get('template_id');
@@ -205,9 +187,9 @@ export async function GET(request: NextRequest) {
     const templateVariables = (template as any).variables ? JSON.parse((template as any).variables) : {};
 
     // Variáveis básicas
-    const availableVariables = {
-      current_user_name: user.name,
-      current_user_email: user.email,
+    const availableVariables: Record<string, any> = {
+      current_user_name: auth.name || '',
+      current_user_email: auth.email,
       current_date: new Date().toLocaleDateString('pt-BR'),
       current_time: new Date().toLocaleTimeString('pt-BR'),
       current_datetime: new Date().toLocaleString('pt-BR')

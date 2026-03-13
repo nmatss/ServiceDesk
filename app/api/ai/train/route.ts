@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
 
       case 'history':
         // Get training history
-        const limit = parseInt(searchParams.get('limit') || '10');
+        const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 100);
         const history = await trainingSystem.getTrainingHistory(limit);
         return NextResponse.json({ success: true, history });
 

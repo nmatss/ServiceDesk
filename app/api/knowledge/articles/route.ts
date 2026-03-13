@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
 
     // Filtro por busca
     if (search) {
-      whereClause += ' AND (a.title LIKE ? OR a.search_keywords LIKE ? OR a.content LIKE ?)'
-      const searchTerm = `%${search}%`
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_')
+      whereClause += " AND (a.title LIKE ? ESCAPE '\\' OR a.search_keywords LIKE ? ESCAPE '\\' OR a.content LIKE ? ESCAPE '\\')"
+      const searchTerm = `%${escapedSearch}%`
       params.push(searchTerm, searchTerm, searchTerm)
     }
 

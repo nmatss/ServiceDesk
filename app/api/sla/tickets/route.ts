@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, sqlNow, sqlColSubMinutes, sqlDateDiff, sqlTrue } from '@/lib/db/adapter';
-import { verifyTokenFromCookies } from '@/lib/auth/auth-service'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -11,17 +11,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Verificar autenticação via cookies httpOnly
-    const decoded = await verifyTokenFromCookies(request)
-    if (!decoded) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    // SECURITY: Get tenant ID from authenticated user - fail if missing
-    const tenantId = decoded.organization_id
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 })
-    }
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') // 'at_risk', 'breached', 'on_time'

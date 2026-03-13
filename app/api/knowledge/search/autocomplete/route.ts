@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
-    const limit = parseInt(searchParams.get('limit') || '5');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '5', 10) || 5, 50);
 
     if (query.length < 2) {
       return NextResponse.json({

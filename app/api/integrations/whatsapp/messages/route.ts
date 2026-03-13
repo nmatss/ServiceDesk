@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const contactId = searchParams.get('contactId');
     const ticketId = searchParams.get('ticketId');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 100);
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
     if (!contactId && !ticketId) {
       return NextResponse.json(

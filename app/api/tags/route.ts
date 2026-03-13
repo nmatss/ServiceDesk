@@ -40,8 +40,9 @@ export async function GET(request: NextRequest) {
     const params: (string | number)[] = [organizationId];
 
     if (search) {
-      query += ` AND t.name LIKE ?`;
-      params.push(`%${search}%`);
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      query += ` AND t.name LIKE ? ESCAPE '\\'`;
+      params.push(`%${escapedSearch}%`);
     }
 
     query += ` ORDER BY t.usage_count DESC, t.name ASC`;

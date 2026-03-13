@@ -66,10 +66,10 @@ export async function POST(request: NextRequest) {
           JOIN priorities p ON t.priority_id = p.id
           WHERE t.created_at >= ?
             AND t.organization_id = ?
-            AND (LOWER(t.title) LIKE LOWER(?) OR LOWER(t.description) LIKE LOWER(?))
+            AND (LOWER(t.title) LIKE LOWER(?) ESCAPE '\\' OR LOWER(t.description) LIKE LOWER(?) ESCAPE '\\')
           ORDER BY t.created_at DESC
           LIMIT 5
-        `, [thirtyDaysAgo, organizationId, `%${title}%`, `%${description}%`]);
+        `, [thirtyDaysAgo, organizationId, `%${title.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`, `%${description.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`]);
 
         // Buscar histórico do usuário se fornecido (scoped by org)
         let userHistory;

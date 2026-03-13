@@ -6,9 +6,7 @@
 
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth/auth-service';
-import { resolveTenantFromRequest } from '@/lib/tenant/resolver';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { AddActivityInput } from '@/lib/types/problem';
 
@@ -39,37 +37,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
-
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Verify problem exists
     const problem = await problemQueries.getProblemById(
-      tenant.organizationId,
+      auth.organizationId,
       problemId
     );
 
@@ -81,11 +54,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Determine if user can see internal notes
-    const includeInternal = payload.role !== 'user';
+    const includeInternal = auth.role !== 'user';
 
     // Fetch activities
     const activities = await problemQueries.getProblemActivities(
-      tenant.organizationId,
+      auth.organizationId,
       problemId,
       includeInternal
     );
@@ -123,45 +96,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Authenticate via httpOnly cookie
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Only agents and admins can add activities
-    if (payload.role === 'user') {
+    if (auth.role === 'user') {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    // Resolve tenant
-    const tenant = await resolveTenantFromRequest(request);
-    if (!tenant?.organizationId) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant not found' },
-        { status: 400 }
-      );
-    }
-
     // Verify problem exists
     const problem = await problemQueries.getProblemById(
-      tenant.organizationId,
+      auth.organizationId,
       problemId
     );
 
@@ -192,9 +140,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Add activity
     const activity = await problemQueries.addProblemActivity(
-      tenant.organizationId,
+      auth.organizationId,
       problemId,
-      payload.userId ?? 0,
+      auth.userId,
       input
     );
 

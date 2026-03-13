@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
     const mode = searchParams.get('mode') || 'hybrid'; // semantic, keyword, hybrid
     // const category = searchParams.get('category'); // Reserved for future use
     const tags = searchParams.get('tags')?.split(',').filter(Boolean);
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 100);
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
     // const minHelpfulVotes = parseInt(searchParams.get('minHelpfulVotes') || '0'); // Reserved for future use
 
     if (!query || query.trim().length === 0) {

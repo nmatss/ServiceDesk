@@ -108,11 +108,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Build sort options
-    const sortField = searchParams.get('sort') || 'created_at';
-    const sortDirection = searchParams.get('order') || 'desc';
+    const allowedSortFields = ['created_at', 'updated_at', 'priority', 'status'];
+    const sortField = allowedSortFields.includes(searchParams.get('sort') || '') ? searchParams.get('sort')! : 'created_at';
+    const sortDirection = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
     const sort: ProblemSortOptions = {
       field: sortField as any,
-      direction: sortDirection as 'asc' | 'desc',
+      direction: sortDirection,
     };
 
     // Pagination

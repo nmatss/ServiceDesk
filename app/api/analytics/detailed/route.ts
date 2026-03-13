@@ -10,6 +10,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, sqlDateDiff, sqlExtractHour, sqlExtractDayOfWeek } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 // ========================================
 // GET - Get detailed analytics
 // ========================================
@@ -19,9 +20,12 @@ export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
   if (rateLimitResponse) return rateLimitResponse;
 
+  const { auth, response } = requireTenantUserContext(request);
+  if (response) return response;
+
   try {
     const { searchParams } = new URL(request.url);
-    const organizationId = parseInt(searchParams.get('organizationId') || '1');
+    const organizationId = auth.organizationId;
     const period = searchParams.get('period') || '30d'; // 7d, 30d, 90d, 1y
     const metrics = searchParams.get('metrics')?.split(',') || ['all'];
 

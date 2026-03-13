@@ -117,7 +117,6 @@ const PUBLIC_ROUTES = [
   '/api/auth/register',
   '/api/auth/verify',
   '/api/auth/refresh',
-  '/api/auth/login-v2',
   '/api/auth/csrf-token',
   '/api/auth/sso',
   '/api/auth/govbr',
@@ -209,7 +208,6 @@ export async function middleware(request: NextRequest) {
   const isPublicCSRFPath =
     (pathname.startsWith('/api/auth/sso/') && pathname.includes('/callback')) ||
     pathname === '/api/auth/login' ||
-    pathname === '/api/auth/login-v2' ||
     pathname === '/api/auth/register' ||
     pathname === '/api/auth/csrf-token'
 

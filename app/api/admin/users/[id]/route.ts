@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -97,27 +98,12 @@ export async function GET(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_USER);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem acessar
-    const adminRoles = ['admin', 'super_admin', 'tenant_admin'];
-    if (!adminRoles.includes(user.role)) {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-    }
-
-    // SECURITY: Fail if organization_id is missing - prevent cross-tenant access
-    if (!user.organization_id) {
-      return NextResponse.json({ error: 'Organization ID não encontrado no token' }, { status: 401 });
     }
 
     const { id } = await params;
@@ -127,7 +113,7 @@ export async function GET(
       return NextResponse.json({ error: 'ID do usuário inválido' }, { status: 400 });
     }
 
-    const targetUser = await getUserById(userId, user.organization_id);
+    const targetUser = await getUserById(userId, auth.organizationId);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
@@ -147,21 +133,11 @@ export async function PUT(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_USER);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem editar usuários
-    const adminRoles = ['admin', 'super_admin', 'tenant_admin'];
-    if (!adminRoles.includes(user.role)) {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -172,7 +148,7 @@ export async function PUT(
       return NextResponse.json({ error: 'ID do usuário inválido' }, { status: 400 });
     }
 
-    const targetUser = await getUserById(userId, user.organization_id);
+    const targetUser = await getUserById(userId, auth.organizationId);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
@@ -195,7 +171,7 @@ export async function PUT(
 
     // Verificar se email já existe (se estiver sendo alterado)
     if (email && email !== targetUser.email) {
-      const existingUser = await getUserByEmail(email, user.organization_id);
+      const existingUser = await getUserByEmail(email, auth.organizationId);
       if (existingUser) {
         return NextResponse.json({ error: 'Email já está em uso' }, { status: 400 });
       }
@@ -220,7 +196,7 @@ export async function PUT(
 
     if (fields.length > 0) {
       fields.push('updated_at = CURRENT_TIMESTAMP');
-      values.push(userId, user.organization_id);
+      values.push(userId, auth.organizationId);
 
       try {
         await executeRun(
@@ -235,11 +211,11 @@ export async function PUT(
       }
     }
 
-    const updatedUser = await getUserById(userId, user.organization_id);
+    const updatedUser = await getUserById(userId, auth.organizationId);
 
     await writeUserAuditLog({
-      actorUserId: user.id,
-      organizationId: user.organization_id,
+      actorUserId: auth.userId,
+      organizationId: auth.organizationId,
       targetUserId: userId,
       action: 'update',
       oldValues: {
@@ -271,21 +247,11 @@ export async function DELETE(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_USER);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem deletar usuários
-    const deleteAdminRoles = ['admin', 'super_admin', 'tenant_admin'];
-    if (!deleteAdminRoles.includes(user.role)) {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -297,11 +263,11 @@ export async function DELETE(
     }
 
     // Não permitir deletar a si mesmo
-    if (userId === user.id) {
+    if (userId === auth.userId) {
       return NextResponse.json({ error: 'Não é possível deletar seu próprio usuário' }, { status: 400 });
     }
 
-    const targetUser = await getUserById(userId, user.organization_id);
+    const targetUser = await getUserById(userId, auth.organizationId);
     if (!targetUser) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
@@ -313,21 +279,21 @@ export async function DELETE(
         UPDATE users
         SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND organization_id = ?
-      `, [userId, user.organization_id])).changes > 0;
+      `, [userId, auth.organizationId])).changes > 0;
     } catch {
       success = (await executeRun(`
         UPDATE users
         SET is_active = ${sqlFalse()}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND tenant_id = ?
-      `, [userId, user.organization_id])).changes > 0;
+      `, [userId, auth.organizationId])).changes > 0;
     }
     if (!success) {
       return NextResponse.json({ error: 'Erro ao deletar usuário' }, { status: 500 });
     }
 
     await writeUserAuditLog({
-      actorUserId: user.id,
-      organizationId: user.organization_id,
+      actorUserId: auth.userId,
+      organizationId: auth.organizationId,
       targetUserId: userId,
       action: 'deactivate',
       oldValues: { is_active: targetUser.is_active ?? 1 },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import {
@@ -21,20 +22,11 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem acessar informações de cache
-    if (user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -68,20 +60,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem gerenciar cache
-    if (user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -201,20 +184,11 @@ export async function PUT(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem configurar cache
-    if (user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -262,20 +236,11 @@ export async function DELETE(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de acesso requerido' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Apenas admins podem limpar cache
-    if (user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 

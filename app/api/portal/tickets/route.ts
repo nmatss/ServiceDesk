@@ -58,12 +58,13 @@ export async function GET(request: NextRequest) {
 
     // Add search filter
     if (search) {
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_')
       query += ` AND (
-        t.title LIKE ? OR
-        t.description LIKE ? OR
-        t.ticket_number LIKE ?
+        t.title LIKE ? ESCAPE '\\' OR
+        t.description LIKE ? ESCAPE '\\' OR
+        t.ticket_number LIKE ? ESCAPE '\\'
       )`
-      const searchTerm = `%${search}%`
+      const searchTerm = `%${escapedSearch}%`
       params.push(searchTerm, searchTerm, searchTerm)
     }
 
@@ -109,12 +110,13 @@ export async function GET(request: NextRequest) {
     const countParams: any[] = [auth.organizationId, auth.userId]
 
     if (search) {
+      const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_')
       countQuery += ` AND (
-        t.title LIKE ? OR
-        t.description LIKE ? OR
-        t.ticket_number LIKE ?
+        t.title LIKE ? ESCAPE '\\' OR
+        t.description LIKE ? ESCAPE '\\' OR
+        t.ticket_number LIKE ? ESCAPE '\\'
       )`
-      const searchTerm = `%${search}%`
+      const searchTerm = `%${escapedSearch}%`
       countParams.push(searchTerm, searchTerm, searchTerm)
     }
 

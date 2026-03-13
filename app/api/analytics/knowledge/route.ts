@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, sqlDatetimeSub, sqlDatetimeSubYears, sqlDateSub } from '@/lib/db/adapter';
-import { verifyToken } from '@/lib/auth/auth-service'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -9,26 +9,10 @@ export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
   if (rateLimitResponse) return rateLimitResponse;
 
+  const { auth, response } = requireTenantUserContext(request);
+  if (response) return response;
+
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const user = await verifyToken(token)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      )
-    }
-
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30d'
     // Calcular data de início
@@ -47,26 +31,30 @@ export async function GET(request: NextRequest) {
         dateFilter = sqlDatetimeSub(30)
     }
 
+    const organizationId = auth.organizationId;
+
     // Estatísticas gerais da base de conhecimento
     const totalArticles = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count FROM kb_articles
-      WHERE status = 'published'
-    `) || { count: 0 }
+      WHERE organization_id = ? AND status = 'published'
+    `, [organizationId]) || { count: 0 }
 
     const totalViews = await executeQueryOne<{ total: number }>(`
       SELECT SUM(view_count) as total FROM kb_articles
-      WHERE status = 'published'
-    `) || { total: 0 }
+      WHERE organization_id = ? AND status = 'published'
+    `, [organizationId]) || { total: 0 }
 
     const totalFeedback = await executeQueryOne<{ count: number }>(`
-      SELECT COUNT(*) as count FROM kb_article_feedback
-      WHERE created_at >= ${dateFilter}
-    `) || { count: 0 }
+      SELECT COUNT(*) as count FROM kb_article_feedback f
+      JOIN kb_articles a ON f.article_id = a.id
+      WHERE a.organization_id = ? AND f.created_at >= ${dateFilter}
+    `, [organizationId]) || { count: 0 }
 
     const helpfulFeedback = await executeQueryOne<{ count: number }>(`
-      SELECT COUNT(*) as count FROM kb_article_feedback
-      WHERE was_helpful = 1 AND created_at >= ${dateFilter}
-    `) || { count: 0 }
+      SELECT COUNT(*) as count FROM kb_article_feedback f
+      JOIN kb_articles a ON f.article_id = a.id
+      WHERE a.organization_id = ? AND f.was_helpful = 1 AND f.created_at >= ${dateFilter}
+    `, [organizationId]) || { count: 0 }
 
     const helpfulnessRate = totalFeedback.count > 0
       ? Math.round((helpfulFeedback.count / totalFeedback.count) * 100)
@@ -85,10 +73,10 @@ export async function GET(request: NextRequest) {
         c.color as category_color
       FROM kb_articles a
       LEFT JOIN kb_categories c ON a.category_id = c.id
-      WHERE a.status = 'published'
+      WHERE a.organization_id = ? AND a.status = 'published'
       ORDER BY a.view_count DESC
       LIMIT 10
-    `)
+    `, [organizationId])
 
     // Artigos mais úteis
     const mostHelpfulArticles = await executeQuery(`
@@ -104,11 +92,11 @@ export async function GET(request: NextRequest) {
         ROUND((a.helpful_votes * 100.0) / NULLIF(a.helpful_votes + a.not_helpful_votes, 0), 1) as helpfulness_rate
       FROM kb_articles a
       LEFT JOIN kb_categories c ON a.category_id = c.id
-      WHERE a.status = 'published'
+      WHERE a.organization_id = ? AND a.status = 'published'
       AND (a.helpful_votes + a.not_helpful_votes) >= 5 -- Mínimo de 5 avaliações
       ORDER BY helpfulness_rate DESC, a.helpful_votes DESC
       LIMIT 10
-    `)
+    `, [organizationId])
 
     // Artigos por categoria
     const articlesByCategory = await executeQuery(`
@@ -119,10 +107,10 @@ export async function GET(request: NextRequest) {
         SUM(a.view_count) as total_views,
         AVG(a.view_count) as avg_views
       FROM kb_categories c
-      LEFT JOIN kb_articles a ON c.id = a.category_id AND a.status = 'published'
+      LEFT JOIN kb_articles a ON c.id = a.category_id AND a.organization_id = ? AND a.status = 'published'
       GROUP BY c.id, c.name, c.color
       ORDER BY article_count DESC
-    `)
+    `, [organizationId])
 
     // Tendência de visualizações (últimos 14 dias)
     const viewsTrend = await executeQuery(`
@@ -151,12 +139,12 @@ export async function GET(request: NextRequest) {
         ROUND((a.helpful_votes * 100.0) / NULLIF(a.helpful_votes + a.not_helpful_votes, 0), 1) as helpfulness_rate
       FROM kb_articles a
       LEFT JOIN kb_categories c ON a.category_id = c.id
-      WHERE a.status = 'published'
+      WHERE a.organization_id = ? AND a.status = 'published'
       AND (a.helpful_votes + a.not_helpful_votes) >= 3 -- Mínimo de 3 avaliações
       AND (a.helpful_votes * 100.0) / (a.helpful_votes + a.not_helpful_votes) < 60 -- Menos de 60% útil
       ORDER BY helpfulness_rate ASC
       LIMIT 10
-    `)
+    `, [organizationId])
 
     // Buscas mais populares (últimos 30 dias)
     const popularSearches = await executeQuery(`
@@ -186,11 +174,11 @@ export async function GET(request: NextRequest) {
       FROM kb_article_feedback f
       INNER JOIN kb_articles a ON f.article_id = a.id
       LEFT JOIN users u ON f.user_id = u.id
-      WHERE f.created_at >= ${dateFilter}
+      WHERE a.organization_id = ? AND f.created_at >= ${dateFilter}
       AND f.comment IS NOT NULL
       ORDER BY f.created_at DESC
       LIMIT 20
-    `)
+    `, [organizationId])
 
     return NextResponse.json({
       success: true,

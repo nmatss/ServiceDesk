@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     if (includeKnowledgeBase) {
       try {
         const queryText = `${ticket.title} ${ticket.description}`;
+        const escapedQueryText = queryText.replace(/%/g, '\\%').replace(/_/g, '\\_');
 
         knowledgeBase = await executeQuery<any>(`
           SELECT title, content
@@ -97,16 +98,16 @@ export async function POST(request: NextRequest) {
           WHERE is_published = 1
             AND (organization_id = ? OR organization_id IS NULL)
             AND (
-              LOWER(title) LIKE LOWER(?) OR
-              LOWER(content) LIKE LOWER(?) OR
-              LOWER(search_keywords) LIKE LOWER(?)
+              LOWER(title) LIKE LOWER(?) ESCAPE '\\' OR
+              LOWER(content) LIKE LOWER(?) ESCAPE '\\' OR
+              LOWER(search_keywords) LIKE LOWER(?) ESCAPE '\\'
             )
           ORDER BY helpful_votes DESC
           LIMIT ?
         `, [organizationId,
-          `%${queryText}%`,
-          `%${queryText}%`,
-          `%${queryText}%`,
+          `%${escapedQueryText}%`,
+          `%${escapedQueryText}%`,
+          `%${escapedQueryText}%`,
           maxKnowledgeArticles]);
       } catch (error) {
         logger.warn('Failed to fetch knowledge base articles', error);

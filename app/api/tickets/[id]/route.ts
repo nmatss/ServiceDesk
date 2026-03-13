@@ -4,7 +4,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { getFromCache, setCache, invalidateTicketCache } from '@/lib/cache/lru-cache';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { ticketSchemas } from '@/lib/validation/schemas';
-import { sanitizeHtml, sanitizeText } from '@/lib/validation/sanitize';
+import { sanitizeHtml, sanitizeText } from '@/lib/security/sanitize';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 

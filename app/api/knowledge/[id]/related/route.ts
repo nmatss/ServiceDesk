@@ -43,7 +43,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '5');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '5', 10) || 5, 50);
 
     // Get the current article
     const article = await executeQueryOne<{

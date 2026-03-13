@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth/auth-service';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
@@ -45,17 +46,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const body = await request.json();
     const {
@@ -97,8 +89,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Apply user-specific filters for non-admin users
-    if (user.role === 'user') {
-      filters.users = [user.id];
+    if (auth.role === 'user') {
+      filters.users = [auth.userId];
     }
 
     const hybridSearch = await getHybridSearch();
@@ -154,7 +146,7 @@ export async function POST(request: NextRequest) {
       await executeRun(`
         INSERT INTO search_history (user_id, query, results_count, search_mode)
         VALUES (?, ?, ?, ?)
-      `, [user.id, query, results.total, searchType]);
+      `, [auth.userId, query, results.total, searchType]);
     } catch (error) {
       logger.warn('Failed to log search history', error);
     }
@@ -185,15 +177,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
+    const { auth, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    const token = authHeader.substring(7);
-    const user = await verifyToken(token);
-
-    if (!user || user.role !== 'admin') {
+    if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 

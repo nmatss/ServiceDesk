@@ -1679,21 +1679,23 @@ CREATE TABLE IF NOT EXISTS user_departments (
 
 -- Escalations
 CREATE TABLE IF NOT EXISTS escalation_rules (
-    id BIGSERIAL PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    trigger_type VARCHAR(50) NOT NULL,
-    trigger_conditions JSONB DEFAULT '{}',
-    escalation_levels JSONB DEFAULT '[]',
+    conditions TEXT NOT NULL,
+    actions TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 50,
     is_active BOOLEAN DEFAULT TRUE,
-    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
+    cooldown_period INTEGER NOT NULL DEFAULT 30,
+    max_escalations INTEGER NOT NULL DEFAULT 3,
+    created_by INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS escalation_instances (
     id BIGSERIAL PRIMARY KEY,
-    rule_id BIGINT NOT NULL REFERENCES escalation_rules(id) ON DELETE CASCADE,
+    rule_id TEXT NOT NULL REFERENCES escalation_rules(id) ON DELETE CASCADE,
     ticket_id BIGINT REFERENCES tickets(id) ON DELETE CASCADE,
     current_level INTEGER DEFAULT 1,
     status VARCHAR(20) DEFAULT 'active',
@@ -1716,16 +1718,18 @@ CREATE TABLE IF NOT EXISTS batch_configurations (
 
 -- Filter rules
 CREATE TABLE IF NOT EXISTS filter_rules (
-    id BIGSERIAL PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    entity_type VARCHAR(50) NOT NULL,
-    conditions JSONB NOT NULL DEFAULT '{}',
-    actions JSONB DEFAULT '[]',
+    description TEXT,
+    conditions TEXT NOT NULL,
+    action VARCHAR(50) NOT NULL CHECK (action IN ('block', 'allow', 'delay', 'modify', 'priority_change')),
+    action_params TEXT,
+    priority INTEGER NOT NULL DEFAULT 50,
     is_active BOOLEAN DEFAULT TRUE,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    organization_id BIGINT NOT NULL DEFAULT 1,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    organization_id BIGINT DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Communication channels
@@ -1757,14 +1761,16 @@ CREATE TABLE IF NOT EXISTS communication_messages (
 
 -- Notification events & batches
 CREATE TABLE IF NOT EXISTS notification_batches (
-    id BIGSERIAL PRIMARY KEY,
-    batch_type VARCHAR(50) NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending',
-    total_count INTEGER DEFAULT 0,
-    sent_count INTEGER DEFAULT 0,
-    failed_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP WITH TIME ZONE
+    id TEXT PRIMARY KEY,
+    batch_key TEXT NOT NULL,
+    notifications TEXT NOT NULL,
+    target_users TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready', 'processed', 'failed')),
+    config TEXT,
+    metadata TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- (notification_events already defined above, duplicate removed)
@@ -2714,6 +2720,41 @@ CREATE INDEX IF NOT EXISTS idx_root_cause_categories_active ON root_cause_catego
 
 -- Problem attachments: indexes
 CREATE INDEX IF NOT EXISTS idx_problem_attachments_problem ON problem_attachments(problem_id);
+
+-- User presence
+CREATE TABLE IF NOT EXISTS user_presence (
+    user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    device_info TEXT,
+    location_info TEXT,
+    activity_info TEXT,
+    status_message TEXT,
+    available_until TIMESTAMP WITH TIME ZONE
+);
+
+-- Notification deliveries
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id TEXT PRIMARY KEY,
+    notification_id TEXT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel VARCHAR(50) NOT NULL,
+    attempt INTEGER DEFAULT 1,
+    status VARCHAR(20) DEFAULT 'pending',
+    message_id TEXT,
+    error TEXT,
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    read_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    retry_after TIMESTAMP WITH TIME ZONE,
+    metadata TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_notification_user ON notification_deliveries(notification_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status_channel ON notification_deliveries(status, channel);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created ON notification_deliveries(created_at);
 
 -- ========================================
 -- END OF SCHEMA

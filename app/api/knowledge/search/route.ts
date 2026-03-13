@@ -300,13 +300,13 @@ export async function GET(request: NextRequest) {
       })()
 
     // Buscar sugestões de categorias relacionadas
-    const categoryQuery = query.toLowerCase()
+    const categoryQuery = query.toLowerCase().replace(/%/g, '\\%').replace(/_/g, '\\_')
     let categorySuggestions: Array<{ name: string; slug: string; icon: string | null; color: string | null }> = []
     try {
       categorySuggestions = await executeQuery(`
         SELECT name, slug, icon, color
         FROM kb_categories
-        WHERE LOWER(name) LIKE ? AND is_active = ${sqlTrue()}
+        WHERE LOWER(name) LIKE ? ESCAPE '\\' AND is_active = ${sqlTrue()}
         AND (tenant_id = ? OR tenant_id IS NULL)
         LIMIT 3
       `, [`%${categoryQuery}%`, tenantId])
@@ -314,7 +314,7 @@ export async function GET(request: NextRequest) {
       const fallbackCategorySuggestions = await executeQuery<{ name: string; slug: string; color: string | null }>(`
         SELECT name, slug, color
         FROM kb_categories
-        WHERE LOWER(name) LIKE ? AND is_active = ${sqlTrue()}
+        WHERE LOWER(name) LIKE ? ESCAPE '\\' AND is_active = ${sqlTrue()}
         AND (tenant_id = ? OR tenant_id IS NULL)
         LIMIT 3
       `, [`%${categoryQuery}%`, tenantId])
@@ -326,13 +326,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar termos de busca populares/sugeridos
+    const escapedQueryForLike = query.replace(/%/g, '\\%').replace(/_/g, '\\_')
     const popularTerms = await executeQuery<{ search_keywords: string | null }>(`
       SELECT DISTINCT search_keywords
       FROM kb_articles
-      WHERE search_keywords LIKE ? AND status = 'published'
+      WHERE search_keywords LIKE ? ESCAPE '\\' AND status = 'published'
       AND (tenant_id = ? OR tenant_id IS NULL)
       LIMIT 5
-    `, [`%${query}%`, tenantId])
+    `, [`%${escapedQueryForLike}%`, tenantId])
 
     const suggestions = popularTerms
       .map((term: any) => term.search_keywords)
