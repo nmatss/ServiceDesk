@@ -40,8 +40,8 @@ export default function SmartTicketDeflection({ query, onArticleClick }: SmartTi
                         })))
                     }
                 }
-            } catch (error) {
-                console.error('Failed to fetch suggestions:', error)
+            } catch {
+                // Silently fail — suggestions are non-critical
             } finally {
                 setLoading(false)
             }

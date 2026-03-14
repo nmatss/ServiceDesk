@@ -383,6 +383,7 @@ const nextConfig = {
       'zod',
       'framer-motion',
       'lucide-react',
+      'reactflow',
     ],
   },
 

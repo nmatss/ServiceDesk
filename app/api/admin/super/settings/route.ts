@@ -49,7 +49,7 @@ function parseSettingValue(value: string, type: string): string | number | boole
  * Retorna todas as configurações do sistema
  */
 export async function GET(request: NextRequest) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);
@@ -102,7 +102,7 @@ const settingsSchema = z.object({
  * Atualiza configurações do sistema
  */
 export async function PUT(request: NextRequest) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);

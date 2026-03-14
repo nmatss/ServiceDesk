@@ -43,8 +43,7 @@ export default function TenantOnboarding() {
                 const data = await response.json();
                 alert(data.error || 'Erro ao criar conta');
             }
-        } catch (error) {
-            console.error(error);
+        } catch {
             alert('Erro de conexão');
         } finally {
             setLoading(false)

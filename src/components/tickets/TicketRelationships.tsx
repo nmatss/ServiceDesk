@@ -143,8 +143,8 @@ export function TicketRelationships({
         setRelationships(data.relationships);
         setCounts(data.counts);
       }
-    } catch (error) {
-      console.error('Error fetching relationships:', error);
+    } catch {
+      // Silently fail — relationships will remain empty
     } finally {
       setIsLoading(false);
     }
@@ -168,8 +168,8 @@ export function TicketRelationships({
         );
         setSearchResults(filtered);
       }
-    } catch (error) {
-      console.error('Error searching tickets:', error);
+    } catch {
+      // Silently fail — search results will remain empty
     } finally {
       setIsSearching(false);
     }
@@ -204,12 +204,9 @@ export function TicketRelationships({
         setIsAddModalOpen(false);
         setSearchTerm('');
         setSearchResults([]);
-      } else {
-        const error = await response.json();
-        console.error('Error adding relationship:', error);
       }
-    } catch (error) {
-      console.error('Error adding relationship:', error);
+    } catch {
+      // Silently fail — relationship add failed
     } finally {
       setIsAdding(false);
     }
@@ -228,8 +225,8 @@ export function TicketRelationships({
         await fetchRelationships();
         onRelationshipChange?.();
       }
-    } catch (error) {
-      console.error('Error removing relationship:', error);
+    } catch {
+      // Silently fail — relationship removal failed
     }
   };
 

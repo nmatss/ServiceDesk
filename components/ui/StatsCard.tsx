@@ -285,7 +285,7 @@ export function StatsCard({
           {displayChange && !loading && (
             <div className={`flex items-center space-x-1 ${sizes.change} font-semibold ${getChangeColor(displayChange.type)}`}>
               {ChangeIcon && <ChangeIcon className="h-4 w-4" />}
-              <span>{Math.abs(displayChange.value)}%</span>
+              <span className="leading-tight">{Math.abs(displayChange.value)}%</span>
             </div>
           )}
         </div>

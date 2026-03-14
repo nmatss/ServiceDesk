@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth/auth-service'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import { executeQuery } from '@/lib/db/adapter';
+import { apiError } from '@/lib/api/api-helpers';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -10,24 +11,11 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Verificar autenticação
-    const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '') || request.cookies.get('auth_token')?.value
+    // Verificar autenticação via unified guard
+    const { auth, context, response } = requireTenantUserContext(request);
+    if (response) return response;
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Token de autenticação necessário' },
-        { status: 401 }
-      )
-    }
-
-    const user = await verifyToken(token)
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      )
-    }
+    const user = { id: auth.userId, role: auth.role, organizationId: auth.organizationId };
 
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')?.trim()
@@ -55,7 +43,8 @@ export async function GET(request: NextRequest) {
           priority,
           created_at
         FROM tickets
-        WHERE (
+        WHERE organization_id = ?
+        AND (
           title LIKE ? ESCAPE '\\' OR
           description LIKE ? ESCAPE '\\' OR
           CAST(id as TEXT) LIKE ? ESCAPE '\\'
@@ -74,6 +63,7 @@ export async function GET(request: NextRequest) {
           created_at DESC
         LIMIT ?
       `, [
+        context.tenant.id,
         `%${escapedQuery}%`, `%${escapedQuery}%`, `%${escapedQuery}%`,
         user.role, user.id, user.id,
         `${escapedQuery}%`, `${escapedQuery}%`,
@@ -101,7 +91,8 @@ export async function GET(request: NextRequest) {
           email,
           role
         FROM users
-        WHERE (
+        WHERE organization_id = ?
+        AND (
           name LIKE ? ESCAPE '\\' OR
           email LIKE ? ESCAPE '\\'
         )
@@ -114,6 +105,7 @@ export async function GET(request: NextRequest) {
           name ASC
         LIMIT ?
       `, [
+        context.tenant.id,
         `%${escapedQuery}%`, `%${escapedQuery}%`,
         `${escapedQuery}%`, `${escapedQuery}%`,
         Math.floor(limit / 4)
@@ -139,12 +131,13 @@ export async function GET(request: NextRequest) {
           name,
           description
         FROM categories
-        WHERE name LIKE ? ESCAPE '\\'
+        WHERE organization_id = ?
+        AND name LIKE ? ESCAPE '\\'
         ORDER BY
           CASE WHEN name LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,
           name ASC
         LIMIT ?
-      `, [`%${escapedQuery}%`, `${escapedQuery}%`, Math.floor(limit / 4)])
+      `, [context.tenant.id, `%${escapedQuery}%`, `${escapedQuery}%`, Math.floor(limit / 4)])
 
       suggestions.push(...categorySuggestions.map((category: any) => ({
         type: 'category',
@@ -171,6 +164,7 @@ export async function GET(request: NextRequest) {
           content LIKE ? ESCAPE '\\' OR
           summary LIKE ? ESCAPE '\\'
         )
+        AND organization_id = ?
         AND status = 'published'
         ORDER BY
           CASE WHEN title LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END,
@@ -178,6 +172,7 @@ export async function GET(request: NextRequest) {
         LIMIT ?
       `, [
         `%${escapedQuery}%`, `%${escapedQuery}%`, `%${escapedQuery}%`,
+        context.tenant.id,
         `${escapedQuery}%`,
         Math.floor(limit / 4)
       ])
@@ -237,9 +232,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error fetching search suggestions', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    return apiError('Erro interno do servidor', 500)
   }
 }

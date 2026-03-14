@@ -238,8 +238,7 @@ export default function TouchGestures({
             setIsRefreshing(false);
             setPullDistance(0);
           })
-          .catch((error: Error) => {
-            console.error('Pull to refresh error:', error);
+          .catch(() => {
             setIsRefreshing(false);
             setPullDistance(0);
           });

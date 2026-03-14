@@ -137,7 +137,7 @@ export const Modal: React.FC<ModalProps> = ({
                     {showCloseButton && (
                       <button
                         type="button"
-                        className="ml-4 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-white text-neutral-400 hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-neutral-800 dark:hover:text-neutral-300"
+                        className="relative z-10 ml-4 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md bg-white text-neutral-400 hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:bg-neutral-800 dark:hover:text-neutral-300"
                         onClick={onClose}
                         aria-label="Fechar modal"
                       >

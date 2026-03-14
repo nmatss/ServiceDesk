@@ -154,7 +154,7 @@ export default function PWAInstallBanner() {
   const instructions = getInstallInstructions();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white shadow-2xl animate-slide-up">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-brand-600 via-brand-700 to-purple-700 text-white shadow-2xl animate-slide-up">
       {/* Main Banner */}
       <div className="p-4">
         <div className="max-w-4xl mx-auto">
@@ -175,12 +175,12 @@ export default function PWAInstallBanner() {
                     Instalar ServiceDesk Pro
                   </h3>
                   {installStats && installStats.visitCount > 1 && (
-                    <span className="text-xs bg-blue-500 bg-opacity-50 px-2 py-1 rounded-full">
+                    <span className="text-xs bg-brand-500 bg-opacity-50 px-2 py-1 rounded-full">
                       Visitante frequente
                     </span>
                   )}
                 </div>
-                <p className="text-blue-100 text-sm">
+                <p className="text-brand-100 text-sm">
                   {deviceType === 'mobile'
                     ? 'Adicione à tela inicial para acesso rápido e recursos offline'
                     : 'Instale como aplicativo para melhor experiência e notificações'
@@ -193,15 +193,15 @@ export default function PWAInstallBanner() {
               <button
                 onClick={handleInstall}
                 disabled={isInstalling}
-                className={`px-4 py-2 bg-white text-blue-600 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 ${
+                className={`px-4 py-2 bg-white text-brand-600 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-600 ${
                   isInstalling
                     ? 'opacity-75 cursor-not-allowed'
-                    : 'hover:bg-blue-50 hover:scale-105'
+                    : 'hover:bg-brand-50 hover:scale-105'
                 }`}
               >
                 {isInstalling ? (
                   <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
                     <span>Instalando...</span>
                   </div>
                 ) : (
@@ -211,14 +211,14 @@ export default function PWAInstallBanner() {
 
               <button
                 onClick={handleShowMore}
-                className="px-3 py-2 text-blue-200 hover:text-white hover:bg-blue-800 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 text-sm"
+                className="px-3 py-2 text-brand-200 hover:text-white hover:bg-brand-800 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-600 text-sm"
               >
                 {showAdvancedInfo ? 'Menos' : 'Mais'}
               </button>
 
               <button
                 onClick={handleDismiss}
-                className="p-2 text-blue-200 hover:text-white hover:bg-blue-800 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600"
+                className="p-2 text-brand-200 hover:text-white hover:bg-brand-800 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-600"
               >
                 <XMarkIcon className="h-5 w-5" />
               </button>
@@ -226,10 +226,10 @@ export default function PWAInstallBanner() {
           </div>
 
           {/* Installation benefits */}
-          <div className="mt-3 pt-3 border-t border-blue-500">
+          <div className="mt-3 pt-3 border-t border-brand-500">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div className="flex items-center space-x-2">
-                <WifiIcon className="h-4 w-4 text-blue-300" />
+                <WifiIcon className="h-4 w-4 text-brand-300" />
                 <span>Funciona offline</span>
               </div>
               <div className="flex items-center space-x-2">
@@ -251,7 +251,7 @@ export default function PWAInstallBanner() {
 
       {/* Advanced Information */}
       {showAdvancedInfo && (
-        <div className="border-t border-blue-500 bg-blue-800 bg-opacity-50 p-4 animate-fade-in">
+        <div className="border-t border-brand-500 bg-brand-800 bg-opacity-50 p-4 animate-fade-in">
           <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-2 gap-6">
               {/* Manual Installation Instructions */}
@@ -260,10 +260,10 @@ export default function PWAInstallBanner() {
                   <ComputerDesktopIcon className="h-4 w-4 mr-2" />
                   Instalação Manual ({instructions.browser})
                 </h4>
-                <ol className="text-sm text-blue-100 space-y-1">
+                <ol className="text-sm text-brand-100 space-y-1">
                   {instructions.steps.map((step, index) => (
                     <li key={index} className="flex items-start">
-                      <span className="inline-block w-5 h-5 bg-blue-600 text-white text-xs rounded-full text-center leading-5 mr-2 flex-shrink-0">
+                      <span className="inline-block w-5 h-5 bg-brand-600 text-white text-xs rounded-full text-center leading-5 mr-2 flex-shrink-0">
                         {index + 1}
                       </span>
                       {step}
@@ -278,7 +278,7 @@ export default function PWAInstallBanner() {
                   <SparklesIcon className="h-4 w-4 mr-2" />
                   Recursos Exclusivos do App
                 </h4>
-                <ul className="text-sm text-blue-100 space-y-1">
+                <ul className="text-sm text-brand-100 space-y-1">
                   <li className="flex items-center">
                     <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-2"></span>
                     Notificações push em tempo real
@@ -301,8 +301,8 @@ export default function PWAInstallBanner() {
 
             {/* User Stats */}
             {installStats && (
-              <div className="mt-4 pt-4 border-t border-blue-600">
-                <div className="flex items-center justify-between text-xs text-blue-200">
+              <div className="mt-4 pt-4 border-t border-brand-600">
+                <div className="flex items-center justify-between text-xs text-brand-200">
                   <span>Visitas: {installStats.visitCount}</span>
                   <span>Sessões: {installStats.userEngagement.sessions}</span>
                   <span>Você é um usuário ativo! 🎉</span>

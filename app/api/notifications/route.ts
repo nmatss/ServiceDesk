@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
-import { executeQuery, executeQueryOne, executeRun, sqlFalse, sqlTrue } from '@/lib/db/adapter';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { executeQuery, executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
+import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
 // GET - Buscar notificações do usuário
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -11,15 +13,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    const { auth, context, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get('unread_only') === 'true';
@@ -27,13 +22,13 @@ export async function GET(request: NextRequest) {
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
     let whereClause = 'WHERE n.user_id = ? AND n.tenant_id = ?';
-    const params = [userContext.id, tenantContext.id];
+    const params = [auth.userId, context.tenant.id];
 
     if (unreadOnly) {
       whereClause += ` AND n.is_read = ${sqlFalse()}`;
     }
 
-    // Run all 3 queries in parallel
+    // Run all queries in parallel
     const [notifications, countResult] = await Promise.all([
       executeQuery(`
         SELECT
@@ -45,7 +40,7 @@ export async function GET(request: NextRequest) {
         ${whereClause}
         ORDER BY n.created_at DESC
         LIMIT ? OFFSET ?
-      `, [tenantContext.id, ...params, limit, offset]),
+      `, [context.tenant.id, ...params, limit, offset]),
       executeQueryOne<{ total: number; unread: number }>(`
         SELECT
           COUNT(*) as total,
@@ -71,7 +66,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Error getting notifications', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }
 
@@ -81,19 +76,12 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    const { auth, context, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     // Verificar se usuário tem permissão para criar notificações
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
-      return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
+    if (!['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(auth.role)) {
+      return apiError('Permissão insuficiente', 403);
     }
 
     const body = await request.json();
@@ -101,22 +89,19 @@ export async function POST(request: NextRequest) {
 
     // Validar dados
     if (!user_id || !title || !message) {
-      return NextResponse.json({ error: 'user_id, title e message são obrigatórios' }, { status: 400 });
+      return apiError('user_id, title e message são obrigatórios', 400);
     }
 
     // Verificar se o usuário existe e pertence ao mesmo tenant
-    const targetUser = await executeQueryOne('SELECT id FROM users WHERE id = ? AND tenant_id = ?', [user_id, tenantContext.id]);
+    const targetUser = await executeQueryOne('SELECT id FROM users WHERE id = ? AND tenant_id = ?', [user_id, context.tenant.id]);
     if (!targetUser) {
-      return NextResponse.json({ error: 'Usuário não encontrado ou não pertence ao tenant' }, { status: 404 });
+      return apiError('Usuário não encontrado ou não pertence ao tenant', 404);
     }
-
-    // Criar notificação com tenant_id
-    
 
     const result = await executeRun(`
       INSERT INTO notifications (user_id, title, message, type, data, tenant_id)
       VALUES (?, ?, ?, ?, ?, ?)
-    `, [user_id, title, message, type, data ? JSON.stringify(data) : null, tenantContext.id]);
+    `, [user_id, title, message, type, data ? JSON.stringify(data) : null, context.tenant.id]);
 
     return NextResponse.json({
       id: result.lastInsertRowid,
@@ -124,7 +109,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error) {
     logger.error('Erro ao criar notificação', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }
 
@@ -134,52 +119,43 @@ export async function PUT(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    const { auth, context, response } = requireTenantUserContext(request);
+    if (response) return response;
 
     const body = await request.json();
     const { notification_id, mark_all_read } = body;
 
     if (mark_all_read) {
       // Marcar todas as notificações do usuário como lidas (apenas do tenant)
-      
       const result = await executeRun(`
         UPDATE notifications
         SET is_read = TRUE
         WHERE user_id = ? AND tenant_id = ? AND is_read = FALSE
-      `, [userContext.id, tenantContext.id]);
+      `, [auth.userId, context.tenant.id]);
 
       return NextResponse.json({
         message: `${result.changes} notificações marcadas como lidas`
       });
     } else if (notification_id) {
       // Marcar notificação específica como lida (verificando tenant)
-      
       const result = await executeRun(`
         UPDATE notifications
         SET is_read = TRUE
         WHERE id = ? AND user_id = ? AND tenant_id = ?
-      `, [notification_id, userContext.id, tenantContext.id]);
+      `, [notification_id, auth.userId, context.tenant.id]);
 
       if (result.changes === 0) {
-        return NextResponse.json({ error: 'Notificação não encontrada' }, { status: 404 });
+        return apiError('Notificação não encontrada', 404);
       }
 
       return NextResponse.json({
         message: 'Notificação marcada como lida'
       });
     } else {
-      return NextResponse.json({ error: 'notification_id ou mark_all_read é obrigatório' }, { status: 400 });
+      return apiError('notification_id ou mark_all_read é obrigatório', 400);
     }
   } catch (error) {
     logger.error('Erro ao atualizar notificação', error);
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    return apiError('Erro interno do servidor', 500);
   }
 }

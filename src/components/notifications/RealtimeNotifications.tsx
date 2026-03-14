@@ -58,7 +58,7 @@ export default function RealtimeNotifications() {
 
     switch (type) {
       case 'ticket_assigned':
-        return 'border-blue-200 bg-blue-50'
+        return 'border-brand-200 bg-brand-50'
       case 'ticket_updated':
         return 'border-indigo-200 bg-indigo-50'
       case 'comment_added':
@@ -232,7 +232,7 @@ export default function RealtimeNotifications() {
                             ? 'text-red-600 bg-red-100'
                             : notification.priority === 'medium'
                             ? 'text-yellow-600 bg-yellow-100'
-                            : 'text-blue-600 bg-blue-100'
+                            : 'text-brand-600 bg-brand-100'
                         }`}>
                           {getNotificationIcon(notification.type)}
                         </div>
@@ -281,7 +281,7 @@ export default function RealtimeNotifications() {
                     router.push('/notifications')
                     setIsOpen(false)
                   }}
-                  className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="w-full text-sm text-brand-600 hover:text-brand-700 font-medium"
                   aria-label="Ver todas as notificações na página de notificações"
                 >
                   Ver todas as notificações

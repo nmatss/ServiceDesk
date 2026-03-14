@@ -257,9 +257,9 @@ function HeroSection() {
       {/* Background */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-brand-100 via-white to-neutral-50 dark:from-brand-950/30 dark:via-neutral-950 dark:to-neutral-950" />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[700px] h-[700px] bg-brand-400/15 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-cyan-300/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 right-1/3 w-[400px] h-[400px] bg-brand-200/10 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-[300px] sm:w-[500px] lg:w-[700px] h-[300px] sm:h-[500px] lg:h-[700px] bg-brand-400/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-[250px] sm:w-[400px] lg:w-[600px] h-[250px] sm:h-[400px] lg:h-[600px] bg-cyan-300/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/3 w-[200px] sm:w-[300px] lg:w-[400px] h-[200px] sm:h-[300px] lg:h-[400px] bg-brand-200/10 rounded-full blur-3xl" />
         {/* Grid pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:64px_64px] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)]" />
       </div>
@@ -760,7 +760,7 @@ function ITILProcessesSection() {
           className="mt-12 lg:mt-16"
         >
           <div className="relative overflow-hidden bg-gradient-to-r from-neutral-900 to-neutral-800 dark:from-neutral-800 dark:to-neutral-700 rounded-2xl p-8 lg:p-10">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute top-0 right-0 w-48 sm:w-72 lg:w-96 h-48 sm:h-72 lg:h-96 bg-brand-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative grid md:grid-cols-[1fr_auto] gap-8 items-center">
               <div>
                 <h3 className="text-xl lg:text-2xl font-bold text-white mb-2">Pronto para Auditorias e Compliance</h3>

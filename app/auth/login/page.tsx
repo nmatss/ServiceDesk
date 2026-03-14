@@ -249,7 +249,7 @@ export default function LoginPage() {
           {/* Test Credentials - Only shown in development */}
           {process.env.NODE_ENV === 'development' && (
             <div className="text-center bg-blue-50 dark:bg-neutral-800/50 rounded-lg p-4 border border-blue-200 dark:border-neutral-700">
-              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2 uppercase tracking-wide">Credenciais de Teste</p>
+              <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2 uppercase tracking-wide">Credenciais de Teste</p>
               <p className="text-xs text-neutral-700 dark:text-neutral-300 mb-1">
                 <strong>Admin:</strong> admin@servicedesk.com / admin123
               </p>

@@ -66,7 +66,6 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       }
 
       recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error)
         setIsListening(false)
 
         const errorMessages: { [key: string]: string } = {
@@ -106,8 +105,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true })
       recognitionRef.current.start()
-    } catch (error) {
-      console.error('Microphone access error:', error)
+    } catch {
       onError?.('Falha ao acessar o microfone. Verifique as permissões.')
     }
   }, [isSupported, onError])

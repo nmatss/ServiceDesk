@@ -65,8 +65,8 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255),
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'agent', 'user', 'manager', 'read_only', 'api_client')),
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('super_admin', 'admin', 'tenant_admin', 'team_manager', 'agent', 'user')),
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     tenant_id BIGINT NOT NULL DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
     is_email_verified BOOLEAN DEFAULT FALSE,
@@ -340,7 +340,7 @@ CREATE INDEX idx_auth_audit_retention ON auth_audit_logs(data_retention_expires_
 -- Categorias
 CREATE TABLE IF NOT EXISTS categories (
     id BIGSERIAL PRIMARY KEY,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     tenant_id BIGINT NOT NULL DEFAULT 1,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -352,7 +352,7 @@ CREATE TABLE IF NOT EXISTS categories (
 -- Prioridades
 CREATE TABLE IF NOT EXISTS priorities (
     id BIGSERIAL PRIMARY KEY,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     tenant_id BIGINT NOT NULL DEFAULT 1,
     name VARCHAR(100) NOT NULL,
     level INTEGER NOT NULL CHECK (level >= 1 AND level <= 4),
@@ -364,7 +364,7 @@ CREATE TABLE IF NOT EXISTS priorities (
 -- Status
 CREATE TABLE IF NOT EXISTS statuses (
     id BIGSERIAL PRIMARY KEY,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     tenant_id BIGINT NOT NULL DEFAULT 1,
     name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -394,7 +394,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
     FOREIGN KEY (priority_id) REFERENCES priorities(id) ON DELETE RESTRICT,
-    FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE RESTRICT
+    FOREIGN KEY (status_id) REFERENCES statuses(id) ON DELETE RESTRICT,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE tickets IS 'Tickets de suporte com SLA tracking e multi-tenant';
@@ -434,7 +435,8 @@ CREATE TABLE IF NOT EXISTS comments (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_comments_ticket_id ON comments(ticket_id);
@@ -458,7 +460,8 @@ CREATE TABLE IF NOT EXISTS ticket_activities (
     metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_ticket_activities_ticket_id ON ticket_activities(ticket_id);
@@ -479,7 +482,8 @@ CREATE TABLE IF NOT EXISTS tags (
     created_by BIGINT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_tags_tenant_id ON tags(tenant_id);
@@ -547,7 +551,8 @@ CREATE TABLE IF NOT EXISTS attachments (
     uploaded_by BIGINT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_attachments_ticket_id ON attachments(ticket_id);
@@ -682,7 +687,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
@@ -979,7 +985,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     ip_address INET,
     user_agent TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
@@ -1603,7 +1610,7 @@ CREATE TABLE IF NOT EXISTS cab_meetings (
     decisions JSONB DEFAULT '[]',
     action_items JSONB DEFAULT '[]',
     organizer_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     tenant_id BIGINT NOT NULL DEFAULT 1,
     created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -1711,7 +1718,7 @@ CREATE TABLE IF NOT EXISTS batch_configurations (
     batch_type VARCHAR(50) NOT NULL,
     configuration JSONB DEFAULT '{}',
     is_active BOOLEAN DEFAULT TRUE,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1727,7 +1734,7 @@ CREATE TABLE IF NOT EXISTS filter_rules (
     priority INTEGER NOT NULL DEFAULT 50,
     is_active BOOLEAN DEFAULT TRUE,
     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
-    organization_id BIGINT DEFAULT 1,
+    organization_id BIGINT DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -1739,7 +1746,7 @@ CREATE TABLE IF NOT EXISTS communication_channels (
     type VARCHAR(50) NOT NULL,
     configuration JSONB DEFAULT '{}',
     is_active BOOLEAN DEFAULT TRUE,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1783,7 +1790,7 @@ CREATE TABLE IF NOT EXISTS analytics_events (
     entity_id BIGINT,
     user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     properties JSONB DEFAULT '{}',
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1795,7 +1802,7 @@ CREATE TABLE IF NOT EXISTS analytics_realtime_metrics (
     metric_name VARCHAR(255) NOT NULL,
     metric_value REAL NOT NULL,
     dimensions JSONB DEFAULT '{}',
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1808,7 +1815,7 @@ CREATE TABLE IF NOT EXISTS analytics_agent_performance (
     avg_resolution_time REAL,
     satisfaction_score REAL,
     first_response_time REAL,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1861,7 +1868,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_sessions (
     user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
     ticket_id BIGINT REFERENCES tickets(id) ON DELETE SET NULL,
     metadata JSONB DEFAULT '{}',
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1872,7 +1879,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_contacts (
     name VARCHAR(255),
     profile_picture_url TEXT,
     user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1925,7 +1932,7 @@ CREATE TABLE IF NOT EXISTS integrations (
     type VARCHAR(50) NOT NULL,
     configuration JSONB DEFAULT '{}',
     is_active BOOLEAN DEFAULT TRUE,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1950,7 +1957,7 @@ CREATE TABLE IF NOT EXISTS webhooks (
     headers JSONB DEFAULT '{}',
     secret VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -1969,7 +1976,7 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
 -- API usage tracking
 CREATE TABLE IF NOT EXISTS api_usage_tracking (
     id BIGSERIAL PRIMARY KEY,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     endpoint VARCHAR(500) NOT NULL,
     method VARCHAR(10) NOT NULL,
     status_code INTEGER,
@@ -2011,7 +2018,7 @@ CREATE TABLE IF NOT EXISTS audit_advanced (
     new_values JSONB,
     ip_address INET,
     user_agent TEXT,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -2032,7 +2039,7 @@ CREATE TABLE IF NOT EXISTS knowledge_articles (
     helpful_count INTEGER DEFAULT 0,
     not_helpful_count INTEGER DEFAULT 0,
     is_public BOOLEAN DEFAULT TRUE,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -2047,7 +2054,7 @@ CREATE TABLE IF NOT EXISTS workflow_definitions (
     steps JSONB DEFAULT '[]',
     is_active BOOLEAN DEFAULT TRUE,
     version INTEGER DEFAULT 1,
-    organization_id BIGINT NOT NULL DEFAULT 1,
+    organization_id BIGINT NOT NULL DEFAULT 1 REFERENCES organizations(id) ON DELETE CASCADE,
     created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

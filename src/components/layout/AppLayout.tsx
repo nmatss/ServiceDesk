@@ -7,6 +7,7 @@ import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/src/contexts/ThemeContext'
 import { NotificationProvider } from '@/src/components/notifications/NotificationProvider'
 import { populateAuthCache } from '@/lib/hooks/useRequireAuth'
+import toast from 'react-hot-toast'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -109,8 +110,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         } else {
           router.push('/auth/login')
         }
-      } catch (error) {
-        console.error('[AppLayout] Auth check failed:', error)
+      } catch {
         router.push('/auth/login')
       } finally {
         setLoading(false)
@@ -135,8 +135,9 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       const response = await originalFetch(...args)
       const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof Request ? args[0].url : ''
       if (response.status === 401 && url.startsWith('/api/') && !url.includes('/api/auth/')) {
-        // Session expired — redirect to login
+        // Session expired — notify user and redirect to login
         lastAuthCheckRef.current = 0
+        toast.error('Sessão expirada. Faça login novamente.')
         routerRef.current.push('/auth/login')
       }
       return response
@@ -206,7 +207,8 @@ function AppLayoutContent({ children }: AppLayoutProps) {
     return (
       <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 loading-spinner mx-auto mb-4"></div>
+          <div aria-hidden="true" className="w-16 h-16 loading-spinner mx-auto mb-4"></div>
+          <span className="sr-only">Carregando...</span>
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
             ServiceDesk
           </h2>
@@ -376,8 +378,7 @@ export function withAuth<P extends object>(
           }
 
           setIsAuthorized(true)
-        } catch (error) {
-          console.error('[withAuth] Auth check failed:', error)
+        } catch {
           router.push('/auth/login')
         } finally {
           setLoading(false)
@@ -390,7 +391,8 @@ export function withAuth<P extends object>(
     if (loading) {
       return (
         <div className="min-h-screen flex items-center justify-center">
-          <div className="w-16 h-16 loading-spinner"></div>
+          <div aria-hidden="true" className="w-16 h-16 loading-spinner"></div>
+          <span className="sr-only">Carregando...</span>
         </div>
       )
     }

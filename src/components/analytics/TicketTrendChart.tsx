@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import {
   LineChart,
   Line,
@@ -21,7 +22,7 @@ interface TicketTrendChartProps {
   data: TicketTrendData[]
 }
 
-export default function TicketTrendChart({ data }: TicketTrendChartProps) {
+function TicketTrendChart({ data }: TicketTrendChartProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('pt-BR', {
@@ -157,3 +158,5 @@ export default function TicketTrendChart({ data }: TicketTrendChartProps) {
     </div>
   )
 }
+
+export default React.memo(TicketTrendChart)

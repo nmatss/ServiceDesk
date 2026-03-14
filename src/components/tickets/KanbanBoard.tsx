@@ -334,8 +334,8 @@ export function KanbanBoard({
         const ticketData = await ticketsRes.json();
         setTickets(ticketData.tickets || ticketData);
       }
-    } catch (error) {
-      console.error('Error fetching kanban data:', error);
+    } catch {
+      // Silently fail — kanban will show empty state
     } finally {
       setIsLoading(false);
     }
@@ -416,8 +416,8 @@ export function KanbanBoard({
           );
           onStatusChange?.(activeTicket.id, targetStatusId);
         }
-      } catch (error) {
-        console.error('Error updating ticket status:', error);
+      } catch {
+        // Silently fail — drag-drop status update failed
       }
     }
   };

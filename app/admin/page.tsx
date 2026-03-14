@@ -101,7 +101,7 @@ async function CategoriesDistribution() {
     const totalTickets = categories.reduce((sum, cat) => sum + cat.total_tickets, 0)
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.map((category) => {
           const percentage = totalTickets > 0
             ? ((category.total_tickets / totalTickets) * 100).toFixed(1)

@@ -15,7 +15,7 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
  * Lista paginada de logs de auditoria cross-tenant
  */
 export async function GET(request: NextRequest) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);

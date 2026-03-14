@@ -12,7 +12,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);

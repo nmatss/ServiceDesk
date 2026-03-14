@@ -43,6 +43,7 @@ export interface TableProps
 const Table = React.forwardRef<HTMLTableElement, TableProps>(
   ({ className, variant, density, persona, striped, hoverable, bordered, ...props }, ref) => (
     <div className="relative w-full overflow-auto">
+      <div className="sm:hidden absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white dark:from-neutral-900 pointer-events-none z-10" />
       <table
         ref={ref}
         className={cn(

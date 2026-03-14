@@ -175,13 +175,13 @@ export function PullToRefresh({
       {/* Pull indicator */}
       {pullDistance > 0 && (
         <div
-          className="absolute top-0 left-0 right-0 flex items-center justify-center bg-blue-50 border-b border-blue-200 transition-all duration-150 ease-out z-10"
+          className="absolute top-0 left-0 right-0 flex items-center justify-center bg-brand-50 border-b border-brand-200 transition-all duration-150 ease-out z-10"
           style={{
             height: `${Math.min(pullDistance, threshold)}px`,
             transform: `translateY(-${Math.max(0, threshold - pullDistance)}px)`,
           }}
         >
-          <div className="flex flex-col items-center space-y-2 text-blue-600">
+          <div className="flex flex-col items-center space-y-2 text-brand-600">
             <ArrowPathIcon
               className={`h-6 w-6 transition-transform duration-200 ${
                 isRefreshing ? 'animate-spin' : shouldTriggerRefresh ? 'rotate-180' : ''
@@ -469,7 +469,7 @@ export function FloatingActionButton({
   return (
     <button
       onClick={handleClick}
-      className={`fixed bottom-6 right-6 z-30 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95 ${className}`}
+      className={`fixed bottom-6 right-6 z-30 w-14 h-14 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center active:scale-95 ${className}`}
       aria-label={label}
     >
       {icon}

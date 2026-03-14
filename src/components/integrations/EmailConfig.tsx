@@ -66,8 +66,7 @@ export default function EmailConfig() {
       if (data.success) {
         setTemplates(data.templates);
       }
-    } catch (error) {
-      console.error('Error loading templates:', error);
+    } catch {
       toast.error('Erro ao carregar templates');
     }
   };

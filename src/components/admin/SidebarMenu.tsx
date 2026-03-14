@@ -96,8 +96,8 @@ export default function SidebarMenu() {
         method: 'POST',
         credentials: 'include'
       })
-    } catch (error) {
-      console.error('Logout error:', error)
+    } catch {
+      // Continue with redirect even if API call fails
     }
     window.location.href = '/auth/login'
   }

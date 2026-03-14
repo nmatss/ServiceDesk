@@ -412,6 +412,7 @@ export default function NewChangePage() {
               <button
                 type="button"
                 onClick={addService}
+                aria-label="Adicionar serviço afetado"
                 className="px-4 py-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg hover:bg-brand-200 dark:hover:bg-brand-900/50"
               >
                 <PlusIcon className="w-5 h-5" />
@@ -428,6 +429,7 @@ export default function NewChangePage() {
                   <button
                     type="button"
                     onClick={() => removeService(service)}
+                    aria-label={`Remover serviço ${service}`}
                     className="text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300"
                   >
                     <XMarkIcon className="w-4 h-4" />
@@ -465,7 +467,8 @@ export default function NewChangePage() {
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <div aria-hidden="true" className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span className="sr-only">Carregando...</span>
                   Criando...
                 </>
               ) : (
@@ -477,10 +480,11 @@ export default function NewChangePage() {
             </button>
             <button
               type="button"
-              onClick={() => toast.error('Funcionalidade de rascunho ainda não implementada')}
-              className="flex-1 sm:flex-none px-6 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700"
+              disabled
+              title="Em breve"
+              className="flex-1 sm:flex-none px-6 py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium opacity-50 cursor-not-allowed"
             >
-              Salvar Rascunho
+              Salvar Rascunho (em breve)
             </button>
             <button
               type="button"

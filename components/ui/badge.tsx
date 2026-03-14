@@ -133,7 +133,7 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
             )}
             aria-label="Remover"
           >
-            <XMarkIcon className="h-4 w-4" />
+            <XMarkIcon className="h-5 w-5" />
           </button>
         )}
       </span>

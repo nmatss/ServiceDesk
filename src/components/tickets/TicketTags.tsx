@@ -83,7 +83,7 @@ export function TicketTags({
         setTags(data.tags || []);
       }
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      // Silently fail — tags will remain empty
     }
   };
 
@@ -104,7 +104,7 @@ export function TicketTags({
         setSuggestions(filtered.slice(0, 10));
       }
     } catch (error) {
-      console.error('Error searching tags:', error);
+      // Silently fail — suggestions will remain empty
     }
   }, [tags]);
 
@@ -138,8 +138,8 @@ export function TicketTags({
         await fetchTicketTags();
         onTagsChange?.(tags);
       }
-    } catch (error) {
-      console.error('Error adding tag:', error);
+    } catch {
+      // Silently fail — tag add is non-critical
     } finally {
       setIsLoading(false);
       setIsAdding(false);
@@ -163,8 +163,8 @@ export function TicketTags({
         setTags(newTags);
         onTagsChange?.(newTags);
       }
-    } catch (error) {
-      console.error('Error removing tag:', error);
+    } catch {
+      // Silently fail — tag removal is non-critical
     } finally {
       setIsLoading(false);
     }

@@ -38,9 +38,8 @@ export default function Header({ sidebarOpen, setSidebarOpen, user }: HeaderProp
         method: 'POST',
         credentials: 'include'
       })
-    } catch (error) {
+    } catch {
       // Continue with redirect even if API call fails
-      console.error('Logout API error:', error)
     }
     router.push('/auth/login')
   }

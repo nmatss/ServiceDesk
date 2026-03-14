@@ -111,8 +111,8 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           assigned: data?.data?.my_assignments?.length ?? 0
         })
       }
-    } catch (error) {
-      console.error('[Sidebar] Error fetching ticket counts', error)
+    } catch {
+      // Silently fail — sidebar counts are non-critical
     }
   }
 

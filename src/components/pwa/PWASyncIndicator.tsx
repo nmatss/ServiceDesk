@@ -20,7 +20,7 @@ export default function PWASyncIndicator() {
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
               {isSyncing ? (
-                <ArrowPathIcon className="h-5 w-5 text-blue-600 animate-spin" />
+                <ArrowPathIcon className="h-5 w-5 text-brand-600 animate-spin" />
               ) : (
                 <ClockIcon className="h-5 w-5 text-amber-600" />
               )}
@@ -42,7 +42,7 @@ export default function PWASyncIndicator() {
           {isSyncing && (
             <div className="mt-2">
               <div className="w-full bg-neutral-200 rounded-full h-1.5">
-                <div className="bg-blue-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                <div className="bg-brand-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
               </div>
             </div>
           )}
@@ -51,7 +51,7 @@ export default function PWASyncIndicator() {
           {pendingActions > 0 && !isSyncing && (
             <div className="mt-2 pt-2 border-t border-neutral-100">
               <div className="flex flex-wrap gap-1">
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-brand-100 text-brand-800">
                   Tickets
                 </span>
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">

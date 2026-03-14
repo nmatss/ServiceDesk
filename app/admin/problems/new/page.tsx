@@ -311,7 +311,8 @@ export default function NewProblemPage() {
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <div aria-hidden="true" className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span className="sr-only">Carregando...</span>
                   Criando...
                 </>
               ) : (

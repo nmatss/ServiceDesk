@@ -86,8 +86,8 @@ export function QuickReplies({
         const data = await response.json();
         setMacros(data);
       }
-    } catch (error) {
-      console.error('Error fetching macros:', error);
+    } catch {
+      // Silently fail — macros list will remain empty
     } finally {
       setIsLoading(false);
     }
@@ -152,12 +152,9 @@ export function QuickReplies({
         const result = await response.json();
         onMacroApplied?.(macro, result);
         setIsOpen(false);
-      } else {
-        const error = await response.json();
-        console.error('Error applying macro:', error);
       }
-    } catch (error) {
-      console.error('Error applying macro:', error);
+    } catch {
+      // Silently fail — macro apply failed
     } finally {
       setIsApplying(false);
     }

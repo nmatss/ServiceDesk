@@ -69,8 +69,8 @@ export function WhatsAppConfig() {
           }
         }
       }
-    } catch (error) {
-      console.error('Error loading configuration:', error);
+    } catch {
+      // Silently fail — configuration will show defaults
     }
   };
 
@@ -81,8 +81,8 @@ export function WhatsAppConfig() {
         const data = await response.json();
         setTemplates(data.templates || []);
       }
-    } catch (error) {
-      console.error('Error loading templates:', error);
+    } catch {
+      // Silently fail — templates list will remain empty
     }
   };
 
@@ -93,8 +93,8 @@ export function WhatsAppConfig() {
         const data = await response.json();
         setStats(data.stats);
       }
-    } catch (error) {
-      console.error('Error loading stats:', error);
+    } catch {
+      // Silently fail — stats will remain null
     }
   };
 
@@ -125,8 +125,7 @@ export function WhatsAppConfig() {
       } else {
         alert('Erro ao salvar configuração');
       }
-    } catch (error) {
-      console.error('Error saving configuration:', error);
+    } catch {
       alert('Erro ao salvar configuração');
     } finally {
       setLoading(false);
@@ -150,8 +149,7 @@ export function WhatsAppConfig() {
         setConnectionStatus('disconnected');
         alert('Falha ao testar conexão');
       }
-    } catch (error) {
-      console.error('Error testing connection:', error);
+    } catch {
       setConnectionStatus('disconnected');
       alert('Erro ao testar conexão');
     } finally {
@@ -179,8 +177,7 @@ export function WhatsAppConfig() {
       } else {
         alert('Erro ao registrar templates');
       }
-    } catch (error) {
-      console.error('Error registering templates:', error);
+    } catch {
       alert('Erro ao registrar templates');
     } finally {
       setLoading(false);

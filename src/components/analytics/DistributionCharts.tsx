@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import {
   PieChart,
   Pie,
@@ -29,7 +30,7 @@ interface DistributionChartsProps {
   priorityData: DistributionItem[]
 }
 
-export default function DistributionCharts({
+function DistributionCharts({
   statusData,
   categoryData,
   priorityData
@@ -224,3 +225,5 @@ export default function DistributionCharts({
     </div>
   )
 }
+
+export default React.memo(DistributionCharts)

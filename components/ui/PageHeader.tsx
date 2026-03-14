@@ -144,7 +144,7 @@ export function PageHeader({
         <div className="flex items-center space-x-3">
           {Icon && (
             <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-brand rounded-xl flex items-center justify-center flex-shrink-0" aria-hidden="true">
-              <Icon className="h-6 w-6 sm:h-7 sm:w-7 text-white" aria-hidden="true" />
+              <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" aria-hidden="true" />
             </div>
           )}
           <div>

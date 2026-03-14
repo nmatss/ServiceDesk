@@ -4,7 +4,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQueryOne } from '@/lib/db/adapter';
 import { createTrainingSystem } from '@/lib/ai/factories';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isAdmin, isPrivileged } from '@/lib/auth/roles';
@@ -37,7 +36,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, operationType, organizationId, config } = body;
+    const { action, operationType, config } = body;
+    // SECURITY: Use organizationId from JWT, never from request body
+    const organizationId = auth.organizationId;
 
     const trainingSystem = createTrainingSystem(config);
 
@@ -105,10 +106,12 @@ export async function GET(request: NextRequest) {
   try {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+    const { auth: getAuth } = guard;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-    const organizationId = searchParams.get('organizationId');
+    // SECURITY: Use organizationId from JWT, never from query params
+    const organizationId = getAuth.organizationId;
 
     const trainingSystem = createTrainingSystem();
 
@@ -117,7 +120,7 @@ export async function GET(request: NextRequest) {
         // Get performance metrics
         const metrics = await trainingSystem.calculatePerformanceMetrics(
           'current',
-          organizationId ? parseInt(organizationId) : undefined
+          organizationId
         );
         return NextResponse.json({ success: true, metrics });
 

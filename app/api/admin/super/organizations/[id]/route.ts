@@ -13,7 +13,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);
@@ -87,7 +87,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);
@@ -189,7 +189,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);

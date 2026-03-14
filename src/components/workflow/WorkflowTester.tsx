@@ -103,8 +103,8 @@ export default function WorkflowTester({
         await fetch(`/api/workflows/execute?executionId=${executionResult.executionId}`, {
           method: 'DELETE',
         });
-      } catch (err) {
-        console.error('Error stopping execution:', err);
+      } catch {
+        // Error handled — execution stop is best-effort
       }
     }
     setIsRunning(false);

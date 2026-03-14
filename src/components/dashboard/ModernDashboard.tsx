@@ -99,7 +99,7 @@ interface ModernDashboardProps {
   period?: number
 }
 
-export default function ModernDashboard({ userRole, period = 30 }: ModernDashboardProps) {
+function ModernDashboard({ userRole, period = 30 }: ModernDashboardProps) {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -602,6 +602,8 @@ export default function ModernDashboard({ userRole, period = 30 }: ModernDashboa
     </div>
   )
 }
+
+export default React.memo(ModernDashboard)
 
 // Loading skeleton
 function DashboardSkeleton() {

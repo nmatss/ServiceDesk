@@ -111,6 +111,8 @@ module.exports = {
 
       // Interactive colors using CSS variables
       colors: {
+        'description': 'rgb(115, 115, 115)',
+        'muted-content': 'rgb(115, 115, 115)',
         'interactive-primary': 'var(--interactive-primary)',
         'interactive-primary-hover': 'var(--interactive-primary-hover)',
         'interactive-primary-active': 'var(--interactive-primary-active)',

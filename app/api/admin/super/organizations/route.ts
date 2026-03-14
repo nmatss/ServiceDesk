@@ -17,7 +17,7 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
  * Lista paginada de organizações com filtros
  */
 export async function GET(request: NextRequest) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);
@@ -80,9 +80,11 @@ export async function GET(request: NextRequest) {
         o.is_active,
         o.created_at,
         o.updated_at,
-        (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.id) as user_count,
-        (SELECT COUNT(*) FROM tickets t WHERE t.organization_id = o.id) as ticket_count
+        COALESCE(uc.user_count, 0) as user_count,
+        COALESCE(tc.ticket_count, 0) as ticket_count
       FROM organizations o
+      LEFT JOIN (SELECT organization_id, COUNT(*) as user_count FROM users GROUP BY organization_id) uc ON uc.organization_id = o.id
+      LEFT JOIN (SELECT organization_id, COUNT(*) as ticket_count FROM tickets GROUP BY organization_id) tc ON tc.organization_id = o.id
       ${whereClause}
       ORDER BY ${sortColumn} ${order}
       LIMIT ? OFFSET ?`,
@@ -120,7 +122,7 @@ const createOrgSchema = z.object({
  * Cria uma nova organização
  */
 export async function POST(request: NextRequest) {
-  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ADMIN_MUTATION);
   if (rateLimitResponse) return rateLimitResponse;
 
   const guard = requireSuperAdmin(request);

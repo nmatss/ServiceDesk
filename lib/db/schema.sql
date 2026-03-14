@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'agent', 'user', 'manager', 'read_only', 'api_client')),
+    role TEXT NOT NULL CHECK (role IN ('super_admin', 'admin', 'tenant_admin', 'team_manager', 'agent', 'user')),
     organization_id INTEGER NOT NULL DEFAULT 1,
     tenant_id INTEGER NOT NULL DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
@@ -3427,3 +3427,38 @@ CREATE TRIGGER IF NOT EXISTS update_cab_meetings_updated_at
     BEGIN
         UPDATE cab_meetings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
+
+-- User presence
+CREATE TABLE IF NOT EXISTS user_presence (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    device_info TEXT,
+    location_info TEXT,
+    activity_info TEXT,
+    status_message TEXT,
+    available_until DATETIME
+);
+
+-- Notification deliveries
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id TEXT PRIMARY KEY,
+    notification_id TEXT NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel TEXT NOT NULL,
+    attempt INTEGER DEFAULT 1,
+    status TEXT DEFAULT 'pending',
+    message_id TEXT,
+    error TEXT,
+    delivered_at DATETIME,
+    read_at DATETIME,
+    expires_at DATETIME,
+    retry_after DATETIME,
+    metadata TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_notification_user ON notification_deliveries(notification_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status_channel ON notification_deliveries(status, channel);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created ON notification_deliveries(created_at);
