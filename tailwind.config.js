@@ -26,6 +26,7 @@ module.exports = {
   theme: {
     extend: {
       // Import design tokens as extended colors (preserving Tailwind defaults)
+      // IMPORTANT: Single merged colors object — duplicate keys would silently override
       colors: {
         ...colors,
         border: "hsl(var(--border))",
@@ -67,6 +68,32 @@ module.exports = {
           surface: "rgba(var(--glass-surface), var(--glass-opacity))",
           highlight: "rgba(255, 255, 255, 0.1)",
         },
+        // Utility text colors
+        'description': 'rgb(115, 115, 115)',
+        'muted-content': 'rgb(115, 115, 115)',
+        // Interactive colors (CSS variables)
+        'interactive-primary': 'var(--interactive-primary)',
+        'interactive-primary-hover': 'var(--interactive-primary-hover)',
+        'interactive-primary-active': 'var(--interactive-primary-active)',
+        'interactive-primary-disabled': 'var(--interactive-primary-disabled)',
+        // Status colors (CSS variables)
+        'status-success': 'var(--status-success)',
+        'status-success-bg': 'var(--status-success-bg)',
+        'status-warning': 'var(--status-warning)',
+        'status-warning-bg': 'var(--status-warning-bg)',
+        'status-error': 'var(--status-error)',
+        'status-error-bg': 'var(--status-error-bg)',
+        'status-info': 'var(--status-info)',
+        'status-info-bg': 'var(--status-info-bg)',
+        // Priority colors (CSS variables)
+        'priority-low': 'var(--priority-low)',
+        'priority-low-bg': 'var(--priority-low-bg)',
+        'priority-medium': 'var(--priority-medium)',
+        'priority-medium-bg': 'var(--priority-medium-bg)',
+        'priority-high': 'var(--priority-high)',
+        'priority-high-bg': 'var(--priority-high-bg)',
+        'priority-critical': 'var(--priority-critical)',
+        'priority-critical-bg': 'var(--priority-critical-bg)',
       },
       fontFamily: typography.fontFamily,
       fontSize: typography.fontSize,
@@ -109,33 +136,7 @@ module.exports = {
         'persona-focus': 'var(--border-focus)',
       },
 
-      // Interactive colors using CSS variables
-      colors: {
-        'description': 'rgb(115, 115, 115)',
-        'muted-content': 'rgb(115, 115, 115)',
-        'interactive-primary': 'var(--interactive-primary)',
-        'interactive-primary-hover': 'var(--interactive-primary-hover)',
-        'interactive-primary-active': 'var(--interactive-primary-active)',
-        'interactive-primary-disabled': 'var(--interactive-primary-disabled)',
-
-        'status-success': 'var(--status-success)',
-        'status-success-bg': 'var(--status-success-bg)',
-        'status-warning': 'var(--status-warning)',
-        'status-warning-bg': 'var(--status-warning-bg)',
-        'status-error': 'var(--status-error)',
-        'status-error-bg': 'var(--status-error-bg)',
-        'status-info': 'var(--status-info)',
-        'status-info-bg': 'var(--status-info-bg)',
-
-        'priority-low': 'var(--priority-low)',
-        'priority-low-bg': 'var(--priority-low-bg)',
-        'priority-medium': 'var(--priority-medium)',
-        'priority-medium-bg': 'var(--priority-medium-bg)',
-        'priority-high': 'var(--priority-high)',
-        'priority-high-bg': 'var(--priority-high-bg)',
-        'priority-critical': 'var(--priority-critical)',
-        'priority-critical-bg': 'var(--priority-critical-bg)',
-      },
+      // Interactive colors moved to merged colors object above
 
       // Persona-specific spacing
       space: {
