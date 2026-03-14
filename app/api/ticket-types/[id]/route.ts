@@ -3,6 +3,7 @@ import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 
 export async function GET(
   request: NextRequest,
@@ -61,7 +62,7 @@ export async function PUT(
 
   try {
     // SECURITY: Require authentication with admin role
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'tenant_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN] });
     if (guard.response) return guard.response;
     const tenantId = guard.auth!.organizationId;
     const { id } = await params
@@ -157,7 +158,7 @@ export async function DELETE(
 
   try {
     // SECURITY: Require authentication with admin role
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'tenant_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN] });
     if (guard.response) return guard.response;
     const tenantId = guard.auth!.organizationId;
     const { id } = await params

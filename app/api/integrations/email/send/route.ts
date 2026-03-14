@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
 import { emailSender } from '@/lib/integrations/email/sender';
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin, isPrivileged } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: NextRequest) {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only authorized users can send emails
-    if (!['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)) {
+    if (!isPrivileged(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
@@ -205,7 +206,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
     }
 
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 

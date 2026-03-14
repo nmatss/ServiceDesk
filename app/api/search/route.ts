@@ -7,6 +7,7 @@ import { VectorDatabase } from '@/lib/ai/vector-database';
 import { executeQuery, executeRun } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ROLES } from '@/lib/auth/roles';
 
 let vectorDbInstance: VectorDatabase | null = null;
 let hybridSearchInstance: HybridSearchEngine | null = null;
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
       offset,
     };
 
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       filters.users = [auth.userId];
     }
 
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
             search_query: query,
             ...filters,
             user_role: auth.role,
-            user_id: auth.role === 'user' ? auth.userId : null,
+            user_id: auth.role === ROLES.USER ? auth.userId : null,
           }
         : null;
 
@@ -237,7 +238,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const effectiveFilters: SearchFilters = { ...(filters || {}), query };
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       effectiveFilters.users = [auth.userId];
     }
 

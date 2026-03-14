@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { autoGenerator } from '@/lib/knowledge/auto-generator';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function POST(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [...TICKET_MANAGEMENT_ROLES],
     })
     if (guard.response) return guard.response
     const userContext = guard.context!.user
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [...TICKET_MANAGEMENT_ROLES],
     })
     if (guard.response) return guard.response
 

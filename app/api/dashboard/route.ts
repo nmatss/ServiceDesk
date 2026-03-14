@@ -6,6 +6,7 @@ import { getDatabaseType } from '@/lib/db/config';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ROLES, isAdmin, isPrivileged } from '@/lib/auth/roles';
 
 interface UserContext { id: number; role: string }
 interface TenantContext { id: number }
@@ -206,7 +207,7 @@ async function calculateDashboardData(user: UserContext, tenant: TenantContext, 
   ] = await Promise.all([
     getSystemOverview(user, tenant, startDate),
     getTicketMetrics(user, tenant, startDate),
-    ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(user.role)
+    isPrivileged(user.role)
       ? getAgentPerformance(tenant, startDate)
       : Promise.resolve(null),
     getSLAData(user, tenant, startDate),
@@ -236,7 +237,7 @@ async function getSystemOverview(user: UserContext, tenant: TenantContext, start
     const params: (string | number)[] = [tenant.id];
 
     // Filtrar por usuário se for role 'user'
-    if (user.role === 'user') {
+    if (user.role === ROLES.USER) {
       whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
@@ -260,7 +261,7 @@ async function getSystemOverview(user: UserContext, tenant: TenantContext, start
     `, [startDate.toISOString(), tenant.id, ...params]);
 
     // Estatísticas de usuários (apenas para admin do tenant)
-    const userStatsPromise = ['super_admin', 'tenant_admin'].includes(user.role)
+    const userStatsPromise = isAdmin(user.role)
       ? executeQueryOne<UserStatsRow>(`
         SELECT
           COUNT(*) as total_users,
@@ -314,10 +315,10 @@ async function getTicketMetrics(user: UserContext, tenant: TenantContext, startD
           COUNT(t.id) as count
         FROM statuses s
         LEFT JOIN tickets t ON s.id = t.status_id AND t.tenant_id = ?
-        WHERE s.tenant_id = ? ${user.role === 'user' ? 'AND (t.user_id = ? OR t.user_id IS NULL)' : ''}
+        WHERE s.tenant_id = ? ${user.role === ROLES.USER ? 'AND (t.user_id = ? OR t.user_id IS NULL)' : ''}
         GROUP BY s.id, s.name, s.color, s.is_final
         ORDER BY count DESC
-      `, [tenant.id, tenant.id, ...(user.role === 'user' ? [user.id] : [])]),
+      `, [tenant.id, tenant.id, ...(user.role === ROLES.USER ? [user.id] : [])]),
 
       // Tickets criados por dia
       executeQuery<DailyCountRow>(`
@@ -325,10 +326,10 @@ async function getTicketMetrics(user: UserContext, tenant: TenantContext, startD
           DATE(t.created_at) as date,
           COUNT(*) as count
         FROM tickets t
-        WHERE t.tenant_id = ? AND t.created_at >= ? ${user.role === 'user' ? 'AND t.user_id = ?' : ''}
+        WHERE t.tenant_id = ? AND t.created_at >= ? ${user.role === ROLES.USER ? 'AND t.user_id = ?' : ''}
         GROUP BY DATE(t.created_at)
         ORDER BY date ASC
-      `, [tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])]),
+      `, [tenant.id, startDate.toISOString(), ...(user.role === ROLES.USER ? [user.id] : [])]),
 
       // Tickets resolvidos por dia
       executeQuery<DailyCountRow>(`
@@ -336,10 +337,10 @@ async function getTicketMetrics(user: UserContext, tenant: TenantContext, startD
           DATE(t.resolved_at) as date,
           COUNT(*) as count
         FROM tickets t
-        WHERE t.tenant_id = ? AND t.resolved_at >= ? ${user.role === 'user' ? 'AND t.user_id = ?' : ''}
+        WHERE t.tenant_id = ? AND t.resolved_at >= ? ${user.role === ROLES.USER ? 'AND t.user_id = ?' : ''}
         GROUP BY DATE(t.resolved_at)
         ORDER BY date ASC
-      `, [tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])])
+      `, [tenant.id, startDate.toISOString(), ...(user.role === ROLES.USER ? [user.id] : [])])
     ]);
 
     return {
@@ -413,7 +414,7 @@ async function getSLAData(user: UserContext, tenant: TenantContext, startDate: D
     let whereClause = 'AND t.tenant_id = ?';
     const params: (string | number)[] = [tenant.id];
 
-    if (user.role === 'user') {
+    if (user.role === ROLES.USER) {
       whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
@@ -469,7 +470,7 @@ async function getRecentActivity(user: UserContext, tenant: TenantContext, limit
     let whereClause = 'WHERE t.tenant_id = ?';
     const params: (string | number)[] = [tenant.id];
 
-    if (user.role === 'user') {
+    if (user.role === ROLES.USER) {
       whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
@@ -508,7 +509,7 @@ async function getTrendAnalytics(user: UserContext, tenant: TenantContext, start
     let whereClause = 'AND t.tenant_id = ?';
     const params: (string | number)[] = [tenant.id];
 
-    if (user.role === 'user') {
+    if (user.role === ROLES.USER) {
       whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
@@ -559,7 +560,7 @@ async function getCategoryStats(user: UserContext, tenant: TenantContext, startD
     let additionalWhere = '';
     const additionalParams: (string | number)[] = [];
 
-    if (user.role === 'user') {
+    if (user.role === ROLES.USER) {
       additionalWhere = 'AND t.user_id = ?';
       additionalParams.push(user.id);
     }
@@ -587,7 +588,7 @@ async function getPriorityStats(user: UserContext, tenant: TenantContext, startD
     let additionalWhere = '';
     const additionalParams: (string | number)[] = [];
 
-    if (user.role === 'user') {
+    if (user.role === ROLES.USER) {
       additionalWhere = 'AND t.user_id = ?';
       additionalParams.push(user.id);
     }
@@ -615,21 +616,21 @@ async function getRoleSpecificData(user: UserContext, tenant: TenantContext, sta
   try {
     const data: Record<string, unknown> = {};
 
-    if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'tenant_admin') {
+    if (isAdmin(user.role)) {
       const [systemHealth, userActivity] = await Promise.all([
         getSystemHealthData(tenant),
         getUserActivityData(tenant, startDate)
       ]);
       data.system_health = systemHealth;
       data.user_activity = userActivity;
-    } else if (user.role === 'agent' || user.role === 'team_manager') {
+    } else if (user.role === ROLES.AGENT || user.role === ROLES.TEAM_MANAGER) {
       const [myAssignments, workload] = await Promise.all([
         getAgentAssignments(user.id, tenant),
         getAgentWorkload(user.id, tenant)
       ]);
       data.my_assignments = myAssignments;
       data.workload = workload;
-    } else if (user.role === 'user') {
+    } else if (user.role === ROLES.USER) {
       data.my_tickets = await getUserTicketsSummary(user.id, tenant, startDate);
     }
 

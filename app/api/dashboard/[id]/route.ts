@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -99,7 +100,7 @@ export async function PUT(
       );
     }
 
-    if (existingDashboard.user_id !== userId && role !== 'admin') {
+    if (existingDashboard.user_id !== userId && !isAdmin(role)) {
       return NextResponse.json(
         { error: 'Forbidden: You do not own this dashboard' },
         { status: 403 }
@@ -190,7 +191,7 @@ export async function DELETE(
       );
     }
 
-    if (existingDashboard.user_id !== userId && role !== 'admin') {
+    if (existingDashboard.user_id !== userId && !isAdmin(role)) {
       return NextResponse.json(
         { error: 'Forbidden: You do not own this dashboard' },
         { status: 403 }

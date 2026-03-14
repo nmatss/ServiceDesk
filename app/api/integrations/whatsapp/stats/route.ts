@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 import { getWhatsAppStats } from '@/lib/integrations/whatsapp/storage';
 import logger from '@/lib/monitoring/structured-logger';
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager', 'agent'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER, ROLES.AGENT] });
     if (guard.response) return guard.response;
 
     const searchParams = request.nextUrl.searchParams;

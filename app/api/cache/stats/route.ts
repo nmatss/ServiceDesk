@@ -6,6 +6,7 @@
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
+import { ROLES } from '@/lib/auth/roles'
 import { defaultCacheManager } from '@/lib/api/cache'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify admin authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] })
     if (guard.response) return guard.response
 
     // Get cache statistics
@@ -61,7 +62,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Verify admin authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] })
     if (guard.response) return guard.response
 
     const { searchParams } = new URL(request.url)

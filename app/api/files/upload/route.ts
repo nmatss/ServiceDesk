@@ -8,6 +8,7 @@ import {
 } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ADMIN_ROLES, TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 import {
   validateFile,
   validateMagicBytes,
@@ -19,8 +20,7 @@ import {
   isImageFile
 } from '@/lib/utils/file-upload'
 
-const ADMIN_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin'];
-const TICKET_ELEVATED_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'manager'];
+const TICKET_ELEVATED_ROLES = [...TICKET_MANAGEMENT_ROLES, 'manager'];
 const ALLOWED_ENTITY_TYPES = new Set(['ticket', 'comment', 'knowledge_article']);
 
 function parsePositiveInt(value: unknown): number | null {

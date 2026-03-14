@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 import { WhatsAppTemplateManager, PREDEFINED_TEMPLATES } from '@/lib/integrations/whatsapp/templates';
 import { getWhatsAppClient } from '@/lib/integrations/whatsapp/business-api';
 import { createAuditLog } from '@/lib/audit/logger';
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] });
     if (guard.response) return guard.response;
     const { userId } = guard.auth!;
 
@@ -109,7 +110,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication
-    const guardGet = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] });
+    const guardGet = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] });
     if (guardGet.response) return guardGet.response;
 
     const templates = Object.entries(PREDEFINED_TEMPLATES).map(([key, template]) => ({

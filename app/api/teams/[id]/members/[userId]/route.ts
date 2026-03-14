@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function DELETE(
@@ -14,7 +15,7 @@ export async function DELETE(
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN, ROLES.TEAM_MANAGER],
     })
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id

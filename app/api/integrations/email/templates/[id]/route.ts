@@ -12,6 +12,7 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
 import { executeQueryOne, executeRun, sqlNow, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -95,7 +96,7 @@ export async function PUT(
     }
 
     // Only admins can update templates
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
@@ -162,7 +163,7 @@ export async function DELETE(
     }
 
     // Only admins can delete templates
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 

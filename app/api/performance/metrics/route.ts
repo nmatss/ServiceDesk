@@ -11,6 +11,7 @@ import { dbOptimizer } from '@/lib/db/optimizer'
 import { createCompressedResponse } from '@/lib/api/compression'
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // SECURITY: Require admin authentication - exposes system internals
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
     const acceptEncoding = request.headers.get('accept-encoding') || ''
 

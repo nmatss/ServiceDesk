@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import webpush from 'web-push';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ROLES } from '@/lib/auth/roles';
 /**
  * POST /api/push/send
  * Send push notification to user(s)
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'agent'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.AGENT] });
     if (guard.response) return guard.response;
 
     const body = await request.json();

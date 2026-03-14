@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] });
     if (guard.response) return guard.response;
 
     // Get configuration

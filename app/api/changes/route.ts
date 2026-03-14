@@ -10,6 +10,7 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
+import { ROLES } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
     const queryParams: (string | number)[] = [organizationId]
 
     // Regular users can only see their own changes
-    if (role === 'user' || params.my_changes) {
+    if (role === ROLES.USER || params.my_changes) {
       whereClause += ' AND cr.requester_id = ?'
       queryParams.push(userId)
     }
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(params.priority)
     }
 
-    if (params.requester_id && role !== 'user') {
+    if (params.requester_id && role !== ROLES.USER) {
       whereClause += ' AND cr.requester_id = ?'
       queryParams.push(params.requester_id)
     }

@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, executeQueryOne, executeRun, executeTransaction, type DatabaseAdapter } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ROLES, TICKET_MANAGEMENT_ROLES, isAdmin } from '@/lib/auth/roles';
 
 async function awaitMaybe<T>(value: T | Promise<T>): Promise<T> {
   return value instanceof Promise ? await value : value;
@@ -163,7 +164,7 @@ export async function PUT(
   try {
     const { slug } = await params
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [...TICKET_MANAGEMENT_ROLES],
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant
@@ -182,7 +183,7 @@ export async function PUT(
     }
 
     // Verificar permissão (admin ou autor)
-    const hasElevatedAccess = ['admin', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const hasElevatedAccess = isAdmin(userContext.role)
     if (!hasElevatedAccess && userContext.id !== existingArticle.author_id) {
       return NextResponse.json(
         { error: 'Você só pode editar seus próprios artigos' },
@@ -285,7 +286,7 @@ export async function DELETE(
   try {
     const { slug } = await params
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'super_admin', 'tenant_admin'],
+      requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN],
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant

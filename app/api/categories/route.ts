@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Dynamic route - needs request cookies/headers for tenant resolution
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only admins can create categories
-    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão insuficiente' },
         { status: 403 }

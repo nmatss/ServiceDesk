@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQueryOne, sqlDateDiff } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
+import { ROLES } from '@/lib/auth/roles'
 import { logger } from '@/lib/monitoring/logger'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'manager'] })
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] })
     if (guard.response) return guard.response
     const { organizationId } = guard.auth!
 

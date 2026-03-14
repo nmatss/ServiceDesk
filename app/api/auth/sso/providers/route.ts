@@ -10,6 +10,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { verifyToken } from '@/lib/auth/auth-service';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { isAdmin } from '@/lib/auth/roles';
 /**
  * GET /api/auth/sso/providers
  * Get list of available SSO providers
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for admin role
-    if (user.role !== 'admin') {
+    if (!isAdmin(user.role)) {
       logger.warn('Unauthorized SSO configuration attempt', {
         userId: user.id,
         email: user.email,

@@ -8,7 +8,7 @@
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { ADMIN_ROLES } from '@/lib/auth/roles';
+import { ADMIN_ROLES, ROLES } from '@/lib/auth/roles';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateKnownErrorInput } from '@/lib/types/problem';
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check visibility for end users - only show active known errors
-    if (auth.role === 'user' && knownError.status !== 'active') {
+    if (auth.role === ROLES.USER && knownError.status !== 'active') {
       return NextResponse.json(
         { success: false, error: 'Known error not found' },
         { status: 404 }
@@ -98,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (response) return response;
 
     // Only agents and admins can update known errors
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }

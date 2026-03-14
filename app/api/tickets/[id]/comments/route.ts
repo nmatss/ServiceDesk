@@ -3,8 +3,10 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { checkAndMarkFirstResponse } from '@/lib/sla/sla-service';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { isPrivileged } from '@/lib/auth/roles';
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -35,7 +37,7 @@ export async function GET(
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isElevatedRole = isPrivileged(userContext.role)
     if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
@@ -104,7 +106,7 @@ export async function POST(
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isElevatedRole = isPrivileged(userContext.role)
     if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
@@ -123,7 +125,7 @@ export async function POST(
     }
 
     // Apenas agentes e admins podem fazer comentários internos
-    const internalComment = Boolean(is_internal) && ['agent', 'admin', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role);
+    const internalComment = Boolean(is_internal) && isPrivileged(userContext.role);
 
     let commentId: number | undefined
     try {
@@ -141,6 +143,13 @@ export async function POST(
       if (typeof result.lastInsertRowid === 'number') {
         commentId = result.lastInsertRowid
       }
+    }
+
+    // Check SLA first response (fire-and-forget, won't fail comment creation)
+    try {
+      await checkAndMarkFirstResponse(ticketId, userContext.id);
+    } catch {
+      // SLA tracking is non-critical
     }
 
     const comment = commentId

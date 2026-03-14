@@ -11,6 +11,7 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
 import { executeQuery, executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Only admins can view templates
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only admins can create templates
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 

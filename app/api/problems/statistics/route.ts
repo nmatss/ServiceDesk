@@ -7,6 +7,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import problemQueries from '@/lib/db/queries/problem-queries';
+import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     if (response) return response;
 
     // Only agents and admins can view statistics
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }

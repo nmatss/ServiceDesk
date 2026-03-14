@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { ADMIN_ROLES } from '@/lib/auth/roles';
+import { ADMIN_ROLES, ROLES } from '@/lib/auth/roles';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Apply user-specific filters for non-admin users
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       filters.users = [auth.userId];
     }
 

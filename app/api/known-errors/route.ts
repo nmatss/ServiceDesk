@@ -8,6 +8,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import problemQueries from '@/lib/db/queries/problem-queries';
+import { ROLES } from '@/lib/auth/roles';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import type {
   KnownErrorStatus,
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
         : (status as KnownErrorStatus);
     } else {
       // Default to showing only active known errors for regular users
-      if (auth.role === 'user') {
+      if (auth.role === ROLES.USER) {
         filters.status = 'active';
       }
     }
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
     if (response) return response;
 
     // Only agents and admins can create known errors
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }

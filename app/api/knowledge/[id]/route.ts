@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/monitoring/logger';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin, ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -25,7 +26,7 @@ export async function GET(
     const queryParams: (string | number)[] = [articleId, tenantContext.id]
 
     // Only published articles for non-admin users
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       whereClause += ' AND k.status = ?'
       queryParams.push('published')
     }
@@ -76,24 +77,28 @@ export async function PATCH(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const guard = requireTenantUserContext(request, {
-      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
-    })
+    const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant
+    const userContext = guard.context!.user
 
     const { id } = await params
     const articleId = parseInt(id)
     const { title, content, excerpt, category, tags, status } = await request.json()
 
     // Verify article exists and belongs to tenant
-    const existingArticle = await executeQueryOne(
-      'SELECT id FROM knowledge_articles WHERE id = ? AND tenant_id = ?',
+    const existingArticle = await executeQueryOne<{ id: number; author_id: number }>(
+      'SELECT id, author_id FROM knowledge_articles WHERE id = ? AND tenant_id = ?',
       [articleId, tenantContext.id]
     )
 
     if (!existingArticle) {
       return NextResponse.json({ error: 'Artigo não encontrado' }, { status: 404 })
+    }
+
+    // Ownership check: only author or admins can edit
+    if (!isAdmin(userContext.role) && existingArticle.author_id !== userContext.id) {
+      return NextResponse.json({ error: 'Apenas o autor ou administradores podem editar' }, { status: 403 })
     }
 
     // Update article
@@ -154,7 +159,7 @@ export async function DELETE(
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN, ROLES.TEAM_MANAGER],
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant

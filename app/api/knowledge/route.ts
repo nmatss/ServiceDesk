@@ -3,6 +3,7 @@ import { logger } from '@/lib/monitoring/logger';
 import slugify from 'slugify'
 import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '10') || 10, 1), 100)
     const offset = Math.max(parseInt(searchParams.get('offset') || '0') || 0, 0)
 
-    const isPrivileged = ['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isPrivileged = isAdmin(userContext.role)
 
     let whereClause = 'WHERE (a.tenant_id = ? OR a.tenant_id IS NULL)'
     const params: (string | number)[] = [tenantContext.id]
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
     const userContext = guard.context!.user
 
     // Only admin users can create articles
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 

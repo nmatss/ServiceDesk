@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { checkAndMarkResolution } from '@/lib/sla/sla-service'
 import { logger } from '@/lib/monitoring/logger';
 import { getFromCache, setCache, invalidateTicketCache } from '@/lib/cache/lru-cache';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
@@ -7,6 +8,7 @@ import { ticketSchemas } from '@/lib/validation/schemas';
 import { sanitizeHtml, sanitizeText } from '@/lib/security/sanitize';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { isPrivileged } from '@/lib/auth/roles';
 
 // Shared query for getting ticket with relations - eliminates code duplication
 const TICKET_SELECT_QUERY = `
@@ -61,7 +63,7 @@ export async function GET(
 
     if (cached) {
       // Verify user has access to cached ticket
-      const isAdmin = ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)
+      const isAdmin = isPrivileged(userContext.role)
       if (isAdmin || cached.user_id === userContext.id) {
         return NextResponse.json({
           success: true,
@@ -83,7 +85,7 @@ export async function GET(
     let query = TICKET_SELECT_QUERY
 
     // If not admin, check if user owns the ticket
-    const isAdmin = ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)
+    const isAdmin = isPrivileged(userContext.role)
     if (!isAdmin) {
       query += ' AND t.user_id = ?'
       params_array.push(userContext.id)
@@ -147,7 +149,7 @@ export async function PATCH(
     const title = rawTitle ? sanitizeText(rawTitle) : rawTitle
     const description = rawDescription ? sanitizeHtml(rawDescription) : rawDescription
 
-    const isAdmin = ['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)
+    const isAdmin = isPrivileged(userContext.role)
 
     // Verify ticket exists and belongs to tenant
     let ticketQuery = 'SELECT id, user_id FROM tickets WHERE id = ? AND tenant_id = ?'
@@ -251,6 +253,15 @@ export async function PATCH(
     updateParams.push(ticketId, tenantContext.id)
 
     await executeRun(updateQuery, updateParams)
+
+    // Check SLA resolution if status changed (fire-and-forget)
+    if (status_id !== undefined) {
+      try {
+        await checkAndMarkResolution(ticketId, status_id);
+      } catch {
+        // SLA tracking is non-critical
+      }
+    }
 
     // Best-effort audit trail for ticket updates
     try {

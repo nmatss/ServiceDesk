@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [...TICKET_MANAGEMENT_ROLES],
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant

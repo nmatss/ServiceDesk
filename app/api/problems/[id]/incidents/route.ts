@@ -8,6 +8,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import problemQueries from '@/lib/db/queries/problem-queries';
+import { ROLES } from '@/lib/auth/roles';
 import type { LinkIncidentInput } from '@/lib/types/problem';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (response) return response;
 
     // Only agents and admins can link incidents
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }
@@ -185,7 +186,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (response) return response;
 
     // Only agents and admins can unlink incidents
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }

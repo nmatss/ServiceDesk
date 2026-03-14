@@ -8,6 +8,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import problemQueries from '@/lib/db/queries/problem-queries';
+import { ROLES } from '@/lib/auth/roles';
 import type { AddActivityInput } from '@/lib/types/problem';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Determine if user can see internal notes
-    const includeInternal = auth.role !== 'user';
+    const includeInternal = auth.role !== ROLES.USER;
 
     // Fetch activities
     const activities = await problemQueries.getProblemActivities(
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (response) return response;
 
     // Only agents and admins can add activities
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }

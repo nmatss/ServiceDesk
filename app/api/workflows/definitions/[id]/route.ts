@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow, sqlDateDiff } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin, ROLES, TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -32,7 +33,8 @@ export async function GET(
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
-// Get workflow with full definition
+// Get workflow with full definition — scoped to user's organization
+    const { organizationId } = guard.auth!;
     const workflow = await executeQueryOne(`
       SELECT
         w.*,
@@ -43,8 +45,8 @@ export async function GET(
       LEFT JOIN workflow_definitions wd ON w.id = wd.id
       LEFT JOIN users u ON w.created_by = u.id
       LEFT JOIN users u2 ON w.updated_by = u2.id
-      WHERE w.id = ?
-    `, [workflowId]);
+      WHERE w.id = ? AND w.organization_id = ?
+    `, [workflowId, organizationId]);
 
     if (!workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
@@ -121,9 +123,9 @@ export async function PUT(
 
   try {
     // Verify authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'agent'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [...TICKET_MANAGEMENT_ROLES] });
     if (guard.response) return guard.response;
-    const { userId, role } = guard.auth!;
+    const { userId, role, organizationId } = guard.auth!;
 
     const { id } = await params;
     const workflowId = parseInt(id);
@@ -132,14 +134,14 @@ export async function PUT(
     }
 
     const body = await request.json();
-// Check if workflow exists
-    const existingWorkflow = await executeQueryOne('SELECT id, created_by FROM workflows WHERE id = ?', [workflowId]);
+// Check if workflow exists — scoped to user's organization
+    const existingWorkflow = await executeQueryOne('SELECT id, created_by FROM workflows WHERE id = ? AND organization_id = ?', [workflowId, organizationId]);
     if (!existingWorkflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }
 
     // Check ownership or admin rights
-    if (role !== 'admin' && (existingWorkflow as any).created_by !== userId) {
+    if (!isAdmin(role) && (existingWorkflow as any).created_by !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -306,7 +308,7 @@ export async function DELETE(
 
   try {
     // Verify authentication
-    const guardDel = requireTenantUserContext(request, { requireRoles: ['admin'] });
+    const guardDel = requireTenantUserContext(request, { requireRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.TENANT_ADMIN] });
     if (guardDel.response) return guardDel.response;
 
     const { id } = await params;
@@ -314,8 +316,8 @@ export async function DELETE(
     if (isNaN(workflowId)) {
       return NextResponse.json({ error: 'Invalid workflow ID' }, { status: 400 });
     }
-// Check if workflow exists
-    const workflow = await executeQueryOne<{ id: number; name: string }>('SELECT id, name FROM workflows WHERE id = ?', [workflowId]);
+// Check if workflow exists — scoped to user's organization
+    const workflow = await executeQueryOne<{ id: number; name: string }>('SELECT id, name FROM workflows WHERE id = ? AND organization_id = ?', [workflowId, guardDel.auth!.organizationId]);
     if (!workflow) {
       return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
     }

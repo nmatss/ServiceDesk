@@ -9,7 +9,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
+import { ROLES } from '@/lib/auth/roles'
 import { z } from 'zod'
+import { isAdmin } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Validation schemas
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
     const queryParams: (string | number)[] = [organizationId]
 
     // Regular users can only see their own requests
-    if (role === 'user' || params.my_requests) {
+    if (role === ROLES.USER || params.my_requests) {
       whereClause += ' AND (sr.requester_id = ? OR sr.on_behalf_of_id = ?)'
       queryParams.push(userId, userId)
     }
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
       queryParams.push(params.catalog_item_id)
     }
 
-    if (params.requester_id && role !== 'user') {
+    if (params.requester_id && role !== ROLES.USER) {
       whereClause += ' AND sr.requester_id = ?'
       queryParams.push(params.requester_id)
     }
@@ -151,6 +153,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const data = createRequestSchema.parse(body)
+
+    // Prevent impersonation: on_behalf_of_id can only be set by admins
+    if (data.on_behalf_of_id && data.on_behalf_of_id !== userId && !isAdmin(role)) {
+      return NextResponse.json(
+        { success: false, error: 'Não é possível criar requisição em nome de outro usuário' },
+        { status: 403 }
+      )
+    }
 
     // Get catalog item
     const catalogItem = await executeQueryOne<{

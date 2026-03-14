@@ -5,6 +5,7 @@ import { executeQuery } from '@/lib/db/adapter';
 import { apiError } from '@/lib/api/api-helpers';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { isAdmin } from '@/lib/auth/roles';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.SEARCH);
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar usuários se type for 'all' ou 'users' e user for admin
-    if ((type === 'all' || type === 'users') && user.role === 'admin') {
+    if ((type === 'all' || type === 'users') && isAdmin(user.role)) {
       const userSuggestions = await executeQuery<any>(`
         SELECT
           'user' as type,

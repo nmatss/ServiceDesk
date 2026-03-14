@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
+import { ROLES, isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 import { jsonWithCache } from '@/lib/api/cache-headers'
 import { cacheInvalidation } from '@/lib/api/cache'
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
     const { userId, organizationId, role } = guard.auth!
 
     // Only admins can create catalog items
-    if (role !== 'admin') {
+    if (!isAdmin(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas administradores podem criar itens do catálogo' },
         { status: 403 }

@@ -4,6 +4,7 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 import { sanitizeHtml } from '@/lib/security/sanitize';
+import { isPrivileged } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     let ticketParams = [parseInt(ticketId), tenantContext.id]
 
     // If not admin, check if user owns the ticket
-    if (!['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)) {
+    if (!isPrivileged(userContext.role)) {
       ticketQuery += ' AND user_id = ?'
       ticketParams.push(userContext.id)
     }
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     let ticketParams = [ticket_id, tenantContext.id]
 
     // If not admin, check if user owns the ticket
-    if (!['super_admin', 'tenant_admin', 'team_manager', 'agent'].includes(userContext.role)) {
+    if (!isPrivileged(userContext.role)) {
       ticketQuery += ' AND user_id = ?'
       ticketParams.push(userContext.id)
     }

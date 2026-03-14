@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -13,7 +14,7 @@ export async function GET(
   if (rateLimitResponse) return rateLimitResponse;
   try {
     // Verify authentication - admins and agents
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'agent'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.AGENT] });
     if (guard.response) return guard.response;
 
     const { id } = await params;
@@ -60,7 +61,7 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
   try {
     // Verify authentication - admins and agents
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin', 'agent'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.AGENT] });
     if (guard.response) return guard.response;
 
     const { id } = await params;
@@ -132,7 +133,7 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
   try {
     // Only admins can delete tickets
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
 
     const { id } = await params;

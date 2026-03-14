@@ -3,6 +3,7 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import { executeQuery } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 // Rate limiting para operações admin
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se é admin do tenant
-    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json(
         { error: 'Acesso negado - permissão insuficiente' },
         { status: 403 }

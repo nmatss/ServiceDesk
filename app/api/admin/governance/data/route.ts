@@ -9,6 +9,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQueryOne } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
+import { ROLES } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface DataSubjectRequest {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] })
     if (guard.response) return guard.response
     const { organizationId } = guard.auth!
 
@@ -251,7 +252,7 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin'] })
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] })
     if (guard.response) return guard.response
 
     const body = await request.json()

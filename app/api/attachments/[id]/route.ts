@@ -10,6 +10,7 @@ import { basename, join } from 'path';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ADMIN_ROLES, TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 type AttachmentRow = {
   id: number;
@@ -23,8 +24,8 @@ type AttachmentRow = {
   ticket_owner_id: number;
 };
 
-const TICKET_ELEVATED_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'manager'];
-const ATTACHMENT_DELETE_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin'];
+const TICKET_ELEVATED_ROLES = [...TICKET_MANAGEMENT_ROLES, 'manager'];
+const ATTACHMENT_DELETE_ROLES = [...ADMIN_ROLES];
 
 function isPositiveInteger(value: string): boolean {
   const parsed = Number.parseInt(value, 10);

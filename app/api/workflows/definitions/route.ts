@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlNow } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -239,9 +240,9 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
 
     const offset = (page - 1) * limit;
-// Build query with filters
-    let whereClause = 'WHERE 1=1';
-    const params: (string | number | boolean | null)[] = [];
+// Build query with filters — scoped to user's organization
+    let whereClause = 'WHERE organization_id = ?';
+    const params: (string | number | boolean | null)[] = [guard.auth!.organizationId];
 
     if (category) {
       whereClause += ' AND category = ?';
@@ -363,7 +364,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'agent'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.AGENT] });
     if (guard.response) return guard.response;
     const { userId } = guard.auth!;
 
@@ -385,6 +386,7 @@ export async function POST(request: NextRequest) {
     // Start transaction using adapter
     const workflowId = await executeTransaction(async () => {
       // Insert workflow
+      const orgId = guard.auth!.organizationId;
       const workflowResult = await executeRun(`
         INSERT INTO workflows (
           name,
@@ -397,9 +399,10 @@ export async function POST(request: NextRequest) {
           category,
           priority,
           created_by,
+          organization_id,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
       `, [
         workflowData.name,
         workflowData.description || null,
@@ -410,7 +413,8 @@ export async function POST(request: NextRequest) {
         workflowData.isTemplate ? 1 : 0,
         workflowData.category || 'ticket_automation',
         workflowData.priority || 0,
-        userId
+        userId,
+        orgId
       ]);
 
       const wfId = workflowResult.lastInsertRowid!;
@@ -465,9 +469,10 @@ export async function POST(request: NextRequest) {
           is_active,
           version,
           created_by,
+          organization_id,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})
       `, [
         wfId,
         workflowData.name,
@@ -481,7 +486,8 @@ export async function POST(request: NextRequest) {
         }),
         workflowData.isActive !== false ? 1 : 0,
         1,
-        userId
+        userId,
+        orgId
       ]);
 
       return wfId;

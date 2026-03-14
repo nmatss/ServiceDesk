@@ -7,6 +7,7 @@ import { cacheInvalidation } from '@/lib/api/cache'
 import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware'
 import { executeQuery, executeQueryOne, executeTransaction, type DatabaseAdapter } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [...TICKET_MANAGEMENT_ROLES],
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant

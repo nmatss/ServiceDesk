@@ -3,6 +3,7 @@ import { getTenantManager } from '@/lib/tenant/manager'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -67,7 +68,7 @@ export async function POST(
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN, ROLES.TEAM_MANAGER],
     })
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id
@@ -156,7 +157,7 @@ export async function PUT(
 
   try {
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['super_admin', 'tenant_admin', 'team_manager'],
+      requireRoles: [ROLES.SUPER_ADMIN, ROLES.TENANT_ADMIN, ROLES.TEAM_MANAGER],
     })
     if (guard.response) return guard.response
     const tenantId = guard.context!.tenant.id

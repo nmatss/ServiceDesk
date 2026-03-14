@@ -8,7 +8,7 @@
 import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { ADMIN_ROLES } from '@/lib/auth/roles';
+import { ADMIN_ROLES, ROLES, isAdmin } from '@/lib/auth/roles';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateProblemInput } from '@/lib/types/problem';
 
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       problemQueries.getProblemActivities(
         auth.organizationId,
         problemId,
-        auth.role !== 'user' // Include internal notes for agents/admins
+        auth.role !== ROLES.USER // Include internal notes for agents/admins
       ),
       problemQueries.getProblemIncidents(auth.organizationId, problemId),
     ]);
@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (response) return response;
 
     // Only agents and admins can update problems
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: Insufficient permissions' },
         { status: 403 }
@@ -121,6 +121,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json(
         { success: false, error: 'Problem not found' },
         { status: 404 }
+      );
+    }
+
+    // Ownership check: agents can only update problems assigned to them
+    if (auth.role === ROLES.AGENT && (existingProblem as any).assigned_to !== auth.userId) {
+      return NextResponse.json(
+        { success: false, error: 'Sem permissão para editar este problema' },
+        { status: 403 }
       );
     }
 

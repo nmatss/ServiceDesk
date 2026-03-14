@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function PUT(
@@ -33,7 +34,7 @@ export async function PUT(
     }
 
     // Only admins can update categories
-    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json(
         { error: 'Permissão insuficiente' },
         { status: 403 }
@@ -142,7 +143,7 @@ export async function DELETE(
     }
 
     // Only admins can delete categories
-    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json(
         { error: 'Permissão insuficiente' },
         { status: 403 }

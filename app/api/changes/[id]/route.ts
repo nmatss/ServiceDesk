@@ -9,6 +9,7 @@ import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
+import { isAdmin } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const updateChangeSchema = z.object({
@@ -295,9 +296,9 @@ export async function DELETE(
     // Only allow cancellation of draft/submitted changes, or by admin
     const canCancel =
       ['draft', 'submitted', 'under_review'].includes(change.status) &&
-      (userId === change.requester_id || role === 'admin')
+      (userId === change.requester_id || isAdmin(role))
 
-    if (!canCancel && role !== 'admin') {
+    if (!canCancel && !isAdmin(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas mudanças em rascunho ou submetidas podem ser canceladas' },
         { status: 403 }

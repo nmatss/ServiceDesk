@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
+import { isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -284,7 +285,7 @@ export async function DELETE(
     const { userId, organizationId, role } = guard.auth!
 
     // Only admins can delete CIs
-    if (role !== 'admin') {
+    if (!isAdmin(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas administradores podem excluir itens de configuração' },
         { status: 403 }

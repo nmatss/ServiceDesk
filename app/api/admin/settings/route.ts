@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
+import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 /**
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
 
     // SECURITY: Use organizationId from auth context, never from request params
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
 
     const body = await request.json();
@@ -189,7 +190,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
 
     const body = await request.json();
@@ -257,7 +258,7 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Verify authentication and admin role
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
 
     const { searchParams } = new URL(request.url);

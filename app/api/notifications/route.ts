@@ -3,6 +3,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { executeQuery, executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (response) return response;
 
     // Verificar se usuário tem permissão para criar notificações
-    if (!['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(auth.role)) {
+    if (!isAdmin(auth.role)) {
       return apiError('Permissão insuficiente', 403);
     }
 

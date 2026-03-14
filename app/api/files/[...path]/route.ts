@@ -11,11 +11,12 @@ import {
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ADMIN_ROLES, TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 // SECURITY: Base directory for file storage - all file operations must be within this directory
 const UPLOADS_BASE_PATH = path.resolve(process.cwd(), 'uploads');
-const FILE_ADMIN_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin'];
-const TICKET_ELEVATED_ROLES = ['super_admin', 'tenant_admin', 'team_manager', 'admin', 'agent', 'manager'];
+const FILE_ADMIN_ROLES = [...ADMIN_ROLES];
+const TICKET_ELEVATED_ROLES = [...TICKET_MANAGEMENT_ROLES, 'manager'];
 
 /**
  * SECURITY: Validates and sanitizes file paths to prevent path traversal attacks.

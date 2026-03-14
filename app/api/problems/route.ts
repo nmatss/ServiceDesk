@@ -8,6 +8,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiError } from '@/lib/api/api-helpers';
+import { ROLES } from '@/lib/auth/roles';
 import problemQueries from '@/lib/db/queries/problem-queries';
 import type {
   ProblemStatus,
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
     const { auth } = guard;
 
     // Only agents and admins can create problems
-    if (auth.role === 'user') {
+    if (auth.role === ROLES.USER) {
       return apiError('Forbidden: Insufficient permissions', 403);
     }
 

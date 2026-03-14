@@ -4,6 +4,7 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import emailService from '@/lib/email/service'
 import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
 
-    if (!['super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
     }
 
-    if (!['super_admin', 'tenant_admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { ROLES } from '@/lib/auth/roles';
 
 export async function GET(request: NextRequest) {
     // SECURITY: Rate limiting
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     try {
         // SECURITY: Require authentication and super-admin access
-        const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+        const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
         if (guard.response) return guard.response;
 
         // Additional super-admin check - only org 1 can see system-wide stats

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { logger } from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { isAdmin } from '@/lib/auth/roles';
 // Schema de validação
 const requestSchema = z.object({
   action: z.enum(["create", "update", "delete"]),
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     const validatedData = requestSchema.parse(body);
 
     // Verificar permissões específicas
-    if (validatedData.action === "delete" && role !== 'admin') {
+    if (validatedData.action === "delete" && !isAdmin(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, sqlNow, sqlCurrentDate, sqlDatetimeSub, sqlCastDate, sqlDateDiff, sqlDatetimeSubYears } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
+import { ADMIN_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   try {
     // SECURITY: Verify authentication and role
     const guard = requireTenantUserContext(request, {
-      requireRoles: ['admin', 'super_admin', 'tenant_admin', 'team_manager']
+      requireRoles: [...ADMIN_ROLES]
     });
     if (guard.response) return guard.response;
 

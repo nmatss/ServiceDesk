@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { ROLES } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // SECURITY: Require admin authentication
-    const guard = requireTenantUserContext(request, { requireRoles: ['admin', 'super_admin'] });
+    const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.SUPER_ADMIN] });
     if (guard.response) return guard.response;
     // Database table row counts
     const tables = ['tickets', 'users', 'comments', 'notifications', 'sla_tracking'];

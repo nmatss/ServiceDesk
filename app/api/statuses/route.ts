@@ -5,6 +5,7 @@ import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/te
 import { logger } from '@/lib/monitoring/logger'
 import { jsonWithCache } from '@/lib/api/cache-headers'
 import { cacheInvalidation } from '@/lib/api/cache'
+import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(request: NextRequest) {
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only admins can create statuses
-    if (!['super_admin', 'tenant_admin', 'admin'].includes(userContext.role)) {
+    if (!isAdmin(userContext.role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão insuficiente' },
         { status: 403 }

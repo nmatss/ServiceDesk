@@ -4,6 +4,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { isAdmin } from '@/lib/auth/roles';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
 
     // Performance dos agentes (apenas para admins)
     let agentPerformance: any[] = []
-    if (user.role === 'admin') {
+    if (isAdmin(user.role)) {
       agentPerformance = await executeQuery(`
         SELECT
           u.name as agent_name,
@@ -229,7 +230,7 @@ export async function GET(request: NextRequest) {
           avgRating: customerSatisfaction.avg_rating || 0,
           totalSurveys: customerSatisfaction.total_surveys || 0
         },
-        ...(user.role === 'admin' && { agentPerformance })
+        ...(isAdmin(user.role) && { agentPerformance })
       },
       period
     })

@@ -14,6 +14,7 @@ import {
 import { z } from 'zod';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 // Request validation schema
 const ExecuteWorkflowSchema = z.object({
@@ -43,8 +44,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // SECURITY: Require authentication
-    const guard = requireTenantUserContext(request);
+    // SECURITY: Require authentication — only agents and above can execute workflows
+    const guard = requireTenantUserContext(request, {
+      requireRoles: [...TICKET_MANAGEMENT_ROLES],
+    });
     if (guard.response) return guard.response;
 
     const body = await request.json();
@@ -80,8 +83,8 @@ export async function POST(request: NextRequest) {
     let workflowDefinition: WorkflowDefinition | null = null;
 
     if (workflowId) {
-      // Load from database
-      workflowDefinition = await getWorkflowById(workflowId);
+      // Load from database — scoped to user's organization
+      workflowDefinition = await getWorkflowById(workflowId, guard.auth!.organizationId);
       if (!workflowDefinition) {
         return NextResponse.json(
           {
@@ -295,8 +298,14 @@ import { WorkflowPersistenceAdapter } from '@/lib/workflow/persistence-adapter';
 import { WorkflowQueueManager } from '@/lib/workflow/queue-manager';
 import { WorkflowMetricsCollector } from '@/lib/workflow/metrics-collector';
 
-async function getWorkflowById(workflowId: number): Promise<WorkflowDefinition | null> {
+async function getWorkflowById(workflowId: number, organizationId?: number): Promise<WorkflowDefinition | null> {
   try {
+    let whereClause = 'WHERE w.id = ?';
+    const params: (number)[] = [workflowId];
+    if (organizationId) {
+      whereClause += ' AND w.organization_id = ?';
+      params.push(organizationId);
+    }
     const workflow = await executeQueryOne<any>(`
       SELECT
         w.*,
@@ -304,8 +313,8 @@ async function getWorkflowById(workflowId: number): Promise<WorkflowDefinition |
         wd.trigger_conditions as wd_trigger_conditions
       FROM workflows w
       LEFT JOIN workflow_definitions wd ON w.id = wd.id
-      WHERE w.id = ?
-    `, [workflowId]);
+      ${whereClause}
+    `, params);
 
     if (!workflow) {
       return null;
