@@ -22,7 +22,7 @@ export default function TicketsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Breadcrumbs */}
       <Breadcrumb
         items={[
@@ -31,29 +31,31 @@ export default function TicketsPage() {
         ]}
       />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2 mb-2">
-            <TicketIcon className="h-6 w-6 text-brand-600 dark:text-brand-400" />
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">
-              {user?.role === 'user' ? 'Meus Tickets' : 'Tickets'}
-            </h1>
+      {/* Page Header */}
+      <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-700 p-5 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-brand-100 dark:bg-brand-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+              <TicketIcon className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+                {user?.role === 'user' ? 'Meus Tickets' : 'Tickets'}
+              </h1>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                {user?.role === 'user'
+                  ? 'Gerencie seus tickets de suporte'
+                  : user?.role === 'agent'
+                  ? 'Visualize e gerencie tickets atribuidos a voce'
+                  : 'Gerencie todos os tickets do sistema'
+                }
+              </p>
+            </div>
           </div>
-          <p className="text-description">
-            {user?.role === 'user'
-              ? 'Gerencie seus tickets de suporte'
-              : user?.role === 'agent'
-              ? 'Visualize e gerencie tickets atribuídos a você'
-              : 'Gerencie todos os tickets do sistema'
-            }
-          </p>
-        </div>
 
-        <div className="flex items-center space-x-3">
           <Link
             href="/tickets/new"
-            className="btn btn-primary min-h-[44px]"
+            className="inline-flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition-colors min-h-[44px] shadow-sm"
             aria-label="Criar novo ticket"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
@@ -62,7 +64,7 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      {/* Tickets List */}
+      {/* Tickets List with built-in filters and stats */}
       <TicketList
         userRole={user?.role || 'user'}
         showUserTickets={user?.role === 'user'}

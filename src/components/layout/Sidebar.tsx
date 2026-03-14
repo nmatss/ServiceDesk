@@ -42,6 +42,8 @@ interface SidebarProps {
   setOpen: (open: boolean) => void
   userRole: 'super_admin' | 'admin' | 'tenant_admin' | 'team_manager' | 'agent' | 'user'
   organizationId?: number
+  userName?: string
+  userEmail?: string
 }
 
 interface MenuItem {
@@ -51,6 +53,7 @@ interface MenuItem {
   iconSolid: React.ComponentType<{ className?: string }>
   badge?: number | string
   submenu?: SubMenuItem[]
+  section?: string
 }
 
 interface SubMenuItem {
@@ -60,7 +63,25 @@ interface SubMenuItem {
   badge?: number | string
 }
 
-export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }: SidebarProps) {
+const roleLabels: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin: 'Administrador',
+  tenant_admin: 'Admin Tenant',
+  team_manager: 'Gerente',
+  agent: 'Agente',
+  user: 'Usuário'
+}
+
+const roleBadgeColors: Record<string, string> = {
+  super_admin: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  admin: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  tenant_admin: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  team_manager: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  agent: 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300',
+  user: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
+}
+
+export default function Sidebar({ open, setOpen, userRole, organizationId = 0, userName, userEmail }: SidebarProps) {
   const pathname = usePathname()
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
   const [ticketCounts, setTicketCounts] = useState({
@@ -94,15 +115,12 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
 
   const fetchTicketCounts = async () => {
     try {
-      // Use credentials: 'include' to send cookies automatically
-      // No need for localStorage token
       const response = await fetch('/api/dashboard', {
         credentials: 'include'
       })
 
       if (response.ok) {
         const data = await response.json()
-        // Safe access with nullish coalescing
         const overview = data?.data?.overview ?? {}
         const tickets = overview.tickets ?? {}
         setTicketCounts({
@@ -124,7 +142,6 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
     )
   }
 
-  // Keyboard navigation for submenu items
   const handleSubmenuKeyDown = (e: React.KeyboardEvent, menuName: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -134,14 +151,15 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
     }
   }
 
-  // Menu items based on user role
+  // Menu items based on user role — with section markers for dividers
   const getMenuItems = (): MenuItem[] => {
     const baseItems: MenuItem[] = [
       {
         name: 'Dashboard',
         href: ['super_admin', 'admin', 'tenant_admin', 'team_manager'].includes(userRole) ? '/admin' : '/dashboard',
         icon: HomeIcon,
-        iconSolid: HomeIconSolid
+        iconSolid: HomeIconSolid,
+        section: 'principal'
       }
     ]
 
@@ -154,6 +172,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           icon: TicketIcon,
           iconSolid: TicketIconSolid,
           badge: ticketCounts.total,
+          section: 'operacional',
           submenu: [
             { name: 'Todos os Tickets', href: '/admin/tickets', icon: TicketIcon },
             { name: 'Novo Ticket', href: '/tickets/new', icon: PlusIcon },
@@ -166,6 +185,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           href: '/admin/problems',
           icon: ExclamationTriangleIcon,
           iconSolid: ExclamationTriangleIcon,
+          section: 'itil',
           submenu: [
             { name: 'Todos os Problemas', href: '/admin/problems', icon: ExclamationTriangleIcon },
             { name: 'KEDB', href: '/admin/problems/kedb', icon: BookOpenIcon },
@@ -205,6 +225,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           href: '/admin/users',
           icon: UserGroupIcon,
           iconSolid: UserGroupIconSolid,
+          section: 'gestao',
           submenu: [
             { name: 'Todos os Usuários', href: '/admin/users', icon: UserGroupIcon },
             { name: 'Novo Usuário', href: '/admin/users/new', icon: PlusIcon },
@@ -223,6 +244,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           href: '/admin/reports',
           icon: ChartBarIcon,
           iconSolid: ChartBarIconSolid,
+          section: 'analitico',
           submenu: [
             { name: 'Dashboard ITIL', href: '/admin/dashboard/itil', icon: PresentationChartLineIcon },
             { name: 'Dashboard Executivo', href: '/admin/reports?type=executive', icon: ChartBarIcon },
@@ -252,6 +274,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           href: '/admin/settings',
           icon: Cog6ToothIcon,
           iconSolid: Cog6ToothIconSolid,
+          section: 'sistema',
           submenu: [
             { name: 'Gerais', href: '/admin/settings', icon: Cog6ToothIcon },
             { name: 'SLA', href: '/admin/settings/sla', icon: ClockIcon },
@@ -267,7 +290,8 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           name: 'Workspace',
           href: '/agent/workspace',
           icon: WrenchScrewdriverIcon,
-          iconSolid: WrenchScrewdriverIcon
+          iconSolid: WrenchScrewdriverIcon,
+          section: 'operacional'
         },
         {
           name: 'Meus Tickets',
@@ -287,6 +311,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           href: '/admin/problems',
           icon: ExclamationTriangleIcon,
           iconSolid: ExclamationTriangleIcon,
+          section: 'itil',
           submenu: [
             { name: 'Todos os Problemas', href: '/admin/problems', icon: ExclamationTriangleIcon },
             { name: 'KEDB', href: '/admin/problems/kedb', icon: BookOpenIcon }
@@ -296,7 +321,8 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           name: 'Base Conhecimento',
           href: '/knowledge',
           icon: DocumentTextIcon,
-          iconSolid: DocumentTextIcon
+          iconSolid: DocumentTextIcon,
+          section: 'recursos'
         },
         {
           name: 'Relatórios',
@@ -317,6 +343,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           href: '/tickets',
           icon: TicketIcon,
           iconSolid: TicketIconSolid,
+          section: 'operacional',
           submenu: [
             { name: 'Todos', href: '/tickets', icon: UserIcon },
             { name: 'Novo Ticket', href: '/tickets/new', icon: PlusIcon },
@@ -328,7 +355,8 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
           name: 'Base Conhecimento',
           href: '/knowledge',
           icon: DocumentTextIcon,
-          iconSolid: DocumentTextIcon
+          iconSolid: DocumentTextIcon,
+          section: 'recursos'
         }
       ]
     }
@@ -361,16 +389,29 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
     return submenu.some(item => isActive(item.href))
   }
 
+  // Section labels for dividers
+  const sectionLabels: Record<string, string> = {
+    operacional: 'Operacional',
+    itil: 'ITIL',
+    gestao: 'Gestão',
+    analitico: 'Analítico',
+    recursos: 'Recursos',
+    sistema: 'Sistema'
+  }
+
+  // Track which sections we've rendered dividers for
+  let lastSection = 'principal'
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full safe-top">
       {/* Logo */}
-      <div className="flex items-center justify-center h-14 sm:h-16 px-4 sm:px-6 border-b border-neutral-200 dark:border-white/10 flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0">
-            <TicketIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+      <div className="flex items-center h-14 sm:h-16 px-4 sm:px-6 border-b border-neutral-200 dark:border-neutral-700/50 flex-shrink-0">
+        <div className={`flex items-center ${open ? 'space-x-3' : 'justify-center w-full'}`}>
+          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+            <TicketIcon className="h-5 w-5 sm:h-5 sm:w-5 text-white" />
           </div>
           {open && (
-            <span className="text-lg sm:text-xl font-bold text-gradient truncate">
+            <span className="text-lg font-bold text-gradient truncate">
               ServiceDesk Pro
             </span>
           )}
@@ -379,42 +420,64 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
 
       {/* Navigation */}
       <nav
-        className="flex-1 px-3 sm:px-4 py-4 sm:py-6 space-y-1 sm:space-y-2 overflow-y-auto hide-scrollbar overscroll-contain"
+        className="flex-1 px-2 sm:px-3 py-3 sm:py-4 space-y-0.5 overflow-y-auto hide-scrollbar overscroll-contain"
         role="navigation"
         aria-label="Menu principal"
       >
         {/* Super Admin Section */}
         {isSuperAdmin && (
-          <div className="mb-4">
+          <div className="mb-2">
+            {open && (
+              <div className="px-3 pt-2 pb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Super Admin
+                </span>
+              </div>
+            )}
             <button
               onClick={() => toggleSubmenu('SuperAdmin')}
               onKeyDown={(e) => handleSubmenuKeyDown(e, 'SuperAdmin')}
               className={`
-                sidebar-item min-h-touch transition-colors duration-150 w-full
-                ${pathname.startsWith('/admin/super') ? 'sidebar-item-active' : ''}
+                group relative flex items-center w-full min-h-[44px] px-3 py-2.5 text-sm font-medium rounded-lg
+                transition-all duration-200
+                ${pathname.startsWith('/admin/super')
+                  ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-l-[3px] border-amber-500'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 border-l-[3px] border-transparent'
+                }
               `}
               aria-expanded={expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super')}
               aria-controls="submenu-SuperAdmin"
               aria-label={`${expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super') ? 'Fechar' : 'Abrir'} submenu Super Admin`}
             >
-              <ShieldCheckIcon className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0 text-amber-500 dark:text-amber-400" aria-hidden="true" />
+              <ShieldCheckIcon className="h-5 w-5 flex-shrink-0 text-amber-500 dark:text-amber-400" aria-hidden="true" />
               {open && (
                 <>
-                  <span className="ml-3 flex-1 text-left truncate font-semibold text-amber-700 dark:text-amber-300">Super Admin</span>
+                  <span className="ml-3 flex-1 text-left truncate font-semibold">{!open ? '' : 'Super Admin'}</span>
                   <ChevronDownIcon
-                    className={`h-4 w-4 ml-1 transition-transform duration-200 ${
+                    className={`h-4 w-4 ml-1 transition-transform duration-200 text-neutral-400 dark:text-neutral-500 ${
                       expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super') ? 'rotate-180' : ''
                     }`}
                     aria-hidden="true"
                   />
                 </>
               )}
+
+              {/* Collapsed tooltip */}
+              {!open && (
+                <div
+                  className="absolute left-full ml-3 px-2.5 py-1.5 bg-neutral-900 dark:bg-neutral-700 text-white text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap pointer-events-none shadow-lg"
+                  role="tooltip"
+                >
+                  Super Admin
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-neutral-900 dark:border-r-neutral-700" />
+                </div>
+              )}
             </button>
 
             {open && (expandedMenus.includes('SuperAdmin') || pathname.startsWith('/admin/super')) && (
               <div
                 id="submenu-SuperAdmin"
-                className="ml-4 mt-2 space-y-1 animate-slide-down"
+                className="mt-1 ml-3 pl-3 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800/50"
                 role="group"
                 aria-label="Super Admin submenu"
               >
@@ -427,29 +490,29 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
                       key={subItem.href}
                       href={subItem.href}
                       className={`
-                        flex items-center px-4 py-2 min-h-touch text-sm rounded-lg
-                        transition-colors duration-150
+                        flex items-center px-3 py-2 min-h-[40px] text-sm rounded-md
+                        transition-all duration-200
                         ${isSubActive
-                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                          : 'text-description hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
                         }
                       `}
                       aria-current={isSubActive ? 'page' : undefined}
                     >
-                      <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" aria-hidden="true" />
-                      <span className="ml-3 flex-1 truncate">{subItem.name}</span>
+                      <subItem.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      <span className="ml-2.5 flex-1 truncate">{subItem.name}</span>
                     </Link>
                   )
                 })}
               </div>
             )}
 
-            {/* Separator */}
-            <div className="mt-3 mb-2 border-t border-neutral-200 dark:border-neutral-700" />
+            {/* Separator after Super Admin */}
+            <div className="mt-3 mb-2 mx-3 border-t border-neutral-200 dark:border-neutral-700/50" />
           </div>
         )}
 
-        {menuItems.map((item) => {
+        {menuItems.map((item, index) => {
           const isItemActive = isActive(item.href)
           const hasActiveChild = hasActiveSubmenu(item.submenu)
           const isExpanded = expandedMenus.includes(item.name)
@@ -457,134 +520,190 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
 
           const IconComponent = isItemActive ? item.iconSolid : item.icon
 
+          // Render section divider if section changed
+          let sectionDivider = null
+          if (item.section && item.section !== lastSection && index > 0) {
+            sectionDivider = (
+              <div key={`divider-${item.section}`} className="pt-3 pb-1">
+                {open && (
+                  <div className="px-3 pb-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                      {sectionLabels[item.section] || item.section}
+                    </span>
+                  </div>
+                )}
+                {!open && (
+                  <div className="mx-3 border-t border-neutral-200 dark:border-neutral-700/50" />
+                )}
+              </div>
+            )
+            lastSection = item.section
+          } else if (item.section) {
+            lastSection = item.section
+          }
+
           return (
-            <div key={item.name}>
-              {/* Main menu item */}
-              <div
-                className={`relative group ${item.submenu ? '' : ''
-                  }`}
-              >
-                {item.submenu ? (
-                  <div className="relative">
+            <React.Fragment key={item.name}>
+              {sectionDivider}
+              <div>
+                {/* Main menu item */}
+                <div className="relative group">
+                  {item.submenu ? (
                     <button
                       onClick={() => toggleSubmenu(item.name)}
                       onKeyDown={(e) => handleSubmenuKeyDown(e, item.name)}
                       className={`
-                        sidebar-item min-h-touch transition-colors duration-150
-                        w-full
-                        ${isItemActive || hasActiveChild ? 'sidebar-item-active' : ''}
+                        flex items-center w-full min-h-[44px] px-3 py-2.5 text-sm font-medium rounded-lg
+                        transition-all duration-200
+                        ${isItemActive || hasActiveChild
+                          ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border-l-[3px] border-brand-500'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 border-l-[3px] border-transparent'
+                        }
                       `}
                       aria-expanded={shouldExpand}
                       aria-controls={`submenu-${item.name}`}
                       aria-label={`${shouldExpand ? 'Fechar' : 'Abrir'} submenu de ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
                     >
-                      <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" aria-hidden="true" />
+                      <IconComponent className={`h-5 w-5 flex-shrink-0 ${isItemActive || hasActiveChild ? 'text-brand-600 dark:text-brand-400' : ''}`} aria-hidden="true" />
                       {open && (
                         <>
                           <span className="ml-3 flex-1 text-left truncate">{item.name}</span>
-                          {item.badge && (
-                            <span className="ml-2 badge badge-primary text-xs" aria-label={`${item.badge} itens`}>
+                          {item.badge ? (
+                            <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300" aria-label={`${item.badge} itens`}>
                               {item.badge}
                             </span>
-                          )}
+                          ) : null}
                           <ChevronDownIcon
-                            className={`h-4 w-4 ml-1 transition-transform duration-200 ${shouldExpand ? 'rotate-180' : ''}`}
+                            className={`h-4 w-4 ml-1 transition-transform duration-200 text-neutral-400 dark:text-neutral-500 ${shouldExpand ? 'rotate-180' : ''}`}
                             aria-hidden="true"
                           />
                         </>
                       )}
                     </button>
-                  </div>
-                ) : (
-                  <Link
-                    href={item.href}
-                    className={`
-                      sidebar-item min-h-touch transition-colors duration-150
-                      ${isItemActive ? 'sidebar-item-active' : ''}
-                    `}
-                    aria-current={isItemActive ? 'page' : undefined}
-                    aria-label={`Navegar para ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
-                  >
-                    <IconComponent className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" aria-hidden="true" />
-                    {open && (
-                      <>
-                        <span className="ml-3">{item.name}</span>
-                        {item.badge && (
-                          <span className="ml-auto badge badge-primary text-xs animate-fade-in" aria-label={`${item.badge} itens`}>
-                            {item.badge}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </Link>
-                )}
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className={`
+                        flex items-center min-h-[44px] px-3 py-2.5 text-sm font-medium rounded-lg
+                        transition-all duration-200
+                        ${isItemActive
+                          ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border-l-[3px] border-brand-500'
+                          : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 border-l-[3px] border-transparent'
+                        }
+                      `}
+                      aria-current={isItemActive ? 'page' : undefined}
+                      aria-label={`Navegar para ${item.name}${item.badge ? `. ${item.badge} itens` : ''}`}
+                    >
+                      <IconComponent className={`h-5 w-5 flex-shrink-0 ${isItemActive ? 'text-brand-600 dark:text-brand-400' : ''}`} aria-hidden="true" />
+                      {open && (
+                        <>
+                          <span className="ml-3 flex-1 truncate">{item.name}</span>
+                          {item.badge ? (
+                            <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-semibold rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 animate-fade-in" aria-label={`${item.badge} itens`}>
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </Link>
+                  )}
 
-                {/* Tooltip for collapsed sidebar */}
-                {!open && (
+                  {/* Tooltip for collapsed sidebar */}
+                  {!open && (
+                    <div
+                      className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-neutral-900 dark:bg-neutral-700 text-white text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap pointer-events-none shadow-lg"
+                      role="tooltip"
+                    >
+                      {item.name}
+                      {item.badge ? (
+                        <span className="ml-2 bg-brand-500 text-white px-1.5 py-0.5 rounded-full text-xs">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-neutral-900 dark:border-r-neutral-700" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Submenu */}
+                {item.submenu && open && shouldExpand && (
                   <div
-                    className="absolute left-full ml-2 px-2 py-1 bg-neutral-800 dark:bg-neutral-800 text-white dark:text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap"
-                    role="tooltip"
+                    id={`submenu-${item.name}`}
+                    className="mt-1 ml-3 pl-3 space-y-0.5 border-l-2 border-neutral-200 dark:border-neutral-700/50"
+                    role="group"
+                    aria-label={`${item.name} submenu`}
                   >
-                    {item.name}
-                    {item.badge && (
-                      <span className="ml-2 bg-brand-500 text-white px-1.5 py-0.5 rounded-full text-xs">
-                        {item.badge}
-                      </span>
-                    )}
+                    {item.submenu.map((subItem) => {
+                      const isSubItemActive = isActive(subItem.href)
+                      return (
+                        <Link
+                          key={subItem.href}
+                          href={subItem.href}
+                          className={`
+                            flex items-center px-3 py-2 min-h-[40px] text-sm rounded-md
+                            transition-all duration-200
+                            ${isSubItemActive
+                              ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium'
+                              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
+                            }
+                          `}
+                          aria-current={isSubItemActive ? 'page' : undefined}
+                          aria-label={`Navegar para ${subItem.name}${subItem.badge ? `. ${subItem.badge} itens` : ''}`}
+                        >
+                          <subItem.icon className={`h-4 w-4 flex-shrink-0 ${isSubItemActive ? 'text-brand-600 dark:text-brand-400' : ''}`} aria-hidden="true" />
+                          <span className="ml-2.5 flex-1 truncate">{subItem.name}</span>
+                          {subItem.badge ? (
+                            <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 animate-fade-in" aria-label={`${subItem.badge} itens`}>
+                              {subItem.badge}
+                            </span>
+                          ) : null}
+                        </Link>
+                      )
+                    })}
                   </div>
                 )}
               </div>
-
-              {/* Submenu */}
-              {item.submenu && open && shouldExpand && (
-                <div
-                  id={`submenu-${item.name}`}
-                  className="ml-4 mt-2 space-y-1 animate-slide-down"
-                  role="group"
-                  aria-label={`${item.name} submenu`}
-                >
-                  {item.submenu.map((subItem) => {
-                    const isSubItemActive = isActive(subItem.href)
-                    return (
-                      <Link
-                        key={subItem.href}
-                        href={subItem.href}
-                        className={`
-                          flex items-center px-4 py-2 min-h-touch text-sm rounded-lg
-                          transition-colors duration-150
-                          ${isSubItemActive
-                            ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                            : 'text-description hover:bg-neutral-200 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100'
-                          }
-                        `}
-                        aria-current={isSubItemActive ? 'page' : undefined}
-                        aria-label={`Navegar para ${subItem.name}${subItem.badge ? `. ${subItem.badge} itens` : ''}`}
-                      >
-                        <subItem.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" aria-hidden="true" />
-                        <span className="ml-3 flex-1 truncate">{subItem.name}</span>
-                        {subItem.badge && (
-                          <span className="ml-2 badge badge-primary text-xs animate-fade-in" aria-label={`${subItem.badge} itens`}>
-                            {subItem.badge}
-                          </span>
-                        )}
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+            </React.Fragment>
           )
         })}
       </nav>
 
-      {/* User info at bottom */}
-      {open && (
-        <div className="p-4 pb-safe border-t border-neutral-200 dark:border-neutral-700 flex-shrink-0">
-          <div className="text-xs text-muted-content text-center">
-            ServiceDesk Pro v2.0
+      {/* Bottom section — user info */}
+      <div className={`flex-shrink-0 border-t border-neutral-200 dark:border-neutral-700/50 ${open ? 'p-3' : 'p-2'} pb-safe`}>
+        {open ? (
+          <div className="flex items-center space-x-3 px-2 py-2 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
+            <div className="w-9 h-9 bg-gradient-brand rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+              <span className="text-white text-sm font-semibold">
+                {userName?.charAt(0).toUpperCase() || userRole.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                {userName || 'Usuário'}
+              </p>
+              <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${roleBadgeColors[userRole] || roleBadgeColors.user}`}>
+                {roleLabels[userRole] || 'Usuário'}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="group relative flex justify-center">
+            <div className="w-9 h-9 bg-gradient-brand rounded-full flex items-center justify-center shadow-sm">
+              <span className="text-white text-sm font-semibold">
+                {userName?.charAt(0).toUpperCase() || userRole.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            {/* Tooltip for collapsed state */}
+            <div
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-neutral-900 dark:bg-neutral-700 text-white text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap pointer-events-none shadow-lg"
+              role="tooltip"
+            >
+              {userName || 'Usuário'} &middot; {roleLabels[userRole]}
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-neutral-900 dark:border-r-neutral-700" />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 
@@ -593,7 +712,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-200"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-300"
           onClick={() => setOpen(false)}
           onTouchEnd={() => setOpen(false)}
           role="presentation"
@@ -605,27 +724,19 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
       <aside
         id="main-sidebar"
         className={`
-          fixed inset-y-0 left-0 z-50 glass-panel rounded-none
-          transform transition-[width,transform] duration-200 ease-in-out will-change-transform
+          fixed inset-y-0 left-0 z-50 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-700/50
+          transform transition-all duration-300 ease-in-out will-change-transform
           ${open ? 'w-64 sm:w-72 translate-x-0' : 'w-20 -translate-x-full lg:translate-x-0'}
           ${open ? 'shadow-xl' : 'shadow-md'}
         `}
         aria-label="Barra lateral de navegação"
       >
         <SidebarContent />
-
-        {/* Visual feedback indicator - only on desktop collapsed state */}
-        {!open && (
-          <div
-            className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 w-1 h-16 bg-gradient-to-b from-transparent via-brand-500/50 to-transparent animate-pulse-soft"
-            aria-hidden="true"
-          />
-        )}
       </aside>
 
       {/* Spacer for desktop */}
       <div
-        className={`hidden lg:block transition-[width] duration-200 ease-in-out ${open ? 'w-64' : 'w-20'}`}
+        className={`hidden lg:block transition-all duration-300 ease-in-out ${open ? 'w-64' : 'w-20'}`}
       />
     </>
   )

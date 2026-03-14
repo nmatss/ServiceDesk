@@ -6,7 +6,7 @@ import Header from './Header'
 import Sidebar from './Sidebar'
 import { ThemeProvider } from '@/src/contexts/ThemeContext'
 import { NotificationProvider } from '@/src/components/notifications/NotificationProvider'
-import { populateAuthCache } from '@/lib/hooks/useRequireAuth'
+import { populateAuthCache, getCachedAuth } from '@/lib/hooks/useRequireAuth'
 import toast from 'react-hot-toast'
 
 interface AppLayoutProps {
@@ -64,9 +64,10 @@ function AppLayoutContent({ children }: AppLayoutProps) {
   const hasCustomLayout = useMemo(() => customLayoutRoutes.some(route => pathname.startsWith(route)), [pathname])
   const isPublicRoute = useMemo(() => publicRoutes.includes(pathname), [pathname])
 
-  // PERF: Auth check with 30s cooldown — catches expired sessions on navigation
+  // PERF: Auth check with 5s cooldown — catches expired sessions on navigation
   // without calling /api/auth/verify on every single route change.
-  const AUTH_CHECK_COOLDOWN_MS = 30_000
+  // Uses cached auth to show content immediately, refreshes in background.
+  const AUTH_CHECK_COOLDOWN_MS = 5_000
   useEffect(() => {
     const checkAuth = async () => {
       if (isPublicRoute || isAuthPage) {
@@ -74,11 +75,29 @@ function AppLayoutContent({ children }: AppLayoutProps) {
         return
       }
 
+      // PERF: Check global cache first — show content immediately without spinner
+      const cached = getCachedAuth()
+      if (cached) {
+        const cachedUser = {
+          id: cached.user.id,
+          name: cached.user.name,
+          email: cached.user.email,
+          role: cached.user.role,
+          organization_id: cached.user.tenant_id || 0
+        }
+        setUser(cachedUser)
+        setLoading(false) // No spinner — content renders immediately
+      }
+
       const now = Date.now()
       const timeSinceLastCheck = now - lastAuthCheckRef.current
       if (lastAuthCheckRef.current > 0 && timeSinceLastCheck < AUTH_CHECK_COOLDOWN_MS) {
-        // Skip — last check was recent enough
-        return
+        // Skip — last check was recent enough (cache already applied above)
+        if (!cached && !user) {
+          // Edge case: cooldown active but no cache and no user — force check
+        } else {
+          return
+        }
       }
 
       try {
@@ -105,12 +124,15 @@ function AppLayoutContent({ children }: AppLayoutProps) {
               responseData.tenant || null
             )
           } else {
+            setUser(null)
             router.push('/auth/login')
           }
         } else {
+          setUser(null)
           router.push('/auth/login')
         }
       } catch {
+        setUser(null)
         router.push('/auth/login')
       } finally {
         setLoading(false)
@@ -229,6 +251,8 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           setOpen={handleUserToggleSidebar}
           userRole={user?.role || 'user'}
           organizationId={user?.organization_id || 0}
+          userName={user?.name}
+          userEmail={user?.email}
         />
 
         {/* Main content area */}
