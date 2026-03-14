@@ -4,11 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { logger } from '@/lib/monitoring/logger';
 
-interface Notification {
+export interface SocketNotification {
   type: string
   title: string
   message: string
-  data?: any
+  data?: Record<string, unknown>
   timestamp: string
   priority?: 'low' | 'medium' | 'high'
 }
@@ -23,9 +23,9 @@ interface OnlineUser {
 interface UseSocketReturn {
   socket: Socket | null
   isConnected: boolean
-  notifications: Notification[]
+  notifications: SocketNotification[]
   onlineUsers: OnlineUser[]
-  sendNotification: (notification: Notification) => void
+  sendNotification: (notification: SocketNotification) => void
   joinTicketRoom: (ticketId: number) => void
   leaveTicketRoom: (ticketId: number) => void
   startTyping: (ticketId: number, userName: string) => void
@@ -37,7 +37,7 @@ interface UseSocketReturn {
 export function useSocket(): UseSocketReturn {
   const socketRef = useRef<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<SocketNotification[]>([])
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const activeNotificationsRef = useRef<Set<Notification>>(new Set())
@@ -82,7 +82,7 @@ export function useSocket(): UseSocketReturn {
     })
 
     // Receber notificações
-    socket.on('notification', (notification: Notification) => {
+    socket.on('notification', (notification: SocketNotification) => {
       logger.info('📢 New notification', notification)
 
       setNotifications(prev => [notification, ...prev.slice(0, 49)]) // Manter apenas 50 notificações
@@ -99,18 +99,18 @@ export function useSocket(): UseSocketReturn {
           })
 
           // Track active notification for cleanup
-          activeNotificationsRef.current.add(browserNotification as any)
+          activeNotificationsRef.current.add(browserNotification)
 
           // Auto-fechar após 5 segundos (exceto prioridade alta)
           if (notification.priority !== 'high') {
             setTimeout(() => {
               browserNotification.close()
-              activeNotificationsRef.current.delete(browserNotification as any)
+              activeNotificationsRef.current.delete(browserNotification)
             }, 5000)
           } else {
             // Remove from tracking when closed by user
             browserNotification.onclose = () => {
-              activeNotificationsRef.current.delete(browserNotification as any)
+              activeNotificationsRef.current.delete(browserNotification)
             }
           }
         } else if (Notification.permission === 'default') {
@@ -182,7 +182,7 @@ export function useSocket(): UseSocketReturn {
       // Close all active browser notifications
       activeNotificationsRef.current.forEach(notification => {
         try {
-          (notification as any).close()
+          (notification as Notification).close()
         } catch (e) {
           // Notification may already be closed
         }
@@ -204,7 +204,7 @@ export function useSocket(): UseSocketReturn {
     }
   }, [])
 
-  const sendNotification = (notification: Notification) => {
+  const sendNotification = (notification: SocketNotification) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('send_notification', notification)
     }

@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, getDbType } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, getDbType, type SqlParam } from '@/lib/db/adapter';
 import { AuditLog, CreateAuditLog, AuditLogWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -44,7 +44,7 @@ export async function logCreate(
   userId: number,
   resourceType: string,
   resourceId: number,
-  newValues: any,
+  newValues: Record<string, unknown>,
   ipAddress?: string,
   userAgent?: string
 ): Promise<boolean> {
@@ -71,8 +71,8 @@ export async function logUpdate(
   userId: number,
   resourceType: string,
   resourceId: number,
-  oldValues: any,
-  newValues: any,
+  oldValues: Record<string, unknown>,
+  newValues: Record<string, unknown>,
   ipAddress?: string,
   userAgent?: string
 ): Promise<boolean> {
@@ -100,7 +100,7 @@ export async function logDelete(
   userId: number,
   resourceType: string,
   resourceId: number,
-  oldValues: any,
+  oldValues: Record<string, unknown>,
   ipAddress?: string,
   userAgent?: string
 ): Promise<boolean> {
@@ -281,7 +281,7 @@ export async function getAuditLogs(options: {
     } = options;
 
     let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (userId) {
       whereClause += ' AND al.user_id = ?';
@@ -531,7 +531,7 @@ export async function getAuditStats(days: number = 30): Promise<any> {
     const startDateStr = startDate.toISOString();
 
     // Total de acoes por tipo
-    const actionStats = await executeQuery<any>(`
+    const actionStats = await executeQuery(`
       SELECT
         action,
         COUNT(*) as count
@@ -542,7 +542,7 @@ export async function getAuditStats(days: number = 30): Promise<any> {
     `, [startDateStr]);
 
     // Acoes por tipo de recurso
-    const resourceStats = await executeQuery<any>(`
+    const resourceStats = await executeQuery(`
       SELECT
         resource_type,
         COUNT(*) as count
@@ -553,7 +553,7 @@ export async function getAuditStats(days: number = 30): Promise<any> {
     `, [startDateStr]);
 
     // Usuarios mais ativos
-    const activeUsers = await executeQuery<any>(`
+    const activeUsers = await executeQuery(`
       SELECT
         u.name,
         u.email,
@@ -568,7 +568,7 @@ export async function getAuditStats(days: number = 30): Promise<any> {
     `, [startDateStr]);
 
     // Atividade por dia
-    const dailyActivity = await executeQuery<any>(`
+    const dailyActivity = await executeQuery(`
       SELECT
         DATE(created_at) as date,
         COUNT(*) as count
@@ -802,7 +802,7 @@ export async function getSecurityAuditLogs(
       OR al.resource_type = 'security'
     )`;
 
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (startDate) {
       whereClause += ' AND al.created_at >= ?';
@@ -841,7 +841,7 @@ export async function getPIIAccessLogs(
 ): Promise<AuditLogWithDetails[]> {
   try {
     let whereClause = `WHERE al.action = 'pii_access'`;
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (startDate) {
       whereClause += ' AND al.created_at >= ?';
@@ -880,7 +880,7 @@ export async function getConfigChangeLogs(
 ): Promise<AuditLogWithDetails[]> {
   try {
     let whereClause = `WHERE al.action = 'config_change'`;
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (startDate) {
       whereClause += ' AND al.created_at >= ?';
@@ -953,7 +953,7 @@ export async function getSuspiciousActivityStats(hours: number = 24): Promise<{
       ? "string_agg(DISTINCT al.action::text, ',')"
       : "GROUP_CONCAT(DISTINCT al.action)";
 
-    const unusual_activity_users = await executeQuery<any>(`
+    const unusual_activity_users = await executeQuery(`
       SELECT
         u.id,
         u.name,
@@ -1082,7 +1082,7 @@ export async function verifyAuditIntegrity(): Promise<{
     `, []);
 
     // Logs com JSON invalido
-    const logsWithJson = await executeQuery<any>(`
+    const logsWithJson = await executeQuery(`
       SELECT id, old_values, new_values
       FROM audit_logs
       WHERE old_values IS NOT NULL OR new_values IS NOT NULL

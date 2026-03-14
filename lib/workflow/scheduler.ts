@@ -62,7 +62,7 @@ export class WorkflowScheduler {
    */
   private async checkTimeBasedWorkflows(): Promise<void> {
     const workflowEngine = getWorkflowEngine();
-    const workflows = await executeQuery<any>(`
+    const workflows = await executeQuery(`
       SELECT * FROM workflows
       WHERE is_active = ${sqlTrue()} AND trigger_type = 'time_based'
     `);
@@ -147,7 +147,7 @@ export class WorkflowScheduler {
     const plus4h = isPostgres ? "NOW() + INTERVAL '4 hours'" : "datetime('now', '+4 hours')";
 
     // Tickets com SLA de resposta proximo de vencer (< 2h)
-    const responseDueSoon = await executeQuery<any>(`
+    const responseDueSoon = await executeQuery(`
       SELECT
         st.*,
         t.id as ticket_id,
@@ -166,7 +166,7 @@ export class WorkflowScheduler {
     }
 
     // Tickets com SLA de resolucao proximo de vencer (< 4h)
-    const resolutionDueSoon = await executeQuery<any>(`
+    const resolutionDueSoon = await executeQuery(`
       SELECT
         st.*,
         t.id as ticket_id,
@@ -194,7 +194,7 @@ export class WorkflowScheduler {
     workflowEngine = getWorkflowEngine()
   ): Promise<void> {
     // Buscar workflow de SLA warning
-    const workflow = await executeQueryOne<any>(`
+    const workflow = await executeQueryOne(`
       SELECT * FROM workflows
       WHERE trigger_type = 'sla_warning'
         AND is_active = ${sqlTrue()}
@@ -246,7 +246,7 @@ export class WorkflowScheduler {
 
     // Se < 30 minutos, escalar para manager
     if (sla.minutes_until_breach < 30) {
-      const manager = await executeQueryOne<any>(`
+      const manager = await executeQueryOne(`
         SELECT id FROM users
         WHERE organization_id = ? AND role = 'manager'
         LIMIT 1

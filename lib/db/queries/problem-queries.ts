@@ -3,7 +3,7 @@
  * ITIL 4 Compliant - Supabase Ready
  */
 
-import { getDatabase, executeQuery, executeQueryOne, executeRun, executeTransaction, sqlStartOfMonth, sqlDateSub, sqlTrue } from '../adapter';
+import { getDatabase, executeQuery, executeQueryOne, executeRun, executeTransaction, sqlStartOfMonth, sqlDateSub, sqlTrue, type SqlParam } from '../adapter';
 import type {
   Problem,
   ProblemWithRelations,
@@ -228,7 +228,7 @@ export async function getProblems(
   pagination: PaginationOptions = { page: 1, limit: 20 }
 ): Promise<PaginatedResult<ProblemWithRelations>> {
   const conditions: string[] = ['p.organization_id = ?'];
-  const params: unknown[] = [organizationId];
+  const params: SqlParam[] = [organizationId];
 
   // Apply filters
   if (filters.status) {
@@ -334,7 +334,7 @@ export async function getProblems(
   const totalPages = Math.ceil(total / pagination.limit);
 
   // Fetch problems with JOINs to avoid N+1
-  const problemsWithRelations = await executeQuery<any>(
+  const problemsWithRelations = await executeQuery(
     `SELECT p.*,
        pr.id as priority__id, pr.name as priority__name, pr.color as priority__color, pr.level as priority__level,
        cat.id as category__id, cat.name as category__name, cat.color as category__color,
@@ -396,7 +396,7 @@ export async function updateProblem(
   if (!currentProblem) return null;
 
   const updates: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlParam[] = [];
 
   // Track changes for activity log
   const changes: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
@@ -608,7 +608,7 @@ export async function getProblemIncidents(
   organizationId: number,
   problemId: number
 ): Promise<ProblemIncidentLinkWithDetails[]> {
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT pil.*,
        t.id as ticket__id, ('TKT-' || CAST(t.id AS TEXT)) as ticket__ticket_number,
        t.title as ticket__title, s.name as ticket__status, pr.name as ticket__priority,
@@ -658,7 +658,7 @@ export async function getIncidentProblems(
   organizationId: number,
   ticketId: number
 ): Promise<ProblemWithRelations[]> {
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT p.*,
        pr.id as priority__id, pr.name as priority__name, pr.color as priority__color, pr.level as priority__level,
        cat.id as category__id, cat.name as category__name, cat.color as category__color,
@@ -789,7 +789,7 @@ export async function getKnownErrors(
   pagination: PaginationOptions = { page: 1, limit: 20 }
 ): Promise<PaginatedResult<KnownErrorWithRelations>> {
   const conditions: string[] = ['organization_id = ?'];
-  const params: unknown[] = [organizationId];
+  const params: SqlParam[] = [organizationId];
 
   if (filters.status) {
     if (Array.isArray(filters.status)) {
@@ -828,7 +828,7 @@ export async function getKnownErrors(
   const totalPages = Math.ceil(total / pagination.limit);
 
   // Fetch known errors with JOINs to avoid N+1
-  const knownErrorRows = await executeQuery<any>(
+  const knownErrorRows = await executeQuery(
     `SELECT ke.*,
        p.title as problem__title, p.problem_number as problem__problem_number,
        u.id as created_by_user__id, u.name as created_by_user__name, u.email as created_by_user__email
@@ -884,7 +884,7 @@ export async function updateKnownError(
   input: UpdateKnownErrorInput
 ): Promise<KnownErrorWithRelations | null> {
   const updates: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlParam[] = [];
 
   if (input.title !== undefined) {
     updates.push('title = ?');
@@ -969,7 +969,7 @@ export async function searchKnownErrorsBySymptoms(
     ...searchTerms.map((term) => `%${term}%`),
   ];
 
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT ke.*,
        p.title as problem__title, p.problem_number as problem__problem_number,
        u.id as created_by_user__id, u.name as created_by_user__name, u.email as created_by_user__email
@@ -1054,7 +1054,7 @@ export async function getProblemActivities(
 ): Promise<ProblemActivityWithUser[]> {
   const condition = includeInternal ? '' : ' AND pa.is_internal = 0';
 
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT pa.*, u.id as user__id, u.name as user__name, u.avatar_url as user__avatar_url
      FROM problem_activities pa
      LEFT JOIN users u ON pa.user_id = u.id

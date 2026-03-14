@@ -15,7 +15,7 @@ interface VersionConfig {
   changes: string[]
   breakingChanges?: string[]
   compatibilityLayer?: boolean
-  migrations?: Record<string, any>
+  migrations?: Record<string, unknown>
 }
 
 // Version Registry

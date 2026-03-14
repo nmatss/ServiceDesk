@@ -35,12 +35,12 @@ export default function TicketTrendChart({ data }: TicketTrendChartProps) {
     date: formatDate(item.date)
   }))
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string; name?: string }>; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div className="glass-panel p-3 shadow-xl">
           <p className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{label}</p>
-          {payload.map((item: any, index: number) => (
+          {payload?.map((item, index: number) => (
             <p key={index} className="text-sm font-medium" style={{ color: item.color }}>
               {item.name}: <span className="font-bold">{item.value}</span>
             </p>

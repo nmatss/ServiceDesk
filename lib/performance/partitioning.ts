@@ -1,3 +1,4 @@
+import type { SqlParam } from '@/lib/db/adapter';
 /**
  * Table Partitioning Strategy for Enterprise Scale
  * Implements time-based and hash-based partitioning for large datasets
@@ -130,7 +131,7 @@ export class TablePartitionManager {
    */
   async queryPartitionedData<T = any>(
     baseQuery: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: {
       dateRange?: { start: Date; end: Date };
       partitionHints?: string[];
@@ -144,7 +145,7 @@ export class TablePartitionManager {
 
     if (relevantPartitions.length === 0) {
       // No partitions found, execute on main table
-      return await executeQuery<any>(baseQuery, params) as T;
+      return await executeQuery(baseQuery, params) as T;
     }
 
     // Limit number of partitions to prevent excessive queries
@@ -156,7 +157,7 @@ export class TablePartitionManager {
     for (const partition of partitionsToQuery) {
       try {
         const partitionQuery = this.adaptQueryForPartition(baseQuery, partition);
-        const partitionResult = await executeQuery<any>(partitionQuery, params);
+        const partitionResult = await executeQuery(partitionQuery, params);
         results.push(...partitionResult);
       } catch (error) {
         logger.warn(`Failed to query partition ${partition}:`, error);

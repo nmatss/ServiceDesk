@@ -82,10 +82,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('AI Training Error', error);
     return NextResponse.json(
-      { error: error.message || 'Training failed' },
+      { error: error instanceof Error ? error.message : 'Training failed' },
       { status: 500 }
     );
   }
@@ -151,10 +151,10 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('AI Training GET Error', error);
     return NextResponse.json(
-      { error: error.message || 'Request failed' },
+      { error: error instanceof Error ? error.message : 'Request failed' },
       { status: 500 }
     );
   }

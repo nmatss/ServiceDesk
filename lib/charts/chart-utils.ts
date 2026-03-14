@@ -169,7 +169,7 @@ export function calculateMovingAverage(data: number[], window: number): number[]
 /**
  * Group data by category
  */
-export function groupByCategory<T extends Record<string, any>>(
+export function groupByCategory<T extends Record<string, unknown>>(
   data: T[],
   categoryKey: keyof T
 ): Record<string, T[]> {
@@ -250,12 +250,12 @@ export function createHistogramBins(data: number[], binCount: number): Array<{ s
 /**
  * Aggregate data by multiple dimensions
  */
-export function aggregateByDimensions<T extends Record<string, any>>(
+export function aggregateByDimensions<T extends Record<string, unknown>>(
   data: T[],
   dimensions: (keyof T)[],
   valueKey: keyof T,
   aggregation: 'sum' | 'avg' | 'count' | 'min' | 'max' = 'sum'
-): Array<Record<string, any>> {
+): Array<Record<string, unknown>> {
   const grouped = new Map<string, T[]>();
 
   data.forEach(item => {
@@ -268,7 +268,7 @@ export function aggregateByDimensions<T extends Record<string, any>>(
 
   return Array.from(grouped.entries()).map(([key, items]) => {
     const keyParts = key.split('|');
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
 
     dimensions.forEach((dim, index) => {
       result[String(dim)] = keyParts[index];

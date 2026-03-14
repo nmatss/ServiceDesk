@@ -572,7 +572,7 @@ export class MLPipeline {
   private normalizeFeatures(
     features: Record<string, unknown>,
     targetFeatures: string[],
-    config: Record<string, unknown>
+    config: any
   ): Record<string, unknown> {
     // Z-score normalization
     const result = { ...features };
@@ -591,7 +591,7 @@ export class MLPipeline {
   private scaleFeatures(
     features: Record<string, unknown>,
     targetFeatures: string[],
-    config: Record<string, unknown>
+    config: any
   ): Record<string, unknown> {
     // Min-max scaling
     const result = { ...features };
@@ -610,7 +610,7 @@ export class MLPipeline {
   private encodeFeatures(
     features: Record<string, unknown>,
     targetFeatures: string[],
-    config: Record<string, unknown>
+    config: any
   ): Record<string, unknown> {
     const result = { ...features };
 
@@ -628,7 +628,7 @@ export class MLPipeline {
   private imputeFeatures(
     features: Record<string, unknown>,
     targetFeatures: string[],
-    config: Record<string, unknown>
+    config: any
   ): Record<string, unknown> {
     const result = { ...features };
 
@@ -644,7 +644,7 @@ export class MLPipeline {
   private transformFeatures(
     features: Record<string, unknown>,
     targetFeatures: string[],
-    config: Record<string, unknown>
+    config: any
   ): Record<string, unknown> {
     const result = { ...features };
 

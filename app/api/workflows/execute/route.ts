@@ -168,15 +168,15 @@ export async function POST(request: NextRequest) {
         logs: result.logs,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Workflow execution error', error);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Workflow execution failed',
-        message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        message: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined,
       },
       { status: 500 }
     );
@@ -225,14 +225,14 @@ export async function GET(request: NextRequest) {
         error: status.error,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error fetching execution status', error);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to fetch execution status',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
@@ -274,14 +274,14 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: 'Execution cancelled successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error cancelling execution', error);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Failed to cancel execution',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
@@ -473,7 +473,7 @@ async function waitForExecution(
 ): Promise<{
   status: ExecutionStatus;
   progress: number;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   error?: string;
   logs: any[];
 }> {
@@ -515,7 +515,7 @@ async function waitForExecution(
 
         // Continue polling
         setTimeout(poll, pollInterval);
-      } catch (error: any) {
+      } catch (error: unknown) {
         reject(error);
       }
     };

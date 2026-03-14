@@ -76,7 +76,9 @@ export async function GET(request: NextRequest) {
     `, [userContext.id])
 
     // Formatar notificações
-    const formattedNotifications = notifications.map((notification: any) => {
+    interface NotificationRow { id: number; type: string; title: string; message: string; data: string | null; severity: string; urgency: string; is_read: boolean | number; created_at: string }
+    interface FormattedNotification { id: number; type: string; title: string; message: string; data: Record<string, unknown>; severity: string; urgency: string; isRead: boolean; createdAt: string; actionUrl: string; icon: string }
+    const formattedNotifications: FormattedNotification[] = notifications.map((notification: NotificationRow) => {
       let data = {}
       try {
         data = notification.data ? JSON.parse(notification.data) : {}
@@ -103,25 +105,25 @@ export async function GET(request: NextRequest) {
 
     // Agrupar por urgência
     const groupedByUrgency = {
-      new: formattedNotifications.filter((n: any) => n.urgency === 'new'),
-      recent: formattedNotifications.filter((n: any) => n.urgency === 'recent'),
-      old: formattedNotifications.filter((n: any) => n.urgency === 'old')
+      new: formattedNotifications.filter((n) => n.urgency === 'new'),
+      recent: formattedNotifications.filter((n) => n.urgency === 'recent'),
+      old: formattedNotifications.filter((n) => n.urgency === 'old')
     }
 
     return NextResponse.json({
       success: true,
       notifications: formattedNotifications,
       groupedByUrgency,
-      unreadCount: (unreadCount as any)?.count || 0,
-      countByType: countByType.reduce((acc: any, item: any) => {
+      unreadCount: (unreadCount as { count?: number } | undefined)?.count || 0,
+      countByType: countByType.reduce((acc: Record<string, number>, item: { type: string; count: number }) => {
         acc[item.type] = item.count
         return acc
       }, {} as Record<string, number>),
       summary: {
         total: formattedNotifications.length,
-        high: formattedNotifications.filter((n: any) => n.severity === 'error').length,
-        medium: formattedNotifications.filter((n: any) => n.severity === 'warning').length,
-        low: formattedNotifications.filter((n: any) => n.severity === 'info').length
+        high: formattedNotifications.filter((n) => n.severity === 'error').length,
+        medium: formattedNotifications.filter((n) => n.severity === 'warning').length,
+        low: formattedNotifications.filter((n) => n.severity === 'info').length
       }
     })
 
@@ -201,7 +203,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Funções auxiliares
-function generateActionUrl(type: string, data: any): string {
+function generateActionUrl(type: string, data: Record<string, unknown>): string {
   switch (type) {
     case 'ticket_assigned':
     case 'ticket_updated':

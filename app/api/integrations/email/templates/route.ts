@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       SELECT * FROM email_templates
       WHERE (tenant_id = ? OR tenant_id IS NULL)
     `;
-    const params: any[] = [tenantContext.id];
+    const params: (string | number | boolean | null)[] = [tenantContext.id];
 
     if (category) {
       query += ' AND category = ?';

@@ -79,8 +79,8 @@ export class WorkflowQueueManager {
             logger.warn('No handler registered for job type', { type });
             this.removeJob(job.id);
           }
-        } catch (error: any) {
-          logger.error('Job execution failed', { jobId: job.id, error: error.message });
+        } catch (error) {
+          logger.error('Job execution failed', { jobId: job.id, error: error instanceof Error ? error.message : String(error) });
 
           job.retries++;
           if (job.retries >= job.maxRetries) {

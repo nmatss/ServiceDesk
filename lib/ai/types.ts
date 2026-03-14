@@ -364,7 +364,7 @@ export interface AIIntegrationEvent {
   entityType: string;
   entityId: number;
   triggeredBy: string;
-  payload: Record<string, unknown>;
+  payload: any;
   context: AIOperationContext;
   timestamp: string;
 }

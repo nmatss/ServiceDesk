@@ -210,7 +210,7 @@ export default function SLAPage() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'overview' | 'policies' | 'tickets')}
               aria-label={`Aba ${tab.name}`}
               aria-selected={activeTab === tab.id}
               role="tab"
@@ -483,7 +483,7 @@ export default function SLAPage() {
                       ].map((filter) => (
                         <button
                           key={filter.id}
-                          onClick={() => setTicketFilter(filter.id as any)}
+                          onClick={() => setTicketFilter(filter.id as 'all' | 'breached' | 'at_risk' | 'on_time')}
                           aria-label={`Filtrar por ${filter.name}`}
                           aria-pressed={ticketFilter === filter.id}
                           className={`

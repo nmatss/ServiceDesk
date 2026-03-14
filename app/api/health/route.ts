@@ -15,7 +15,7 @@ import { checkDatabaseHealth, checkRedisHealth } from '@/lib/health/dependency-c
  */
 export const GET = withObservability(
   async (_request: NextRequest) => {
-    const checks: Record<string, any> = {};
+    const checks: Record<string, { status: string; message?: string; metadata?: Record<string, unknown> }> = {};
 
     // Check database connectivity
     checks.database = await checkDatabaseHealth();

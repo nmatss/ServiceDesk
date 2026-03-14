@@ -20,12 +20,12 @@ export interface EscalationRule {
 
 export interface EscalationCondition {
   type: 'time_based' | 'delivery_failure' | 'no_response' | 'priority' | 'channel_failure' | 'user_availability'
-  parameters: any
+  parameters: Record<string, any>
 }
 
 export interface EscalationAction {
   type: 'notify_user' | 'notify_role' | 'change_priority' | 'change_channels' | 'create_ticket' | 'webhook' | 'sms_fallback'
-  parameters: any
+  parameters: Record<string, any>
   delay?: number // minutes to wait before executing
 }
 
@@ -39,20 +39,26 @@ export interface EscalationInstance {
   escalationLevel: number
   lastActionAt?: Date
   nextActionAt?: Date
-  metadata?: any
+  metadata?: Record<string, any>
 }
 
 export interface ExecutedAction {
   actionType: string
   executedAt: Date
   success: boolean
-  result?: any
+  result?: unknown
   error?: string
   retryCount: number
 }
 
+interface ActionResult {
+  success: boolean
+  data?: Record<string, any>
+  error?: string
+}
+
 export class EscalationManager {
-  private realtimeEngine: any // Will be injected
+  private realtimeEngine: any // eslint-disable-line @typescript-eslint/no-explicit-any -- dynamically injected engine
   private escalationRules: EscalationRule[] = []
   private activeEscalations = new Map<string, EscalationInstance>()
   private escalationTimers = new Map<string, NodeJS.Timeout>()
@@ -197,7 +203,7 @@ export class EscalationManager {
     }
   ]
 
-  constructor(realtimeEngine: any) {
+  constructor(realtimeEngine: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
     this.realtimeEngine = realtimeEngine
     this.initAsync()
     this.setupEscalationProcessing()
@@ -210,7 +216,7 @@ export class EscalationManager {
 
   private async loadEscalationRules(): Promise<void> {
     try {
-      const rules = await executeQuery<any>(`
+      const rules = await executeQuery(`
         SELECT * FROM escalation_rules WHERE is_active = ${sqlTrue()}
         ORDER BY priority DESC
       `, [])
@@ -254,7 +260,7 @@ export class EscalationManager {
 
   private async loadActiveEscalations(): Promise<void> {
     try {
-      const escalations = await executeQuery<any>(`
+      const escalations = await executeQuery(`
         SELECT * FROM escalation_instances
         WHERE status IN ('pending', 'executing')
       `, [])
@@ -287,7 +293,7 @@ export class EscalationManager {
     }
   }
 
-  public setupEscalation(notification: NotificationPayload): void {
+  public setupEscalation(notification: any): void {
     if (!notification.escalationRules || notification.escalationRules.length === 0) {
       // Check if notification matches any default escalation rules
       const matchingRules = this.findMatchingRules(notification)
@@ -310,7 +316,7 @@ export class EscalationManager {
     }
   }
 
-  private findMatchingRules(notification: NotificationPayload): EscalationRule[] {
+  private findMatchingRules(notification: any): EscalationRule[] {
     const matchingRules: EscalationRule[] = []
 
     for (const rule of this.escalationRules) {
@@ -333,7 +339,7 @@ export class EscalationManager {
     return matchingRules.sort((a, b) => b.priority - a.priority)
   }
 
-  private createEscalationInstance(notification: NotificationPayload, rule: EscalationRule): string {
+  private createEscalationInstance(notification: any, rule: EscalationRule): string {
     const instanceId = `esc_${notification.id}_${rule.id}_${Date.now()}`
 
     const instance: EscalationInstance = {
@@ -500,24 +506,24 @@ export class EscalationManager {
     }
   }
 
-  private checkDeliveryFailure(notification: any, _parameters: any): boolean {
+  private checkDeliveryFailure(notification: any, _parameters: Record<string, any>): boolean {
     logger.warn('Escalation check not implemented', { check: 'deliveryFailure', notificationId: notification?.id });
     return false
   }
 
-  private checkNoResponse(notification: any, parameters: any): boolean {
+  private checkNoResponse(notification: any, parameters: Record<string, any>): boolean {
     if (!parameters.expectedResponse) return false
 
     logger.warn('Escalation check not implemented', { check: 'noResponse', notificationId: notification?.id });
     return false
   }
 
-  private checkChannelFailure(notification: any, _parameters: any): boolean {
+  private checkChannelFailure(notification: any, _parameters: Record<string, any>): boolean {
     logger.warn('Escalation check not implemented', { check: 'channelFailure', notificationId: notification?.id });
     return false
   }
 
-  private checkUserAvailability(notification: any, parameters: any): boolean {
+  private checkUserAvailability(notification: any, parameters: Record<string, any>): boolean {
     if (!parameters.checkPresence) return false
 
     const targetUsers = notification.targetUsers || []
@@ -564,7 +570,7 @@ export class EscalationManager {
     await this.updateEscalationInstance(instance)
   }
 
-  private async executeAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<ActionResult> {
     switch (action.type) {
       case 'notify_user':
         return this.executeNotifyUserAction(action, notification, instance)
@@ -592,7 +598,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeNotifyUserAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeNotifyUserAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<ActionResult> {
     const userId = action.parameters.userId === 'notification_author' ? notification.authorId : action.parameters.userId
     const message = action.parameters.message || `Escalation alert for notification ${notification.id}`
 
@@ -618,7 +624,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeNotifyRoleAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeNotifyRoleAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<ActionResult> {
     const role = action.parameters.role
     const excludeUsers = action.parameters.excludeUsers || []
     const channels = action.parameters.channels || ['socket', 'email']
@@ -646,7 +652,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeChangePriorityAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<any> {
+  private async executeChangePriorityAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<ActionResult> {
     const newPriority = action.parameters.newPriority
 
     try {
@@ -663,7 +669,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeChangeChannelsAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeChangeChannelsAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<ActionResult> {
     const newChannels = action.parameters.channels
 
     // Create a new notification with updated channels
@@ -687,7 +693,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeCreateTicketAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<any> {
+  private async executeCreateTicketAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<ActionResult> {
     const ticketData = {
       title: action.parameters.title || `Escalation for notification ${notification.id}`,
       description: `Auto-generated ticket due to notification escalation.\n\nOriginal notification: ${notification.title}\nMessage: ${notification.message}`,
@@ -709,7 +715,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeWebhookAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<any> {
+  private async executeWebhookAction(action: EscalationAction, notification: any, instance: EscalationInstance): Promise<ActionResult> {
     const webhookUrl = action.parameters.url
     const payload = {
       escalationId: instance.id,
@@ -737,7 +743,7 @@ export class EscalationManager {
     }
   }
 
-  private async executeSMSFallbackAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<any> {
+  private async executeSMSFallbackAction(action: EscalationAction, notification: any, _instance: EscalationInstance): Promise<ActionResult> {
     // This would integrate with SMS service (Twilio, etc.)
     const phoneNumbers = action.parameters.phoneNumbers || []
     const message = `URGENT: ${notification.title} - ${notification.message}`
@@ -890,11 +896,11 @@ export class EscalationManager {
     }
   }
 
-  private async getNotificationDetails(notificationId: string): Promise<any> {
+  private async getNotificationDetails(notificationId: string): Promise<Record<string, any> | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
     try {
       return await executeQueryOne(`
         SELECT * FROM notifications WHERE id = ?
-      `, [notificationId])
+      `, [notificationId]) || null
     } catch (error) {
       logger.error('Error getting notification details', error)
       return null

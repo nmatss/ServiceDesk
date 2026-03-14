@@ -56,7 +56,7 @@ export interface PresenceEvent {
   userId: number
   event: 'online' | 'offline' | 'away' | 'busy' | 'idle' | 'active'
   timestamp: Date
-  metadata?: any
+  metadata?: Record<string, unknown>
 }
 
 export class PresenceManager {
@@ -177,7 +177,7 @@ export class PresenceManager {
         ? `datetime('now', '-1 hour')`
         : `NOW() - INTERVAL '1 hour'`
 
-      const presences = await executeQuery<any>(`
+      const presences = await executeQuery(`
         SELECT * FROM user_presence WHERE last_seen > ${lastHourExpr}
       `, [])
 
@@ -227,7 +227,7 @@ export class PresenceManager {
     userId: number,
     status: UserPresence['status'],
     metadata?: {
-      deviceInfo?: any
+      deviceInfo?: { platform: string; browser: string; isMobile: boolean }
       location?: any
       statusMessage?: string
       availableUntil?: Date
@@ -565,7 +565,7 @@ export class PresenceManager {
     this.realtimeEngine.getIO().to(`ticket_${ticketId}`).emit('ticket:presence', ticketPresence)
   }
 
-  private async logPresenceEvent(userId: number, event: string, metadata?: any): Promise<void> {
+  private async logPresenceEvent(userId: number, event: string, metadata?: Record<string, unknown>): Promise<void> {
     try {
       await executeRun(`
         INSERT INTO presence_events (user_id, event, metadata, timestamp)
@@ -783,7 +783,7 @@ export class PresenceManager {
     try {
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
-      const events = await executeQuery<any>(`
+      const events = await executeQuery(`
         SELECT * FROM presence_events
         WHERE user_id = ? AND timestamp > ?
         ORDER BY timestamp DESC

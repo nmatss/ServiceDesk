@@ -966,7 +966,7 @@ interface ExecutionContext {
 interface UserAction {
   type: string;
   timestamp: Date;
-  data: Record<string, unknown>;
+  data: any;
 }
 
 interface WorkflowOptimization {
@@ -1137,7 +1137,7 @@ interface WorkflowExecutionError {
   message: string;
   stepId: string;
   timestamp: Date;
-  context: Record<string, unknown>;
+  context: any;
   stackTrace?: string;
 }
 

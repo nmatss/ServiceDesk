@@ -75,7 +75,7 @@ interface TotvsProduct {
     available: number;
     warehouse: string;
   };
-  specifications?: Record<string, any>;
+  specifications?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

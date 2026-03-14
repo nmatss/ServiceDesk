@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get article
-    const article = await executeQueryOne<Record<string, any>>(
+    const article = await executeQueryOne<{ id: number; title: string; content: string; tags?: string; summary?: string; [key: string]: unknown }>(
       'SELECT * FROM kb_articles WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)',
       [articleId, tenantContext.id]
     );

@@ -3,7 +3,7 @@
  * ITIL 4 Compliant - Adapter Pattern
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlDateDiff, sqlTrue } from '../adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlDateDiff, sqlTrue, type SqlParam } from '../adapter';
 import type {
   ChangeType,
   ChangeRequest,
@@ -64,7 +64,7 @@ export async function createChangeRequest(
   const changeNumber = await generateChangeNumber(organizationId);
 
   // Note: tenant_id exists in schema but not in TypeScript interface
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const result = await executeRun(
     `INSERT INTO change_requests (
@@ -179,7 +179,7 @@ export async function listChangeRequests(
   pagination: { page: number; limit: number } = { page: 1, limit: 20 }
 ): Promise<{ data: ChangeRequestWithDetails[]; total: number; page: number; limit: number; totalPages: number }> {
   const conditions: string[] = ['organization_id = ?'];
-  const params: unknown[] = [organizationId];
+  const params: SqlParam[] = [organizationId];
 
   // Apply filters (cap array lengths to prevent DoS)
   if (filters.status) {
@@ -261,7 +261,7 @@ export async function listChangeRequests(
   const totalPages = Math.ceil(total / pagination.limit);
 
   // Fetch change requests with JOINs to avoid N+1
-  const changesRaw = await executeQuery<any>(
+  const changesRaw = await executeQuery(
     `SELECT cr.*,
        ct.id as change_type__id, ct.name as change_type__name, ct.description as change_type__description,
        ct.requires_cab_approval as change_type__requires_cab_approval, ct.default_risk_level as change_type__default_risk_level,
@@ -322,7 +322,7 @@ export async function updateChangeRequest(
   input: UpdateChangeRequest
 ): Promise<ChangeRequestWithDetails | null> {
   const updates: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlParam[] = [];
 
   if (input.title !== undefined) {
     updates.push('title = ?');
@@ -583,7 +583,7 @@ export async function createChangeType(
   input: CreateChangeType
 ): Promise<ChangeType> {
   // Note: Schema has color field but TypeScript interface doesn't
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const result = await executeRun(
     `INSERT INTO change_types (
@@ -772,7 +772,7 @@ export async function updateChangeTask(
   if (!task) return null;
 
   const updates: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlParam[] = [];
 
   if (input.title !== undefined) {
     updates.push('title = ?');
@@ -868,7 +868,7 @@ export async function listChangeCalendarEvents(
   endDate?: string
 ): Promise<ChangeCalendar[]> {
   const conditions: string[] = ['organization_id = ?'];
-  const params: unknown[] = [organizationId];
+  const params: SqlParam[] = [organizationId];
 
   if (startDate) {
     conditions.push('end_date >= ?');

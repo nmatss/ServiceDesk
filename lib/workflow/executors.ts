@@ -6,7 +6,7 @@
 import { WorkflowNode } from '@/lib/types/workflow';
 import { ExecutionContext, NodeExecutor } from './engine';
 import logger from '@/lib/monitoring/structured-logger';
-import { executeRun } from '@/lib/db/adapter';
+import { executeRun, type SqlParam } from '@/lib/db/adapter';
 
 /**
  * Condition Node Executor
@@ -84,8 +84,8 @@ export class ConditionNodeExecutor extends NodeExecutor {
     };
   }
 
-  private getFieldValue(obj: Record<string, any>, field: string): any {
-    return field.split('.').reduce((o, i) => o?.[i], obj);
+  private getFieldValue(obj: Record<string, unknown>, field: string): unknown {
+    return field.split('.').reduce<any>((o, i) => o?.[i], obj); // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 }
 
@@ -155,7 +155,7 @@ export class NotificationNodeExecutor extends NodeExecutor {
     };
   }
 
-  private replaceVariables(text: string, variables: Record<string, any>): string {
+  private replaceVariables(text: string, variables: Record<string, unknown>): string {
     return text.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (match, path) => {
       const value = path.split('.').reduce((obj: any, key: string) => obj?.[key], variables);
       return value !== undefined ? String(value) : match;
@@ -310,14 +310,14 @@ export class WebhookNodeExecutor extends NodeExecutor {
     }
   }
 
-  private replaceVariables(text: string, variables: Record<string, any>): string {
+  private replaceVariables(text: string, variables: Record<string, unknown>): string {
     return text.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (match, path) => {
       const value = path.split('.').reduce((obj: any, key: string) => obj?.[key], variables);
       return value !== undefined ? String(value) : match;
     });
   }
 
-  private replaceObjectVariables(obj: any, variables: Record<string, any>): any {
+  private replaceObjectVariables(obj: any, variables: Record<string, unknown>): any {
     if (typeof obj === 'string') {
       return this.replaceVariables(obj, variables);
     }
@@ -325,7 +325,7 @@ export class WebhookNodeExecutor extends NodeExecutor {
       return obj.map(item => this.replaceObjectVariables(item, variables));
     }
     if (obj && typeof obj === 'object') {
-      const result: Record<string, any> = {};
+      const result: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
         result[key] = this.replaceObjectVariables(value, variables);
       }
@@ -379,11 +379,11 @@ export class ActionNodeExecutor extends NodeExecutor {
 
     const updates = params.updates || {};
     const setClauses: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     for (const [key, value] of Object.entries(updates)) {
       setClauses.push(`${key} = ?`);
-      values.push(value);
+      values.push(value as SqlParam);
     }
 
     if (setClauses.length > 0) {

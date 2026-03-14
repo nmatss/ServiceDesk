@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 import {
@@ -194,7 +194,7 @@ export async function queryAuditTrail(query: AIAuditQuery): Promise<AIAuditEntry
     SELECT * FROM ai_audit_logs
     WHERE 1=1
   `;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   if (query.operationType) {
     sql += ` AND operation_type = ?`;
@@ -252,7 +252,7 @@ export async function queryAuditTrail(query: AIAuditQuery): Promise<AIAuditEntry
     }
   }
 
-  const rows = await executeQuery<any>(sql, params);
+  const rows = await executeQuery(sql, params);
 
   return rows.map(row => ({
     id: row.id,
@@ -290,7 +290,7 @@ export async function getAuditStats(
   organizationId?: number
 ): Promise<AIAuditStats> {
   let whereClause = 'WHERE 1=1';
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   if (dateFrom) {
     whereClause += ' AND created_at >= ?';
@@ -308,7 +308,7 @@ export async function getAuditStats(
   }
 
   // Estatisticas basicas
-  const basicStats = await executeQueryOne<any>(`
+  const basicStats = await executeQueryOne(`
     SELECT
       COUNT(*) as total_operations,
       AVG(CASE WHEN was_successful THEN 1.0 ELSE 0.0 END) as success_rate,
@@ -318,7 +318,7 @@ export async function getAuditStats(
   `, params);
 
   // Operacoes por tipo
-  const operationsByType = await executeQuery<any>(`
+  const operationsByType = await executeQuery(`
     SELECT operation_type, COUNT(*) as count
     FROM ai_audit_logs
     ${whereClause}
@@ -330,7 +330,7 @@ export async function getAuditStats(
     ? (field: string, path: string) => `(metadata::json->>'${path}')::numeric`
     : (field: string, path: string) => `JSON_EXTRACT(${field}, '$.${path}')`;
 
-  const performanceStats = await executeQueryOne<any>(`
+  const performanceStats = await executeQueryOne(`
     SELECT
       AVG(${jsonExtract('metadata', 'processingTimeMs')}) as avg_processing_time,
       SUM(${jsonExtract('metadata', 'inputTokens')}) as total_input_tokens,
@@ -349,7 +349,7 @@ export async function getAuditStats(
     ? `CASE WHEN (user_feedback::json->>'wasHelpful') = 'true' THEN 1.0 ELSE 0.0 END`
     : `CASE WHEN JSON_EXTRACT(user_feedback, '$.wasHelpful') = true THEN 1.0 ELSE 0.0 END`;
 
-  const feedbackStats = await executeQueryOne<any>(`
+  const feedbackStats = await executeQueryOne(`
     SELECT
       AVG(${feedbackExtractRating}) as avg_rating,
       AVG(${feedbackExtractHelpful}) as satisfaction_rate
@@ -360,7 +360,7 @@ export async function getAuditStats(
 
   // Issues de compliance
   const nowExpr = getDatabaseType() === 'postgresql' ? 'NOW()' : `datetime('now')`;
-  const complianceIssues = await executeQueryOne<any>(`
+  const complianceIssues = await executeQueryOne(`
     SELECT COUNT(*) as issues
     FROM ai_audit_logs
     ${whereClause}
@@ -530,7 +530,7 @@ async function createTrainingDataFromFeedback(
   feedback: any
 ): Promise<void> {
   try {
-    const auditEntry = await executeQueryOne<any>(`
+    const auditEntry = await executeQueryOne(`
       SELECT * FROM ai_audit_logs WHERE id = ?
     `, [auditId]);
 

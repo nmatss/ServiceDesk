@@ -36,7 +36,7 @@ export interface BackupConfig {
   backupDir: string;
   cloudBackupEnabled: boolean;
   cloudProvider?: 's3' | 'gcs' | 'azure';
-  cloudConfig?: Record<string, any>;
+  cloudConfig?: Record<string, unknown>;
   retentionDays: number;
   retentionHoursIncremental: number;
 }

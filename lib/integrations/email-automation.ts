@@ -28,7 +28,7 @@ async function createTicket(data: any, _organizationId?: number) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})`,
     [data.title, data.description, data.requester_id || data.user_id || 1, data.category_id, data.priority_id, data.status_id, data.channel || null, data.metadata || null]
   );
-  return result.lastInsertRowid ? await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
+  return result.lastInsertRowid ? await executeQueryOne('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
 }
 
 async function addComment(data: any, _organizationId?: number) {
@@ -40,7 +40,7 @@ async function addComment(data: any, _organizationId?: number) {
 }
 
 async function getTicketById(ticketId: number, _organizationId: number) {
-  return await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+  return await executeQueryOne('SELECT * FROM tickets WHERE id = ?', [ticketId]);
 }
 
 // Email Configuration
@@ -72,7 +72,7 @@ interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
-  variables?: Record<string, any>;
+  variables?: Record<string, unknown>;
 }
 
 // Parsed Incoming Email
@@ -100,7 +100,7 @@ interface EmailQueueItem {
   attachments?: any[];
   priority: 'high' | 'normal' | 'low';
   scheduledFor?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class EmailAutomation {
@@ -196,7 +196,7 @@ export class EmailAutomation {
   /**
    * Render template with variables
    */
-  renderTemplate(name: string, variables: Record<string, any>): {
+  renderTemplate(name: string, variables: Record<string, unknown>): {
     subject: string;
     body: string;
   } {
@@ -620,8 +620,8 @@ export const emailAutomation = new EmailAutomation();
 
 // Type exports
 type CompiledTemplate = {
-  subject: HandlebarsTemplateDelegate<any>;
-  body: HandlebarsTemplateDelegate<any>;
+  subject: HandlebarsTemplateDelegate<unknown>;
+  body: HandlebarsTemplateDelegate<unknown>;
 };
 
 export type {

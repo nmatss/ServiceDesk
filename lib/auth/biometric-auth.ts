@@ -98,7 +98,7 @@ class BiometricAuthManager {
    */
   async generateRegistrationOptions(userId: number, _deviceName?: string): Promise<RegistrationOptions | null> {
     try {
-      const user = await executeQueryOne<any>('SELECT * FROM users WHERE id = ?', [userId]);
+      const user = await executeQueryOne('SELECT * FROM users WHERE id = ?', [userId]);
       if (!user) return null;
 
       // Generate challenge
@@ -440,7 +440,7 @@ class BiometricAuthManager {
    */
   async getBiometricDevices(userId: number): Promise<BiometricDevice[]> {
     try {
-      const devices = await executeQuery<any>(`
+      const devices = await executeQuery(`
         SELECT
           credential_id as id,
           device_name as name,
@@ -470,7 +470,7 @@ class BiometricAuthManager {
   private async verifyChallenge(userId: number, challenge: string): Promise<boolean> {
     try {
       const challengeHash = this.hashChallenge(challenge);
-      const record = await executeQueryOne<any>(`
+      const record = await executeQueryOne(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'webauthn_challenge'
           AND code_hash = ? AND used_at IS NULL
@@ -503,7 +503,7 @@ class BiometricAuthManager {
       const challengeHash = this.hashChallenge(challenge);
 
       // Try user-specific challenge first
-      let record = await executeQueryOne<any>(`
+      let record = await executeQueryOne(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'webauthn_auth_challenge'
           AND code_hash = ? AND used_at IS NULL
@@ -513,7 +513,7 @@ class BiometricAuthManager {
 
       // If not found, try global challenge
       if (!record) {
-        record = await executeQueryOne<any>(`
+        record = await executeQueryOne(`
           SELECT * FROM verification_codes
           WHERE type = 'webauthn_auth_challenge_global'
             AND code_hash = ? AND used_at IS NULL

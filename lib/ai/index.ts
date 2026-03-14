@@ -145,7 +145,7 @@ export const AIUtils = {
   requiresManualReview: (
     operationType: string,
     confidenceScore: number,
-    metadata?: any
+    metadata?: Record<string, any>
   ): boolean => {
     const thresholds = {
       classification: 0.7,

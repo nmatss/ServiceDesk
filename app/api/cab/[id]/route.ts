@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, type SqlParam } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
 import { z } from 'zod'
@@ -189,7 +189,7 @@ export async function PUT(
 
     // Build update query
     const updates: string[] = []
-    const values: unknown[] = []
+    const values: SqlParam[] = []
 
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {

@@ -6,7 +6,7 @@
  */
 
 import { openAIClient } from '../ai/openai-client';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { semanticIndexer } from './semantic-indexer';
 import logger from '../monitoring/structured-logger';
@@ -323,7 +323,7 @@ Tempo maximo: 10 minutos`,
       WHERE t.resolved_at IS NOT NULL
     `;
 
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (request.ticket_ids && request.ticket_ids.length > 0) {
       sql += ` AND t.id IN (${request.ticket_ids.map(() => '?').join(',')})`;
@@ -352,7 +352,7 @@ Tempo maximo: 10 minutos`,
       LIMIT 10
     `;
 
-    const tickets = await executeQuery<any>(sql, params);
+    const tickets = await executeQuery(sql, params);
 
     return tickets.map(ticket => ({
       ...ticket,
@@ -749,7 +749,7 @@ Tempo maximo: 10 minutos`,
         for (const tag of article.tags) {
           await executeRun(insertOrIgnore, [tag, tag.toLowerCase().replace(/\s+/g, '-')]);
 
-          const tagResult = await executeQueryOne<any>(`SELECT id FROM kb_tags WHERE name = ?`, [tag]);
+          const tagResult = await executeQueryOne(`SELECT id FROM kb_tags WHERE name = ?`, [tag]);
           if (tagResult) {
             await executeRun(`
               INSERT INTO kb_article_tags (article_id, tag_id) VALUES (?, ?)
@@ -804,7 +804,7 @@ Tempo maximo: 10 minutos`,
         ? `NOW() - INTERVAL '30 days'`
         : `datetime('now', '-30 days')`;
 
-      const candidates = await executeQuery<any>(`
+      const candidates = await executeQuery(`
         SELECT
           cat.id as category_id,
           cat.name as category_name,

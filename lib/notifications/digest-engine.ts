@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter'
 import { NotificationPayload } from './realtime-engine'
 import { QuietHoursManager } from './quiet-hours'
 import logger from '../monitoring/structured-logger';
@@ -266,13 +266,13 @@ export class DigestEngine {
       let whereClause = `
         WHERE user_id = ? AND created_at BETWEEN ? AND ?
       `
-      const params: any[] = [userId, start.toISOString(), end.toISOString()]
+      const params: SqlParam[] = [userId, start.toISOString(), end.toISOString()]
 
       if (!config.includeRead) {
         whereClause += ' AND is_read = 0'
       }
 
-      const notifications = await executeQuery<any>(`
+      const notifications = await executeQuery(`
         SELECT * FROM notifications
         ${whereClause}
         ORDER BY created_at DESC
@@ -847,7 +847,7 @@ export class DigestEngine {
   // Public API methods
   public async getDigestHistory(userId: number, limit: number = 10): Promise<DigestContent[]> {
     try {
-      const digests = await executeQuery<any>(`
+      const digests = await executeQuery(`
         SELECT * FROM notification_digests
         WHERE user_id = ?
         ORDER BY generated_at DESC

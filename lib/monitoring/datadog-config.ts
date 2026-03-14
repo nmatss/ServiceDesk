@@ -187,7 +187,7 @@ export function shouldIgnorePath(path: string): boolean {
 /**
  * Sanitizar headers sensíveis
  */
-export function sanitizeHeaders(headers: Record<string, any>): Record<string, any> {
+export function sanitizeHeaders(headers: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...headers };
 
   traceFilters.sensitiveHeaders.forEach((header) => {
@@ -202,7 +202,7 @@ export function sanitizeHeaders(headers: Record<string, any>): Record<string, an
 /**
  * Sanitizar query params sensíveis
  */
-export function sanitizeQueryParams(params: Record<string, any>): Record<string, any> {
+export function sanitizeQueryParams(params: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...params };
 
   traceFilters.sensitiveQueryParams.forEach((param) => {

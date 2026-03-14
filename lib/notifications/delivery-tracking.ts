@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
 
@@ -15,7 +15,7 @@ export interface DeliveryAttempt {
   readAt?: Date
   expiresAt?: Date
   retryAfter?: Date
-  metadata?: any
+  metadata?: Record<string, any>
 }
 
 export interface DeliveryReceipt {
@@ -25,7 +25,7 @@ export interface DeliveryReceipt {
   status: 'delivered' | 'read' | 'failed'
   timestamp: Date
   messageId?: string
-  deviceInfo?: any
+  deviceInfo?: Record<string, any>
   location?: any
 }
 
@@ -126,7 +126,7 @@ export class DeliveryTracker {
       const dbType = getDatabaseType()
       const nowExpr = dbType === 'sqlite' ? `datetime('now')` : `NOW()`
 
-      const pendingDeliveries = await executeQuery<any>(`
+      const pendingDeliveries = await executeQuery(`
         SELECT * FROM notification_deliveries
         WHERE status IN ('pending', 'failed') AND expires_at > ${nowExpr}
       `, [])
@@ -190,7 +190,7 @@ export class DeliveryTracker {
     userId: number,
     channel: string,
     messageId?: string,
-    deviceInfo?: any
+    deviceInfo?: Record<string, any>
   ): void {
     const deliveryKey = this.findDeliveryKey(notificationId, userId, channel)
     if (!deliveryKey) {
@@ -231,7 +231,7 @@ export class DeliveryTracker {
     notificationId: string,
     userId: number,
     channel: string = 'socket',
-    deviceInfo?: any
+    deviceInfo?: Record<string, any>
   ): void {
     const deliveryKey = this.findDeliveryKey(notificationId, userId, channel)
     if (!deliveryKey) {
@@ -378,7 +378,7 @@ export class DeliveryTracker {
         SELECT * FROM delivery_receipts
         WHERE user_id = ? AND timestamp BETWEEN ? AND ?
       `
-      const params: any[] = [userId, timeRange.start.toISOString(), timeRange.end.toISOString()]
+      const params: SqlParam[] = [userId, timeRange.start.toISOString(), timeRange.end.toISOString()]
 
       if (channels && channels.length > 0) {
         const placeholders = channels.map(() => '?').join(',')
@@ -388,7 +388,7 @@ export class DeliveryTracker {
 
       query += ` ORDER BY timestamp DESC`
 
-      const receipts = await executeQuery<any>(query, params)
+      const receipts = await executeQuery(query, params)
 
       return receipts.map(r => ({
         notificationId: r.notification_id,
@@ -413,7 +413,7 @@ export class DeliveryTracker {
   ): Promise<DeliveryMetrics> {
     try {
       let whereClause = 'WHERE created_at BETWEEN ? AND ?'
-      const params: any[] = [timeRange.start.toISOString(), timeRange.end.toISOString()]
+      const params: SqlParam[] = [timeRange.start.toISOString(), timeRange.end.toISOString()]
 
       if (channels && channels.length > 0) {
         const placeholders = channels.map(() => '?').join(',')
@@ -440,7 +440,7 @@ export class DeliveryTracker {
       }
 
       // Overall metrics
-      const overallStats = await executeQueryOne<any>(`
+      const overallStats = await executeQueryOne(`
         SELECT
           COUNT(*) as total_sent,
           COUNT(CASE WHEN status IN ('delivered', 'read') THEN 1 END) as total_delivered,
@@ -457,7 +457,7 @@ export class DeliveryTracker {
       `, params)
 
       // Channel breakdown
-      const channelStats = await executeQuery<any>(`
+      const channelStats = await executeQuery(`
         SELECT
           channel,
           COUNT(*) as total,
@@ -473,7 +473,7 @@ export class DeliveryTracker {
       `, params)
 
       // Failure reasons
-      const failureReasons = await executeQuery<any>(`
+      const failureReasons = await executeQuery(`
         SELECT error, COUNT(*) as count
         FROM notification_deliveries
         ${whereClause} AND status = 'failed' AND error IS NOT NULL
@@ -795,7 +795,7 @@ export class DeliveryTracker {
 
   private async getReceiptsForNotification(notificationId: string): Promise<DeliveryReceipt[]> {
     try {
-      const receipts = await executeQuery<any>(`
+      const receipts = await executeQuery(`
         SELECT * FROM delivery_receipts
         WHERE notification_id = ?
         ORDER BY timestamp ASC

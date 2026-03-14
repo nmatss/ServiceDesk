@@ -594,7 +594,7 @@ class OfflineManager {
 
   // IndexedDB helper methods
 
-  private async getAllFromStore(storeName: string): Promise<unknown[]> {
+  private async getAllFromStore(storeName: string): Promise<any[]> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));
@@ -610,7 +610,7 @@ class OfflineManager {
     });
   }
 
-  private async getFromStore(storeName: string, key: string): Promise<unknown> {
+  private async getFromStore(storeName: string, key: string): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         reject(new Error('Database not initialized'));

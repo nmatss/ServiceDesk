@@ -1,3 +1,4 @@
+import type { SqlParam } from '@/lib/db/adapter';
 /**
  * Query Performance Monitoring
  *
@@ -22,7 +23,8 @@
  * ```
  */
 
-import { db } from './connection';
+import { executeQuery, executeQueryOne } from './adapter';
+import { getDatabaseType } from './config';
 import logger from '@/lib/monitoring/structured-logger';
 
 /**
@@ -185,68 +187,118 @@ export function resetQueryStats() {
 }
 
 /**
- * Analyze database query plan (SQLite EXPLAIN QUERY PLAN)
+ * Analyze database query plan (SQLite EXPLAIN QUERY PLAN / PostgreSQL EXPLAIN)
  *
  * @param sql - SQL query to analyze
  * @param params - Query parameters
  */
-export function explainQuery(sql: string, params: any[] = []) {
-  const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...params);
+export async function explainQuery(sql: string, params: SqlParam[] = []) {
+  const dbType = getDatabaseType();
 
-  logger.info('QUERY PLAN ANALYSIS', {
-    sql,
-    params,
-    plan: (plan as any[]).map(row => row.detail),
-  });
+  if (dbType === 'sqlite') {
+    const plan = await executeQuery<{ detail: string }>(`EXPLAIN QUERY PLAN ${sql}`, params);
+    logger.info('QUERY PLAN ANALYSIS', {
+      sql,
+      params,
+      plan: plan.map(row => row.detail),
+    });
+  } else {
+    const plan = await executeQuery<{ 'QUERY PLAN': string }>(`EXPLAIN ${sql}`, params);
+    logger.info('QUERY PLAN ANALYSIS', {
+      sql,
+      params,
+      plan,
+    });
+  }
 }
 
 /**
  * Get database statistics
  */
-export function getDatabaseStats() {
-  const stats = {
-    tableCount: db.prepare(`
-      SELECT COUNT(*) as count
-      FROM sqlite_master
-      WHERE type = 'table'
-    `).get() as { count: number },
+export async function getDatabaseStats() {
+  const dbType = getDatabaseType();
 
-    indexCount: db.prepare(`
-      SELECT COUNT(*) as count
-      FROM sqlite_master
-      WHERE type = 'index'
-    `).get() as { count: number },
+  if (dbType === 'sqlite') {
+    const tableCount = await executeQueryOne<{ count: number }>(`
+      SELECT COUNT(*) as count FROM sqlite_master WHERE type = 'table'
+    `);
 
-    databaseSize: db.prepare(`
-      SELECT page_count * page_size as size
-      FROM pragma_page_count(), pragma_page_size()
-    `).get() as { size: number },
+    const indexCount = await executeQueryOne<{ count: number }>(`
+      SELECT COUNT(*) as count FROM sqlite_master WHERE type = 'index'
+    `);
 
-    tables: db.prepare(`
+    const databaseSize = await executeQueryOne<{ size: number }>(`
+      SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()
+    `);
+
+    const tables = await executeQuery<{ name: string; index_count: number }>(`
       SELECT name, (
         SELECT COUNT(*) FROM sqlite_master sm2
-        WHERE sm2.type = 'index'
-          AND sm2.tbl_name = sm.name
+        WHERE sm2.type = 'index' AND sm2.tbl_name = sm.name
       ) as index_count
       FROM sqlite_master sm
-      WHERE type = 'table'
-        AND name NOT LIKE 'sqlite_%'
+      WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
       ORDER BY name
-    `).all() as Array<{ name: string; index_count: number }>
-  };
+    `);
 
-  logger.info('DATABASE STATISTICS', {
-    tables: stats.tableCount.count,
-    indexes: stats.indexCount.count,
-    sizeMB: (stats.databaseSize.size / 1024 / 1024).toFixed(2),
-    tableDetails: stats.tables.map(t => ({ name: t.name, indexes: t.index_count })),
-  });
+    const stats = {
+      tableCount: tableCount || { count: 0 },
+      indexCount: indexCount || { count: 0 },
+      databaseSize: databaseSize || { size: 0 },
+      tables,
+    };
 
-  return stats;
+    logger.info('DATABASE STATISTICS', {
+      tables: stats.tableCount.count,
+      indexes: stats.indexCount.count,
+      sizeMB: (stats.databaseSize.size / 1024 / 1024).toFixed(2),
+      tableDetails: stats.tables.map(t => ({ name: t.name, indexes: t.index_count })),
+    });
+
+    return stats;
+  } else {
+    // PostgreSQL statistics
+    const tableCount = await executeQueryOne<{ count: number }>(`
+      SELECT COUNT(*)::int as count FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+    `);
+
+    const indexCount = await executeQueryOne<{ count: number }>(`
+      SELECT COUNT(*)::int as count FROM pg_indexes WHERE schemaname = 'public'
+    `);
+
+    const databaseSize = await executeQueryOne<{ size: number }>(`
+      SELECT pg_database_size(current_database()) as size
+    `);
+
+    const tables = await executeQuery<{ name: string; index_count: number }>(`
+      SELECT t.table_name as name,
+        COALESCE((SELECT COUNT(*)::int FROM pg_indexes i WHERE i.tablename = t.table_name), 0) as index_count
+      FROM information_schema.tables t
+      WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+      ORDER BY t.table_name
+    `);
+
+    const stats = {
+      tableCount: tableCount || { count: 0 },
+      indexCount: indexCount || { count: 0 },
+      databaseSize: databaseSize || { size: 0 },
+      tables,
+    };
+
+    logger.info('DATABASE STATISTICS', {
+      tables: stats.tableCount.count,
+      indexes: stats.indexCount.count,
+      sizeMB: (stats.databaseSize.size / 1024 / 1024).toFixed(2),
+      tableDetails: stats.tables.map(t => ({ name: t.name, indexes: t.index_count })),
+    });
+
+    return stats;
+  }
 }
 
 // Export for use in scripts
 if (typeof module !== 'undefined' && require.main === module) {
   // Run database stats when executed directly
-  getDatabaseStats();
+  getDatabaseStats().catch(console.error);
 }

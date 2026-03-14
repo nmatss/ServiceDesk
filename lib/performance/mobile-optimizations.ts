@@ -183,7 +183,7 @@ export function optimizeResize(callback: () => void, delay = 150) {
  */
 export function reduceAnimationsOnLowEnd(): boolean {
   if (typeof navigator !== 'undefined') {
-    const connection = (navigator as any).connection ||
+    const connection = (navigator as unknown as { connection: unknown }).connection ||
                       (navigator as any).mozConnection ||
                       (navigator as any).webkitConnection
 

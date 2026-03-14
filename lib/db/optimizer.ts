@@ -1,5 +1,5 @@
 import { getDatabaseType } from '@/lib/db/config';
-import db from './connection'
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from './adapter';
 import { logger } from '../monitoring/logger'
 import { cacheStrategy, CacheOptions } from '../cache/strategy'
 
@@ -79,7 +79,7 @@ class DatabaseOptimizer {
    */
   async executeWithStats<T>(
     query: string,
-    params: unknown[] = [],
+    params: SqlParam[] = [],
     cacheOptions?: CacheOptions
   ): Promise<T> {
     const startTime = Date.now()
@@ -116,8 +116,8 @@ class DatabaseOptimizer {
       await this.acquireConnection()
 
       try {
-        // Executar query
-        const result = db.prepare(query).all(...params) as T
+        // Executar query via adapter
+        const result = await executeQuery<T extends (infer U)[] ? U : T>(query, params) as unknown as T
 
         const executionTime = Date.now() - startTime
 
@@ -276,7 +276,7 @@ class DatabaseOptimizer {
   /**
    * Gerar chave de cache
    */
-  private generateCacheKey(query: string, params: unknown[]): string {
+  private generateCacheKey(query: string, params: SqlParam[]): string {
     return Buffer.from(query + JSON.stringify(params)).toString('base64')
   }
 
@@ -291,11 +291,25 @@ class DatabaseOptimizer {
   /**
    * Analisar query lenta
    */
-  private async analyzeSlowQuery(query: string, params: unknown[], executionTime: number, result: unknown): Promise<void> {
+  private async analyzeSlowQuery(query: string, params: SqlParam[], executionTime: number, result: any): Promise<void> {
     try {
-      // Obter plano de execução
-      const explainQuery = `EXPLAIN QUERY PLAN ${query}`
-      const plan = db.prepare(explainQuery).all(...params) as ExplainPlanRow[]
+      // Obter plano de execução (SQLite-only; on PG we skip plan analysis)
+      if (getDatabaseType() !== 'sqlite') {
+        this.slowQueries.push({
+          query,
+          executionTime,
+          rowsReturned: Array.isArray(result) ? result.length : 1,
+          planSteps: 0
+        })
+        if (this.slowQueries.length > 100) this.slowQueries.shift()
+        logger.warn('Slow query detected', {
+          details: { query: query.substring(0, 200), executionTime }
+        })
+        return
+      }
+
+      const explainSql = `EXPLAIN QUERY PLAN ${query}`
+      const plan = await executeQuery<ExplainPlanRow>(explainSql, params as any[])
 
       const stats: QueryStats = {
         query,
@@ -431,9 +445,9 @@ class DatabaseOptimizer {
       if (suggestion.priority === 'high') {
         try {
           const indexName = `idx_${suggestion.table}_${suggestion.columns.join('_')}`
-          const createIndexQuery = `CREATE INDEX IF NOT EXISTS ${indexName} ON ${suggestion.table}(${suggestion.columns.join(', ')})`
+          const createIndexSql = `CREATE INDEX IF NOT EXISTS ${indexName} ON ${suggestion.table}(${suggestion.columns.join(', ')})`
 
-          db.exec(createIndexQuery)
+          await executeRun(createIndexSql)
           logger.info('Index created', {
             details: {
               indexName,
@@ -453,25 +467,23 @@ class DatabaseOptimizer {
   /**
    * Analisar uso de índices existentes (SQLite-only)
    */
-  analyzeIndexUsage(): IndexUsageResult[] {
+  async analyzeIndexUsage(): Promise<IndexUsageResult[]> {
     if (getDatabaseType() !== 'sqlite') {
       logger.info('analyzeIndexUsage is SQLite-only, skipping on PostgreSQL')
       return []
     }
     try {
       // Obter estatísticas de índices do SQLite
-      const indexes = db.prepare(`
+      const indexes = await executeQuery<IndexRow>(`
         SELECT name, tbl_name, sql
         FROM sqlite_master
         WHERE type = 'index' AND name NOT LIKE 'sqlite_%'
-      `).all() as IndexRow[]
+      `)
 
       return indexes.map(index => ({
         name: index.name,
         table: index.tbl_name,
         definition: index.sql,
-        // Note: SQLite não fornece estatísticas de uso de índice nativamente
-        // Seria necessário usar PRAGMA ou análise de planos de execução
       }))
     } catch (error) {
       logger.error('Error analyzing index usage', error as Error)
@@ -491,22 +503,22 @@ class DatabaseOptimizer {
       logger.info('Starting database optimization')
 
       // ANALYZE para atualizar estatísticas
-      db.exec('ANALYZE')
+      await executeRun('ANALYZE')
       logger.info('Database analysis completed')
 
       // VACUUM para desfragmentar (cuidado em produção)
       if (process.env.NODE_ENV !== 'production') {
-        db.exec('VACUUM')
+        await executeRun('VACUUM')
         logger.info('Database vacuum completed')
       }
 
       // Recriar estatísticas para todas as tabelas
-      const tables = db.prepare(`
+      const tables = await executeQuery<{ name: string }>(`
         SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
-      `).all() as { name: string }[]
+      `)
 
       for (const table of tables) {
-        db.exec(`ANALYZE ${table.name}`)
+        await executeRun(`ANALYZE ${table.name}`)
       }
 
       logger.info('Database optimization completed', { tablesAnalyzed: tables.length })
@@ -523,7 +535,7 @@ class DatabaseOptimizer {
       return { ok: true, errors: [] }
     }
     try {
-      const result = db.prepare('PRAGMA integrity_check').all() as { integrity_check: string }[]
+      const result = await executeQuery<{ integrity_check: string }>('PRAGMA integrity_check')
 
       const errors = result
         .map(r => r.integrity_check)
@@ -579,23 +591,20 @@ class DatabaseOptimizer {
   /**
    * Obter tamanho do banco de dados (SQLite-only)
    */
-  getDatabaseSize(): { pageCount: number; pageSize: number; sizeBytes: number; sizeMB: number } {
+  async getDatabaseSize(): Promise<{ pageCount: number; pageSize: number; sizeBytes: number; sizeMB: number }> {
     if (getDatabaseType() !== 'sqlite') {
       return { pageCount: 0, pageSize: 0, sizeBytes: 0, sizeMB: 0 }
     }
     try {
-      const pageCount = db.prepare('PRAGMA page_count').get() as { page_count: number }
-      const pageSize = db.prepare('PRAGMA page_size').get() as { page_size: number }
+      const pageCountResult = await executeQueryOne<{ page_count: number }>('PRAGMA page_count')
+      const pageSizeResult = await executeQueryOne<{ page_size: number }>('PRAGMA page_size')
 
-      const sizeBytes = pageCount.page_count * pageSize.page_size
+      const pageCount = pageCountResult?.page_count ?? 0
+      const pageSize = pageSizeResult?.page_size ?? 0
+      const sizeBytes = pageCount * pageSize
       const sizeMB = Math.round((sizeBytes / 1024 / 1024) * 100) / 100
 
-      return {
-        pageCount: pageCount.page_count,
-        pageSize: pageSize.page_size,
-        sizeBytes,
-        sizeMB
-      }
+      return { pageCount, pageSize, sizeBytes, sizeMB }
     } catch (error) {
       logger.error('Error getting database size', error as Error)
       return { pageCount: 0, pageSize: 0, sizeBytes: 0, sizeMB: 0 }

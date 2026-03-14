@@ -126,7 +126,7 @@ export function TicketRelationships({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<RelationshipType>('related');
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Array<{ id: number; title: string; status?: string; ticket_number?: string }>>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -164,7 +164,7 @@ export function TicketRelationships({
         // Filter out current ticket and already related tickets
         const allRelatedIds = Object.values(relationships).flat().map(r => r.id);
         const filtered = (data.tickets || data).filter(
-          (t: any) => t.id !== ticketId && !allRelatedIds.includes(t.id)
+          (t: { id: number; title: string }) => t.id !== ticketId && !allRelatedIds.includes(t.id)
         );
         setSearchResults(filtered);
       }

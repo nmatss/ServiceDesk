@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateJWTSecret, isProduction } from '@/lib/config/env';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import logger from '@/lib/monitoring/structured-logger';
-import { executeQueryOne, executeRun, sqlNow, sqlDatetimeSub, sqlFalse } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlNow, sqlDatetimeSub, sqlFalse, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 
 // Token configuration
@@ -369,7 +369,7 @@ export async function verifyRefreshToken(
       FROM users
       WHERE id = ?
       `,
-      [payload.user_id]
+      [payload.user_id as SqlParam]
     );
 
     if (!user) {
@@ -385,7 +385,7 @@ export async function verifyRefreshToken(
         FROM users
         WHERE id = ?
         `,
-        [payload.user_id]
+        [payload.user_id as SqlParam]
       );
     }
 
@@ -516,7 +516,7 @@ export function setAuthCookies(
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'Lax' as any,
+    sameSite: 'lax' as const,
     maxAge: COOKIE_MAX_AGE_ACCESS,
     path: '/'
   });
@@ -525,7 +525,7 @@ export function setAuthCookies(
   response.cookies.set(REFRESH_TOKEN_COOKIE, refreshToken, {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'Lax' as any,
+    sameSite: 'lax' as const,
     maxAge: COOKIE_MAX_AGE_REFRESH,
     path: '/'
   });
@@ -534,7 +534,7 @@ export function setAuthCookies(
   response.cookies.set(DEVICE_ID_COOKIE, deviceId, {
     httpOnly: false,
     secure: isProduction(),
-    sameSite: 'Lax' as any,
+    sameSite: 'lax' as const,
     maxAge: 365 * 24 * 60 * 60, // 1 year
     path: '/'
   });
@@ -547,7 +547,7 @@ export function clearAuthCookies(response: NextResponse): void {
   response.cookies.set(ACCESS_TOKEN_COOKIE, '', {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'Lax' as any,
+    sameSite: 'lax' as const,
     maxAge: 0,
     path: '/'
   });
@@ -555,7 +555,7 @@ export function clearAuthCookies(response: NextResponse): void {
   response.cookies.set(REFRESH_TOKEN_COOKIE, '', {
     httpOnly: true,
     secure: isProduction(),
-    sameSite: 'Lax' as any,
+    sameSite: 'lax' as const,
     maxAge: 0,
     path: '/'
   });

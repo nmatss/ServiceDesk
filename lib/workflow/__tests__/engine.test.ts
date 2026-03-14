@@ -21,7 +21,7 @@ interface WorkflowDefinition {
 interface WorkflowNode {
   id: string
   type: string
-  config: Record<string, any>
+  config: any
   position?: { x: number; y: number }
 }
 
@@ -36,7 +36,7 @@ interface WorkflowExecution {
   id: number
   workflowId: number
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
-  variables: Record<string, any>
+  variables: Record<string, unknown>
   startedAt: string
   completedAt?: string
   error?: string
@@ -54,7 +54,7 @@ class MockWorkflowEngine {
 
   async executeWorkflow(
     workflowId: number,
-    triggerData: Record<string, any> = {},
+    triggerData: Record<string, unknown> = {},
     triggerUserId?: number
   ): Promise<WorkflowExecution> {
     const workflow = this.workflows.get(workflowId)
@@ -109,7 +109,7 @@ class MockWorkflowEngine {
     }
   }
 
-  private validateConditions(conditions: any, data: Record<string, any>): boolean {
+  private validateConditions(conditions: any, data: any): boolean {
     // Simple validation logic
     if (Array.isArray(conditions)) {
       return conditions.every(condition => this.evaluateCondition(condition, data))
@@ -117,7 +117,7 @@ class MockWorkflowEngine {
     return this.evaluateCondition(conditions, data)
   }
 
-  private evaluateCondition(condition: any, data: Record<string, any>): boolean {
+  private evaluateCondition(condition: any, data: any): boolean {
     const { field, operator, value } = condition
 
     if (!data.hasOwnProperty(field)) {

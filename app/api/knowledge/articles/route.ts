@@ -14,11 +14,11 @@ async function awaitMaybe<T>(value: T | Promise<T>): Promise<T> {
   return value instanceof Promise ? await value : value;
 }
 
-async function txRun(tx: DatabaseAdapter, sql: string, params: any[]): Promise<void> {
+async function txRun(tx: DatabaseAdapter, sql: string, params: (string | number | boolean | null)[]): Promise<void> {
   await awaitMaybe(tx.prepare(sql).run(...params));
 }
 
-async function txGet<T = any>(tx: DatabaseAdapter, sql: string, params: any[]): Promise<T | undefined> {
+async function txGet<T = Record<string, unknown>>(tx: DatabaseAdapter, sql: string, params: (string | number | boolean | null)[]): Promise<T | undefined> {
   return await awaitMaybe(tx.prepare(sql).get(...params)) as T | undefined;
 }
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
     // Support both single and multi-tenant setups
     let whereClause = 'WHERE (a.tenant_id = ? OR a.tenant_id IS NULL)'
-    const params: any[] = [tenantId]
+    const params: (string | number | boolean | null)[] = [tenantId]
 
     // Filtro por status
     if (status) {

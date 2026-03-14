@@ -1,6 +1,6 @@
 // Guide builder para step-by-step guides interativos
 import { Configuration, OpenAIApi } from 'openai';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -293,7 +293,7 @@ export class GuideBuilder {
       WHERE t.resolved_at IS NOT NULL
     `;
 
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (request.ticket_ids && request.ticket_ids.length > 0) {
       sql += ` AND t.id IN (${request.ticket_ids.map(() => '?').join(',')})`;
@@ -317,7 +317,7 @@ export class GuideBuilder {
       LIMIT 10
     `;
 
-    const tickets = await executeQuery<any>(sql, params);
+    const tickets = await executeQuery(sql, params);
 
     if (tickets.length === 0) {
       throw new Error('Nenhum ticket adequado encontrado para geração de guia');
@@ -889,7 +889,7 @@ Diretrizes:
           tag, tag.toLowerCase().replace(/\s+/g, '-')
         ]);
 
-        const tagResult = await executeQueryOne<any>(`SELECT id FROM kb_tags WHERE slug = ?`, [
+        const tagResult = await executeQueryOne(`SELECT id FROM kb_tags WHERE slug = ?`, [
           tag.toLowerCase().replace(/\s+/g, '-')
         ]);
 
@@ -1032,7 +1032,7 @@ Diretrizes:
       const nowExpr = isPg ? 'NOW()' : "datetime('now')";
 
       // Busca ou cria progresso do usuário
-      let progress = await executeQueryOne<any>(`
+      let progress = await executeQueryOne(`
         SELECT * FROM analytics_events
         WHERE event_type = 'guide_progress'
           AND user_id = ?
@@ -1110,7 +1110,7 @@ Diretrizes:
         ? `properties::json->>'feedback'`
         : `json_extract(properties, '$.feedback')`;
 
-      const stats = await executeQuery<any>(`
+      const stats = await executeQuery(`
         SELECT
           user_id,
           ${completedStepsExpr} as completed_steps,

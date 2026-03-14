@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     const escapedQueryText = queryText.replace(/%/g, '\\%').replace(/_/g, '\\_');
     const escapedTitle = title.replace(/%/g, '\\%').replace(/_/g, '\\_');
 
-    const knowledgeArticles = await executeQuery<any>(`
+    const knowledgeArticles = await executeQuery<{ id: number; title: string; summary: string; content: string; relevanceScore?: number }>(`
       SELECT id, title, summary, content
       FROM kb_articles
       WHERE is_published = 1
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       maxKnowledgeArticles]);
 
     // Buscar tickets similares resolvidos via busca textual (scoped by org)
-    const similarTickets = await executeQuery<any>(`
+    const similarTickets = await executeQuery<{ id: number; title: string; description: string; resolution: string; similarityScore?: number }>(`
       SELECT t.id, t.title, t.description,
              ${sqlGroupConcat('c.content', ' | ')} as resolution
       FROM tickets t
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     if (includeUserContext && auth.userId) {
       try {
         const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-        const userTickets = await executeQuery<any>(`
+        const userTickets = await executeQuery<{ category: string; count: number }>(`
           SELECT c.name as category, COUNT(*) as count
           FROM tickets t
           JOIN categories c ON t.category_id = c.id
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
         userContext = {
           role: auth.role,
-          previousIssues: userTickets.map((ticket: any) => ticket.category)
+          previousIssues: userTickets.map((ticket) => ticket.category)
         };
       } catch (error) {
         logger.warn('Failed to fetch user context', error);
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       'hybrid',
       JSON.stringify({
         knowledgeArticles: suggestions.knowledgeBaseReferences,
-        similarTickets: similarTickets.map((t: any) => t.id)
+        similarTickets: similarTickets.map((t) => t.id)
       }),
       'AI-generated solution based on knowledge base and similar tickets'])).lastInsertRowid;
 
@@ -173,12 +173,12 @@ export async function POST(request: NextRequest) {
         requiresSpecialist: suggestions.requiresSpecialist
       },
       sources: {
-        knowledgeArticles: knowledgeArticles.map((kb: any) => ({
+        knowledgeArticles: knowledgeArticles.map((kb) => ({
           id: kb.id,
           title: kb.title,
           relevanceScore: kb.relevanceScore || 0.5
         })),
-        similarTickets: similarTickets.map((ticket: any) => ({
+        similarTickets: similarTickets.map((ticket) => ({
           id: ticket.id,
           title: ticket.title,
           similarityScore: ticket.similarityScore || 0.5
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
         inputTokens: suggestions.inputTokens,
         outputTokens: suggestions.outputTokens,
         userContextUsed: !!userContext,
-        vectorSearchUsed: knowledgeArticles.some((kb: any) => kb.relevanceScore)
+        vectorSearchUsed: knowledgeArticles.some((kb) => kb.relevanceScore)
       }
     });
 
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
 
     if (ticketId) {
       // Buscar sugestões para um ticket específico (scoped by org)
-      const suggestions = await executeQuery<any>(`
+      const suggestions = await executeQuery<Record<string, unknown>>(`
         SELECT s.* FROM ai_suggestions s
         JOIN tickets t ON s.ticket_id = t.id AND t.organization_id = ?
         WHERE s.ticket_id = ?
@@ -235,7 +235,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ suggestions });
     } else {
       // Buscar estatísticas de sugestões
-      const stats = await executeQueryOne<any>(`
+      const stats = await executeQueryOne<{ total_suggestions: number; avg_confidence: number; used_count: number; helpful_count: number; not_helpful_count: number }>(`
         SELECT
           COUNT(*) as total_suggestions,
           AVG(confidence_score) as avg_confidence,
@@ -247,7 +247,7 @@ export async function GET(request: NextRequest) {
           AND suggestion_type = 'solution'
       `, [thirtyDaysAgo]);
 
-      const sourceStats = await executeQuery<any>(`
+      const sourceStats = await executeQuery<{ source_type: string; count: number; avg_confidence: number }>(`
         SELECT
           source_type,
           COUNT(*) as count,
@@ -262,8 +262,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         stats: {
           ...stats,
-          helpfulness_rate: stats.helpful_count / (stats.helpful_count + stats.not_helpful_count) || 0,
-          usage_rate: stats.used_count / stats.total_suggestions || 0
+          helpfulness_rate: stats ? stats.helpful_count / ((stats.helpful_count + stats.not_helpful_count) || 1) : 0,
+          usage_rate: stats ? stats.used_count / (stats.total_suggestions || 1) : 0
         },
         sourceStats
       });

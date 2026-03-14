@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     `, [tenantId, tenantId, tenantId, tenantId, auth.userId])
 
     // Formattar dados dos agentes
-    const formattedAgents = agents.map((agent: any) => ({
+    const formattedAgents = agents.map((agent: { id: number; name: string; email: string; role: string; active_tickets: number; resolved_tickets: number; total_tickets: number; avg_rating: number | null; created_at: string }) => ({
       id: agent.id,
       name: agent.name,
       email: agent.email,
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar hash da senha
-    const bcrypt = require('bcrypt')
+    const bcrypt = require('bcryptjs')
     const passwordHash = await bcrypt.hash(password, 12)
 
     // Inserir novo agente COM organization_id DO TENANT

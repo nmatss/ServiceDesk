@@ -16,15 +16,15 @@ interface AutomationCondition {
 
 interface AutomationAction {
   type: 'assign_ticket' | 'change_status' | 'change_priority' | 'add_comment' | 'send_notification' | 'create_task' | 'escalate' | 'send_webhook';
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
 }
 
 interface TriggerData {
   ticket_id?: number;
   user_id?: number;
-  old_values?: Record<string, any>;
-  new_values?: Record<string, any>;
-  context?: Record<string, any>;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -210,7 +210,7 @@ async function getFieldValue(field: string, triggerData: TriggerData): Promise<a
     // Buscar em dados do ticket
     if (triggerData.ticket_id && field.startsWith('ticket.')) {
       const ticketField = field.replace('ticket.', '');
-      const ticket = await executeQueryOne<any>(`
+      const ticket = await executeQueryOne(`
         SELECT t.*, c.name as category_name, p.name as priority_name, s.name as status_name
         FROM tickets t
         LEFT JOIN categories c ON t.category_id = c.id
@@ -362,7 +362,7 @@ async function assignTicket(parameters: any, triggerData: TriggerData, cascadeDe
     if (!agent) return false;
 
     // Buscar valores antigos
-    const oldTicket = await executeQueryOne<any>(
+    const oldTicket = await executeQueryOne(
       'SELECT assigned_to FROM tickets WHERE id = ?',
       [triggerData.ticket_id]
     );
@@ -417,7 +417,7 @@ async function changeTicketStatus(parameters: any, triggerData: TriggerData, cas
     if (!status) return false;
 
     // Buscar valores antigos
-    const oldTicket = await executeQueryOne<any>(
+    const oldTicket = await executeQueryOne(
       'SELECT status_id FROM tickets WHERE id = ?',
       [triggerData.ticket_id]
     );
@@ -461,7 +461,7 @@ async function changeTicketPriority(parameters: any, triggerData: TriggerData, c
     if (!priority) return false;
 
     // Buscar valores antigos
-    const oldTicket = await executeQueryOne<any>(
+    const oldTicket = await executeQueryOne(
       'SELECT priority_id FROM tickets WHERE id = ?',
       [triggerData.ticket_id]
     );
@@ -615,7 +615,7 @@ async function escalateTicket(parameters: any, triggerData: TriggerData, cascade
  * Triggers para eventos de ticket
  */
 export async function triggerTicketCreated(ticketId: number, userId: number): Promise<boolean> {
-  const ticket = await executeQueryOne<any>(`
+  const ticket = await executeQueryOne(`
     SELECT t.*, c.name as category_name, p.name as priority_name
     FROM tickets t
     LEFT JOIN categories c ON t.category_id = c.id
@@ -634,7 +634,7 @@ export async function triggerTicketCreated(ticketId: number, userId: number): Pr
 export async function triggerTicketUpdated(
   ticketId: number,
   userId: number,
-  oldValues: any,
+  oldValues: Record<string, unknown>,
   newValues: any
 ): Promise<boolean> {
   return executeAutomations('ticket_updated', {
@@ -664,7 +664,7 @@ export async function triggerCommentAdded(
   commentId: number,
   userId: number
 ): Promise<boolean> {
-  const comment = await executeQueryOne<any>(
+  const comment = await executeQueryOne(
     'SELECT * FROM comments WHERE id = ?',
     [commentId]
   );

@@ -1,6 +1,6 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
-import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '../db/adapter';
 import { User } from '../types/database';
 import { validateJWTSecret } from '@/lib/config/env';
 import { captureDatabaseError, captureAuthError } from '@/lib/monitoring/sentry-helpers';
@@ -213,7 +213,7 @@ export async function getAllUsers(): Promise<User[]> {
  */
 export async function updateUser(userId: number, updates: Partial<Pick<User, 'name' | 'email' | 'role'>>): Promise<boolean> {
   const fields: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   try {
     if (updates.name !== undefined) {

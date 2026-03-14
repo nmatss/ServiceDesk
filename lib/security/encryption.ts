@@ -447,7 +447,7 @@ export class DatabaseEncryption {
 
     // Hash password (separate from encryption)
     if (userData.password) {
-      const bcrypt = require('bcrypt');
+      const bcrypt = require('bcryptjs');
       encrypted.password = await bcrypt.hash(userData.password, 12);
     }
 

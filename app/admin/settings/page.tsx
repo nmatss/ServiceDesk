@@ -18,7 +18,7 @@ export default function AdminSettingsPage() {
   })
   const [hasChanges, setHasChanges] = useState(false)
 
-  const updateSettings = (key: string, value: any) => {
+  const updateSettings = (key: string, value: string | number | boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }))
     setHasChanges(true)
   }

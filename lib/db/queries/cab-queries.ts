@@ -5,7 +5,7 @@
  * Manages CAB configurations, members, meetings, and voting processes
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlTrue, sqlFalse } from '../adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlTrue, sqlFalse, type SqlParam } from '../adapter';
 import type {
   CABConfiguration,
   CABMember,
@@ -102,7 +102,7 @@ export async function updateCABConfiguration(
   input: Partial<CreateCABConfiguration>
 ): Promise<CABConfiguration | null> {
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   if (input.name !== undefined) {
     updates.push('name = ?');
@@ -248,7 +248,7 @@ export async function removeCABMember(
 export async function listCABMembers(
   cabId: number
 ): Promise<CABMemberWithDetails[]> {
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT cm.*,
        u.id as user__id, u.name as user__name, u.email as user__email,
        u.avatar_url as user__avatar_url, u.role as user__role
@@ -372,7 +372,7 @@ export async function listCABMeetings(
   }
 ): Promise<CABMeeting[]> {
   const conditions: string[] = ['cm.id IS NOT NULL'];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   if (filters?.status) {
     conditions.push('cm.status = ?');
@@ -427,7 +427,7 @@ export async function updateCABMeeting(
   }>
 ): Promise<CABMeeting | null> {
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   if (input.status !== undefined) {
     updates.push('status = ?');
@@ -519,7 +519,7 @@ export async function endCABMeeting(
     'actual_end = CURRENT_TIMESTAMP',
     'updated_at = CURRENT_TIMESTAMP',
   ];
-  const values: any[] = ['completed'];
+  const values: SqlParam[] = ['completed'];
 
   if (minutes !== undefined) {
     updates.push('minutes = ?');
@@ -692,7 +692,7 @@ export async function getVotingResults(
   };
 }> {
   // Fetch all votes with member and user details in a single JOIN query
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT cra.*,
        cm.id as cm__id, cm.cab_id as cm__cab_id, cm.user_id as cm__user_id,
        cm.role as cm__role, cm.is_voting_member as cm__is_voting_member,

@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
 
-    const result: Record<string, any> = {
+    const result: Record<string, unknown> = {
       period,
       startDate: startDateStr,
       endDate: endDateStr,

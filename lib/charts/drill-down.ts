@@ -11,7 +11,7 @@ export interface DrillDownLevel {
   id: string;
   label: string;
   data: any;
-  filter?: Record<string, any>;
+  filter?: Record<string, unknown>;
 }
 
 export interface DrillDownState {
@@ -42,7 +42,7 @@ export function drillDown(
   state: DrillDownState,
   label: string,
   data: any,
-  filter?: Record<string, any>
+  filter?: Record<string, unknown>
 ): DrillDownState {
   const newLevel: DrillDownLevel = {
     id: `level-${state.levels.length}`,
@@ -121,7 +121,7 @@ export function getBreadcrumbs(state: DrillDownState): Array<{ label: string; in
 /**
  * Apply filters from drill-down path
  */
-export function getActiveFilters(state: DrillDownState): Record<string, any> {
+export function getActiveFilters(state: DrillDownState): Record<string, unknown> {
   return state.levels.reduce((acc, level) => {
     if (level.filter) {
       return { ...acc, ...level.filter };

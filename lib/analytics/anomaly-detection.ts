@@ -22,7 +22,7 @@ export interface AnomalyDetection {
   recommended_actions: AnomalyAction[];
   resolution_status: 'detected' | 'investigating' | 'resolved' | 'false_positive';
   resolved_at?: Date;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export type AnomalyType =
@@ -121,7 +121,7 @@ export interface AnomalyPattern {
   pattern_name: string;
   pattern_type: 'recurring' | 'emerging' | 'disappearing';
   frequency: number;
-  typical_conditions: Record<string, any>;
+  typical_conditions: Record<string, unknown>;
   historical_occurrences: Date[];
   prediction_confidence: number;
   next_predicted_occurrence?: Date;
@@ -191,7 +191,7 @@ export class AnomalyDetectionEngine {
   async detectRealTimeAnomaly(
     entityType: string,
     entityId: string,
-    currentData: Record<string, any>
+    currentData: Record<string, unknown>
   ): Promise<AnomalyDetection | null> {
     const relevantModels = Array.from(this.detectionModels.values())
       .filter(model => model.is_active && model.entity_types.includes(entityType));
@@ -791,7 +791,7 @@ export class AnomalyDetectionEngine {
 
   // Additional helper methods (simplified implementations)
   private async getEntitiesForDetection(_entityType: string, _lookbackHours: number): Promise<any[]> { return []; }
-  private async extractAnomalyFeatures(_entity: any, _config: AnomalyFeatureConfig): Promise<Record<string, any>> { return {}; }
+  private async extractAnomalyFeatures(_entity: any, _config: AnomalyFeatureConfig): Promise<Record<string, unknown>> { return {}; }
   private async getHistoricalBaseline(_entityId: string, _entityType: string): Promise<Record<string, { mean: number; std: number }>> {
     return {};
   }
@@ -799,13 +799,13 @@ export class AnomalyDetectionEngine {
     return baseline.std * 2;
   }
   private async getOrCreateMLModel(_type: string, _model: DetectionModel): Promise<string> { return 'model_id'; }
-  private convertFeatureImportanceToFactors(_importance: Record<string, number>, _features: Record<string, any>): AnomalyFactor[] { return []; }
+  private convertFeatureImportanceToFactors(_importance: Record<string, number>, _features: Record<string, unknown>): AnomalyFactor[] { return []; }
   private async getSequenceData(_entityId: string, _entityType: string, _config: AnomalyFeatureConfig): Promise<number[]> { return []; }
   private async getReconstructionErrorThreshold(_modelId: string): Promise<number> { return 0.5; }
   private async getHistoricalStatistics(_entityId: string, _entityType: string): Promise<Record<string, { mean: number; std: number }>> {
     return {};
   }
-  private async checkSingleEntityAnomaly(_model: DetectionModel, _entityType: string, _entityId: string, _data: Record<string, any>): Promise<AnomalyDetection | null> { return null; }
+  private async checkSingleEntityAnomaly(_model: DetectionModel, _entityType: string, _entityId: string, _data: any): Promise<AnomalyDetection | null> { return null; }
   private storeAnomalyInHistory(_anomaly: AnomalyDetection): void { }
   private async calculateBusinessImpact(_anomaly: AnomalyDetection): Promise<any> { return { score: 0.5, financial_estimate: 1000 }; }
   private async calculateOperationalImpact(_anomaly: AnomalyDetection): Promise<any> { return { score: 0.3, affected_services: [] }; }
@@ -813,7 +813,7 @@ export class AnomalyDetectionEngine {
   private async calculateSLABreachRisk(_anomaly: AnomalyDetection): Promise<number> { return 0.3; }
   private shouldEscalate(anomaly: AnomalyDetection): boolean { return anomaly.severity === 'critical'; }
   private async findKnownPattern(_anomaly: AnomalyDetection): Promise<AnomalyPattern | null> { return null; }
-  private async gatherAnomalyContext(_anomaly: AnomalyDetection): Promise<Record<string, any>> { return {}; }
+  private async gatherAnomalyContext(_anomaly: AnomalyDetection): Promise<Record<string, unknown>> { return {}; }
   private getStartTimeForRange(_range: string, endTime: Date): Date { return new Date(endTime.getTime() - 24 * 60 * 60 * 1000); }
   private async getAnomaliesInTimeRange(_start: Date, _end: Date, _entityType?: string): Promise<AnomalyDetection[]> { return []; }
   private groupAnomaliesByType(_anomalies: AnomalyDetection[]): Record<string, number> { return {}; }

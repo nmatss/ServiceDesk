@@ -33,7 +33,7 @@ export interface SelectionContext {
   userId?: string;
   userRole?: string;
   permissions?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SelectionResult<T = any> {

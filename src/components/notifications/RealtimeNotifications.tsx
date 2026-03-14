@@ -18,7 +18,7 @@ interface Notification {
   type: string
   title: string
   message: string
-  data?: any
+  data?: Record<string, unknown>
   timestamp: string
   priority?: 'low' | 'medium' | 'high'
 }
@@ -73,7 +73,7 @@ export default function RealtimeNotifications() {
     }
   }
 
-  const handleNotificationClick = (notification: Notification, index: number) => {
+  const handleNotificationClick = (notification: { type: string; data?: { ticketId?: number; [key: string]: unknown } }, index: number) => {
     // Marcar como lida
     markNotificationAsRead(index)
 
@@ -260,9 +260,9 @@ export default function RealtimeNotifications() {
                           )}
 
                           {/* Dados adicionais */}
-                          {notification.data?.ticketId && (
+                          {notification.data?.ticketId != null && (
                             <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                              Ticket #{notification.data.ticketId}
+                              Ticket #{String(notification.data.ticketId)}
                             </div>
                           )}
                         </div>

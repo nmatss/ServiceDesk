@@ -20,7 +20,7 @@ export function useNetworkStatus(): NetworkStatus {
 
   useEffect(() => {
     const updateNetworkStatus = () => {
-      const connection = (navigator as any).connection ||
+      const connection = (navigator as unknown as { connection: unknown }).connection ||
                         (navigator as any).mozConnection ||
                         (navigator as any).webkitConnection
 
@@ -39,7 +39,7 @@ export function useNetworkStatus(): NetworkStatus {
     window.addEventListener('offline', updateNetworkStatus)
 
     // Listen for connection changes if supported
-    const connection = (navigator as any).connection ||
+    const connection = (navigator as unknown as { connection: unknown }).connection ||
                       (navigator as any).mozConnection ||
                       (navigator as any).webkitConnection
 

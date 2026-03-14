@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, type SqlParam } from '../db/adapter';
 import { getDatabaseType } from '../db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -43,7 +43,7 @@ class DataRowSecurityManager {
     query: string,
     tableName: string,
     context: SecurityContext,
-    existingParams: any[] = []
+    existingParams: SqlParam[] = []
   ): QueryModification {
     try {
       const policies = this.getCachedPoliciesForTable(tableName, 'SELECT', context.userRole);
@@ -107,7 +107,7 @@ class DataRowSecurityManager {
    */
   checkInsertPermission(
     tableName: string,
-    data: Record<string, any>,
+    data: any,
     context: SecurityContext
   ): { allowed: boolean; reason?: string; appliedPolicies: string[] } {
     try {
@@ -150,7 +150,7 @@ class DataRowSecurityManager {
     query: string,
     tableName: string,
     context: SecurityContext,
-    existingParams: any[] = []
+    existingParams: SqlParam[] = []
   ): QueryModification & { allowed: boolean; reason?: string } {
     try {
       const policies = this.getCachedPoliciesForTable(tableName, 'UPDATE', context.userRole);
@@ -220,7 +220,7 @@ class DataRowSecurityManager {
     query: string,
     tableName: string,
     context: SecurityContext,
-    existingParams: any[] = []
+    existingParams: SqlParam[] = []
   ): QueryModification & { allowed: boolean; reason?: string } {
     try {
       const policies = this.getCachedPoliciesForTable(tableName, 'DELETE', context.userRole);
@@ -408,7 +408,7 @@ class DataRowSecurityManager {
    */
   async getAllPolicies(): Promise<RowSecurityPolicy[]> {
     try {
-      const policies = await executeQuery<any>(`
+      const policies = await executeQuery(`
         SELECT * FROM row_security_policies
         ORDER BY table_name, priority DESC, created_at DESC
       `, []);
@@ -437,7 +437,7 @@ class DataRowSecurityManager {
         ? `(roles::text LIKE '%"' || ? || '"%' OR roles::text = '["*"]')`
         : `(json_extract(roles, '$') LIKE '%"' || ? || '"%' OR json_extract(roles, '$') = '["*"]')`;
 
-      const policies = await executeQuery<any>(`
+      const policies = await executeQuery(`
         SELECT * FROM row_security_policies
         WHERE is_active = ${sqlTrue()}
           AND table_name = ?
@@ -501,8 +501,8 @@ class DataRowSecurityManager {
   private interpolateCondition(
     condition: string,
     context: SecurityContext
-  ): { sql: string; params: any[] } {
-    const params: any[] = [];
+  ): { sql: string; params: SqlParam[] } {
+    const params: SqlParam[] = [];
     let sql = condition;
 
     // Replace context variables with parameter placeholders
@@ -530,7 +530,7 @@ class DataRowSecurityManager {
    */
   private evaluateInsertPolicy(
     policy: RowSecurityPolicy,
-    data: Record<string, any>,
+    data: any,
     context: SecurityContext
   ): { allowed: boolean; reason?: string } {
     try {

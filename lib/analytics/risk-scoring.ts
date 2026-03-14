@@ -807,9 +807,9 @@ export class RiskScoringEngine {
   private async getSystemSecurityData(): Promise<Record<string, unknown>> { return {}; }
 
   // Additional calculation methods (mock implementations)
-  private calculatePerformanceRiskScore(_data: Record<string, unknown>): number { return 50; }
-  private calculateWorkloadRiskScore(_data: Record<string, unknown>): number { return 30; }
-  private calculateWellnessRiskScore(_data: Record<string, unknown>): number { return 20; }
+  private calculatePerformanceRiskScore(_data: any): number { return 50; }
+  private calculateWorkloadRiskScore(_data: any): number { return 30; }
+  private calculateWellnessRiskScore(_data: any): number { return 20; }
   private async calculateSkillGapRiskScore(_agentId: string): Promise<number> { return 25; }
   private async calculateAttritionRiskScore(
     _agentData: AgentData | Record<string, unknown>,
@@ -817,13 +817,13 @@ export class RiskScoringEngine {
     _wellnessData: Record<string, unknown>
   ): Promise<number> { return 15; }
 
-  private getPerformanceSubFactors(_data: Record<string, unknown>): SubRiskFactor[] { return []; }
-  private getWorkloadSubFactors(_data: Record<string, unknown>): SubRiskFactor[] { return []; }
-  private getWellnessSubFactors(_data: Record<string, unknown>): SubRiskFactor[] { return []; }
+  private getPerformanceSubFactors(_data: any): SubRiskFactor[] { return []; }
+  private getWorkloadSubFactors(_data: any): SubRiskFactor[] { return []; }
+  private getWellnessSubFactors(_data: any): SubRiskFactor[] { return []; }
 
-  private calculateSystemPerformanceRisk(_data: Record<string, unknown>): number { return 25; }
-  private calculateSystemCapacityRisk(_data: Record<string, unknown>): number { return 35; }
-  private calculateSystemSecurityRisk(_data: Record<string, unknown>): number { return 20; }
+  private calculateSystemPerformanceRisk(_data: any): number { return 25; }
+  private calculateSystemCapacityRisk(_data: any): number { return 35; }
+  private calculateSystemSecurityRisk(_data: any): number { return 20; }
   private calculateSystemAvailabilityRisk(_data: SystemMetrics | Record<string, unknown>): number { return 15; }
 
   private async generateTicketMitigationStrategies(

@@ -40,7 +40,7 @@ export interface SyncEvent {
   type: SyncEventType;
   progress?: SyncProgress;
   error?: SyncError;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export class SyncManager {

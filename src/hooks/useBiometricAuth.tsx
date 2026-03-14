@@ -162,7 +162,7 @@ export const useBiometricAuth = () => {
         success: true,
         credentialId
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Biometric enrollment failed', error)
 
       let errorMessage = 'Falha ao configurar autenticação biométrica'
@@ -236,7 +236,7 @@ export const useBiometricAuth = () => {
         clientDataJSON: response.clientDataJSON,
         signature: response.signature
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Biometric authentication failed', error)
 
       let errorMessage = 'Falha na autenticação biométrica'

@@ -85,7 +85,9 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-function mapProfilePayload(user: Record<string, any>) {
+interface UserProfileRow { id: number; name: string; email: string; role: string; phone?: string | null; job_title?: string | null; department?: string | null; avatar_url?: string | null; created_at: string; organization_id?: number; [key: string]: unknown }
+
+function mapProfilePayload(user: UserProfileRow) {
   return {
     id: user.id,
     name: user.name,
@@ -102,26 +104,26 @@ function mapProfilePayload(user: Record<string, any>) {
 async function loadUserProfile(userId: number, organizationId?: number) {
   try {
     if (organizationId) {
-      return await executeQueryOne<Record<string, any>>(`
+      return await executeQueryOne<UserProfileRow>(`
         SELECT id, name, email, role, phone, job_title, department, avatar_url, created_at, organization_id
         FROM users
         WHERE id = ? AND organization_id = ?
       `, [userId, organizationId]);
     }
-    return await executeQueryOne<Record<string, any>>(`
+    return await executeQueryOne<UserProfileRow>(`
       SELECT id, name, email, role, phone, job_title, department, avatar_url, created_at, organization_id
       FROM users
       WHERE id = ?
     `, [userId]);
   } catch {
     if (organizationId) {
-      return await executeQueryOne<Record<string, any>>(`
+      return await executeQueryOne<UserProfileRow>(`
         SELECT id, name, email, role, created_at, organization_id
         FROM users
         WHERE id = ? AND organization_id = ?
       `, [userId, organizationId]);
     }
-    return await executeQueryOne<Record<string, any>>(`
+    return await executeQueryOne<UserProfileRow>(`
       SELECT id, name, email, role, created_at, organization_id
       FROM users
       WHERE id = ?
@@ -192,7 +194,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const name = sanitizeField(body.name) ?? currentUser.name
-    const email = (sanitizeField(body.email) ?? currentUser.email).toLowerCase()
+    const email = (sanitizeField(body.email) ?? String(currentUser.email)).toLowerCase()
     const phone = sanitizeField(body.phone)
     const jobTitle = sanitizeField(body.job_title)
     const department = sanitizeField(body.department)

@@ -407,7 +407,7 @@ export class SocketServer {
     this.io.to('admins').emit('notification', notification)
   }
 
-  private async saveNotificationEvent(eventType: string, targetUsers: number[], payload: Record<string, unknown>) {
+  private async saveNotificationEvent(eventType: string, targetUsers: number[], payload: any) {
     try {
       await executeRun(`
         INSERT INTO notification_events (event_type, target_users, payload)

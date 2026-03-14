@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub, sqlColAddMinutes, sqlCastDate, sqlTrue, sqlFalse } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub, sqlColAddMinutes, sqlCastDate, sqlTrue, sqlFalse, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import type { User } from '../types/database';
 import logger from '../monitoring/structured-logger';
@@ -61,7 +61,7 @@ export class TimeTracker {
   }> {
     try {
       // Get the tracking session
-      const session = await executeQueryOne<any>(
+      const session = await executeQueryOne(
         `SELECT * FROM time_tracking WHERE id = ? AND user_id = ? AND is_active = ${sqlTrue()}`,
         [trackingId, userId]
       );
@@ -128,7 +128,7 @@ export class TimeTracker {
       }
 
       const activeSession = await this.getActiveSession(userId);
-      const ticket = await executeQueryOne<any>(
+      const ticket = await executeQueryOne(
         `SELECT t.*, s.is_final
         FROM tickets t
         LEFT JOIN statuses s ON t.status_id = s.id
@@ -165,7 +165,7 @@ export class TimeTracker {
    */
   async autoStopInactiveSessions(): Promise<void> {
     try {
-      const inactiveSessions = await executeQuery<any>(
+      const inactiveSessions = await executeQuery(
         `SELECT * FROM time_tracking
         WHERE is_active = ${sqlTrue()}
         AND ${sqlColAddMinutes('last_activity', 30)} < CURRENT_TIMESTAMP`,
@@ -207,7 +207,7 @@ export class TimeTracker {
     }>;
   }> {
     // Get total time statistics
-    const totalStats = await executeQueryOne<any>(
+    const totalStats = await executeQueryOne(
       `SELECT
         COALESCE(SUM(total_minutes), 0) as total_minutes,
         COUNT(*) as session_count,
@@ -218,7 +218,7 @@ export class TimeTracker {
     );
 
     // Get time by user
-    const timeByUser = await executeQuery<any>(
+    const timeByUser = await executeQuery(
       `SELECT
         u.id as userId,
         u.name as userName,
@@ -233,7 +233,7 @@ export class TimeTracker {
     );
 
     // Get time by activity type
-    const timeByActivity = await executeQuery<any>(
+    const timeByActivity = await executeQuery(
       `SELECT
         activity_type as activityType,
         COALESCE(SUM(total_minutes), 0) as totalMinutes,
@@ -246,7 +246,7 @@ export class TimeTracker {
     );
 
     // Get daily breakdown
-    const dailyBreakdown = await executeQuery<any>(
+    const dailyBreakdown = await executeQuery(
       `SELECT
         ${sqlCastDate('started_at')} as date,
         COALESCE(SUM(total_minutes), 0) as totalMinutes,
@@ -300,7 +300,7 @@ export class TimeTracker {
     const periodFilter = sqlDatetimeSub(periodDays);
 
     // Get total work statistics
-    const workStats = await executeQueryOne<any>(
+    const workStats = await executeQueryOne(
       `SELECT
         COALESCE(SUM(total_minutes), 0) as total_work_minutes,
         COUNT(DISTINCT ticket_id) as tickets_worked_on,
@@ -313,7 +313,7 @@ export class TimeTracker {
     );
 
     // Get time distribution by activity
-    const timeDistribution = await executeQuery<any>(
+    const timeDistribution = await executeQuery(
       `SELECT
         activity_type,
         COALESCE(SUM(total_minutes), 0) as total_minutes
@@ -337,7 +337,7 @@ export class TimeTracker {
     });
 
     // Get daily breakdown
-    const dailyPattern = await executeQuery<any>(
+    const dailyPattern = await executeQuery(
       `SELECT
         ${sqlCastDate('started_at')} as date,
         COALESCE(SUM(total_minutes), 0) as totalMinutes,
@@ -405,7 +405,7 @@ export class TimeTracker {
     const periodFilter = sqlDatetimeSub(periodDays);
 
     let userFilter = "u.role IN ('admin', 'agent')";
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (departmentId) {
       userFilter += " AND u.id IN (SELECT user_id FROM user_departments WHERE department_id = ?)";
@@ -413,7 +413,7 @@ export class TimeTracker {
     }
 
     // Get team statistics
-    const teamStatsRows = await executeQuery<any>(
+    const teamStatsRows = await executeQuery(
       `SELECT
         COUNT(DISTINCT u.id) as agent_count,
         COALESCE(SUM(tt.total_minutes), 0) / 60.0 as total_team_hours
@@ -427,7 +427,7 @@ export class TimeTracker {
     const teamStats = teamStatsRows[0] || { agent_count: 0, total_team_hours: 0 };
 
     // Get top performers
-    const topPerformers = await executeQuery<any>(
+    const topPerformers = await executeQuery(
       `SELECT
         u.id as userId,
         u.name as userName,
@@ -476,7 +476,7 @@ export class TimeTracker {
   // Private helper methods
 
   private async getActiveSession(userId: number): Promise<any> {
-    return await executeQueryOne<any>(
+    return await executeQueryOne(
       `SELECT * FROM time_tracking
       WHERE user_id = ? AND is_active = ${sqlTrue()}
       ORDER BY started_at DESC
@@ -492,7 +492,7 @@ export class TimeTracker {
   }
 
   private async updateTicketTotalTime(ticketId: number): Promise<void> {
-    const totalMinutes = await executeQueryOne<any>(
+    const totalMinutes = await executeQueryOne(
       `SELECT COALESCE(SUM(total_minutes), 0) as total
       FROM time_tracking
       WHERE ticket_id = ? AND total_minutes IS NOT NULL`,
@@ -538,7 +538,7 @@ export class TimeTracker {
     const periodFilter = sqlDatetimeSub(periodDays);
 
     // Calculate time to first response
-    const firstResponseTime = await executeQueryOne<any>(
+    const firstResponseTime = await executeQueryOne(
       `SELECT AVG(st.response_time_minutes) as avg_response_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
@@ -549,7 +549,7 @@ export class TimeTracker {
     );
 
     // Calculate time to resolution
-    const resolutionTime = await executeQueryOne<any>(
+    const resolutionTime = await executeQueryOne(
       `SELECT AVG(st.resolution_time_minutes) as avg_resolution_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
@@ -560,7 +560,7 @@ export class TimeTracker {
     );
 
     // Calculate multitasking index (how many tickets worked on simultaneously)
-    const multitaskingIndex = await executeQueryOne<any>(
+    const multitaskingIndex = await executeQueryOne(
       `SELECT AVG(concurrent_tickets) as avg_multitasking
       FROM (
         SELECT
@@ -620,7 +620,7 @@ export class TimeTracker {
     const periodFilter = sqlDatetimeSub(periodDays);
 
     // Average team response time
-    const teamResponseTimeRows = await executeQuery<any>(
+    const teamResponseTimeRows = await executeQuery(
       `SELECT AVG(st.response_time_minutes) as avg_response_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
@@ -633,7 +633,7 @@ export class TimeTracker {
     const teamResponseTime = teamResponseTimeRows[0];
 
     // Average team resolution time
-    const teamResolutionTimeRows = await executeQuery<any>(
+    const teamResolutionTimeRows = await executeQuery(
       `SELECT AVG(st.resolution_time_minutes) as avg_resolution_time
       FROM sla_tracking st
       LEFT JOIN tickets t ON st.ticket_id = t.id
@@ -646,7 +646,7 @@ export class TimeTracker {
     const teamResolutionTime = teamResolutionTimeRows[0];
 
     // Team collaboration index (tickets with multiple agents working)
-    const collaborationIndexRows = await executeQuery<any>(
+    const collaborationIndexRows = await executeQuery(
       `SELECT
         COUNT(CASE WHEN agent_count > 1 THEN 1 END) * 1.0 / NULLIF(COUNT(*), 0) as collaboration_rate
       FROM (

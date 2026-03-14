@@ -427,29 +427,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const analytics: any = {}
+    const analytics: Record<string, unknown> = {}
 
     if (metricType === 'overview' || metricType === 'all') {
       // Overview metrics
       analytics.overview = {
-        totalTickets: (await executeQueryOne<any>(`
+        totalTickets: (await executeQueryOne<{ count: number }>(`
           SELECT COUNT(*) as count FROM tickets
           WHERE organization_id = ? ${getDateFilter()}
         `, [organizationId]))?.count || 0,
 
-        openTickets: (await executeQueryOne<any>(`
+        openTickets: (await executeQueryOne<{ count: number }>(`
           SELECT COUNT(*) as count FROM tickets t
           LEFT JOIN statuses s ON t.status_id = s.id
           WHERE t.organization_id = ? AND s.is_final = 0 ${getDateFilter('t')}
         `, [organizationId]))?.count || 0,
 
-        closedTickets: (await executeQueryOne<any>(`
+        closedTickets: (await executeQueryOne<{ count: number }>(`
           SELECT COUNT(*) as count FROM tickets t
           LEFT JOIN statuses s ON t.status_id = s.id
           WHERE t.organization_id = ? AND s.is_final = 1 ${getDateFilter('t')}
         `, [organizationId]))?.count || 0,
 
-        avgResolutionTime: (await executeQueryOne<any>(`
+        avgResolutionTime: (await executeQueryOne<{ avg_hours: number }>(`
           SELECT
             AVG(
               CASE
@@ -570,17 +570,17 @@ export async function GET(request: NextRequest) {
       // SLA performance (if columns exist)
       try {
         analytics.slaPerformance = {
-          responseTimeBreaches: (await executeQueryOne<any>(`
+          responseTimeBreaches: (await executeQueryOne<{ count: number }>(`
             SELECT COUNT(*) as count FROM tickets
             WHERE organization_id = ? AND response_breached = 1 ${getDateFilter()}
           `, [organizationId]))?.count || 0,
 
-          resolutionTimeBreaches: (await executeQueryOne<any>(`
+          resolutionTimeBreaches: (await executeQueryOne<{ count: number }>(`
             SELECT COUNT(*) as count FROM tickets
             WHERE organization_id = ? AND resolution_breached = 1 ${getDateFilter()}
           `, [organizationId]))?.count || 0,
 
-          onTimeResolutions: (await executeQueryOne<any>(`
+          onTimeResolutions: (await executeQueryOne<{ count: number }>(`
             SELECT COUNT(*) as count FROM tickets t
             LEFT JOIN statuses s ON t.status_id = s.id
             WHERE t.organization_id = ? AND s.is_final = 1

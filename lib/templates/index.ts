@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, type SqlParam } from '@/lib/db/adapter';
 import { Template, CreateTemplate, TemplateWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -24,7 +24,7 @@ export async function getTemplates(options: {
     } = options;
 
     let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (type) {
       whereClause += ' AND t.type = ?';
@@ -372,7 +372,7 @@ export async function getTemplatesByTags(tags: string[]): Promise<TemplateWithDe
 export async function getTemplateUsageStats(templateId?: number): Promise<any> {
   try {
     let whereClause = '';
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (templateId) {
       whereClause = 'WHERE tu.template_id = ?';

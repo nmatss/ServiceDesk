@@ -13,7 +13,7 @@
  */
 
 import * as Handlebars from 'handlebars';
-import { executeQueryOne, executeRun, sqlTrue, sqlNow } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, sqlTrue, sqlNow, type SqlParam } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
 export interface EmailTemplate {
@@ -344,7 +344,7 @@ export class TemplateEngine {
   async updateTemplate(id: number, updates: Partial<EmailTemplate>): Promise<void> {
     try {
       const fields: string[] = [];
-      const values: any[] = [];
+      const values: SqlParam[] = [];
 
       if (updates.name !== undefined) {
         fields.push('name = ?');
@@ -385,7 +385,7 @@ export class TemplateEngine {
       );
 
       // Reload template into cache
-      const template = await executeQueryOne<any>('SELECT * FROM email_templates WHERE id = ?', [id]);
+      const template = await executeQueryOne('SELECT * FROM email_templates WHERE id = ?', [id]);
       if (template) {
         const emailTemplate: EmailTemplate = {
           id: template.id,
@@ -827,9 +827,9 @@ Ver comentário: {{ticketUrl ticket.id}}
 interface CompiledTemplate {
   id?: number;
   code: string;
-  subject: HandlebarsTemplateDelegate<any>;
-  bodyHtml: HandlebarsTemplateDelegate<any>;
-  bodyText: HandlebarsTemplateDelegate<any>;
+  subject: HandlebarsTemplateDelegate<unknown>;
+  bodyHtml: HandlebarsTemplateDelegate<unknown>;
+  bodyText: HandlebarsTemplateDelegate<unknown>;
   variables: string[];
   language: string;
 }

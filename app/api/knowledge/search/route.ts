@@ -13,16 +13,45 @@ import { executeQuery, executeQueryOne, executeRun, getDbType, sqlTrue } from '@
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-function resolveSemanticSearchEngine() {
+interface SemanticSearchEngine {
+  hybridSearch?: (query: string, articles: KBArticle[], options: Record<string, unknown>) => Promise<Array<{ article: KBArticleWithCategory; score: number; matchType: string; highlights?: string[] }>>;
+  trackSearch?: (data: Record<string, unknown>) => void;
+  getFacets?: (articles: KBArticle[]) => { categories: Map<string, number>; tags: Map<string, number> };
+}
+
+interface KBArticleWithCategory extends KBArticle {
+  category_name?: string;
+  category_slug?: string;
+  category_color?: string;
+  helpful_votes?: number;
+  not_helpful_votes?: number;
+  search_keywords?: string;
+  status?: string;
+  visibility?: string;
+}
+
+interface SearchResultItem {
+  id: number | string;
+  title: string;
+  slug?: string;
+  summary?: string;
+  category: { name?: string; slug?: string; color?: string };
+  score: number;
+  matchType: string;
+  highlights?: string[];
+  matches?: Array<{ key?: string; value?: string; indices?: readonly [number, number][] }>;
+}
+
+function resolveSemanticSearchEngine(): SemanticSearchEngine | null {
   const moduleAny = semanticSearchModule as Record<string, unknown>
   if (Object.prototype.hasOwnProperty.call(moduleAny, 'semanticSearchEngine')) {
-    return moduleAny.semanticSearchEngine as any
+    return moduleAny.semanticSearchEngine as SemanticSearchEngine
   }
   if (Object.prototype.hasOwnProperty.call(moduleAny, 'semanticSearch')) {
-    return moduleAny.semanticSearch as any
+    return moduleAny.semanticSearch as SemanticSearchEngine
   }
   if (Object.prototype.hasOwnProperty.call(moduleAny, 'default')) {
-    return moduleAny.default as any
+    return moduleAny.default as SemanticSearchEngine
   }
   return null
 }
@@ -46,10 +75,10 @@ function buildKeywordResults(articles: KBArticle[], query: string, resultLimit: 
   })
 
   const fuseResults = fuse.search(query, { limit: resultLimit })
-  const mapped = fuseResults.map((result: any) => {
-    const article = result.item
+  const mapped = fuseResults.map((result) => {
+    const article = result.item as KBArticleWithCategory
     const score = result.score || 0
-    const popularityScore = (article.view_count * 0.1) + (article.helpful_votes * 0.5)
+    const popularityScore = ((article.view_count || 0) * 0.1) + ((article.helpful_votes || 0) * 0.5)
     const finalScore = (1 - score) + (popularityScore * 0.01)
 
     return {
@@ -58,13 +87,13 @@ function buildKeywordResults(articles: KBArticle[], query: string, resultLimit: 
       slug: article.slug,
       summary: article.summary,
       category: {
-        name: (article as any).category_name,
-        slug: (article as any).category_slug,
-        color: (article as any).category_color
+        name: article.category_name,
+        slug: article.category_slug,
+        color: article.category_color
       },
       score: finalScore,
       matchType: 'keyword',
-      matches: result.matches?.map((match: any) => ({
+      matches: result.matches?.map((match) => ({
         key: match.key,
         value: match.value,
         indices: match.indices
@@ -76,8 +105,8 @@ function buildKeywordResults(articles: KBArticle[], query: string, resultLimit: 
   return mapped
 }
 
-function mergeSearchResults(primary: any[], secondary: any[]) {
-  const resultMap = new Map<number | string, any>()
+function mergeSearchResults(primary: SearchResultItem[], secondary: SearchResultItem[]) {
+  const resultMap = new Map<number | string, SearchResultItem>()
 
   for (const item of primary) {
     resultMap.set(item.id, item)
@@ -151,7 +180,7 @@ export async function GET(request: NextRequest) {
     }
 
     let whereClause = `WHERE a.status = ? AND (a.tenant_id = ? OR a.tenant_id IS NULL)`
-    const params: any[] = [status, tenantId]
+    const params: (string | number)[] = [status, tenantId]
 
     if (category) {
       whereClause += ' AND c.slug = ?'
@@ -164,7 +193,7 @@ export async function GET(request: NextRequest) {
       ? "COALESCE(string_agg(DISTINCT t.name, ','), '') as tags"
       : "GROUP_CONCAT(DISTINCT t.name) as tags";
 
-    const articleRows = await executeQuery<any>(`
+    const articleRows = await executeQuery<KBArticleWithCategory & { tags: string }>(`
       SELECT
         a.id,
         a.title,
@@ -192,7 +221,7 @@ export async function GET(request: NextRequest) {
     `, params)
 
     // Convert to KBArticle format with tags array
-    const articles: KBArticle[] = articleRows.map((row: any) => ({
+    const articles = articleRows.map((row) => ({
       ...row,
       tags: row.tags ? row.tags.split(',') : [],
       status: row.status || 'published',
@@ -200,7 +229,7 @@ export async function GET(request: NextRequest) {
     }))
 
     // Build filters for semantic search
-    const filters: any = {}
+    const filters: Record<string, unknown> = {}
     if (category) {
       const categoryRow = await executeQueryOne<{ id: number }>(
         'SELECT id FROM kb_categories WHERE slug = ? AND (tenant_id = ? OR tenant_id IS NULL)',
@@ -220,27 +249,27 @@ export async function GET(request: NextRequest) {
       filters.status = status
     }
 
-    let rankedResults: any[] = []
+    let rankedResults: SearchResultItem[] = []
 
     // Use semantic/hybrid search if mode is not 'keyword'
     if ((mode === 'semantic' || mode === 'hybrid') && typeof semanticSearchEngine?.hybridSearch === 'function') {
       try {
-        const searchResults = await semanticSearchEngine.hybridSearch(query.trim(), articles as any, {
+        const searchResults = await semanticSearchEngine.hybridSearch(query.trim(), articles as unknown as KBArticle[], {
           limit: resultLimit,
-          hybridMode: mode as any,
+          hybridMode: mode,
           filters,
           boostRecent: true,
         })
 
-        rankedResults = searchResults.map((result: any) => ({
+        rankedResults = searchResults.map((result) => ({
           id: result.article.id,
           title: result.article.title,
           slug: result.article.slug,
           summary: result.article.summary,
           category: {
-            name: (result.article as any).category_name,
-            slug: (result.article as any).category_slug,
-            color: (result.article as any).category_color
+            name: result.article.category_name,
+            slug: result.article.category_slug,
+            color: result.article.category_color
           },
           score: result.score,
           matchType: result.matchType,
@@ -255,7 +284,7 @@ export async function GET(request: NextRequest) {
     // Keyword results are used directly in keyword mode, merged in hybrid mode, and
     // used as fallback in semantic mode to preserve recall.
     if (mode === 'keyword' || mode === 'hybrid' || rankedResults.length === 0) {
-      const keywordResults = buildKeywordResults(articles, query.trim(), resultLimit)
+      const keywordResults = buildKeywordResults(articles as unknown as KBArticle[], query.trim(), resultLimit)
       if (mode === 'keyword') {
         rankedResults = keywordResults
       } else if (mode === 'hybrid') {
@@ -279,12 +308,12 @@ export async function GET(request: NextRequest) {
 
     // Get facets for filtering
     const facets: { categories: Map<string, number>; tags: Map<string, number> } = typeof semanticSearchEngine?.getFacets === 'function'
-      ? semanticSearchEngine.getFacets(articles as any)
+      ? semanticSearchEngine.getFacets(articles as unknown as KBArticle[])
       : (() => {
         const categories = new Map<string, number>()
         const tags = new Map<string, number>()
 
-        for (const article of articles as any[]) {
+        for (const article of articles) {
           const categoryId = String(article.category_id ?? '')
           if (categoryId) {
             categories.set(categoryId, (categories.get(categoryId) || 0) + 1)
@@ -319,7 +348,7 @@ export async function GET(request: NextRequest) {
         LIMIT 3
       `, [`%${categoryQuery}%`, tenantId])
 
-      categorySuggestions = fallbackCategorySuggestions.map((category: any) => ({
+      categorySuggestions = fallbackCategorySuggestions.map((category) => ({
         ...category,
         icon: null,
       }))
@@ -336,11 +365,11 @@ export async function GET(request: NextRequest) {
     `, [`%${escapedQueryForLike}%`, tenantId])
 
     const suggestions = popularTerms
-      .map((term: any) => term.search_keywords)
-      .filter((keywords: any) => keywords)
+      .map((term) => term.search_keywords)
+      .filter((keywords): keywords is string => !!keywords)
       .flatMap(keywords => keywords.split(','))
-      .map((term: any) => term.trim())
-      .filter((term: any) => term.toLowerCase().includes(query.toLowerCase()) && term.toLowerCase() !== query.toLowerCase())
+      .map((term) => term.trim())
+      .filter((term) => term.toLowerCase().includes(query.toLowerCase()) && term.toLowerCase() !== query.toLowerCase())
       .slice(0, 5)
 
     return NextResponse.json({

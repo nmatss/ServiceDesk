@@ -12,7 +12,7 @@ export interface DashboardTemplate {
   name: string;
   display_name: string;
   description: string;
-  config: any;
+  config: Record<string, unknown>;
   category: 'executive' | 'agent' | 'sla' | 'customer' | 'technical' | 'custom';
   preview_image?: string;
   is_system?: boolean;
@@ -256,7 +256,7 @@ export async function updateDashboardTemplate(
       WHERE id = ?
     `, params);
 
-    const updatedTemplate = await executeQueryOne<any>(`
+    const updatedTemplate = await executeQueryOne(`
       SELECT * FROM dashboard_templates WHERE id = ?
     `, [id]);
 
@@ -338,7 +338,7 @@ export async function applyTemplate(
       0 // Not shared by default
     ]);
 
-    const dashboard = await executeQueryOne<any>(`
+    const dashboard = await executeQueryOne(`
       SELECT * FROM dashboards WHERE id = ?
     `, [result.lastInsertRowid]);
 

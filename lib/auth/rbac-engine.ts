@@ -23,7 +23,7 @@
  * @module lib/auth/rbac-engine
  */
 
-import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse, type SqlParam } from '../db/adapter';
 import { Permission, Role } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -35,7 +35,7 @@ import logger from '../monitoring/structured-logger';
 export interface PermissionCheck {
   resource: string;
   action: string;
-  conditions?: Record<string, any>;
+  conditions?: Record<string, unknown>;
 }
 
 export interface ResourcePermission {
@@ -44,7 +44,7 @@ export interface ResourcePermission {
   action: string;
   granted: boolean;
   inheritedFrom?: string;
-  conditions?: Record<string, any>;
+  conditions?: Record<string, unknown>;
 }
 
 export interface RowLevelPolicy {
@@ -65,7 +65,7 @@ export interface AuditEntry {
   resourceId?: string | number;
   granted: boolean;
   reason?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export class RBACEngine {
@@ -77,7 +77,7 @@ export class RBACEngine {
     resource: string,
     action: string,
     organizationId: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<boolean> {
     try {
       // 1. Buscar todas as permissions do usuário neste tenant
@@ -214,8 +214,8 @@ export class RBACEngine {
    * Avalia conditions JSON
    */
   private evaluateConditions(
-    conditions: string | Record<string, any>,
-    context: Record<string, any>
+    conditions: string | Record<string, unknown>,
+    context: any
   ): boolean {
     try {
       const cond = typeof conditions === 'string' ? JSON.parse(conditions) : conditions;
@@ -291,7 +291,7 @@ export class RBACEngine {
     resourceId: string | number,
     action: string,
     organizationId: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): Promise<ResourcePermission> {
     try {
       // 1. Check direct resource permissions
@@ -382,7 +382,7 @@ export class RBACEngine {
       LIMIT 1
     `;
 
-    const result = await executeQueryOne<any>(query, [
+    const result = await executeQueryOne(query, [
       userId,
       resourceType,
       resourceId.toString(),
@@ -484,7 +484,7 @@ export class RBACEngine {
     if (!query) return null;
 
     try {
-      const result = await executeQueryOne<any>(query, [resourceId]);
+      const result = await executeQueryOne(query, [resourceId]);
       return result ? Object.values(result)[0] as string | number : null;
     } catch {
       return null;
@@ -618,7 +618,7 @@ export class RBACEngine {
   async calculateDynamicPermissions(
     userId: number,
     organizationId: number,
-    context: Record<string, any>
+    context: any
   ): Promise<Permission[]> {
     try {
       const basePermissions = await this.getUserPermissions(userId, organizationId);
@@ -698,7 +698,7 @@ export class RBACEngine {
     resourceId?: string | number,
     granted?: boolean,
     reason?: string,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ): void {
     try {
       executeRun(`
@@ -737,7 +737,7 @@ export class RBACEngine {
   ): Promise<AuditEntry[]> {
     try {
       let query = 'SELECT * FROM permission_audit_log WHERE 1=1';
-      const params: any[] = [];
+      const params: SqlParam[] = [];
 
       if (userId) {
         query += ' AND user_id = ?';
@@ -762,7 +762,7 @@ export class RBACEngine {
       query += ' ORDER BY created_at DESC LIMIT ?';
       params.push(limit);
 
-      const results = await executeQuery<any>(query, params);
+      const results = await executeQuery(query, params);
 
       return results.map(r => ({
         userId: r.user_id,

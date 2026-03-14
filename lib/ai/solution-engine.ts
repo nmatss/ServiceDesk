@@ -1,4 +1,4 @@
-import { executeQuery } from '@/lib/db/adapter';
+import { executeQuery, type SqlParam } from '@/lib/db/adapter';
 import { OpenAI } from 'openai';
 import type { TicketWithDetails, KnowledgeArticle } from '../types/database';
 import logger from '../monitoring/structured-logger';
@@ -48,7 +48,7 @@ export class SolutionEngine {
       WHERE s.is_final = 1
     `;
 
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (category) {
       query += ` AND c.name = ?`;

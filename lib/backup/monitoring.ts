@@ -67,7 +67,7 @@ export class BackupMonitor {
   /**
    * Register a new backup job
    */
-  async registerJob(type: BackupType, metadata?: Record<string, any>): Promise<string> {
+  async registerJob(type: BackupType, metadata?: Record<string, unknown>): Promise<string> {
     const jobId = `backup_${type}_${Date.now()}`;
     const job: BackupJob = {
       id: jobId,

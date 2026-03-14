@@ -35,7 +35,7 @@ async function checkFileSystem(): Promise<{ status: 'ok' | 'error'; message?: st
  */
 export async function GET(_request: NextRequest) {
   const startTime = Date.now();
-  const checks: Record<string, any> = {};
+  const checks: Record<string, unknown> = {};
 
   // Check database
   checks.database = await checkDatabaseHealth();
@@ -55,7 +55,7 @@ export async function GET(_request: NextRequest) {
   };
 
   // Determine overall readiness
-  const hasErrors = Object.values(checks).some((check: any) => check.status === 'error');
+  const hasErrors = Object.values(checks).some((check) => (check as { status?: string })?.status === 'error');
   const isReady = !hasErrors;
 
   const duration = Date.now() - startTime;

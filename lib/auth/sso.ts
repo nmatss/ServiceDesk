@@ -110,7 +110,7 @@ export interface SSOUserProfile {
   role?: string;
   department?: string;
   avatarUrl?: string;
-  metadata?: any;
+  metadata?: Record<string, any>;
 }
 
 // ========================================

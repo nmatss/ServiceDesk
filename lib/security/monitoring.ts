@@ -16,7 +16,7 @@ export interface SecurityEvent {
   sessionId?: string;
   ipAddress?: string;
   userAgent?: string;
-  data: Record<string, any>;
+  data: any;
   metadata?: SecurityEventMetadata;
 }
 
@@ -118,7 +118,7 @@ export class SecurityLogger {
    */
   public async logEvent(
     type: SecurityEventType,
-    data: Record<string, any>,
+    data: any,
     options?: {
       severity?: 'low' | 'medium' | 'high' | 'critical';
       userId?: string;

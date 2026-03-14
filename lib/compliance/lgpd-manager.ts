@@ -34,30 +34,30 @@ export class LGPDManager {
     };
 
     // User data
-    userData.user = await executeQueryOne<any>(`
+    userData.user = await executeQueryOne(`
       SELECT id, name, email, role, created_at, updated_at
       FROM users WHERE id = ? AND organization_id = ?
     `, [userId, organizationId]);
 
     // Tickets
-    userData.tickets = await executeQuery<any>(`
+    userData.tickets = await executeQuery(`
       SELECT * FROM tickets WHERE user_id = ? AND organization_id = ?
     `, [userId, organizationId]);
 
     // Comments
-    userData.comments = await executeQuery<any>(`
+    userData.comments = await executeQuery(`
       SELECT c.* FROM comments c
       INNER JOIN tickets t ON c.ticket_id = t.id
       WHERE c.user_id = ? AND t.organization_id = ?
     `, [userId, organizationId]);
 
     // Consents
-    userData.consents = await executeQuery<any>(`
+    userData.consents = await executeQuery(`
       SELECT * FROM lgpd_consents WHERE user_id = ?
     `, [userId]);
 
     // Audit logs
-    userData.auditLogs = await executeQuery<any>(`
+    userData.auditLogs = await executeQuery(`
       SELECT * FROM audit_advanced
       WHERE user_id = ? AND organization_id = ?
       ORDER BY created_at DESC LIMIT 1000
@@ -116,7 +116,7 @@ export class LGPDManager {
     userId: number,
     consentType: string
   ): Promise<boolean> {
-    const consent = await executeQueryOne<any>(`
+    const consent = await executeQueryOne(`
       SELECT is_given FROM lgpd_consents
       WHERE user_id = ? AND consent_type = ?
       ORDER BY created_at DESC LIMIT 1

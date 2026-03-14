@@ -7,7 +7,7 @@
  * @module lib/repositories/ticket-repository
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import type {
   ITicketRepository,
@@ -78,7 +78,7 @@ export class TicketRepository implements ITicketRepository {
     } = filters || {};
 
     const where: string[] = ['deleted_at IS NULL'];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (status_id !== undefined) {
       where.push('status_id = ?');
@@ -146,7 +146,7 @@ export class TicketRepository implements ITicketRepository {
    * Find ticket with full details (joined with related entities)
    */
   async findWithDetails(id: number): Promise<TicketWithDetails | null> {
-    const row = await executeQueryOne<any>(`
+    const row = await executeQueryOne(`
       SELECT
         t.*,
         u.id as user_id, u.name as user_name, u.email as user_email, u.role as user_role,
@@ -188,7 +188,7 @@ export class TicketRepository implements ITicketRepository {
     } = filters || {};
 
     const where: string[] = ['t.deleted_at IS NULL'];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (status_id !== undefined) {
       where.push('t.status_id = ?');
@@ -243,7 +243,7 @@ export class TicketRepository implements ITicketRepository {
       LIMIT ? OFFSET ?
     `;
 
-    const rows = await executeQuery<any>(sql, params);
+    const rows = await executeQuery(sql, params);
     return rows.map((row) => this.mapToTicketWithDetails(row));
   }
 
@@ -314,7 +314,7 @@ export class TicketRepository implements ITicketRepository {
    */
   async update(id: number, data: Partial<Ticket>): Promise<Ticket> {
     const sets: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (data.title !== undefined) {
       sets.push('title = ?');
@@ -408,7 +408,7 @@ export class TicketRepository implements ITicketRepository {
     const { organization_id, status_id, assigned_to } = filters || {};
 
     const where: string[] = ['deleted_at IS NULL'];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (organization_id !== undefined) {
       where.push('organization_id = ?');
@@ -498,7 +498,7 @@ export class TicketRepository implements ITicketRepository {
     dateRange?: { start: string; end: string }
   ): Promise<TicketMetrics> {
     const where = ['t.organization_id = ?', 't.deleted_at IS NULL'];
-    const params: any[] = [organizationId];
+    const params: SqlParam[] = [organizationId];
 
     if (dateRange) {
       where.push('t.created_at >= ?');
@@ -510,7 +510,7 @@ export class TicketRepository implements ITicketRepository {
       ? 'EXTRACT(EPOCH FROM (t.resolved_at - t.created_at)) / 3600.0'
       : '(julianday(t.resolved_at) - julianday(t.created_at)) * 24';
 
-    const result = await executeQueryOne<any>(`
+    const result = await executeQueryOne(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN s.name = 'Open' THEN 1 ELSE 0 END) as open,

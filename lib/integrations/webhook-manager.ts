@@ -48,7 +48,7 @@ export class WebhookManager {
     organizationId: number
   ): Promise<void> {
     // Buscar webhooks ativos para este evento
-    const webhooks = await executeQuery<any>(
+    const webhooks = await executeQuery(
       `SELECT * FROM webhooks
        WHERE is_active = ${sqlTrue()}
          AND (
@@ -110,12 +110,12 @@ export class WebhookManager {
       // Atualizar contadores
       await this.updateWebhookStats(webhook.id, response.ok);
 
-    } catch (error: any) {
+    } catch (error) {
       const deliveryTime = Date.now() - startTime;
 
       await this.updateDelivery(deliveryId, {
         success: false,
-        error_message: error.message,
+        error_message: error instanceof Error ? error.message : String(error),
         delivery_time_ms: deliveryTime
       });
 

@@ -347,7 +347,7 @@ export class DataProtectionManager {
    * PII DETECTION
    */
   async detectAndProtectPII(
-    data: Record<string, unknown>,
+    data: any,
     tableName: string,
     organizationId: number
   ): Promise<{ detectedFields: string[]; protectedData: Record<string, unknown> }> {
@@ -461,7 +461,7 @@ export class DataProtectionManager {
       const userData: Record<string, unknown> = {};
 
       // User profile
-      const user = await executeQueryOne<Record<string, unknown>>(
+      const user = await executeQueryOne(
         'SELECT id, name, email, role, organization_id, created_at, updated_at FROM users WHERE id = ?',
         [userId]
       );
@@ -470,7 +470,7 @@ export class DataProtectionManager {
       }
 
       // Tickets
-      const tickets = await executeQuery<Record<string, unknown>>(
+      const tickets = await executeQuery(
         'SELECT id, title, description, status_id, priority_id, category_id, user_id, assigned_to, organization_id, created_at, updated_at FROM tickets WHERE user_id = ?',
         [userId]
       );
@@ -479,7 +479,7 @@ export class DataProtectionManager {
       );
 
       // Comments
-      const comments = await executeQuery<Record<string, unknown>>(
+      const comments = await executeQuery(
         'SELECT id, ticket_id, user_id, content, is_internal, created_at FROM comments WHERE user_id = ?',
         [userId]
       );
@@ -590,7 +590,7 @@ export class DataProtectionManager {
 
   private async getSampleData(tableName: string, fieldName: string): Promise<string> {
     try {
-      const result = await executeQueryOne<Record<string, unknown>>(`
+      const result = await executeQueryOne(`
         SELECT ${fieldName} FROM ${tableName}
         WHERE ${fieldName} IS NOT NULL
         LIMIT 1

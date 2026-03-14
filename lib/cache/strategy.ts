@@ -528,7 +528,7 @@ export class CacheKeyBuilder {
   /**
    * Build cache key for list with filters
    */
-  list(filters?: Record<string, any>): string {
+  list(filters?: Record<string, unknown>): string {
     if (!filters || Object.keys(filters).length === 0) {
       return `${this.prefix}:all`
     }
@@ -544,7 +544,7 @@ export class CacheKeyBuilder {
   /**
    * Build cache key for search queries
    */
-  search(query: string, filters?: Record<string, any>): string {
+  search(query: string, filters?: Record<string, unknown>): string {
     const normalized = query.toLowerCase().trim()
     const filterKey = filters ? JSON.stringify(filters) : ''
     return `${this.prefix}:search:${normalized}:${filterKey}`

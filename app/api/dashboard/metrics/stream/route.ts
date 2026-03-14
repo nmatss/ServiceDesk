@@ -102,27 +102,38 @@ async function gatherDashboardMetrics() {
     ]);
 
     // Calculate KPI summary
-    const totalTickets = (volumeData as any[]).reduce((sum: number, day: any) => sum + (day.created || 0), 0);
-    const totalResolved = (volumeData as any[]).reduce((sum: number, day: any) => sum + (day.resolved || 0), 0);
-    const openTickets = (statusData as any[]).find((s: any) => s.status === 'open')?.count || 0;
-    const todayVolume = (volumeData as any[])[volumeData.length - 1] as any || { created: 0, resolved: 0 };
+    interface VolumeDay { created: number; resolved: number }
+    interface StatusItem { status: string; count: number }
+    interface SLAItem { total_tickets: number; response_met: number; avg_response_time: number; avg_resolution_time: number }
+    interface CSATItem { score: number; responses: number }
 
-    const totalSla = (slaCompliance as any[]).reduce((sum: number, day: any) => sum + (day.total_tickets || 0), 0);
-    const metSla = (slaCompliance as any[]).reduce((sum: number, day: any) => sum + (day.response_met || 0), 0);
+    const volumeArr = volumeData as unknown as VolumeDay[];
+    const statusArr = statusData as unknown as StatusItem[];
+    const slaArr = slaCompliance as unknown as SLAItem[];
+    const csatArr = customerSatisfaction as unknown as CSATItem[];
+    const workloadArr = agentWorkload as unknown[];
 
-    const avgResponseTime = (slaCompliance as any[]).reduce((sum: number, day: any) =>
-      sum + (day.avg_response_time || 0), 0) / (slaCompliance.length || 1);
+    const totalTickets = volumeArr.reduce((sum, day) => sum + (day.created || 0), 0);
+    const totalResolved = volumeArr.reduce((sum, day) => sum + (day.resolved || 0), 0);
+    const openTickets = statusArr.find((s) => s.status === 'open')?.count || 0;
+    const todayVolume = volumeArr[volumeArr.length - 1] || { created: 0, resolved: 0 };
 
-    const avgResolutionTime = (slaCompliance as any[]).reduce((sum: number, day: any) =>
-      sum + (day.avg_resolution_time || 0), 0) / (slaCompliance.length || 1);
+    const totalSla = slaArr.reduce((sum, day) => sum + (day.total_tickets || 0), 0);
+    const metSla = slaArr.reduce((sum, day) => sum + (day.response_met || 0), 0);
 
-    const avgCsat = (customerSatisfaction as any[]).reduce((sum: number, day: any) => sum + (day.score || 0), 0) / (customerSatisfaction.length || 1);
-    const totalCsatResponses = (customerSatisfaction as any[]).reduce((sum: number, day: any) => sum + (day.responses || 0), 0);
+    const avgResponseTime = slaArr.reduce((sum, day) =>
+      sum + (day.avg_response_time || 0), 0) / (slaArr.length || 1);
+
+    const avgResolutionTime = slaArr.reduce((sum, day) =>
+      sum + (day.avg_resolution_time || 0), 0) / (slaArr.length || 1);
+
+    const avgCsat = csatArr.reduce((sum, day) => sum + (day.score || 0), 0) / (csatArr.length || 1);
+    const totalCsatResponses = csatArr.reduce((sum, day) => sum + (day.responses || 0), 0);
 
     return {
       kpiSummary: {
-        tickets_today: (todayVolume as any).created,
-        tickets_this_week: (volumeData as any[]).slice(-7).reduce((sum: number, day: any) => sum + day.created, 0),
+        tickets_today: todayVolume.created,
+        tickets_this_week: volumeArr.slice(-7).reduce((sum, day) => sum + day.created, 0),
         tickets_this_month: totalTickets,
         total_tickets: totalTickets,
         sla_response_met: metSla,
@@ -133,9 +144,9 @@ async function gatherDashboardMetrics() {
         fcr_rate: totalTickets > 0 ? (totalResolved / totalTickets) * 100 : 0,
         csat_score: avgCsat,
         csat_responses: totalCsatResponses,
-        active_agents: (agentWorkload as any[]).length,
+        active_agents: workloadArr.length,
         open_tickets: openTickets,
-        resolved_today: (todayVolume as any).resolved
+        resolved_today: todayVolume.resolved
       },
       volumeData,
       categoryData,

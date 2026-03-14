@@ -81,10 +81,10 @@ export async function GET(
       success: true,
       execution: parsedExecution,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error fetching execution details', error);
     return NextResponse.json(
-      { error: 'Failed to fetch execution details', message: error.message },
+      { error: 'Failed to fetch execution details', message: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -149,10 +149,10 @@ export async function PUT(
           { status: 400 }
         );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error updating execution', error);
     return NextResponse.json(
-      { error: 'Failed to update execution', message: error.message },
+      { error: 'Failed to update execution', message: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

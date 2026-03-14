@@ -1,4 +1,4 @@
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 
@@ -122,12 +122,11 @@ export async function checkRedisHealth(): Promise<HealthCheckResult> {
     };
   }
 
-  const client = createClient({
-    url: redisUrl,
-    socket: {
-      connectTimeout: 2000,
-      reconnectStrategy: () => false,
-    },
+  const client = new Redis(redisUrl, {
+    connectTimeout: 2000,
+    maxRetriesPerRequest: 0,
+    retryStrategy: () => null,
+    lazyConnect: true,
   });
 
   try {
@@ -162,8 +161,10 @@ export async function checkRedisHealth(): Promise<HealthCheckResult> {
       message: error instanceof Error ? error.message : 'Redis connection failed',
     };
   } finally {
-    if (client.isOpen) {
+    try {
       await client.quit();
+    } catch {
+      // Ignore quit errors on already-closed connections
     }
   }
 }

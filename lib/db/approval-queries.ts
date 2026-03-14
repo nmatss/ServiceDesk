@@ -3,7 +3,7 @@
  * Complete CRUD operations and specialized queries
  */
 
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub, sqlDateDiff } from './adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub, sqlDateDiff, type SqlParam } from './adapter';
 import { getDatabaseType } from './config';
 import { Approval, ApprovalHistory, CreateApproval, CreateApprovalHistory } from '../types/database';
 
@@ -103,7 +103,7 @@ export async function getPendingApprovalsWithDetails(userId?: number): Promise<a
     WHERE a.status = 'pending'
   `;
 
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   if (userId) {
     query += ` AND a.assigned_to = ?`;
@@ -170,7 +170,7 @@ export async function updateApprovalStatus(
  */
 export async function updateApproval(approval: Partial<Approval> & { id: number }): Promise<void> {
   const fields: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   if (approval.assigned_to !== undefined) {
     fields.push('assigned_to = ?');
@@ -417,7 +417,7 @@ export async function getApprovalsWithPagination(
   const offset = (page - 1) * limit;
 
   let whereConditions: string[] = [];
-  let params: any[] = [];
+  let params: SqlParam[] = [];
 
   if (filters?.status) {
     whereConditions.push('a.status = ?');

@@ -1,3 +1,4 @@
+import type { SqlParam } from '@/lib/db/adapter';
 /**
  * Database Query Cache with Intelligent Invalidation
  * Caches database query results with automatic invalidation based on data changes
@@ -105,7 +106,7 @@ export class QueryCache {
    */
   async executeQuery<T = any>(
     sql: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: {
       ttl?: number;
       tags?: string[];

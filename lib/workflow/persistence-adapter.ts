@@ -18,7 +18,7 @@ export class WorkflowPersistenceAdapter {
    */
   async getWorkflowDefinition(id: number): Promise<WorkflowDefinition | null> {
     try {
-      const workflow = await executeQueryOne<any>(`
+      const workflow = await executeQueryOne(`
         SELECT
           w.*,
           wd.steps_json
@@ -187,7 +187,7 @@ export class WorkflowPersistenceAdapter {
    */
   async getExecution(id: number): Promise<WorkflowExecution | null> {
     try {
-      const execution = await executeQueryOne<any>(`
+      const execution = await executeQueryOne(`
         SELECT * FROM workflow_executions WHERE id = ?
       `, [id]);
 
@@ -351,7 +351,7 @@ export class WorkflowPersistenceAdapter {
     offset: number = 0
   ): Promise<WorkflowExecution[]> {
     try {
-      const executions = await executeQuery<any>(`
+      const executions = await executeQuery(`
         SELECT * FROM workflow_executions
         WHERE workflow_id = ?
         ORDER BY started_at DESC

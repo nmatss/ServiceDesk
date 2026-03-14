@@ -542,7 +542,7 @@
 
     /* Glassmorphism effect */
     .glass {
-      @apply backdrop-blur-xl bg-white/80 dark:bg-black/40 border border-neutral-200/60 dark:border-white/10 shadow-sm dark:shadow-lg;
+      @apply backdrop-blur-xl bg-white/80 dark:bg-black/40 border border-neutral-200 dark:border-white/10 shadow-sm dark:shadow-lg;
       background-image: var(--gradient-surface);
     }
 
@@ -563,8 +563,12 @@
     }
 
     .bg-pattern {
-      background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.15) 1px, transparent 0);
+      background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.03) 1px, transparent 0);
       background-size: 20px 20px;
+    }
+
+    .dark .bg-pattern {
+      background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.15) 1px, transparent 0);
     }
 
     /* Safe area support for mobile */

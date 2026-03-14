@@ -8,9 +8,12 @@
 import { getDatabaseType } from './config';
 import Database from 'better-sqlite3';
 import { PostgresConnection, getPostgresConnection } from './connection.postgres';
+import type { SqlParam } from './connection.postgres';
 import legacyDb from './connection'; // SQLite connection
 
-export interface QueryResult<T = any> {
+export type { SqlParam };
+
+export interface QueryResult<T = Record<string, unknown>> {
   rows: T[];
   rowCount: number;
 }
@@ -25,10 +28,10 @@ export interface RunResult {
  */
 export interface DatabaseAdapter {
   // Query methods
-  query<T = any>(sql: string, params?: any[]): Promise<T[]> | T[];
-  get<T = any>(sql: string, params?: any[]): Promise<T | undefined> | T | undefined;
-  all<T = any>(sql: string, params?: any[]): Promise<T[]> | T[];
-  run(sql: string, params?: any[]): Promise<RunResult> | RunResult;
+  query<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T[]> | T[];
+  get<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T | undefined> | T | undefined;
+  all<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T[]> | T[];
+  run(sql: string, params?: SqlParam[]): Promise<RunResult> | RunResult;
 
   // Prepared statements
   prepare(sql: string): PreparedStatement;
@@ -45,9 +48,9 @@ export interface DatabaseAdapter {
  * Prepared statement interface
  */
 export interface PreparedStatement {
-  get<T = any>(...params: any[]): Promise<T | undefined> | T | undefined;
-  all<T = any>(...params: any[]): Promise<T[]> | T[];
-  run(...params: any[]): Promise<RunResult> | RunResult;
+  get<T = Record<string, unknown>>(...params: SqlParam[]): Promise<T | undefined> | T | undefined;
+  all<T = Record<string, unknown>>(...params: SqlParam[]): Promise<T[]> | T[];
+  run(...params: SqlParam[]): Promise<RunResult> | RunResult;
 }
 
 /**
@@ -60,37 +63,15 @@ class SQLiteAdapter implements DatabaseAdapter {
     this.db = db;
   }
 
-  private executeAll<T = any>(stmt: any, params?: any[]): T[] {
-    if (typeof stmt.all === 'function') {
-      return (params && params.length > 0 ? stmt.all(...params) : stmt.all()) as T[];
-    }
-
-    if (typeof stmt.get === 'function') {
-      const row = params && params.length > 0 ? stmt.get(...params) : stmt.get();
-      return row == null ? [] : [row as T];
-    }
-
-    return [];
+  private executeAll<T = Record<string, unknown>>(stmt: Database.Statement, params?: SqlParam[]): T[] {
+    return (params && params.length > 0 ? stmt.all(...params) : stmt.all()) as T[];
   }
 
-  private executeGet<T = any>(stmt: any, params?: any[]): T | undefined {
-    if (typeof stmt.get === 'function') {
-      return (params && params.length > 0 ? stmt.get(...params) : stmt.get()) as T | undefined;
-    }
-
-    if (typeof stmt.all === 'function') {
-      const rows = (params && params.length > 0 ? stmt.all(...params) : stmt.all()) as T[];
-      return rows[0];
-    }
-
-    return undefined;
+  private executeGet<T = Record<string, unknown>>(stmt: Database.Statement, params?: SqlParam[]): T | undefined {
+    return (params && params.length > 0 ? stmt.get(...params) : stmt.get()) as T | undefined;
   }
 
-  private executeRun(stmt: any, params?: any[]): RunResult {
-    if (typeof stmt.run !== 'function') {
-      return { changes: 0 };
-    }
-
+  private executeSqliteRun(stmt: Database.Statement, params?: SqlParam[]): RunResult {
     const result = params && params.length > 0 ? stmt.run(...params) : stmt.run();
     return {
       changes: Number(result?.changes ?? 0),
@@ -100,31 +81,31 @@ class SQLiteAdapter implements DatabaseAdapter {
     };
   }
 
-  query<T = any>(sql: string, params?: any[]): T[] {
+  query<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): T[] {
     const stmt = this.db.prepare(sql);
     return this.executeAll<T>(stmt, params);
   }
 
-  get<T = any>(sql: string, params?: any[]): T | undefined {
+  get<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): T | undefined {
     const stmt = this.db.prepare(sql);
     return this.executeGet<T>(stmt, params);
   }
 
-  all<T = any>(sql: string, params?: any[]): T[] {
+  all<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): T[] {
     return this.query<T>(sql, params);
   }
 
-  run(sql: string, params?: any[]): RunResult {
+  run(sql: string, params?: SqlParam[]): RunResult {
     const stmt = this.db.prepare(sql);
-    return this.executeRun(stmt, params);
+    return this.executeSqliteRun(stmt, params);
   }
 
   prepare(sql: string): PreparedStatement {
     const stmt = this.db.prepare(sql);
     return {
-      get: <T = any>(...params: any[]) => this.executeGet<T>(stmt, params),
-      all: <T = any>(...params: any[]) => this.executeAll<T>(stmt, params),
-      run: (...params: any[]) => this.executeRun(stmt, params)
+      get: <T = Record<string, unknown>>(...params: SqlParam[]) => this.executeGet<T>(stmt, params),
+      all: <T = Record<string, unknown>>(...params: SqlParam[]) => this.executeAll<T>(stmt, params),
+      run: (...params: SqlParam[]) => this.executeSqliteRun(stmt, params)
     };
   }
 
@@ -151,22 +132,22 @@ class PostgreSQLAdapter implements DatabaseAdapter {
     this.db = db;
   }
 
-  async query<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  async query<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T[]> {
     // Convert SQLite placeholders (?) to PostgreSQL ($1, $2, etc)
     const convertedSql = this.convertPlaceholders(sql);
     return await this.db.query<T>(convertedSql, params);
   }
 
-  async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
+  async get<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T | undefined> {
     const convertedSql = this.convertPlaceholders(sql);
     return await this.db.get<T>(convertedSql, params);
   }
 
-  async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  async all<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T[]> {
     return await this.query<T>(sql, params);
   }
 
-  async run(sql: string, params?: any[]): Promise<RunResult> {
+  async run(sql: string, params?: SqlParam[]): Promise<RunResult> {
     const convertedSql = this.convertPlaceholders(sql);
     return await this.db.run(convertedSql, params);
   }
@@ -174,16 +155,16 @@ class PostgreSQLAdapter implements DatabaseAdapter {
   prepare(sql: string): PreparedStatement {
     const convertedSql = this.convertPlaceholders(sql);
     return {
-      get: async <T = any>(...params: any[]) => await this.db.get<T>(convertedSql, params),
-      all: async <T = any>(...params: any[]) => await this.db.all<T>(convertedSql, params),
-      run: async (...params: any[]) => await this.db.run(convertedSql, params)
+      get: async <T = Record<string, unknown>>(...params: SqlParam[]) => await this.db.get<T>(convertedSql, params),
+      all: async <T = Record<string, unknown>>(...params: SqlParam[]) => await this.db.all<T>(convertedSql, params),
+      run: async (...params: SqlParam[]) => await this.db.run(convertedSql, params)
     };
   }
 
   async transaction<T>(callback: (db: DatabaseAdapter) => Promise<T>): Promise<T> {
     // Acquire a dedicated client so every query in the callback runs on the
     // same connection (and therefore inside the same transaction).
-    const pool = (this.db as any).pool as import('pg').Pool;
+    const pool = (this.db as unknown as { pool: import('pg').Pool }).pool;
     if (!pool || typeof pool.connect !== 'function') {
       // Fallback: delegate to PostgresConnection.transaction which already
       // does client-scoped work internally.
@@ -196,25 +177,25 @@ class PostgreSQLAdapter implements DatabaseAdapter {
 
       const self = this; // for convertPlaceholders access
       const clientAdapter: DatabaseAdapter = {
-        query: async <R = any>(sql: string, params?: any[]): Promise<R[]> => {
+        query: async <R = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<R[]> => {
           const converted = self.convertPlaceholders(sql);
           const result = await client.query(converted, params || []);
           return result.rows as R[];
         },
-        get: async <R = any>(sql: string, params?: any[]): Promise<R | undefined> => {
+        get: async <R = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<R | undefined> => {
           const converted = self.convertPlaceholders(sql);
           const result = await client.query(converted, params || []);
           return result.rows[0] as R | undefined;
         },
-        all: async <R = any>(sql: string, params?: any[]): Promise<R[]> => {
+        all: async <R = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<R[]> => {
           const converted = self.convertPlaceholders(sql);
           const result = await client.query(converted, params || []);
           return result.rows as R[];
         },
-        run: async (sql: string, params?: any[]): Promise<RunResult> => {
+        run: async (sql: string, params?: SqlParam[]): Promise<RunResult> => {
           const converted = self.convertPlaceholders(sql);
           const result = await client.query(converted, params || []);
-          const firstRow = result.rows[0] as any;
+          const firstRow = result.rows[0] as Record<string, unknown> | undefined;
           return {
             changes: result.rowCount ?? 0,
             lastInsertRowid: firstRow?.id != null ? Number(firstRow.id) : undefined,
@@ -223,17 +204,17 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         prepare: (sql: string): PreparedStatement => {
           const converted = self.convertPlaceholders(sql);
           return {
-            get: async <R = any>(...params: any[]): Promise<R | undefined> => {
+            get: async <R = Record<string, unknown>>(...params: SqlParam[]): Promise<R | undefined> => {
               const result = await client.query(converted, params);
               return result.rows[0] as R | undefined;
             },
-            all: async <R = any>(...params: any[]): Promise<R[]> => {
+            all: async <R = Record<string, unknown>>(...params: SqlParam[]): Promise<R[]> => {
               const result = await client.query(converted, params);
               return result.rows as R[];
             },
-            run: async (...params: any[]): Promise<RunResult> => {
+            run: async (...params: SqlParam[]): Promise<RunResult> => {
               const result = await client.query(converted, params);
-              const firstRow = result.rows[0] as any;
+              const firstRow = result.rows[0] as Record<string, unknown> | undefined;
               return {
                 changes: result.rowCount ?? 0,
                 lastInsertRowid: firstRow?.id != null ? Number(firstRow.id) : undefined,
@@ -359,9 +340,9 @@ export function getDbType(): 'sqlite' | 'postgresql' {
 /**
  * Helper: Execute query with automatic adapter selection
  */
-export async function executeQuery<T = any>(
+export async function executeQuery<T = any>( // eslint-disable-line @typescript-eslint/no-explicit-any
   sql: string,
-  params?: any[]
+  params?: SqlParam[]
 ): Promise<T[]> {
   const db = getDatabase();
   const result = db.query<T>(sql, params);
@@ -371,9 +352,9 @@ export async function executeQuery<T = any>(
 /**
  * Helper: Execute single row query
  */
-export async function executeQueryOne<T = any>(
+export async function executeQueryOne<T = any>( // eslint-disable-line @typescript-eslint/no-explicit-any
   sql: string,
-  params?: any[]
+  params?: SqlParam[]
 ): Promise<T | undefined> {
   const db = getDatabase();
   const result = db.get<T>(sql, params);
@@ -385,7 +366,7 @@ export async function executeQueryOne<T = any>(
  */
 export async function executeRun(
   sql: string,
-  params?: any[]
+  params?: SqlParam[]
 ): Promise<RunResult> {
   const db = getDatabase();
   const result = db.run(sql, params);

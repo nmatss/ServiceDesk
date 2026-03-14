@@ -64,7 +64,7 @@ export async function traceAPICall<T>(
   method: string,
   path: string,
   fn: () => Promise<T>,
-  attributes: Record<string, any> = {}
+  attributes: Record<string, unknown> = {}
 ): Promise<T> {
   const { ddTracer } = await import('../datadog-tracer');
 

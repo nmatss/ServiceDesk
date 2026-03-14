@@ -111,7 +111,7 @@ export default function ProblemsPage() {
       if (problemsData.success && problemsData.data) {
         // API returns { success, data: { data: [...], total, page, limit, totalPages, hasNext, hasPrev } }
         const paginated = problemsData.data
-        const problemsList = (paginated.data || []).map((p: any) => ({
+        const problemsList = (paginated.data || []).map((p: Record<string, unknown> & { priority?: { name?: string }; category?: { name?: string }; assignee?: { name?: string }; assigned_group?: { name?: string } }) => ({
           ...p,
           // Map nested relations to flat fields expected by the component
           priority: p.priority?.name?.toLowerCase() || '',

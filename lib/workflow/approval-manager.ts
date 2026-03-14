@@ -22,7 +22,7 @@ export interface ApprovalRequest {
   config: ApprovalNodeConfig;
   requestedBy: number;
   ticketId?: number;
-  context: Record<string, unknown>;
+  context: any;
 }
 
 export interface ApprovalResponse {
@@ -254,7 +254,7 @@ export class ApprovalManager {
   /**
    * Generate WhatsApp approval message
    */
-  generateWhatsAppMessage(approval: WorkflowApproval, context: Record<string, unknown>): string {
+  generateWhatsAppMessage(approval: WorkflowApproval, context: any): string {
     const approveLink = this.generateApprovalLink(approval.id, 48);
     const rejectLink = this.generateApprovalLink(approval.id, 48);
 
@@ -285,7 +285,7 @@ This link expires in 48 hours.
     stepId: string,
     config: ApprovalNodeConfig,
     _requestedBy: number,
-    context: Record<string, unknown>
+    context: any
   ): Promise<WorkflowApproval[]> {
     const approvers = await this.resolveApprovers(config.approvers, context);
     const approvals: WorkflowApproval[] = [];
@@ -318,7 +318,7 @@ This link expires in 48 hours.
    */
   private async resolveApprovers(
     targets: ApprovalTarget[],
-    context: Record<string, unknown>
+    context: any
   ): Promise<Array<{ userId: number; type: string; order?: number; isOptional?: boolean }>> {
     const approvers: Array<{
       userId: number;
@@ -388,7 +388,7 @@ This link expires in 48 hours.
   private async sendApprovalNotifications(
     approvals: WorkflowApproval[],
     _config: ApprovalNodeConfig,
-    context: Record<string, unknown>
+    context: any
   ): Promise<void> {
     for (const approval of approvals) {
       const approver = await this.getUser(approval.approverId);
@@ -420,7 +420,7 @@ This link expires in 48 hours.
     email: string,
     _approval: WorkflowApproval,
     approvalLink: string,
-    context: Record<string, unknown>
+    context: any
   ): Promise<void> {
     const approveLink = `${approvalLink}&action=approve`;
     const rejectLink = `${approvalLink}&action=reject`;
@@ -527,7 +527,7 @@ This link expires in 48 hours.
     executionId: number,
     escalationConfig: EscalationConfig,
     approvals: WorkflowApproval[],
-    context: Record<string, unknown>
+    context: any
   ): void {
     escalationConfig.levels.forEach((level, index) => {
       const timeoutMs = level.timeoutHours * 60 * 60 * 1000;
@@ -630,7 +630,7 @@ This link expires in 48 hours.
 
   private async getApproval(id: number): Promise<WorkflowApproval | null> {
     try {
-      const row = await executeQueryOne<any>(
+      const row = await executeQueryOne(
         `SELECT
           id,
           execution_id as executionId,
@@ -742,7 +742,7 @@ This link expires in 48 hours.
 
   private async getApprovalsByExecution(executionId: number): Promise<WorkflowApproval[]> {
     try {
-      const rows = await executeQuery<any>(
+      const rows = await executeQuery(
         `SELECT
           id,
           execution_id as executionId,
@@ -778,7 +778,7 @@ This link expires in 48 hours.
 
   private async getUser(userId: number): Promise<User | null> {
     try {
-      const row = await executeQueryOne<any>(
+      const row = await executeQueryOne(
         `SELECT
           u.id,
           u.email,
@@ -810,7 +810,7 @@ This link expires in 48 hours.
   private async getUsersByRole(role: string): Promise<number[]> {
     try {
       // First, try to get users by the basic role column
-      let rows = await executeQuery<any>(
+      let rows = await executeQuery(
         `SELECT id
         FROM users
         WHERE role = ? AND is_active = ${sqlTrue()}`,
@@ -819,7 +819,7 @@ This link expires in 48 hours.
 
       // If no results and we have a roles table, try the role-based system
       if (rows.length === 0) {
-        rows = await executeQuery<any>(
+        rows = await executeQuery(
           `SELECT DISTINCT u.id
           FROM users u
           INNER JOIN user_roles ur ON ur.user_id = u.id
@@ -838,7 +838,7 @@ This link expires in 48 hours.
 
   private async getUsersByDepartment(departmentId: number): Promise<number[]> {
     try {
-      const rows = await executeQuery<any>(
+      const rows = await executeQuery(
         `SELECT DISTINCT u.id
         FROM users u
         INNER JOIN user_departments ud ON ud.user_id = u.id
@@ -855,7 +855,7 @@ This link expires in 48 hours.
     }
   }
 
-  private resolveDynamicValue(expression: string, context: Record<string, unknown>): unknown {
+  private resolveDynamicValue(expression: string, context: any): unknown {
     // Simple variable resolution - can be enhanced with full expression parser
     const varMatch = expression.match(/\$\{(.+?)\}/);
     if (varMatch && varMatch[1]) {
@@ -877,7 +877,7 @@ This link expires in 48 hours.
   private async sendInAppNotification(
     userId: number,
     approval: WorkflowApproval,
-    _context: Record<string, unknown>
+    _context: any
   ): Promise<void> {
     try {
       const title = `Approval Request #${approval.id}`;
@@ -916,7 +916,7 @@ This link expires in 48 hours.
   private async sendEscalationNotifications(
     approvals: WorkflowApproval[],
     level: EscalationLevel,
-    _context: Record<string, unknown>
+    _context: any
   ): Promise<void> {
     logger.warn('Escalation notifications not fully implemented', {
       approvalCount: approvals.length,
@@ -926,7 +926,7 @@ This link expires in 48 hours.
 
   private async sendTimeoutNotification(
     approvals: WorkflowApproval[],
-    _context: Record<string, unknown>
+    _context: any
   ): Promise<void> {
     logger.warn('Timeout notification not fully implemented', {
       approvalCount: approvals.length,
@@ -937,7 +937,7 @@ This link expires in 48 hours.
   private async notifyWorkflowEngine(
     executionId: number,
     event: string,
-    _data: Record<string, unknown>
+    _data: any
   ): Promise<void> {
     logger.warn('Workflow engine notification not implemented', { executionId, event });
   }

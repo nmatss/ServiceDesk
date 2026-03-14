@@ -93,7 +93,7 @@ interface SeasonalPattern {
  * PostgreSQL uses inline INTERVAL (timeframe is sanitized and interpolated).
  * SQLite uses datetime('now', '-' || ? || '') with a parameter.
  */
-function buildDateExpr(timeframe: string, isPg: boolean): { expr: string; params: any[] } {
+function buildDateExpr(timeframe: string, isPg: boolean): { expr: string; params: SqlParam[] } {
   if (isPg) {
     const sanitized = timeframe.replace(/[^a-zA-Z0-9 ]/g, '');
     return { expr: `NOW() - INTERVAL '${sanitized}'`, params: [] };
@@ -239,7 +239,7 @@ export class SearchOptimizer {
       // For PG: json_extract(satisfaction.properties, '$.search_event_id') equivalent
       const satSearchEventId = jsonField('satisfaction.properties', 'search_event_id', isPg);
 
-      const patterns = await executeQuery<any>(`
+      const patterns = await executeQuery(`
         SELECT
           ${queryField} as query,
           COUNT(*) as frequency,
@@ -284,7 +284,7 @@ export class SearchOptimizer {
       const resultsField = jsonField('properties', 'results_count', isPg);
       const clickWindow = dateAdd5Min('searches.created_at', isPg);
 
-      const popular = await executeQuery<any>(`
+      const popular = await executeQuery(`
         SELECT
           ${queryField} as query,
           COUNT(*) as search_count,
@@ -327,7 +327,7 @@ export class SearchOptimizer {
       const satSearchEventId = jsonField('satisfaction.properties', 'search_event_id', isPg);
       const satRatingField = jsonField('satisfaction.properties', 'rating', isPg);
 
-      const failed = await executeQuery<any>(`
+      const failed = await executeQuery(`
         SELECT
           ${queryField} as query,
           COUNT(*) as frequency,
@@ -377,7 +377,7 @@ export class SearchOptimizer {
       const resultsField = jsonField('properties', 'results_count', isPg);
       const satRatingField = jsonField('properties', 'rating', isPg);
 
-      const metrics = await executeQueryOne<any>(`
+      const metrics = await executeQueryOne(`
         SELECT
           AVG(CAST(${searchTimeField} AS INTEGER)) as avg_search_time,
           AVG(CAST(${resultsField} AS INTEGER)) as avg_results_count,
@@ -390,7 +390,7 @@ export class SearchOptimizer {
           AND searches.created_at >= ${dateExpr}
       `, [...dateParams, ...dateParams]);
 
-      const satisfaction = await executeQueryOne<any>(`
+      const satisfaction = await executeQueryOne(`
         SELECT AVG(CAST(${satRatingField} AS INTEGER)) as avg_satisfaction
         FROM analytics_events
         WHERE event_type = 'search_satisfaction'
@@ -530,7 +530,7 @@ export class SearchOptimizer {
       // Escape LIKE wildcards in user input
       const escapedQuery = query.replace(/%/g, '\\%').replace(/_/g, '\\_');
 
-      const similar = await executeQuery<any>(`
+      const similar = await executeQuery(`
         SELECT
           ${queryField} as query,
           COUNT(*) as frequency,
@@ -572,7 +572,7 @@ export class SearchOptimizer {
       const queryField = jsonField('properties', 'query', isPg);
       const resultsField = jsonField('properties', 'results_count', isPg);
 
-      const gaps = await executeQuery<any>(`
+      const gaps = await executeQuery(`
         SELECT
           ${queryField} as query,
           COUNT(*) as frequency,
@@ -607,7 +607,7 @@ export class SearchOptimizer {
         ? `EXTRACT(HOUR FROM created_at)::INTEGER`
         : `CAST(strftime('%H', created_at) AS INTEGER)`;
 
-      const behavior = await executeQueryOne<any>(`
+      const behavior = await executeQueryOne(`
         SELECT
           COUNT(*) * 1.0 / NULLIF(COUNT(DISTINCT session_id), 0) as avg_queries_per_session,
           AVG(LENGTH(${queryField})) as avg_query_length
@@ -616,7 +616,7 @@ export class SearchOptimizer {
           AND created_at >= ${dateExpr}
       `, [...dateParams]);
 
-      const resultTypes = await executeQuery<any>(`
+      const resultTypes = await executeQuery(`
         SELECT
           entity_type,
           COUNT(*) as clicks
@@ -626,7 +626,7 @@ export class SearchOptimizer {
         GROUP BY entity_type
       `, [...dateParams]);
 
-      const hourly = await executeQuery<any>(`
+      const hourly = await executeQuery(`
         SELECT
           ${hourExpr} as hour,
           COUNT(*) as searches

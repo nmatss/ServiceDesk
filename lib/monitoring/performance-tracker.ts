@@ -340,7 +340,7 @@ declare global {
     gtag?: (
       command: string,
       eventName: string,
-      params: Record<string, any>
+      params: Record<string, unknown>
     ) => void
   }
 }

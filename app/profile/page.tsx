@@ -117,10 +117,10 @@ export default function ProfilePage() {
         const tickets = data.tickets || []
 
         const totalTickets = tickets.length
-        const openTickets = tickets.filter((t: any) =>
+        const openTickets = tickets.filter((t: { status: string }) =>
           t.status === 'open' || t.status === 'in_progress'
         ).length
-        const resolvedTickets = tickets.filter((t: any) =>
+        const resolvedTickets = tickets.filter((t: { status: string }) =>
           t.status === 'resolved' || t.status === 'closed'
         ).length
 
@@ -136,7 +136,7 @@ export default function ProfilePage() {
     }
   }
 
-  const handleAvatarUpload = (file: any) => {
+  const handleAvatarUpload = (file: { url?: string }) => {
     if (file.url) {
       setAvatarUrl(file.url)
       success('Sucesso', 'Avatar atualizado com sucesso')

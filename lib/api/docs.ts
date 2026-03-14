@@ -64,7 +64,7 @@ interface OpenAPIParameter {
   in: 'query' | 'header' | 'path' | 'cookie'
   description?: string
   required?: boolean
-  schema: Record<string, unknown>
+  schema: Record<string, any>
   example?: unknown
 }
 
@@ -75,7 +75,7 @@ interface OpenAPIRequestBody {
 }
 
 interface OpenAPIMediaType {
-  schema: Record<string, unknown>
+  schema: Record<string, any>
   example?: unknown
   examples?: Record<string, OpenAPIExample>
 }
@@ -94,11 +94,11 @@ interface OpenAPIResponse {
 
 interface OpenAPIHeader {
   description?: string
-  schema: Record<string, unknown>
+  schema: Record<string, any>
 }
 
 interface OpenAPIComponents {
-  schemas: Record<string, Record<string, unknown>>
+  schemas: Record<string, Record<string, any>>
   responses: Record<string, OpenAPIResponse>
   parameters: Record<string, OpenAPIParameter>
   examples: Record<string, OpenAPIExample>
@@ -113,7 +113,7 @@ interface OpenAPISecurityScheme {
   bearerFormat?: string
   in?: 'query' | 'header' | 'cookie'
   name?: string
-  flows?: Record<string, unknown>
+  flows?: Record<string, any>
   openIdConnectUrl?: string
 }
 
@@ -298,8 +298,8 @@ export class OpenAPIGenerator {
     ]
   }
 
-  private generateSchemas(): Record<string, Record<string, unknown>> {
-    const schemas: Record<string, Record<string, unknown>> = {}
+  private generateSchemas(): Record<string, Record<string, any>> {
+    const schemas: Record<string, Record<string, any>> = {}
 
     // Convert Zod schemas to OpenAPI schemas
     Object.entries(SchemaRegistry).forEach(([name, schema]) => {
@@ -509,9 +509,9 @@ export class OpenAPIGenerator {
     }
   }
 
-  private zodToOpenAPI(schema: z.ZodSchema): Record<string, unknown> {
+  private zodToOpenAPI(schema: z.ZodSchema): Record<string, any> {
     if (schema instanceof z.ZodString) {
-      const result: Record<string, unknown> = { type: 'string' }
+      const result: Record<string, any> = { type: 'string' }
 
       // Add constraints
       const def = schema._def as { minLength?: { value: number } | null; maxLength?: { value: number } | null; checks?: Array<{ kind: string; regex?: RegExp }> }
@@ -541,7 +541,7 @@ export class OpenAPIGenerator {
     }
 
     if (schema instanceof z.ZodNumber) {
-      const result: Record<string, unknown> = { type: 'number' }
+      const result: Record<string, any> = { type: 'number' }
 
       const def = schema._def as { checks?: Array<{ kind: string; value?: number }> }
       if (def.checks) {
@@ -565,7 +565,7 @@ export class OpenAPIGenerator {
 
     if (schema instanceof z.ZodArray) {
       const def = schema._def as unknown as { type: z.ZodSchema; minLength?: { value: number } | null; maxLength?: { value: number } | null }
-      const result: Record<string, unknown> = {
+      const result: Record<string, any> = {
         type: 'array',
         items: this.zodToOpenAPI(def.type),
       }
@@ -581,7 +581,7 @@ export class OpenAPIGenerator {
     }
 
     if (schema instanceof z.ZodObject) {
-      const properties: Record<string, Record<string, unknown>> = {}
+      const properties: Record<string, Record<string, any>> = {}
       const required: string[] = []
 
       const shape = schema.shape as Record<string, z.ZodSchema>
@@ -594,7 +594,7 @@ export class OpenAPIGenerator {
         }
       }
 
-      const result: Record<string, unknown> = {
+      const result: Record<string, any> = {
         type: 'object',
         properties,
       }

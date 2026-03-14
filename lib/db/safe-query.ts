@@ -8,7 +8,7 @@
  * - Type-safe query construction
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 // ============================================
@@ -206,7 +206,7 @@ export function buildSafeSelectQuery(options: QueryOptions): {
   }
 
   let sql = `SELECT ${selectClause} FROM ${safeTable}`;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   // Build WHERE clause
   if (where && where.length > 0) {
@@ -309,19 +309,19 @@ export async function executeSafeSelectOne<T = any>(options: QueryOptions): Prom
  */
 export function buildSafeUpdateQuery(
   table: string,
-  updates: Record<string, any>,
+  updates: Record<string, unknown>,
   where: WhereCondition[]
-): { sql: string; params: any[] } {
+): { sql: string; params: SqlParam[] } {
   const safeTable = sanitizeTableName(table);
 
   // Validate and build SET clause
   const setClauses: string[] = [];
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   for (const [column, value] of Object.entries(updates)) {
     const safeColumn = sanitizeColumnName(safeTable, column);
     setClauses.push(`${safeColumn} = ?`);
-    params.push(value);
+    params.push(value as SqlParam);
   }
 
   if (setClauses.length === 0) {
@@ -358,7 +358,7 @@ export function buildSafeUpdateQuery(
  */
 export async function executeSafeUpdate(
   table: string,
-  updates: Record<string, any>,
+  updates: Record<string, unknown>,
   where: WhereCondition[]
 ): Promise<number> {
   const { sql, params } = buildSafeUpdateQuery(table, updates, where);
@@ -378,7 +378,7 @@ export async function executeSafeUpdate(
 export function buildSafeDeleteQuery(
   table: string,
   where: WhereCondition[]
-): { sql: string; params: any[] } {
+): { sql: string; params: SqlParam[] } {
   const safeTable = sanitizeTableName(table);
 
   // Build WHERE clause (required for DELETE)
@@ -387,7 +387,7 @@ export function buildSafeDeleteQuery(
   }
 
   let sql = `DELETE FROM ${safeTable}`;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
   const whereClauses: string[] = [];
 
   for (const condition of where) {

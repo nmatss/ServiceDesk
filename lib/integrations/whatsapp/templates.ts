@@ -12,7 +12,7 @@
 
 import { WhatsAppBusinessAPI } from './business-api';
 import logger from '@/lib/monitoring/structured-logger';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 
 export interface WhatsAppTemplate {
   id?: number;
@@ -22,7 +22,7 @@ export interface WhatsAppTemplate {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAUSED' | 'DISABLED';
   components: TemplateComponent[];
   variables?: Record<string, string>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
 }
@@ -140,7 +140,7 @@ export class WhatsAppTemplateManager {
   }): Promise<WhatsAppTemplate[]> {
     try {
       let query = 'SELECT * FROM whatsapp_templates WHERE 1=1';
-      const params: any[] = [];
+      const params: SqlParam[] = [];
 
       if (filters?.status) {
         query += ' AND status = ?';
@@ -159,7 +159,7 @@ export class WhatsAppTemplateManager {
 
       query += ' ORDER BY created_at DESC';
 
-      const templates = await executeQuery<any>(query, params);
+      const templates = await executeQuery(query, params);
 
       return templates.map((t) => ({
         id: t.id,
@@ -184,7 +184,7 @@ export class WhatsAppTemplateManager {
    */
   async getTemplate(name: string, language: string = 'pt_BR'): Promise<WhatsAppTemplate | null> {
     try {
-      const template = await executeQueryOne<any>(
+      const template = await executeQueryOne(
         'SELECT * FROM whatsapp_templates WHERE name = ? AND language = ? LIMIT 1',
         [name, language]
       );

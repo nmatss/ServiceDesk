@@ -339,7 +339,7 @@ class PerformanceOptimizer {
   }
 
   // Bundle optimization helpers
-  public async loadChunk(chunkName: string): Promise<unknown> {
+  public async loadChunk(chunkName: string): Promise<any> {
     try {
       // Dynamic import with chunk naming
       const loadedModule = await import(/* webpackChunkName: "[request]" */ `@/components/${chunkName}`);

@@ -12,9 +12,8 @@ import {
   knowledgeBaseMetrics,
   systemMetrics,
 } from './datadog-metrics'
-import { traceQuery, createTracedDatabase } from './datadog-database'
-import db from '../db/connection'
-import type Database from 'better-sqlite3'
+import { traceQuery } from './datadog-database'
+import { executeQuery, executeQueryOne } from '../db/adapter'
 
 // ============================================================================
 // Type Definitions
@@ -104,12 +103,12 @@ export async function exampleCreateTicketAPI(request: Request): Promise<Response
  * Example: Trace individual database queries
  */
 export async function exampleDatabaseQuery(): Promise<DatabaseRow[]> {
-  // Method 1: Manual tracing
+  // Method 1: Using adapter with tracing wrapper
   const users = await traceQuery<DatabaseRow[]>(
     'SELECT * FROM users WHERE role = ?',
-    () => {
-      const result = db.prepare('SELECT * FROM users WHERE role = ?').all('admin')
-      return result as DatabaseRow[]
+    async () => {
+      const result = await executeQuery<DatabaseRow>('SELECT * FROM users WHERE role = ?', ['admin'])
+      return result
     },
     'SELECT'
   )
@@ -118,56 +117,42 @@ export async function exampleDatabaseQuery(): Promise<DatabaseRow[]> {
 }
 
 /**
- * Example: Use TracedDatabase wrapper (recommended)
+ * Example: Use adapter pattern (recommended for cross-DB compatibility)
  */
-export function exampleTracedDatabase(): { user: DatabaseRow | undefined; tickets: DatabaseRow[]; result: Database.RunResult } {
-  // Create a traced database instance
-  const tracedDb = createTracedDatabase(db)
+export async function exampleTracedDatabase(): Promise<{ user: DatabaseRow | undefined; tickets: DatabaseRow[] }> {
+  // Use adapter pattern for cross-database compatibility
+  const user = await executeQueryOne<DatabaseRow>('SELECT * FROM users WHERE id = ?', [1])
 
-  // All queries are now automatically traced
-  const user = tracedDb.prepare('SELECT * FROM users WHERE id = ?').get(1) as DatabaseRow | undefined
+  const tickets = await executeQuery<DatabaseRow>('SELECT * FROM tickets WHERE status = ?', ['open'])
 
-  const tickets = tracedDb.prepare('SELECT * FROM tickets WHERE status = ?').all('open') as DatabaseRow[]
-
-  const result = tracedDb.prepare('INSERT INTO tickets (title, description) VALUES (?, ?)').run('Example', 'Description') as Database.RunResult
-
-  return { user, tickets, result }
+  return { user, tickets }
 }
 
 /**
- * Example: Trace transactions
+ * Example: Trace transactions using adapter
  */
-export function exampleDatabaseTransaction(): { ticketId: number | bigint; commentId: number | bigint } {
-  const tracedDb = createTracedDatabase(db)
+export async function exampleDatabaseTransaction(): Promise<{ ticketId: number; commentId: number }> {
+  const { executeTransaction } = await import('../db/adapter')
+  const { executeRun: txRun } = await import('../db/adapter')
 
-  interface TicketTransactionData {
-    title: string
-    description: string
-  }
+  // Use adapter transaction for cross-DB compatibility
+  return executeTransaction(async () => {
+    const ticketResult = await txRun(
+      'INSERT INTO tickets (title, description) VALUES (?, ?)',
+      ['Test', 'Test']
+    )
 
-  interface CommentTransactionData {
-    content: string
-  }
+    const ticketId = ticketResult.lastInsertRowid ?? 0
 
-  const insertTicketWithComment = tracedDb.transaction((ticketData: TicketTransactionData, commentData: CommentTransactionData) => {
-    const ticketResult = tracedDb
-      .prepare('INSERT INTO tickets (title, description) VALUES (?, ?)')
-      .run(ticketData.title, ticketData.description) as Database.RunResult
+    const commentResult = await txRun(
+      'INSERT INTO comments (content, ticket_id) VALUES (?, ?)',
+      ['First comment', ticketId]
+    )
 
-    const commentResult = tracedDb
-      .prepare('INSERT INTO comments (content, ticket_id) VALUES (?, ?)')
-      .run(commentData.content, ticketResult.lastInsertRowid) as Database.RunResult
+    const commentId = commentResult.lastInsertRowid ?? 0
 
-    return { ticketId: ticketResult.lastInsertRowid, commentId: commentResult.lastInsertRowid }
+    return { ticketId: Number(ticketId), commentId: Number(commentId) }
   })
-
-  // Execute the transaction (automatically traced)
-  const result = insertTicketWithComment(
-    { title: 'Test', description: 'Test' },
-    { content: 'First comment' }
-  )
-
-  return result
 }
 
 // ============================================================================
@@ -184,10 +169,10 @@ export async function exampleCustomOperation(): Promise<{ checked: number; durat
       const startTime = Date.now()
 
       // Check SLA for all open tickets
-      const openTickets = db.prepare('SELECT * FROM tickets WHERE status = ?').all('open') as Ticket[]
+      const openTickets = await executeQuery<Ticket>('SELECT * FROM tickets WHERE status = ?', ['open'])
 
       for (const ticket of openTickets) {
-        const slaPolicy = db.prepare('SELECT * FROM sla_policies WHERE id = ?').get(ticket.slaId) as SLAPolicy | undefined
+        const slaPolicy = await executeQueryOne<SLAPolicy>('SELECT * FROM sla_policies WHERE id = ?', [ticket.slaId])
 
         if (slaPolicy && isSLABreached(ticket, slaPolicy)) {
           // Record SLA breach metric

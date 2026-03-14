@@ -363,7 +363,7 @@ Responda em JSON válido:
   };
 
   // Utility methods for template processing
-  static processTemplate(template: PromptTemplate, context: Record<string, any>): string {
+  static processTemplate(template: PromptTemplate, context: any): string {
     let processed = template.template;
 
     // Simple handlebars-like processing
@@ -396,8 +396,8 @@ Responda em JSON válido:
     return processed;
   }
 
-  static getNestedProperty(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
+  static getNestedProperty(obj: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<any>((current, key) => current?.[key], obj); // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 
   static validateTemplate(template: PromptTemplate): boolean {

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, context: RouteParams) {
     }
 
     // Check if article exists
-    const article = await executeQueryOne<Record<string, any>>(
+    const article = await executeQueryOne<{ id: number; title: string; author_id: number; status: string; [key: string]: unknown }>(
       'SELECT * FROM kb_articles WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL)',
       [articleId, tenantContext.id]
     );

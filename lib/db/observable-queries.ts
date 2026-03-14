@@ -8,7 +8,7 @@
  * - Slow query detection
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, type SqlParam } from '@/lib/db/adapter';
 import { trackDatabaseQuery } from '../monitoring/observability';
 
 // ========================
@@ -42,7 +42,7 @@ export const observableQuery = {
    */
   async all<T = any>(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: QueryOptions
   ): Promise<T[]> {
     return trackDatabaseQuery(
@@ -59,7 +59,7 @@ export const observableQuery = {
    */
   async get<T = any>(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: QueryOptions
   ): Promise<T | undefined> {
     return trackDatabaseQuery(
@@ -76,7 +76,7 @@ export const observableQuery = {
    */
   async run(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: QueryOptions
   ): Promise<{ lastInsertRowid: number; changes: number }> {
     return trackDatabaseQuery(
@@ -153,19 +153,19 @@ export async function findById<T>(
 export async function findAll<T>(
   table: string,
   filters?: {
-    where?: Record<string, any>;
+    where?: Record<string, unknown>;
     orderBy?: string;
     limit?: number;
     offset?: number;
   }
 ): Promise<T[]> {
   let query = `SELECT * FROM ${table}`;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   // Build WHERE clause
   if (filters?.where) {
     const conditions = Object.entries(filters.where).map(([key, value]) => {
-      params.push(value);
+      params.push(value as SqlParam);
       return `${key} = ?`;
     });
     if (conditions.length > 0) {
@@ -204,11 +204,11 @@ export async function findAll<T>(
  */
 export async function insert(
   table: string,
-  data: Record<string, any>
+  data: any
 ): Promise<number> {
   const columns = Object.keys(data);
   const placeholders = columns.map(() => '?').join(', ');
-  const values = Object.values(data);
+  const values = Object.values(data) as SqlParam[];
 
   const query = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
 
@@ -231,11 +231,11 @@ export async function insert(
 export async function update(
   table: string,
   id: number,
-  data: Record<string, any>
+  data: any
 ): Promise<number> {
   const columns = Object.keys(data);
   const setClause = columns.map((col) => `${col} = ?`).join(', ');
-  const values = [...Object.values(data), id];
+  const values = [...Object.values(data) as SqlParam[], id];
 
   const query = `UPDATE ${table} SET ${setClause} WHERE id = ?`;
 
@@ -279,14 +279,14 @@ export async function deleteById(
  */
 export async function count(
   table: string,
-  where?: Record<string, any>
+  where?: Record<string, unknown>
 ): Promise<number> {
   let query = `SELECT COUNT(*) as count FROM ${table}`;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   if (where) {
     const conditions = Object.entries(where).map(([key, value]) => {
-      params.push(value);
+      params.push(value as SqlParam);
       return `${key} = ?`;
     });
     if (conditions.length > 0) {
@@ -316,7 +316,7 @@ export async function count(
  */
 export async function batchInsert(
   table: string,
-  records: Record<string, any>[]
+  records: Record<string, unknown>[]
 ): Promise<number[]> {
   if (records.length === 0) return [];
 
@@ -332,7 +332,7 @@ export async function batchInsert(
     async (tx) => {
       const ids: number[] = [];
       for (const record of records) {
-        const values = columns.map((col) => record[col]);
+        const values = columns.map((col) => record[col]) as SqlParam[];
         const result = await tx.executeRun(insertSql, values);
         ids.push(Number(result.lastInsertRowid || 0));
       }
@@ -346,7 +346,7 @@ export async function batchInsert(
  */
 export async function batchUpdate(
   table: string,
-  updates: Array<{ id: number; data: Record<string, any> }>
+  updates: Array<{ id: number; data: any }>
 ): Promise<number> {
   if (updates.length === 0) return 0;
 
@@ -358,7 +358,7 @@ export async function batchUpdate(
       for (const upd of updates) {
         const columns = Object.keys(upd.data);
         const setClause = columns.map((col) => `${col} = ?`).join(', ');
-        const values = [...Object.values(upd.data), upd.id];
+        const values = [...Object.values(upd.data) as SqlParam[], upd.id];
 
         const result = await tx.executeRun(
           `UPDATE ${table} SET ${setClause} WHERE id = ?`,

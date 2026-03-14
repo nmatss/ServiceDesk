@@ -125,7 +125,7 @@ export default function AdminUsersPage() {
     {
       key: 'actions',
       label: 'Ações',
-      render: (_value: any, row: any) => (
+      render: (_value: unknown, row: { id: number; name: string; [key: string]: unknown }) => (
         <div className="flex space-x-2">
           <Button
             variant="secondary"

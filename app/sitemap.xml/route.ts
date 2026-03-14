@@ -68,7 +68,7 @@ export async function GET(_request: NextRequest) {
     ]
 
     // Add knowledge articles to sitemap
-    const articlePages = articles.map((article: any) => ({
+    const articlePages = articles.map((article: { slug?: string; id: number; updated_at?: string }) => ({
       url: `${baseUrl}/knowledge/${article.slug || article.id}`,
       lastModified: new Date(article.updated_at || Date.now()).toISOString(),
       changeFrequency: 'weekly',

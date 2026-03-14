@@ -299,7 +299,7 @@ export class DataPortabilityService {
         ? [startDate.toISOString(), endDate.toISOString()]
         : [];
 
-      const stats = await executeQueryOne<any>(`
+      const stats = await executeQueryOne(`
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN new_values LIKE '%"format":"json"%' THEN 1 ELSE 0 END) as json_count,

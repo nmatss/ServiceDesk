@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { CreateNotification, Notification, NotificationWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -52,7 +52,7 @@ export async function getUserNotifications(
     const { unreadOnly = false, limit = 50, offset = 0, types } = options;
 
     let whereClause = 'WHERE n.user_id = ?';
-    const params: any[] = [userId];
+    const params: SqlParam[] = [userId];
 
     if (unreadOnly) {
       whereClause += ' AND n.is_read = 0';
@@ -167,7 +167,7 @@ export async function deleteOldNotifications(daysOld: number = 30): Promise<numb
  */
 export async function notifyTicketAssigned(ticketId: number, assignedTo: number, assignedBy?: number): Promise<boolean> {
   try {
-    const ticket = await executeQueryOne<any>(`
+    const ticket = await executeQueryOne(`
       SELECT t.title, u.name as assigned_by_name
       FROM tickets t
       LEFT JOIN users u ON u.id = ?
@@ -198,7 +198,7 @@ export async function notifyTicketAssigned(ticketId: number, assignedTo: number,
  */
 export async function notifyTicketUpdated(ticketId: number, userId: number, updateType: string): Promise<boolean> {
   try {
-    const ticket = await executeQueryOne<any>(`
+    const ticket = await executeQueryOne(`
       SELECT t.title, t.user_id, t.assigned_to
       FROM tickets t
       WHERE t.id = ?
@@ -244,7 +244,7 @@ export async function notifyTicketUpdated(ticketId: number, userId: number, upda
  */
 export async function notifyCommentAdded(ticketId: number, commentAuthor: number, isInternal: boolean = false): Promise<boolean> {
   try {
-    const ticket = await executeQueryOne<any>(`
+    const ticket = await executeQueryOne(`
       SELECT t.title, t.user_id, t.assigned_to, u.name as author_name
       FROM tickets t
       LEFT JOIN users u ON u.id = ?
@@ -304,7 +304,7 @@ export async function notifyCommentAdded(ticketId: number, commentAuthor: number
  */
 export async function notifySLAWarning(ticketId: number, warningType: 'response' | 'resolution'): Promise<boolean> {
   try {
-    const ticket = await executeQueryOne<any>(`
+    const ticket = await executeQueryOne(`
       SELECT t.title, t.user_id, t.assigned_to, st.response_due_at, st.resolution_due_at
       FROM tickets t
       LEFT JOIN sla_tracking st ON t.id = st.ticket_id
@@ -358,7 +358,7 @@ export async function notifySLAWarning(ticketId: number, warningType: 'response'
  */
 export async function notifySLABreach(ticketId: number, breachType: 'response' | 'resolution'): Promise<boolean> {
   try {
-    const ticket = await executeQueryOne<any>(`
+    const ticket = await executeQueryOne(`
       SELECT t.title, t.user_id, t.assigned_to
       FROM tickets t
       WHERE t.id = ?
@@ -438,14 +438,14 @@ export async function notifyEscalation(ticketId: number, escalatedTo: number, re
 export async function getNotificationStats(userId?: number): Promise<any> {
   try {
     let whereClause = '';
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (userId) {
       whereClause = 'WHERE user_id = ?';
       params.push(userId);
     }
 
-    const stats = await executeQueryOne<any>(`
+    const stats = await executeQueryOne(`
       SELECT
         COUNT(*) as total,
         COUNT(CASE WHEN is_read = 0 THEN 1 END) as unread,

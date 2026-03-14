@@ -7,7 +7,10 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import { getPostgresConnectionString } from './config';
 
-export interface PostgresQueryResult<T = any> {
+/** Allowed SQL parameter types for parameterized queries */
+export type SqlParam = string | number | boolean | null | undefined | Buffer | Date;
+
+export interface PostgresQueryResult<T = Record<string, unknown>> {
   rows: T[];
   rowCount: number;
   command: string;
@@ -15,7 +18,7 @@ export interface PostgresQueryResult<T = any> {
 
 type QueryExecutor = Pool | PoolClient;
 
-function normalizeInsertId(row: any): number | undefined {
+function normalizeInsertId(row: Record<string, unknown> | undefined): number | undefined {
   if (!row || typeof row !== 'object') return undefined;
 
   if (typeof row.id === 'number') return row.id;
@@ -64,9 +67,9 @@ export class PostgresConnection {
     });
   }
 
-  private async execute<T = any>(
+  private async execute<T = Record<string, unknown>>(
     sql: string,
-    params: any[] | undefined,
+    params: SqlParam[] | undefined,
     executor?: QueryExecutor
   ): Promise<PostgresQueryResult<T>> {
     const client = executor || this.pool;
@@ -82,7 +85,7 @@ export class PostgresConnection {
   /**
    * Execute a query and return rows.
    */
-  async query<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  async query<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T[]> {
     const result = await this.execute<T>(sql, params);
     return result.rows;
   }
@@ -90,7 +93,7 @@ export class PostgresConnection {
   /**
    * Execute query and return first row.
    */
-  async get<T = any>(sql: string, params?: any[]): Promise<T | undefined> {
+  async get<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T | undefined> {
     const rows = await this.query<T>(sql, params);
     return rows[0];
   }
@@ -98,16 +101,16 @@ export class PostgresConnection {
   /**
    * Execute query and return all rows.
    */
-  async all<T = any>(sql: string, params?: any[]): Promise<T[]> {
+  async all<T = Record<string, unknown>>(sql: string, params?: SqlParam[]): Promise<T[]> {
     return this.query<T>(sql, params);
   }
 
   /**
    * Execute INSERT/UPDATE/DELETE and return affected rows.
    */
-  async run(sql: string, params?: any[]): Promise<{ changes: number; lastInsertRowid?: number }> {
+  async run(sql: string, params?: SqlParam[]): Promise<{ changes: number; lastInsertRowid?: number }> {
     const result = await this.execute(sql, params);
-    const firstRow = result.rows[0] as any;
+    const firstRow = result.rows[0] as Record<string, unknown> | undefined;
 
     return {
       changes: result.rowCount,
@@ -120,9 +123,9 @@ export class PostgresConnection {
    */
   prepare(sql: string) {
     return {
-      get: async (...params: any[]) => this.get(sql, params),
-      all: async (...params: any[]) => this.all(sql, params),
-      run: async (...params: any[]) => this.run(sql, params),
+      get: async (...params: SqlParam[]) => this.get(sql, params),
+      all: async (...params: SqlParam[]) => this.all(sql, params),
+      run: async (...params: SqlParam[]) => this.run(sql, params),
     };
   }
 
@@ -133,17 +136,17 @@ export class PostgresConnection {
     const client = await this.pool.connect();
 
     const txDb = {
-      query: async <R = any>(sql: string, params?: any[]) =>
+      query: async <R = Record<string, unknown>>(sql: string, params?: SqlParam[]) =>
         (await this.execute<R>(sql, params, client)).rows,
-      get: async <R = any>(sql: string, params?: any[]) => {
+      get: async <R = Record<string, unknown>>(sql: string, params?: SqlParam[]) => {
         const rows = (await this.execute<R>(sql, params, client)).rows;
         return rows[0];
       },
-      all: async <R = any>(sql: string, params?: any[]) =>
+      all: async <R = Record<string, unknown>>(sql: string, params?: SqlParam[]) =>
         (await this.execute<R>(sql, params, client)).rows,
-      run: async (sql: string, params?: any[]) => {
+      run: async (sql: string, params?: SqlParam[]) => {
         const result = await this.execute(sql, params, client);
-        const firstRow = result.rows[0] as any;
+        const firstRow = result.rows[0] as Record<string, unknown> | undefined;
 
         return {
           changes: result.rowCount,
@@ -151,15 +154,15 @@ export class PostgresConnection {
         };
       },
       prepare: (sql: string) => ({
-        get: async (...params: any[]) => {
+        get: async (...params: SqlParam[]) => {
           const rows = (await this.execute(sql, params, client)).rows;
           return rows[0];
         },
-        all: async (...params: any[]) =>
+        all: async (...params: SqlParam[]) =>
           (await this.execute(sql, params, client)).rows,
-        run: async (...params: any[]) => {
+        run: async (...params: SqlParam[]) => {
           const result = await this.execute(sql, params, client);
-          const firstRow = result.rows[0] as any;
+          const firstRow = result.rows[0] as Record<string, unknown> | undefined;
           return {
             changes: result.rowCount,
             lastInsertRowid: normalizeInsertId(firstRow),
@@ -184,7 +187,7 @@ export class PostgresConnection {
   /**
    * Execute raw SQL (unsafe).
    */
-  async unsafe(sql: string): Promise<any> {
+  async unsafe(sql: string): Promise<any[]> {
     const result = await this.pool.query(sql);
     return result.rows;
   }

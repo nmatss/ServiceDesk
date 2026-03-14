@@ -154,7 +154,7 @@ async function cleanupExpiredEntries() {
 async function ensureTable() {
   if (!tableInitialized) {
     try {
-      await executeQuery<any>('SELECT 1 FROM rate_limits LIMIT 1', []);
+      await executeQuery('SELECT 1 FROM rate_limits LIMIT 1', []);
       tableInitialized = true;
     } catch {
       await initRateLimitTable();

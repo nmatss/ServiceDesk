@@ -306,7 +306,7 @@ class PerformanceMonitor {
    */
   getCoreWebVitalsSummary() {
     const metrics: (keyof PerformanceMetrics)[] = ['lcp', 'fid', 'cls', 'ttfb', 'fcp', 'inp']
-    const summary: Record<string, any> = {}
+    const summary: Record<string, unknown> = {}
 
     for (const metric of metrics) {
       const values = this.metrics

@@ -122,11 +122,11 @@ export async function POST(request: NextRequest) {
           `, [subscription.id]);
 
           return { success: true, subscriptionId: subscription.id };
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error(`Failed to send push notification to subscription ${subscription.id}`, error);
 
           // If subscription is invalid (410 Gone), mark as inactive
-          if (error.statusCode === 410) {
+          if ((error as { statusCode?: number }).statusCode === 410) {
             await executeRun(`
               UPDATE push_subscriptions
               SET is_active = ${sqlFalse()},

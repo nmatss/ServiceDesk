@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, type SqlParam } from '@/lib/db/adapter';
 import { createTrainingSystem, createModelManager } from '@/lib/ai/factories';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isAdmin, isPrivileged } from '@/lib/auth/roles';
@@ -112,10 +112,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('AI Metrics Error', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to retrieve metrics' },
+      { error: error instanceof Error ? error.message : 'Failed to retrieve metrics' },
       { status: 500 }
     );
   }
@@ -291,9 +291,9 @@ function buildWhereClause(
   timeWindow: string,
   modelVersion?: string | null,
   organizationId?: string | null
-): { clause: string; params: unknown[] } {
+): { clause: string; params: SqlParam[] } {
   const conditions: string[] = ['1=1'];
-  const params: unknown[] = [];
+  const params: SqlParam[] = [];
 
   if (timeWindow && timeWindow !== 'all') {
     conditions.push('created_at >= ?');
@@ -470,10 +470,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('AI Metrics POST Error', error);
     return NextResponse.json(
-      { error: error.message || 'Operation failed' },
+      { error: error instanceof Error ? error.message : 'Operation failed' },
       { status: 500 }
     );
   }

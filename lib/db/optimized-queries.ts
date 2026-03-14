@@ -3,7 +3,7 @@
  * Replaces N+1 patterns with efficient single queries
  */
 
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { getFromCache, setCache } from '../cache/lru-cache';
 
@@ -117,7 +117,7 @@ export async function getTicketsWithDetails(organizationId: number, options?: {
   if (cached) return cached;
 
   const conditions: string[] = ['t.organization_id = ?'];
-  const params: unknown[] = [organizationId];
+  const params: SqlParam[] = [organizationId];
 
   if (options?.status) {
     conditions.push('t.status_id = ?');

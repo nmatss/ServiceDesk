@@ -3,7 +3,7 @@
  * ITIL 4 Compliant - Adapter Pattern
  */
 
-import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlCastDate, sqlCurrentDate, sqlDateAdd, sqlTrue } from '../adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, sqlCastDate, sqlCurrentDate, sqlDateAdd, sqlTrue, type SqlParam } from '../adapter';
 import type {
   CIType,
   CIStatus,
@@ -88,7 +88,7 @@ export async function listCITypes(organizationId?: number): Promise<CIType[]> {
  */
 export async function createCIType(input: CreateCIType): Promise<CIType> {
   // Note: Schema has organization_id but TypeScript interface doesn't
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const result = await executeRun(
     `INSERT INTO ci_types (
@@ -120,7 +120,7 @@ export async function createCIType(input: CreateCIType): Promise<CIType> {
  */
 export async function updateCIType(id: number, input: UpdateCIType): Promise<CIType | null> {
   const updates: string[] = [];
-  const params: unknown[] = [];
+  const params: SqlParam[] = [];
 
   if (input.name !== undefined) {
     updates.push('name = ?');
@@ -251,7 +251,7 @@ export async function createConfigurationItem(
   const ciNumber = await generateCINumber(organizationId);
 
   // Note: tenant_id exists in schema but not in TypeScript interface
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   return executeTransaction(async (db) => {
     const result = await db.run(
@@ -382,7 +382,7 @@ export async function listConfigurationItems(
   pagination: { page: number; limit: number } = { page: 1, limit: 20 }
 ): Promise<{ data: ConfigurationItemWithDetails[]; total: number; page: number; limit: number; totalPages: number }> {
   const conditions: string[] = ['organization_id = ?'];
-  const params: unknown[] = [organizationId];
+  const params: SqlParam[] = [organizationId];
 
   // Apply filters
   if (filters.ci_type_id) {
@@ -425,7 +425,7 @@ export async function listConfigurationItems(
   const totalPages = Math.ceil(total / pagination.limit);
 
   // Fetch CIs with JOINs to avoid N+1
-  const cisRaw = await executeQuery<any>(
+  const cisRaw = await executeQuery(
     `SELECT ci.*,
        ct.id as ci_type__id, ct.name as ci_type__name, ct.description as ci_type__description,
        ct.icon as ci_type__icon, ct.color as ci_type__color,
@@ -489,7 +489,7 @@ export async function updateConfigurationItem(
     if (!currentCI) return null;
 
     const updates: string[] = [];
-    const params: unknown[] = [];
+    const params: SqlParam[] = [];
     const historyEntries: Array<{ field: string; oldValue: string; newValue: string }> = [];
 
     // Helper to track changes
@@ -825,7 +825,7 @@ export async function removeCIRelationship(
  * List all relationships for a CI (both as source and target)
  */
 export async function listCIRelationships(ciId: number): Promise<CIRelationshipWithDetails[]> {
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT r.*,
        src.id as source__id, src.name as source__name, src.ci_number as source__ci_number,
        src.ci_type_id as source__ci_type_id, src.status_id as source__status_id,

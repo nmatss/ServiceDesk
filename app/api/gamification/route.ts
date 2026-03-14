@@ -453,16 +453,16 @@ async function getRecognitionFeed() {
 /**
  * Award points to user
  */
-async function awardPoints(userId: string, data: any) {
+async function awardPoints(userId: string, data: Record<string, unknown>) {
   const pointsEngine = new PointsEngine();
 
   const calculation = pointsEngine.calculateTicketPoints({
-    csat: data.csat,
-    fcr: data.fcr,
-    slaPercentage: data.slaPercentage,
-    resolutionTimeMinutes: data.resolutionTimeMinutes,
-    currentStreak: data.currentStreak || 0,
-    teamMetGoal: data.teamMetGoal || false,
+    csat: data.csat as number | undefined,
+    fcr: data.fcr as boolean,
+    slaPercentage: data.slaPercentage as number,
+    resolutionTimeMinutes: data.resolutionTimeMinutes as number,
+    currentStreak: (data.currentStreak as number) || 0,
+    teamMetGoal: (data.teamMetGoal as boolean) || false,
   });
 
   // TODO: Save to database (placeholder - gamification tables not yet implemented)

@@ -47,7 +47,7 @@ export interface HybridSearchResult {
   score: number;
   semanticScore?: number;
   keywordScore?: number;
-  metadata?: any;
+  metadata?: Record<string, any>;
   highlights?: string[];
 }
 
@@ -209,8 +209,8 @@ export class HybridSearchEngine {
     entityTypes: string[],
     maxResults: number,
     filters: SearchFilters
-  ): Promise<Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: any }>> {
-    const results: Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: any }> = [];
+  ): Promise<Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: Record<string, any> }>> {
+    const results: Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: Record<string, any> }> = [];
 
     try {
       const searchTerm = `%${query.trim()}%`;
@@ -390,7 +390,7 @@ export class HybridSearchEngine {
    */
   private mergeResults(
     semanticResults: SearchResult[],
-    keywordResults: Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: any }>,
+    keywordResults: Array<{ entityType: string; entityId: number; score: number; content?: string; metadata?: Record<string, any> }>,
     semanticWeight: number,
     keywordWeight: number
   ): HybridSearchResult[] {

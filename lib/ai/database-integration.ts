@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, executeTransaction, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import {
   AIClassification,
@@ -79,7 +79,7 @@ export async function updateClassificationFeedback(
   feedbackBy?: number,
   context?: AIOperationContext
 ): Promise<void> {
-  const oldValues = await executeQueryOne<any>(`
+  const oldValues = await executeQueryOne(`
     SELECT was_accepted, corrected_category_id, corrected_priority_id
     FROM ai_classifications WHERE id = ?
   `, [classificationId]);
@@ -153,7 +153,7 @@ export async function getSuggestionsByTicket(
     SELECT * FROM ai_suggestions
     WHERE ticket_id = ?
   `;
-  const params: any[] = [ticketId];
+  const params: SqlParam[] = [ticketId];
 
   if (suggestionType) {
     query += ` AND suggestion_type = ?`;
@@ -174,7 +174,7 @@ export async function updateSuggestionFeedback(
   feedbackBy?: number,
   context?: AIOperationContext
 ): Promise<void> {
-  const oldValues = await executeQueryOne<any>(`
+  const oldValues = await executeQueryOne(`
     SELECT was_used, was_helpful, feedback_comment
     FROM ai_suggestions WHERE id = ?
   `, [suggestionId]);
@@ -272,7 +272,7 @@ export async function getTrainingData(
   limit?: number
 ): Promise<AITrainingData[]> {
   let query = `SELECT * FROM ai_training_data WHERE 1=1`;
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   if (dataType) {
     query += ` AND data_type = ?`;
@@ -300,7 +300,7 @@ export async function validateTrainingData(
   isValidated: boolean,
   context?: AIOperationContext
 ): Promise<void> {
-  const oldValues = await executeQueryOne<any>(`
+  const oldValues = await executeQueryOne(`
     SELECT is_validated, reviewed_by FROM ai_training_data WHERE id = ?
   `, [trainingDataId]);
 
@@ -331,7 +331,7 @@ export async function saveEmbedding(
   context?: AIOperationContext
 ): Promise<number> {
   // Check if embedding already exists
-  const existing = await executeQueryOne<any>(`
+  const existing = await executeQueryOne(`
     SELECT id FROM vector_embeddings
     WHERE entity_type = ? AND entity_id = ? AND model_name = ?
   `, [embedding.entity_type, embedding.entity_id, embedding.model_name]);
@@ -389,7 +389,7 @@ export async function getEmbedding(
     SELECT * FROM vector_embeddings
     WHERE entity_type = ? AND entity_id = ?
   `;
-  const params: any[] = [entityType, entityId];
+  const params: SqlParam[] = [entityType, entityId];
 
   if (modelName) {
     query += ` AND model_name = ?`;
@@ -417,7 +417,7 @@ export async function getClassificationMetrics(
   periodStart: string,
   periodEnd: string
 ): Promise<any> {
-  return await executeQueryOne<any>(`
+  return await executeQueryOne(`
     SELECT
       COUNT(*) as total_classifications,
       AVG(confidence_score) as avg_confidence,
@@ -435,7 +435,7 @@ export async function getSuggestionMetrics(
   periodStart: string,
   periodEnd: string
 ): Promise<any> {
-  return await executeQueryOne<any>(`
+  return await executeQueryOne(`
     SELECT
       COUNT(*) as total_suggestions,
       AVG(confidence_score) as avg_confidence,
@@ -451,7 +451,7 @@ export async function getSentimentMetrics(
   periodStart: string,
   periodEnd: string
 ): Promise<any> {
-  return await executeQueryOne<any>(`
+  return await executeQueryOne(`
     SELECT
       COUNT(*) as total_analyses,
       COUNT(CASE WHEN content LIKE '%"sentiment":"positive"%' THEN 1 END) as positive_count,
@@ -468,7 +468,7 @@ export async function getModelUsageStats(
   periodStart: string,
   periodEnd: string
 ): Promise<any[]> {
-  return await executeQuery<any>(`
+  return await executeQuery(`
     SELECT
       model_name,
       COUNT(*) as usage_count,
@@ -591,17 +591,17 @@ export async function getAISystemHealth(): Promise<{
 
   try {
     // Check recent AI operations
-    const recentClassifications = await executeQueryOne<any>(`
+    const recentClassifications = await executeQueryOne(`
       SELECT COUNT(*) as count FROM ai_classifications
       WHERE created_at >= ${dateExpr24h}
     `);
 
-    const recentSuggestions = await executeQueryOne<any>(`
+    const recentSuggestions = await executeQueryOne(`
       SELECT COUNT(*) as count FROM ai_suggestions
       WHERE created_at >= ${dateExpr24h}
     `);
 
-    const embeddingCount = await executeQueryOne<any>(`
+    const embeddingCount = await executeQueryOne(`
       SELECT COUNT(*) as count FROM vector_embeddings
     `);
 
@@ -619,7 +619,7 @@ export async function getAISystemHealth(): Promise<{
     }
 
     // Check for high error rates
-    const errorRate = await executeQueryOne<any>(`
+    const errorRate = await executeQueryOne(`
       SELECT
         COUNT(CASE WHEN was_accepted = 0 THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0) as error_rate
       FROM ai_classifications

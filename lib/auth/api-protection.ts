@@ -223,7 +223,7 @@ class APIProtectionManager {
    */
   async getUserAPIKeys(userId: number): Promise<APIKey[]> {
     try {
-      const keys = await executeQuery<any>(`
+      const keys = await executeQuery(`
         SELECT * FROM api_keys
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -253,7 +253,7 @@ class APIProtectionManager {
     try {
       const keyHash = this.hashAPIKey(apiKey);
 
-      const keyRecord = await executeQueryOne<any>(`
+      const keyRecord = await executeQueryOne(`
         SELECT * FROM api_keys
         WHERE key_hash = ? AND is_active = ${sqlTrue()}
           AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
@@ -415,7 +415,7 @@ class APIProtectionManager {
       `, [windowStart.toISOString()]);
 
       // Get current rate limit record
-      const existing = await executeQueryOne<any>(`
+      const existing = await executeQueryOne(`
         SELECT * FROM rate_limits
         WHERE identifier = ? AND identifier_type = ? AND endpoint = ?
       `, [identifier, config.identifier, endpoint]);
@@ -520,7 +520,7 @@ class APIProtectionManager {
       if (apiKey) {
         const keyResult = await this.validateAPIKey(apiKey);
         if (keyResult.valid) {
-          const user = await executeQueryOne<any>('SELECT * FROM users WHERE id = ?', [keyResult.userId!]);
+          const user = await executeQueryOne('SELECT * FROM users WHERE id = ?', [keyResult.userId!]);
           return {
             success: true,
             userId: keyResult.userId!,
@@ -706,7 +706,7 @@ class APIProtectionManager {
    */
   private async getUserDepartment(userId: number): Promise<string | undefined> {
     try {
-      const result = await executeQueryOne<any>(`
+      const result = await executeQueryOne(`
         SELECT d.name FROM departments d
         JOIN user_departments ud ON d.id = ud.department_id
         WHERE ud.user_id = ? AND ud.is_primary = 1

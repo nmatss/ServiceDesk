@@ -125,11 +125,11 @@ export async function POST(request: NextRequest) {
     `;
 
     // SECURITY FIX: Use tenantId from auth guard, NOT from request body
-    const recentTickets = await executeQuery<any>(query, [tenantId, ninetyDaysAgo]);
+    const recentTickets = await executeQuery<{ id: number; title: string; description: string | null; status_name: string; priority_name: string; category_name: string; user_name?: string; user_email?: string; created_at: string }>(query, [tenantId, ninetyDaysAgo]);
 
     // Calculate similarity scores
     const similarities: Array<{
-      ticket: any;
+      ticket: { id: number; title: string; description: string | null; status: string; created_at: string; user_name?: string; user_email?: string };
       similarity: number;
     }> = [];
 
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
             ticket: {
               id: ticket.id,
               title: ticket.title,
-              description: ticket.description?.substring(0, 200), // Truncate for response
+              description: ticket.description?.substring(0, 200) ?? null, // Truncate for response
               status: ticket.status_name,
               created_at: ticket.created_at,
               user_name: ticket.user_name,
@@ -196,11 +196,12 @@ export async function POST(request: NextRequest) {
       similar_tickets: topMatches,
       threshold_used: threshold,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error detecting duplicates', error);
 
     // Handle OpenAI API errors
-    if (error?.status === 401) {
+    const apiError = error as { status?: number; message?: string };
+    if (apiError?.status === 401) {
       return NextResponse.json(
         {
           success: false,
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (error?.status === 429) {
+    if (apiError?.status === 429) {
       return NextResponse.json(
         {
           success: false,
@@ -224,7 +225,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'Failed to detect duplicates',
-        message: error?.message || 'Unknown error',
+        message: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

@@ -1,12 +1,12 @@
-import { executeQuery, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeRun, type SqlParam } from '@/lib/db/adapter';
 import logger from '../monitoring/structured-logger';
 
 export interface AuditLogEntry {
   entityType: string;
   entityId: number;
   action: 'create' | 'update' | 'delete' | 'view' | 'export';
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
   userId?: number;
   sessionId?: string;
   ipAddress?: string;
@@ -68,7 +68,7 @@ export class AuditLogger {
       WHERE a.organization_id = ?
     `;
 
-    const params: any[] = [filters.organizationId];
+    const params: SqlParam[] = [filters.organizationId];
 
     if (filters.entityType) {
       query += ` AND a.entity_type = ?`;
@@ -103,7 +103,7 @@ export class AuditLogger {
     query += ` ORDER BY a.created_at DESC LIMIT ?`;
     params.push(filters.limit || 100);
 
-    return await executeQuery<any>(query, params);
+    return await executeQuery(query, params);
   }
 
   /**

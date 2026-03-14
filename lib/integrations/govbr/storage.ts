@@ -38,7 +38,7 @@ export async function createGovBrIntegration(data: CreateGovBrIntegration): Prom
 }
 
 export async function getGovBrIntegrationById(id: number): Promise<GovBrIntegration | null> {
-  const integration = await executeQueryOne<any>(`
+  const integration = await executeQueryOne(`
     SELECT * FROM govbr_integrations
     WHERE id = ?
   `, [id]);
@@ -47,7 +47,7 @@ export async function getGovBrIntegrationById(id: number): Promise<GovBrIntegrat
 }
 
 export async function getGovBrIntegrationByUserId(userId: number): Promise<GovBrIntegration | null> {
-  const integration = await executeQueryOne<any>(`
+  const integration = await executeQueryOne(`
     SELECT * FROM govbr_integrations
     WHERE user_id = ? AND is_active = ${sqlTrue()}
     ORDER BY created_at DESC
@@ -60,7 +60,7 @@ export async function getGovBrIntegrationByUserId(userId: number): Promise<GovBr
 export async function getGovBrIntegrationByCpf(cpf: string): Promise<GovBrIntegration | null> {
   const cleanCpf = cpf.replace(/\D/g, '');
 
-  const integration = await executeQueryOne<any>(`
+  const integration = await executeQueryOne(`
     SELECT * FROM govbr_integrations
     WHERE cpf = ? AND is_active = ${sqlTrue()}
     ORDER BY created_at DESC
@@ -102,7 +102,7 @@ export async function deactivateGovBrIntegration(id: number): Promise<void> {
 }
 
 export async function getExpiredTokens(): Promise<GovBrIntegration[]> {
-  const integrations = await executeQuery<any>(`
+  const integrations = await executeQuery(`
     SELECT * FROM govbr_integrations
     WHERE is_active = ${sqlTrue()}
       AND token_expires_at IS NOT NULL
@@ -176,7 +176,7 @@ export async function getGovBrStats(days = 30): Promise<{
 export async function getGovBrIntegrationsByVerificationLevel(
   level: string
 ): Promise<Array<GovBrIntegration & { user_name: string; user_email: string }>> {
-  const results = await executeQuery<any>(`
+  const results = await executeQuery(`
     SELECT g.*, u.name as user_name, u.email as user_email
     FROM govbr_integrations g
     JOIN users u ON g.user_id = u.id
@@ -243,7 +243,7 @@ export async function searchGovBrIntegrations(params: {
 
   queryParams.push(limit, offset);
 
-  const results = await executeQuery<any>(`
+  const results = await executeQuery(`
     SELECT g.*, u.name as user_name, u.email as user_email
     FROM govbr_integrations g
     JOIN users u ON g.user_id = u.id
@@ -267,7 +267,7 @@ export async function logDocumentValidation(data: {
   document: string;
   document_type: 'cpf' | 'cnpj' | 'cep' | 'titulo_eleitor' | 'pis_pasep';
   validation_result: boolean;
-  validation_data?: any;
+  validation_data?: Record<string, unknown>;
   ip_address?: string;
   user_agent?: string;
 }): Promise<void> {
@@ -295,7 +295,7 @@ export async function getDocumentValidationHistory(
   document: string;
   document_type: string;
   validation_result: boolean;
-  validation_data?: any;
+  validation_data?: Record<string, unknown>;
   created_at: string;
 }>> {
   const results = await executeQuery<{

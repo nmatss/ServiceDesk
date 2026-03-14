@@ -141,7 +141,7 @@ export async function processFeedback(
   userId?: number
 ): Promise<void> {
   // Get original classification
-  const classification = await executeQueryOne<any>(
+  const classification = await executeQueryOne(
     'SELECT * FROM ai_classifications WHERE id = ?',
     [classificationId]
   );
@@ -167,7 +167,7 @@ export async function processFeedback(
 
   // If negative feedback with correction, add to training data
   if (feedback === 'negative' && (correctedCategory || correctedPriority)) {
-    const ticket = await executeQueryOne<any>(
+    const ticket = await executeQueryOne(
       'SELECT title, description FROM tickets WHERE id = ?',
       [classification.ticket_id]
     );
@@ -210,14 +210,14 @@ export async function calculatePerformanceMetrics(
   const params = organizationId ? [organizationId] : [];
 
   // Get total predictions
-  const totalResult = await executeQueryOne<any>(
+  const totalResult = await executeQueryOne(
     `SELECT COUNT(*) as total FROM ai_classifications ${whereClause}`,
     params
   );
   const totalPredictions = totalResult?.total || 0;
 
   // Get feedback stats
-  const feedbackResult = await executeQueryOne<any>(
+  const feedbackResult = await executeQueryOne(
     `SELECT
       COUNT(CASE WHEN af.feedback_type = 'positive' THEN 1 END) as positive,
       COUNT(CASE WHEN af.feedback_type = 'negative' THEN 1 END) as negative
@@ -234,7 +234,7 @@ export async function calculatePerformanceMetrics(
     : 0;
 
   // Get average confidence
-  const confidenceResult = await executeQueryOne<any>(
+  const confidenceResult = await executeQueryOne(
     `SELECT AVG(confidence_score) as avg_confidence
     FROM ai_classifications ${whereClause}`,
     params
@@ -281,7 +281,7 @@ export async function shouldRetrain(organizationId?: number): Promise<boolean> {
       ${organizationId ? 'AND organization_id = ?' : ''}
   `;
   const params = organizationId ? [organizationId] : [];
-  const newDataResult = await executeQueryOne<any>(newDataQuery, params);
+  const newDataResult = await executeQueryOne(newDataQuery, params);
 
   if (newDataResult && newDataResult.count >= trainingConfig.minDataPoints) {
     return true;
@@ -441,7 +441,7 @@ async function storeModelMetadata(
  * Get model training history
  */
 export async function getTrainingHistory(limit: number = 10): Promise<TrainingResult[]> {
-  const rows = await executeQuery<any>(
+  const rows = await executeQuery(
     `SELECT * FROM ai_model_versions
      ORDER BY created_at DESC
      LIMIT ?`,
@@ -516,7 +516,7 @@ export async function getDataQualityStats(): Promise<{
   avgQualityScore: number;
   byType: Record<string, number>;
 }> {
-  const stats = await executeQueryOne<any>(`
+  const stats = await executeQueryOne(`
     SELECT
       COUNT(*) as total,
       COUNT(CASE WHEN validated = 1 THEN 1 END) as validated,
@@ -525,7 +525,7 @@ export async function getDataQualityStats(): Promise<{
     FROM ai_training_data
   `);
 
-  const byType = await executeQuery<any>(`
+  const byType = await executeQuery(`
     SELECT data_type, COUNT(*) as count
     FROM ai_training_data
     GROUP BY data_type

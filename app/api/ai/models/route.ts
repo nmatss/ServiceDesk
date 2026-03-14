@@ -83,10 +83,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Model Management Error', error);
     return NextResponse.json(
-      { error: error.message || 'Operation failed' },
+      { error: error instanceof Error ? error.message : 'Operation failed' },
       { status: 500 }
     );
   }
@@ -206,10 +206,10 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Model Management GET Error', error);
     return NextResponse.json(
-      { error: error.message || 'Request failed' },
+      { error: error instanceof Error ? error.message : 'Request failed' },
       { status: 500 }
     );
   }

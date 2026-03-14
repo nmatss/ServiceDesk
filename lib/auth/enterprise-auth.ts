@@ -1,4 +1,4 @@
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import * as crypto from 'crypto';
 import * as speakeasy from 'speakeasy';

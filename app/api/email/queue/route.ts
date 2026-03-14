@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     `, [...queryParams, limit, offset])
 
     // Get total count
-    const total = (await executeQueryOne<any>(`
+    const total = (await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM email_queue
       ${whereClause}

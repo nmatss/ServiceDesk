@@ -765,7 +765,7 @@ export class NotificationBatchingEngine {
         ? `json_array_length(notifications)`
         : `jsonb_array_length(notifications::jsonb)`;
 
-      const stats = await executeQuery<any>(`
+      const stats = await executeQuery(`
         SELECT
           batch_key,
           status,

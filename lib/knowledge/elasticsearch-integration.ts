@@ -86,7 +86,7 @@ interface HybridSearchResult {
   total: number;
   took: number;
   semantic_enabled: boolean;
-  aggregations?: Record<string, any>;
+  aggregations?: Record<string, unknown>;
 }
 
 export class ElasticsearchIntegration {
@@ -370,7 +370,7 @@ export class ElasticsearchIntegration {
   private async elasticsearchSearch(options: SearchOptions): Promise<{
     results: SearchResult[];
     total: number;
-    aggregations?: Record<string, any>;
+    aggregations?: Record<string, unknown>;
   }> {
     await this.initClient();
     if (!this.client) {
@@ -721,7 +721,7 @@ export class ElasticsearchIntegration {
    */
   async indexKnowledgeArticle(articleId: number): Promise<void> {
     try {
-      const article = await executeQueryOne<any>(`
+      const article = await executeQueryOne(`
         SELECT ka.*, kc.name as category_name, u.name as author_name,
                ka.view_count, ka.helpful_votes as helpful_count,
                ka.not_helpful_votes as not_helpful_count

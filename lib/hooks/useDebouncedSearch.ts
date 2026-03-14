@@ -181,9 +181,9 @@ export function useDebouncedSearch(
         setError('Erro ao buscar sugestões')
         setShowDropdown(false)
       }
-    } catch (err: any) {
+    } catch (err) {
       // Ignore abort errors
-      if (err.name !== 'AbortError') {
+      if (err instanceof Error && err.name !== 'AbortError') {
         console.error('Search error:', err)
         setError(err.message || 'Erro ao buscar sugestões')
         setShowDropdown(false)

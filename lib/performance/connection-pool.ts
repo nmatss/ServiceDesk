@@ -1,3 +1,4 @@
+import type { SqlParam } from '@/lib/db/adapter';
 /**
  * Advanced Connection Pool Management for Enterprise Scale
  * Manages database connections, implements read replicas, and optimizes connection usage
@@ -174,7 +175,7 @@ export class ConnectionPool extends EventEmitter {
    */
   async execute<T = any>(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     isReadOperation = false
   ): Promise<T> {
     const connection = await this.acquire(isReadOperation);

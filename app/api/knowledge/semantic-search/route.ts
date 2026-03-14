@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         tags,
         // Note: category and minHelpfulVotes are not part of SearchFilters
         // They would need to be added to the SearchFilters interface if needed
-      } as any,
+      } as Record<string, unknown>,
       includeFacets: true,
       useCache: true
     });

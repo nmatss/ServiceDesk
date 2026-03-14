@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
       const sla = metrics
         ? {
             ...metrics,
-            response_sla_rate: (metrics as any).response_sla_rate ?? metrics.response_compliance_percentage ?? 0,
-            resolution_sla_rate: (metrics as any).resolution_sla_rate ?? metrics.resolution_compliance_percentage ?? 0,
+            response_sla_rate: (metrics as unknown as Record<string, unknown>).response_sla_rate ?? metrics.response_compliance_percentage ?? 0,
+            resolution_sla_rate: (metrics as unknown as Record<string, unknown>).resolution_sla_rate ?? metrics.resolution_compliance_percentage ?? 0,
           }
         : metrics;
       return NextResponse.json({

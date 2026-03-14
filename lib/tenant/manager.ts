@@ -14,7 +14,7 @@ interface Tenant {
   max_users: number
   max_tickets_per_month: number
   features: string[]
-  settings: Record<string, any>
+  settings: Record<string, unknown>
   billing_email?: string
   technical_contact_email?: string
   is_active: boolean
@@ -38,7 +38,7 @@ interface Team {
   manager_id?: number
   parent_team_id?: number
   escalation_team_id?: number
-  business_hours?: Record<string, any>
+  business_hours?: Record<string, unknown>
   contact_email?: string
   contact_phone?: string
   sla_response_time?: number
@@ -80,7 +80,7 @@ export class TenantManager {
    */
   async getTenantByIdentifier(identifier: string): Promise<Tenant | null> {
     try {
-      const tenant = await executeQueryOne<any>(
+      const tenant = await executeQueryOne(
         `SELECT * FROM tenants
         WHERE (slug = ? OR domain = ? OR subdomain = ?)
         AND is_active = ${sqlTrue()}`,
@@ -105,7 +105,7 @@ export class TenantManager {
    */
   async getTenantById(id: number): Promise<Tenant | null> {
     try {
-      const tenant = await executeQueryOne<any>(
+      const tenant = await executeQueryOne(
         `SELECT * FROM tenants WHERE id = ? AND is_active = ${sqlTrue()}`,
         [id]
       )
@@ -198,7 +198,7 @@ export class TenantManager {
    */
   async getTeamsByTenant(tenantId: number): Promise<Team[]> {
     try {
-      const teams = await executeQuery<any>(
+      const teams = await executeQuery(
         `SELECT t.*, u.name as manager_name
         FROM teams t
         LEFT JOIN users u ON t.manager_id = u.id
@@ -224,7 +224,7 @@ export class TenantManager {
    */
   async getTeamById(teamId: number, tenantId: number): Promise<Team | null> {
     try {
-      const team = await executeQueryOne<any>(
+      const team = await executeQueryOne(
         `SELECT t.*, u.name as manager_name
         FROM teams t
         LEFT JOIN users u ON t.manager_id = u.id
@@ -312,7 +312,7 @@ export class TenantManager {
    */
   async getTeamMembers(teamId: number): Promise<any[]> {
     try {
-      return await executeQuery<any>(
+      return await executeQuery(
         `SELECT tm.*, u.name, u.email, u.job_title
         FROM team_members tm
         JOIN users u ON tm.user_id = u.id

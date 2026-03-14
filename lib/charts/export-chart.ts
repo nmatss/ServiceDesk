@@ -73,7 +73,7 @@ export function exportChartAsSVG(svgElement: SVGElement, filename: string): void
 /**
  * Export data as CSV
  */
-export function exportDataAsCSV<T extends Record<string, any>>(
+export function exportDataAsCSV<T extends Record<string, unknown>>(
   data: T[],
   filename: string,
   columns?: Array<{ key: keyof T; label: string }>
@@ -109,7 +109,7 @@ export function exportDataAsJSON<T>(data: T, filename: string): void {
 /**
  * Export data as Excel-compatible CSV
  */
-export function exportDataAsExcel<T extends Record<string, any>>(
+export function exportDataAsExcel<T extends Record<string, unknown>>(
   data: T[],
   filename: string,
   columns?: Array<{ key: keyof T; label: string }>

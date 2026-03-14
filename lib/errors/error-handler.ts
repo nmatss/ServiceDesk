@@ -236,7 +236,7 @@ export function handleAPIError(
 /**
  * Async error wrapper for API routes
  */
-export function asyncHandler<T extends any[], R>(
+export function asyncHandler<T extends unknown[], R>(
   handler: (...args: T) => Promise<R>
 ) {
   return async (...args: T): Promise<R> => {

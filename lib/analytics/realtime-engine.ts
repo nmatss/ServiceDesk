@@ -6,9 +6,9 @@
  */
 
 import { Server as SocketIOServer } from 'socket.io';
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 import logger from '../monitoring/structured-logger';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 
 // Re-export types for client usage
@@ -146,7 +146,7 @@ export type ConnectionQuality = 'excellent' | 'good' | 'poor' | 'disconnected';
 export interface MetricSubscription {
   userId: string;
   metrics: string[];
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   interval?: number; // ms
 }
 
@@ -168,7 +168,7 @@ export interface RealtimeMetric {
   name: string;
   value: number | string | object;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -177,9 +177,9 @@ export interface RealtimeMetric {
 
 export class RealtimeAnalyticsEngine {
   private io: SocketIOServer | null = null;
-  private redisClient: ReturnType<typeof createClient> | null = null;
-  private redisPubClient: ReturnType<typeof createClient> | null = null;
-  private redisSubClient: ReturnType<typeof createClient> | null = null;
+  private redisClient: Redis | null = null;
+  private redisPubClient: Redis | null = null;
+  private redisSubClient: Redis | null = null;
   private subscriptions: Map<string, MetricSubscription> = new Map();
   private intervalTimers: Map<string, NodeJS.Timeout> = new Map();
   private metricCache: Map<string, { value: any; timestamp: Date }> = new Map();
@@ -207,19 +207,17 @@ export class RealtimeAnalyticsEngine {
   private async initializeRedis(redisUrl: string) {
     try {
       // Main client for general operations
-      this.redisClient = createClient({ url: redisUrl });
-      await this.redisClient.connect();
+      this.redisClient = new Redis(redisUrl);
 
       // Pub client for publishing metrics
-      this.redisPubClient = createClient({ url: redisUrl });
-      await this.redisPubClient.connect();
+      this.redisPubClient = new Redis(redisUrl);
 
       // Sub client for subscribing to metrics
-      this.redisSubClient = createClient({ url: redisUrl });
-      await this.redisSubClient.connect();
+      this.redisSubClient = new Redis(redisUrl);
 
       // Subscribe to metric channels
-      await this.redisSubClient.subscribe('analytics:metrics', (message) => {
+      await this.redisSubClient.subscribe('analytics:metrics');
+      this.redisSubClient.on('message', (_channel: string, message: string) => {
         this.handleRedisMetric(JSON.parse(message));
       });
 
@@ -329,7 +327,7 @@ export class RealtimeAnalyticsEngine {
    */
   private async calculateMetric(
     metricName: string,
-    filters?: Record<string, any>
+    filters?: Record<string, unknown>
   ): Promise<RealtimeMetric> {
     // Check cache first
     const cacheKey = `${metricName}:${JSON.stringify(filters || {})}`;
@@ -381,7 +379,7 @@ export class RealtimeAnalyticsEngine {
   // Metric Calculation Methods
   // ============================================================================
 
-  private async calculateActiveTickets(filters?: Record<string, any>): Promise<RealtimeMetric> {
+  private async calculateActiveTickets(filters?: Record<string, unknown>): Promise<RealtimeMetric> {
     const row = await executeQueryOne<{ count: number }>(`
       SELECT COUNT(*) as count
       FROM tickets
@@ -399,7 +397,7 @@ export class RealtimeAnalyticsEngine {
     };
   }
 
-  private async calculateSLACompliance(filters?: Record<string, any>): Promise<RealtimeMetric> {
+  private async calculateSLACompliance(filters?: Record<string, unknown>): Promise<RealtimeMetric> {
     const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const row = await executeQueryOne<{ total: number; compliant: number }>(`
       SELECT
@@ -422,7 +420,7 @@ export class RealtimeAnalyticsEngine {
     };
   }
 
-  private async calculateAvgResolutionTime(filters?: Record<string, any>): Promise<RealtimeMetric> {
+  private async calculateAvgResolutionTime(filters?: Record<string, unknown>): Promise<RealtimeMetric> {
     const cutoffDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const resolutionExpr = getDatabaseType() === 'postgresql'
       ? 'CAST((EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600) AS INTEGER)'
@@ -443,7 +441,7 @@ export class RealtimeAnalyticsEngine {
     };
   }
 
-  private async calculateAgentWorkload(filters?: Record<string, any>): Promise<RealtimeMetric> {
+  private async calculateAgentWorkload(filters?: Record<string, unknown>): Promise<RealtimeMetric> {
     const rows = await executeQuery<Array<{ id: number; name: string; active_tickets: number }>[number]>(`
       SELECT
         u.id,
@@ -468,7 +466,7 @@ export class RealtimeAnalyticsEngine {
     };
   }
 
-  private async calculateTicketVelocity(filters?: Record<string, any>): Promise<RealtimeMetric> {
+  private async calculateTicketVelocity(filters?: Record<string, unknown>): Promise<RealtimeMetric> {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
@@ -501,7 +499,7 @@ export class RealtimeAnalyticsEngine {
     };
   }
 
-  private async calculateCustomerSatisfaction(filters?: Record<string, any>): Promise<RealtimeMetric> {
+  private async calculateCustomerSatisfaction(filters?: Record<string, unknown>): Promise<RealtimeMetric> {
     // Mock implementation - would integrate with actual CSAT survey data
     const mockScore = 4.2 + (Math.random() * 0.3 - 0.15);
 
@@ -630,7 +628,7 @@ export class RealtimeAnalyticsEngine {
    */
   async aggregate(config: AggregationConfig): Promise<any[]> {
     const { metric, aggregation, groupBy, timeWindow } = config;
-    const params: any[] = [metric];
+    const params: SqlParam[] = [metric];
 
     let sql = `
       SELECT

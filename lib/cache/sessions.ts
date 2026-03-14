@@ -27,7 +27,7 @@ export interface SessionData {
   lastActivity: number;
   expiresAt: number;
   refreshToken?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SessionOptions {
@@ -435,7 +435,7 @@ export class SessionManager {
    */
   async updateSessionMetadata(
     sessionId: string,
-    metadata: Record<string, any>
+    metadata: any
   ): Promise<boolean> {
     try {
       const session = await this.getSession(sessionId);

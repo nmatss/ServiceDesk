@@ -241,7 +241,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 // Build query with filters
     let whereClause = 'WHERE 1=1';
-    const params: any[] = [];
+    const params: (string | number | boolean | null)[] = [];
 
     if (category) {
       whereClause += ' AND category = ?';

@@ -64,7 +64,7 @@ export class CacheWarmer {
 
         try {
           // Categories
-          const categories = await executeQuery<any>('SELECT * FROM categories ORDER BY name', []);
+          const categories = await executeQuery('SELECT * FROM categories ORDER BY name', []);
           items.push({
             key: 'categories:all',
             value: categories,
@@ -72,7 +72,7 @@ export class CacheWarmer {
           });
 
           // Priorities
-          const priorities = await executeQuery<any>('SELECT * FROM priorities ORDER BY level', []);
+          const priorities = await executeQuery('SELECT * FROM priorities ORDER BY level', []);
           items.push({
             key: 'priorities:all',
             value: priorities,
@@ -80,7 +80,7 @@ export class CacheWarmer {
           });
 
           // Statuses
-          const statuses = await executeQuery<any>('SELECT * FROM statuses ORDER BY name', []);
+          const statuses = await executeQuery('SELECT * FROM statuses ORDER BY name', []);
           items.push({
             key: 'statuses:all',
             value: statuses,
@@ -211,7 +211,7 @@ export class CacheWarmer {
 
         try {
           // Ticket counts by status
-          const statusCounts = await executeQuery<any>(
+          const statusCounts = await executeQuery(
             `SELECT status_id, COUNT(*) as count
              FROM tickets
              GROUP BY status_id`,
@@ -225,7 +225,7 @@ export class CacheWarmer {
           });
 
           // Ticket counts by priority
-          const priorityCounts = await executeQuery<any>(
+          const priorityCounts = await executeQuery(
             `SELECT priority_id, COUNT(*) as count
              FROM tickets
              GROUP BY priority_id`,
@@ -239,7 +239,7 @@ export class CacheWarmer {
           });
 
           // Today's ticket count
-          const todayCount = await executeQueryOne<any>(
+          const todayCount = await executeQueryOne(
             `SELECT COUNT(*) as count
              FROM tickets
              WHERE DATE(created_at) = DATE('now')`,

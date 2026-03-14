@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -93,7 +93,7 @@ export async function PUT(
 
     // Build dynamic update query
     const fields: string[] = [];
-    const values: unknown[] = [];
+    const values: SqlParam[] = [];
 
     if (title !== undefined) { fields.push('title = ?'); values.push(title.trim()); }
     if (description !== undefined) { fields.push('description = ?'); values.push(description.trim()); }

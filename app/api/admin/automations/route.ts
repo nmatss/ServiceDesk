@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     // FILTRAR POR TENANT - automations criadas por usuários do tenant
     let whereClause = 'WHERE u.organization_id = ?';
-    const params: any[] = [tenantId];
+    const params: (string | number | boolean | null)[] = [tenantId];
 
     // Filtrar por status ativo
     if (isActive !== null) {

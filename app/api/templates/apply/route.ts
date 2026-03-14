@@ -4,6 +4,34 @@ import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+
+interface TemplateRow {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  title_template: string;
+  content_template: string;
+  variables: string | null;
+  usage_count: number;
+  last_used_at: string | null;
+  is_active: boolean | number;
+}
+
+interface TicketDataRow {
+  id: number;
+  title: string;
+  description: string;
+  user_name: string;
+  user_email: string;
+  category_name: string;
+  priority_name: string;
+  status_name: string;
+  assigned_to_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // POST - Aplicar template
 export async function POST(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -25,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar template
-    const template = await executeQueryOne(`
+    const template = await executeQueryOne<TemplateRow>(`
       SELECT * FROM templates
       WHERE id = ? AND is_active = ${sqlTrue()}
     `, [template_id]);
@@ -37,14 +65,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Processar variáveis do template
-    const templateVariables = (template as any).variables ? JSON.parse((template as any).variables) : {};
-    let processedTitle = (template as any).title_template || '';
-    let processedContent = (template as any).content_template || '';
+    const templateVariables = template.variables ? JSON.parse(template.variables) : {};
+    let processedTitle = template.title_template || '';
+    let processedContent = template.content_template || '';
 
     // Buscar dados do ticket se fornecido
-    let ticketData: any = null;
+    let ticketData: TicketDataRow | undefined = undefined;
     if (ticket_id) {
-      ticketData = await executeQueryOne(`
+      ticketData = await executeQueryOne<TicketDataRow>(`
         SELECT
           t.*,
           u.name as user_name,
@@ -70,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Variáveis disponíveis para substituição
-    const availableVariables: Record<string, any> = {
+    const availableVariables: Record<string, string | number> = {
       // Variáveis do usuário atual
       current_user_name: auth.name || '',
       current_user_email: auth.email,
@@ -101,7 +129,8 @@ export async function POST(request: NextRequest) {
     const replaceVariables = (text: string) => {
       return text.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
         const trimmedName = variableName.trim();
-        return availableVariables[trimmedName] || match;
+        const val = availableVariables[trimmedName];
+        return val !== undefined ? String(val) : match;
       });
     };
 
@@ -134,13 +163,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       template: {
-        id: (template as any).id,
-        name: (template as any).name,
-        type: (template as any).type,
+        id: template.id,
+        name: template.name,
+        type: template.type,
         processed_title: processedTitle,
         processed_content: processedContent,
-        original_title: (template as any).title_template,
-        original_content: (template as any).content_template,
+        original_title: template.title_template,
+        original_content: template.content_template,
         variables_used: Object.keys(availableVariables)
       }
     });
@@ -172,7 +201,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar template
-    const template = await executeQueryOne(`
+    const template = await executeQueryOne<TemplateRow>(`
       SELECT * FROM templates
       WHERE id = ? AND is_active = ${sqlTrue()}
     `, [parseInt(templateId)]);
@@ -184,10 +213,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar variáveis disponíveis
-    const templateVariables = (template as any).variables ? JSON.parse((template as any).variables) : {};
+    const templateVariables = template.variables ? JSON.parse(template.variables) : {};
 
     // Variáveis básicas
-    const availableVariables: Record<string, any> = {
+    const availableVariables: Record<string, string | number> = {
       current_user_name: auth.name || '',
       current_user_email: auth.email,
       current_date: new Date().toLocaleDateString('pt-BR'),
@@ -197,7 +226,7 @@ export async function GET(request: NextRequest) {
 
     // Se ticket foi fornecido, buscar dados
     if (ticketId) {
-      const ticketData = await executeQueryOne(`
+      const ticketData = await executeQueryOne<TicketDataRow>(`
         SELECT
           t.*,
           u.name as user_name,
@@ -217,17 +246,17 @@ export async function GET(request: NextRequest) {
 
       if (ticketData) {
         Object.assign(availableVariables, {
-          ticket_id: (ticketData as any).id,
-          ticket_title: (ticketData as any).title,
-          ticket_description: (ticketData as any).description,
-          ticket_user_name: (ticketData as any).user_name,
-          ticket_user_email: (ticketData as any).user_email,
-          ticket_category: (ticketData as any).category_name,
-          ticket_priority: (ticketData as any).priority_name,
-          ticket_status: (ticketData as any).status_name,
-          ticket_assigned_to: (ticketData as any).assigned_to_name,
-          ticket_created_at: new Date((ticketData as any).created_at).toLocaleString('pt-BR'),
-          ticket_updated_at: new Date((ticketData as any).updated_at).toLocaleString('pt-BR')
+          ticket_id: ticketData.id,
+          ticket_title: ticketData.title,
+          ticket_description: ticketData.description,
+          ticket_user_name: ticketData.user_name,
+          ticket_user_email: ticketData.user_email,
+          ticket_category: ticketData.category_name,
+          ticket_priority: ticketData.priority_name,
+          ticket_status: ticketData.status_name,
+          ticket_assigned_to: ticketData.assigned_to_name,
+          ticket_created_at: new Date(ticketData.created_at).toLocaleString('pt-BR'),
+          ticket_updated_at: new Date(ticketData.updated_at).toLocaleString('pt-BR')
         });
       }
     }
@@ -235,16 +264,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       template: {
-        id: (template as any).id,
-        name: (template as any).name,
-        description: (template as any).description,
-        type: (template as any).type,
-        title_template: (template as any).title_template,
-        content_template: (template as any).content_template,
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        type: template.type,
+        title_template: template.title_template,
+        content_template: template.content_template,
         variables: templateVariables,
         available_variables: availableVariables,
-        usage_count: (template as any).usage_count || 0,
-        last_used_at: (template as any).last_used_at
+        usage_count: template.usage_count || 0,
+        last_used_at: template.last_used_at
       }
     });
 

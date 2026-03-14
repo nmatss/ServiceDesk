@@ -108,11 +108,11 @@ export default function ProblemDetailPage() {
         impact: apiProblem.business_impact || apiProblem.impact || null,
         affected_services: apiProblem.affected_services ?
           (typeof apiProblem.affected_services === 'string' ? JSON.parse(apiProblem.affected_services) : apiProblem.affected_services) : [],
-        related_incidents: apiProblem.incidents?.map((inc: any) => inc.ticket_id || inc.id) || [],
+        related_incidents: apiProblem.incidents?.map((inc: { ticket_id?: number; id?: number }) => inc.ticket_id || inc.id) || [],
         related_changes: [],
         affected_cis: apiProblem.affected_cis ?
           (typeof apiProblem.affected_cis === 'string' ? JSON.parse(apiProblem.affected_cis) : apiProblem.affected_cis) : [],
-        timeline: apiProblem.activities?.map((activity: any) => ({
+        timeline: apiProblem.activities?.map((activity: { id?: number; type?: string; activity_type?: string; description?: string; notes?: string; user?: { name?: string }; user_name?: string; created_at?: string }) => ({
           id: activity.id?.toString() || '',
           type: activity.type || activity.activity_type || 'comment',
           content: activity.description || activity.notes || '',

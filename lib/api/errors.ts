@@ -268,7 +268,7 @@ export function createValidationErrorResponse(
 }
 
 // Error Boundaries for API Routes
-export function withErrorBoundary<T extends any[], R>(
+export function withErrorBoundary<T extends unknown[], R>(
   handler: (...args: T) => Promise<R>,
   path?: string
 ): (...args: T) => Promise<R | NextResponse> {

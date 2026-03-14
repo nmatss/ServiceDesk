@@ -83,7 +83,7 @@ Retorne um JSON com:
     ticketId: number,
     organizationId: number
   ): Promise<void> {
-    const ticket = await executeQueryOne<any>(
+    const ticket = await executeQueryOne(
       `SELECT * FROM tickets WHERE id = ? AND organization_id = ?`,
       [ticketId, organizationId]
     );
@@ -95,7 +95,7 @@ Retorne um JSON com:
     // Se sentimento muito negativo + alta urgência, aumentar prioridade
     if (sentiment.score < -0.5 && sentiment.emotions.urgency > 0.7) {
       // Buscar prioridade mais alta
-      const highPriority = await executeQueryOne<any>(
+      const highPriority = await executeQueryOne(
         `SELECT id FROM priorities
         WHERE organization_id = ?
         ORDER BY level DESC

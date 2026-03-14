@@ -145,9 +145,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle unique constraint violation
-    if (error.message?.includes('UNIQUE constraint failed')) {
+    if (error instanceof Error && error.message?.includes('UNIQUE constraint failed')) {
       return NextResponse.json(
         { success: false, error: 'Incident is already linked to this problem' },
         { status: 409 }

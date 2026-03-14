@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
@@ -67,7 +67,7 @@ class PasswordPolicyManager {
         ? `(applies_to_roles IS NULL OR applies_to_roles::text LIKE '%"' || ? || '"%')`
         : `(applies_to_roles IS NULL OR json_extract(applies_to_roles, '$') LIKE '%"' || ? || '"%')`;
 
-      const policy = await executeQueryOne<any>(`
+      const policy = await executeQueryOne(`
         SELECT * FROM password_policies
         WHERE is_active = ${sqlTrue()}
           AND ${jsonCondition}
@@ -231,7 +231,7 @@ class PasswordPolicyManager {
    */
   async isPasswordExpired(userId: number): Promise<boolean> {
     try {
-      const user = await executeQueryOne<any>(`
+      const user = await executeQueryOne(`
         SELECT password_changed_at, role FROM users WHERE id = ?
       `, [userId]);
 
@@ -253,7 +253,7 @@ class PasswordPolicyManager {
    */
   async getDaysUntilExpiry(userId: number): Promise<number | null> {
     try {
-      const user = await executeQueryOne<any>(`
+      const user = await executeQueryOne(`
         SELECT password_changed_at, role FROM users WHERE id = ?
       `, [userId]);
 
@@ -285,7 +285,7 @@ class PasswordPolicyManager {
       `, [userId, passwordHash]);
 
       // Clean up old password history based on policy
-      const user = await executeQueryOne<any>('SELECT role FROM users WHERE id = ?', [userId]);
+      const user = await executeQueryOne('SELECT role FROM users WHERE id = ?', [userId]);
       if (user) {
         const policy = await this.getPolicyForRole(user.role as string) || await this.getDefaultPolicy();
 
@@ -311,7 +311,7 @@ class PasswordPolicyManager {
    */
   private async isPasswordReused(userId: number, password: string, preventReuseCount: number): Promise<boolean> {
     try {
-      const recentPasswords = await executeQuery<any>(`
+      const recentPasswords = await executeQuery(`
         SELECT password_hash FROM password_history
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -433,7 +433,7 @@ class PasswordPolicyManager {
    */
   async getAllPolicies(): Promise<PasswordPolicy[]> {
     try {
-      const policies = await executeQuery<any>(`
+      const policies = await executeQuery(`
         SELECT * FROM password_policies
         ORDER BY is_active DESC, name ASC
       `, []);

@@ -852,7 +852,7 @@ export interface AuthenticatedRequest {
  */
 export interface MiddlewareResponse {
   status: (code: number) => MiddlewareResponse;
-  json: (data: Record<string, unknown>) => unknown;
+  json: (data: any) => unknown;
   [key: string]: unknown;
 }
 

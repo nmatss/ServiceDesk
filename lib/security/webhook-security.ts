@@ -287,7 +287,7 @@ export function checkWebhookRateLimit(
 export function logWebhookActivity(
   endpoint: string,
   success: boolean,
-  metadata: Record<string, unknown>
+  metadata: any
 ): void {
   logger.info('Webhook activity', {
     endpoint,

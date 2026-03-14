@@ -617,7 +617,7 @@ export class LgpdComplianceManager {
     return true;
   }
 
-  private logComplianceEvent(event: string, data: Record<string, unknown>): void {
+  private logComplianceEvent(event: string, data: any): void {
     const logEntry = {
       timestamp: new Date().toISOString(),
       event,

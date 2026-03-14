@@ -7,7 +7,7 @@
  * @module lib/repositories/user-repository
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import type { IUserRepository, UserFilters } from '@/lib/interfaces/repositories';
 import type { User } from '@/lib/types/database';
 
@@ -22,7 +22,7 @@ export class UserRepository implements IUserRepository {
 
     if (user) {
       // Never expose password hash
-      delete (user as any).password_hash;
+      delete (user as unknown as Record<string, unknown>).password_hash;
     }
 
     return user || null;
@@ -43,7 +43,7 @@ export class UserRepository implements IUserRepository {
     } = filters || {};
 
     const where: string[] = [];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (role !== undefined) {
       where.push('role = ?');
@@ -83,7 +83,7 @@ export class UserRepository implements IUserRepository {
 
     // Never expose password hashes
     return users.map((user) => {
-      delete (user as any).password_hash;
+      delete (user as unknown as Record<string, unknown>).password_hash;
       return user;
     });
   }
@@ -138,7 +138,7 @@ export class UserRepository implements IUserRepository {
    */
   async update(id: number, data: Partial<User>): Promise<User> {
     const sets: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (data.name !== undefined) {
       sets.push('name = ?');
@@ -210,7 +210,7 @@ export class UserRepository implements IUserRepository {
     const { role, organization_id, is_active } = filters || {};
 
     const where: string[] = [];
-    const params: any[] = [];
+    const params: SqlParam[] = [];
 
     if (role !== undefined) {
       where.push('role = ?');
@@ -245,7 +245,7 @@ export class UserRepository implements IUserRepository {
     `, [email]);
 
     if (user) {
-      delete (user as any).password_hash;
+      delete (user as unknown as Record<string, unknown>).password_hash;
     }
 
     return user || null;

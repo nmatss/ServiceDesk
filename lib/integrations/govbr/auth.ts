@@ -177,7 +177,7 @@ export class GovBrAuthClient {
     type: 'cpf' | 'cnpj' = 'cpf'
   ): Promise<{
     valid: boolean;
-    data?: any;
+    data?: Record<string, unknown>;
     status: string;
   }> {
     try {
@@ -203,7 +203,7 @@ export class GovBrAuthClient {
    */
   private async validateCPF(cpf: string, _accessToken: string): Promise<{
     valid: boolean;
-    data?: any;
+    data?: Record<string, unknown>;
     status: string;
   }> {
     // Remove formatação do CPF
@@ -239,7 +239,7 @@ export class GovBrAuthClient {
    */
   private async validateCNPJ(cnpj: string, _accessToken: string): Promise<{
     valid: boolean;
-    data?: any;
+    data?: Record<string, unknown>;
     status: string;
   }> {
     // Remove formatação do CNPJ

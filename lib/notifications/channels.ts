@@ -688,7 +688,7 @@ export class NotificationChannelManager {
     }
   }
 
-  private async getUserPushSubscriptions(userId: number): Promise<unknown[]> {
+  private async getUserPushSubscriptions(userId: number): Promise<any[]> {
     try {
       return await executeQuery<unknown>(`
         SELECT * FROM push_subscriptions
@@ -744,7 +744,7 @@ export class NotificationChannelManager {
     return this.deliverViaChannel(channelName, testNotification, testUserId, {})
   }
 
-  public async getDeliveryStats(channelName?: string): Promise<unknown> {
+  public async getDeliveryStats(channelName?: string): Promise<any> {
     try {
       const sqlDateExpr = getDatabaseType() === 'postgresql'
         ? "NOW() - INTERVAL '24 hours'"

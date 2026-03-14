@@ -24,7 +24,7 @@ export interface ExportOptions {
   orientation?: 'portrait' | 'landscape';
   pageSize?: 'a4' | 'letter';
   author?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // ============================================================================

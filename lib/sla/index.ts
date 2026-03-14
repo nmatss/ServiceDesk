@@ -611,7 +611,7 @@ export async function processSLAMonitoring(): Promise<void> {
  */
 export async function getTicketsAtRisk(): Promise<any[]> {
   try {
-    return await executeQuery<any>(`
+    return await executeQuery(`
       SELECT
         t.id,
         t.title,
@@ -651,7 +651,7 @@ export async function getTicketsAtRisk(): Promise<any[]> {
  */
 export async function getTicketsBreached(): Promise<any[]> {
   try {
-    return await executeQuery<any>(`
+    return await executeQuery(`
       SELECT
         t.id,
         t.title,

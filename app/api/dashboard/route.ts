@@ -7,6 +7,119 @@ import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
+interface UserContext { id: number; role: string }
+interface TenantContext { id: number }
+
+interface OverviewRow {
+  total_tickets: number;
+  open_tickets: number;
+  closed_tickets: number;
+  tickets_period: number;
+  unassigned_tickets: number;
+  avg_resolution_hours: number | null;
+}
+
+interface UserStatsRow {
+  total_users: number;
+  end_users: number;
+  agents: number;
+  admins: number;
+}
+
+interface StatusStatRow {
+  name: string;
+  color: string;
+  is_final: boolean | number;
+  count: number;
+}
+
+interface DailyCountRow {
+  date: string;
+  count: number;
+}
+
+interface AgentPerfRow {
+  id: number;
+  name: string;
+  tickets_assigned: number;
+  tickets_resolved: number;
+  avg_resolution_hours: number | null;
+  tickets_period: number;
+}
+
+interface SLAStatRow {
+  total_with_sla: number;
+  response_compliant: number;
+  resolution_compliant: number;
+  response_compliance_rate: number;
+  resolution_compliance_rate: number;
+}
+
+interface RecentTicketRow {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  status_name: string;
+  status_color: string;
+  priority_name: string;
+  priority_color: string;
+  category_name: string;
+}
+
+interface CategoryStatRow {
+  name: string;
+  color: string;
+  count: number;
+  count_period: number;
+}
+
+interface PriorityStatRow {
+  name: string;
+  color: string;
+  level: number;
+  count: number;
+  count_period: number;
+}
+
+interface SystemHealthRow {
+  tickets_last_hour: number;
+  new_users_today: number;
+  unread_notifications: number;
+  sla_breaches: number;
+}
+
+interface UserActivityRow {
+  name: string;
+  role: string;
+  tickets_created: number;
+}
+
+interface AssignmentRow {
+  id: number;
+  title: string;
+  created_at: string;
+  priority_name: string;
+  priority_color: string;
+  status_name: string;
+}
+
+interface WorkloadRow {
+  total_assigned: number;
+  open_tickets: number;
+  critical_tickets: number;
+  overdue_response: number;
+}
+
+interface UserTicketsSummaryRow {
+  total_tickets: number;
+  open_tickets: number;
+  closed_tickets: number;
+  tickets_period: number;
+  avg_resolution_hours: number | null;
+}
+
 const DB_TYPE = getDatabaseType();
 const IS_POSTGRES = DB_TYPE === 'postgresql';
 const RESOLUTION_HOURS_SQL = IS_POSTGRES
@@ -50,14 +163,14 @@ export async function GET(request: NextRequest) {
     const cacheKey = `dashboard_t${tenantContext.id}_${userContext.role}_${days}d`;
 
     // Tentar buscar do cache primeiro
-    let dashboardData = getCachedStats(cacheKey);
+    let dashboardData = await getCachedStats<Record<string, unknown>>(cacheKey);
 
     if (!dashboardData) {
       // Calcular dados do dashboard
       dashboardData = await calculateDashboardData(userContext, tenantContext, days);
 
       // Cachear por 5 minutos
-      cacheStats(cacheKey, dashboardData, 300);
+      await cacheStats(cacheKey, dashboardData, 300);
     }
 
     return NextResponse.json({
@@ -75,7 +188,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function calculateDashboardData(user: any, tenant: any, days: number) {
+async function calculateDashboardData(user: UserContext, tenant: TenantContext, days: number) {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
@@ -117,10 +230,10 @@ async function calculateDashboardData(user: any, tenant: any, days: number) {
   };
 }
 
-async function getSystemOverview(user: any, tenant: any, startDate: Date) {
+async function getSystemOverview(user: UserContext, tenant: TenantContext, startDate: Date) {
   try {
     let whereClause = 'WHERE t.tenant_id = ?';
-    const params: any[] = [tenant.id];
+    const params: (string | number)[] = [tenant.id];
 
     // Filtrar por usuário se for role 'user'
     if (user.role === 'user') {
@@ -128,7 +241,7 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
       params.push(user.id);
     }
 
-    const overview = await executeQueryOne<any>(`
+    const overview = await executeQueryOne<OverviewRow>(`
       SELECT
         COUNT(*) as total_tickets,
         COUNT(CASE WHEN ${IS_FINAL_FALSE_OR_NULL_SQL} THEN 1 END) as open_tickets,
@@ -148,7 +261,7 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
     // Estatísticas de usuários (apenas para admin do tenant)
     let userStats = null;
     if (['super_admin', 'tenant_admin'].includes(user.role)) {
-      userStats = await executeQueryOne<any>(`
+      userStats = await executeQueryOne<UserStatsRow>(`
         SELECT
           COUNT(*) as total_users,
           COUNT(CASE WHEN role = 'user' THEN 1 END) as end_users,
@@ -186,10 +299,10 @@ async function getSystemOverview(user: any, tenant: any, startDate: Date) {
   }
 }
 
-async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
+async function getTicketMetrics(user: UserContext, tenant: TenantContext, startDate: Date) {
   try {
     // Tickets por status
-    const statusStats = await executeQuery<any>(`
+    const statusStats = await executeQuery<StatusStatRow>(`
       SELECT
         s.name,
         s.color,
@@ -203,7 +316,7 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
     `, [tenant.id, tenant.id, ...(user.role === 'user' ? [user.id] : [])]);
 
     // Tickets criados por dia
-    const dailyTickets = await executeQuery<any>(`
+    const dailyTickets = await executeQuery<DailyCountRow>(`
       SELECT
         DATE(t.created_at) as date,
         COUNT(*) as count
@@ -214,7 +327,7 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
     `, [tenant.id, startDate.toISOString(), ...(user.role === 'user' ? [user.id] : [])]);
 
     // Tickets resolvidos por dia
-    const dailyResolved = await executeQuery<any>(`
+    const dailyResolved = await executeQuery<DailyCountRow>(`
       SELECT
         DATE(t.resolved_at) as date,
         COUNT(*) as count
@@ -239,9 +352,9 @@ async function getTicketMetrics(user: any, tenant: any, startDate: Date) {
   }
 }
 
-async function getAgentPerformance(tenant: any, startDate: Date) {
+async function getAgentPerformance(tenant: TenantContext, startDate: Date) {
   try {
-    const performance = await executeQuery<any>(`
+    const performance = await executeQuery<AgentPerfRow>(`
       SELECT
         u.id,
         u.name,
@@ -290,10 +403,10 @@ async function ticketColumnExists(columnName: string): Promise<boolean> {
   return tableInfo.some((col) => col.name === columnName);
 }
 
-async function getSLAData(user: any, tenant: any, startDate: Date) {
+async function getSLAData(user: UserContext, tenant: TenantContext, startDate: Date) {
   try {
     let whereClause = 'AND t.tenant_id = ?';
-    const params: any[] = [tenant.id];
+    const params: (string | number)[] = [tenant.id];
 
     if (user.role === 'user') {
       whereClause += ' AND t.user_id = ?';
@@ -316,7 +429,7 @@ async function getSLAData(user: any, tenant: any, startDate: Date) {
       };
     }
 
-    const slaStats = await executeQueryOne<any>(`
+    const slaStats = await executeQueryOne<SLAStatRow>(`
       SELECT
         COUNT(*) as total_with_sla,
         COUNT(CASE WHEN t.response_breached IN (${FALSE_SQL}) OR t.response_breached IS NULL THEN 1 END) as response_compliant,
@@ -346,17 +459,17 @@ async function getSLAData(user: any, tenant: any, startDate: Date) {
   }
 }
 
-async function getRecentActivity(user: any, tenant: any, limit: number) {
+async function getRecentActivity(user: UserContext, tenant: TenantContext, limit: number) {
   try {
     let whereClause = 'WHERE t.tenant_id = ?';
-    const params: any[] = [tenant.id];
+    const params: (string | number)[] = [tenant.id];
 
     if (user.role === 'user') {
       whereClause += ' AND t.user_id = ?';
       params.push(user.id);
     }
 
-    const recentTickets = await executeQuery<any>(`
+    const recentTickets = await executeQuery<RecentTicketRow>(`
       SELECT
         t.id,
         t.title,
@@ -385,10 +498,10 @@ async function getRecentActivity(user: any, tenant: any, limit: number) {
   }
 }
 
-async function getTrendAnalytics(user: any, tenant: any, startDate: Date, days: number) {
+async function getTrendAnalytics(user: UserContext, tenant: TenantContext, startDate: Date, days: number) {
   try {
     let whereClause = 'AND t.tenant_id = ?';
-    const params: any[] = [tenant.id];
+    const params: (string | number)[] = [tenant.id];
 
     if (user.role === 'user') {
       whereClause += ' AND t.user_id = ?';
@@ -433,17 +546,17 @@ async function getTrendAnalytics(user: any, tenant: any, startDate: Date, days: 
   }
 }
 
-async function getCategoryStats(user: any, tenant: any, startDate: Date) {
+async function getCategoryStats(user: UserContext, tenant: TenantContext, startDate: Date) {
   try {
     let additionalWhere = '';
-    const additionalParams: any[] = [];
+    const additionalParams: (string | number)[] = [];
 
     if (user.role === 'user') {
       additionalWhere = 'AND t.user_id = ?';
       additionalParams.push(user.id);
     }
 
-    return await executeQuery<any>(`
+    return await executeQuery<CategoryStatRow>(`
       SELECT
         c.name,
         c.color,
@@ -461,17 +574,17 @@ async function getCategoryStats(user: any, tenant: any, startDate: Date) {
   }
 }
 
-async function getPriorityStats(user: any, tenant: any, startDate: Date) {
+async function getPriorityStats(user: UserContext, tenant: TenantContext, startDate: Date) {
   try {
     let additionalWhere = '';
-    const additionalParams: any[] = [];
+    const additionalParams: (string | number)[] = [];
 
     if (user.role === 'user') {
       additionalWhere = 'AND t.user_id = ?';
       additionalParams.push(user.id);
     }
 
-    return await executeQuery<any>(`
+    return await executeQuery<PriorityStatRow>(`
       SELECT
         p.name,
         p.color,
@@ -490,9 +603,9 @@ async function getPriorityStats(user: any, tenant: any, startDate: Date) {
   }
 }
 
-async function getRoleSpecificData(user: any, tenant: any, startDate: Date) {
+async function getRoleSpecificData(user: UserContext, tenant: TenantContext, startDate: Date) {
   try {
-    const data: any = {};
+    const data: Record<string, unknown> = {};
 
     if (user.role === 'admin' || user.role === 'super_admin' || user.role === 'tenant_admin') {
       data.system_health = await getSystemHealthData(tenant);
@@ -517,9 +630,9 @@ async function getRoleSpecificData(user: any, tenant: any, startDate: Date) {
   }
 }
 
-async function getSystemHealthData(tenant: any) {
+async function getSystemHealthData(tenant: TenantContext) {
   try {
-    return await executeQueryOne<any>(`
+    return await executeQueryOne<SystemHealthRow>(`
       SELECT
         (SELECT COUNT(*) FROM tickets WHERE tenant_id = ? AND created_at >= ${NOW_MINUS_1_HOUR}) as tickets_last_hour,
         (SELECT COUNT(*) FROM users WHERE tenant_id = ? AND created_at >= ${NOW_MINUS_24_HOURS}) as new_users_today,
@@ -537,9 +650,9 @@ async function getSystemHealthData(tenant: any) {
   }
 }
 
-async function getUserActivityData(tenant: any, startDate: Date) {
+async function getUserActivityData(tenant: TenantContext, startDate: Date) {
   try {
-    return await executeQuery<any>(`
+    return await executeQuery<UserActivityRow>(`
       SELECT
         u.name,
         u.role,
@@ -558,9 +671,9 @@ async function getUserActivityData(tenant: any, startDate: Date) {
   }
 }
 
-async function getAgentAssignments(agentId: number, tenant: any) {
+async function getAgentAssignments(agentId: number, tenant: TenantContext) {
   try {
-    return await executeQuery<any>(`
+    return await executeQuery<AssignmentRow>(`
       SELECT
         t.id,
         t.title,
@@ -581,9 +694,9 @@ async function getAgentAssignments(agentId: number, tenant: any) {
   }
 }
 
-async function getAgentWorkload(agentId: number, tenant: any) {
+async function getAgentWorkload(agentId: number, tenant: TenantContext) {
   try {
-    return await executeQueryOne<any>(`
+    return await executeQueryOne<WorkloadRow>(`
       SELECT
         COUNT(*) as total_assigned,
         COUNT(CASE WHEN ${IS_FINAL_FALSE_OR_NULL_SQL} THEN 1 END) as open_tickets,
@@ -606,9 +719,9 @@ async function getAgentWorkload(agentId: number, tenant: any) {
   }
 }
 
-async function getUserTicketsSummary(userId: number, tenant: any, startDate: Date) {
+async function getUserTicketsSummary(userId: number, tenant: TenantContext, startDate: Date) {
   try {
-    return await executeQueryOne<any>(`
+    return await executeQueryOne<UserTicketsSummaryRow>(`
       SELECT
         COUNT(*) as total_tickets,
         COUNT(CASE WHEN ${IS_FINAL_FALSE_OR_NULL_SQL} THEN 1 END) as open_tickets,

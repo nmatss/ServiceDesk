@@ -5,8 +5,7 @@ import {
   executeTransaction,
   sqlDateDiff,
   sqlTrue,
-  sqlFalse,
-} from '../adapter';
+  sqlFalse, type SqlParam } from '../adapter';
 import type {
   ServiceCategory,
   ServiceCatalogItem,
@@ -161,7 +160,7 @@ export async function updateServiceCategory(
 ): Promise<ServiceCategory> {
   const now = new Date().toISOString();
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   if (input.name !== undefined) {
     updates.push('name = ?');
@@ -261,7 +260,7 @@ export async function listServiceCatalogItems(
   filters?: CatalogItemFilters
 ): Promise<ServiceCatalogItem[]> {
   const conditions: string[] = ['sci.organization_id = ?'];
-  const values: any[] = [organizationId];
+  const values: SqlParam[] = [organizationId];
 
   if (filters?.category_id) {
     conditions.push('sci.category_id = ?');
@@ -368,7 +367,7 @@ export async function createServiceCatalogItem(
   // Note: Schema uses approval_levels, estimated_time_minutes, cost, is_published
   // but TypeScript interface uses different field names (approval_workflow_id, etc.)
   // Using 'any' type assertion for schema-specific fields
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const result = await executeRun(
     `INSERT INTO service_catalog_items (
@@ -431,11 +430,11 @@ export async function updateServiceCatalogItem(
 ): Promise<ServiceCatalogItem> {
   const now = new Date().toISOString();
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   // Note: Schema uses approval_levels, estimated_time_minutes, cost, is_published
   // but TypeScript interface uses different field names
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   if (input.name !== undefined) {
     updates.push('name = ?');
@@ -597,7 +596,7 @@ export async function createServiceRequest(
   const requestNumber = await generateRequestNumber(organizationId);
 
   // Note: tenant_id exists in schema but not in TypeScript interface
-  const inputAny = input as any;
+  const inputAny = input as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const result = await executeRun(
     `INSERT INTO service_requests (
@@ -699,7 +698,7 @@ export async function listServiceRequests(
   filters?: ServiceRequestFilters
 ): Promise<ServiceRequest[]> {
   const conditions: string[] = ['sr.organization_id = ?'];
-  const values: any[] = [organizationId];
+  const values: SqlParam[] = [organizationId];
 
   if (filters?.status) {
     conditions.push('sr.status = ?');
@@ -752,7 +751,7 @@ export async function updateServiceRequestStatus(
 ): Promise<ServiceRequest> {
   const now = new Date().toISOString();
   const updates: string[] = ['status = ?', 'updated_at = ?'];
-  const values: any[] = [status, now];
+  const values: SqlParam[] = [status, now];
 
   if (status === 'fulfilled' && userId) {
     updates.push('fulfilled_by = ?', 'fulfilled_at = ?');
@@ -1004,7 +1003,7 @@ export async function updateServiceRequestTask(
 ): Promise<ServiceRequestTask> {
   const now = new Date().toISOString();
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
 
   if (input.title !== undefined) {
     updates.push('title = ?');

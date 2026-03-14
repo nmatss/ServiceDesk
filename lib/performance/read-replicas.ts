@@ -1,3 +1,4 @@
+import type { SqlParam } from '@/lib/db/adapter';
 /**
  * Read Replica Management for Analytics and Reporting
  * Distributes read queries across multiple database replicas for better performance
@@ -128,7 +129,7 @@ export class ReadReplicaManager extends EventEmitter {
    */
   async executeQuery<T = any>(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: {
       preferredReplicas?: string[];
       fallbackToMaster?: boolean;
@@ -160,7 +161,7 @@ export class ReadReplicaManager extends EventEmitter {
    */
   async executeAnalyticsQuery<T = any>(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     options: {
       timeRange?: 'realtime' | 'recent' | 'historical';
       complexity?: 'simple' | 'complex' | 'heavy';
@@ -191,7 +192,7 @@ export class ReadReplicaManager extends EventEmitter {
    */
   async executeReportingQuery<T = any>(
     query: string,
-    params: any[] = [],
+    params: SqlParam[] = [],
     reportType: 'dashboard' | 'export' | 'scheduled' = 'dashboard'
   ): Promise<T> {
     let preferredReplicas: string[] = [];
@@ -517,7 +518,7 @@ export const readReplicaManager = ReadReplicaManager.getInstance();
 // Helper functions for common use cases
 export async function executeAnalyticsQuery<T = any>(
   query: string,
-  params: any[] = [],
+  params: SqlParam[] = [],
   options?: {
     timeRange?: 'realtime' | 'recent' | 'historical';
     complexity?: 'simple' | 'complex' | 'heavy';
@@ -528,7 +529,7 @@ export async function executeAnalyticsQuery<T = any>(
 
 export async function executeReportingQuery<T = any>(
   query: string,
-  params: any[] = [],
+  params: SqlParam[] = [],
   reportType?: 'dashboard' | 'export' | 'scheduled'
 ): Promise<T> {
   return readReplicaManager.executeReportingQuery(query, params, reportType);

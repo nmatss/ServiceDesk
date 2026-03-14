@@ -20,7 +20,7 @@ export class AISuggestions {
     organizationId: number
   ): Promise<any[]> {
     // Buscar ticket
-    const ticket = await executeQueryOne<any>(
+    const ticket = await executeQueryOne(
       `SELECT * FROM tickets WHERE id = ? AND organization_id = ?`,
       [ticketId, organizationId]
     );
@@ -94,7 +94,7 @@ export class AISuggestions {
 
     // Buscar detalhes dos tickets
     const placeholders = ticketIds.map(() => '?').join(',');
-    const tickets = await executeQuery<any>(
+    const tickets = await executeQuery(
       `SELECT t.*, c.content as last_comment
       FROM tickets t
       LEFT JOIN (
@@ -133,7 +133,7 @@ export class AISuggestions {
     if (articleIds.length === 0) return [];
 
     const placeholders = articleIds.map(() => '?').join(',');
-    const articles = await executeQuery<any>(
+    const articles = await executeQuery(
       `SELECT * FROM kb_articles
       WHERE id IN (${placeholders})
         AND organization_id = ?
@@ -219,7 +219,7 @@ Retorne um JSON array:
     ticketId: number,
     organizationId: number
   ): Promise<string> {
-    const ticket = await executeQueryOne<any>(
+    const ticket = await executeQueryOne(
       `SELECT * FROM tickets WHERE id = ? AND organization_id = ?`,
       [ticketId, organizationId]
     );
@@ -227,7 +227,7 @@ Retorne um JSON array:
     if (!ticket) return '';
 
     // Buscar contexto
-    const comments = await executeQuery<any>(
+    const comments = await executeQuery(
       `SELECT * FROM comments
       WHERE ticket_id = ?
       ORDER BY created_at ASC`,

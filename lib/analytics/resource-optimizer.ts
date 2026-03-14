@@ -18,7 +18,7 @@ export interface ResourceOptimization {
   confidence_score: number;
   generated_at: Date;
   valid_until: Date;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ResourceState {

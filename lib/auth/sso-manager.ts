@@ -12,7 +12,7 @@ export interface SSOProvider {
   type: 'saml2' | 'oauth2' | 'oidc' | 'ldap';
   is_active: boolean;
   configuration: SSOConfiguration;
-  metadata?: any;
+  metadata?: Record<string, any>;
 }
 
 export interface SSOConfiguration {
@@ -67,7 +67,7 @@ class SSOManager {
    */
   async getActiveProviders(): Promise<SSOProvider[]> {
     try {
-      const providers = await executeQuery<any>(`
+      const providers = await executeQuery(`
         SELECT * FROM sso_providers
         WHERE is_active = ${sqlTrue()}
         ORDER BY name
@@ -89,7 +89,7 @@ class SSOManager {
    */
   async getProvider(name: string): Promise<SSOProvider | null> {
     try {
-      const provider = await executeQueryOne<any>(`
+      const provider = await executeQueryOne(`
         SELECT * FROM sso_providers
         WHERE name = ? AND is_active = ${sqlTrue()}
       `, [name]);

@@ -152,7 +152,7 @@ class MFAManager {
    */
   async verifyTOTP(userId: number, token: string): Promise<MFAVerification> {
     try {
-      const user = await executeQueryOne<any>(`
+      const user = await executeQueryOne(`
         SELECT two_factor_enabled, two_factor_secret
         FROM users WHERE id = ?
       `, [userId]);
@@ -182,7 +182,7 @@ class MFAManager {
    */
   async verifyBackupCode(userId: number, code: string): Promise<MFAVerification> {
     try {
-      const user = await executeQueryOne<any>(`
+      const user = await executeQueryOne(`
         SELECT two_factor_enabled, two_factor_backup_codes
         FROM users WHERE id = ?
       `, [userId]);
@@ -263,7 +263,7 @@ class MFAManager {
    */
   async verifySMSCode(userId: number, code: string): Promise<MFAVerification> {
     try {
-      const verificationRecord = await executeQueryOne<any>(`
+      const verificationRecord = await executeQueryOne(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'two_factor_sms'
           AND used_at IS NULL
@@ -313,7 +313,7 @@ class MFAManager {
    */
   async generateEmailCode(userId: number): Promise<boolean> {
     try {
-      const user = await executeQueryOne<any>('SELECT email FROM users WHERE id = ?', [userId]);
+      const user = await executeQueryOne('SELECT email FROM users WHERE id = ?', [userId]);
       if (!user) return false;
 
       const code = this.generateNumericCode(this.EMAIL_CODE_LENGTH);
@@ -345,7 +345,7 @@ class MFAManager {
    */
   async verifyEmailCode(userId: number, code: string): Promise<MFAVerification> {
     try {
-      const verificationRecord = await executeQueryOne<any>(`
+      const verificationRecord = await executeQueryOne(`
         SELECT * FROM verification_codes
         WHERE user_id = ? AND type = 'two_factor_email'
           AND used_at IS NULL
@@ -425,7 +425,7 @@ class MFAManager {
     backup_codes_remaining: number;
   }> {
     try {
-      const user = await executeQueryOne<any>(`
+      const user = await executeQueryOne(`
         SELECT two_factor_enabled, two_factor_secret, two_factor_backup_codes
         FROM users WHERE id = ?
       `, [userId]);

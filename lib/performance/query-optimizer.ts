@@ -1,3 +1,4 @@
+import type { SqlParam } from '@/lib/db/adapter';
 /**
  * Advanced Query Optimization for Enterprise Scale
  * Provides EXPLAIN ANALYZE, query plan optimization, and performance tracking
@@ -48,7 +49,7 @@ export class QueryOptimizer {
   /**
    * Analyze query execution plan and performance
    */
-  async analyzeQuery(query: string, params: any[] = []): Promise<QueryAnalysis> {
+  async analyzeQuery(query: string, params: SqlParam[] = []): Promise<QueryAnalysis> {
     const startTime = performance.now();
     const isPostgres = getDatabaseType() === 'postgresql';
 
@@ -57,10 +58,10 @@ export class QueryOptimizer {
       const explainQuery = isPostgres
         ? `EXPLAIN (FORMAT JSON) ${query}`
         : `EXPLAIN QUERY PLAN ${query}`;
-      const plan = await executeQuery<any>(explainQuery, params);
+      const plan = await executeQuery(explainQuery, params);
 
       // Execute the actual query to get real performance metrics
-      await executeQuery<any>(query, params);
+      await executeQuery(query, params);
 
       const executionTime = performance.now() - startTime;
 
@@ -344,7 +345,7 @@ export class QueryOptimizer {
 export const queryOptimizer = QueryOptimizer.getInstance();
 
 // Helper function for easy query analysis
-export async function analyzeQuery(query: string, params: any[] = []): Promise<QueryAnalysis> {
+export async function analyzeQuery(query: string, params: SqlParam[] = []): Promise<QueryAnalysis> {
   return queryOptimizer.analyzeQuery(query, params);
 }
 

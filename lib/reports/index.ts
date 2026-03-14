@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -67,9 +67,9 @@ export interface SatisfactionMetrics {
  * Constroi clausula WHERE baseada nos filtros
  * SECURITY: tenant_id filter is ALWAYS applied first for multi-tenant isolation
  */
-function buildWhereClause(filters: ReportFilters, tableAlias: string = 't'): { whereClause: string; params: any[] } {
+function buildWhereClause(filters: ReportFilters, tableAlias: string = 't'): { whereClause: string; params: SqlParam[] } {
   const conditions: string[] = [];
-  const params: any[] = [];
+  const params: SqlParam[] = [];
 
   // SECURITY: ALWAYS filter by tenant_id first - this is mandatory for multi-tenant security
   if (!filters.tenantId || filters.tenantId <= 0) {
@@ -126,7 +126,7 @@ export async function getTicketMetrics(filters: ReportFilters): Promise<TicketMe
   try {
     const { whereClause, params } = buildWhereClause(filters);
 
-    const result = await executeQueryOne<any>(`
+    const result = await executeQueryOne(`
       SELECT
         COUNT(*) as total,
         COUNT(CASE WHEN s.name IN ('Novo', 'Aberto') THEN 1 END) as open,
@@ -179,7 +179,7 @@ export async function getAgentPerformance(filters: ReportFilters): Promise<Agent
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const results = await executeQuery<any>(`
+    const results = await executeQuery(`
       SELECT
         u.id as agentId,
         u.name as agentName,
@@ -230,7 +230,7 @@ export async function getCategoryStats(filters: ReportFilters): Promise<Category
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const results = await executeQuery<any>(`
+    const results = await executeQuery(`
       SELECT
         c.id as categoryId,
         c.name as categoryName,
@@ -284,7 +284,7 @@ export async function getPriorityDistribution(filters: ReportFilters): Promise<P
 
     if (total === 0) return [];
 
-    const results = await executeQuery<any>(`
+    const results = await executeQuery(`
       SELECT
         p.id as priorityId,
         p.name as priorityName,
@@ -327,7 +327,7 @@ export async function getSatisfactionMetrics(filters: ReportFilters): Promise<Sa
 
     const { whereClause, params } = buildWhereClause(filters, 't');
 
-    const result = await executeQueryOne<any>(`
+    const result = await executeQueryOne(`
       SELECT
         COUNT(ss.id) as totalSurveys,
         AVG(ss.rating) as avgRating,
@@ -410,7 +410,7 @@ export async function getTrendData(filters: ReportFilters, groupBy: 'day' | 'wee
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const results = await executeQuery<any>(`
+    const results = await executeQuery(`
       SELECT
         ${dateFormat} as period,
         COUNT(*) as ticketsCreated,
@@ -448,7 +448,7 @@ export async function getSLAReport(filters: ReportFilters): Promise<any> {
 
     const { whereClause, params } = buildWhereClause(filters);
 
-    const results = await executeQuery<any>(`
+    const results = await executeQuery(`
       SELECT
         sp.name as slaName,
         COUNT(st.id) as totalTickets,

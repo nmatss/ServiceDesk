@@ -54,7 +54,7 @@ export function withDatadogTrace(
 export function traceApiRoute<T>(
   operationName: string,
   handler: () => T | Promise<T>,
-  tags?: Record<string, any>
+  tags?: Record<string, unknown>
 ): Promise<T> {
   const tracer = getTracer()
   const span = tracer.startSpan(`api.${operationName}`, {
@@ -87,7 +87,7 @@ export function traceApiRoute<T>(
 export async function traceOperation<T>(
   operationName: string,
   operation: () => T | Promise<T>,
-  tags?: Record<string, any>
+  tags?: Record<string, unknown>
 ): Promise<T> {
   const tracer = getTracer()
   const span = tracer.startSpan(operationName, {
@@ -114,7 +114,7 @@ export async function traceOperation<T>(
 /**
  * Add custom tags to the current span
  */
-export function addSpanTags(tags: Record<string, any>) {
+export function addSpanTags(tags: Record<string, unknown>) {
   const tracer = getTracer()
   const span = tracer.scope().active()
 

@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let messages: any[] = [];
+    let messages: unknown[] = [];
     if (contactId) {
       messages = await getMessagesByContact(parseInt(contactId), limit, offset);
     } else if (ticketId) {

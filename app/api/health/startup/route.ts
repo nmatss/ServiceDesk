@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { HealthCheckResult } from '@/lib/health/dependency-checks';
 import {
   checkDatabaseHealth,
   checkRedisHealth,
@@ -25,9 +26,9 @@ let startupCheckedAt: Date | null = null;
  */
 async function performStartupChecks(): Promise<{
   complete: boolean;
-  checks: Record<string, any>;
+  checks: Record<string, HealthCheckResult>;
 }> {
-  const checks: Record<string, any> = {};
+  const checks: Record<string, HealthCheckResult> = {} as Record<string, HealthCheckResult>;
 
   checks.database = await checkDatabaseHealth();
   checks.redis = await checkRedisHealth();
@@ -48,8 +49,8 @@ async function performStartupChecks(): Promise<{
       const tables = await listCurrentTables();
       checks.database_schema = {
         status: tables.length > 0 ? 'ok' : 'error',
-        tables_count: tables.length,
         message: tables.length > 0 ? 'Database schema initialized' : 'No tables found',
+        metadata: { tables_count: tables.length },
       };
     } catch (error) {
       checks.database_schema = {
@@ -76,7 +77,7 @@ async function performStartupChecks(): Promise<{
 
   checks.environment = {
     status: missingEnvVars.length === 0 ? 'ok' : 'warning',
-    missing: missingEnvVars,
+    metadata: { missing: missingEnvVars },
     message:
       missingEnvVars.length === 0
         ? 'Environment variables configured'

@@ -3,7 +3,7 @@ import logger from '../monitoring/structured-logger';
 import { aiCache } from './cache';
 import { cosineSimilarity } from './utils';
 import { createHash } from 'crypto';
-import { getDatabase, type DatabaseAdapter } from '../db/adapter';
+import { executeQuery, executeQueryOne, executeRun } from '../db/adapter';
 
 export interface SearchResult {
   entityType: string;
@@ -48,18 +48,10 @@ export interface BatchProcessingResult {
   processingTimeMs: number;
 }
 
-type VectorDatabaseClient = Pick<DatabaseAdapter, 'get' | 'all' | 'run'>;
-
 export class VectorDatabase {
   private static readonly DEFAULT_MODEL = 'text-embedding-3-small';
   private static readonly SIMILARITY_THRESHOLD = 0.75;
   private static readonly BATCH_SIZE = 20;
-
-  private db: VectorDatabaseClient;
-
-  constructor(database?: VectorDatabaseClient) {
-    this.db = database ?? getDatabase();
-  }
 
   /**
    * Gera embedding para um texto e armazena no banco (com cache)
@@ -109,7 +101,7 @@ export class VectorDatabase {
       const embeddingVector = JSON.stringify(embedding);
 
       // Verificar se já existe embedding para esta entidade
-      const existingEmbedding = await this.db.get<{ id: number }>(`
+      const existingEmbedding = await executeQueryOne<{ id: number }>(`
         SELECT id FROM vector_embeddings
         WHERE entity_type = ? AND entity_id = ? AND model_name = ?
       `, [entityType, entityId, modelName]);
@@ -118,7 +110,7 @@ export class VectorDatabase {
 
       if (existingEmbedding) {
         // Atualizar embedding existente
-        await this.db.run(`
+        await executeRun(`
           UPDATE vector_embeddings
           SET embedding_vector = ?, vector_dimension = ?, updated_at = CURRENT_TIMESTAMP
           WHERE entity_type = ? AND entity_id = ? AND model_name = ?
@@ -127,7 +119,7 @@ export class VectorDatabase {
         embeddingId = existingEmbedding.id;
       } else {
         // Criar novo embedding
-        const result = await this.db.run(`
+        const result = await executeRun(`
           INSERT INTO vector_embeddings (
             entity_type, entity_id, embedding_vector, model_name,
             model_version, vector_dimension
@@ -144,7 +136,7 @@ export class VectorDatabase {
         if (typeof result.lastInsertRowid === 'number') {
           embeddingId = result.lastInsertRowid;
         } else {
-          const insertedEmbedding = await this.db.get<{ id: number }>(`
+          const insertedEmbedding = await executeQueryOne<{ id: number }>(`
             SELECT id FROM vector_embeddings
             WHERE entity_type = ? AND entity_id = ? AND model_name = ?
           `, [entityType, entityId, modelName]);
@@ -201,7 +193,7 @@ export class VectorDatabase {
         const batchPromises = batch.map(async (job) => {
           try {
             // Check if embedding already exists and is recent
-            const existing = await this.db.get<{ id: number; updated_at: string }>(`
+            const existing = await executeQueryOne<{ id: number; updated_at: string }>(`
               SELECT id, updated_at FROM vector_embeddings
               WHERE entity_type = ? AND entity_id = ? AND model_name = ?
             `, [job.entityType, job.entityId, modelName]);
@@ -309,7 +301,7 @@ export class VectorDatabase {
         params.push(...excludeEntityIds);
       }
 
-      const embeddings = await this.db.all<{ entity_type: string; entity_id: number; embedding_vector: string }>(`
+      const embeddings = await executeQuery<{ entity_type: string; entity_id: number; embedding_vector: string }>(`
         SELECT entity_type, entity_id, embedding_vector
         FROM vector_embeddings
         WHERE model_name = ?${whereClause}
@@ -409,7 +401,7 @@ export class VectorDatabase {
     // Enriquecer resultados com dados dos artigos
     for (const result of results) {
       try {
-        const article = await this.db.get<{ title: string; summary?: string; content?: string }>(`
+        const article = await executeQueryOne<{ title: string; summary?: string; content?: string }>(`
           SELECT title, summary, content
           FROM kb_articles
           WHERE id = ? AND status = 'published'
@@ -452,7 +444,7 @@ export class VectorDatabase {
     // Enriquecer resultados com dados dos tickets
     for (const result of results) {
       try {
-        const ticket = await this.db.get<{
+        const ticket = await executeQueryOne<{
           title: string;
           description?: string;
           category_name: string;
@@ -503,14 +495,14 @@ export class VectorDatabase {
 
       switch (entityType) {
         case 'ticket':
-          entities = await this.db.all<{ id: number; content: string }>(`
+          entities = await executeQuery<{ id: number; content: string }>(`
             SELECT id, title || ' ' || description as content
             FROM tickets
           `);
           break;
 
         case 'kb_article':
-          entities = await this.db.all<{ id: number; content: string }>(`
+          entities = await executeQuery<{ id: number; content: string }>(`
             SELECT id, title || ' ' || COALESCE(summary, '') || ' ' || content as content
             FROM kb_articles
             WHERE status = 'published'
@@ -518,7 +510,7 @@ export class VectorDatabase {
           break;
 
         case 'comment':
-          entities = await this.db.all<{ id: number; content: string }>(`
+          entities = await executeQuery<{ id: number; content: string }>(`
             SELECT id, content
             FROM comments
           `);
@@ -564,7 +556,7 @@ export class VectorDatabase {
   async cleanupEmbeddings(): Promise<number> {
     try {
       // Remover embeddings de entidades que não existem mais
-      const result = await this.db.run(`
+      const result = await executeRun(`
         DELETE FROM vector_embeddings
         WHERE (entity_type = 'ticket' AND entity_id NOT IN (SELECT id FROM tickets))
            OR (entity_type = 'kb_article' AND entity_id NOT IN (SELECT id FROM kb_articles))
@@ -589,22 +581,22 @@ export class VectorDatabase {
     newestEmbedding?: string;
   }> {
     try {
-      const totalResult = await this.db.get<{ total: number }>(`
+      const totalResult = await executeQueryOne<{ total: number }>(`
         SELECT COUNT(*) as total FROM vector_embeddings
       `);
 
-      const byTypeResults = await this.db.all<{ entity_type: string; count: number }>(`
+      const byTypeResults = await executeQuery<{ entity_type: string; count: number }>(`
         SELECT entity_type, COUNT(*) as count
         FROM vector_embeddings
         GROUP BY entity_type
       `);
 
-      const avgDimensionResult = await this.db.get<{ avg_dimension: number | null }>(`
+      const avgDimensionResult = await executeQueryOne<{ avg_dimension: number | null }>(`
         SELECT AVG(vector_dimension) as avg_dimension
         FROM vector_embeddings
       `);
 
-      const dateRangeResult = await this.db.get<{ oldest?: string; newest?: string }>(`
+      const dateRangeResult = await executeQueryOne<{ oldest?: string; newest?: string }>(`
         SELECT
           MIN(created_at) as oldest,
           MAX(updated_at) as newest
@@ -763,7 +755,7 @@ export class VectorDatabase {
           return [];
       }
 
-      const results = await this.db.all<{ id: number; score: number; title?: string; content?: string; description?: string }>(searchQuery, params);
+      const results = await executeQuery<{ id: number; score: number; title?: string; content?: string; description?: string }>(searchQuery, params);
 
       return results.map(row => ({
         entityType,

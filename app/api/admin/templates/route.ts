@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // FILTRAR POR TENANT - templates criados por usuários do tenant
     let whereClause = 'WHERE u.organization_id = ?';
-    const params: any[] = [tenantId];
+    const params: (string | number | boolean | null)[] = [tenantId];
 
     // Filtrar por tipo
     if (type) {

@@ -28,7 +28,7 @@ interface SentryLike {
   setTag: (key: string, value: string) => void
   setExtra: (key: string, value: unknown) => void
   addBreadcrumb: (breadcrumb: Record<string, unknown>) => void
-  startSpan: <T>(options: Record<string, unknown>, callback: () => T) => T
+  startSpan: <T>(options: any, callback: () => T) => T
 }
 
 /**

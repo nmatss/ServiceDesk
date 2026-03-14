@@ -212,7 +212,7 @@ export function useNetworkStatus() {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine)
 
     const updateConnectionType = () => {
-      const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
+      const connection = (navigator as unknown as { connection: unknown }).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
       if (connection) {
         setConnectionType(connection.effectiveType || 'unknown')
       }
@@ -224,7 +224,7 @@ export function useNetworkStatus() {
     window.addEventListener('online', updateOnlineStatus)
     window.addEventListener('offline', updateOnlineStatus)
 
-    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
+    const connection = (navigator as unknown as { connection: unknown }).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
     if (connection) {
       connection.addEventListener('change', updateConnectionType)
     }

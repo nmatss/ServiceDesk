@@ -6,7 +6,7 @@ export class AIFeedbackLoop {
    */
   async collectTrainingData(organizationId: number): Promise<void> {
     // Buscar classificações aceitas (corretas)
-    const correctClassifications = await executeQuery<any>(
+    const correctClassifications = await executeQuery(
       `SELECT
         ai.ticket_id,
         t.title,
@@ -25,7 +25,7 @@ export class AIFeedbackLoop {
     );
 
     // Buscar classificações corrigidas (incorretas)
-    const correctedClassifications = await executeQuery<any>(
+    const correctedClassifications = await executeQuery(
       `SELECT
         ai.ticket_id,
         t.title,
@@ -106,7 +106,7 @@ export class AIFeedbackLoop {
     priority_accuracy: number;
     total_classifications: number;
   }> {
-    const stats = await executeQueryOne<any>(
+    const stats = await executeQueryOne(
       `SELECT
         COUNT(*) as total,
         SUM(CASE WHEN was_accepted = 1 THEN 1 ELSE 0 END) as accepted,
@@ -133,7 +133,7 @@ export class AIFeedbackLoop {
    * Exporta dados para fine-tuning
    */
   async exportForFineTuning(organizationId: number): Promise<any[]> {
-    const trainingData = await executeQuery<any>(
+    const trainingData = await executeQuery(
       `SELECT input, output, quality_score
       FROM ai_training_data
       WHERE organization_id = ?

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       WHERE t.organization_id = ? AND t.user_id = ?
     `
 
-    const params: any[] = [auth.organizationId, auth.userId]
+    const params: (string | number | boolean | null)[] = [auth.organizationId, auth.userId]
 
     // Add search filter
     if (search) {
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       WHERE t.organization_id = ? AND t.user_id = ?
     `
 
-    const countParams: any[] = [auth.organizationId, auth.userId]
+    const countParams: (string | number | boolean | null)[] = [auth.organizationId, auth.userId]
 
     if (search) {
       const escapedSearch = search.replace(/%/g, '\\%').replace(/_/g, '\\_')

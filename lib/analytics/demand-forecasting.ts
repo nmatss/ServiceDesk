@@ -955,7 +955,7 @@ export class DemandForecastingEngine {
 interface TimeSeriesData {
   timestamp: Date;
   value: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ForecastFilters {

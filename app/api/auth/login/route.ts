@@ -92,7 +92,7 @@ async function getUserByEmailForTenant(email: string, tenantId: number): Promise
   }
 }
 
-async function runUserScopedUpdate(sqlOrg: string, sqlTenant: string, params: any[]): Promise<void> {
+async function runUserScopedUpdate(sqlOrg: string, sqlTenant: string, params: (string | number | boolean | null)[]): Promise<void> {
   try {
     await executeRun(sqlOrg, params);
   } catch {

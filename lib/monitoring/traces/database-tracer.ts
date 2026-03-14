@@ -11,7 +11,7 @@ import { logger } from '../logger';
 export async function traceQuery<T>(
   queryName: string,
   sql: string,
-  params: any[] = [],
+  params: SqlParam[] = [],
   fn: () => T
 ): Promise<T> {
   return await ddTracer.trace(

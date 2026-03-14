@@ -33,7 +33,7 @@ export interface DomainEvent<T = any> {
   eventType: string
   eventVersion: number
   data: T
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   timestamp: string
   version: number
   causationId?: string
@@ -53,7 +53,7 @@ export abstract class AggregateRoot {
   private _version = 0
   private _uncommittedEvents: DomainEvent[] = []
 
-  protected applyEvent(eventType: string, data: any, metadata?: Record<string, any>): void {
+  protected applyEvent(eventType: string, data: any, metadata?: Record<string, unknown>): void {
     const event: DomainEvent = {
       id: uuidv4(),
       streamId: this.getId(),
@@ -553,7 +553,7 @@ export const createEvent = (
   streamId: string,
   eventType: string,
   data: any,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): DomainEvent => ({
   id: uuidv4(),
   streamId,
@@ -569,7 +569,7 @@ export const publishEvent = async (
   streamId: string,
   eventType: string,
   data: any,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<void> => {
   const event = createEvent(streamId, eventType, data, metadata)
   await eventBus.publish(event)

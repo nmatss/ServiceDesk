@@ -1,6 +1,6 @@
 // FAQ generator automático por categoria
 import { Configuration, OpenAIApi } from 'openai';
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import logger from '../monitoring/structured-logger';
 
@@ -126,7 +126,7 @@ export class FAQGenerator {
   ): Promise<CategoryAnalysis> {
     try {
       // Busca categoria
-      const category = await executeQueryOne<any>(`
+      const category = await executeQueryOne(`
         SELECT id, name FROM categories WHERE id = ?
       `, [categoryId]);
 
@@ -146,7 +146,7 @@ export class FAQGenerator {
         ? `NOW() - INTERVAL '${sanitizedTimeframe}'`
         : `datetime('now', '-' || ? || '')`;
 
-      const params: any[] = [categoryId];
+      const params: SqlParam[] = [categoryId];
       if (!isPg) {
         params.push(timeframe);
       }
@@ -157,7 +157,7 @@ export class FAQGenerator {
         : `HAVING resolution IS NOT NULL`;
 
       // Busca tickets resolvidos da categoria
-      const tickets = await executeQuery<any>(`
+      const tickets = await executeQuery(`
         SELECT
           t.id,
           t.title,
@@ -459,7 +459,7 @@ Diretrizes:
 
       // Adiciona tag FAQ
       await executeRun(insertOrIgnore, []);
-      const faqTag = await executeQueryOne<any>(`SELECT id FROM kb_tags WHERE slug = 'faq'`, []);
+      const faqTag = await executeQueryOne(`SELECT id FROM kb_tags WHERE slug = 'faq'`, []);
 
       if (faqTag) {
         await executeRun(`
@@ -571,7 +571,7 @@ Diretrizes:
         : `datetime('now', '-60 days')`;
 
       // Busca categorias elegíveis
-      const categories = await executeQuery<any>(`
+      const categories = await executeQuery(`
         SELECT
           c.id,
           c.name,
@@ -636,7 +636,7 @@ Diretrizes:
       const nowExpr = isPg ? 'NOW()' : "datetime('now')";
 
       // Busca artigo existente
-      const article = await executeQueryOne<any>(`
+      const article = await executeQueryOne(`
         SELECT ka.*, c.name as category_name
         FROM kb_articles ka
         JOIN categories c ON ka.category_id = c.id
@@ -685,7 +685,7 @@ Diretrizes:
     quality_score: number;
   }> {
     try {
-      const article = await executeQueryOne<any>(`
+      const article = await executeQueryOne(`
         SELECT * FROM kb_articles WHERE id = ?
       `, [articleId]);
 

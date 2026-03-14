@@ -671,7 +671,7 @@ export interface AuthSession {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
-  deviceInfo?: any;
+  deviceInfo?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
 }

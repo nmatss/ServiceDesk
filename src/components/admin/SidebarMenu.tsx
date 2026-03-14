@@ -16,7 +16,7 @@ import {
 interface MenuItem {
   name: string
   href: string
-  icon?: any
+  icon?: React.ComponentType<{ className?: string }>
   submenu?: MenuItem[]
   locked?: boolean
   initial?: string

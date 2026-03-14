@@ -161,7 +161,7 @@ export class ConsentManager {
     reason?: string;
   }> {
     try {
-      const consent = await executeQueryOne<any>(`
+      const consent = await executeQueryOne(`
         SELECT
           id,
           created_at as grantedAt,
@@ -308,7 +308,7 @@ export class ConsentManager {
         ? [startDate.toISOString(), endDate.toISOString()]
         : [];
 
-      const stats = await executeQueryOne<any>(`
+      const stats = await executeQueryOne(`
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN is_given = 1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) THEN 1 ELSE 0 END) as active,

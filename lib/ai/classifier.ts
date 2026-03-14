@@ -28,13 +28,13 @@ export class AIClassifier {
     reasoning: string;
   }> {
     // Buscar categorias e prioridades do tenant
-    const categories = await executeQuery<any>(
+    const categories = await executeQuery(
       `SELECT id, name, description FROM categories
       WHERE organization_id = ? AND is_active = ${sqlTrue()}`,
       [organizationId]
     );
 
-    const priorities = await executeQuery<any>(
+    const priorities = await executeQuery(
       `SELECT id, name, level FROM priorities
       WHERE organization_id = ?`,
       [organizationId]
@@ -257,7 +257,7 @@ Retorne um JSON com:
     if (queryEmbedding.length === 0) return [];
 
     // Buscar todos embeddings do tipo
-    const embeddings = await executeQuery<any>(
+    const embeddings = await executeQuery(
       `SELECT * FROM vector_embeddings
       WHERE entity_type = ? AND organization_id = ?`,
       [entityType, organizationId]

@@ -205,7 +205,7 @@ class DataMaskingManager {
   /**
    * Apply automatic masking based on field patterns
    */
-  async autoMask(value: unknown, fieldName: string): Promise<unknown> {
+  async autoMask(value: unknown, fieldName: string): Promise<any> {
     if (value === null || value === undefined) {
       return value;
     }
@@ -289,7 +289,7 @@ class DataMaskingManager {
     maskedValue: unknown,
     originalValue: unknown,
     context: MaskingContext
-  ): Promise<unknown> {
+  ): Promise<any> {
     // Check if user has permission to view unmasked data
     if (context.userRole === 'admin' || context.purpose === 'audit') {
       return originalValue;
@@ -337,7 +337,7 @@ class DataMaskingManager {
     value: unknown,
     rule: MaskingRule,
     context: MaskingContext
-  ): Promise<unknown> {
+  ): Promise<any> {
     const config = rule.configuration;
     const stringValue = String(value);
 

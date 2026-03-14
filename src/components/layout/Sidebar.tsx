@@ -522,7 +522,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0 }:
                 {/* Tooltip for collapsed sidebar */}
                 {!open && (
                   <div
-                    className="absolute left-full ml-2 px-2 py-1 bg-neutral-800 dark:bg-neutral-200 text-white dark:text-neutral-900 text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap"
+                    className="absolute left-full ml-2 px-2 py-1 bg-neutral-800 dark:bg-neutral-800 text-white dark:text-white text-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 whitespace-nowrap"
                     role="tooltip"
                   >
                     {item.name}

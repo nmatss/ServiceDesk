@@ -187,7 +187,7 @@ export class UserService {
     await this.userRepo.updateLastLogin(user.id);
 
     // Remove password hash before returning
-    delete (user as any).password_hash;
+    delete (user as unknown as Record<string, unknown>).password_hash;
 
     // TODO: Create audit log entry for successful login
     // TODO: Create user session

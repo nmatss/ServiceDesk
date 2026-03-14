@@ -8,7 +8,7 @@
  * @module lib/db/queries
  */
 
-import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlCurrentDate, sqlTrue, sqlFalse } from './adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlCurrentDate, sqlTrue, sqlFalse, type SqlParam } from './adapter';
 import { getDatabaseType } from './config';
 import { getFromCache, setCache } from '../cache/lru-cache';
 import logger from '@/lib/monitoring/structured-logger';
@@ -331,7 +331,7 @@ export const userQueries = {
 
   update: async (user: UpdateUser, organizationId: number): Promise<User | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (user.name !== undefined) {
       fields.push('name = ?');
@@ -381,7 +381,7 @@ export const categoryQueries = {
 
   update: async (category: UpdateCategory): Promise<Category | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (category.name !== undefined) {
       fields.push('name = ?');
@@ -431,7 +431,7 @@ export const priorityQueries = {
 
   update: async (priority: UpdatePriority): Promise<Priority | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (priority.name !== undefined) {
       fields.push('name = ?');
@@ -489,7 +489,7 @@ export const statusQueries = {
 
   update: async (status: UpdateStatus): Promise<Status | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (status.name !== undefined) {
       fields.push('name = ?');
@@ -682,7 +682,7 @@ export const ticketQueries = {
   // SECURITY: Enforces organization_id filter to prevent cross-tenant ticket updates
   update: async (ticket: UpdateTicket, organizationId: number): Promise<Ticket | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (ticket.title !== undefined) {
       fields.push('title = ?');
@@ -773,7 +773,7 @@ export const commentQueries = {
 
   update: async (comment: UpdateComment, organizationId: number): Promise<Comment | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (comment.content !== undefined) {
       fields.push('content = ?');
@@ -1559,7 +1559,7 @@ function parseWorkflowRow(workflow: any): WorkflowDefinition {
 export const workflowQueries = {
   async getWorkflowById(id: number): Promise<WorkflowDefinition | null> {
     try {
-      const workflow = await executeQueryOne<any>(`
+      const workflow = await executeQueryOne(`
         SELECT
           w.*,
           wd.steps_json,
@@ -1582,7 +1582,7 @@ export const workflowQueries = {
 
   async getActiveWorkflows(): Promise<WorkflowDefinition[]> {
     try {
-      const workflows = await executeQuery<any>(`
+      const workflows = await executeQuery(`
         SELECT
           w.*,
           wd.steps_json,
@@ -1602,7 +1602,7 @@ export const workflowQueries = {
 
   async getWorkflowsByTriggerType(triggerType: string): Promise<WorkflowDefinition[]> {
     try {
-      const workflows = await executeQuery<any>(`
+      const workflows = await executeQuery(`
         SELECT
           w.*,
           wd.steps_json,
@@ -1659,7 +1659,7 @@ export const cabQueries = {
       FROM cab_meetings m
       WHERE m.organization_id = ?
     `;
-    const params: any[] = [organizationId];
+    const params: SqlParam[] = [organizationId];
 
     if (filters?.status) {
       query += ' AND m.status = ?';
@@ -1681,7 +1681,7 @@ export const cabQueries = {
   },
 
   getCabMeetingById: async (id: number, organizationId: number): Promise<CABMeetingWithDetails | undefined> => {
-    const meeting = await executeQueryOne<any>(`
+    const meeting = await executeQueryOne(`
       SELECT
         m.*,
         u.name as organizer_name,
@@ -1740,7 +1740,7 @@ export const cabQueries = {
 
   updateCabMeeting: async (meeting: UpdateCABMeeting, organizationId: number): Promise<CABMeeting | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
     if (meeting.status !== undefined) {
       fields.push('status = ?');
@@ -1853,7 +1853,7 @@ export const cabQueries = {
   },
 
   getChangeRequestById: async (id: number, organizationId: number): Promise<ChangeRequestWithDetails | undefined> => {
-    const change = await executeQueryOne<any>(`
+    const change = await executeQueryOne(`
       SELECT cr.*,
         u.name as requester_name,
         u.email as requester_email,
@@ -1940,9 +1940,9 @@ export const cabQueries = {
 
   updateChangeRequest: async (change: UpdateChangeRequest, organizationId: number): Promise<ChangeRequest | undefined> => {
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: SqlParam[] = [];
 
-    const fieldMap: Record<string, any> = {
+    const fieldMap: Record<string, unknown> = {
       title: change.title,
       description: change.description,
       status: change.status,
@@ -1958,7 +1958,7 @@ export const cabQueries = {
     for (const [key, value] of Object.entries(fieldMap)) {
       if (value !== undefined) {
         fields.push(`${key} = ?`);
-        values.push(value);
+        values.push(value as SqlParam);
       }
     }
 
@@ -2058,7 +2058,7 @@ interface CreateNotificationInput {
   type: string;
   title: string;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   ticket_id?: number;
 }
 
@@ -2071,7 +2071,7 @@ export const notificationQueries = {
     const { unreadOnly = false, limit = 50, offset = 0 } = options;
 
     let whereClause = 'WHERE user_id = ? AND tenant_id = ?';
-    const params: any[] = [userId, tenantId];
+    const params: SqlParam[] = [userId, tenantId];
 
     if (unreadOnly) {
       whereClause += ' AND is_read = 0';
@@ -2198,7 +2198,7 @@ export const notificationQueries = {
     ticketId: number;
     type: 'ticket_assigned' | 'ticket_updated' | 'comment_added' | 'ticket_resolved' | 'sla_warning' | 'sla_breach';
     ticketTitle: string;
-    additionalData?: Record<string, any>;
+    additionalData?: Record<string, unknown>;
   }): Promise<NotificationType> => {
     const messages: Record<string, string> = {
       ticket_assigned: `Ticket #${params.ticketId} foi atribuído a você`,

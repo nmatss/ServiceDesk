@@ -22,7 +22,7 @@ export interface InvalidationEvent {
   target: string | string[]; // Key(s), tag(s), or pattern
   source: string; // Instance ID that triggered invalidation
   timestamp: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type InvalidationCallback = (event: InvalidationEvent) => void | Promise<void>;
@@ -212,7 +212,7 @@ export class CacheInvalidator {
   /**
    * Invalidate by key(s)
    */
-  async invalidateKeys(keys: string | string[], metadata?: Record<string, any>): Promise<void> {
+  async invalidateKeys(keys: string | string[], metadata?: Record<string, unknown>): Promise<void> {
     const keyArray = Array.isArray(keys) ? keys : [keys];
 
     // Invalidate locally
@@ -236,7 +236,7 @@ export class CacheInvalidator {
   /**
    * Invalidate by tag(s)
    */
-  async invalidateTags(tags: string | string[], metadata?: Record<string, any>): Promise<void> {
+  async invalidateTags(tags: string | string[], metadata?: Record<string, unknown>): Promise<void> {
     const tagArray = Array.isArray(tags) ? tags : [tags];
 
     // Invalidate locally
@@ -258,7 +258,7 @@ export class CacheInvalidator {
   /**
    * Invalidate by pattern
    */
-  async invalidatePattern(pattern: string, metadata?: Record<string, any>): Promise<void> {
+  async invalidatePattern(pattern: string, metadata?: Record<string, unknown>): Promise<void> {
     // Invalidate locally
     await this.cacheManager.invalidateByPattern(pattern);
 
@@ -278,7 +278,7 @@ export class CacheInvalidator {
   /**
    * Clear all cache
    */
-  async clearAll(metadata?: Record<string, any>): Promise<void> {
+  async clearAll(metadata?: Record<string, unknown>): Promise<void> {
     // Clear locally
     await this.cacheManager.clear();
 

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       ? "COALESCE(string_agg(DISTINCT t.name, ','), '') as tags"
       : "GROUP_CONCAT(DISTINCT t.name) as tags";
 
-    const articles = await executeQuery<Record<string, any>>(`
+    const articles = await executeQuery<Record<string, unknown>>(`
       SELECT
         a.id,
         a.title,

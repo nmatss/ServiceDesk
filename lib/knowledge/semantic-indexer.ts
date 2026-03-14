@@ -279,7 +279,7 @@ export class SemanticIndexer {
    */
   private async indexComment(commentId: number): Promise<void> {
     try {
-      const comment = await executeQueryOne<any>(`
+      const comment = await executeQueryOne(`
         SELECT c.*, t.title as ticket_title, t.category_id,
                cat.name as category_name, u.name as author_name
         FROM comments c

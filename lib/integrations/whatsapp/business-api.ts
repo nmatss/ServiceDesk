@@ -20,7 +20,7 @@ async function createTicket(data: any, organizationId: number) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})`,
     [data.title, data.description, data.user_id, organizationId, data.category_id, data.priority_id, data.status_id]
   );
-  return result.lastInsertRowid ? await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
+  return result.lastInsertRowid ? await executeQueryOne('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
 }
 
 async function addComment(data: any, _organizationId?: number) {
@@ -117,7 +117,7 @@ interface WhatsAppSession {
   lastMessageAt: Date;
   context: {
     conversationId?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   };
 }
 

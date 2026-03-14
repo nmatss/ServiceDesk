@@ -265,8 +265,8 @@ async function getKPISummary(): Promise<KPISummaryData> {
     total_sla_tracked: r.sla_total,
     avg_response_time: r.avg_response || 0,
     avg_resolution_time: r.avg_resolution || 0,
-    fcr_rate: null as any,
-    csat_score: null as any,
+    fcr_rate: 0,
+    csat_score: 0,
     csat_responses: 0,
     active_agents: r.active_agents,
     open_tickets: r.open_tickets,
@@ -278,8 +278,8 @@ async function getKPISummary(): Promise<KPISummaryData> {
       sla_change: r.sla_last_week_total > 0 && r.sla_total > 0
         ? (((r.sla_response_met / r.sla_total) - (r.sla_last_week_response_met / r.sla_last_week_total)) * 100)
         : 0,
-      satisfaction_change: null as any,
-      response_time_change: null as any,
+      satisfaction_change: 0,
+      response_time_change: 0,
     },
   };
 
@@ -292,7 +292,7 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
   const cached = getCachedData<SLAPerformanceData[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await executeQuery<any>(`
+  const data = await executeQuery<{ date: string; total_tickets: number; response_met: number; resolution_met: number; avg_response_time: number; avg_resolution_time: number }>(`
     SELECT
       ${sqlCastDate('st.created_at')} as date,
       COUNT(*) as total_tickets,
@@ -306,7 +306,7 @@ async function getSLAPerformance(): Promise<SLAPerformanceData[]> {
     ORDER BY date
   `);
 
-  const result = data.map((row: any) => ({
+  const result = data.map((row) => ({
     date: row.date,
     total_tickets: row.total_tickets,
     response_met: row.response_met,
@@ -326,7 +326,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
   const cached = getCachedData<AgentPerformanceData[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await executeQuery<any>(`
+  const data = await executeQuery<{ id: number; name: string; email: string; assigned_tickets: number; resolved_tickets: number; avg_response_time: number; avg_resolution_time: number }>(`
     SELECT
       u.id,
       u.name,
@@ -347,7 +347,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
     ORDER BY resolved_tickets DESC
   `);
 
-  const result = data.map((row: any) => {
+  const result = data.map((row) => {
     const resolution_rate = row.assigned_tickets > 0
       ? (row.resolved_tickets / row.assigned_tickets) * 100
       : 0;
@@ -365,7 +365,7 @@ async function getAgentPerformance(): Promise<AgentPerformanceData[]> {
       resolution_rate,
       avg_response_time: row.avg_response_time || 0,
       avg_resolution_time: row.avg_resolution_time || 0,
-      avg_satisfaction: null as any, // TODO: calculate from satisfaction_surveys per agent
+      avg_satisfaction: 0, // TODO: calculate from satisfaction_surveys per agent
       satisfaction_responses: 0, // TODO: count from satisfaction_surveys per agent
       efficiency_score: Math.min(100, resolution_rate * 0.6 + (100 - Math.min(row.avg_resolution_time / 10, 100)) * 0.4),
       workload_status,
@@ -381,7 +381,7 @@ async function getVolumeData(): Promise<VolumeData[]> {
   const cached = getCachedData<VolumeData[]>(cacheKey);
   if (cached) return cached;
 
-  const data = await executeQuery<any>(`
+  const data = await executeQuery<VolumeData>(`
     SELECT
       ${sqlCastDate('created_at')} as date,
       COUNT(*) as created,
@@ -504,7 +504,7 @@ export async function GET(request: NextRequest) {
     if (params.enableForecasting) {
       const forecasts = await demandForecaster.forecastDemand(7);
       metrics.forecasting = {
-        daily_forecast: forecasts.map((f: any) => ({
+        daily_forecast: forecasts.map((f: { date: string; predicted_tickets: number; confidence_interval: { lower: number; upper: number } }) => ({
           date: f.date,
           predicted_tickets: f.predicted_tickets,
           confidence_interval: [f.confidence_interval.lower, f.confidence_interval.upper],
@@ -518,7 +518,7 @@ export async function GET(request: NextRequest) {
     // Add anomaly detection if enabled
     if (params.enableAnomalyDetection) {
       const anomalies = await anomalyDetector.detectAnomalies();
-      metrics.anomalies = anomalies.map((a: any) => ({
+      metrics.anomalies = anomalies.map((a: { timestamp: Date; actual_value: number; expected_value: number; anomaly_type: string; severity: string }) => ({
         date: a.timestamp.toISOString().split('T')[0],
         ticket_count: a.actual_value,
         high_priority_count: 0,

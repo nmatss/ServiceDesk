@@ -14,7 +14,8 @@
 
 import * as nodemailer from 'nodemailer';
 import type { Transporter, SendMailOptions } from 'nodemailer';
-import { executeQuery, executeQueryOne, executeRun, getDatabase, sqlNow, sqlDateSub } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDateSub } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import logger from '@/lib/monitoring/structured-logger';
 import { templateEngine, TemplateData } from './templates';
 
@@ -29,7 +30,7 @@ export interface EmailOptions {
   replyTo?: string;
   headers?: Record<string, string>;
   priority?: 'high' | 'normal' | 'low';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EmailAttachment {
@@ -227,8 +228,7 @@ export class EmailSender {
       };
 
       // Detect column names dynamically for backwards compatibility
-      const db = getDatabase();
-      const dbType = db.getType();
+      const dbType = getDatabaseType();
       let columnSet: Set<string>;
 
       if (dbType === 'sqlite') {
@@ -362,7 +362,7 @@ export class EmailSender {
 
     try {
       // Get pending emails
-      const emails = await executeQuery<any>(
+      const emails = await executeQuery(
         `SELECT * FROM email_queue
          WHERE status = 'pending'
            AND attempts < max_attempts
@@ -499,7 +499,7 @@ export class EmailSender {
       const whereClause = tenantId ? 'WHERE tenant_id = ?' : '';
       const params = tenantId ? [tenantId] : [];
 
-      const stats = await executeQueryOne<any>(
+      const stats = await executeQueryOne(
         `SELECT
           COUNT(*) as total,
           COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,

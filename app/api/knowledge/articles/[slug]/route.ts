@@ -10,11 +10,11 @@ async function awaitMaybe<T>(value: T | Promise<T>): Promise<T> {
   return value instanceof Promise ? await value : value;
 }
 
-async function txRun(tx: DatabaseAdapter, sql: string, params: any[]): Promise<void> {
+async function txRun(tx: DatabaseAdapter, sql: string, params: (string | number | boolean | null)[]): Promise<void> {
   await awaitMaybe(tx.prepare(sql).run(...params));
 }
 
-async function txGet<T = any>(tx: DatabaseAdapter, sql: string, params: any[]): Promise<T | undefined> {
+async function txGet<T = Record<string, unknown>>(tx: DatabaseAdapter, sql: string, params: (string | number | boolean | null)[]): Promise<T | undefined> {
   return await awaitMaybe(tx.prepare(sql).get(...params)) as T | undefined;
 }
 
@@ -38,7 +38,7 @@ export async function GET(
     }
 
     // Buscar artigo por slug
-    const article = await executeQueryOne<{ id: number } & Record<string, any>>(`
+    const article = await executeQueryOne<{ id: number } & Record<string, unknown>>(`
       SELECT
         a.id,
         a.title,

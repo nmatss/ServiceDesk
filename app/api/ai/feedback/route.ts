@@ -107,14 +107,15 @@ export async function POST(request: NextRequest) {
         if (wasHelpful === false) {
           const suggestion = await executeQueryOne('SELECT * FROM ai_suggestions WHERE id = ?', [operationId]);
 
-          if (suggestion && (suggestion as any).ticket_id) {
-            const ticket = await executeQueryOne('SELECT title, description FROM tickets WHERE id = ?', [(suggestion as any).ticket_id]);
+          const suggestionRow = suggestion as { ticket_id?: number; content?: string } | undefined;
+          if (suggestionRow && suggestionRow.ticket_id) {
+            const ticket = await executeQueryOne<{ title: string; description: string }>('SELECT title, description FROM tickets WHERE id = ?', [suggestionRow.ticket_id]);
 
             if (ticket) {
               await trainingSystem.addTrainingData(
-                `${(ticket as any).title}\n${(ticket as any).description}`,
-                { needsImprovement: true, originalSuggestion: (suggestion as any).content },
-                { suggestion: (suggestion as any).content, wasHelpful: false },
+                `${ticket.title}\n${ticket.description}`,
+                { needsImprovement: true, originalSuggestion: suggestionRow.content },
+                { suggestion: suggestionRow.content, wasHelpful: false },
                 'suggestion',
                 0.3, // Low quality score for rejected suggestions
                 true,
@@ -161,10 +162,10 @@ export async function POST(request: NextRequest) {
       processingTime: Date.now() - startTime
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('AI Feedback Error', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to submit feedback' },
+      { error: error instanceof Error ? error.message : 'Failed to submit feedback' },
       { status: 500 }
     );
   }
@@ -225,7 +226,7 @@ export async function GET(request: NextRequest) {
         GROUP BY model_name
         ORDER BY total DESC`, params);
 
-      (stats as any).byModel = byModel;
+      (stats as Record<string, unknown>).byModel = byModel;
     }
 
     if (!operationType || operationType === 'suggestion') {
@@ -245,18 +246,23 @@ export async function GET(request: NextRequest) {
       if (operationType === 'suggestion') {
         stats = suggestionStats;
       } else if (stats) {
-        (stats as any).suggestions = suggestionStats;
+        (stats as Record<string, unknown>).suggestions = suggestionStats;
       }
     }
 
     // Calculate overall metrics
-    const s = stats as any;
+    const s = stats as Record<string, number | Record<string, number> | undefined> | undefined;
+    const total = (s?.total as number) || 0;
+    const accepted = (s?.accepted as number) || 0;
+    const withFeedback = (s?.with_feedback as number) || 0;
+    const corrections = (s?.corrections as number) || 0;
+    const suggestions = s?.suggestions as Record<string, number> | undefined;
     const overallMetrics = {
-      accuracyRate: s?.total > 0 ? (s.accepted / s.total) : 0,
-      feedbackRate: s?.total > 0 ? (s.with_feedback / s.total) : 0,
-      correctionRate: s?.total > 0 ? (s.corrections / s.total) : 0,
-      usageRate: s?.suggestions?.total > 0 ? (s.suggestions.used / s.suggestions.total) : 0,
-      helpfulnessRate: s?.suggestions?.total > 0 ? (s.suggestions.helpful / (s.suggestions.helpful + s.suggestions.not_helpful || 1)) : 0
+      accuracyRate: total > 0 ? (accepted / total) : 0,
+      feedbackRate: total > 0 ? (withFeedback / total) : 0,
+      correctionRate: total > 0 ? (corrections / total) : 0,
+      usageRate: (suggestions?.total || 0) > 0 ? ((suggestions?.used || 0) / (suggestions?.total || 1)) : 0,
+      helpfulnessRate: (suggestions?.total || 0) > 0 ? ((suggestions?.helpful || 0) / ((suggestions?.helpful || 0) + (suggestions?.not_helpful || 0) || 1)) : 0
     };
 
     return NextResponse.json({
@@ -269,10 +275,10 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('AI Feedback GET Error', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to retrieve feedback' },
+      { error: error instanceof Error ? error.message : 'Failed to retrieve feedback' },
       { status: 500 }
     );
   }

@@ -23,7 +23,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 // Icon mapping for CI types
-const iconMapping: Record<string, any> = {
+const iconMapping: Record<string, React.ComponentType<{ className?: string }>> = {
   server: ServerStackIcon,
   database: CircleStackIcon,
   application: CpuChipIcon,
@@ -96,7 +96,7 @@ export default function NewCIPage() {
     end_of_life_date: '',
     owner_id: undefined as number | undefined,
     managed_by_team_id: undefined as number | undefined,
-    custom_attributes: {} as Record<string, any>
+    custom_attributes: {} as Record<string, unknown>
   })
   const [newTag, setNewTag] = useState('') // eslint-disable-line @typescript-eslint/no-unused-vars
 

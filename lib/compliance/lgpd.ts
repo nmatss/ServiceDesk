@@ -468,7 +468,7 @@ export class LGPDComplianceManager {
    */
   async collectUserData(userId: number): Promise<{
     user: Record<string, unknown>;
-    data: Record<string, unknown>;
+    data: any;
     consents: LGPDConsent[];
     purposes: string[];
     shares: Record<string, unknown>[];
@@ -476,13 +476,13 @@ export class LGPDComplianceManager {
   }> {
     try {
       // Dados do usuário
-      const user = await executeQueryOne<Record<string, unknown>>('SELECT * FROM users WHERE id = ?', [userId]);
+      const user = await executeQueryOne('SELECT * FROM users WHERE id = ?', [userId]);
 
       // Dados relacionados em outras tabelas
-      const tickets = await executeQuery<Record<string, unknown>>('SELECT * FROM tickets WHERE user_id = ?', [userId]);
-      const comments = await executeQuery<Record<string, unknown>>('SELECT * FROM comments WHERE user_id = ?', [userId]);
-      const whatsappData = await executeQuery<Record<string, unknown>>('SELECT * FROM whatsapp_contacts WHERE user_id = ?', [userId]);
-      const govbrData = await executeQuery<Record<string, unknown>>('SELECT * FROM govbr_integrations WHERE user_id = ?', [userId]);
+      const tickets = await executeQuery('SELECT * FROM tickets WHERE user_id = ?', [userId]);
+      const comments = await executeQuery('SELECT * FROM comments WHERE user_id = ?', [userId]);
+      const whatsappData = await executeQuery('SELECT * FROM whatsapp_contacts WHERE user_id = ?', [userId]);
+      const govbrData = await executeQuery('SELECT * FROM govbr_integrations WHERE user_id = ?', [userId]);
 
       // Consentimentos
       const consents = await this.getUserConsents(userId);
@@ -509,7 +509,7 @@ export class LGPDComplianceManager {
   /**
    * Anonimiza dados para relatório
    */
-  private anonymizeForReport(data: Record<string, unknown>): Record<string, unknown> {
+  private anonymizeForReport(data: any): Record<string, unknown> {
     const anonymized = { ...data };
 
     // Remove dados sensíveis que não devem aparecer no relatório
@@ -746,7 +746,7 @@ export class LGPDComplianceManager {
    */
 
   private async getExistingConsent(userId: number, consentType: string): Promise<LGPDConsent | null> {
-    const consent = await executeQueryOne<Record<string, unknown>>(`
+    const consent = await executeQueryOne(`
       SELECT * FROM lgpd_consents
       WHERE user_id = ? AND consent_type = ? AND is_given = 1
       ORDER BY created_at DESC
@@ -757,12 +757,12 @@ export class LGPDComplianceManager {
   }
 
   private async getConsentById(id: number): Promise<LGPDConsent> {
-    const consent = await executeQueryOne<Record<string, unknown>>('SELECT * FROM lgpd_consents WHERE id = ?', [id]);
+    const consent = await executeQueryOne('SELECT * FROM lgpd_consents WHERE id = ?', [id]);
     return this.convertDbConsentToConsent(consent || {});
   }
 
   private async getUserConsents(userId: number): Promise<LGPDConsent[]> {
-    const consents = await executeQuery<Record<string, unknown>>(`
+    const consents = await executeQuery(`
       SELECT * FROM lgpd_consents
       WHERE user_id = ?
       ORDER BY created_at DESC
@@ -772,7 +772,7 @@ export class LGPDComplianceManager {
   }
 
   private async getDataSubjectRequest(id: string): Promise<Record<string, unknown> | undefined> {
-    const result = await executeQueryOne<Record<string, unknown>>('SELECT * FROM lgpd_data_subject_requests WHERE id = ?', [id]);
+    const result = await executeQueryOne('SELECT * FROM lgpd_data_subject_requests WHERE id = ?', [id]);
     return result || undefined;
   }
 

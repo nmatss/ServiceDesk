@@ -34,7 +34,7 @@ export default function DistributionCharts({
   categoryData,
   priorityData
 }: DistributionChartsProps) {
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; count: number; percentage?: number; color?: string; status?: string; category?: string; priority?: string }; value?: number }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (

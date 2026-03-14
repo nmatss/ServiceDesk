@@ -25,12 +25,12 @@ export interface RuleContext extends AccessContext {
     role: string;
     department?: string;
     seniority?: number;
-    attributes?: Record<string, any>;
+    attributes?: Record<string, unknown>;
   };
   resource: {
     id?: number;
     type: string;
-    attributes?: Record<string, any>;
+    attributes?: Record<string, unknown>;
     owner?: number;
     department?: string;
   };
@@ -354,7 +354,7 @@ class DynamicPermissionManager {
   /**
    * Create a safe evaluation context for rules
    */
-  private createEvaluationContext(context: RuleContext): Record<string, any> {
+  private createEvaluationContext(context: RuleContext): Record<string, unknown> {
     return {
       user: {
         id: context.user.id,
@@ -398,7 +398,7 @@ class DynamicPermissionManager {
   /**
    * Safely evaluate JavaScript expressions
    */
-  private safeEvaluate(condition: string, context: Record<string, any>): any {
+  private safeEvaluate(condition: string, context: any): any {
     // SECURITY: Safe expression evaluation without new Function()/eval()
     // Uses a whitelist-based approach to evaluate simple boolean expressions
 
@@ -415,7 +415,7 @@ class DynamicPermissionManager {
     };
 
     // Resolve a dotted path like "user.role" from context
-    const resolveValue = (path: string, ctx: Record<string, any>): any => {
+    const resolveValue = (path: string, ctx: Record<string, unknown>): any => {
       const trimmed = path.trim();
 
       // Handle string literals
@@ -545,7 +545,7 @@ class DynamicPermissionManager {
    */
   async getRuleEvaluationHistory(ruleId: string, limit: number = 100): Promise<any[]> {
     try {
-      return await executeQuery<any>(`
+      return await executeQuery(`
         SELECT * FROM dynamic_rule_evaluations
         WHERE rule_id = ?
         ORDER BY evaluated_at DESC

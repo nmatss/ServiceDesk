@@ -19,7 +19,7 @@ export interface ApiResponse<T = any> {
 export interface ApiError {
   code: string
   message: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
   timestamp: string
   path: string
   requestId: string
@@ -122,7 +122,7 @@ export interface ValidationError {
 export interface WebhookEvent {
   id: string
   type: string
-  data: Record<string, any>
+  data: any
   timestamp: string
   version: string
   source: string
@@ -158,7 +158,7 @@ export interface SystemEvent {
   id: string
   type: string
   source: string
-  data: Record<string, any>
+  data: any
   userId?: number
   sessionId?: string
   timestamp: string
@@ -169,9 +169,9 @@ export interface SystemEvent {
 export interface IntegrationConfig {
   name: string
   type: 'oauth2' | 'api_key' | 'basic_auth' | 'bearer_token'
-  credentials: Record<string, any>
+  credentials: Record<string, unknown>
   endpoints: Record<string, string>
-  settings: Record<string, any>
+  settings: Record<string, unknown>
   active: boolean
 }
 

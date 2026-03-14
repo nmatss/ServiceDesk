@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, sqlDateSub, sqlDatetimeAddMinutes, sqlDatetimeSubHours } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlDateSub, sqlDatetimeAddMinutes, sqlDatetimeSubHours, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { TicketWithDetails, KnowledgeArticleWithDetails, User } from '../types/database';
 import logger from '../monitoring/structured-logger';
@@ -63,7 +63,7 @@ export async function searchTickets(filters: SearchFilters = {}): Promise<Search
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
     let whereConditions: string[] = [];
-    let params: any[] = [];
+    let params: SqlParam[] = [];
     let joins: string[] = [];
 
     // Busca por texto
@@ -238,7 +238,7 @@ export async function searchKnowledgeBase(query: string, options: {
     } = options;
 
     let whereConditions: string[] = [];
-    let params: any[] = [];
+    let params: SqlParam[] = [];
 
     // Busca por texto (titulo, conteudo, tags)
     if (query.trim()) {

@@ -11,7 +11,7 @@
  * - Email threading and conversation tracking
  */
 
-import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlNow } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlNow, type SqlParam } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 import { emailParser, ParsedEmail } from './parser';
 import { emailSender } from './sender';
@@ -22,7 +22,7 @@ async function createTicket(data: any, organizationId: number) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${sqlNow()}, ${sqlNow()})`,
     [data.title, data.description, data.user_id, organizationId, data.category_id, data.priority_id, data.status_id, data.assigned_to || null]
   );
-  return result.lastInsertRowid ? await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
+  return result.lastInsertRowid ? await executeQueryOne('SELECT * FROM tickets WHERE id = ?', [result.lastInsertRowid]) : undefined;
 }
 
 async function addComment(data: any, _organizationId?: number) {
@@ -35,12 +35,12 @@ async function addComment(data: any, _organizationId?: number) {
 }
 
 async function getTicketById(ticketId: number, _organizationId?: number) {
-  return await executeQueryOne<any>('SELECT * FROM tickets WHERE id = ?', [ticketId]);
+  return await executeQueryOne('SELECT * FROM tickets WHERE id = ?', [ticketId]);
 }
 
 async function updateTicket(data: any, _organizationId: number) {
   const fields: string[] = [];
-  const values: any[] = [];
+  const values: SqlParam[] = [];
   if (data.status_id !== undefined) { fields.push('status_id = ?'); values.push(data.status_id); }
   if (data.assigned_to !== undefined) { fields.push('assigned_to = ?'); values.push(data.assigned_to); }
   if (fields.length > 0) {
@@ -294,7 +294,7 @@ export class EmailAutomation {
    */
   private async detectCategory(subject: string, tenantId: number): Promise<string | undefined> {
     try {
-      const categories = await executeQuery<any>(
+      const categories = await executeQuery(
         `SELECT id, name, keywords
          FROM categories
          WHERE tenant_id = ? OR tenant_id IS NULL
@@ -362,7 +362,7 @@ export class EmailAutomation {
    */
   private async getActiveRules(tenantId: number, triggerType: string): Promise<AutomationRule[]> {
     try {
-      const rules = await executeQuery<any>(
+      const rules = await executeQuery(
         `SELECT * FROM email_automation_rules
          WHERE tenant_id = ? AND trigger_type = ? AND is_active = ${sqlTrue()}
          ORDER BY priority DESC, id ASC`,

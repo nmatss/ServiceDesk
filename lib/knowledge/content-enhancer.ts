@@ -108,7 +108,7 @@ export class ContentEnhancer {
    */
   async analyzeContent(articleId: number): Promise<ContentAnalysis> {
     try {
-      const article = await executeQueryOne<any>(`
+      const article = await executeQueryOne(`
         SELECT ka.*, kc.name as category_name
         FROM kb_articles ka
         LEFT JOIN kb_categories kc ON ka.category_id = kc.id
@@ -557,7 +557,7 @@ Foque em problemas que realmente prejudicam o entendimento.
    */
   async enhanceContent(request: EnhancementRequest): Promise<EnhancedContent> {
     try {
-      const article = await executeQueryOne<any>(`
+      const article = await executeQueryOne(`
         SELECT * FROM kb_articles WHERE id = ?
       `, [request.article_id]);
 
@@ -823,7 +823,7 @@ Responda em JSON:
         ? `(new_values::json->>'improvements_count')`
         : `json_extract(new_values, '$.improvements_count')`;
 
-      const enhancements = await executeQuery<any>(`
+      const enhancements = await executeQuery(`
         SELECT
           entity_id,
           confidence_score,
@@ -839,7 +839,7 @@ Responda em JSON:
         ? enhancements.reduce((sum, e) => sum + (e.confidence_score || 0), 0) / totalEnhancements
         : 0;
 
-      const mostImproved = await executeQuery<any>(`
+      const mostImproved = await executeQuery(`
         SELECT
           ka.id,
           ka.title,
