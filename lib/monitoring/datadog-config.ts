@@ -25,7 +25,7 @@ export function getTracer() {
   if (!tracer && DD_TRACE_ENABLED) {
     try {
       // Import dd-trace dynamically to avoid initialization issues
-      const ddTrace = require('dd-trace');
+      const ddTrace = eval("require")('dd-trace');
       tracer = ddTrace;
     } catch (error) {
       logger.warn('dd-trace not available, tracing disabled', error);
@@ -65,7 +65,7 @@ export function initializeDatadogAPM() {
 
   try {
     // Import and initialize dd-trace
-    const ddTrace = require('dd-trace');
+    const ddTrace = eval("require")('dd-trace');
 
     tracer = ddTrace.init({
       // Service information

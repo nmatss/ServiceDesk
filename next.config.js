@@ -366,6 +366,9 @@ const nextConfig = {
     'jspdf-autotable',
     'xlsx',
     'd3',
+    'dd-trace',
+    'better-sqlite3',
+    '@neondatabase/serverless',
   ],
 
   // ========================

@@ -5,7 +5,10 @@
  * Suporta rollback, status check e histórico
  */
 
-import { neon } from '@neondatabase/serverless';
+// Dynamic import to avoid build failure when @neondatabase/serverless is not installed
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let neon: any;
+try { neon = require('@neondatabase/serverless').neon; } catch { /* optional dep */ }
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -86,7 +89,7 @@ export class MigrationManager {
         ORDER BY version
       `;
 
-      return new Set(results.map(r => r.filename as string));
+      return new Set(results.map((r: Record<string, unknown>) => r.filename as string));
     } catch (error) {
       console.error('Error getting applied migrations:', error);
       return new Set();
