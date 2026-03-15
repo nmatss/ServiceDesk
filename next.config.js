@@ -342,6 +342,17 @@ const nextConfig = {
       )
     }
 
+    // Externalize optional native/server-only packages that may not be installed
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push({
+        'dd-trace': 'commonjs dd-trace',
+        'better-sqlite3': 'commonjs better-sqlite3',
+        '@neondatabase/serverless': 'commonjs @neondatabase/serverless',
+        'sqlite3': 'commonjs sqlite3',
+      });
+    }
+
     return config
   },
 
