@@ -44,19 +44,21 @@ export interface EdgeResolverOptions {
 }
 
 /**
- * Default development tenant for localhost
+ * Default tenant for development or single-tenant deployments
  */
 const DEV_DEFAULT_TENANT: EdgeTenantInfo = {
   id: 1,
-  slug: 'default',
-  name: 'Default Organization',
+  slug: process.env.DEFAULT_TENANT_SLUG || 'default',
+  name: process.env.DEFAULT_TENANT_NAME || 'Default Organization',
 };
 
 /**
- * Check if running in development mode
+ * Check if default tenant should be used
+ * In dev mode: always allow default
+ * In production: allow if DEFAULT_TENANT_SLUG is set (single-tenant mode)
  */
-function isDevMode(): boolean {
-  return process.env.NODE_ENV !== 'production';
+function shouldUseDefaultTenant(): boolean {
+  return process.env.NODE_ENV !== 'production' || !!process.env.DEFAULT_TENANT_SLUG;
 }
 
 /**
@@ -149,16 +151,12 @@ export function resolveEdgeTenant(
     }
   }
 
-  // Strategy 3: Development default (ONLY in dev mode with localhost)
-  if (
-    isDevMode() &&
-    allowDevDefault &&
-    hostname.includes('localhost')
-  ) {
+  // Strategy 3: Default tenant (dev mode OR single-tenant production)
+  if (shouldUseDefaultTenant() && allowDevDefault) {
     return {
       tenant: DEV_DEFAULT_TENANT,
       method: 'default-dev',
-      needsValidation: true, // Dev default should be validated
+      needsValidation: true,
     };
   }
 
