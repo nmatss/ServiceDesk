@@ -172,7 +172,7 @@ export default function FileList({
                 variant="ghost"
                 size="sm"
                 onClick={() => handleView(file)}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-brand-600 hover:text-brand-800"
               >
                 <EyeIcon className="w-4 h-4" />
               </Button>

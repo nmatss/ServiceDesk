@@ -705,7 +705,7 @@ export function ManagerInsights({ className = '' }: ManagerComponentProps) {
           <div key={index} className={`border-2 rounded-xl p-6 ${getPriorityColor(insight.priority)} transition-smooth hover:shadow-lg`}>
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-white rounded-xl shadow-sm">
+                <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl shadow-sm">
                   <insight.icon className={`h-6 w-6 ${getIconColor(insight.color)}`} />
                 </div>
 

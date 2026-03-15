@@ -43,7 +43,7 @@ export const customToast = {
   info: (message: string, options?: ToastOptions) => {
     return toast(message, {
       duration: 4000,
-      icon: <InformationCircleIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />,
+      icon: <InformationCircleIcon className="w-5 h-5 text-brand-500 flex-shrink-0" />,
       className: toastClass,
       ...options,
     })

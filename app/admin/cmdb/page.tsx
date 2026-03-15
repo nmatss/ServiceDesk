@@ -90,7 +90,7 @@ const criticalityColors: Record<string, string> = {
 const environmentColors: Record<string, string> = {
   production: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300',
   staging: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300',
-  development: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+  development: 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300',
   test: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300',
   dr: 'bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
 }
@@ -224,7 +224,7 @@ export default function CMDBPage() {
 
   if (error && !cis.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-blue-50/20 to-neutral-50 dark:from-neutral-950 dark:via-blue-950/20 dark:to-neutral-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/20 to-neutral-50 dark:from-neutral-950 dark:via-brand-950/20 dark:to-neutral-950 flex items-center justify-center p-4">
         <div className="text-center">
           <ExclamationTriangleIcon className="w-12 h-12 text-red-500 dark:text-red-400 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Erro ao carregar CMDB</h2>
@@ -241,7 +241,7 @@ export default function CMDBPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-blue-50/20 to-neutral-50 dark:from-neutral-950 dark:via-blue-950/20 dark:to-neutral-950">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/20 to-neutral-50 dark:from-neutral-950 dark:via-brand-950/20 dark:to-neutral-950">
       {/* Modern PageHeader with Breadcrumbs */}
       <div className="glass-panel sticky top-0 z-20 border-b border-neutral-200/50 dark:border-neutral-800/50 backdrop-blur-lg bg-white/80 dark:bg-neutral-900/80">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
@@ -269,7 +269,7 @@ export default function CMDBPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={`px-4 py-2 rounded-lg border transition-all duration-200 flex items-center gap-2 text-sm font-medium ${
                 showFilters
-                  ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                  ? 'bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-700 text-brand-700 dark:text-brand-300 shadow-sm'
                   : 'bg-white/50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 text-description hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm'
               }`}
             >
@@ -283,15 +283,15 @@ export default function CMDBPage() {
       {/* Modern Stats Cards with Glass Panel */}
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="glass-panel rounded-xl p-4 sm:p-5 border border-neutral-200/50 dark:border-neutral-700/50 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-blue-50/30 dark:from-neutral-800 dark:to-blue-900/20">
+          <div className="glass-panel rounded-xl p-4 sm:p-5 border border-neutral-200/50 dark:border-neutral-700/50 shadow-lg hover:shadow-xl transition-all duration-300 bg-gradient-to-br from-white to-brand-50/30 dark:from-neutral-800 dark:to-brand-900/20">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs sm:text-sm font-medium text-description mb-1">Total CIs</p>
-                <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
+                <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-brand-600 to-brand-700 dark:from-brand-400 dark:to-brand-500 bg-clip-text text-transparent">
                   {stats.total}
                 </p>
               </div>
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 rounded-xl shadow-md">
+              <div className="p-3 bg-gradient-to-br from-brand-500 to-brand-600 dark:from-brand-600 dark:to-brand-700 rounded-xl shadow-md">
                 <CircleStackIcon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
             </div>

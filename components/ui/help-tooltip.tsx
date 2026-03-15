@@ -151,9 +151,9 @@ interface InlineHelpProps {
 
 export function InlineHelp({ children, className }: InlineHelpProps) {
   return (
-    <div className={cn('flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg', className)}>
-      <InformationCircleIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-      <p className="text-sm text-blue-800 dark:text-blue-200">{children}</p>
+    <div className={cn('flex items-start gap-2 p-3 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg', className)}>
+      <InformationCircleIcon className="w-5 h-5 text-brand-600 dark:text-brand-400 flex-shrink-0 mt-0.5" />
+      <p className="text-sm text-brand-800 dark:text-brand-200">{children}</p>
     </div>
   )
 }
@@ -215,7 +215,7 @@ export function ContextualHelp({ onClick, className }: ContextualHelpProps) {
     <button
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors',
+        'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-colors',
         className
       )}
     >
@@ -246,7 +246,7 @@ export function FeatureAnnouncement({
   className,
 }: FeatureAnnouncementProps) {
   return (
-    <div className={cn('relative p-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg text-white', className)}>
+    <div className={cn('relative p-4 bg-gradient-to-r from-brand-500 to-purple-600 rounded-lg shadow-lg text-white', className)}>
       {onDismiss && (
         <button
           onClick={onDismiss}
@@ -276,7 +276,7 @@ export function FeatureAnnouncement({
           {actionLabel && onAction && (
             <button
               onClick={onAction}
-              className="px-4 py-2 bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-white dark:bg-neutral-800 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors"
             >
               {actionLabel}
             </button>
@@ -367,7 +367,7 @@ export function OnboardingTooltip({
 
       {/* Spotlight on target */}
       <div
-        className="fixed z-50 ring-4 ring-blue-500 rounded-lg pointer-events-none"
+        className="fixed z-50 ring-4 ring-brand-500 rounded-lg pointer-events-none"
         style={{
           top: target.getBoundingClientRect().top - 4,
           left: target.getBoundingClientRect().left - 4,
@@ -384,7 +384,7 @@ export function OnboardingTooltip({
       >
         <div className="mb-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+            <span className="text-xs font-semibold text-brand-600 dark:text-brand-400">
               Passo {step} de {totalSteps}
             </span>
             {onSkip && (
@@ -405,7 +405,7 @@ export function OnboardingTooltip({
                 key={i}
                 className={cn(
                   'h-1.5 w-8 rounded-full transition-colors',
-                  i + 1 === step ? 'bg-blue-600' : 'bg-neutral-200 dark:bg-neutral-700'
+                  i + 1 === step ? 'bg-brand-600' : 'bg-neutral-200 dark:bg-neutral-700'
                 )}
               />
             ))}
@@ -423,7 +423,7 @@ export function OnboardingTooltip({
             {step < totalSteps && onNext && (
               <button
                 onClick={onNext}
-                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                className="px-3 py-1.5 text-sm bg-brand-600 hover:bg-brand-700 text-white rounded transition-colors"
               >
                 Próximo
               </button>

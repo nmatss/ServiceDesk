@@ -54,7 +54,7 @@ export default function DefaultEdge({
             }}
             className="nodrag nopan"
           >
-            <div className="bg-white border border-neutral-300 rounded px-2 py-1 text-xs font-medium text-neutral-700 shadow-sm">
+            <div className="bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded px-2 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 shadow-sm">
               {label}
             </div>
           </div>

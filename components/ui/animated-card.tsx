@@ -285,7 +285,7 @@ interface HoverCardProps {
 
 export function HoverCard({ children, className, glowColor = 'blue' }: HoverCardProps) {
   const glowColors = {
-    blue: 'hover:shadow-blue-500/20',
+    blue: 'hover:shadow-brand-500/20',
     green: 'hover:shadow-green-500/20',
     red: 'hover:shadow-red-500/20',
     yellow: 'hover:shadow-yellow-500/20',
@@ -317,7 +317,7 @@ interface PulseProps {
   pulseColor?: string
 }
 
-export function Pulse({ children, className, pulseColor = 'bg-blue-500' }: PulseProps) {
+export function Pulse({ children, className, pulseColor = 'bg-brand-500' }: PulseProps) {
   return (
     <motion.div
       animate={{
@@ -426,7 +426,7 @@ interface AnimatedProgressBarProps {
 export function AnimatedProgressBar({
   progress,
   className,
-  color = 'bg-blue-600',
+  color = 'bg-brand-600',
   showLabel = true,
 }: AnimatedProgressBarProps) {
   return (

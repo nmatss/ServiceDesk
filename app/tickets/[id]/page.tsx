@@ -184,7 +184,7 @@ export default function TicketDetailsPage() {
   const getStatusColor = (statusName: string) => {
     const name = statusName.toLowerCase()
     if (name.includes('aberto') || name.includes('novo')) {
-      return 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 dark:from-blue-900/20 dark:to-blue-800/20 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+      return 'bg-gradient-to-r from-brand-50 to-brand-100 text-brand-700 dark:from-brand-900/20 dark:to-brand-800/20 dark:text-brand-300 border border-brand-200 dark:border-brand-800'
     } else if (name.includes('progresso') || name.includes('andamento')) {
       return 'bg-gradient-to-r from-warning-50 to-warning-100 text-warning-700 dark:from-warning-900/20 dark:to-warning-800/20 dark:text-warning-300 border border-warning-200 dark:border-warning-800'
     } else if (name.includes('resolvido') || name.includes('concluído')) {

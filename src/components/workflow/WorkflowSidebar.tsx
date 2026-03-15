@@ -25,13 +25,13 @@ export default function WorkflowSidebar({
 
   return (
     <div
-      className={`workflow-sidebar bg-white border-r border-neutral-200 flex flex-col ${className}`}
+      className={`workflow-sidebar bg-white dark:bg-neutral-800 border-r border-neutral-200 dark:border-neutral-700 flex flex-col ${className}`}
       style={{ width: '320px', minWidth: '320px' }}
     >
       {/* Header */}
-      <div className="p-4 border-b border-neutral-200">
+      <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 uppercase tracking-wide">
             Workflow Builder
           </h3>
           {onClose && (
@@ -46,13 +46,13 @@ export default function WorkflowSidebar({
         </div>
 
         {/* Tabs */}
-        <div className="flex space-x-1 bg-neutral-100 rounded-lg p-1">
+        <div className="flex space-x-1 bg-neutral-100 dark:bg-neutral-700 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('nodes')}
             className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'nodes'
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'text-neutral-600 hover:text-neutral-900'
+                ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
             Nodes
@@ -61,8 +61,8 @@ export default function WorkflowSidebar({
             onClick={() => setActiveTab('info')}
             className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'info'
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'text-neutral-600 hover:text-neutral-900'
+                ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
             Info
@@ -93,7 +93,7 @@ export default function WorkflowSidebar({
         {activeTab === 'info' && (
           <div className="p-4 space-y-4">
             <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-2">
+              <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
                 About Workflow Builder
               </h4>
               <p className="text-sm text-neutral-600 leading-relaxed">
@@ -104,7 +104,7 @@ export default function WorkflowSidebar({
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-2">
+              <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
                 Quick Tips
               </h4>
               <ul className="text-sm text-neutral-600 space-y-2">
@@ -132,7 +132,7 @@ export default function WorkflowSidebar({
             </div>
 
             <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-2">
+              <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
                 Node Categories
               </h4>
               <div className="space-y-2 text-sm text-neutral-600">

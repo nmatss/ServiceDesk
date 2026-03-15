@@ -303,16 +303,16 @@ export default function SLAPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-                      <dt className="text-sm font-semibold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
+                    <div className="bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/20 dark:to-brand-800/20 rounded-xl p-6 border border-brand-200 dark:border-brand-800">
+                      <dt className="text-sm font-semibold text-brand-700 dark:text-brand-300 uppercase tracking-wide">
                         Tempo Médio de Primeira Resposta
                       </dt>
-                      <dd className="mt-3 text-4xl font-bold text-blue-900 dark:text-blue-100">
+                      <dd className="mt-3 text-4xl font-bold text-brand-900 dark:text-brand-100">
                         {slaStats.avg_response_time_minutes
                           ? formatTime(Math.round(slaStats.avg_response_time_minutes))
                           : 'N/A'}
                       </dd>
-                      <div className="mt-4 flex items-center text-sm text-blue-600 dark:text-blue-400">
+                      <div className="mt-4 flex items-center text-sm text-brand-600 dark:text-brand-400">
                         <CheckCircleIcon className="h-5 w-5 mr-2" />
                         <span>Meta: 30 minutos</span>
                       </div>
@@ -559,9 +559,9 @@ export default function SLAPage() {
                               {ticket.minutes_remaining !== null && (
                                 <div className="mt-4 flex items-center">
                                   {ticket.minutes_remaining > 0 ? (
-                                    <div className="flex items-center px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
-                                      <ClockIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 mr-2" />
-                                      <span className="font-semibold text-blue-700 dark:text-blue-300">
+                                    <div className="flex items-center px-3 py-1.5 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg text-sm">
+                                      <ClockIcon className="h-4 w-4 text-brand-600 dark:text-brand-400 mr-2" />
+                                      <span className="font-semibold text-brand-700 dark:text-brand-300">
                                         Restam: {formatTime(ticket.minutes_remaining)}
                                       </span>
                                     </div>

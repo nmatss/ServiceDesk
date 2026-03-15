@@ -46,7 +46,7 @@ const ticketCardVariants = cva(
         comfortable: 'p-6 space-y-4',
       },
       status: {
-        open: 'bg-blue-50 dark:bg-blue-900/10',
+        open: 'bg-brand-50 dark:bg-brand-900/10',
         'in-progress': 'bg-amber-50 dark:bg-amber-900/10',
         resolved: 'bg-green-50 dark:bg-green-900/10',
         closed: 'bg-neutral-50 dark:bg-neutral-800/50',

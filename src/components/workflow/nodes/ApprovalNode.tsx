@@ -261,17 +261,17 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
 
       {/* Output Labels */}
       <div className="absolute -right-8 top-1/3 transform -translate-y-1/2">
-        <span className="text-xs font-medium text-green-600 bg-white px-1 rounded shadow-sm">
+        <span className="text-xs font-medium text-green-600 bg-white dark:bg-neutral-800 px-1 rounded shadow-sm">
           APROVADO
         </span>
       </div>
       <div className="absolute -right-8 top-2/3 transform -translate-y-1/2">
-        <span className="text-xs font-medium text-red-600 bg-white px-1 rounded shadow-sm">
+        <span className="text-xs font-medium text-red-600 bg-white dark:bg-neutral-800 px-1 rounded shadow-sm">
           REJEITADO
         </span>
       </div>
       <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
-        <span className="text-xs font-medium text-orange-600 bg-white px-1 rounded shadow-sm">
+        <span className="text-xs font-medium text-orange-600 bg-white dark:bg-neutral-800 px-1 rounded shadow-sm">
           EXPIRADO
         </span>
       </div>
@@ -279,7 +279,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
       {/* Approval Progress Indicator */}
       {configuration.approvalType !== 'single' && configuration.approvers && (
         <div className="absolute top-1 left-1">
-          <div className="bg-white bg-opacity-75 rounded-full px-1 py-0.5">
+          <div className="bg-white dark:bg-neutral-800 bg-opacity-75 dark:bg-opacity-75 rounded-full px-1 py-0.5">
             <span className="text-xs font-medium text-purple-800">
               0/{configuration.approvers.length}
             </span>

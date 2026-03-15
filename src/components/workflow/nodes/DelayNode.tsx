@@ -193,7 +193,7 @@ export default function DelayNode({ data, selected }: NodeProps<DelayNodeData>) 
 
       {/* Countdown/Timer Display (placeholder for real-time display) */}
       <div className="absolute bottom-1 right-1">
-        <div className={`text-xs font-mono ${colorClasses.text} bg-white bg-opacity-75 px-1 rounded`}>
+        <div className={`text-xs font-mono ${colorClasses.text} bg-white dark:bg-neutral-800 bg-opacity-75 dark:bg-opacity-75 px-1 rounded`}>
           --:--
         </div>
       </div>

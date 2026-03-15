@@ -14,7 +14,7 @@ const sizeClasses = {
 }
 
 const colorClasses = {
-  primary: 'border-blue-600 border-t-transparent',
+  primary: 'border-brand-600 border-t-transparent',
   secondary: 'border-neutral-600 border-t-transparent',
   white: 'border-white border-t-transparent',
   gray: 'border-neutral-400 border-t-transparent',

@@ -132,7 +132,7 @@ export default function MyPerformancePage() {
           icon: StarIcon,
           earned: false,
           progress: 70,
-          color: 'text-blue-500'
+          color: 'text-brand-500'
         },
         {
           id: '4',
@@ -166,7 +166,7 @@ export default function MyPerformancePage() {
       change: -8,
       changeLabel: 'mais rápido',
       icon: ClockIcon,
-      color: 'text-blue-600'
+      color: 'text-brand-600'
     },
     {
       label: 'Primeira Resposta',

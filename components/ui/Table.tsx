@@ -508,7 +508,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 
     if (variant === 'status') {
       const statusClasses = {
-        open: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300',
+        open: 'bg-brand-100 text-brand-800 border-brand-200 dark:bg-brand-900/20 dark:text-brand-300',
         'in-progress': 'bg-warning-100 text-warning-800 border-warning-200 dark:bg-warning-900/20 dark:text-warning-300',
         resolved: 'bg-success-100 text-success-800 border-success-200 dark:bg-success-900/20 dark:text-success-300',
         closed: 'bg-neutral-100 text-neutral-800 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-300',

@@ -126,7 +126,7 @@ function SortableTicketCard({
       </div>
 
       {/* Title */}
-      <h4 className="text-sm font-medium text-neutral-900 mb-2 line-clamp-2">
+      <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-2 line-clamp-2">
         {ticket.title}
       </h4>
 
@@ -219,7 +219,7 @@ function KanbanColumn({
           <h3 className={`text-sm font-semibold ${textClass}`}>
             {status.name}
           </h3>
-          <span className="text-xs text-neutral-500 bg-white px-1.5 py-0.5 rounded-full">
+          <span className="text-xs text-neutral-500 bg-white dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">
             {tickets.length}
           </span>
         </div>
@@ -261,7 +261,7 @@ function KanbanColumn({
 
         {tickets.length === 0 && (
           <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
-            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 flex items-center justify-center mb-2">
               <TagIcon className="h-6 w-6" />
             </div>
             <p className="text-sm">No tickets</p>
@@ -275,13 +275,13 @@ function KanbanColumn({
 // Ticket Preview for DragOverlay
 function TicketPreview({ ticket }: { ticket: Ticket }) {
   return (
-    <div className="bg-white rounded-lg border-2 border-brand-400 p-3 shadow-xl w-72 rotate-3">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg border-2 border-brand-400 p-3 shadow-xl w-72 rotate-3">
       <div className="flex items-start justify-between mb-2">
         <span className="text-xs font-mono text-neutral-500">
           #{ticket.ticket_number}
         </span>
       </div>
-      <h4 className="text-sm font-medium text-neutral-900 line-clamp-2">
+      <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2">
         {ticket.title}
       </h4>
     </div>

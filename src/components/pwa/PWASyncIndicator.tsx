@@ -16,7 +16,7 @@ export default function PWASyncIndicator() {
     <div className="fixed bottom-4 right-4 z-40">
       {/* Sync status indicator */}
       {(isSyncing || pendingActions > 0) && (
-        <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3 mb-2 max-w-xs">
+        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg p-3 mb-2 max-w-xs">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
               {isSyncing ? (
@@ -27,7 +27,7 @@ export default function PWASyncIndicator() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-neutral-900">
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 {isSyncing ? 'Sincronizando...' : 'Aguardando sincronização'}
               </p>
               {pendingActions > 0 && (

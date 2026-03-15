@@ -114,7 +114,7 @@ export default function NewUserPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-blue-50/20 to-neutral-50 dark:from-neutral-950 dark:via-blue-950/20 dark:to-neutral-950">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-brand-50/20 to-neutral-50 dark:from-neutral-950 dark:via-brand-950/20 dark:to-neutral-950">
       {/* Modern PageHeader with Breadcrumbs */}
       <div className="glass-panel sticky top-0 z-20 border-b border-neutral-200/50 dark:border-neutral-800/50 backdrop-blur-lg bg-white/80 dark:bg-neutral-900/80">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6">
@@ -306,7 +306,7 @@ export default function NewUserPage() {
                   </svg>
                 </div>
               </div>
-              <div className="mt-3 p-3 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50">
+              <div className="mt-3 p-3 rounded-lg bg-brand-50/50 dark:bg-brand-900/10 border border-brand-100 dark:border-brand-800/50">
                 <p className="text-sm text-description space-y-1">
                   <span className="flex items-start gap-2">
                     <span className="font-semibold text-neutral-700 dark:text-neutral-300 min-w-fit">Usuário:</span>

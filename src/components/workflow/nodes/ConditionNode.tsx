@@ -264,12 +264,12 @@ export default function ConditionNode({ data, selected }: NodeProps<ConditionNod
 
       {/* Output Labels */}
       <div className="absolute -right-6 top-1/3 transform -translate-y-1/2">
-        <span className="text-xs font-medium text-green-600 bg-white px-1 rounded shadow-sm">
+        <span className="text-xs font-medium text-green-600 bg-white dark:bg-neutral-800 px-1 rounded shadow-sm">
           TRUE
         </span>
       </div>
       <div className="absolute -right-6 top-2/3 transform -translate-y-1/2">
-        <span className="text-xs font-medium text-red-600 bg-white px-1 rounded shadow-sm">
+        <span className="text-xs font-medium text-red-600 bg-white dark:bg-neutral-800 px-1 rounded shadow-sm">
           FALSE
         </span>
       </div>

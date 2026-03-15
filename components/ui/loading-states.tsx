@@ -18,7 +18,7 @@ export function PageLoadingBar({ isLoading = false, progress, className }: PageL
   return (
     <div className={cn('fixed top-0 left-0 right-0 z-50 h-1', className)} role="progressbar" aria-label="Progresso de carregamento da página">
       <div
-        className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out"
+        className="h-full bg-gradient-to-r from-brand-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out"
         style={{
           width: progress !== undefined ? `${progress}%` : '100%',
           animation: progress === undefined ? 'progress-indeterminate 2s ease-in-out infinite' : undefined,
@@ -136,7 +136,7 @@ export function ButtonLoading({
   type = 'button',
 }: ButtonLoadingProps) {
   const variants = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-400',
+    primary: 'bg-brand-600 hover:bg-brand-700 text-white disabled:bg-brand-400',
     secondary: 'bg-neutral-600 hover:bg-neutral-700 text-white disabled:bg-neutral-400',
     outline: 'border-2 border-neutral-300 hover:border-neutral-400 text-neutral-700 dark:text-neutral-300 disabled:border-neutral-200',
     danger: 'bg-red-600 hover:bg-red-700 text-white disabled:bg-red-400',
@@ -154,7 +154,7 @@ export function ButtonLoading({
       onClick={onClick}
       disabled={disabled || isLoading}
       className={cn(
-        'relative inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60',
+        'relative inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60',
         variants[variant],
         sizes[size],
         className
@@ -220,7 +220,7 @@ interface FullPageLoadingProps {
 export function FullPageLoading({ message = 'Carregando...', className }: FullPageLoadingProps) {
   return (
     <div className={cn('flex flex-col items-center justify-center min-h-screen bg-neutral-50 dark:bg-neutral-900', className)} role="status" aria-live="polite" aria-label={message}>
-      <InlineSpinner size="lg" className="text-blue-600 mb-4" />
+      <InlineSpinner size="lg" className="text-brand-600 mb-4" />
       <p className="text-description text-lg">{message}</p>
     </div>
   )

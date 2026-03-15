@@ -153,7 +153,7 @@ export default function RegisterPage() {
           <h2 className="text-4xl font-bold mb-3 animate-slide-up tracking-tight">
             Junte-se a nós
           </h2>
-          <p className="text-lg text-blue-200 animate-slide-up mb-12" style={{ animationDelay: '0.1s' }}>
+          <p className="text-lg text-brand-200animate-slide-up mb-12" style={{ animationDelay: '0.1s' }}>
             Crie sua conta e comece a gerenciar seus tickets de forma profissional
           </p>
 
@@ -167,7 +167,7 @@ export default function RegisterPage() {
               </div>
               <div className="ml-4">
                 <p className="font-semibold text-white">Rápido e Fácil</p>
-                <p className="text-sm text-blue-200/80">Configure sua conta em minutos</p>
+                <p className="text-sm text-brand-200/80">Configure sua conta em minutos</p>
               </div>
             </div>
 
@@ -179,7 +179,7 @@ export default function RegisterPage() {
               </div>
               <div className="ml-4">
                 <p className="font-semibold text-white">Seguro</p>
-                <p className="text-sm text-blue-200/80">Seus dados protegidos com criptografia</p>
+                <p className="text-sm text-brand-200/80">Seus dados protegidos com criptografia</p>
               </div>
             </div>
 
@@ -191,7 +191,7 @@ export default function RegisterPage() {
               </div>
               <div className="ml-4">
                 <p className="font-semibold text-white">Suporte 24/7</p>
-                <p className="text-sm text-blue-200/80">Sempre disponível para ajudar</p>
+                <p className="text-sm text-brand-200/80">Sempre disponível para ajudar</p>
               </div>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Right Side - Register Form */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950" role="main">
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-100 via-brand-50 to-slate-200 dark:from-neutral-900 dark:via-brand-950/20 dark:to-neutral-950" role="main">
         <div className="max-w-md w-full space-y-6 animate-slide-up">
           {/* Logo + Header */}
           <div className="flex items-center gap-4">

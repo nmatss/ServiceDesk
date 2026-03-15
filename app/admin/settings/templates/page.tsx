@@ -117,7 +117,7 @@ const typeLabels = {
 }
 
 const typeColors = {
-  email: 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400',
+  email: 'bg-brand-100 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400',
   ticket_response: 'bg-success-100 dark:bg-success-900/20 text-success-700 dark:text-success-400',
   notification: 'bg-warning-100 dark:bg-warning-900/20 text-warning-700 dark:text-warning-400',
   internal_note: 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
@@ -248,9 +248,9 @@ export default function TemplatesPage() {
               {templates.filter(t => t.active).length}
             </div>
           </div>
-          <div className="glass-panel group hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300">
+          <div className="glass-panel group hover:shadow-lg hover:shadow-brand-500/10 transition-all duration-300">
             <div className="text-sm text-description">Usos Totais</div>
-            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
               {templates.reduce((sum, t) => sum + t.usage_count, 0).toLocaleString()}
             </div>
           </div>
@@ -333,7 +333,7 @@ export default function TemplatesPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setShowPreview(template)}
-                        className="p-2 text-icon-muted hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        className="p-2 text-icon-muted hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
                         aria-label={`Visualizar template ${template.name}`}
                       >
                         <EyeIcon className="w-4 h-4" />

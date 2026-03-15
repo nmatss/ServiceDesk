@@ -247,7 +247,7 @@ export function TicketRelationships({
     <div className={`${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-neutral-900 flex items-center gap-2">
+        <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
           <LinkIcon className="h-4 w-4 text-neutral-400" />
           Relationships
           {counts.total > 0 && (
@@ -358,10 +358,10 @@ export function TicketRelationships({
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-md transform rounded-xl bg-white shadow-2xl transition-all">
+                <Dialog.Panel className="w-full max-w-md transform rounded-xl bg-white dark:bg-neutral-800 shadow-2xl transition-all">
                   {/* Header */}
-                  <div className="border-b border-neutral-200 px-6 py-4">
-                    <Dialog.Title className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                  <div className="border-b border-neutral-200 dark:border-neutral-700 px-6 py-4">
+                    <Dialog.Title className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                       <LinkIcon className="h-5 w-5 text-brand-500" />
                       Link Ticket
                     </Dialog.Title>
@@ -448,7 +448,7 @@ export function TicketRelationships({
                   </div>
 
                   {/* Footer */}
-                  <div className="border-t border-neutral-200 px-6 py-3 bg-neutral-50 rounded-b-xl">
+                  <div className="border-t border-neutral-200 dark:border-neutral-700 px-6 py-3 bg-neutral-50 dark:bg-neutral-900 rounded-b-xl">
                     <div className="flex justify-end">
                       <button
                         onClick={() => setIsAddModalOpen(false)}

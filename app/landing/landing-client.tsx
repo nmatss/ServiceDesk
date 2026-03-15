@@ -444,7 +444,7 @@ function HeroSection() {
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="flex -space-x-2">
-                      {["from-blue-400 to-blue-600", "from-violet-400 to-violet-600", "from-emerald-400 to-emerald-600"].map((g, i) => (
+                      {["from-brand-400 to-brand-600", "from-violet-400 to-violet-600", "from-emerald-400 to-emerald-600"].map((g, i) => (
                         <div key={i} className={cn("w-7 h-7 bg-gradient-to-br rounded-full border-2 border-white dark:border-neutral-900", g)} />
                       ))}
                     </div>
@@ -487,7 +487,7 @@ function BenefitsSection() {
       metricLabel: "Tempo Médio",
       title: "Redução drástica no TMA",
       description: "Automatize triagem com IA e regras de negócio. Classificação automática de tickets elimina gargalos e reduz o tempo médio de atendimento.",
-      color: "from-blue-500 to-indigo-600"
+      color: "from-brand-500 to-indigo-600"
     },
     {
       icon: Clock,
@@ -564,7 +564,7 @@ function FeaturesSection() {
       title: "Central de Chamados",
       description: "Portal, e-mail, WhatsApp e telefone unificados. Categorize por incidente, requisição, problema ou mudançacom histórico completo.",
       badge: "Omnichannel",
-      gradient: "from-blue-500 to-sky-600"
+      gradient: "from-brand-500 to-sky-600"
     },
     {
       icon: Clock,
@@ -592,7 +592,7 @@ function FeaturesSection() {
       title: "Relatórios e Dashboards",
       description: "TMA, NPS/CSAT, volume por fila, analista e canal. Dashboards em tempo real, exportação para BI e relatórios agendados.",
       badge: "Análises",
-      gradient: "from-cyan-500 to-blue-600"
+      gradient: "from-cyan-500 to-brand-600"
     },
     {
       icon: Plug,
@@ -690,8 +690,8 @@ function ITILProcessesSection() {
       title: "Catálogo de Serviços",
       description: "Padronize requisições com formulários e aprovações. Portal de autoatendimento, SLAs por serviço e fulfillment automatizado.",
       features: ["Portal autoatendimento", "Formulários dinâmicos", "Aprovações em cadeia", "SLA por item"],
-      gradient: "from-blue-500 to-indigo-600",
-      tagBg: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+      gradient: "from-brand-500 to-indigo-600",
+      tagBg: "bg-brand-50 text-brand-700 dark:bg-brand-950/30 dark:text-brand-400"
     },
     {
       icon: Database,
@@ -706,7 +706,7 @@ function ITILProcessesSection() {
       title: "Monitoramento e SLA",
       description: "Acompanhe métricas em tempo real. Dashboards COBIT, KPIs de governança, audit trail e compliance reports automáticos.",
       features: ["Dashboards COBIT", "KPIs personalizados", "Trilha de auditoria", "Conformidade"],
-      gradient: "from-cyan-500 to-blue-600",
+      gradient: "from-cyan-500 to-brand-600",
       tagBg: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400"
     }
   ]

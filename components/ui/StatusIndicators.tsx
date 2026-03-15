@@ -77,10 +77,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       label: 'Aberto',
       icon: InformationCircleIcon,
       color: {
-        bg: 'bg-blue-50 dark:bg-blue-900/20',
-        text: 'text-blue-700 dark:text-blue-400',
-        border: 'border-blue-200 dark:border-blue-800',
-        dot: 'bg-blue-500'
+        bg: 'bg-brand-50 dark:bg-brand-900/20',
+        text: 'text-brand-700 dark:text-brand-400',
+        border: 'border-brand-200 dark:border-brand-800',
+        dot: 'bg-brand-500'
       },
       description: 'Ticket aberto aguardando resposta',
       priority: 3
@@ -279,10 +279,10 @@ const statusConfigs: Record<string, Record<string, StatusConfig>> = {
       label: 'Manutenção',
       icon: Cog6ToothIcon,
       color: {
-        bg: 'bg-blue-50 dark:bg-blue-900/20',
-        text: 'text-blue-700 dark:text-blue-400',
-        border: 'border-blue-200 dark:border-blue-800',
-        dot: 'bg-blue-500'
+        bg: 'bg-brand-50 dark:bg-brand-900/20',
+        text: 'text-brand-700 dark:text-brand-400',
+        border: 'border-brand-200 dark:border-brand-800',
+        dot: 'bg-brand-500'
       },
       description: 'Manutenção programada'
     }

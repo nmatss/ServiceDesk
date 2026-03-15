@@ -41,7 +41,7 @@ export default function WorkflowToolbar({
   hasChanges = false,
 }: WorkflowToolbarProps) {
   return (
-    <div className="workflow-toolbar bg-white border-b border-neutral-200 px-4 py-2 flex items-center justify-between">
+    <div className="workflow-toolbar bg-white dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 px-4 py-2 flex items-center justify-between">
       {/* Left Section */}
       <div className="flex items-center space-x-3">
         {/* Sidebar Toggle */}
@@ -55,7 +55,7 @@ export default function WorkflowToolbar({
 
         {/* Workflow Name */}
         <div className="flex items-center space-x-2">
-          <h2 className="text-lg font-semibold text-neutral-900">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
             {workflow?.name || 'Workflow sem título'}
           </h2>
           {hasChanges && (

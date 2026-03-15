@@ -391,7 +391,7 @@ export function BottomSheet({
       {/* Bottom Sheet */}
       <div
         ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl z-50 transition-all duration-300 ease-out"
+        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-neutral-800 rounded-t-2xl shadow-2xl z-50 transition-all duration-300 ease-out"
         style={{
           height: `${(snapPoints[currentSnap] ?? 0.3) * 100}vh`,
           maxHeight: '90vh',
@@ -407,8 +407,8 @@ export function BottomSheet({
 
         {/* Header */}
         {title && (
-          <div className="px-4 pb-4 border-b border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-900">{title}</h3>
+          <div className="px-4 pb-4 border-b border-neutral-200 dark:border-neutral-700">
+            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</h3>
           </div>
         )}
 

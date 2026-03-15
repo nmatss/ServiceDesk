@@ -58,7 +58,7 @@ export function ErrorState({
               'px-6 py-2.5 rounded-lg font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2',
               action.variant === 'secondary'
                 ? 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:ring-neutral-500'
-                : 'bg-blue-600 hover:bg-blue-700 text-white hover:shadow-md focus:ring-blue-500'
+                : 'bg-brand-600 hover:bg-brand-700 text-white hover:shadow-md focus:ring-brand-500'
             )}
           >
             {action.label}

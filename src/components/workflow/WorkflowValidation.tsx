@@ -239,9 +239,9 @@ export default function WorkflowValidation({
 
   return (
     <div className={`workflow-validation fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className}`}>
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-neutral-200">
+        <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {isValid ? (
@@ -250,7 +250,7 @@ export default function WorkflowValidation({
                 <XCircleIcon className="w-8 h-8 text-red-500" />
               )}
               <div>
-                <h2 className="text-xl font-semibold text-neutral-900">
+                <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                   Workflow Validation
                 </h2>
                 <p className="text-sm text-neutral-600 mt-1">
@@ -304,7 +304,7 @@ export default function WorkflowValidation({
           {issues.length === 0 ? (
             <div className="text-center py-12">
               <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <p className="text-lg font-medium text-neutral-900">
+              <p className="text-lg font-medium text-neutral-900 dark:text-neutral-100">
                 No issues found!
               </p>
               <p className="text-sm text-neutral-600 mt-1">
@@ -360,7 +360,7 @@ export default function WorkflowValidation({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-neutral-200 bg-neutral-50">
+        <div className="p-6 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
           <div className="flex items-center justify-between">
             <div className="text-sm text-neutral-600">
               {workflow.nodes.length} node{workflow.nodes.length !== 1 ? 's' : ''} •{' '}

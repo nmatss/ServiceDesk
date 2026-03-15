@@ -50,9 +50,9 @@ export default function AuditLog() {
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
+    <div className="bg-white dark:bg-neutral-800 shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
-        <h3 className="text-lg font-medium text-neutral-900 mb-4">
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">
           Logs de Auditoria
         </h3>
         
@@ -95,7 +95,7 @@ export default function AuditLog() {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-neutral-200">
+            <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-neutral-500">
@@ -111,10 +111,10 @@ export default function AuditLog() {
               ) : (
                 logs.map((log) => (
                   <tr key={log.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-neutral-100">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-neutral-100">
                       {log.user_id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -129,7 +129,7 @@ export default function AuditLog() {
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 dark:text-neutral-100">
                       {log.path || (log.data ? JSON.stringify(log.data) : '-')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">

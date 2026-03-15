@@ -84,13 +84,13 @@ export default function WorkflowProperties({
 
   return (
     <div
-      className={`workflow-properties bg-white border-l border-neutral-200 flex flex-col ${className}`}
+      className={`workflow-properties bg-white dark:bg-neutral-800 border-l border-neutral-200 dark:border-neutral-700 flex flex-col ${className}`}
       style={{ width: '400px', minWidth: '400px' }}
     >
       {/* Header */}
-      <div className="p-4 border-b border-neutral-200">
+      <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-neutral-900 uppercase tracking-wide">
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 uppercase tracking-wide">
             Properties
           </h3>
           {onClose && (
@@ -105,14 +105,14 @@ export default function WorkflowProperties({
         </div>
 
         {/* Tabs */}
-        <div className="flex space-x-1 bg-neutral-100 rounded-lg p-1 mt-3">
+        <div className="flex space-x-1 bg-neutral-100 dark:bg-neutral-700 rounded-lg p-1 mt-3">
           {selectedNode && (
             <button
               onClick={() => setActiveTab('node')}
               className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeTab === 'node'
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'text-neutral-600 hover:text-neutral-900'
+                  ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
               }`}
             >
               Node
@@ -123,8 +123,8 @@ export default function WorkflowProperties({
               onClick={() => setActiveTab('edge')}
               className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeTab === 'edge'
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'text-neutral-600 hover:text-neutral-900'
+                  ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
               }`}
             >
               Edge
@@ -134,8 +134,8 @@ export default function WorkflowProperties({
             onClick={() => setActiveTab('workflow')}
             className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
               activeTab === 'workflow'
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'text-neutral-600 hover:text-neutral-900'
+                ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-sm'
+                : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'
             }`}
           >
             Workflow

@@ -271,7 +271,7 @@ export default function FileUpload({
           )}
           {(acceptedTypes.includes('application/msword') ||
             acceptedTypes.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-brand-100 text-brand-800 dark:bg-brand-900/30 dark:text-brand-300">
               <DocumentIcon className="w-3 h-3 mr-1" />
               Word
             </span>

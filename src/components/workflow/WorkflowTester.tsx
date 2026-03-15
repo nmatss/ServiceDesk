@@ -125,12 +125,12 @@ export default function WorkflowTester({
 
   return (
     <div className={`workflow-tester fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${className}`}>
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-neutral-200">
+        <div className="p-6 border-b border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-neutral-900">
+              <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                 Test Workflow
               </h2>
               <p className="text-sm text-neutral-600 mt-1">
@@ -153,7 +153,7 @@ export default function WorkflowTester({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Input Section */}
             <div>
-              <h3 className="text-sm font-semibold text-neutral-900 mb-3">
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
                 Trigger Data
               </h3>
               <div className="space-y-3">
@@ -237,7 +237,7 @@ export default function WorkflowTester({
 
             {/* Output Section */}
             <div>
-              <h3 className="text-sm font-semibold text-neutral-900 mb-3">
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3">
                 Execution Results
               </h3>
 
@@ -253,7 +253,7 @@ export default function WorkflowTester({
               {isRunning && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <ArrowPathIcon className="w-12 h-12 text-brand-500 animate-spin mb-3" />
-                  <p className="text-sm font-medium text-neutral-900">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                     Running workflow...
                   </p>
                   <p className="text-xs text-neutral-600 mt-1">
@@ -314,7 +314,7 @@ export default function WorkflowTester({
                     <div className="mt-3">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs text-neutral-600">Progress</span>
-                        <span className="text-xs font-medium text-neutral-900">
+                        <span className="text-xs font-medium text-neutral-900 dark:text-neutral-100">
                           {executionResult.progress}%
                         </span>
                       </div>
@@ -391,7 +391,7 @@ export default function WorkflowTester({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-neutral-200 bg-neutral-50">
+        <div className="p-6 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
           <div className="flex items-center justify-between">
             <div className="text-sm text-neutral-600">
               {workflow.nodes.length} nodes • {workflow.edges.length} edges
@@ -400,7 +400,7 @@ export default function WorkflowTester({
               {executionResult && (
                 <button
                   onClick={handleReset}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 rounded-lg transition-colors"
                 >
                   <ArrowPathIcon className="w-4 h-4" />
                   <span>Reset</span>

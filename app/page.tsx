@@ -301,7 +301,7 @@ export default function HomePage() {
               Construido para{' '}
               <span className="bg-gradient-to-r from-brand-300 to-brand-400 bg-clip-text text-transparent">escala</span>
             </h2>
-            <p className="mt-4 text-lg text-blue-200/60 max-w-2xl mx-auto">
+            <p className="mt-4 text-lg text-brand-200/60 max-w-2xl mx-auto">
               Uma plataforma robusta e completa, pronta para as demandas mais exigentes.
             </p>
           </div>
@@ -312,7 +312,7 @@ export default function HomePage() {
                 <p className="text-4xl sm:text-5xl font-bold text-white">
                   {stat.value}<span className="text-brand-400">{stat.suffix}</span>
                 </p>
-                <p className="mt-2 text-sm text-blue-200/50">{stat.label}</p>
+                <p className="mt-2 text-sm text-brand-200/50">{stat.label}</p>
               </div>
             ))}
           </div>

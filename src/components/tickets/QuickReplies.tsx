@@ -213,7 +213,7 @@ export function QuickReplies({
       ) : (
         <button
           onClick={() => setIsOpen(true)}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors ${className}`}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors ${className}`}
         >
           <BoltIcon className="h-4 w-4" />
           Quick Replies
@@ -253,8 +253,8 @@ export function QuickReplies({
               >
                 <Dialog.Panel className="w-full max-w-2xl transform rounded-xl bg-white dark:bg-neutral-800 shadow-2xl transition-all">
                   {/* Header */}
-                  <div className="border-b border-neutral-200 px-6 py-4">
-                    <Dialog.Title id="quick-replies-title" className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                  <div className="border-b border-neutral-200 dark:border-neutral-700 px-6 py-4">
+                    <Dialog.Title id="quick-replies-title" className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                       <BoltIcon className="h-5 w-5 text-amber-500" />
                       Quick Replies
                     </Dialog.Title>
@@ -264,7 +264,7 @@ export function QuickReplies({
                   </div>
 
                   {/* Search */}
-                  <div className="border-b border-neutral-200 px-6 py-3">
+                  <div className="border-b border-neutral-200 dark:border-neutral-700 px-6 py-3">
                     <div className="relative">
                       <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                       <input
@@ -331,7 +331,7 @@ export function QuickReplies({
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
-                                  <h4 className="text-sm font-medium text-neutral-900 truncate">
+                                  <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
                                     {macro.name}
                                   </h4>
                                   {macro.description && (
@@ -365,7 +365,7 @@ export function QuickReplies({
                     {/* Preview Panel */}
                     {previewMacro && (
                       <div className="w-72 p-4 overflow-y-auto bg-neutral-50">
-                        <h4 className="font-medium text-neutral-900 mb-2">
+                        <h4 className="font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                           {previewMacro.name}
                         </h4>
 
@@ -375,7 +375,7 @@ export function QuickReplies({
                             <h5 className="text-xs font-medium text-neutral-500 mb-1 uppercase tracking-wide">
                               Content
                             </h5>
-                            <div className="text-sm text-neutral-700 bg-white p-3 rounded border border-neutral-200 max-h-32 overflow-y-auto">
+                            <div className="text-sm text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 p-3 rounded border border-neutral-200 dark:border-neutral-700 max-h-32 overflow-y-auto">
                               {previewMacro.content}
                             </div>
                           </div>
@@ -424,7 +424,7 @@ export function QuickReplies({
                           {previewMacro.content && onContentSelect && (
                             <button
                               onClick={() => insertContent(previewMacro)}
-                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-lg hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors"
                             >
                               Insert Content Only
                             </button>
@@ -435,7 +435,7 @@ export function QuickReplies({
                   </div>
 
                   {/* Footer */}
-                  <div className="border-t border-neutral-200 px-6 py-3 bg-neutral-50 rounded-b-xl">
+                  <div className="border-t border-neutral-200 dark:border-neutral-700 px-6 py-3 bg-neutral-50 dark:bg-neutral-900 rounded-b-xl">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-neutral-500">
                         {filteredMacros.length} macro{filteredMacros.length !== 1 ? 's' : ''} available

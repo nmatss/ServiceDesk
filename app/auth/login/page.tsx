@@ -320,7 +320,7 @@ export default function LoginPage() {
               eficiencia
             </span>
           </h2>
-          <p className="text-lg text-blue-200/70 animate-slide-up mb-14 leading-relaxed max-w-md" style={{ animationDelay: '0.1s' }}>
+          <p className="text-lg text-brand-200/70 animate-slide-up mb-14 leading-relaxed max-w-md" style={{ animationDelay: '0.1s' }}>
             Plataforma completa para gestao de atendimento, tickets e equipes de suporte.
           </p>
 
@@ -361,7 +361,7 @@ export default function LoginPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-white/95 text-[15px]">{feature.title}</p>
-                  <p className="text-sm text-blue-200/55 mt-0.5 leading-relaxed">{feature.desc}</p>
+                  <p className="text-sm text-brand-200/55 mt-0.5 leading-relaxed">{feature.desc}</p>
                 </div>
               </div>
             ))}
@@ -376,7 +376,7 @@ export default function LoginPage() {
             ].map((stat, i) => (
               <div key={i} className="text-center flex-1">
                 <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-xs text-blue-200/50 mt-1">{stat.label}</p>
+                <p className="text-xs text-brand-200/50 mt-1">{stat.label}</p>
               </div>
             ))}
           </div>

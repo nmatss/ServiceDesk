@@ -131,7 +131,7 @@ export default function KEDBPage() {
   const getFixStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-500/20 dark:text-neutral-400'
-      case 'planned': return 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
+      case 'planned': return 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400'
       case 'in_progress': return 'bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400'
       case 'completed': return 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400'
       case 'wont_fix': return 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-400'
@@ -426,7 +426,7 @@ export default function KEDBPage() {
                     {error.workaround_instructions && (
                       <div className="mt-4">
                         <h4 className="font-semibold text-neutral-900 dark:text-neutral-50 mb-2">Instruções do Workaround</h4>
-                        <div className="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg p-3">
+                        <div className="bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 rounded-lg p-3">
                           <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{error.workaround_instructions}</p>
                         </div>
                       </div>
@@ -443,7 +443,7 @@ export default function KEDBPage() {
                             </span>
                           )}
                           {error.affected_cis && error.affected_cis.length > 0 && (
-                            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-700 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
+                            <span className="px-3 py-1 bg-brand-100 dark:bg-brand-700 text-brand-700 dark:text-brand-300 rounded-lg text-sm">
                               {error.affected_cis.length} CI(s)
                             </span>
                           )}
