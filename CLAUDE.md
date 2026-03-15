@@ -23,10 +23,10 @@ npm run db:clear     # Clear all data from database
 
 ## Database Architecture
 
-This project uses a **dual-database adapter pattern** supporting both SQLite (development) and PostgreSQL/Supabase (production) with **117 tables**.
+This project uses a **dual-database adapter pattern** supporting both SQLite (development) and PostgreSQL/Supabase (production) with **119 tables**.
 
 ### Key Database Files
-- **SQLite Schema**: `lib/db/schema.sql` — 3,400+ lines, 117 tables
+- **SQLite Schema**: `lib/db/schema.sql` — 3,400+ lines, 119 tables
 - **PostgreSQL Schema**: `lib/db/schema.postgres.sql` — 2,720+ lines, full parity
 - **Adapter**: `lib/db/adapter.ts` — Unified interface for both databases
 - **Connection**: `lib/db/connection.ts` (SQLite) / `lib/db/connection.postgres.ts` (PostgreSQL)
@@ -39,8 +39,8 @@ This project uses a **dual-database adapter pattern** supporting both SQLite (de
 ### Database Stats (PostgreSQL/Supabase)
 | Metric | Count |
 |---|---|
-| Tables | 117 |
-| Indexes | 362 |
+| Tables | 119 |
+| Indexes | 365 |
 | Triggers | 59 |
 | Foreign Keys | 84 |
 | CHECK Constraints | 28 |
@@ -69,6 +69,7 @@ This project uses a **dual-database adapter pattern** supporting both SQLite (de
 All database access uses the adapter from `lib/db/adapter.ts`:
 ```typescript
 import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@/lib/db/adapter'
+import type { SqlParam } from '@/lib/db/adapter'
 ```
 
 **Query execution helpers:**
@@ -76,6 +77,7 @@ import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@
 - `executeQueryOne<T>(sql, params)` — SELECT returning T | undefined
 - `executeRun(sql, params)` — INSERT/UPDATE/DELETE returning {changes, lastInsertRowid?}
 - `executeTransaction<T>(callback)` — Transaction with isolation
+- `SqlParam` type — Type-safe query parameter (`string | number | boolean | null`)
 
 **16 Dialect helpers** for cross-database SQL:
 - `sqlNow()`, `sqlDateSub()`, `sqlDateDiff()`, `sqlGroupConcat()`, `sqlCastDate()`
@@ -88,7 +90,7 @@ import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@
 
 ### Implementation
 - **JWT tokens**: Access (15min) + Refresh (7d) via `lib/auth/token-manager.ts`
-- **Password hashing**: bcrypt 12 rounds via `lib/auth/password-policies.ts`
+- **Password hashing**: bcryptjs 12 rounds via `lib/auth/password-policies.ts`
 - **MFA**: TOTP, SMS, Email, Backup codes via `lib/auth/mfa-manager.ts`
 - **SSO**: OAuth2, SAML via `lib/auth/sso-manager.ts`
 - **Biometric**: WebAuthn via `lib/auth/biometric-auth.ts`
@@ -100,9 +102,10 @@ import { executeQuery, executeQueryOne, executeRun, executeTransaction } from '@
 ```
 super_admin → admin → tenant_admin → team_manager → agent → user
 ```
-- Roles defined in `lib/auth/roles.ts`
+- Roles defined in `lib/auth/roles.ts` — ALL checks use `ROLES.*` constants and helpers (`isAdmin()`, `isAgent()`, `isPrivileged()`, `canManageTickets()`)
 - Permission engine in `lib/auth/rbac.ts`
 - Conditional permissions: owner_only, department_only, business_hours
+- No hardcoded role strings anywhere in the codebase
 
 ### Protected Routes
 - Admin routes: `/admin/*` — requires admin/tenant_admin
@@ -118,7 +121,7 @@ super_admin → admin → tenant_admin → team_manager → agent → user
 - **Tailwind CSS** with custom design system (brand-*, neutral-* classes)
 - **SQLite** for development / **PostgreSQL (Supabase)** for production
 - **Socket.io** for real-time notifications
-- **Redis** for caching (optional, graceful fallback)
+- **ioredis** for caching (optional, graceful fallback)
 
 ### Directory Structure
 ```
@@ -195,7 +198,9 @@ components/ui/                # 49 base UI components
 - **Tenant Isolation**: All queries scope by `organization_id`
 - **Rate Limiting**: `applyRateLimit(request, RATE_LIMITS.*)` on all endpoints
 - **Dialect-aware SQL**: Use `getDatabaseType()` + helpers for cross-DB compatibility
-- **Type Safety**: Comprehensive TypeScript interfaces for all database entities
+- **Type Safety**: Comprehensive TypeScript interfaces for all database entities; `SqlParam` type for query params
+- **Integration Pattern**: `BaseConnector` class from `lib/integrations/base-connector.ts` for all integrations
+- **SLA Service**: `lib/sla/sla-service.ts` — application-layer SLA tracking (replaces DB triggers)
 
 ## Super Admin Area
 
@@ -251,7 +256,7 @@ components/ui/                # 49 base UI components
 
 ### Implemented Protections
 - **JWT**: HS256, access (15min) + refresh (7d), httpOnly cookies, device fingerprinting
-- **Password**: bcrypt 12 rounds, entropy check, dictionary, history (5), 90-day expiration
+- **Password**: bcryptjs 12 rounds, entropy check, dictionary, history (5), 90-day expiration
 - **MFA**: TOTP + SMS + Email + Backup codes (10), HMAC-SHA256 hashed storage
 - **CSRF**: Double Submit Cookie + HMAC-SHA256, session-bound, 1-hour expiry
 - **Encryption**: AES-256-GCM with key rotation for sensitive fields
@@ -260,6 +265,9 @@ components/ui/                # 49 base UI components
 - **SQL Injection**: Parameterized queries + LIKE wildcard escaping
 - **XSS**: isomorphic-dompurify sanitization
 - **Tenant Isolation**: organization_id scoping + JWT validation in middleware
+- **SSRF Protection**: Workflow webhook executor uses IP whitelist
+- **Workflow Security**: Tenant isolation (org_id enforced), secrets masking in variable logging
+- **Approval Tokens**: Stored in database (not in-memory)
 - **LGPD/GDPR**: Consent tracking, data portability, erasure, 3-year retention
 
 ### Security Patterns to Follow
@@ -299,8 +307,9 @@ const ids = requestIds.slice(0, 50);
 - **SSR/ISR**: 10+ critical pages, 18 API endpoints with cache strategies
 - **Code Splitting**: Lazy loading for admin, charts, editors, PDF/Excel
 - **Compression**: gzip/brotli in server.ts (~70% reduction)
-- **Auth Cache**: 30s in-memory cache eliminates redundant /api/auth/verify calls
-- **DB Indexes**: 362 indexes, N+1 queries eliminated with JOINs
+- **Auth Cache**: 30s in-memory cache eliminates redundant /api/auth/verify calls (cache-first rendering, no loading spinner on navigation)
+- **Dashboard Parallelization**: Dashboard queries use `Promise.all` for concurrent execution
+- **DB Indexes**: 365 indexes, N+1 queries eliminated with JOINs
 - **Tree-shaking**: optimizePackageImports for heroicons, headlessui, lucide-react, recharts, framer-motion, date-fns
 
 ## Common Development Tasks
@@ -339,13 +348,14 @@ export async function GET(request: NextRequest) {
 
 ### Build Status
 - **TypeScript**: 0 errors
-- **Next.js Build**: SUCCESS (203 pages)
+- **Next.js Build**: SUCCESS (199 pages)
 - **SQLite→PG Migration**: 100% complete
-- **QA Score**: 22/22 checks (100%)
+- **ESLint `any` warnings**: ~1,141 (reduced from ~1,900; suppressed via `ignoreDuringBuilds`)
+- **Color compliance**: 0 `blue-*`, 0 `gray-*`, 0 hardcoded role strings
 
 ### Infrastructure
 - **Docker**: Multi-stage build (<200MB), non-root user, tini init
 - **Kubernetes**: Health probes at /api/health/live, /ready, /startup
-- **Supabase**: PostgreSQL with 117 tables, 362 indexes, 59 triggers
-- **Monitoring**: Sentry (server/client/edge) + Datadog APM + Prometheus metrics
+- **Supabase**: PostgreSQL with 119 tables, 365 indexes, 59 triggers
+- **Monitoring**: Sentry (server/client/edge) + Prometheus metrics
 - **Custom Server**: server.ts with Socket.io + compression + graceful shutdown
