@@ -251,7 +251,7 @@ export async function middleware(request: NextRequest) {
     pathname,
     headers: tenantHeaders,
     cookies,
-    allowDevDefault: !pathname.startsWith('/api/'), // Only allow dev default for frontend routes
+    allowDevDefault: true, // Allow default tenant for all routes (required for single-tenant deployments)
   })
 
   // Log tenant resolution for debugging (simplified for Edge Runtime)
