@@ -6,10 +6,27 @@
  */
 
 import { getDatabaseType } from './config';
-import Database from 'better-sqlite3';
 import { PostgresConnection, getPostgresConnection } from './connection.postgres';
 import type { SqlParam } from './connection.postgres';
-import legacyDb from './connection'; // SQLite connection
+
+// Import better-sqlite3 types for TypeScript (type-only, no runtime impact)
+import type Database from 'better-sqlite3';
+
+// Lazy-load SQLite only when needed (not in production/Vercel)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _sqliteDb: any = null;
+
+function getSQLiteDb(): Database.Database {
+  if (!_sqliteDb) {
+    try {
+      const mod = eval("require")('./connection');
+      _sqliteDb = mod.default || mod;
+    } catch {
+      throw new Error('SQLite (better-sqlite3) is not available. Set DB_TYPE=postgresql for production.');
+    }
+  }
+  return _sqliteDb;
+}
 
 export type { SqlParam };
 
@@ -311,7 +328,7 @@ export function createDatabaseAdapter(): DatabaseAdapter {
     const pgConnection = getPostgresConnection();
     return new PostgreSQLAdapter(pgConnection);
   } else {
-    return new SQLiteAdapter(legacyDb);
+    return new SQLiteAdapter(getSQLiteDb());
   }
 }
 
