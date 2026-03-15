@@ -174,7 +174,7 @@ export function ManagerExecutiveDashboard({ className = '' }: ManagerComponentPr
 
   const getColorClasses = (color: string) => {
     const colors = {
-      blue: 'bg-blue-500 text-blue-50',
+      blue: 'bg-brand-500 text-brand-50',
       green: 'bg-green-500 text-green-50',
       emerald: 'bg-emerald-500 text-emerald-50',
       purple: 'bg-purple-500 text-purple-50',
@@ -540,7 +540,7 @@ export function ManagerTeamOverview({ className = '' }: ManagerComponentProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-12 h-12 bg-gradient-to-br from-brand-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
                     {member.name.split(' ').map(n => n[0]).join('')}
                   </div>
                   <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getStatusColor(member.status)} rounded-full border-2 border-white`} />
@@ -680,7 +680,7 @@ export function ManagerInsights({ className = '' }: ManagerComponentProps) {
   const getIconColor = (color: string) => {
     const colors = {
       amber: 'text-amber-600',
-      blue: 'text-blue-600',
+      blue: 'text-brand-600',
       green: 'text-green-600',
       purple: 'text-purple-600'
     };

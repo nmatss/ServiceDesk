@@ -40,14 +40,24 @@ app.prepare().then(() => {
     },
   })
 
-  // Create HTTP server with compression
+  // Create HTTP server with compression (skip for static assets)
   const server = createServer(async (req, res) => {
     try {
-      // Apply compression middleware
+      const parsedUrl = parse(req.url!, true)
+
+      // Skip compression for static assets (Next.js handles them correctly)
+      if (parsedUrl.pathname?.startsWith('/_next/static/') ||
+          parsedUrl.pathname?.startsWith('/_next/image/') ||
+          parsedUrl.pathname?.endsWith('.js') ||
+          parsedUrl.pathname?.endsWith('.css') ||
+          parsedUrl.pathname?.endsWith('.map')) {
+        await handle(req, res, parsedUrl)
+        return
+      }
+
+      // Apply compression to dynamic routes only
       // @ts-ignore - compression expects Express types but works with native http
       compress(req, res, async () => {
-        // url.parse is deprecated but Next.js handle() requires its return type
-        const parsedUrl = parse(req.url!, true)
         await handle(req, res, parsedUrl)
       })
     } catch (err) {

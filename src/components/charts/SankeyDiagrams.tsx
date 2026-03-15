@@ -321,13 +321,13 @@ export function WorkflowSankey({
 
       {/* Selection Information */}
       {(selectedNode || selectedLink) && (
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="mt-4 p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
           {selectedNode && (
             <div>
-              <h4 className="font-semibold text-blue-800 dark:text-blue-200">
+              <h4 className="font-semibold text-brand-800 dark:text-brand-200">
                 Selected Node: {selectedNode.name}
               </h4>
-              <p className="text-blue-600 dark:text-blue-300">
+              <p className="text-brand-600 dark:text-brand-300">
                 {selectedNode.category && `Category: ${selectedNode.category} | `}
                 Value: {selectedNode.value || 0}
               </p>
@@ -335,10 +335,10 @@ export function WorkflowSankey({
           )}
           {selectedLink && (
             <div>
-              <h4 className="font-semibold text-blue-800 dark:text-blue-200">
+              <h4 className="font-semibold text-brand-800 dark:text-brand-200">
                 Selected Flow
               </h4>
-              <p className="text-blue-600 dark:text-blue-300">
+              <p className="text-brand-600 dark:text-brand-300">
                 From: {(selectedLink.source as any).name} → To: {(selectedLink.target as any).name} |
                 Volume: {selectedLink.value}
                 {selectedLink.type && ` | Type: ${selectedLink.type}`}
@@ -351,7 +351,7 @@ export function WorkflowSankey({
       {/* Legend */}
       <div className="mt-4 flex flex-wrap gap-4">
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-blue-500 rounded"></div>
+          <div className="w-4 h-4 bg-brand-500 rounded"></div>
           <span className="text-sm text-description">Open</span>
         </div>
         <div className="flex items-center space-x-2">

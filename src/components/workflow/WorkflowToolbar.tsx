@@ -78,7 +78,7 @@ export default function WorkflowToolbar({
             {/* Validate */}
             <button
               onClick={onValidate}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
               title="Validate Workflow"
             >
               <CheckCircleIcon className="w-4 h-4" />
@@ -101,7 +101,7 @@ export default function WorkflowToolbar({
               disabled={!hasChanges}
               className={`flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 hasChanges
-                  ? 'text-white bg-blue-600 hover:bg-blue-700'
+                  ? 'text-white bg-brand-600 hover:bg-brand-700'
                   : 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
               }`}
               title="Save Workflow"

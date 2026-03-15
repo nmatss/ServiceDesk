@@ -109,7 +109,7 @@ export function DataSourcePicker({
                         onClick={() => setSelectedCategory(category.id)}
                         className={`py-2 px-1 border-b-2 font-medium text-sm ${
                           selectedCategory === category.id
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                             : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
                         }`}
                       >
@@ -127,8 +127,8 @@ export function DataSourcePicker({
                       onClick={() => handleSelect(ds.id)}
                       className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                         currentDataSource === ds.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-neutral-200 dark:border-neutral-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
+                          : 'border-neutral-200 dark:border-neutral-700 hover:border-brand-300 dark:hover:border-brand-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -143,7 +143,7 @@ export function DataSourcePicker({
                             <span className="inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
                               {ds.type}
                             </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300">
                               {ds.category}
                             </span>
                             {ds.requiredPermissions && ds.requiredPermissions.length > 0 && (
@@ -155,7 +155,7 @@ export function DataSourcePicker({
                         </div>
                         {currentDataSource === ds.id && (
                           <div className="flex-shrink-0 ml-3">
-                            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-5 h-5 text-brand-600 dark:text-brand-400" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                           </div>

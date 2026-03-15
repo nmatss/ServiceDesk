@@ -285,7 +285,7 @@ export default function WorkflowValidation({
               </div>
             )}
             {infoCount > 0 && (
-              <div className="flex items-center space-x-1.5 text-blue-600">
+              <div className="flex items-center space-x-1.5 text-brand-600">
                 <CheckCircleIcon className="w-5 h-5" />
                 <span className="text-sm font-medium">{infoCount} Info</span>
               </div>
@@ -321,7 +321,7 @@ export default function WorkflowValidation({
                       ? 'bg-red-50 border-red-500'
                       : issue.type === 'warning'
                       ? 'bg-yellow-50 border-yellow-500'
-                      : 'bg-blue-50 border-blue-500'
+                      : 'bg-brand-50 border-brand-500'
                   }`}
                 >
                   <div className="flex items-start">
@@ -331,7 +331,7 @@ export default function WorkflowValidation({
                       ) : issue.type === 'warning' ? (
                         <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
                       ) : (
-                        <CheckCircleIcon className="w-5 h-5 text-blue-500" />
+                        <CheckCircleIcon className="w-5 h-5 text-brand-500" />
                       )}
                     </div>
                     <div className="ml-3 flex-1">
@@ -341,7 +341,7 @@ export default function WorkflowValidation({
                             ? 'text-red-800'
                             : issue.type === 'warning'
                             ? 'text-yellow-800'
-                            : 'text-blue-800'
+                            : 'text-brand-800'
                         }`}
                       >
                         {issue.message}
@@ -368,7 +368,7 @@ export default function WorkflowValidation({
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
             >
               {isValid ? 'Continuar' : 'Fechar'}
             </button>

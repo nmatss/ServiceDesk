@@ -42,7 +42,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
       case 'critical': return 'border-red-500 bg-red-50 dark:bg-red-900/20';
       case 'high': return 'border-orange-500 bg-orange-50 dark:bg-orange-900/20';
       case 'medium': return 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20';
-      case 'low': return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
+      case 'low': return 'border-brand-500 bg-brand-50 dark:bg-brand-900/20';
       default: return 'border-neutral-500 bg-neutral-50 dark:bg-neutral-900/20';
     }
   };
@@ -69,7 +69,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
       case 'critical': return 'text-red-600 dark:text-red-400';
       case 'high': return 'text-orange-600 dark:text-orange-400';
       case 'medium': return 'text-yellow-600 dark:text-yellow-400';
-      case 'low': return 'text-blue-600 dark:text-blue-400';
+      case 'low': return 'text-brand-600 dark:text-brand-400';
       default: return 'text-description';
     }
   };
@@ -102,7 +102,7 @@ function AlertItem({ alert, onDismiss, onView }: AlertItemProps) {
                 alert.severity === 'critical' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' :
                 alert.severity === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' :
                 alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' :
-                'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                'bg-brand-100 text-brand-800 dark:bg-brand-900/40 dark:text-brand-300'
               }`}>
                 {alert.severity}
               </span>
@@ -256,7 +256,7 @@ export function RealtimeAlertsWidget({
             onClick={() => onUpdate({ soundEnabled: !config.soundEnabled })}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.soundEnabled
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
                 : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
@@ -268,7 +268,7 @@ export function RealtimeAlertsWidget({
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.showDismissed
                 ? 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
-                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                : 'bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
             }`}
           >
             {config.showDismissed ? 'Hide Dismissed' : 'Show Dismissed'}
@@ -297,7 +297,7 @@ export function RealtimeAlertsWidget({
           <div className="text-sm text-description">Medium</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-2xl font-bold text-brand-600 dark:text-brand-400">
             {getSeverityCount('low')}
           </div>
           <div className="text-sm text-description">Low</div>
@@ -382,7 +382,7 @@ export function RealtimeAlertsWidget({
                       selectedAlert.severity === 'critical' ? 'text-red-600' :
                       selectedAlert.severity === 'high' ? 'text-orange-600' :
                       selectedAlert.severity === 'medium' ? 'text-yellow-600' :
-                      'text-blue-600'
+                      'text-brand-600'
                     }`}>
                       {selectedAlert.severity}
                     </p>

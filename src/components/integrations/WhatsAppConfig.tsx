@@ -199,7 +199,7 @@ export function WhatsAppConfig() {
 
   const getCategoryBadge = (category: string) => {
     const colors: Record<string, string> = {
-      TRANSACTIONAL: 'bg-blue-100 text-blue-800',
+      TRANSACTIONAL: 'bg-brand-100 text-brand-800',
       MARKETING: 'bg-purple-100 text-purple-800',
       AUTHENTICATION: 'bg-green-100 text-green-800',
       UTILITY: 'bg-neutral-100 text-neutral-800',
@@ -213,7 +213,7 @@ export function WhatsAppConfig() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-neutral-900">Integração WhatsApp Business</h2>
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Integração WhatsApp Business</h2>
           <p className="mt-1 text-sm text-neutral-600">
             Configure a integração com WhatsApp Business API para receber e enviar mensagens
           </p>
@@ -243,7 +243,7 @@ export function WhatsAppConfig() {
       {/* Statistics */}
       {stats && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white dark:bg-neutral-800 overflow-hidden shadow dark:shadow-neutral-900/20 rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -259,14 +259,14 @@ export function WhatsAppConfig() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-neutral-500 truncate">Total de Mensagens</dt>
-                    <dd className="text-lg font-semibold text-neutral-900">{stats.totalMessages.toLocaleString()}</dd>
+                    <dd className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{stats.totalMessages.toLocaleString()}</dd>
                   </dl>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white dark:bg-neutral-800 overflow-hidden shadow dark:shadow-neutral-900/20 rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -282,14 +282,14 @@ export function WhatsAppConfig() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-neutral-500 truncate">Contatos Únicos</dt>
-                    <dd className="text-lg font-semibold text-neutral-900">{stats.uniqueContacts.toLocaleString()}</dd>
+                    <dd className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{stats.uniqueContacts.toLocaleString()}</dd>
                   </dl>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="bg-white dark:bg-neutral-800 overflow-hidden shadow dark:shadow-neutral-900/20 rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -305,7 +305,7 @@ export function WhatsAppConfig() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-neutral-500 truncate">Chamados Criados</dt>
-                    <dd className="text-lg font-semibold text-neutral-900">{stats.ticketsCreated.toLocaleString()}</dd>
+                    <dd className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{stats.ticketsCreated.toLocaleString()}</dd>
                   </dl>
                 </div>
               </div>
@@ -315,9 +315,9 @@ export function WhatsAppConfig() {
       )}
 
       {/* Configuration Form */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-white dark:bg-neutral-800 shadow dark:shadow-neutral-900/20 rounded-lg">
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium leading-6 text-neutral-900 mb-4">Configuração da API</h3>
+          <h3 className="text-lg font-medium leading-6 text-neutral-900 dark:text-neutral-100 mb-4">Configuração da API</h3>
 
           <div className="grid grid-cols-1 gap-6">
             <div>
@@ -408,20 +408,20 @@ export function WhatsAppConfig() {
       </div>
 
       {/* Webhook Information */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">📡 Configuração do Webhook</h4>
-        <p className="text-sm text-blue-800 mb-2">Configure o webhook no WhatsApp Business Manager com:</p>
-        <div className="bg-white rounded border border-blue-200 p-3 space-y-2">
+      <div className="bg-brand-50 border border-brand-200 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-brand-900 mb-2">📡 Configuração do Webhook</h4>
+        <p className="text-sm text-brand-800 mb-2">Configure o webhook no WhatsApp Business Manager com:</p>
+        <div className="bg-white dark:bg-neutral-800 rounded border border-brand-200 dark:border-brand-700 p-3 space-y-2">
           <div>
-            <span className="text-xs font-medium text-blue-900">URL do Callback:</span>
-            <code className="block mt-1 text-xs bg-blue-50 p-2 rounded border border-blue-200">
+            <span className="text-xs font-medium text-brand-900">URL do Callback:</span>
+            <code className="block mt-1 text-xs bg-brand-50 p-2 rounded border border-brand-200">
               {typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}
               /api/integrations/whatsapp/webhook
             </code>
           </div>
           <div>
-            <span className="text-xs font-medium text-blue-900">Token de Verificação:</span>
-            <code className="block mt-1 text-xs bg-blue-50 p-2 rounded border border-blue-200">
+            <span className="text-xs font-medium text-brand-900">Token de Verificação:</span>
+            <code className="block mt-1 text-xs bg-brand-50 p-2 rounded border border-brand-200">
               {config.webhookVerifyToken || '[Configure o token acima]'}
             </code>
           </div>
@@ -429,18 +429,18 @@ export function WhatsAppConfig() {
       </div>
 
       {/* Templates Section */}
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-white dark:bg-neutral-800 shadow dark:shadow-neutral-900/20 rounded-lg">
         <div className="px-4 py-5 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium leading-6 text-neutral-900">Message Templates</h3>
+            <h3 className="text-lg font-medium leading-6 text-neutral-900 dark:text-neutral-100">Message Templates</h3>
             <Button onClick={handleRegisterPredefinedTemplates} variant="secondary" size="sm">
               Registrar Templates Padrão
             </Button>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-neutral-200">
-              <thead className="bg-neutral-50">
+            <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
+              <thead className="bg-neutral-50 dark:bg-neutral-700">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                     Nome
@@ -456,7 +456,7 @@ export function WhatsAppConfig() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-neutral-200">
+              <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
                 {templates.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-6 py-4 text-center text-sm text-neutral-500">
@@ -466,7 +466,7 @@ export function WhatsAppConfig() {
                 ) : (
                   templates.map((template) => (
                     <tr key={template.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         {template.name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">

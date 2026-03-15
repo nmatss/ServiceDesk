@@ -350,14 +350,14 @@ export function SmartTicketForm({
             type="button"
             onClick={() => setAnalysisEnabled(!analysisEnabled)}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${analysisEnabled
-              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+              ? 'bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-300'
               : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400'
               }`}
           >
             {analysisEnabled ? 'AI Enabled' : 'AI Disabled'}
           </button>
           {isAnalyzing && (
-            <div className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
+            <div className="flex items-center space-x-1 text-brand-600 dark:text-brand-400">
               <CpuChipIcon className="h-4 w-4 animate-pulse" />
               <span className="text-sm">Analyzing...</span>
             </div>
@@ -379,7 +379,7 @@ export function SmartTicketForm({
                 id="title"
                 value={formState.title}
                 onChange={(e) => handleFieldChange('title', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.title ? 'border-red-500' : 'border-neutral-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.title ? 'border-red-500' : 'border-neutral-300'
                   }`}
                 placeholder="Brief description of the issue..."
                 maxLength={200}
@@ -409,7 +409,7 @@ export function SmartTicketForm({
                 value={formState.description}
                 onChange={(e) => handleFieldChange('description', e.target.value)}
                 rows={6}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white resize-none ${validationErrors.description ? 'border-red-500' : 'border-neutral-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white resize-none ${validationErrors.description ? 'border-red-500' : 'border-neutral-300'
                   }`}
                 placeholder="Detailed description of the issue, steps to reproduce, expected vs actual behavior..."
                 maxLength={2000}
@@ -427,7 +427,7 @@ export function SmartTicketForm({
               <label htmlFor="category" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Category *
                 {aiAnalysis?.category.confidence && aiAnalysis.category.confidence >= 0.70 && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200">
                     <SparklesIcon className="h-3 w-3 mr-1" />
                     AI Suggested
                   </span>
@@ -437,7 +437,7 @@ export function SmartTicketForm({
                 id="category"
                 value={formState.category_id || ''}
                 onChange={(e) => handleFieldChange('category_id', parseInt(e.target.value) || null)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.category_id ? 'border-red-500' : 'border-neutral-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.category_id ? 'border-red-500' : 'border-neutral-300'
                   }`}
               >
                 <option value="">Select a category...</option>
@@ -457,7 +457,7 @@ export function SmartTicketForm({
               <label htmlFor="priority" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                 Priority *
                 {aiAnalysis?.priority.confidence && aiAnalysis.priority.confidence >= 0.70 && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200">
                     <SparklesIcon className="h-3 w-3 mr-1" />
                     AI Suggested
                   </span>
@@ -467,7 +467,7 @@ export function SmartTicketForm({
                 id="priority"
                 value={formState.priority_id || ''}
                 onChange={(e) => handleFieldChange('priority_id', parseInt(e.target.value) || null)}
-                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.priority_id ? 'border-red-500' : 'border-neutral-300'
+                className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white ${validationErrors.priority_id ? 'border-red-500' : 'border-neutral-300'
                   }`}
               >
                 <option value="">Select priority...</option>
@@ -498,7 +498,7 @@ export function SmartTicketForm({
                   id="assigned_to"
                   value={formState.assigned_to || ''}
                   onChange={(e) => handleFieldChange('assigned_to', parseInt(e.target.value) || null)}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-white"
                 >
                   <option value="">Auto-assign</option>
                   {agents.map((agent) => (
@@ -521,14 +521,14 @@ export function SmartTicketForm({
                   priority_id: null,
                   assigned_to: null
                 })}
-                className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 bg-white hover:bg-neutral-50 focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-600"
+                className="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 bg-white hover:bg-neutral-50 focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-600"
               >
                 Clear
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || Object.keys(validateForm()).length > 0}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 focus:ring-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creating...' : 'Create Ticket'}
               </button>
@@ -543,7 +543,7 @@ export function SmartTicketForm({
             <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm border border-neutral-200 dark:border-neutral-700 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-neutral-900 dark:text-white flex items-center">
-                  <SparklesIcon className="h-5 w-5 mr-2 text-blue-500" />
+                  <SparklesIcon className="h-5 w-5 mr-2 text-brand-500" />
                   AI Insights
                 </h3>
                 <button
@@ -561,14 +561,14 @@ export function SmartTicketForm({
                     className={`p-3 rounded-lg border ${insight.variant === 'error' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' :
                       insight.variant === 'warning' ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' :
                         insight.variant === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' :
-                          'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
+                          'bg-brand-50 border-brand-200 dark:bg-brand-900/20 dark:border-brand-800'
                       }`}
                   >
                     <div className="flex items-start space-x-2">
                       <insight.icon className={`h-5 w-5 mt-0.5 ${insight.variant === 'error' ? 'text-red-500' :
                         insight.variant === 'warning' ? 'text-orange-500' :
                           insight.variant === 'success' ? 'text-green-500' :
-                            'text-blue-500'
+                            'text-brand-500'
                         }`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
@@ -585,7 +585,7 @@ export function SmartTicketForm({
                         {insight.action && (
                           <button
                             onClick={insight.action.onClick}
-                            className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+                            className="mt-2 text-sm font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300"
                           >
                             {insight.action.label}
                           </button>
@@ -638,7 +638,7 @@ export function SmartTicketForm({
                       </span>
                     </div>
                     <div className="mt-2 flex space-x-2">
-                      <button className="text-xs text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                      <button className="text-xs text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
                         <EyeIcon className="h-3 w-3 inline mr-1" />
                         View
                       </button>

@@ -276,7 +276,7 @@ export function FeatureAnnouncement({
           {actionLabel && onAction && (
             <button
               onClick={onAction}
-              className="px-4 py-2 bg-white text-blue-600 hover:bg-blue-50 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-white dark:bg-neutral-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors"
             >
               {actionLabel}
             </button>

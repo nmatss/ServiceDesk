@@ -23,7 +23,7 @@ export function Widget({
         rounded-lg shadow-sm
         border-2 transition-all duration-200
         ${isSelected
-          ? 'border-blue-500 dark:border-blue-400 shadow-lg'
+          ? 'border-brand-500 dark:border-brand-400 shadow-lg'
           : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
         }
         ${className}

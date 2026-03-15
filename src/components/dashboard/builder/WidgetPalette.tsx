@@ -205,7 +205,7 @@ export function WidgetPalette({ isOpen, onClose, onAddWidget }: WidgetPalettePro
                         onClick={() => setSelectedCategory(category.id)}
                         className={`py-2 px-1 border-b-2 font-medium text-sm ${
                           selectedCategory === category.id
-                            ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                            ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                             : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
                         }`}
                       >
@@ -221,10 +221,10 @@ export function WidgetPalette({ isOpen, onClose, onAddWidget }: WidgetPalettePro
                     <button
                       key={widget.id}
                       onClick={() => handleAddWidget(widget)}
-                      className="p-4 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition-all text-left group"
+                      className="p-4 border-2 border-neutral-200 dark:border-neutral-700 rounded-lg hover:border-brand-500 dark:hover:border-brand-400 hover:shadow-md transition-all text-left group"
                     >
                       <div className="flex items-start space-x-3">
-                        <div className="flex-shrink-0 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <div className="flex-shrink-0 text-neutral-500 dark:text-neutral-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                           {widget.icon}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -234,11 +234,11 @@ export function WidgetPalette({ isOpen, onClose, onAddWidget }: WidgetPalettePro
                           <p className="text-xs text-neutral-500 dark:text-neutral-400">
                             {widget.description}
                           </p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          <p className="text-xs text-brand-600 dark:text-brand-400 mt-2">
                             Size: {widget.defaultSize.w}×{widget.defaultSize.h}
                           </p>
                         </div>
-                        <PlusCircleIcon className="w-5 h-5 text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0" />
+                        <PlusCircleIcon className="w-5 h-5 text-neutral-400 group-hover:text-brand-600 dark:group-hover:text-brand-400 flex-shrink-0" />
                       </div>
                     </button>
                   ))}

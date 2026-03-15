@@ -217,7 +217,7 @@ export default function CommunityContributions() {
       case 'pending':
         return <ClockIcon className="h-5 w-5 text-yellow-500" />;
       case 'under_review':
-        return <EyeIcon className="h-5 w-5 text-blue-500" />;
+        return <EyeIcon className="h-5 w-5 text-brand-500" />;
       case 'approved':
         return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
       case 'rejected':
@@ -261,7 +261,7 @@ export default function CommunityContributions() {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto"></div>
           <p className="mt-4 text-neutral-600">Carregando contribuições da comunidade...</p>
         </div>
       </div>
@@ -276,7 +276,7 @@ export default function CommunityContributions() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-neutral-900 flex items-center">
-                <UserGroupIcon className="h-8 w-8 text-blue-600 mr-3" />
+                <UserGroupIcon className="h-8 w-8 text-brand-600 mr-3" />
                 Contribuições da Comunidade
               </h1>
               <p className="mt-2 text-neutral-600">
@@ -285,7 +285,7 @@ export default function CommunityContributions() {
             </div>
             <button
               onClick={() => {/* TODO: Implement contribution form */}}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              className="bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 transition-colors flex items-center"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
               Nova Contribuição
@@ -296,9 +296,9 @@ export default function CommunityContributions() {
         {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
               <div className="flex items-center">
-                <UserGroupIcon className="h-8 w-8 text-blue-600" />
+                <UserGroupIcon className="h-8 w-8 text-brand-600" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-neutral-600">Total de Contribuições</p>
                   <p className="text-2xl font-bold text-neutral-900">{stats.total_contributions}</p>
@@ -306,7 +306,7 @@ export default function CommunityContributions() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
               <div className="flex items-center">
                 <ClockIcon className="h-8 w-8 text-yellow-600" />
                 <div className="ml-4">
@@ -316,7 +316,7 @@ export default function CommunityContributions() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
               <div className="flex items-center">
                 <CheckCircleIcon className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
@@ -326,7 +326,7 @@ export default function CommunityContributions() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
               <div className="flex items-center">
                 <StarIcon className="h-8 w-8 text-purple-600" />
                 <div className="ml-4">
@@ -343,7 +343,7 @@ export default function CommunityContributions() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Contributions List */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20">
               {/* Filters */}
               <div className="border-b border-neutral-200 p-6">
                 <div className="flex flex-wrap gap-4">
@@ -417,7 +417,7 @@ export default function CommunityContributions() {
 
                         <div className="flex items-center text-sm text-neutral-500 mb-3">
                           <span>Para o artigo: </span>
-                          <span className="font-medium text-blue-600 ml-1">
+                          <span className="font-medium text-brand-600 ml-1">
                             {contribution.article_title}
                           </span>
                         </div>
@@ -493,7 +493,7 @@ export default function CommunityContributions() {
           <div className="space-y-6">
             {/* Top Contributors */}
             {stats && stats.top_contributors.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
                 <h3 className="text-lg font-medium text-neutral-900 mb-4 flex items-center">
                   <StarIcon className="h-5 w-5 text-yellow-500 mr-2" />
                   Top Contributors
@@ -506,7 +506,7 @@ export default function CommunityContributions() {
                           index === 0 ? 'bg-yellow-100 text-yellow-800' :
                           index === 1 ? 'bg-neutral-100 text-neutral-800' :
                           index === 2 ? 'bg-orange-100 text-orange-800' :
-                          'bg-blue-100 text-blue-800'
+                          'bg-brand-100 text-brand-800'
                         }`}>
                           {index + 1}
                         </div>
@@ -525,7 +525,7 @@ export default function CommunityContributions() {
 
             {/* Contribution Types */}
             {stats && (
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
                 <h3 className="text-lg font-medium text-neutral-900 mb-4">
                   Tipos de Contribuição
                 </h3>
@@ -546,14 +546,14 @@ export default function CommunityContributions() {
             )}
 
             {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 p-6">
               <h3 className="text-lg font-medium text-neutral-900 mb-4">
                 Ações Rápidas
               </h3>
               <div className="space-y-3">
                 <button
                   onClick={() => {/* TODO: Implement contribution form */}}
-                  className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm text-brand-600 hover:bg-brand-50 rounded-md transition-colors"
                 >
                   Nova Contribuição
                 </button>
@@ -577,7 +577,7 @@ export default function CommunityContributions() {
         {/* Contribution Detail Modal */}
         {selectedContribution && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="bg-white dark:bg-neutral-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b border-neutral-200">
                 <h2 className="text-xl font-bold text-neutral-900">
                   {selectedContribution.title}
@@ -701,14 +701,14 @@ export default function CommunityContributions() {
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Adicione um comentário..."
-                        className="w-full p-3 border border-neutral-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-neutral-300 rounded-md focus:ring-brand-500 focus:border-brand-500"
                         rows={3}
                       />
                       <div className="mt-2 flex justify-end">
                         <button
                           onClick={() => addComment(selectedContribution.id)}
                           disabled={!newComment.trim()}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="bg-brand-600 text-white px-4 py-2 rounded-md hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Comentar
                         </button>

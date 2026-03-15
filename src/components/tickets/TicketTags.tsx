@@ -252,7 +252,7 @@ export function TicketTags({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type tag name..."
-                className="w-32 text-xs px-2 py-1 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-32 text-xs px-2 py-1 border border-neutral-300 rounded focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                 disabled={isLoading}
               />
 
@@ -280,7 +280,7 @@ export function TicketTags({
                 <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-neutral-800 rounded-md shadow-lg border border-neutral-200 dark:border-neutral-700 z-10">
                   <button
                     onClick={() => addTag(undefined, searchTerm.trim())}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-700 flex items-center gap-2 text-blue-600"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-700 flex items-center gap-2 text-brand-600"
                   >
                     <PlusIcon className="h-4 w-4" />
                     <span>Create "{searchTerm}"</span>

@@ -289,7 +289,7 @@ export function SLAPerformanceWidget({
             onClick={() => onUpdate({ showTargets: !config.showTargets })}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.showTargets
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
                 : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
@@ -303,7 +303,7 @@ export function SLAPerformanceWidget({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
-              <CheckCircleIcon className="w-5 h-5 text-blue-500 mr-1" />
+              <CheckCircleIcon className="w-5 h-5 text-brand-500 mr-1" />
               <span className="text-sm font-medium text-description">
                 Response SLA
               </span>

@@ -21,7 +21,7 @@ export interface SwipeableCardProps {
 }
 
 const actionColors = {
-  primary: 'bg-blue-500 text-white',
+  primary: 'bg-brand-500 text-white',
   success: 'bg-green-500 text-white',
   warning: 'bg-yellow-500 text-white',
   danger: 'bg-red-500 text-white'
@@ -202,7 +202,7 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({
       {isSwiping && Math.abs(swipeOffset) > 10 && (
         <div className="absolute top-1/2 transform -translate-y-1/2 pointer-events-none">
           {swipeOffset > 0 ? (
-            <div className="ml-4 text-blue-500 animate-pulse">
+            <div className="ml-4 text-brand-500 animate-pulse">
               ←
             </div>
           ) : (

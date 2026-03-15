@@ -100,7 +100,7 @@ function EndUserQuickActions({ className = '' }: EndUserComponentProps) {
       title: 'Submit Request',
       description: 'Need help? Create a new support ticket',
       icon: ChatBubbleLeftRightIcon,
-      color: 'bg-blue-500',
+      color: 'bg-brand-500',
       href: '/tickets/new'
     },
     {
@@ -192,8 +192,8 @@ function EndUserTicketStatus({ className = '' }: EndUserComponentProps) {
       default:
         return {
           icon: ExclamationTriangleIcon,
-          color: 'text-blue-600',
-          bg: 'bg-blue-50',
+          color: 'text-brand-600',
+          bg: 'bg-brand-50',
           label: 'Open'
         };
     }
@@ -298,8 +298,8 @@ function EndUserContactInfo({ className = '' }: EndUserComponentProps) {
           <div key={index} className={`card-persona-enduser ${!method.available ? 'opacity-75' : ''}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <method.icon className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-brand-100 rounded-xl">
+                  <method.icon className="h-6 w-6 text-brand-600" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-persona-primary text-lg">
@@ -442,10 +442,10 @@ function EndUserNotificationBanner({
       default:
         return {
           icon: QuestionMarkCircleIcon,
-          bg: 'bg-blue-50',
-          border: 'border-blue-200',
-          iconColor: 'text-blue-600',
-          textColor: 'text-blue-900'
+          bg: 'bg-brand-50',
+          border: 'border-brand-200',
+          iconColor: 'text-brand-600',
+          textColor: 'text-brand-900'
         };
     }
   };

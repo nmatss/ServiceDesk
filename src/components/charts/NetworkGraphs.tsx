@@ -409,11 +409,11 @@ export function AgentCollaborationNetwork({
 
       {/* Selection Information */}
       {selectedNode && (
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <h4 className="font-semibold text-blue-800 dark:text-blue-200">
+        <div className="mt-4 p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
+          <h4 className="font-semibold text-brand-800 dark:text-brand-200">
             Selected: {selectedNode.name}
           </h4>
-          <div className="grid grid-cols-2 gap-4 mt-2 text-sm text-blue-600 dark:text-blue-300">
+          <div className="grid grid-cols-2 gap-4 mt-2 text-sm text-brand-600 dark:text-brand-300">
             <div>Type: {selectedNode.type}</div>
             <div>Value: {selectedNode.value || 0}</div>
             {selectedNode.group && <div>Group: {selectedNode.group}</div>}
@@ -460,7 +460,7 @@ export function AgentCollaborationNetwork({
         <div className="flex flex-wrap gap-4">
           {/* Node Types */}
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+            <div className="w-4 h-4 bg-brand-500 rounded-full"></div>
             <span className="text-sm text-description">Agent</span>
           </div>
           <div className="flex items-center space-x-2">
@@ -474,7 +474,7 @@ export function AgentCollaborationNetwork({
 
           {/* Link Types */}
           <div className="flex items-center space-x-2 ml-6">
-            <div className="w-6 h-1 bg-blue-500"></div>
+            <div className="w-6 h-1 bg-brand-500"></div>
             <span className="text-sm text-description">Collaboration</span>
           </div>
           <div className="flex items-center space-x-2">

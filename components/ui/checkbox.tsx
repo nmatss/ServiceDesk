@@ -162,7 +162,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         <div
           className={cn(
             checkboxVariants({ variant: actualVariant, size, rounded, persona }),
-            'flex items-center justify-center bg-white border',
+            'flex items-center justify-center bg-white dark:bg-neutral-800 border',
             isChecked && !indeterminate && 'bg-current border-current',
             indeterminate && 'bg-current border-current',
             disabled && 'opacity-50 cursor-not-allowed'

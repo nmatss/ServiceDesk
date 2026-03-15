@@ -126,7 +126,7 @@ export function TicketTimeline({
       title: 'Ticket Criado',
       description: `Ticket #${ticket.id} foi criado`,
       icon: DocumentTextIcon,
-      iconColor: 'text-blue-500',
+      iconColor: 'text-brand-500',
       isSystemGenerated: true,
       severity: 'low',
       metadata: {
@@ -177,7 +177,7 @@ export function TicketTimeline({
           ? comment.content.substring(0, 100) + '...'
           : comment.content,
         icon: ChatBubbleLeftRightIcon,
-        iconColor: comment.is_internal ? 'text-orange-500' : 'text-blue-500',
+        iconColor: comment.is_internal ? 'text-orange-500' : 'text-brand-500',
         isInternal: comment.is_internal,
         isSystemGenerated: false,
         severity: 'low',
@@ -256,7 +256,7 @@ export function TicketTimeline({
         title: 'Status Atualizado',
         description: `Status alterado para ${getStatusById(ticket.status_id)?.name || 'Desconhecido'}`,
         icon: ClockIcon,
-        iconColor: 'text-blue-500',
+        iconColor: 'text-brand-500',
         isSystemGenerated: false,
         severity: 'low',
         metadata: {

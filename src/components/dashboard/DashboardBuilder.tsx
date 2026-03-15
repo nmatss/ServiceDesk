@@ -338,7 +338,7 @@ export function DashboardBuilder({
             onClick={() => setPreviewMode(!previewMode)}
             className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
               previewMode
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
                 : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
@@ -367,7 +367,7 @@ export function DashboardBuilder({
               key={widget.id}
               className={`bg-white dark:bg-neutral-700 rounded border-2 transition-all ${
                 selectedWidget === widget.id
-                  ? 'border-blue-500'
+                  ? 'border-brand-500'
                   : 'border-neutral-200 dark:border-neutral-600'
               }`}
               onClick={() => setSelectedWidget(widget.id)}
@@ -384,7 +384,7 @@ export function DashboardBuilder({
                           e.stopPropagation();
                           duplicateWidget(widget);
                         }}
-                        className="p-1 text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400"
+                        className="p-1 text-neutral-400 hover:text-brand-600 dark:hover:text-brand-400"
                         title="Duplicate widget"
                       >
                         <DocumentDuplicateIcon className="w-3 h-3" />
@@ -521,7 +521,7 @@ export function DashboardBuilder({
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                         {template.description}
                       </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      <p className="text-xs text-brand-600 dark:text-brand-400 mt-1">
                         {template.defaultSize.w}×{template.defaultSize.h} grid
                       </p>
                     </div>
@@ -680,7 +680,7 @@ export function DashboardBuilder({
           <button
             onClick={saveTemplate}
             disabled={!newTemplateName.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-md hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Save Template
           </button>
@@ -712,7 +712,7 @@ export function DashboardBuilder({
                 </div>
                 <button
                   onClick={() => loadTemplate(template)}
-                  className="px-3 py-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="px-3 py-1 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                 >
                   Load
                 </button>
@@ -779,7 +779,7 @@ export function DashboardBuilder({
                           onClick={() => setActiveTab(tab.id as any)}
                           className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
                             activeTab === tab.id
-                              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                              ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                               : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300 dark:text-neutral-400 dark:hover:text-neutral-300'
                           }`}
                         >
@@ -809,7 +809,7 @@ export function DashboardBuilder({
                   </button>
                   <button
                     onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-md hover:bg-brand-700"
                   >
                     Apply Changes
                   </button>

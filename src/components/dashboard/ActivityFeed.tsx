@@ -87,7 +87,7 @@ export default function ActivityFeed({ limit = 10 }: ActivityFeedProps) {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'ticket_created':
-        return <TicketIcon className="h-5 w-5 text-blue-500" />
+        return <TicketIcon className="h-5 w-5 text-brand-500" />
       case 'ticket_updated':
         return <TicketIcon className="h-5 w-5 text-yellow-500" />
       case 'ticket_resolved':
@@ -104,7 +104,7 @@ export default function ActivityFeed({ limit = 10 }: ActivityFeedProps) {
   const getActivityColor = (type: string) => {
     switch (type) {
       case 'ticket_created':
-        return 'bg-blue-50 dark:bg-blue-900/20'
+        return 'bg-brand-50 dark:bg-brand-900/20'
       case 'ticket_updated':
         return 'bg-yellow-50 dark:bg-yellow-900/20'
       case 'ticket_resolved':

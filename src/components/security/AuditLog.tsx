@@ -61,7 +61,7 @@ export default function AuditLog() {
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-500 focus:border-brand-500"
           >
             <option value="all">Todas as ações</option>
             <option value="access">Acessos</option>
@@ -124,7 +124,7 @@ export default function AuditLog() {
                         log.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
                         log.action === 'login_failed' ? 'bg-red-100 text-red-800' :
                         log.action === 'login_success' ? 'bg-green-100 text-green-800' :
-                        'bg-blue-100 text-blue-800'
+                        'bg-brand-100 text-brand-800'
                       }`}>
                         {log.action}
                       </span>

@@ -29,7 +29,7 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
       case 'admin':
         return 'bg-red-100 text-red-800 border-red-200'
       case 'agent':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
+        return 'bg-brand-100 text-brand-800 border-brand-200'
       case 'user':
         return 'bg-green-100 text-green-800 border-green-200'
       default:
@@ -155,8 +155,8 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
                         >
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0">
-                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <UserIcon className="w-4 h-4 text-blue-600" aria-hidden="true" />
+                              <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center">
+                                <UserIcon className="w-4 h-4 text-brand-600" aria-hidden="true" />
                               </div>
                             </div>
 

@@ -57,13 +57,13 @@ export default function NotificationNode({ data, selected }: NodeProps<Notificat
 
   const getColorClasses = (color: string): ColorClasses => {
     const defaultColors: ColorClasses = {
-      bg: 'from-blue-50 to-blue-100',
-      border: 'border-blue-300',
-      iconBg: 'bg-blue-500',
-      text: 'text-blue-900',
-      subtext: 'text-blue-700',
-      ring: 'ring-blue-400',
-      badge: 'bg-blue-100 text-blue-800',
+      bg: 'from-brand-50 to-brand-100',
+      border: 'border-brand-300',
+      iconBg: 'bg-brand-500',
+      text: 'text-brand-900',
+      subtext: 'text-brand-700',
+      ring: 'ring-brand-400',
+      badge: 'bg-brand-100 text-brand-800',
     };
 
     const colorMap: Record<string, ColorClasses> = {

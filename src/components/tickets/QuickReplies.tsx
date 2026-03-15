@@ -213,7 +213,7 @@ export function QuickReplies({
       ) : (
         <button
           onClick={() => setIsOpen(true)}
-          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${className}`}
+          className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors ${className}`}
         >
           <BoltIcon className="h-4 w-4" />
           Quick Replies
@@ -272,7 +272,7 @@ export function QuickReplies({
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar macros..."
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
                     </div>
 
@@ -283,7 +283,7 @@ export function QuickReplies({
                           onClick={() => setSelectedCategory(null)}
                           className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
                             selectedCategory === null
-                              ? 'bg-blue-100 text-blue-700'
+                              ? 'bg-brand-100 text-brand-700'
                               : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                           }`}
                         >
@@ -295,7 +295,7 @@ export function QuickReplies({
                             onClick={() => setSelectedCategory(id)}
                             className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
                               selectedCategory === id
-                                ? 'bg-blue-100 text-blue-700'
+                                ? 'bg-brand-100 text-brand-700'
                                 : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                             }`}
                           >
@@ -312,7 +312,7 @@ export function QuickReplies({
                     <div className={`flex-1 overflow-y-auto ${previewMacro ? 'border-r border-neutral-200' : ''}`}>
                       {isLoading ? (
                         <div className="flex items-center justify-center h-32">
-                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-neutral-300 border-t-blue-500" />
+                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-neutral-300 border-t-brand-500" />
                         </div>
                       ) : filteredMacros.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-32 text-neutral-500">
@@ -325,7 +325,7 @@ export function QuickReplies({
                             <div
                               key={macro.id}
                               className={`px-4 py-3 hover:bg-neutral-50 cursor-pointer transition-colors ${
-                                previewMacro?.id === macro.id ? 'bg-blue-50' : ''
+                                previewMacro?.id === macro.id ? 'bg-brand-50' : ''
                               }`}
                               onClick={() => setPreviewMacro(macro)}
                             >
@@ -406,7 +406,7 @@ export function QuickReplies({
                           <button
                             onClick={() => applyMacro(previewMacro)}
                             disabled={isApplying}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {isApplying ? (
                               <>
@@ -424,7 +424,7 @@ export function QuickReplies({
                           {previewMacro.content && onContentSelect && (
                             <button
                               onClick={() => insertContent(previewMacro)}
-                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-lg hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-lg hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors"
                             >
                               Insert Content Only
                             </button>

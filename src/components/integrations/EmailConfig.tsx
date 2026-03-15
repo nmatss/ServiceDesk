@@ -172,15 +172,15 @@ export default function EmailConfig() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow dark:shadow-neutral-900/20">
       {/* Tabs */}
-      <div className="border-b border-neutral-200">
+      <div className="border-b border-neutral-200 dark:border-neutral-700">
         <nav className="flex -mb-px">
           <button
             onClick={() => setActiveTab('smtp')}
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'smtp'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
@@ -190,7 +190,7 @@ export default function EmailConfig() {
             onClick={() => setActiveTab('templates')}
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'templates'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
@@ -200,7 +200,7 @@ export default function EmailConfig() {
             onClick={() => setActiveTab('queue')}
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'queue'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
@@ -210,7 +210,7 @@ export default function EmailConfig() {
             onClick={() => setActiveTab('test')}
             className={`px-6 py-4 text-sm font-medium border-b-2 ${
               activeTab === 'test'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
             }`}
           >
@@ -225,7 +225,7 @@ export default function EmailConfig() {
         {activeTab === 'smtp' && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium text-neutral-900 mb-4">
+              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-4">
                 Configuração do Servidor SMTP
               </h3>
               <p className="text-sm text-neutral-600 mb-6">
@@ -235,7 +235,7 @@ export default function EmailConfig() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Host SMTP
                 </label>
                 <Input
@@ -246,7 +246,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Porta
                 </label>
                 <Input
@@ -258,7 +258,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Usuário / Email
                 </label>
                 <Input
@@ -269,7 +269,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Senha
                 </label>
                 <Input
@@ -281,7 +281,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Nome do Remetente
                 </label>
                 <Input
@@ -292,7 +292,7 @@ export default function EmailConfig() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                   Email do Remetente
                 </label>
                 <Input
@@ -310,9 +310,9 @@ export default function EmailConfig() {
                 id="secure"
                 checked={smtpConfig.secure}
                 onChange={(e) => setSMTPConfig({ ...smtpConfig, secure: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-neutral-300 rounded"
+                className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-neutral-300 rounded"
               />
-              <label htmlFor="secure" className="ml-2 block text-sm text-neutral-900">
+              <label htmlFor="secure" className="ml-2 block text-sm text-neutral-900 dark:text-neutral-100">
                 Usar SSL/TLS (porta 465)
               </label>
             </div>
@@ -340,7 +340,7 @@ export default function EmailConfig() {
         {activeTab === 'templates' && (
           <div>
             <div className="mb-6">
-              <h3 className="text-lg font-medium text-neutral-900 mb-2">
+              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                 Templates de Email
               </h3>
               <p className="text-sm text-neutral-600">
@@ -361,7 +361,7 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Nome do Template
                   </label>
                   <Input
@@ -371,7 +371,7 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Código
                   </label>
                   <Input
@@ -382,7 +382,7 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Assunto
                   </label>
                   <Input
@@ -392,26 +392,26 @@ export default function EmailConfig() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Conteúdo HTML
                   </label>
                   <textarea
                     value={selectedTemplate.bodyHtml}
                     onChange={(e) => setSelectedTemplate({ ...selectedTemplate, bodyHtml: e.target.value })}
                     rows={10}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
                     Conteúdo Texto
                   </label>
                   <textarea
                     value={selectedTemplate.bodyText}
                     onChange={(e) => setSelectedTemplate({ ...selectedTemplate, bodyText: e.target.value })}
                     rows={6}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
 
@@ -453,8 +453,8 @@ export default function EmailConfig() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-neutral-200">
-                    <thead className="bg-neutral-50">
+                  <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-700">
+                    <thead className="bg-neutral-50 dark:bg-neutral-700">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                           Nome
@@ -473,10 +473,10 @@ export default function EmailConfig() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-neutral-200">
+                    <tbody className="bg-white dark:bg-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-700">
                       {templates.map((template) => (
                         <tr key={template.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900 dark:text-neutral-100">
                             {template.name}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
@@ -497,7 +497,7 @@ export default function EmailConfig() {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => setSelectedTemplate(template)}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="text-brand-600 hover:text-brand-900"
                             >
                               Editar
                             </button>
@@ -538,7 +538,7 @@ export default function EmailConfig() {
         {activeTab === 'test' && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-medium text-neutral-900 mb-2">
+              <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">
                 Enviar Email de Teste
               </h3>
               <p className="text-sm text-neutral-600 mb-6">

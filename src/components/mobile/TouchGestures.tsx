@@ -355,7 +355,7 @@ export default function TouchGestures({
           <div className="bg-white dark:bg-neutral-800 rounded-full p-3 shadow-lg">
             {isRefreshing ? (
               <svg
-                className="animate-spin h-6 w-6 text-blue-600"
+                className="animate-spin h-6 w-6 text-brand-600"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -376,7 +376,7 @@ export default function TouchGestures({
               </svg>
             ) : (
               <svg
-                className="h-6 w-6 text-blue-600"
+                className="h-6 w-6 text-brand-600"
                 style={{
                   transform: `rotate(${Math.min((pullDistance / mergedConfig.pullToRefreshThreshold) * 360, 360)}deg)`,
                 }}

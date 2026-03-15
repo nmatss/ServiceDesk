@@ -196,7 +196,7 @@ function KanbanColumn({
   onAddTicket?: (statusId: number) => void;
 }) {
   const statusColors: Record<string, { bg: string; border: string; text: string }> = {
-    open: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
+    open: { bg: 'bg-brand-50', border: 'border-brand-200', text: 'text-brand-700' },
     'in-progress': { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
     pending: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
     resolved: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
@@ -204,9 +204,9 @@ function KanbanColumn({
   };
 
   const colors = statusColors[status.name.toLowerCase()] || statusColors.open;
-  const bgClass = colors?.bg || 'bg-blue-50';
-  const borderClass = colors?.border || 'border-blue-200';
-  const textClass = colors?.text || 'text-blue-700';
+  const bgClass = colors?.bg || 'bg-brand-50';
+  const borderClass = colors?.border || 'border-brand-200';
+  const textClass = colors?.text || 'text-brand-700';
 
   return (
     <div className="flex flex-col w-72 flex-shrink-0">
@@ -275,7 +275,7 @@ function KanbanColumn({
 // Ticket Preview for DragOverlay
 function TicketPreview({ ticket }: { ticket: Ticket }) {
   return (
-    <div className="bg-white rounded-lg border-2 border-blue-400 p-3 shadow-xl w-72 rotate-3">
+    <div className="bg-white rounded-lg border-2 border-brand-400 p-3 shadow-xl w-72 rotate-3">
       <div className="flex items-start justify-between mb-2">
         <span className="text-xs font-mono text-neutral-500">
           #{ticket.ticket_number}

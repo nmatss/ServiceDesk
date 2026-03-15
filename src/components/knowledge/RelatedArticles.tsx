@@ -72,17 +72,17 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
   const getSimilarityColor = (score?: number): string => {
     if (!score) return 'text-neutral-600';
     if (score >= 0.8) return 'text-green-600';
-    if (score >= 0.6) return 'text-blue-600';
+    if (score >= 0.6) return 'text-brand-600';
     if (score >= 0.4) return 'text-yellow-600';
     return 'text-neutral-600';
   };
 
   if (loading) {
     return (
-      <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+      <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow dark:shadow-neutral-900/20 p-6 ${className}`}>
         <div className="flex items-center mb-4">
-          <SparklesIcon className="h-5 w-5 text-blue-600 mr-2" />
-          <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
+          <SparklesIcon className="h-5 w-5 text-brand-600 mr-2" />
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{title}</h2>
         </div>
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
@@ -101,10 +101,10 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+    <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow dark:shadow-neutral-900/20 p-6 ${className}`}>
       {/* Header */}
       <div className="flex items-center mb-4">
-        <SparklesIcon className="h-5 w-5 text-blue-600 mr-2" />
+        <SparklesIcon className="h-5 w-5 text-brand-600 mr-2" />
         <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
       </div>
 
@@ -124,7 +124,7 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
               >
                 {/* Title */}
                 <div className="flex items-start justify-between mb-1">
-                  <h3 className="text-sm font-medium text-neutral-900 group-hover:text-blue-600 transition-colors flex-1 line-clamp-2">
+                  <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100 group-hover:text-brand-600 transition-colors flex-1 line-clamp-2">
                     {article.title}
                   </h3>
 
@@ -179,10 +179,10 @@ export const RelatedArticles: React.FC<RelatedArticlesProps> = ({
       </div>
 
       {/* View all link */}
-      <div className="mt-4 pt-4 border-t border-neutral-200">
+      <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
         <Link
           href="/knowledge/search"
-          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          className="text-sm text-brand-600 hover:text-brand-700 font-medium"
         >
           View all articles →
         </Link>

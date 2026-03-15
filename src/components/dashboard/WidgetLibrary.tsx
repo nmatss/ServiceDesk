@@ -353,7 +353,7 @@ export function WidgetLibrary({
                           onClick={() => setSelectedCategory(category.id)}
                           className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                             selectedCategory === category.id
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                              ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
                               : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-700'
                           }`}
                         >
@@ -456,7 +456,7 @@ export function WidgetLibrary({
                                     e.stopPropagation();
                                     setSelectedWidget(widget);
                                   }}
-                                  className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  className="inline-flex items-center text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                                 >
                                   <InformationCircleIcon className="w-4 h-4 mr-1" />
                                   Details
@@ -471,7 +471,7 @@ export function WidgetLibrary({
                                   className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                                     isWidgetAdded(widget.type)
                                       ? 'bg-neutral-100 text-neutral-500 cursor-not-allowed dark:bg-neutral-700 dark:text-neutral-400'
-                                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                                      : 'bg-brand-600 text-white hover:bg-brand-700'
                                   }`}
                                 >
                                   <PlusIcon className="w-4 h-4 mr-1" />
@@ -544,7 +544,7 @@ export function WidgetLibrary({
                                 {selectedWidget.requiresData.map(req => (
                                   <span
                                     key={req}
-                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-brand-100 text-brand-800 dark:bg-brand-900/20 dark:text-brand-400"
                                   >
                                     {req}
                                   </span>
@@ -600,7 +600,7 @@ export function WidgetLibrary({
                             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
                               isWidgetAdded(selectedWidget.type)
                                 ? 'bg-neutral-100 text-neutral-500 cursor-not-allowed dark:bg-neutral-700 dark:text-neutral-400'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-brand-600 text-white hover:bg-brand-700'
                             }`}
                           >
                             {isWidgetAdded(selectedWidget.type) ? 'Already Added' : 'Add Widget'}

@@ -51,7 +51,7 @@ export function WidgetBody({
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center h-full min-h-[200px]">
-          <ArrowPathIcon className="w-10 h-10 text-blue-600 dark:text-blue-400 animate-spin mb-3" />
+          <ArrowPathIcon className="w-10 h-10 text-brand-600 dark:text-brand-400 animate-spin mb-3" />
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             Carregando...
           </p>

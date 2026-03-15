@@ -133,7 +133,7 @@ export default function AchievementBadge({
       {showProgress && !unlocked && progress && progress.percentage > 0 && (
         <div className="absolute -bottom-2 left-0 right-0 h-1.5 bg-neutral-200 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+            className="h-full bg-gradient-to-r from-brand-500 to-purple-500 transition-all duration-500"
             style={{ width: `${progress.percentage}%` }}
           />
         </div>
@@ -167,7 +167,7 @@ export default function AchievementBadge({
               </div>
               <div className="h-2 bg-neutral-700 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                  className="h-full bg-gradient-to-r from-brand-500 to-purple-500"
                   style={{ width: `${progress.percentage}%` }}
                 />
               </div>
@@ -255,7 +255,7 @@ export function AchievementCollection({
   return (
     <div className="space-y-4">
       {/* Stats Bar */}
-      <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg p-4 text-white">
+      <div className="bg-gradient-to-r from-purple-500 to-brand-500 rounded-lg p-4 text-white">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold">Achievement Collection</h3>
@@ -282,7 +282,7 @@ export function AchievementCollection({
             onClick={() => setFilter('all')}
             className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
               filter === 'all'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-brand-600 text-white'
                 : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
             }`}
           >
@@ -295,7 +295,7 @@ export function AchievementCollection({
                 onClick={() => setFilter(category)}
                 className={`px-3 py-1 rounded-full text-sm font-medium transition-colors capitalize ${
                   filter === category
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-200 text-neutral-700 hover:bg-neutral-300'
                 }`}
               >
@@ -308,7 +308,7 @@ export function AchievementCollection({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="px-3 py-1 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           <option value="name">Sort by Name</option>
           <option value="rarity">Sort by Rarity</option>

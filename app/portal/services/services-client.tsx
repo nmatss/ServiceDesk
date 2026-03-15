@@ -280,7 +280,7 @@ export default function ServicesClient({ serviceAreas, quickActions }: ServicesC
             </div>
             <button
               onClick={() => router.push('/portal/support')}
-              className="px-6 py-3 min-h-[44px] w-full sm:w-auto bg-white text-brand-600 rounded-lg font-medium hover:bg-brand-50 transition-colors"
+              className="px-6 py-3 min-h-[44px] w-full sm:w-auto bg-white dark:bg-neutral-800 text-brand-600 dark:text-brand-400 rounded-lg font-medium hover:bg-brand-50 dark:hover:bg-neutral-700 transition-colors"
             >
               Falar com Atendente
             </button>

@@ -163,7 +163,7 @@ export default function WorkflowProperties({
                   value={selectedNode.data.label || ''}
                   onChange={(e) => handleNodeDataChange('label', e.target.value)}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -177,7 +177,7 @@ export default function WorkflowProperties({
                   onChange={(e) => handleNodeDataChange('description', e.target.value)}
                   disabled={readOnly}
                   rows={3}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -205,7 +205,7 @@ export default function WorkflowProperties({
                   onChange={(e) => handleNodeDataChange('timeout', parseInt(e.target.value) * 60000)}
                   disabled={readOnly}
                   min="1"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -217,7 +217,7 @@ export default function WorkflowProperties({
                     checked={selectedNode.data.isOptional || false}
                     onChange={(e) => handleNodeDataChange('isOptional', e.target.checked)}
                     disabled={readOnly}
-                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500 disabled:opacity-50"
                   />
                   <span className="ml-2 text-sm text-neutral-700">Optional step (can fail without stopping workflow)</span>
                 </label>
@@ -253,7 +253,7 @@ export default function WorkflowProperties({
                   disabled={readOnly}
                   min="0"
                   max="10"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -268,7 +268,7 @@ export default function WorkflowProperties({
                     backoffStrategy: e.target.value
                   })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 >
                   <option value="fixed">Fixed</option>
                   <option value="linear">Linear</option>
@@ -301,7 +301,7 @@ export default function WorkflowProperties({
                     label: e.target.value
                   })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -329,7 +329,7 @@ export default function WorkflowProperties({
                       animated: e.target.checked
                     })}
                     disabled={readOnly}
-                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500 disabled:opacity-50"
                   />
                   <span className="ml-2 text-sm text-neutral-700">Animated edge</span>
                 </label>
@@ -345,7 +345,7 @@ export default function WorkflowProperties({
                   value={selectedEdge.data?.priority || 0}
                   onChange={(e) => handleEdgeDataChange('priority', parseInt(e.target.value))}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
                 <p className="text-xs text-neutral-500 mt-1">
                   Higher priority edges are evaluated first
@@ -373,7 +373,7 @@ export default function WorkflowProperties({
                   value={workflow.name || ''}
                   onChange={(e) => onWorkflowUpdate?.({ name: e.target.value })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -387,7 +387,7 @@ export default function WorkflowProperties({
                   onChange={(e) => onWorkflowUpdate?.({ description: e.target.value })}
                   disabled={readOnly}
                   rows={4}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -400,7 +400,7 @@ export default function WorkflowProperties({
                   value={workflow.category || 'ticket_automation'}
                   onChange={(e) => onWorkflowUpdate?.({ category: e.target.value as any })}
                   disabled={readOnly}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 >
                   <option value="ticket_automation">Ticket Automation</option>
                   <option value="notification">Notification</option>
@@ -422,7 +422,7 @@ export default function WorkflowProperties({
                   onChange={(e) => onWorkflowUpdate?.({ priority: parseInt(e.target.value) })}
                   disabled={readOnly}
                   min="0"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                 />
               </div>
 
@@ -434,7 +434,7 @@ export default function WorkflowProperties({
                     checked={workflow.isActive || false}
                     onChange={(e) => onWorkflowUpdate?.({ isActive: e.target.checked })}
                     disabled={readOnly}
-                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500 disabled:opacity-50"
                   />
                   <span className="ml-2 text-sm text-neutral-700">Active (workflow will execute when triggered)</span>
                 </label>
@@ -448,7 +448,7 @@ export default function WorkflowProperties({
                     checked={workflow.isTemplate || false}
                     onChange={(e) => onWorkflowUpdate?.({ isTemplate: e.target.checked })}
                     disabled={readOnly}
-                    className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500 disabled:opacity-50"
                   />
                   <span className="ml-2 text-sm text-neutral-700">Save as template</span>
                 </label>
@@ -495,7 +495,7 @@ function renderNodeSpecificConfig(
               value={node.data.configuration?.actionType || 'assign'}
               onChange={(e) => onChange('actionType', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="assign">Assign Ticket</option>
               <option value="update_status">Update Status</option>
@@ -522,7 +522,7 @@ function renderNodeSpecificConfig(
               value={node.data.configuration?.conditionType || 'if_else'}
               onChange={(e) => onChange('conditionType', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="if_else">If/Else</option>
               <option value="switch">Switch</option>
@@ -537,7 +537,7 @@ function renderNodeSpecificConfig(
               value={node.data.configuration?.logicalOperator || 'AND'}
               onChange={(e) => onChange('logicalOperator', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="AND">AND (all conditions must match)</option>
               <option value="OR">OR (any condition must match)</option>
@@ -559,7 +559,7 @@ function renderNodeSpecificConfig(
               onChange={(e) => onChange('amount', parseInt(e.target.value))}
               disabled={readOnly}
               min="1"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
             />
           </div>
           <div>
@@ -570,7 +570,7 @@ function renderNodeSpecificConfig(
               value={node.data.configuration?.unit || 'minutes'}
               onChange={(e) => onChange('unit', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="seconds">Seconds</option>
               <option value="minutes">Minutes</option>
@@ -592,7 +592,7 @@ function renderNodeSpecificConfig(
               value={node.data.configuration?.notificationType || 'email'}
               onChange={(e) => onChange('notificationType', e.target.value)}
               disabled={readOnly}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
             >
               <option value="email">Email</option>
               <option value="sms">SMS</option>

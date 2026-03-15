@@ -89,7 +89,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
    */
   const getScoreColor = (score: number): string => {
     if (score >= 0.8) return 'text-green-600 bg-green-50';
-    if (score >= 0.6) return 'text-blue-600 bg-blue-50';
+    if (score >= 0.6) return 'text-brand-600 bg-brand-50';
     if (score >= 0.4) return 'text-yellow-600 bg-yellow-50';
     return 'text-neutral-600 bg-neutral-50';
   };
@@ -114,10 +114,10 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     return (
       <div className={`space-y-4 ${className}`}>
         {[1, 2, 3].map(i => (
-          <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
-            <div className="h-6 bg-neutral-200 rounded w-3/4 mb-3"></div>
-            <div className="h-4 bg-neutral-200 rounded w-full mb-2"></div>
-            <div className="h-4 bg-neutral-200 rounded w-5/6"></div>
+          <div key={i} className="bg-white dark:bg-neutral-800 rounded-lg shadow dark:shadow-neutral-900/20 p-6 animate-pulse">
+            <div className="h-6 bg-neutral-200 dark:bg-neutral-700 rounded w-3/4 mb-3"></div>
+            <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-full mb-2"></div>
+            <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded w-5/6"></div>
           </div>
         ))}
       </div>
@@ -126,9 +126,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
   if (results.length === 0) {
     return (
-      <div className={`bg-white rounded-lg shadow p-12 text-center ${className}`}>
+      <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow dark:shadow-neutral-900/20 p-12 text-center ${className}`}>
         <DocumentTextIcon className="mx-auto h-12 w-12 text-neutral-400 mb-4" />
-        <h3 className="text-lg font-medium text-neutral-900 mb-2">Nenhum resultado encontrado</h3>
+        <h3 className="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-2">Nenhum resultado encontrado</h3>
         <p className="text-neutral-600 mb-4">
           Não encontramos artigos correspondentes a &quot;{query}&quot;
         </p>
@@ -144,7 +144,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
       {/* Results header */}
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-neutral-600">
-          Found <span className="font-semibold text-neutral-900">{total}</span> result
+          Found <span className="font-semibold text-neutral-900 dark:text-neutral-100">{total}</span> result
           {total !== 1 ? 's' : ''} for "{query}"
         </p>
       </div>
@@ -156,7 +156,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
         return (
           <div
             key={result.id}
-            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6"
+            className="bg-white dark:bg-neutral-800 rounded-lg shadow dark:shadow-neutral-900/20 hover:shadow-md transition-shadow p-6"
           >
             {/* Header */}
             <div className="flex items-start justify-between mb-2">
@@ -165,7 +165,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                 onClick={() => onResultClick?.(result, index)}
                 className="flex-1"
               >
-                <h3 className="text-lg font-semibold text-blue-600 hover:text-blue-700 mb-1">
+                <h3 className="text-lg font-semibold text-brand-600 hover:text-brand-700 mb-1">
                   {highlightText(result.title, query)}
                 </h3>
               </Link>

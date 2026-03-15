@@ -163,7 +163,7 @@ export default function SLAComplianceHeatmap({
     }
 
     return (
-      <div className="absolute z-50 bg-white border border-neutral-200 rounded-lg shadow-lg p-4 text-sm pointer-events-none"
+      <div className="absolute z-50 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-neutral-900/20 p-4 text-sm pointer-events-none"
         style={{
           top: '50%',
           left: '50%',
@@ -171,28 +171,28 @@ export default function SLAComplianceHeatmap({
           minWidth: '200px',
         }}
       >
-        <div className="font-semibold text-neutral-900 mb-2">
+        <div className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
           {DAYS[day]} at {formatHour(hour)}
         </div>
         <div className="space-y-1">
           <div className="flex justify-between">
-            <span className="text-neutral-600">Compliance:</span>
-            <span className="font-medium text-neutral-900">
+            <span className="text-neutral-600 dark:text-neutral-400">Compliance:</span>
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">
               {cellData.compliance_rate.toFixed(1)}%
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-neutral-600">Total Tickets:</span>
-            <span className="font-medium text-neutral-900">{cellData.total_tickets}</span>
+            <span className="text-neutral-600 dark:text-neutral-400">Total Tickets:</span>
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">{cellData.total_tickets}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-neutral-600">Violated:</span>
+            <span className="text-neutral-600 dark:text-neutral-400">Violated:</span>
             <span className="font-medium text-red-600">{cellData.violated_tickets}</span>
           </div>
           {cellData.avg_response_time !== undefined && (
             <div className="flex justify-between">
-              <span className="text-neutral-600">Avg Response:</span>
-              <span className="font-medium text-neutral-900">
+              <span className="text-neutral-600 dark:text-neutral-400">Avg Response:</span>
+              <span className="font-medium text-neutral-900 dark:text-neutral-100">
                 {cellData.avg_response_time.toFixed(1)}m
               </span>
             </div>
@@ -237,11 +237,11 @@ export default function SLAComplianceHeatmap({
   const cellGap = 2;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-neutral-900">SLA Compliance Heatmap</h3>
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">SLA Compliance Heatmap</h3>
           <p className="text-sm text-neutral-500 mt-1">
             By hour of day and day of week
           </p>
@@ -252,7 +252,7 @@ export default function SLAComplianceHeatmap({
           <select
             value={selectedColorScale}
             onChange={(e) => setSelectedColorScale(e.target.value as ColorScale)}
-            className="px-3 py-1.5 text-sm border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-200"
           >
             <option value="default">Default</option>
             <option value="red-green">Red-Green</option>
@@ -264,33 +264,33 @@ export default function SLAComplianceHeatmap({
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <p className="text-xs text-neutral-500">Overall Compliance</p>
-          <p className="text-xl font-semibold text-neutral-900">
+        <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-3">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">Overall Compliance</p>
+          <p className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
             {(statistics.overallCompliance ?? 0).toFixed(1)}%
           </p>
         </div>
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <p className="text-xs text-neutral-500">Average</p>
-          <p className="text-xl font-semibold text-blue-600">
+        <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-3">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">Average</p>
+          <p className="text-xl font-semibold text-brand-600">
             {statistics.avgCompliance.toFixed(1)}%
           </p>
         </div>
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <p className="text-xs text-neutral-500">Best Hour</p>
+        <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-3">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">Best Hour</p>
           <p className="text-xl font-semibold text-green-600">
             {statistics.maxCompliance.toFixed(1)}%
           </p>
         </div>
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <p className="text-xs text-neutral-500">Worst Hour</p>
+        <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-3">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">Worst Hour</p>
           <p className="text-xl font-semibold text-red-600">
             {statistics.minCompliance.toFixed(1)}%
           </p>
         </div>
-        <div className="bg-neutral-50 rounded-lg p-3">
-          <p className="text-xs text-neutral-500">Total Tickets</p>
-          <p className="text-xl font-semibold text-neutral-900">
+        <div className="bg-neutral-50 dark:bg-neutral-700 rounded-lg p-3">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">Total Tickets</p>
+          <p className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
             {statistics.totalTickets.toLocaleString()}
           </p>
         </div>
@@ -344,7 +344,7 @@ export default function SLAComplianceHeatmap({
                     >
                       <div
                         className={`w-full h-full rounded transition-all ${
-                          hasData ? 'cursor-pointer hover:ring-2 hover:ring-blue-500' : ''
+                          hasData ? 'cursor-pointer hover:ring-2 hover:ring-brand-500' : ''
                         }`}
                         style={{
                           backgroundColor: getCellColor(cellData ?? null),
@@ -390,9 +390,9 @@ export default function SLAComplianceHeatmap({
       </div>
 
       {/* Insights */}
-      <div className="mt-6 pt-6 border-t border-neutral-200">
-        <h4 className="text-sm font-semibold text-neutral-900 mb-3">Key Insights</h4>
-        <ul className="space-y-2 text-sm text-neutral-600">
+      <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-700">
+        <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 mb-3">Key Insights</h4>
+        <ul className="space-y-2 text-sm text-neutral-600 dark:text-neutral-400">
           {statistics.avgCompliance >= 95 && (
             <li className="flex items-start gap-2">
               <span className="text-green-500 mt-0.5">✓</span>
@@ -415,7 +415,7 @@ export default function SLAComplianceHeatmap({
             </li>
           )}
           <li className="flex items-start gap-2">
-            <span className="text-blue-500 mt-0.5">i</span>
+            <span className="text-brand-500 mt-0.5">i</span>
             <span>
               {statistics.totalViolated} SLA violations out of {statistics.totalTickets} tickets analyzed
             </span>

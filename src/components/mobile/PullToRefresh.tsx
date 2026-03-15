@@ -56,7 +56,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
             <ArrowPathIcon
               className={`w-8 h-8 ${
                 shouldRelease
-                  ? 'text-blue-600 dark:text-blue-400'
+                  ? 'text-brand-600 dark:text-brand-400'
                   : 'text-icon-muted'
               }`}
             />
@@ -70,7 +70,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
           {/* Progress Bar */}
           <div className="w-16 h-1 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-600 dark:bg-blue-400 transition-all duration-100"
+              className="h-full bg-brand-600 dark:bg-brand-400 transition-all duration-100"
               style={{ width: `${progress}%` }}
             />
           </div>

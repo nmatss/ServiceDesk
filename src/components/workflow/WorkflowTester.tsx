@@ -166,7 +166,7 @@ export default function WorkflowTester({
                     value={triggerData.ticketId || ''}
                     onChange={(e) => handleTriggerDataChange('ticketId', parseInt(e.target.value))}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
 
@@ -178,7 +178,7 @@ export default function WorkflowTester({
                     value={triggerData.priority || 'medium'}
                     onChange={(e) => handleTriggerDataChange('priority', e.target.value)}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -196,7 +196,7 @@ export default function WorkflowTester({
                     value={triggerData.category || ''}
                     onChange={(e) => handleTriggerDataChange('category', e.target.value)}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
 
@@ -209,7 +209,7 @@ export default function WorkflowTester({
                     value={triggerData.status || ''}
                     onChange={(e) => handleTriggerDataChange('status', e.target.value)}
                     disabled={isRunning}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
 
@@ -229,7 +229,7 @@ export default function WorkflowTester({
                     }}
                     disabled={isRunning}
                     rows={6}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-neutral-100"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:bg-neutral-100"
                   />
                 </div>
               </div>
@@ -252,7 +252,7 @@ export default function WorkflowTester({
 
               {isRunning && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <ArrowPathIcon className="w-12 h-12 text-blue-500 animate-spin mb-3" />
+                  <ArrowPathIcon className="w-12 h-12 text-brand-500 animate-spin mb-3" />
                   <p className="text-sm font-medium text-neutral-900">
                     Running workflow...
                   </p>
@@ -294,7 +294,7 @@ export default function WorkflowTester({
                           <XCircleIcon className="w-5 h-5 text-red-500" />
                         )}
                         {executionResult.status === 'running' && (
-                          <ClockIcon className="w-5 h-5 text-blue-500" />
+                          <ClockIcon className="w-5 h-5 text-brand-500" />
                         )}
                         <span
                           className={`text-sm font-medium ${
@@ -302,7 +302,7 @@ export default function WorkflowTester({
                               ? 'text-green-700'
                               : executionResult.status === 'failed'
                               ? 'text-red-700'
-                              : 'text-blue-700'
+                              : 'text-brand-700'
                           }`}
                         >
                           {executionResult.status}
@@ -320,7 +320,7 @@ export default function WorkflowTester({
                       </div>
                       <div className="w-full bg-neutral-200 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          className="bg-brand-600 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${executionResult.progress}%` }}
                         />
                       </div>
@@ -419,7 +419,7 @@ export default function WorkflowTester({
                 <button
                   onClick={handleStartTest}
                   disabled={!workflow.nodes.length}
-                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-400 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:bg-neutral-400 rounded-lg transition-colors"
                 >
                   <PlayIcon className="w-4 h-4" />
                   <span>Run Test</span>

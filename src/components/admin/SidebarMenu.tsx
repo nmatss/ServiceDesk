@@ -57,7 +57,7 @@ const teamItems: MenuItem[] = [
     name: 'Finance', 
     href: '/admin/teams/finance', 
     initial: 'F', 
-    color: 'bg-blue-500',
+    color: 'bg-brand-500',
     locked: true,
   },
   { 
@@ -106,7 +106,7 @@ export default function SidebarMenu() {
     <div className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ${
       collapsed ? 'w-16' : 'w-64'
     }`}>
-      <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4 shadow-lg border-r border-neutral-200">
+      <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white dark:bg-neutral-800 px-6 pb-4 shadow-lg dark:shadow-neutral-900/20 border-r border-neutral-200 dark:border-neutral-700">
         {/* Top Section with colored dots and logo */}
         <div className="flex flex-col items-center py-4">
           {/* Colored dots */}
@@ -118,7 +118,7 @@ export default function SidebarMenu() {
           
           {/* Logo and text */}
           <div className="flex items-center mb-4">
-            <div className="h-6 w-6 text-neutral-900 flex items-center justify-center">
+            <div className="h-6 w-6 text-neutral-900 dark:text-neutral-100 flex items-center justify-center">
               <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                 <rect width="32" height="32" rx="4" fill="#1a1a2e"></rect>
                 <g filter="url(#glow)">
@@ -137,14 +137,14 @@ export default function SidebarMenu() {
               </svg>
             </div>
             {!collapsed && (
-              <span className="ml-2 text-lg font-bold text-neutral-900">SERVICEDESK</span>
+              <span className="ml-2 text-lg font-bold text-neutral-900 dark:text-neutral-100">SERVICEDESK</span>
             )}
           </div>
           
           {/* Toggle button */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1 rounded hover:bg-neutral-100 transition-colors duration-200"
+            className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors duration-200"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4 text-neutral-600">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -157,7 +157,7 @@ export default function SidebarMenu() {
           <div className="relative">
             <MagnifyingGlassIcon className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-neutral-400" />
             <input
-              className="block w-full border-0 py-2 pl-8 pr-0 text-neutral-900 placeholder:text-neutral-400 focus:ring-0 sm:text-sm bg-neutral-50 rounded-lg"
+              className="block w-full border-0 py-2 pl-8 pr-0 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:ring-0 sm:text-sm bg-neutral-50 dark:bg-neutral-700 rounded-lg"
               placeholder="Buscar..."
               type="search"
               name="search"
@@ -185,8 +185,8 @@ export default function SidebarMenu() {
                       <div
                         className={`group flex items-center rounded-lg transition-all duration-200 p-3 ${
                           isActive
-                            ? 'bg-neutral-100 text-neutral-900'
-                            : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900'
+                            ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100'
+                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-neutral-100'
                         } ${collapsed ? 'justify-center' : ''}`}
                         onMouseEnter={() => setHoveredItem(item.name)}
                         onMouseLeave={() => setHoveredItem(null)}
@@ -204,7 +204,7 @@ export default function SidebarMenu() {
                         {!collapsed && hasSubmenu && (
                           <button
                             onClick={() => toggleExpanded(item.name)}
-                            className="ml-auto p-1 rounded hover:bg-neutral-200 transition-colors duration-200"
+                            className="ml-auto p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors duration-200"
                           >
                             <ChevronDownIcon 
                               className={`h-4 w-4 transition-transform duration-200 ${
@@ -233,8 +233,8 @@ export default function SidebarMenu() {
                               <div
                                 className={`group flex items-center rounded-lg transition-all duration-200 p-2 ${
                                   isItemActive(subItem.href)
-                                    ? 'bg-neutral-100 text-neutral-900'
-                                    : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                                    ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100'
+                                    : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-neutral-100'
                                 }`}
                                 onMouseEnter={() => setHoveredItem(subItem.name)}
                                 onMouseLeave={() => setHoveredItem(null)}
@@ -282,8 +282,8 @@ export default function SidebarMenu() {
                       <div
                         className={`group flex items-center rounded-lg transition-all duration-200 p-3 ${
                           isActive
-                            ? 'bg-neutral-100 text-neutral-900'
-                            : 'text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900'
+                            ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100'
+                            : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-neutral-100'
                         } ${collapsed ? 'justify-center' : ''}`}
                         onMouseEnter={() => setHoveredItem(team.name)}
                         onMouseLeave={() => setHoveredItem(null)}
@@ -331,21 +331,21 @@ export default function SidebarMenu() {
             
             {/* User Profile & Logout */}
             <li className="mt-auto">
-              <div className="border-t border-neutral-200 pt-4">
+              <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
                 {!collapsed && (
                   <div className="flex items-center gap-x-3 px-3 py-2">
                     <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center">
                       <span className="text-sm font-medium text-white">A</span>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-neutral-900">Admin</p>
-                      <p className="text-xs text-neutral-500">Administrador</p>
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Admin</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Administrador</p>
                     </div>
                   </div>
                 )}
                 <button
                   onClick={handleLogout}
-                  className={`w-full flex items-center gap-x-3 rounded-lg p-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 transition-all duration-200 ${
+                  className={`w-full flex items-center gap-x-3 rounded-lg p-3 text-sm font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-neutral-100 transition-all duration-200 ${
                     collapsed ? 'justify-center' : ''
                   }`}
                 >

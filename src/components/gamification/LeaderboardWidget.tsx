@@ -66,7 +66,7 @@ export default function LeaderboardWidget({
             <div
               key={entry.userId}
               className={`flex items-center gap-3 p-2 rounded-lg ${
-                entry.userId === currentUserId ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200' : 'hover:bg-neutral-50'
+                entry.userId === currentUserId ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200' : 'hover:bg-neutral-50'
               }`}
             >
               <span className="text-2xl">{getRankEmoji(entry.rank) || `#${entry.rank}`}</span>
@@ -150,7 +150,7 @@ export default function LeaderboardWidget({
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                   period === p
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
                 }`}
               >
@@ -168,7 +168,7 @@ export default function LeaderboardWidget({
               value={teamFilter}
               onChange={(e) => setTeamFilter(e.target.value)}
               aria-label="Filtrar por equipe"
-              className="px-3 py-1 min-h-[44px] border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-neutral-200"
+              className="px-3 py-1 min-h-[44px] border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-neutral-200"
             >
               <option value="all">Todas as Equipes</option>
               {teams.map((teamId) => {
@@ -191,7 +191,7 @@ export default function LeaderboardWidget({
               onClick={() => setViewMode('full')}
               className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                 viewMode === 'full'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-brand-600 text-white'
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
               }`}
             >
@@ -201,7 +201,7 @@ export default function LeaderboardWidget({
               onClick={() => setViewMode('top10')}
               className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                 viewMode === 'top10'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-brand-600 text-white'
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
               }`}
             >
@@ -212,7 +212,7 @@ export default function LeaderboardWidget({
                 onClick={() => setViewMode('neighbors')}
                 className={`px-3 py-1 min-h-[44px] rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 ${
                   viewMode === 'neighbors'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-600'
                 }`}
               >
@@ -250,7 +250,7 @@ export default function LeaderboardWidget({
               <tr
                 key={entry.userId}
                 className={`
-                  ${entry.userId === currentUserId ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'}
+                  ${entry.userId === currentUserId ? 'bg-brand-50 dark:bg-brand-900/20' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'}
                   ${entry.rank <= 3 ? 'font-semibold' : ''}
                   transition-colors
                 `}
@@ -286,7 +286,7 @@ export default function LeaderboardWidget({
                           alt={entry.username}
                         />
                       ) : (
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center text-white font-bold">
                           {entry.username.charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -295,7 +295,7 @@ export default function LeaderboardWidget({
                       <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                         {entry.username}
                         {entry.userId === currentUserId && (
-                          <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                          <span className="ml-2 px-2 py-0.5 bg-brand-100 text-brand-800 text-xs rounded-full">
                             Você
                           </span>
                         )}
@@ -403,7 +403,7 @@ export function MiniLeaderboard({
         {onViewAll && (
           <button
             onClick={onViewAll}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-brand-600 hover:text-brand-700 font-medium"
           >
             Ver Todos
           </button>
@@ -415,7 +415,7 @@ export function MiniLeaderboard({
           <div
             key={entry.userId}
             className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-              entry.userId === currentUser?.userId ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
+              entry.userId === currentUser?.userId ? 'bg-brand-50 dark:bg-brand-900/20 border border-brand-200' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
             }`}
           >
             <span className="text-2xl">{getRankEmoji(entry.rank) || `#${entry.rank}`}</span>
@@ -431,11 +431,11 @@ export function MiniLeaderboard({
 
       {currentUser && currentUser.rank > 5 && (
         <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
-          <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200">
-            <span className="text-lg font-bold text-blue-600">#{currentUser.rank}</span>
+          <div className="flex items-center gap-3 p-3 bg-brand-50 dark:bg-brand-900/20 rounded-lg border border-brand-200">
+            <span className="text-lg font-bold text-brand-600">#{currentUser.rank}</span>
             <div className="flex-1">
-              <p className="font-semibold text-blue-900 dark:text-blue-200">Você</p>
-              <p className="text-xs text-blue-600">
+              <p className="font-semibold text-brand-900 dark:text-brand-200">Você</p>
+              <p className="text-xs text-brand-600">
                 {formatPoints(currentUser.points)} pts
               </p>
             </div>

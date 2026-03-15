@@ -206,7 +206,7 @@ function NotificationContainer() {
       case 'success': return <CheckCircleIcon className={`${base} text-emerald-500`} />
       case 'error': return <XCircleIcon className={`${base} text-red-500`} />
       case 'warning': return <ExclamationTriangleIcon className={`${base} text-amber-500`} />
-      case 'info': return <InformationCircleIcon className={`${base} text-blue-500`} />
+      case 'info': return <InformationCircleIcon className={`${base} text-brand-500`} />
     }
   }
 
@@ -215,7 +215,7 @@ function NotificationContainer() {
       case 'success': return 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-300 dark:border-emerald-700'
       case 'error': return 'bg-red-50 dark:bg-red-950/80 border-red-300 dark:border-red-700'
       case 'warning': return 'bg-amber-50 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700'
-      case 'info': return 'bg-blue-50 dark:bg-blue-950/80 border-blue-300 dark:border-blue-700'
+      case 'info': return 'bg-brand-50 dark:bg-brand-950/80 border-brand-300 dark:border-brand-700'
     }
   }
 
@@ -224,7 +224,7 @@ function NotificationContainer() {
       case 'success': return 'bg-emerald-500'
       case 'error': return 'bg-red-500'
       case 'warning': return 'bg-amber-500'
-      case 'info': return 'bg-blue-500'
+      case 'info': return 'bg-brand-500'
     }
   }
 

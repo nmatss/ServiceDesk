@@ -326,7 +326,7 @@ export function TicketVolumeWidget({
             onClick={() => onUpdate({ showForecasting: !config.showForecasting })}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
               config.showForecasting
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/20 dark:text-brand-400'
                 : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300'
             }`}
           >
@@ -351,7 +351,7 @@ export function TicketVolumeWidget({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
-              <ChartBarIcon className="w-5 h-5 text-blue-500 mr-1" />
+              <ChartBarIcon className="w-5 h-5 text-brand-500 mr-1" />
               <span className="text-sm font-medium text-description">
                 Daily Average
               </span>
@@ -438,14 +438,14 @@ export function TicketVolumeWidget({
 
       {/* Forecasting Accuracy */}
       {config.showForecasting && metrics && metrics.forecastAccuracy > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg p-4">
           <div className="flex items-center">
-            <InformationCircleIcon className="w-5 h-5 text-blue-500 mr-2" />
-            <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            <InformationCircleIcon className="w-5 h-5 text-brand-500 mr-2" />
+            <span className="text-sm font-medium text-brand-800 dark:text-brand-200">
               Forecasting Accuracy: {metrics.forecastAccuracy.toFixed(1)}%
             </span>
           </div>
-          <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+          <p className="text-sm text-brand-600 dark:text-brand-300 mt-1">
             Machine learning predictions based on historical patterns and trends
           </p>
         </div>

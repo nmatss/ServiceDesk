@@ -305,7 +305,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
           onFocus={handleInputFocus}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="block w-full pl-10 pr-20 py-3 border border-neutral-300 rounded-lg leading-5 bg-white placeholder-neutral-500 focus:outline-none focus:placeholder-neutral-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          className="block w-full pl-10 pr-20 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg leading-5 bg-white dark:bg-neutral-800 dark:text-neutral-100 placeholder-neutral-500 focus:outline-none focus:placeholder-neutral-400 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm"
         />
 
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 space-x-2">
@@ -324,14 +324,14 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
               onClick={toggleFilterPanel}
               className={`p-1 rounded transition-colors relative ${
                 activeFilterCount > 0
-                  ? 'text-blue-600 bg-blue-50'
+                  ? 'text-brand-600 bg-brand-50'
                   : 'text-neutral-400 hover:text-neutral-600'
               }`}
               aria-label="Toggle filters"
             >
               <FunnelIcon className="h-5 w-5" />
               {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-brand-600 text-white text-xs rounded-full flex items-center justify-center">
                   {activeFilterCount}
                 </span>
               )}
@@ -344,7 +344,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
       {showDropdown && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 mt-2 w-full bg-white rounded-lg shadow-lg border border-neutral-200 max-h-96 overflow-y-auto"
+          className="absolute z-50 mt-2 w-full bg-white dark:bg-neutral-800 rounded-lg shadow-lg dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700 max-h-96 overflow-y-auto"
         >
           {/* Suggestions */}
           {suggestions.length > 0 && (
@@ -357,11 +357,11 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                   key={`suggestion-${index}`}
                   onClick={() => handleSuggestionClick(suggestion)}
                   className={`w-full px-4 py-2 text-left hover:bg-neutral-50 transition-colors ${
-                    selectedSuggestionIndex === index ? 'bg-blue-50' : ''
+                    selectedSuggestionIndex === index ? 'bg-brand-50' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-neutral-900">{suggestion.text}</span>
+                    <span className="text-sm text-neutral-900 dark:text-neutral-100">{suggestion.text}</span>
                     {suggestion.type !== 'query' && (
                       <span className="text-xs text-neutral-500 capitalize">{suggestion.type}</span>
                     )}
@@ -373,7 +373,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
 
           {/* Recent Searches */}
           {query.length < 2 && recentSearches.length > 0 && (
-            <div className="py-2 border-t border-neutral-200">
+            <div className="py-2 border-t border-neutral-200 dark:border-neutral-700">
               <div className="px-4 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider flex items-center">
                 <ClockIcon className="h-4 w-4 mr-2" />
                 Recent Searches
@@ -385,7 +385,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                   className="w-full px-4 py-2 text-left hover:bg-neutral-50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-neutral-900">{search.query}</span>
+                    <span className="text-sm text-neutral-900 dark:text-neutral-100">{search.query}</span>
                     <span className="text-xs text-neutral-500">
                       {search.resultsCount} result{search.resultsCount !== 1 ? 's' : ''}
                     </span>
@@ -397,7 +397,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
 
           {/* Popular Searches */}
           {query.length < 2 && popularSearches.length > 0 && (
-            <div className="py-2 border-t border-neutral-200">
+            <div className="py-2 border-t border-neutral-200 dark:border-neutral-700">
               <div className="px-4 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider flex items-center">
                 <FireIcon className="h-4 w-4 mr-2" />
                 Popular Searches
@@ -408,7 +408,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                   onClick={() => handlePopularSearchClick(popularQuery)}
                   className="w-full px-4 py-2 text-left hover:bg-neutral-50 transition-colors"
                 >
-                  <span className="text-sm text-neutral-900">{popularQuery}</span>
+                  <span className="text-sm text-neutral-900 dark:text-neutral-100">{popularQuery}</span>
                 </button>
               ))}
             </div>
@@ -425,13 +425,13 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
 
       {/* Filter Panel */}
       {showFilterPanel && (
-        <div className="mt-2 p-4 bg-white rounded-lg shadow-lg border border-neutral-200">
+        <div className="mt-2 p-4 bg-white dark:bg-neutral-800 rounded-lg shadow-lg dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-neutral-900">Filters</h3>
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Filters</h3>
             {activeFilterCount > 0 && (
               <button
                 onClick={clearFilters}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                className="text-xs text-brand-600 hover:text-brand-700 font-medium"
               >
                 Clear all
               </button>
@@ -453,7 +453,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                       from: e.target.value ? new Date(e.target.value) : undefined,
                     })
                   }
-                  className="text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   placeholder="From"
                 />
                 <input
@@ -464,7 +464,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                       to: e.target.value ? new Date(e.target.value) : undefined,
                     })
                   }
-                  className="text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   placeholder="To"
                 />
               </div>
@@ -482,7 +482,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                 onChange={e =>
                   updateFilter('minHelpfulVotes', e.target.value ? parseInt(e.target.value) : undefined)
                 }
-                className="w-full text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 placeholder="e.g., 5"
               />
             </div>
@@ -493,7 +493,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
               <select
                 value={filters.status || ''}
                 onChange={e => updateFilter('status', e.target.value || undefined)}
-                className="w-full text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full text-xs border border-neutral-300 rounded px-2 py-1 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
               >
                 <option value="">All</option>
                 <option value="published">Published</option>
@@ -509,7 +509,7 @@ export const SemanticSearchBar: React.FC<SemanticSearchBarProps> = ({
                 handleSearch();
                 setShowFilterPanel(false);
               }}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
             >
               Apply Filters
             </button>

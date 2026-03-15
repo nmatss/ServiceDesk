@@ -132,7 +132,7 @@ export function WidgetHeader({
                           action.variant === 'danger'
                             ? 'text-red-600 dark:text-red-400'
                             : action.variant === 'primary'
-                            ? 'text-blue-600 dark:text-blue-400'
+                            ? 'text-brand-600 dark:text-brand-400'
                             : 'text-neutral-700 dark:text-neutral-200'
                         }`}
                       >

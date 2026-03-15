@@ -86,7 +86,7 @@ export const NodeConfigurator: React.FC<NodeConfiguratorProps> = ({
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             placeholder="Enter node name..."
           />
         </div>
@@ -99,7 +99,7 @@ export const NodeConfigurator: React.FC<NodeConfiguratorProps> = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             placeholder="Enter description..."
           />
         </div>
@@ -130,7 +130,7 @@ const ActionNodeConfigurator: React.FC<{
         <select
           value={config.actionType || 'assign'}
           onChange={(e) => onUpdate('actionType', e.target.value)}
-          className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500"
         >
           <option value="assign">Assign Ticket</option>
           <option value="update_status">Update Status</option>
@@ -279,7 +279,7 @@ const ApprovalNodeConfigurator: React.FC<{
         </div>
         <button
           onClick={addApprover}
-          className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center"
+          className="mt-2 text-sm text-brand-600 hover:text-brand-700 flex items-center"
         >
           <PlusIcon className="w-4 h-4 mr-1" />
           Add Approver
@@ -307,7 +307,7 @@ const ApprovalNodeConfigurator: React.FC<{
           type="checkbox"
           checked={config.allowDelegation || false}
           onChange={(e) => onUpdate('allowDelegation', e.target.checked)}
-          className="h-4 w-4 text-blue-600 rounded"
+          className="h-4 w-4 text-brand-600 rounded"
         />
         <label className="ml-2 text-sm text-neutral-700">
           Allow delegation to other users
@@ -319,7 +319,7 @@ const ApprovalNodeConfigurator: React.FC<{
           type="checkbox"
           checked={config.requireComments || false}
           onChange={(e) => onUpdate('requireComments', e.target.checked)}
-          className="h-4 w-4 text-blue-600 rounded"
+          className="h-4 w-4 text-brand-600 rounded"
         />
         <label className="ml-2 text-sm text-neutral-700">
           Require comments with approval/rejection
@@ -443,7 +443,7 @@ const ConditionNodeConfigurator: React.FC<{
             </div>
             <button
               onClick={addCondition}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center"
+              className="mt-2 text-sm text-brand-600 hover:text-brand-700 flex items-center"
             >
               <PlusIcon className="w-4 h-4 mr-1" />
               Add Condition
@@ -781,7 +781,7 @@ const DelayNodeConfigurator: React.FC<{
           type="checkbox"
           checked={config.businessHoursOnly || false}
           onChange={(e) => onUpdate('businessHoursOnly', e.target.checked)}
-          className="h-4 w-4 text-blue-600 rounded"
+          className="h-4 w-4 text-brand-600 rounded"
         />
         <label className="ml-2 text-sm text-neutral-700">
           Only count business hours (Mon-Fri, 9am-5pm)
@@ -829,10 +829,10 @@ const GenericNodeConfigurator: React.FC<{
           <p className="text-xs text-red-600 mt-1">{error}</p>
         )}
       </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="bg-brand-50 border border-brand-200 rounded-lg p-3">
         <div className="flex items-start">
-          <InformationCircleIcon className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0" />
-          <div className="text-xs text-blue-700">
+          <InformationCircleIcon className="w-5 h-5 text-brand-600 mr-2 flex-shrink-0" />
+          <div className="text-xs text-brand-700">
             <p className="font-medium mb-1">Generic Configuration</p>
             <p>This node type uses generic JSON configuration. Edit the JSON above to configure this node.</p>
           </div>

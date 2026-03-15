@@ -92,7 +92,7 @@ export default function NotificationBell() {
         return <ExclamationTriangleIcon className={`${base} text-amber-500`} />
       case 'info':
       default:
-        return <InformationCircleIcon className={`${base} text-blue-500`} />
+        return <InformationCircleIcon className={`${base} text-brand-500`} />
     }
   }, [])
 
@@ -102,7 +102,7 @@ export default function NotificationBell() {
       case 'error': return 'bg-red-50 dark:bg-red-500/10'
       case 'warning': return 'bg-amber-50 dark:bg-amber-500/10'
       case 'info':
-      default: return 'bg-blue-50 dark:bg-blue-500/10'
+      default: return 'bg-brand-50 dark:bg-brand-500/10'
     }
   }, [])
 

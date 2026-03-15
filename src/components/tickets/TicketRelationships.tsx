@@ -232,7 +232,7 @@ export function TicketRelationships({
 
   const getStatusColor = (statusName?: string) => {
     const colors: Record<string, string> = {
-      open: 'bg-blue-100 text-blue-700',
+      open: 'bg-brand-100 text-brand-700',
       'in-progress': 'bg-yellow-100 text-yellow-700',
       pending: 'bg-pink-100 text-pink-700',
       resolved: 'bg-green-100 text-green-700',
@@ -257,7 +257,7 @@ export function TicketRelationships({
         {!readOnly && (
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+            className="inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 transition-colors"
           >
             <PlusIcon className="h-3 w-3" />
             Add Link
@@ -268,7 +268,7 @@ export function TicketRelationships({
       {/* Loading */}
       {isLoading ? (
         <div className="flex items-center justify-center py-4">
-          <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-300 border-t-blue-500" />
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-300 border-t-brand-500" />
         </div>
       ) : !hasRelationships ? (
         <p className="text-xs text-neutral-400 italic py-2">No linked tickets</p>
@@ -296,7 +296,7 @@ export function TicketRelationships({
                         <div className="flex items-center gap-2 min-w-0">
                           <a
                             href={`/tickets/${ticket.id}`}
-                            className="text-xs font-mono text-blue-600 hover:text-blue-700 hover:underline"
+                            className="text-xs font-mono text-brand-600 hover:text-brand-700 hover:underline"
                           >
                             #{ticket.ticket_number}
                           </a>
@@ -362,7 +362,7 @@ export function TicketRelationships({
                   {/* Header */}
                   <div className="border-b border-neutral-200 px-6 py-4">
                     <Dialog.Title className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
-                      <LinkIcon className="h-5 w-5 text-blue-500" />
+                      <LinkIcon className="h-5 w-5 text-brand-500" />
                       Link Ticket
                     </Dialog.Title>
                   </div>
@@ -384,7 +384,7 @@ export function TicketRelationships({
                                 onClick={() => setSelectedType(type)}
                                 className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-colors ${
                                   selectedType === type
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                    ? 'border-brand-500 bg-brand-50 text-brand-700'
                                     : 'border-neutral-200 hover:border-neutral-300 text-neutral-700'
                                 }`}
                               >
@@ -407,7 +407,7 @@ export function TicketRelationships({
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar por número ou título..."
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                       />
                     </div>
 
@@ -415,7 +415,7 @@ export function TicketRelationships({
                     <div className="max-h-48 overflow-y-auto">
                       {isSearching ? (
                         <div className="flex items-center justify-center py-4">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-300 border-t-blue-500" />
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-300 border-t-brand-500" />
                         </div>
                       ) : searchResults.length > 0 ? (
                         <div className="space-y-1">
@@ -426,7 +426,7 @@ export function TicketRelationships({
                               disabled={isAdding}
                               className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-neutral-50 text-left transition-colors disabled:opacity-50"
                             >
-                              <span className="text-xs font-mono text-blue-600">
+                              <span className="text-xs font-mono text-brand-600">
                                 #{ticket.ticket_number}
                               </span>
                               <span className="text-sm text-neutral-700 truncate flex-1">

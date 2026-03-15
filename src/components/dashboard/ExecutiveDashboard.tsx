@@ -324,7 +324,7 @@ export function ExecutiveDashboard() {
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <DocumentChartBarIcon className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+              <DocumentChartBarIcon className="h-8 w-8 text-brand-600 dark:text-brand-400" />
               <div>
                 <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">
                   Executive Dashboard
@@ -364,7 +364,7 @@ export function ExecutiveDashboard() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleExportPDF}
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-brand-600 border border-transparent rounded-md hover:bg-brand-700"
                 >
                   Export PDF
                 </button>

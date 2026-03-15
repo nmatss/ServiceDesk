@@ -96,7 +96,7 @@ export function AgentTicketQueue({ className = '' }: AgentComponentProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'text-blue-600 bg-blue-50';
+      case 'open': return 'text-brand-600 bg-brand-50';
       case 'in-progress': return 'text-amber-600 bg-amber-50';
       case 'pending': return 'text-neutral-600 bg-neutral-50';
       case 'resolved': return 'text-green-600 bg-green-50';
@@ -188,7 +188,7 @@ export function AgentTicketQueue({ className = '' }: AgentComponentProps) {
           <div
             key={ticket.id}
             className={`p-3 hover:bg-persona-secondary transition-subtle cursor-pointer ${
-              selectedTickets.includes(ticket.id) ? 'bg-blue-50' : ''
+              selectedTickets.includes(ticket.id) ? 'bg-brand-50' : ''
             }`}
             onClick={() => toggleTicketSelection(ticket.id)}
           >
@@ -268,7 +268,7 @@ export function AgentQuickActions({ className = '' }: AgentComponentProps) {
   const [timerDuration, setTimerDuration] = useState(1847); // seconds
 
   const quickActions = [
-    { icon: BoltIcon, label: 'Quick Reply', shortcut: 'Q', color: 'text-blue-600' },
+    { icon: BoltIcon, label: 'Quick Reply', shortcut: 'Q', color: 'text-brand-600' },
     { icon: ChatBubbleLeftRightIcon, label: 'New Ticket', shortcut: 'N', color: 'text-green-600' },
     { icon: DocumentTextIcon, label: 'Knowledge Base', shortcut: 'K', color: 'text-purple-600' },
     { icon: AdjustmentsHorizontalIcon, label: 'Bulk Edit', shortcut: 'B', color: 'text-orange-600' },
@@ -403,7 +403,7 @@ export function AgentNotificationCenter({ className = '' }: AgentComponentProps)
       case 'sla_warning':
         return <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />;
       case 'customer_reply':
-        return <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-500" />;
+        return <ChatBubbleLeftRightIcon className="h-4 w-4 text-brand-500" />;
       default:
         return <InformationCircleIcon className="h-4 w-4 text-neutral-500" />;
     }
@@ -446,7 +446,7 @@ export function AgentNotificationCenter({ className = '' }: AgentComponentProps)
               <div
                 key={notification.id}
                 className={`p-3 border-b border-persona-secondary hover:bg-persona-secondary transition-subtle cursor-pointer ${
-                  !notification.read ? 'bg-blue-50' : ''
+                  !notification.read ? 'bg-brand-50' : ''
                 }`}
                 onClick={() => markAsRead(notification.id)}
               >
@@ -458,7 +458,7 @@ export function AgentNotificationCenter({ className = '' }: AgentComponentProps)
                         {notification.title}
                       </h4>
                       {!notification.read && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-brand-500 rounded-full"></div>
                       )}
                     </div>
                     <p className="text-sm text-persona-secondary mt-1">
@@ -556,7 +556,7 @@ export function AgentWorkspace({ className = '' }: AgentComponentProps) {
                 <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded">
                   High Priority
                 </span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                <span className="px-2 py-1 bg-brand-100 text-brand-800 text-xs rounded">
                   In Progress
                 </span>
               </div>

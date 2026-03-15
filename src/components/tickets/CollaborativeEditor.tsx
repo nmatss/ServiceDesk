@@ -451,7 +451,7 @@ export function CollaborativeEditor({
             <div className={`w-2 h-2 rounded-full ${statusColor === 'green' ? 'bg-green-400' : 'bg-red-400'}`} />
             <span className="text-sm text-neutral-600 dark:text-neutral-300">{statusText}</span>
             {editorState.isSaving && (
-              <div className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
+              <div className="flex items-center space-x-1 text-brand-600 dark:text-brand-400">
                 <ArrowPathIcon className="h-4 w-4 animate-spin" />
                 <span className="text-sm">Saving...</span>
               </div>
@@ -472,9 +472,9 @@ export function CollaborativeEditor({
                 </span>
                 {collaborator.isTyping && (
                   <div className="flex space-x-0.5">
-                    <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" />
-                    <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                    <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+                    <div className="w-1 h-1 bg-brand-400 rounded-full animate-pulse" />
+                    <div className="w-1 h-1 bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                    <div className="w-1 h-1 bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
                   </div>
                 )}
               </div>
@@ -532,7 +532,7 @@ export function CollaborativeEditor({
           placeholder={placeholder}
           maxLength={maxLength}
           readOnly={readOnly}
-          className={`w-full min-h-32 p-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-neutral-700 dark:text-white resize-none ${
+          className={`w-full min-h-32 p-3 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-neutral-700 dark:text-white resize-none ${
             readOnly ? 'bg-neutral-50 dark:bg-neutral-800 cursor-not-allowed' : ''
           } ${showCollaborators ? 'rounded-t-none' : ''}`}
           style={{ minHeight: '200px' }}
@@ -598,7 +598,7 @@ export function CollaborativeEditor({
             <button
               onClick={handleManualSave}
               disabled={!editorState.isDirty || editorState.isSaving}
-              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 bg-brand-600 text-white rounded text-sm hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {editorState.isSaving ? 'Salvando...' : 'Salvar'}
             </button>

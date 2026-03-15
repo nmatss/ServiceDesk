@@ -17,17 +17,17 @@ export const AdminCard: React.FC<AdminCardProps> = ({
 
   return (
     <div
-      className={`bg-white shadow rounded-lg ${className}`}
+      className={`bg-white dark:bg-neutral-800 shadow dark:shadow-neutral-900/20 rounded-lg ${className}`}
       role="region"
       aria-labelledby={headerId}
     >
       {(title || headerAction) && (
-        <div className="px-6 py-4 border-b border-neutral-200">
+        <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-700">
           <div className="flex items-center justify-between">
             {title && (
               <h3
                 id={headerId}
-                className="text-lg font-medium text-neutral-900"
+                className="text-lg font-medium text-neutral-900 dark:text-neutral-100"
               >
                 {title}
               </h3>

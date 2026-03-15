@@ -77,7 +77,7 @@ const MetricCard = ({
   color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple'
 }) => {
   const colorClasses = {
-    blue: 'bg-blue-50 border-blue-200 text-blue-700',
+    blue: 'bg-brand-50 border-brand-200 text-brand-700',
     green: 'bg-green-50 border-green-200 text-green-700',
     yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
     red: 'bg-red-50 border-red-200 text-red-700',
@@ -86,7 +86,7 @@ const MetricCard = ({
 
   const getValueColor = (val: number) => {
     if (val >= 90) return 'text-green-600'
-    if (val >= 70) return 'text-blue-600'
+    if (val >= 70) return 'text-brand-600'
     if (val >= 50) return 'text-yellow-600'
     return 'text-red-600'
   }
@@ -121,8 +121,8 @@ const MaturityGauge = ({ level, description }: { level: number; description: str
   const percentage = (level / 5) * 100
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-      <h3 className="text-base sm:text-lg font-semibold text-neutral-900 mb-3 sm:mb-4 flex items-center gap-2">
+    <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+      <h3 className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4 flex items-center gap-2">
         <ChartBarIcon className="w-5 h-5 text-purple-600" />
         <span className="truncate">Nível de Maturidade COBIT</span>
       </h3>
@@ -154,7 +154,7 @@ const MaturityGauge = ({ level, description }: { level: number; description: str
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <span className="text-2xl sm:text-3xl font-bold text-neutral-900">{level}</span>
+              <span className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">{level}</span>
               <span className="text-xs sm:text-sm text-neutral-500">/5</span>
             </div>
           </div>
@@ -168,7 +168,7 @@ const MaturityGauge = ({ level, description }: { level: number; description: str
                 key={lvl}
                 className={`h-2 flex-1 rounded-full ${
                   lvl <= level
-                    ? level >= 4 ? 'bg-green-500' : level >= 3 ? 'bg-blue-500' : level >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+                    ? level >= 4 ? 'bg-green-500' : level >= 3 ? 'bg-brand-500' : level >= 2 ? 'bg-yellow-500' : 'bg-red-500'
                     : 'bg-neutral-200'
                 }`}
               />
@@ -193,7 +193,7 @@ const DomainSection = ({
   children: React.ReactNode
 }) => {
   const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-100 text-blue-600',
+    blue: 'bg-brand-100 text-brand-600',
     green: 'bg-green-100 text-green-600',
     yellow: 'bg-yellow-100 text-yellow-600',
     purple: 'bg-purple-100 text-purple-600',
@@ -201,8 +201,8 @@ const DomainSection = ({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-      <h3 className="text-sm sm:text-base font-semibold text-neutral-900 mb-3 sm:mb-4 flex items-center gap-2">
+    <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+      <h3 className="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4 flex items-center gap-2">
         <div className={`p-1.5 sm:p-2 rounded-lg ${colorClasses[color]}`}>
           <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
@@ -247,7 +247,7 @@ export default function COBITDashboard() {
   if (loading) {
     return (
       <div className="min-h-[400px] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-brand-600"></div>
       </div>
     )
   }
@@ -260,7 +260,7 @@ export default function COBITDashboard() {
           <p className="text-sm sm:text-base text-neutral-600">{error}</p>
           <button
             onClick={fetchData}
-            className="mt-3 sm:mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base"
+            className="mt-3 sm:mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 text-sm sm:text-base"
           >
             Tentar Novamente
           </button>
@@ -278,7 +278,7 @@ export default function COBITDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-900">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-neutral-900 dark:text-neutral-100">
             Dashboard COBIT 2019
           </h2>
           <p className="text-xs sm:text-sm text-neutral-600">
@@ -288,7 +288,7 @@ export default function COBITDashboard() {
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
-          className="px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg text-sm bg-white dark:bg-neutral-800 dark:text-neutral-200 focus:ring-2 focus:ring-brand-500 focus:border-transparent"
         >
           <option value="7">Últimos 7 dias</option>
           <option value="30">Últimos 30 dias</option>
@@ -438,30 +438,30 @@ export default function COBITDashboard() {
       </div>
 
       {/* MTBF/MTTR Detail */}
-      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 sm:p-6">
-        <h3 className="text-sm sm:text-base font-semibold text-neutral-900 mb-3 sm:mb-4">
+      <div className="bg-white dark:bg-neutral-800 rounded-xl shadow-sm dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700 p-4 sm:p-6">
+        <h3 className="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-3 sm:mb-4">
           Métricas de Confiabilidade
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <div className="text-center p-3 sm:p-4 bg-neutral-50 rounded-lg">
-            <p className="text-xs sm:text-sm text-neutral-500">MTBF</p>
-            <p className="text-xl sm:text-2xl font-bold text-neutral-900">{metrics.delivery.mtbf}h</p>
-            <p className="text-[10px] sm:text-xs text-neutral-500">Tempo entre falhas</p>
+          <div className="text-center p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-700 rounded-lg">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">MTBF</p>
+            <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100">{metrics.delivery.mtbf}h</p>
+            <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400">Tempo entre falhas</p>
           </div>
-          <div className="text-center p-3 sm:p-4 bg-neutral-50 rounded-lg">
-            <p className="text-xs sm:text-sm text-neutral-500">MTTR</p>
-            <p className="text-xl sm:text-2xl font-bold text-neutral-900">{metrics.delivery.mttr}h</p>
-            <p className="text-[10px] sm:text-xs text-neutral-500">Tempo de resolução</p>
+          <div className="text-center p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-700 rounded-lg">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">MTTR</p>
+            <p className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100">{metrics.delivery.mttr}h</p>
+            <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400">Tempo de resolução</p>
           </div>
-          <div className="text-center p-3 sm:p-4 bg-neutral-50 rounded-lg">
-            <p className="text-xs sm:text-sm text-neutral-500">Disponibilidade</p>
+          <div className="text-center p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-700 rounded-lg">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">Disponibilidade</p>
             <p className="text-xl sm:text-2xl font-bold text-green-600">{metrics.delivery.service_availability}%</p>
-            <p className="text-[10px] sm:text-xs text-neutral-500">Uptime calculado</p>
+            <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400">Uptime calculado</p>
           </div>
-          <div className="text-center p-3 sm:p-4 bg-neutral-50 rounded-lg">
-            <p className="text-xs sm:text-sm text-neutral-500">SLA Compliance</p>
-            <p className="text-xl sm:text-2xl font-bold text-blue-600">{metrics.delivery.sla_compliance}%</p>
-            <p className="text-[10px] sm:text-xs text-neutral-500">Meta: 95%</p>
+          <div className="text-center p-3 sm:p-4 bg-neutral-50 dark:bg-neutral-700 rounded-lg">
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">SLA Compliance</p>
+            <p className="text-xl sm:text-2xl font-bold text-brand-600">{metrics.delivery.sla_compliance}%</p>
+            <p className="text-[10px] sm:text-xs text-neutral-500 dark:text-neutral-400">Meta: 95%</p>
           </div>
         </div>
       </div>

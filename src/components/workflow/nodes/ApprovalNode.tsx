@@ -82,7 +82,7 @@ export default function ApprovalNode({ data, selected }: NodeProps<ApprovalNodeD
           {approvalType.replace(/_/g, ' ').toUpperCase()}
         </span>
         {configuration.requireComments && (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
             COMENT. OBRIG.
           </span>
         )}

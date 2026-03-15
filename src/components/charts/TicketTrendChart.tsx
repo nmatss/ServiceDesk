@@ -345,11 +345,11 @@ export default function TicketTrendChart({
   // ============================================================================
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm dark:shadow-neutral-900/20 border border-neutral-200 dark:border-neutral-700 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-neutral-900">Ticket Trends</h3>
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Ticket Trends</h3>
           <p className="text-sm text-neutral-500 mt-1">
             {stats && `${filteredData.length} data points • ${stats.created} created • ${stats.resolved} resolved`}
           </p>
@@ -359,13 +359,13 @@ export default function TicketTrendChart({
           <div className="flex gap-2">
             <button
               onClick={exportToCSV}
-              className="px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
             >
               Export CSV
             </button>
             <button
               onClick={exportToImage}
-              className="px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-600 rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
             >
               Export Image
             </button>
@@ -384,7 +384,7 @@ export default function TicketTrendChart({
                 onClick={() => handleTimeRangeChange(range)}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   timeRange === range
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
               >
@@ -406,7 +406,7 @@ export default function TicketTrendChart({
                   onClick={() => setChartType(type)}
                   className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                     chartType === type
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-brand-100 text-brand-700'
                       : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
                   }`}
                 >
@@ -477,24 +477,24 @@ export default function TicketTrendChart({
 
       {/* Statistics Footer */}
       {stats && (
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-neutral-200">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-neutral-200 dark:border-neutral-700">
           <div>
-            <p className="text-xs text-neutral-500">Total Created</p>
-            <p className="text-lg font-semibold text-neutral-900">{stats.created.toLocaleString()}</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Total Created</p>
+            <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{stats.created.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Total Resolved</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Total Resolved</p>
             <p className="text-lg font-semibold text-green-600">{stats.resolved.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Avg Resolution Time</p>
-            <p className="text-lg font-semibold text-neutral-900">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Avg Resolution Time</p>
+            <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
               {stats.avgResolutionTime.toFixed(1)}h
             </p>
           </div>
           <div>
-            <p className="text-xs text-neutral-500">Avg SLA Compliance</p>
-            <p className="text-lg font-semibold text-blue-600">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">Avg SLA Compliance</p>
+            <p className="text-lg font-semibold text-brand-600">
               {stats.avgSLACompliance.toFixed(1)}%
             </p>
           </div>

@@ -216,7 +216,7 @@ export function DrilldownChart({
               )}
               <span className={`text-sm font-medium ${
                 index === breadcrumb.length - 1
-                  ? 'text-blue-600 dark:text-blue-400'
+                  ? 'text-brand-600 dark:text-brand-400'
                   : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 cursor-pointer'
               }`}>
                 {crumb}
@@ -308,7 +308,7 @@ export function ZoomableChart({
         </h3>
         <button
           onClick={resetZoom}
-          className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          className="px-3 py-1 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700 transition-colors"
         >
           Reset Zoom
         </button>

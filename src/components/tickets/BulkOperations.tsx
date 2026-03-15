@@ -428,7 +428,7 @@ export function BulkOperations({
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select an agent...</option>
               {users.filter(u => u.role === 'agent' || u.role === 'admin').map(user => (
@@ -449,7 +449,7 @@ export function BulkOperations({
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select a category...</option>
               {categories.map(category => (
@@ -470,7 +470,7 @@ export function BulkOperations({
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select a priority...</option>
               {priorities.map(priority => (
@@ -491,7 +491,7 @@ export function BulkOperations({
             <select
               value={operationValue || ''}
               onChange={(e) => setOperationValue(parseInt(e.target.value) || null)}
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
             >
               <option value="">Select a status...</option>
               {statuses.map(status => (
@@ -514,7 +514,7 @@ export function BulkOperations({
               onChange={(e) => setOperationValue(e.target.value)}
               rows={3}
               placeholder="Enter comment to add to all selected tickets..."
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white resize-none"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white resize-none"
             />
           </div>
         );
@@ -529,7 +529,7 @@ export function BulkOperations({
               type="text"
               value={operationValue || ''}
               onChange={(e) => setOperationValue(e.target.value)}
-              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+              className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
             />
           </div>
         );
@@ -565,7 +565,7 @@ export function BulkOperations({
         {stats && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-2xl font-bold text-brand-600 dark:text-brand-400">
                 {selectedTickets.length}
               </div>
               <div className="text-sm text-neutral-500 dark:text-neutral-400">Total Selected</div>
@@ -627,7 +627,7 @@ export function BulkOperations({
                   <operation.icon className={`h-6 w-6 ${
                     operation.dangerLevel === 'high' ? 'text-red-500' :
                     operation.dangerLevel === 'medium' ? 'text-orange-500' :
-                    'text-blue-500'
+                    'text-brand-500'
                   }`} />
                   <div>
                     <div className="font-medium text-neutral-900 dark:text-white">
@@ -673,7 +673,7 @@ export function BulkOperations({
                 value={operationComment}
                 onChange={(e) => setOperationComment(e.target.value)}
                 placeholder="Add a comment to this operation..."
-                className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-neutral-700 dark:text-white"
+                className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-neutral-700 dark:text-white"
               />
             </div>
 
@@ -723,7 +723,7 @@ export function BulkOperations({
                     ? 'bg-red-600 hover:bg-red-700'
                     : selectedOperation.dangerLevel === 'medium'
                     ? 'bg-orange-600 hover:bg-orange-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-brand-600 hover:bg-brand-700'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {selectedOperation.requiresConfirmation && !showConfirmation ? 'Preview' : 'Execute'}
@@ -744,12 +744,12 @@ export function BulkOperations({
               <div key={job.id} className="border border-neutral-200 dark:border-neutral-600 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
-                    <job.operation.icon className="h-5 w-5 text-blue-500" />
+                    <job.operation.icon className="h-5 w-5 text-brand-500" />
                     <span className="font-medium text-neutral-900 dark:text-white">
                       {job.operation.name}
                     </span>
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      job.status === 'running' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                      job.status === 'running' ? 'bg-brand-100 text-brand-800 dark:bg-brand-900 dark:text-brand-200' :
                       job.status === 'paused' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                       job.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                       job.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
@@ -796,7 +796,7 @@ export function BulkOperations({
                   </div>
                   <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-brand-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(job.progress.completed / job.progress.total) * 100}%` }}
                     />
                   </div>

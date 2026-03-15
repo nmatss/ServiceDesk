@@ -70,7 +70,7 @@ export default function RecognitionFeed({
       </div>
 
       {/* Filters */}
-      <div className="p-4 border-b border-neutral-200">
+      <div className="p-4 border-b border-neutral-200 dark:border-neutral-700">
         <div className="flex gap-2">
           {(['all', 'kudos', 'milestone', 'helper-of-month', 'success-story'] as const).map((type) => (
             <button
@@ -79,7 +79,7 @@ export default function RecognitionFeed({
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors capitalize ${
                 filter === type
                   ? 'bg-purple-600 text-white'
-                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
               }`}
             >
               {type === 'all' ? 'All' : type.replace('-', ' ')}
@@ -89,7 +89,7 @@ export default function RecognitionFeed({
       </div>
 
       {/* Feed */}
-      <div className="divide-y divide-neutral-200">
+      <div className="divide-y divide-neutral-200 dark:divide-neutral-700">
         {filteredRecognitions.map((recognition) => (
           <RecognitionCard
             key={recognition.id}
@@ -102,7 +102,7 @@ export default function RecognitionFeed({
 
       {/* Load More */}
       {hasMore && onLoadMore && (
-        <div className="p-4 text-center border-t border-neutral-200">
+        <div className="p-4 text-center border-t border-neutral-200 dark:border-neutral-700">
           <button
             onClick={onLoadMore}
             className="text-purple-600 hover:text-purple-700 font-medium"
@@ -161,7 +161,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
   const getTypeColor = () => {
     switch (recognition.type) {
       case 'kudos':
-        return 'text-blue-600 bg-blue-100';
+        return 'text-brand-600 bg-brand-100';
       case 'milestone':
         return 'text-green-600 bg-green-100';
       case 'helper-of-month':
@@ -182,7 +182,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
   const userReacted = recognition.reactions.some((r) => r.userId === currentUserId);
 
   return (
-    <div className="p-6 hover:bg-neutral-50 transition-colors">
+    <div className="p-6 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors">
       <div className="flex gap-4">
         {/* Avatar */}
         <div className="flex-shrink-0">
@@ -193,7 +193,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
               alt={recognition.fromUsername}
             />
           ) : (
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-brand-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
               {recognition.fromUsername.charAt(0).toUpperCase()}
             </div>
           )}
@@ -204,7 +204,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
           {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex-1">
-              <p className="text-sm font-medium text-neutral-900">
+              <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 <span className="font-semibold">{recognition.fromUsername}</span>
                 {recognition.type === 'kudos' && (
                   <>
@@ -244,7 +244,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
 
           {/* Message */}
           <div className="mb-3">
-            <p className="text-neutral-700 whitespace-pre-wrap">{recognition.message}</p>
+            <p className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{recognition.message}</p>
           </div>
 
           {/* Points Badge */}
@@ -284,7 +284,7 @@ function RecognitionCard({ recognition, currentUserId, onReact }: RecognitionCar
                   aria-expanded={showReactions}
                   className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                     userReacted
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-brand-100 text-brand-700'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
                 >
@@ -359,7 +359,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
       <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-lg w-full">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-700">
-          <h3 className="text-xl font-bold text-neutral-900">Send Kudos 👏</h3>
+          <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Send Kudos 👏</h3>
           <button
             onClick={onClose}
             aria-label="Fechar"
@@ -393,7 +393,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
                   className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 {searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-lg shadow-lg max-h-48 overflow-auto z-10">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-neutral-900/20 max-h-48 overflow-auto z-10">
                     {searchResults.map((user) => (
                       <button
                         key={user.id}
@@ -401,9 +401,9 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
                           setSelectedUser({ id: user.id, name: user.name });
                           setSearchQuery('');
                         }}
-                        className="w-full px-4 py-2 text-left hover:bg-neutral-50 transition-colors"
+                        className="w-full px-4 py-2 text-left hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
                       >
-                        <p className="font-medium text-neutral-900">{user.name}</p>
+                        <p className="font-medium text-neutral-900 dark:text-neutral-100">{user.name}</p>
                       </button>
                     ))}
                   </div>
@@ -463,7 +463,7 @@ function KudosFormModal({ onClose, onSend }: KudosFormModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-neutral-200">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-neutral-200 dark:border-neutral-700">
           <button
             onClick={onClose}
             className="px-4 py-2 text-neutral-700 hover:text-neutral-900 font-medium transition-colors"

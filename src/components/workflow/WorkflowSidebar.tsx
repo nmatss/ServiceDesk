@@ -78,7 +78,7 @@ export default function WorkflowSidebar({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar nós..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
         )}
@@ -109,23 +109,23 @@ export default function WorkflowSidebar({
               </h4>
               <ul className="text-sm text-neutral-600 space-y-2">
                 <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
+                  <span className="text-brand-500 mr-2">•</span>
                   <span>Every workflow must start with a Start node and end with an End node</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
+                  <span className="text-brand-500 mr-2">•</span>
                   <span>Click on a node to configure its properties</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
+                  <span className="text-brand-500 mr-2">•</span>
                   <span>Connect nodes by dragging from the edge handles</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
+                  <span className="text-brand-500 mr-2">•</span>
                   <span>Use Condition nodes to create branching logic</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-500 mr-2">•</span>
+                  <span className="text-brand-500 mr-2">•</span>
                   <span>Test your workflow before deploying to production</span>
                 </li>
               </ul>
@@ -155,11 +155,11 @@ export default function WorkflowSidebar({
             </div>
 
             {!readOnly && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+              <div className="bg-brand-50 border border-brand-200 rounded-lg p-3">
+                <h4 className="text-sm font-semibold text-brand-900 mb-1">
                   Need Help?
                 </h4>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-brand-700">
                   Check out our documentation for detailed guides on building
                   complex workflows and automation.
                 </p>

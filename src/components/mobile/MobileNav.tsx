@@ -124,7 +124,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
                 transition-all duration-200
                 ${isCreateButton ? 'transform hover:scale-110' : ''}
                 ${isActive && !isCreateButton
-                  ? 'text-blue-600 dark:text-blue-400'
+                  ? 'text-brand-600 dark:text-brand-400'
                   : 'text-description hover:text-neutral-900 dark:hover:text-neutral-100'
                 }
               `}
@@ -164,7 +164,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
               {/* Active Indicator */}
               {isActive && !isCreateButton && (
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-blue-600 dark:bg-blue-400 rounded-t-full" />
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-brand-600 dark:bg-brand-400 rounded-t-full" />
               )}
             </Link>
           )

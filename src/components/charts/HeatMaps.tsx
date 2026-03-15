@@ -279,11 +279,11 @@ export function HourlyPerformanceHeatMap({
       />
 
       {selectedCell && (
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <h4 className="font-semibold text-blue-800 dark:text-blue-200">
+        <div className="mt-4 p-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-lg">
+          <h4 className="font-semibold text-brand-800 dark:text-brand-200">
             Selected: {selectedCell.day} at {selectedCell.hour}:00
           </h4>
-          <p className="text-blue-600 dark:text-blue-300">
+          <p className="text-brand-600 dark:text-brand-300">
             Value: {selectedCell.value}
             {selectedCell.department && ` | Department: ${selectedCell.department}`}
           </p>

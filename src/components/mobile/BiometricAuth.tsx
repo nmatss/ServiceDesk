@@ -223,7 +223,7 @@ export default function BiometricAuth({
       {!showPinInput ? (
         <div className="text-center p-6">
           {/* Biometric Icon */}
-          <div className="mb-6 text-blue-600 dark:text-blue-400 flex justify-center">
+          <div className="mb-6 text-brand-600 dark:text-brand-400 flex justify-center">
             {getBiometricIcon()}
           </div>
 
@@ -249,7 +249,7 @@ export default function BiometricAuth({
               ${
                 isProcessing
                   ? 'bg-neutral-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                  : 'bg-brand-600 hover:bg-brand-700 active:scale-95'
               }
             `}
           >
@@ -295,7 +295,7 @@ export default function BiometricAuth({
           {mode === 'login' && showPinFallback && !isProcessing && (
             <button
               onClick={() => setShowPinInput(true)}
-              className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="mt-4 text-sm text-brand-600 dark:text-brand-400 hover:underline"
             >
               Usar PIN em vez disso
             </button>
@@ -334,7 +334,7 @@ export default function BiometricAuth({
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
               placeholder="Digite seu PIN"
               maxLength={6}
-              className="w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-neutral-300 dark:border-neutral-600 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:bg-neutral-800 dark:text-white"
+              className="w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-neutral-300 dark:border-neutral-600 rounded-lg focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:bg-neutral-800 dark:text-white"
               autoFocus
               disabled={isProcessing}
             />
@@ -348,7 +348,7 @@ export default function BiometricAuth({
                 ${
                   isProcessing || pin.length < 4
                     ? 'bg-neutral-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                    : 'bg-brand-600 hover:bg-brand-700 active:scale-95'
                 }
               `}
             >
@@ -370,7 +370,7 @@ export default function BiometricAuth({
                 setPin('');
                 setError(null);
               }}
-              className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="mt-4 text-sm text-brand-600 dark:text-brand-400 hover:underline"
             >
               Voltar para biometria
             </button>
@@ -452,7 +452,7 @@ export function BiometricSettings() {
           onClick={handleToggleBiometric}
           className={`
             relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-            ${isEnabled ? 'bg-blue-600' : 'bg-neutral-300 dark:bg-neutral-600'}
+            ${isEnabled ? 'bg-brand-600' : 'bg-neutral-300 dark:bg-neutral-600'}
           `}
         >
           <span

@@ -138,7 +138,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
         {!isListening ? (
           <button
             onClick={startListening}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors min-h-[44px]"
+            className="flex items-center space-x-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors min-h-[44px]"
             aria-label="Iniciar entrada de voz"
           >
             <MicrophoneIcon className="w-5 h-5" />
@@ -180,11 +180,11 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
       {/* Listening Indicator */}
       {isListening && (
-        <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
+        <div className="flex items-center space-x-2 text-sm text-brand-600 dark:text-brand-400">
           <div className="flex space-x-1">
-            <div className="w-1 h-4 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-            <div className="w-1 h-4 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-            <div className="w-1 h-4 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+            <div className="w-1 h-4 bg-brand-600 dark:bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+            <div className="w-1 h-4 bg-brand-600 dark:bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+            <div className="w-1 h-4 bg-brand-600 dark:bg-brand-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
           </div>
           <span className="font-medium">Ouvindo...</span>
         </div>

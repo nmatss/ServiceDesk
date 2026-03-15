@@ -119,16 +119,16 @@ export default function AgentPerformanceRadar({
     if (!active || !payload || !payload.length) return null;
 
     return (
-      <div className="bg-white border border-neutral-200 rounded-lg shadow-lg p-3">
-        <p className="font-semibold text-neutral-900 mb-2">{payload[0].payload.metric}</p>
+      <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg dark:shadow-neutral-900/20 p-3">
+        <p className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{payload[0].payload.metric}</p>
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-2 text-sm">
             <div
               className="w-3 h-3 rounded"
               style={{ backgroundColor: entry.stroke }}
             />
-            <span className="text-neutral-600">{entry.name}:</span>
-            <span className="font-medium text-neutral-900">{entry.value.toFixed(1)}</span>
+            <span className="text-neutral-600 dark:text-neutral-400">{entry.name}:</span>
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">{entry.value.toFixed(1)}</span>
           </div>
         ))}
       </div>
@@ -152,11 +152,11 @@ export default function AgentPerformanceRadar({
   }, [agents, metrics]);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-md dark:shadow-neutral-900/20 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-neutral-900">Agent Performance Comparison</h3>
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Agent Performance Comparison</h3>
           <p className="text-sm text-neutral-500 mt-1">
             Comparing {selectedAgents.length} agent{selectedAgents.length !== 1 ? 's' : ''} across 6 metrics
           </p>
@@ -216,7 +216,7 @@ export default function AgentPerformanceRadar({
         <div className="space-y-4">
           {/* Agent Selection */}
           <div>
-            <h4 className="text-sm font-medium text-neutral-700 mb-3">Select Agents to Compare</h4>
+            <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">Select Agents to Compare</h4>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {agents.map((agent) => (
                 <button
@@ -224,8 +224,8 @@ export default function AgentPerformanceRadar({
                   onClick={() => handleAgentToggle(agent.agentId)}
                   className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
                     selectedAgents.includes(agent.agentId)
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
+                      : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 bg-white dark:bg-neutral-800'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -237,11 +237,11 @@ export default function AgentPerformanceRadar({
                           : chartColors.neutral[300],
                       }}
                     />
-                    <span className="text-sm font-medium text-neutral-900">{agent.agentName}</span>
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{agent.agentName}</span>
                   </div>
                   {selectedAgents.includes(agent.agentId) && (
                     <svg
-                      className="w-5 h-5 text-blue-600"
+                      className="w-5 h-5 text-brand-600"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -264,21 +264,21 @@ export default function AgentPerformanceRadar({
 
           {/* Overall Rankings */}
           <div>
-            <h4 className="text-sm font-medium text-neutral-700 mb-3">Overall Rankings</h4>
+            <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">Overall Rankings</h4>
             <div className="space-y-2">
               {overallScores.slice(0, 5).map((score, index) => (
                 <div
                   key={score.agentId}
-                  className="flex items-center justify-between p-2 rounded bg-neutral-50"
+                  className="flex items-center justify-between p-2 rounded bg-neutral-50 dark:bg-neutral-700"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-neutral-400">#{index + 1}</span>
-                    <span className="text-sm text-neutral-900">{score.agentName}</span>
+                    <span className="text-sm text-neutral-900 dark:text-neutral-100">{score.agentName}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-16 h-2 bg-neutral-200 rounded-full overflow-hidden">
+                    <div className="w-16 h-2 bg-neutral-200 dark:bg-neutral-600 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 rounded-full"
+                        className="h-full bg-brand-600 rounded-full"
                         style={{ width: `${score.score}%` }}
                       />
                     </div>
@@ -292,26 +292,26 @@ export default function AgentPerformanceRadar({
       </div>
 
       {/* Metric Definitions */}
-      <div className="mt-6 pt-6 border-t border-neutral-200">
-        <h4 className="text-sm font-medium text-neutral-700 mb-3">Metric Definitions</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs text-neutral-600">
+      <div className="mt-6 pt-6 border-t border-neutral-200 dark:border-neutral-700">
+        <h4 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-3">Metric Definitions</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs text-neutral-600 dark:text-neutral-400">
           <div>
-            <span className="font-medium text-neutral-900">Resolution Speed:</span> Average time to resolve tickets
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">Resolution Speed:</span> Average time to resolve tickets
           </div>
           <div>
-            <span className="font-medium text-neutral-900">CSAT:</span> Customer satisfaction score
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">CSAT:</span> Customer satisfaction score
           </div>
           <div>
-            <span className="font-medium text-neutral-900">Volume:</span> Number of tickets handled
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">Volume:</span> Number of tickets handled
           </div>
           <div>
-            <span className="font-medium text-neutral-900">SLA:</span> SLA compliance rate
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">SLA:</span> SLA compliance rate
           </div>
           <div>
-            <span className="font-medium text-neutral-900">Response Time:</span> First response speed
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">Response Time:</span> First response speed
           </div>
           <div>
-            <span className="font-medium text-neutral-900">Knowledge:</span> Knowledge base contributions
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">Knowledge:</span> Knowledge base contributions
           </div>
         </div>
       </div>

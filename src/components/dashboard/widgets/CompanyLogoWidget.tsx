@@ -33,8 +33,8 @@ export function CompanyLogoWidget({
             className={`mx-auto ${sizeClasses[config.size]} object-contain`}
           />
         ) : (
-          <div className={`mx-auto ${sizeClasses[config.size]} bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center`}>
-            <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">
+          <div className={`mx-auto ${sizeClasses[config.size]} bg-brand-100 dark:bg-brand-900/20 rounded-lg flex items-center justify-center`}>
+            <span className="text-brand-600 dark:text-brand-400 font-bold text-lg">
               {(config.companyName || 'Company').charAt(0)}
             </span>
           </div>
