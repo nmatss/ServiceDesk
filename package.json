@@ -123,7 +123,6 @@
     "@tailwindcss/typography": "^0.5.19",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^9.6.0",
     "bull": "^4.16.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -166,12 +165,15 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "speakeasy": "^2.0.0",
-    "sqlite": "^5.1.1",
     "tailwind-merge": "^3.3.1",
     "uuid": "^13.0.0",
     "web-push": "^1.0.2",
     "winston": "^3.18.3",
     "zod": "^4.1.11"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^9.6.0",
+    "sqlite": "^5.1.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
