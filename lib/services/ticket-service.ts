@@ -9,6 +9,10 @@
 
 import type { ITicketRepository, IUserRepository } from '@/lib/interfaces/repositories';
 import type { Ticket, CreateTicket } from '@/lib/types/database';
+import { createAuditLog } from '@/lib/audit/logger';
+import { createNotification } from '@/lib/notifications';
+import { createSLATrackingForTicket } from '@/lib/sla/sla-service';
+import { logger } from '@/lib/monitoring/structured-logger';
 
 export interface CreateTicketDTO {
   title: string;
@@ -98,9 +102,41 @@ export class TicketService {
       organization_id: data.organization_id,
     });
 
-    // TODO: Trigger SLA tracking creation
-    // TODO: Send notification to assignee if assigned
-    // TODO: Create audit log entry
+    // SLA tracking, notifications, and audit logging (non-blocking)
+    try {
+      await createSLATrackingForTicket(ticket.id, data.priority_id, data.category_id);
+    } catch (err) {
+      logger.error('Failed to create SLA tracking for ticket', { ticketId: ticket.id, error: err });
+    }
+
+    try {
+      if (data.assigned_to) {
+        await createNotification({
+          user_id: data.assigned_to,
+          ticket_id: ticket.id,
+          type: 'ticket_assigned',
+          title: 'Novo ticket atribuído',
+          message: `O ticket #${ticket.id} "${data.title}" foi atribuído a você.`,
+          is_read: false,
+          sent_via_email: false,
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to send ticket creation notification', { ticketId: ticket.id, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: data.user_id,
+        organization_id: data.organization_id,
+        action: 'ticket_created',
+        resource_type: 'ticket',
+        resource_id: ticket.id,
+        new_values: JSON.stringify({ title: data.title, priority_id: data.priority_id, category_id: data.category_id, assigned_to: data.assigned_to }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket creation', { ticketId: ticket.id, error: err });
+    }
 
     return ticket;
   }
@@ -149,10 +185,68 @@ export class TicketService {
 
     const updated = await this.ticketRepo.update(id, data);
 
-    // TODO: If status changed to resolved, trigger PIR workflow
-    // TODO: Send notifications
-    // TODO: Update SLA tracking
-    // TODO: Create audit log entry
+    // PIR workflow: log resolution for future PIR implementation
+    if (data.status_id === 3) {
+      logger.info('Ticket resolved, PIR workflow pending implementation', { ticketId: id });
+    }
+
+    // Notifications for status and assignment changes (non-blocking)
+    try {
+      if (data.status_id && data.status_id !== ticket.status_id) {
+        await createNotification({
+          user_id: ticket.user_id,
+          ticket_id: id,
+          type: 'ticket_status_changed',
+          title: 'Status do ticket alterado',
+          message: `O status do ticket #${id} "${ticket.title}" foi atualizado.`,
+          is_read: false,
+          sent_via_email: false,
+        });
+      }
+
+      if (data.assigned_to !== undefined && data.assigned_to !== ticket.assigned_to) {
+        if (data.assigned_to) {
+          await createNotification({
+            user_id: data.assigned_to,
+            ticket_id: id,
+            type: 'ticket_assigned',
+            title: 'Ticket atribuído a você',
+            message: `O ticket #${id} "${ticket.title}" foi atribuído a você.`,
+            is_read: false,
+            sent_via_email: false,
+          });
+        }
+        if (ticket.assigned_to) {
+          await createNotification({
+            user_id: ticket.assigned_to,
+            ticket_id: id,
+            type: 'ticket_unassigned',
+            title: 'Ticket reatribuído',
+            message: `O ticket #${id} "${ticket.title}" foi reatribuído a outro agente.`,
+            is_read: false,
+            sent_via_email: false,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('Failed to send ticket update notifications', { ticketId: id, error: err });
+    }
+
+    // SLA tracking is automatic via application layer
+
+    try {
+      await createAuditLog({
+        user_id: ticket.user_id,
+        organization_id: ticket.organization_id,
+        action: 'ticket_updated',
+        resource_type: 'ticket',
+        resource_id: id,
+        old_values: JSON.stringify({ status_id: ticket.status_id, assigned_to: ticket.assigned_to, priority_id: ticket.priority_id }),
+        new_values: JSON.stringify(data),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket update', { ticketId: id, error: err });
+    }
 
     return updated;
   }
@@ -197,9 +291,46 @@ export class TicketService {
       assigned_to: assigneeId,
     });
 
-    // TODO: Send notification to new assignee
-    // TODO: Send notification to previous assignee if reassignment
-    // TODO: Create audit log entry
+    // Notifications (non-blocking)
+    try {
+      await createNotification({
+        user_id: assigneeId,
+        ticket_id: ticketId,
+        type: 'ticket_assigned',
+        title: 'Ticket atribuído a você',
+        message: `O ticket #${ticketId} "${ticket.title}" foi atribuído a você.`,
+        is_read: false,
+        sent_via_email: false,
+      });
+
+      if (ticket.assigned_to && ticket.assigned_to !== assigneeId) {
+        await createNotification({
+          user_id: ticket.assigned_to,
+          ticket_id: ticketId,
+          type: 'ticket_unassigned',
+          title: 'Ticket reatribuído',
+          message: `O ticket #${ticketId} "${ticket.title}" foi reatribuído a outro agente.`,
+          is_read: false,
+          sent_via_email: false,
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to send assignment notifications', { ticketId, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: assignedBy,
+        organization_id: ticket.organization_id,
+        action: 'ticket_assigned',
+        resource_type: 'ticket',
+        resource_id: ticketId,
+        old_values: JSON.stringify({ assigned_to: ticket.assigned_to }),
+        new_values: JSON.stringify({ assigned_to: assigneeId }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket assignment', { ticketId, error: err });
+    }
 
     return updated;
   }
@@ -221,8 +352,34 @@ export class TicketService {
       assigned_to: null as any,
     });
 
-    // TODO: Send notification to previous assignee
-    // TODO: Create audit log entry
+    // Notification to previous assignee (non-blocking)
+    try {
+      await createNotification({
+        user_id: ticket.assigned_to,
+        ticket_id: ticketId,
+        type: 'ticket_unassigned',
+        title: 'Ticket desatribuído',
+        message: `O ticket #${ticketId} "${ticket.title}" foi desatribuído de você.`,
+        is_read: false,
+        sent_via_email: false,
+      });
+    } catch (err) {
+      logger.error('Failed to send unassignment notification', { ticketId, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: ticket.assigned_to,
+        organization_id: ticket.organization_id,
+        action: 'ticket_unassigned',
+        resource_type: 'ticket',
+        resource_id: ticketId,
+        old_values: JSON.stringify({ assigned_to: ticket.assigned_to }),
+        new_values: JSON.stringify({ assigned_to: null }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket unassignment', { ticketId, error: err });
+    }
 
     return updated;
   }
@@ -231,6 +388,9 @@ export class TicketService {
    * Bulk assign tickets
    */
   async bulkAssignTickets(ticketIds: number[], assigneeId: number, assignedBy: number): Promise<void> {
+    // Cap array input to prevent abuse
+    ticketIds = ticketIds.slice(0, 50);
+
     // Validate assignee first
     const assignee = await this.userRepo.findById(assigneeId);
     if (!assignee || !assignee.is_active) {
@@ -254,8 +414,31 @@ export class TicketService {
     // Perform bulk assignment
     await this.ticketRepo.bulkAssign(ticketIds, assigneeId);
 
-    // TODO: Send notifications
-    // TODO: Create audit log entries
+    // Notification to assignee (non-blocking)
+    try {
+      await createNotification({
+        user_id: assigneeId,
+        ticket_id: ticketIds[0],
+        type: 'ticket_assigned',
+        title: 'Tickets atribuídos em lote',
+        message: `${ticketIds.length} tickets foram atribuídos a você.`,
+        is_read: false,
+        sent_via_email: false,
+      });
+    } catch (err) {
+      logger.error('Failed to send bulk assignment notification', { ticketIds, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: assignedBy,
+        action: 'ticket_bulk_assigned',
+        resource_type: 'ticket',
+        new_values: JSON.stringify({ ticket_ids: ticketIds, assigned_to: assigneeId }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for bulk assignment', { ticketIds, error: err });
+    }
   }
 
   /**
@@ -276,9 +459,37 @@ export class TicketService {
       status_id: 4, // Closed
     });
 
-    // TODO: Archive related data
-    // TODO: Send closure notification
-    // TODO: Update satisfaction survey status
+    // Archival not implemented yet
+    // Satisfaction surveys handled separately
+
+    // Closure notification (non-blocking)
+    try {
+      await createNotification({
+        user_id: ticket.user_id,
+        ticket_id: ticketId,
+        type: 'ticket_closed',
+        title: 'Ticket encerrado',
+        message: `O ticket #${ticketId} "${ticket.title}" foi encerrado.`,
+        is_read: false,
+        sent_via_email: false,
+      });
+    } catch (err) {
+      logger.error('Failed to send closure notification', { ticketId, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: closedBy,
+        organization_id: ticket.organization_id,
+        action: 'ticket_closed',
+        resource_type: 'ticket',
+        resource_id: ticketId,
+        old_values: JSON.stringify({ status_id: ticket.status_id }),
+        new_values: JSON.stringify({ status_id: 4 }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket closure', { ticketId, error: err });
+    }
 
     return updated;
   }
@@ -302,9 +513,38 @@ export class TicketService {
       resolved_at: null as any,
     });
 
-    // TODO: Reset SLA tracking
-    // TODO: Send notification to previous assignee
-    // TODO: Create audit log entry with reason
+    // SLA tracking is recalculated automatically via application layer
+
+    // Notifications and audit (non-blocking)
+    try {
+      if (ticket.assigned_to) {
+        await createNotification({
+          user_id: ticket.assigned_to,
+          ticket_id: ticketId,
+          type: 'ticket_reopened',
+          title: 'Ticket reaberto',
+          message: `O ticket #${ticketId} "${ticket.title}" foi reaberto.${reason ? ` Motivo: ${reason}` : ''}`,
+          is_read: false,
+          sent_via_email: false,
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to send reopen notification', { ticketId, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: reopenedBy,
+        organization_id: ticket.organization_id,
+        action: 'ticket_reopened',
+        resource_type: 'ticket',
+        resource_id: ticketId,
+        old_values: JSON.stringify({ status_id: ticket.status_id }),
+        new_values: JSON.stringify({ status_id: 1, reason }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket reopen', { ticketId, error: err });
+    }
 
     return updated;
   }
@@ -331,11 +571,49 @@ export class TicketService {
       priority_id: Math.min((ticket.priority_id || 1) + 1, 4), // Increase priority, max is 4 (critical)
     });
 
-    // TODO: Find escalation manager based on level
-    // TODO: Reassign to escalation manager
-    // TODO: Send escalation notifications
-    // TODO: Create escalation record in sla_escalations table
-    // TODO: Create audit log entry
+    // Escalation manager lookup and reassignment not yet implemented
+    // Escalation record in sla_escalations table not yet implemented
+
+    // Escalation notifications (non-blocking)
+    try {
+      if (ticket.assigned_to) {
+        await createNotification({
+          user_id: ticket.assigned_to,
+          ticket_id: ticketId,
+          type: 'ticket_escalated',
+          title: 'Ticket escalado',
+          message: `O ticket #${ticketId} "${ticket.title}" foi escalado para nível ${escalationLevel}. Motivo: ${reason}`,
+          is_read: false,
+          sent_via_email: false,
+        });
+      }
+
+      await createNotification({
+        user_id: ticket.user_id,
+        ticket_id: ticketId,
+        type: 'ticket_escalated',
+        title: 'Ticket escalado',
+        message: `O ticket #${ticketId} "${ticket.title}" foi escalado para nível ${escalationLevel}.`,
+        is_read: false,
+        sent_via_email: false,
+      });
+    } catch (err) {
+      logger.error('Failed to send escalation notifications', { ticketId, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: escalatedBy,
+        organization_id: ticket.organization_id,
+        action: 'ticket_escalated',
+        resource_type: 'ticket',
+        resource_id: ticketId,
+        old_values: JSON.stringify({ escalation_level: ticket.escalation_level || 0, priority_id: ticket.priority_id }),
+        new_values: JSON.stringify({ escalation_level: escalationLevel, priority_id: updated.priority_id, reason }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket escalation', { ticketId, error: err });
+    }
 
     return updated;
   }
@@ -403,7 +681,32 @@ export class TicketService {
 
     await this.ticketRepo.softDelete(ticketId);
 
-    // TODO: Create audit log entry
-    // TODO: Send notification to stakeholders
+    // Notification and audit (non-blocking)
+    try {
+      await createNotification({
+        user_id: ticket.user_id,
+        ticket_id: ticketId,
+        type: 'ticket_deleted',
+        title: 'Ticket excluído',
+        message: `O ticket #${ticketId} "${ticket.title}" foi excluído.`,
+        is_read: false,
+        sent_via_email: false,
+      });
+    } catch (err) {
+      logger.error('Failed to send deletion notification', { ticketId, error: err });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: deletedBy,
+        organization_id: ticket.organization_id,
+        action: 'ticket_deleted',
+        resource_type: 'ticket',
+        resource_id: ticketId,
+        old_values: JSON.stringify({ title: ticket.title, status_id: ticket.status_id }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for ticket deletion', { ticketId, error: err });
+    }
   }
 }

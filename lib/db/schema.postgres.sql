@@ -1927,6 +1927,49 @@ CREATE TABLE IF NOT EXISTS lgpd_consents (
 
 CREATE INDEX IF NOT EXISTS idx_lgpd_consents_user_type ON lgpd_consents(user_id, consent_type);
 
+-- LGPD Data Subject Requests
+CREATE TABLE IF NOT EXISTS lgpd_data_subject_requests (
+    id TEXT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    request_type VARCHAR(50) NOT NULL CHECK (request_type IN ('access', 'rectification', 'erasure', 'portability', 'objection', 'restriction')),
+    description TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'rejected')),
+    verification_method VARCHAR(50) CHECK (verification_method IN ('email', 'phone', 'document', 'govbr', 'in_person', 'web')),
+    verification_data JSONB,
+    processing_log JSONB,
+    response JSONB,
+    responded_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_lgpd_dsr_user ON lgpd_data_subject_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_lgpd_dsr_type ON lgpd_data_subject_requests(request_type);
+CREATE INDEX IF NOT EXISTS idx_lgpd_dsr_status ON lgpd_data_subject_requests(status);
+
+-- LGPD Audit Logs
+CREATE TABLE IF NOT EXISTS lgpd_audit_logs (
+    id TEXT PRIMARY KEY,
+    timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+    user_id BIGINT,
+    data_subject TEXT,
+    action VARCHAR(100) NOT NULL,
+    data_category VARCHAR(100) NOT NULL,
+    purpose TEXT NOT NULL,
+    legal_basis VARCHAR(100) NOT NULL,
+    details JSONB,
+    performed_by BIGINT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    consent_id TEXT,
+    data_retention_applied BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_lgpd_audit_action ON lgpd_audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_lgpd_audit_user ON lgpd_audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_lgpd_audit_timestamp ON lgpd_audit_logs(timestamp);
+
 -- Integrations
 CREATE TABLE IF NOT EXISTS integrations (
     id BIGSERIAL PRIMARY KEY,

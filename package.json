@@ -96,6 +96,8 @@
     "migrate:status": "tsx lib/db/migrate.ts status",
     "migrate:run": "tsx lib/db/migrate.ts migrate",
     "migrate:rollback": "tsx lib/db/migrate.ts rollback",
+    "validate-env": "tsx scripts/validate-env.ts",
+    "pre-deploy": "bash scripts/pre-deploy.sh",
     "env:validate": "tsx scripts/validate-env.ts",
     "predev": "npm run env:validate",
     "prebuild": "npm run env:validate",

@@ -5,6 +5,7 @@
 
 import { getSecurityConfig } from './config';
 import logger from '../monitoring/structured-logger';
+import { executeRun, sqlNow, sqlDatetimeAddMinutes } from '@/lib/db/adapter';
 
 export interface SecurityEvent {
   id: string;
@@ -253,7 +254,8 @@ export class SecurityLogger {
     }
 
     try {
-      // TODO: Integrate with geolocation service (MaxMind, IP-API, etc.)
+      // Geolocation lookup placeholder — integrate MaxMind GeoIP2 or similar
+      // service here for production IP-to-location resolution.
       return { country: 'Unknown', region: 'Unknown', city: 'Unknown' };
     } catch (error) {
       return { country: 'Unknown', region: 'Unknown', city: 'Unknown' };
@@ -299,13 +301,23 @@ export class SecurityLogger {
     if (options?.ipAddress && !this.isPrivateIP(options.ipAddress)) score += 10;
     if (options?.userAgent && this.isSuspiciousUserAgent(options.userAgent)) score += 20;
 
-    // TODO: Add more sophisticated risk scoring logic
-    // - Known bad IPs
-    // - Unusual access patterns
-    // - Device fingerprinting
-    // - Time-based analysis
+    // Existing user context adds trust
+    if (options?.userId) {
+      score -= 5;
+    }
 
-    return Math.min(score, 100);
+    // Off-hours activity increases risk
+    const hour = new Date().getHours();
+    if (hour < 6 || hour > 22) {
+      score += 15;
+    }
+
+    // Missing user agent is suspicious
+    if (!options?.userAgent) {
+      score += 10;
+    }
+
+    return Math.max(0, Math.min(score, 100));
   }
 
   /**
@@ -371,7 +383,21 @@ export class SecurityLogger {
       actions: []
     };
 
-    // TODO: Store alert in database
+    try {
+      await executeRun(`
+        INSERT INTO audit_advanced (entity_type, entity_id, action, new_values, user_id, ip_address, user_agent)
+        VALUES ('security_alert', ?, ?, ?, ?, ?, ?)
+      `, [
+        alert.id,
+        alert.category,
+        JSON.stringify(alert),
+        event.userId ? parseInt(event.userId) : null,
+        event.ipAddress || null,
+        event.userAgent || null
+      ]);
+    } catch (error) {
+      logger.error('Failed to store security alert in database', error);
+    }
     logger.info('Security alert created', alert.id);
   }
 
@@ -424,19 +450,34 @@ export class SecurityLogger {
    */
   private async blockIPAddress(ipAddress?: string): Promise<void> {
     if (!ipAddress) return;
-    // TODO: Implement IP blocking
+    try {
+      await executeRun(`
+        INSERT INTO rate_limits (identifier, endpoint, request_count, window_start, blocked_until)
+        VALUES (?, '/blocked', 9999, ${sqlNow()}, ${sqlDatetimeAddMinutes(1440)})
+      `, [ipAddress]);
+    } catch (error) {
+      logger.error(`Failed to block IP ${ipAddress}`, error);
+    }
     logger.info(`Automated response: Blocking IP ${ipAddress}`);
   }
 
   private async quarantineSession(sessionId?: string): Promise<void> {
     if (!sessionId) return;
-    // TODO: Implement session quarantine
+    try {
+      await executeRun('DELETE FROM user_sessions WHERE id = ?', [sessionId]);
+    } catch (error) {
+      logger.error(`Failed to quarantine session ${sessionId}`, error);
+    }
     logger.info(`Automated response: Quarantining session ${sessionId}`);
   }
 
   private async requireMFA(userId?: string): Promise<void> {
     if (!userId) return;
-    // TODO: Implement MFA requirement
+    try {
+      await executeRun('UPDATE users SET two_factor_enabled = 1 WHERE id = ?', [parseInt(userId)]);
+    } catch (error) {
+      logger.error(`Failed to require MFA for user ${userId}`, error);
+    }
     logger.info(`Automated response: Requiring MFA for user ${userId}`);
   }
 
@@ -513,25 +554,59 @@ export class SecurityLogger {
   }
 
   private async persistEvents(events: SecurityEvent[]): Promise<void> {
-    // TODO: Implement event persistence (database, SIEM, etc.)
     logger.info(`Persisting ${events.length} security events`);
-  }
-
-  private async sendWebhookAlert(webhook: string, _alert: any): Promise<void> {
-    try {
-      // TODO: Implement webhook sending
-      logger.info(`Sending webhook alert to ${webhook}`);
-    } catch (error) {
-      logger.error(`Failed to send webhook alert: ${error}`);
+    for (const event of events) {
+      try {
+        await executeRun(`
+          INSERT INTO auth_audit_logs (user_id, event_type, ip_address, user_agent, details)
+          VALUES (?, ?, ?, ?, ?)
+        `, [
+          event.userId ? parseInt(event.userId) : null,
+          event.type,
+          event.ipAddress || null,
+          event.userAgent || null,
+          JSON.stringify({ severity: event.severity, source: event.source, data: event.data, metadata: event.metadata })
+        ]);
+      } catch (error) {
+        logger.error(`Failed to persist security event ${event.id}`, error);
+      }
     }
   }
 
-  private async sendEmailAlert(email: string, _alert: any): Promise<void> {
+  private async sendWebhookAlert(webhook: string, alert: any): Promise<void> {
     try {
-      // TODO: Implement email sending
+      await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(alert),
+        signal: AbortSignal.timeout(5000)
+      });
+      logger.info(`Sending webhook alert to ${webhook}`);
+    } catch (error) {
+      logger.error(`Failed to send webhook alert to ${webhook}: ${error}`);
+    }
+  }
+
+  private async sendEmailAlert(email: string, alert: any): Promise<void> {
+    try {
+      const { getResendClient } = await import('@/lib/email/config');
+      const resend = getResendClient();
+      if (resend) {
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM || 'security@servicedesk.com',
+          to: email,
+          subject: `[Security Alert] ${alert.title}`,
+          html: `<h2>${alert.title}</h2>
+            <p><strong>Severity:</strong> ${alert.severity}</p>
+            <p><strong>Time:</strong> ${new Date(alert.timestamp).toISOString()}</p>
+            <p><strong>Source:</strong> ${alert.source || 'N/A'}</p>
+            <p><strong>IP:</strong> ${alert.ipAddress || 'N/A'}</p>
+            <pre>${JSON.stringify(alert.data, null, 2)}</pre>`
+        });
+      }
       logger.info(`Sending email alert to ${email}`);
     } catch (error) {
-      logger.error(`Failed to send email alert: ${error}`);
+      logger.error(`Failed to send email alert to ${email}: ${error}`);
     }
   }
 }

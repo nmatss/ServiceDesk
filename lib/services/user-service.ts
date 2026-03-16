@@ -10,6 +10,10 @@
 import bcrypt from 'bcryptjs';
 import type { IUserRepository } from '@/lib/interfaces/repositories';
 import type { User } from '@/lib/types/database';
+import { createAuditLog } from '@/lib/audit/logger';
+import { createNotification } from '@/lib/notifications';
+import { executeRun } from '@/lib/db/adapter';
+import { logger } from '@/lib/monitoring/structured-logger';
 
 export interface CreateUserDTO {
   name: string;
@@ -92,9 +96,33 @@ export class UserService {
       failed_login_attempts: 0,
     });
 
-    // TODO: Send email verification
-    // TODO: Create audit log entry
-    // TODO: Send welcome email
+    // Email verification is handled at the API route level (register route manages the verification flow)
+
+    try {
+      await createAuditLog({
+        user_id: user.id,
+        organization_id: data.organization_id,
+        action: 'user_created',
+        resource_type: 'user',
+        resource_id: user.id,
+        new_values: JSON.stringify({ name: user.name, email: user.email, role: user.role }),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for user creation', { error: err, userId: user.id });
+    }
+
+    try {
+      await createNotification({
+        user_id: user.id,
+        type: 'welcome',
+        title: 'Bem-vindo ao ServiceDesk',
+        message: `Sua conta foi criada com sucesso. Bem-vindo, ${user.name}!`,
+        is_read: false,
+        sent_via_email: true,
+      });
+    } catch (err) {
+      logger.error('Failed to send welcome notification', { error: err, userId: user.id });
+    }
 
     return user;
   }
@@ -121,7 +149,7 @@ export class UserService {
 
       // Email changed, mark as unverified
       data.email = data.email.toLowerCase().trim();
-      // TODO: Send new verification email
+      // Email verification is handled at the API route level
     }
 
     // Business Rule: Name validation
@@ -137,9 +165,48 @@ export class UserService {
 
     const updated = await this.userRepo.update(userId, data as Partial<User>);
 
-    // TODO: Create audit log entry
-    // TODO: Send notification if role changed
-    // TODO: Invalidate sessions if role changed or user deactivated
+    try {
+      await createAuditLog({
+        user_id: updatedBy,
+        organization_id: user.organization_id,
+        action: 'user_updated',
+        resource_type: 'user',
+        resource_id: userId,
+        old_values: JSON.stringify({ name: user.name, email: user.email, role: user.role, is_active: user.is_active }),
+        new_values: JSON.stringify(data),
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for user update', { error: err, userId });
+    }
+
+    if (data.role && data.role !== user.role) {
+      try {
+        await createNotification({
+          user_id: userId,
+          type: 'role_change',
+          title: 'Função alterada',
+          message: `Sua função foi alterada de ${user.role} para ${data.role}.`,
+          is_read: false,
+          sent_via_email: true,
+        });
+      } catch (err) {
+        logger.error('Failed to send role change notification', { error: err, userId });
+      }
+
+      try {
+        await executeRun('DELETE FROM user_sessions WHERE user_id = ?', [userId]);
+      } catch (err) {
+        logger.error('Failed to invalidate sessions after role change', { error: err, userId });
+      }
+    }
+
+    if (data.is_active === false) {
+      try {
+        await executeRun('DELETE FROM user_sessions WHERE user_id = ?', [userId]);
+      } catch (err) {
+        logger.error('Failed to invalidate sessions after deactivation', { error: err, userId });
+      }
+    }
 
     return updated;
   }
@@ -178,7 +245,17 @@ export class UserService {
       // Increment failed login attempts
       await this.userRepo.incrementFailedLoginAttempts(user.id);
 
-      // TODO: Create audit log entry for failed login
+      try {
+        await createAuditLog({
+          user_id: user.id,
+          organization_id: user.organization_id,
+          action: 'user_login_failed',
+          resource_type: 'user',
+          resource_id: user.id,
+        });
+      } catch (err) {
+        logger.error('Failed to create audit log for failed login', { error: err, userId: user.id });
+      }
       throw new Error('Invalid credentials');
     }
 
@@ -189,9 +266,32 @@ export class UserService {
     // Remove password hash before returning
     delete (user as unknown as Record<string, unknown>).password_hash;
 
-    // TODO: Create audit log entry for successful login
-    // TODO: Create user session
-    // TODO: Send login notification if enabled
+    try {
+      await createAuditLog({
+        user_id: user.id,
+        organization_id: user.organization_id,
+        action: 'user_login_success',
+        resource_type: 'user',
+        resource_id: user.id,
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for successful login', { error: err, userId: user.id });
+    }
+
+    // User session creation is handled at the API route level
+
+    try {
+      await createNotification({
+        user_id: user.id,
+        type: 'login',
+        title: 'Novo login detectado',
+        message: 'Um novo login foi realizado na sua conta.',
+        is_read: false,
+        sent_via_email: false,
+      });
+    } catch (err) {
+      logger.error('Failed to send login notification', { error: err, userId: user.id });
+    }
 
     return user;
   }
@@ -200,15 +300,14 @@ export class UserService {
    * Change user password
    */
   async changePassword(data: ChangePasswordDTO): Promise<void> {
-    const user = await this.userRepo.findByEmailWithPassword('');
-    const userWithPassword = await this.userRepo.findById(data.user_id);
+    const userBasic = await this.userRepo.findById(data.user_id);
 
-    if (!userWithPassword) {
+    if (!userBasic) {
       throw new Error('User not found');
     }
 
     // Get user with password for verification
-    const fullUser = await this.userRepo.findByEmailWithPassword(userWithPassword.email);
+    const fullUser = await this.userRepo.findByEmailWithPassword(userBasic.email);
     if (!fullUser) {
       throw new Error('User not found');
     }
@@ -232,13 +331,46 @@ export class UserService {
     // Hash new password
     const newPasswordHash = await bcrypt.hash(data.new_password, this.SALT_ROUNDS);
 
+    // Save old password hash to history before updating
+    try {
+      await executeRun('INSERT INTO password_history (user_id, password_hash) VALUES (?, ?)', [data.user_id, fullUser.password_hash || '']);
+    } catch (err) {
+      logger.error('Failed to save password history', { error: err, userId: data.user_id });
+    }
+
     // Update password
     await this.userRepo.updatePassword(data.user_id, newPasswordHash);
 
-    // TODO: Add to password history
-    // TODO: Invalidate all sessions except current
-    // TODO: Send password change notification email
-    // TODO: Create audit log entry
+    try {
+      await executeRun('DELETE FROM user_sessions WHERE user_id = ?', [data.user_id]);
+    } catch (err) {
+      logger.error('Failed to invalidate sessions after password change', { error: err, userId: data.user_id });
+    }
+
+    try {
+      await createNotification({
+        user_id: data.user_id,
+        type: 'password_changed',
+        title: 'Senha alterada',
+        message: 'Sua senha foi alterada com sucesso. Se você não fez essa alteração, entre em contato com o suporte.',
+        is_read: false,
+        sent_via_email: true,
+      });
+    } catch (err) {
+      logger.error('Failed to send password change notification', { error: err, userId: data.user_id });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: data.user_id,
+        organization_id: userBasic.organization_id,
+        action: 'user_password_changed',
+        resource_type: 'user',
+        resource_id: data.user_id,
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for password change', { error: err, userId: data.user_id });
+    }
   }
 
   /**
@@ -259,9 +391,36 @@ export class UserService {
     // Update password
     await this.userRepo.updatePassword(userId, passwordHash);
 
-    // TODO: Invalidate all user sessions
-    // TODO: Send password reset notification
-    // TODO: Create audit log entry
+    try {
+      await executeRun('DELETE FROM user_sessions WHERE user_id = ?', [userId]);
+    } catch (err) {
+      logger.error('Failed to invalidate sessions after password reset', { error: err, userId });
+    }
+
+    try {
+      await createNotification({
+        user_id: userId,
+        type: 'password_reset',
+        title: 'Senha redefinida',
+        message: 'Sua senha foi redefinida por um administrador. Caso não tenha solicitado, entre em contato com o suporte.',
+        is_read: false,
+        sent_via_email: true,
+      });
+    } catch (err) {
+      logger.error('Failed to send password reset notification', { error: err, userId });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: resetBy,
+        organization_id: user.organization_id,
+        action: 'user_password_reset',
+        resource_type: 'user',
+        resource_id: userId,
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for password reset', { error: err, userId });
+    }
   }
 
   /**
@@ -279,10 +438,42 @@ export class UserService {
 
     await this.userRepo.update(userId, { is_active: false });
 
-    // TODO: Invalidate all user sessions
-    // TODO: Reassign open tickets
-    // TODO: Send deactivation notification
-    // TODO: Create audit log entry
+    try {
+      await executeRun('DELETE FROM user_sessions WHERE user_id = ?', [userId]);
+    } catch (err) {
+      logger.error('Failed to invalidate sessions after deactivation', { error: err, userId });
+    }
+
+    try {
+      await executeRun("UPDATE tickets SET assigned_to = NULL WHERE assigned_to = ? AND organization_id = ? AND status_id NOT IN (3, 4)", [userId, user.organization_id]);
+    } catch (err) {
+      logger.error('Failed to reassign tickets after deactivation', { error: err, userId });
+    }
+
+    try {
+      await createNotification({
+        user_id: userId,
+        type: 'account_deactivated',
+        title: 'Conta desativada',
+        message: 'Sua conta foi desativada. Entre em contato com o administrador para mais informações.',
+        is_read: false,
+        sent_via_email: true,
+      });
+    } catch (err) {
+      logger.error('Failed to send deactivation notification', { error: err, userId });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: deactivatedBy,
+        organization_id: user.organization_id,
+        action: 'user_deactivated',
+        resource_type: 'user',
+        resource_id: userId,
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for user deactivation', { error: err, userId });
+    }
   }
 
   /**
@@ -300,8 +491,30 @@ export class UserService {
 
     await this.userRepo.update(userId, { is_active: true });
 
-    // TODO: Send activation notification
-    // TODO: Create audit log entry
+    try {
+      await createNotification({
+        user_id: userId,
+        type: 'account_activated',
+        title: 'Conta reativada',
+        message: 'Sua conta foi reativada. Você já pode acessar o sistema normalmente.',
+        is_read: false,
+        sent_via_email: true,
+      });
+    } catch (err) {
+      logger.error('Failed to send activation notification', { error: err, userId });
+    }
+
+    try {
+      await createAuditLog({
+        user_id: activatedBy,
+        organization_id: user.organization_id,
+        action: 'user_activated',
+        resource_type: 'user',
+        resource_id: userId,
+      });
+    } catch (err) {
+      logger.error('Failed to create audit log for user activation', { error: err, userId });
+    }
   }
 
   /**

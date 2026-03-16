@@ -2057,6 +2057,50 @@ CREATE TABLE IF NOT EXISTS lgpd_consents (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- LGPD Data Subject Requests
+CREATE TABLE IF NOT EXISTS lgpd_data_subject_requests (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    request_type TEXT NOT NULL CHECK (request_type IN ('access', 'rectification', 'erasure', 'portability', 'objection', 'restriction')),
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'rejected')),
+    verification_method TEXT CHECK (verification_method IN ('email', 'phone', 'document', 'govbr', 'in_person', 'web')),
+    verification_data TEXT, -- JSON
+    processing_log TEXT, -- JSON array
+    response TEXT, -- JSON with response data
+    responded_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_lgpd_dsr_user ON lgpd_data_subject_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_lgpd_dsr_type ON lgpd_data_subject_requests(request_type);
+CREATE INDEX IF NOT EXISTS idx_lgpd_dsr_status ON lgpd_data_subject_requests(status);
+
+-- LGPD Audit Logs
+CREATE TABLE IF NOT EXISTS lgpd_audit_logs (
+    id TEXT PRIMARY KEY,
+    timestamp DATETIME NOT NULL,
+    user_id INTEGER,
+    data_subject TEXT,
+    action TEXT NOT NULL,
+    data_category TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    legal_basis TEXT NOT NULL,
+    details TEXT, -- JSON
+    performed_by INTEGER,
+    ip_address TEXT,
+    user_agent TEXT,
+    consent_id TEXT,
+    data_retention_applied BOOLEAN DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_lgpd_audit_action ON lgpd_audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_lgpd_audit_user ON lgpd_audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_lgpd_audit_timestamp ON lgpd_audit_logs(timestamp);
+
 -- ========================================
 -- PERFORMANCE CRITICAL INDEXES (Added by Performance Engineer)
 -- ========================================

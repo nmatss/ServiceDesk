@@ -3,7 +3,7 @@
  * Sistema de conformidade com a Lei Geral de Proteção de Dados (LGPD)
  */
 
-import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import { LGPDConsent, CreateLGPDConsent } from '@/lib/types/database';
 import { createAuditLog } from '@/lib/audit/logger';
 import logger from '../monitoring/structured-logger';
@@ -323,7 +323,7 @@ export class LGPDComplianceManager {
       // Atualiza consentimento
       await executeRun(`
         UPDATE lgpd_consents
-        SET is_given = 0, withdrawn_at = CURRENT_TIMESTAMP, withdrawal_reason = ?
+        SET is_given = 0, withdrawn_at = ${sqlNow()}, withdrawal_reason = ?
         WHERE id = ?
       `, [reason, consentId]);
 
@@ -441,7 +441,7 @@ export class LGPDComplianceManager {
 
       await executeRun(`
         UPDATE lgpd_data_subject_requests
-        SET status = 'completed', responded_at = CURRENT_TIMESTAMP,
+        SET status = 'completed', responded_at = ${sqlNow()},
             response = ?, processing_log = ?
         WHERE id = ?
       `, [
@@ -664,7 +664,7 @@ export class LGPDComplianceManager {
       const activeConsentsRow = await executeQueryOne<{ count: number }>(`
         SELECT COUNT(*) as count
         FROM lgpd_consents
-        WHERE is_given = 1 AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+        WHERE is_given = 1 AND (expires_at IS NULL OR expires_at > ${sqlNow()})
         AND created_at BETWEEN ? AND ?
       `, [period.start, period.end]);
       const activeConsents = activeConsentsRow?.count || 0;
@@ -716,14 +716,14 @@ export class LGPDComplianceManager {
           total_data_subjects: totalDataSubjects,
           active_consents: activeConsents,
           withdrawn_consents: withdrawnConsents,
-          data_subject_requests: 0, // TODO: Implementar
-          data_breaches: 0, // TODO: Implementar
-          data_retention_actions: 0 // TODO: Implementar
+          data_subject_requests: await this.countDataSubjectRequests(period.start, period.end),
+          data_breaches: await this.countDataBreaches(period.start, period.end),
+          data_retention_actions: await this.countRetentionActions(period.start, period.end)
         },
         consent_breakdown: Object.fromEntries(
           consentBreakdown.map(cb => [cb.consent_type, cb.count])
         ),
-        request_breakdown: {}, // TODO: Implementar
+        request_breakdown: await this.getRequestBreakdown(period.start, period.end),
         audit_summary: {
           total_activities: auditSummary.reduce((sum, a) => sum + a.total_activities, 0),
           by_action: Object.fromEntries(
@@ -744,6 +744,56 @@ export class LGPDComplianceManager {
   /**
    * Métodos auxiliares privados
    */
+
+  private async countDataSubjectRequests(start: string, end: string): Promise<number> {
+    try {
+      const row = await executeQueryOne<{ count: number }>(`
+        SELECT COUNT(*) as count FROM lgpd_data_subject_requests
+        WHERE created_at BETWEEN ? AND ?
+      `, [start, end]);
+      return row?.count || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private async countDataBreaches(start: string, end: string): Promise<number> {
+    try {
+      const row = await executeQueryOne<{ count: number }>(`
+        SELECT COUNT(*) as count FROM lgpd_audit_logs
+        WHERE action = 'breach_detected' AND timestamp BETWEEN ? AND ?
+      `, [start, end]);
+      return row?.count || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private async countRetentionActions(start: string, end: string): Promise<number> {
+    try {
+      const row = await executeQueryOne<{ count: number }>(`
+        SELECT COUNT(*) as count FROM lgpd_audit_logs
+        WHERE action = 'data_deletion' AND data_retention_applied = 1 AND timestamp BETWEEN ? AND ?
+      `, [start, end]);
+      return row?.count || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private async getRequestBreakdown(start: string, end: string): Promise<Record<string, number>> {
+    try {
+      const rows = await executeQuery<{ request_type: string; count: number }>(`
+        SELECT request_type, COUNT(*) as count
+        FROM lgpd_data_subject_requests
+        WHERE created_at BETWEEN ? AND ?
+        GROUP BY request_type
+      `, [start, end]);
+      return Object.fromEntries(rows.map(r => [r.request_type, r.count]));
+    } catch {
+      return {};
+    }
+  }
 
   private async getExistingConsent(userId: number, consentType: string): Promise<LGPDConsent | null> {
     const consent = await executeQueryOne(`
@@ -776,14 +826,37 @@ export class LGPDComplianceManager {
     return result || undefined;
   }
 
-  private getActiveRetentionPolicies(_category?: string): LGPDDataRetentionPolicy[] {
-    // TODO: Implementar busca de políticas ativas
-    return [];
+  private getActiveRetentionPolicies(category?: string): LGPDDataRetentionPolicy[] {
+    const allPolicies: LGPDDataRetentionPolicy[] = this.dataCategories.map(cat => ({
+      id: `policy_${cat.id}`,
+      name: `Retenção - ${cat.name}`,
+      description: cat.retention.description,
+      dataCategory: cat.id,
+      retentionPeriod: cat.retention.period,
+      retentionUnit: cat.retention.unit,
+      trigger: 'creation' as const,
+      autoDelete: cat.id === 'behavioral', // Auto-delete behavioral data only
+      archiveBeforeDelete: cat.isSensitiveData,
+      exceptions: cat.id === 'health' ? ['legal_hold', 'active_litigation'] : [],
+      isActive: true
+    }));
+
+    if (category) {
+      return allPolicies.filter(p => p.dataCategory === category);
+    }
+    return allPolicies;
   }
 
   private getApplicableRetentionPolicies(_userId: number): Record<string, unknown>[] {
-    // TODO: Implementar busca de políticas aplicáveis
-    return [];
+    // Return retention policies for all data categories relevant to user data
+    return this.dataCategories.map(cat => ({
+      category: cat.id,
+      name: cat.name,
+      retention_period: cat.retention.period,
+      retention_unit: cat.retention.unit,
+      description: cat.retention.description,
+      is_sensitive: cat.isSensitiveData
+    }));
   }
 
   private calculateCutoffDate(policy: LGPDDataRetentionPolicy): string {
@@ -804,16 +877,77 @@ export class LGPDComplianceManager {
     return now.toISOString();
   }
 
-  private async deleteExpiredBehavioralData(_cutoffDate: string, _userId?: number): Promise<void> {
-    // TODO: Implementar deleção de dados comportamentais
+  private async deleteExpiredBehavioralData(cutoffDate: string, userId?: number): Promise<void> {
+    try {
+      if (userId) {
+        await executeRun(
+          'DELETE FROM analytics_events WHERE created_at < ? AND user_id = ?',
+          [cutoffDate, userId]
+        );
+        await executeRun(
+          'DELETE FROM login_attempts WHERE attempted_at < ? AND user_id = ?',
+          [cutoffDate, userId]
+        );
+      } else {
+        await executeRun(
+          'DELETE FROM analytics_events WHERE created_at < ?',
+          [cutoffDate]
+        );
+        await executeRun(
+          'DELETE FROM login_attempts WHERE attempted_at < ?',
+          [cutoffDate]
+        );
+      }
+      logger.info('Expired behavioral data deleted', { cutoffDate, userId });
+    } catch (error) {
+      logger.error('Failed to delete expired behavioral data', { error, cutoffDate, userId });
+      throw error;
+    }
   }
 
-  private async anonymizeExpiredContactData(_cutoffDate: string, _userId?: number): Promise<void> {
-    // TODO: Implementar anonimização de dados de contato
+  private async anonymizeExpiredContactData(cutoffDate: string, userId?: number): Promise<void> {
+    try {
+      if (userId) {
+        await executeRun(`
+          UPDATE users
+          SET email = 'anonymized_' || id || '@deleted.local', name = 'Usuário Anonimizado'
+          WHERE is_active = 0 AND updated_at < ? AND id = ?
+        `, [cutoffDate, userId]);
+      } else {
+        await executeRun(`
+          UPDATE users
+          SET email = 'anonymized_' || id || '@deleted.local', name = 'Usuário Anonimizado'
+          WHERE is_active = 0 AND updated_at < ?
+        `, [cutoffDate]);
+      }
+      logger.info('Expired contact data anonymized', { cutoffDate, userId });
+    } catch (error) {
+      logger.error('Failed to anonymize expired contact data', { error, cutoffDate, userId });
+      throw error;
+    }
   }
 
-  private async deleteIdentificationData(_userId?: number): Promise<void> {
-    // TODO: Implementar deleção de dados de identificação
+  private async deleteIdentificationData(userId?: number): Promise<void> {
+    try {
+      if (!userId) {
+        logger.warn('deleteIdentificationData called without userId, skipping');
+        return;
+      }
+
+      // Delete PII from govbr_integrations
+      await executeRun('DELETE FROM govbr_integrations WHERE user_id = ?', [userId]);
+
+      // Anonymize user record (remove avatar and metadata)
+      await executeRun(
+        'UPDATE users SET avatar_url = NULL, metadata = NULL WHERE id = ?',
+        [userId]
+      );
+
+      logger.info('Identification data deleted', { userId });
+    } catch (error) {
+      logger.error('Failed to delete identification data', { error, userId });
+      throw error;
+    }
   }
 
   private generateRecommendations(data: {
