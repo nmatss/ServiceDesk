@@ -124,10 +124,21 @@ export default function HomePage() {
       <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 dark:bg-neutral-950/80 backdrop-blur-lg border-b border-neutral-200/60 dark:border-neutral-800/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/favicon.svg" alt="ServiceDesk" width={32} height={32} className="rounded-lg" priority />
-            <span className="text-lg font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
+            <div className="w-9 h-9 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20 flex-shrink-0">
+              <Image src="/favicon.svg" alt="ServiceDesk" width={32} height={32} className="rounded-lg" priority />
+            </div>
+            <div className="leading-none">
+              <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
+              <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+            </div>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="#pricing"
+              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors px-4 py-2 hidden sm:inline-flex"
+            >
+              Planos
+            </Link>
             <Link
               href="/auth/login"
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors px-4 py-2"
@@ -282,6 +293,108 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Pricing Section ──────────────────────────────────────────────────── */}
+      <section id="pricing" className="py-16 sm:py-24 bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-20">
+            <span className="inline-block text-sm font-semibold text-brand-600 dark:text-brand-400 mb-3">Planos</span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">
+              Escolha o plano ideal para sua{' '}
+              <span className="text-brand-600 dark:text-brand-400">equipe</span>
+            </h2>
+            <p className="mt-4 text-lg text-neutral-600 dark:text-neutral-400">
+              Comece gratuitamente e escale conforme sua necessidade.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {/* Starter */}
+            <div className="relative bg-white dark:bg-neutral-800/60 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 p-8 flex flex-col">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Starter</h3>
+              <div className="mt-4 flex items-baseline">
+                <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-50">Gratis</span>
+              </div>
+              <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Para equipes pequenas comecando.</p>
+              <ul className="mt-8 space-y-3 flex-1">
+                {['3 usuarios', '100 tickets/mes', 'Base de conhecimento', 'Suporte por email'].map((f, i) => (
+                  <li key={i} className="flex items-center gap-3 text-sm text-neutral-700 dark:text-neutral-300">
+                    <svg className="w-5 h-5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/register"
+                className="mt-8 w-full inline-flex items-center justify-center border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 font-semibold rounded-xl px-6 py-3 text-sm transition-all"
+              >
+                Comecar gratis
+              </Link>
+            </div>
+
+            {/* Professional — highlighted */}
+            <div className="relative bg-white dark:bg-neutral-800/60 rounded-2xl border-2 border-brand-500 dark:border-brand-400 p-8 flex flex-col shadow-lg shadow-brand-500/10">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full bg-brand-600 text-white text-xs font-semibold">
+                  Mais popular
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Professional</h3>
+              <div className="mt-4 flex items-baseline">
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mr-1">R$</span>
+                <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-50">109</span>
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 ml-1">/mes</span>
+              </div>
+              <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Para equipes em crescimento.</p>
+              <ul className="mt-8 space-y-3 flex-1">
+                {['15 usuarios', '1.000 tickets/mes', 'IA & Copilot', 'ESM completo', 'SLA avancado', 'Integracoes', 'Suporte prioritario'].map((f, i) => (
+                  <li key={i} className="flex items-center gap-3 text-sm text-neutral-700 dark:text-neutral-300">
+                    <svg className="w-5 h-5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/register"
+                className="mt-8 w-full inline-flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl px-6 py-3 text-sm transition-all shadow-lg shadow-brand-600/25"
+              >
+                Comecar agora
+              </Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="relative bg-white dark:bg-neutral-800/60 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/50 p-8 flex flex-col">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Enterprise</h3>
+              <div className="mt-4 flex items-baseline">
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 mr-1">R$</span>
+                <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-50">179</span>
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400 ml-1">/mes</span>
+              </div>
+              <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">Para operacoes complexas.</p>
+              <ul className="mt-8 space-y-3 flex-1">
+                {['Usuarios ilimitados', 'Tickets ilimitados', 'Tudo do Professional', 'SSO/SAML', 'Audit log avancado', 'SLA customizado', 'Suporte dedicado'].map((f, i) => (
+                  <li key={i} className="flex items-center gap-3 text-sm text-neutral-700 dark:text-neutral-300">
+                    <svg className="w-5 h-5 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/auth/register"
+                className="mt-8 w-full inline-flex items-center justify-center border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 font-semibold rounded-xl px-6 py-3 text-sm transition-all"
+              >
+                Comecar agora
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Stats Section ──────────────────────────────────────────────────────── */}
       <section className="py-16 sm:py-24 relative overflow-hidden">
         {/* Background */}
@@ -351,9 +464,14 @@ export default function HomePage() {
       {/* ── Footer ─────────────────────────────────────────────────────────────── */}
       <footer className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <Image src="/favicon.svg" alt="ServiceDesk" width={24} height={24} className="rounded-md" />
-            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">ServiceDesk</span>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Image src="/favicon.svg" alt="ServiceDesk" width={20} height={20} className="rounded-sm" />
+            </div>
+            <div className="leading-none">
+              <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400 tracking-tight">ServiceDesk</span>
+              <span className="text-[8px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+            </div>
           </div>
           <p className="text-xs text-neutral-400 dark:text-neutral-600">
             &copy; {new Date().getFullYear()} ServiceDesk. Todos os direitos reservados.
@@ -364,6 +482,12 @@ export default function HomePage() {
             </Link>
             <Link href="/auth/register" className="text-xs text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
               Criar conta
+            </Link>
+            <Link href="/privacy" className="text-xs text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
+              Privacidade
+            </Link>
+            <Link href="/terms" className="text-xs text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
+              Termos
             </Link>
           </div>
         </div>

@@ -237,6 +237,46 @@ async function insertRegistrationAudit(params: {
   }
 }
 
+async function seedNewOrganization(orgId: number): Promise<void> {
+  try {
+    // Seed default statuses
+    const statuses = ['Novo', 'Em Andamento', 'Aguardando', 'Resolvido', 'Fechado'];
+    const statusColors = ['#3B82F6', '#F59E0B', '#8B5CF6', '#10B981', '#6B7280'];
+    for (let i = 0; i < statuses.length; i++) {
+      await executeRun(
+        `INSERT INTO statuses (name, color, tenant_id, sort_order) VALUES (?, ?, ?, ?)`,
+        [statuses[i], statusColors[i], orgId, i + 1]
+      );
+    }
+
+    // Seed default priorities
+    const priorities = [
+      { name: 'Baixa', color: '#10B981', level: 1 },
+      { name: 'Média', color: '#F59E0B', level: 2 },
+      { name: 'Alta', color: '#F97316', level: 3 },
+      { name: 'Crítica', color: '#EF4444', level: 4 },
+    ];
+    for (const p of priorities) {
+      await executeRun(
+        `INSERT INTO priorities (name, color, level, tenant_id) VALUES (?, ?, ?, ?)`,
+        [p.name, p.color, p.level, orgId]
+      );
+    }
+
+    // Seed default categories
+    const categories = ['Hardware', 'Software', 'Rede', 'Acesso', 'Email', 'Outros'];
+    for (const cat of categories) {
+      await executeRun(
+        `INSERT INTO categories (name, tenant_id) VALUES (?, ?)`,
+        [cat, orgId]
+      );
+    }
+  } catch (error) {
+    logger.error('Failed to seed new organization data', error);
+    // Non-fatal — user can still use the system
+  }
+}
+
 export async function POST(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AUTH_REGISTER);
   if (rateLimitResponse) return rateLimitResponse;
@@ -296,14 +336,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const tenantContext = await resolveTenantContext(request, tenantSlug);
+    let isOrgCreator = false;
+    let tenantContext = await resolveTenantContext(request, tenantSlug);
+
+    // Self-service: auto-create organization for new signups
+    if (!tenantContext) {
+      try {
+        const orgSlug = normalizedEmail.split('@')[0].replace(/[^a-z0-9-]/g, '-').substring(0, 50) + '-' + Date.now().toString(36);
+        const orgName = sanitizedName ? `${sanitizedName}'s Organization` : 'Minha Organização';
+
+        const inserted = await executeQueryOne<{ id: number }>(
+          `INSERT INTO organizations (name, slug, subscription_plan, subscription_status, max_users, max_tickets_per_month, is_active)
+           VALUES (?, ?, 'starter', 'active', 3, 100, ${sqlTrue()})
+           RETURNING id`,
+          [orgName, orgSlug]
+        );
+
+        if (inserted) {
+          tenantContext = { id: inserted.id, slug: orgSlug, name: orgName };
+          isOrgCreator = true;
+
+          // Seed default categories, priorities, statuses for the new org
+          await seedNewOrganization(inserted.id);
+        }
+      } catch (orgError) {
+        logger.error('Failed to auto-create organization', orgError);
+      }
+    }
+
     if (!tenantContext) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Tenant não encontrado',
+          error: 'Não foi possível criar sua organização. Tente novamente.',
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
 
@@ -317,14 +384,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const count = await activeUserCount(tenantContext.id);
-    const maxUsers = 50;
-
-    if (count >= maxUsers) {
+    // Check user limit based on subscription plan
+    const { checkLimit } = await import('@/lib/billing/subscription-manager');
+    const limitCheck = await checkLimit(tenantContext.id, 'users');
+    if (!limitCheck.allowed) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Limite de usuários atingido para esta organização',
+          error: limitCheck.message || 'Limite de usuários atingido para esta organização. Faça upgrade do seu plano.',
         },
         { status: 403 }
       );
@@ -341,6 +408,21 @@ export async function POST(request: NextRequest) {
       department: sanitizedDepartment,
       phone: sanitizedPhone,
     });
+
+    // If user created the org, promote to admin
+    if (isOrgCreator) {
+      try {
+        await executeRun(
+          `UPDATE users SET role = 'admin' WHERE email = ? AND organization_id = ?`,
+          [normalizedEmail, tenantContext.id]
+        );
+      } catch {
+        await executeRun(
+          `UPDATE users SET role = 'admin' WHERE email = ? AND tenant_id = ?`,
+          [normalizedEmail, tenantContext.id]
+        );
+      }
+    }
 
     const user = await getRegisteredUser(normalizedEmail, tenantContext.id);
     if (!user) {
