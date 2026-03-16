@@ -122,12 +122,19 @@ jobs:
         env:
           NODE_ENV: test
 
+      - name: Verify coverage thresholds
+        if: matrix.node-version == 20
+        run: |
+          echo "Coverage thresholds are enforced by vitest.config.ts"
+          echo "If the previous step passed, thresholds are met."
+          echo "Current thresholds: lines=30%, functions=30%, branches=25%, statements=30%"
+
       - name: Upload coverage to Codecov
         if: matrix.node-version == 20
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/coverage-final.json
+          files: ./coverage/lcov.info,./coverage/coverage-final.json
           flags: unit-tests
           name: unit-tests-coverage
           fail_ci_if_error: false
@@ -137,8 +144,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-unit-tests
-          path: coverage/
-          retention-days: 7
+          path: |
+            coverage/
+            !coverage/tmp/
+          retention-days: 14
 
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request' && matrix.node-version == 20
