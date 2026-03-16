@@ -43,6 +43,29 @@ export interface UserEmailData {
   }
 }
 
+export interface BillingEmailData {
+  name: string;
+  email: string;
+  tenant: {
+    name: string;
+    url?: string;
+  };
+  urls: {
+    billingUrl: string;
+  };
+  // Trial
+  daysLeft?: number;
+  // Payment
+  planName?: string;
+  amount?: string;
+  paymentDate?: string;
+  nextBillingDate?: string;
+  // Subscription update
+  previousPlan?: string;
+  currentPlan?: string;
+  effectiveDate?: string;
+}
+
 // Base HTML template
 const baseHtmlTemplate = `
 <!DOCTYPE html>
@@ -325,6 +348,110 @@ Se você não solicitou esta redefinição, ignore este email.
   `
 }
 
+// Trial Expiring Template
+export const trialExpiringTemplate: EmailTemplate = {
+  subject: 'Seu trial expira em {{daysLeft}} dias - {{tenant.name}}',
+  html: baseHtmlTemplate.replace('{{{content}}}', `
+    <h2>Seu período de avaliação está acabando</h2>
+    <p>Olá {{name}},</p>
+    <p>Seu período de avaliação do ServiceDesk Pro expira em <strong>{{daysLeft}} dias</strong>.</p>
+
+    <div class="ticket-info">
+        <h3>O que acontece após o trial?</h3>
+        <p>Após o término do período de avaliação, sua conta será limitada ao plano Starter (gratuito) com:</p>
+        <ul>
+            <li>3 usuários</li>
+            <li>100 tickets por mês</li>
+        </ul>
+        <p>Para continuar com acesso completo, faça upgrade para um plano pago.</p>
+    </div>
+
+    <a href="{{urls.billingUrl}}" class="button">Ver Planos e Preços</a>
+
+    <p>Se tiver alguma dúvida, estamos aqui para ajudar!</p>
+  `),
+  text: `
+Seu período de avaliação está acabando
+
+Olá {{name}},
+
+Seu período de avaliação do ServiceDesk Pro expira em {{daysLeft}} dias.
+
+Após o término, sua conta será limitada ao plano Starter (gratuito).
+
+Para continuar com acesso completo, faça upgrade: {{urls.billingUrl}}
+
+Se tiver alguma dúvida, estamos aqui para ajudar!
+  `
+}
+
+// Payment Receipt Template
+export const paymentReceiptTemplate: EmailTemplate = {
+  subject: 'Pagamento confirmado - {{tenant.name}}',
+  html: baseHtmlTemplate.replace('{{{content}}}', `
+    <h2>Pagamento confirmado!</h2>
+    <p>Olá {{name}},</p>
+    <p>Seu pagamento foi processado com sucesso.</p>
+
+    <div class="ticket-info">
+        <h3>Detalhes do pagamento</h3>
+        <p><strong>Plano:</strong> {{planName}}</p>
+        <p><strong>Valor:</strong> R$ {{amount}}</p>
+        <p><strong>Data:</strong> {{paymentDate}}</p>
+        <p><strong>Próxima cobrança:</strong> {{nextBillingDate}}</p>
+    </div>
+
+    <a href="{{urls.billingUrl}}" class="button">Ver Detalhes da Assinatura</a>
+
+    <p>Obrigado por escolher o ServiceDesk Pro!</p>
+  `),
+  text: `
+Pagamento confirmado!
+
+Olá {{name}},
+
+Seu pagamento foi processado com sucesso.
+
+Detalhes:
+- Plano: {{planName}}
+- Valor: R$ {{amount}}
+- Data: {{paymentDate}}
+- Próxima cobrança: {{nextBillingDate}}
+
+Ver detalhes: {{urls.billingUrl}}
+  `
+}
+
+// Subscription Updated Template
+export const subscriptionUpdatedTemplate: EmailTemplate = {
+  subject: 'Plano atualizado - {{tenant.name}}',
+  html: baseHtmlTemplate.replace('{{{content}}}', `
+    <h2>Seu plano foi atualizado!</h2>
+    <p>Olá {{name}},</p>
+    <p>Seu plano do ServiceDesk Pro foi atualizado com sucesso.</p>
+
+    <div class="ticket-info">
+        <h3>Novo plano</h3>
+        <p><strong>Plano anterior:</strong> {{previousPlan}}</p>
+        <p><strong>Plano atual:</strong> {{currentPlan}}</p>
+        <p><strong>Efetivo a partir de:</strong> {{effectiveDate}}</p>
+    </div>
+
+    <a href="{{urls.billingUrl}}" class="button">Ver Detalhes</a>
+  `),
+  text: `
+Seu plano foi atualizado!
+
+Olá {{name}},
+
+Plano anterior: {{previousPlan}}
+Plano atual: {{currentPlan}}
+Efetivo a partir de: {{effectiveDate}}
+
+Ver detalhes: {{urls.billingUrl}}
+  `
+}
+
 // Helper function to compile templates
 export const compileTemplate = (template: string, data: any): string => {
   // Add helper for priority class
@@ -346,5 +473,8 @@ export const emailTemplates = {
   ticketUpdated: ticketUpdatedTemplate,
   ticketResolved: ticketResolvedTemplate,
   welcomeUser: welcomeUserTemplate,
-  passwordReset: passwordResetTemplate
+  passwordReset: passwordResetTemplate,
+  trialExpiring: trialExpiringTemplate,
+  paymentReceipt: paymentReceiptTemplate,
+  subscriptionUpdated: subscriptionUpdatedTemplate,
 }

@@ -4,7 +4,8 @@ import {
   emailTemplates,
   compileTemplate,
   TicketEmailData,
-  UserEmailData
+  UserEmailData,
+  BillingEmailData
 } from './templates'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
@@ -55,6 +56,39 @@ class EmailService {
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      // Try Resend first if configured
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (resendApiKey) {
+        try {
+          const { getResendClient } = await import('./config');
+          const resend = getResendClient();
+          if (resend) {
+            const result = await resend.emails.send({
+              from: getFromAddress(),
+              to: Array.isArray(options.to) ? options.to : [options.to],
+              cc: options.cc ? (Array.isArray(options.cc) ? options.cc : [options.cc]) : undefined,
+              bcc: options.bcc ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]) : undefined,
+              subject: options.subject,
+              html: options.html,
+              text: options.text,
+            });
+
+            if (process.env.NODE_ENV === 'development') {
+              logger.info('📧 Email sent via Resend', {
+                to: options.to,
+                subject: options.subject,
+                id: result?.data?.id
+              });
+            }
+
+            return true;
+          }
+        } catch (resendError) {
+          logger.error('Resend sending failed, falling back to SMTP', resendError);
+          // Fall through to SMTP
+        }
+      }
+
       const mailOptions = {
         from: getFromAddress(),
         to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
@@ -322,6 +356,70 @@ class EmailService {
     }
 
     return false
+  }
+
+  async sendTrialExpiringEmail(data: BillingEmailData, tenantId?: number): Promise<boolean> {
+    const template = emailTemplates.trialExpiring;
+    const subject = compileTemplate(template.subject, data);
+    const html = compileTemplate(template.html, data);
+    const text = compileTemplate(template.text, data);
+
+    const queueId = await this.queueEmail({
+      tenant_id: tenantId || 1,
+      to_email: data.email,
+      subject,
+      html_content: html,
+      text_content: text,
+      template_type: 'trial_expiring',
+      template_data: JSON.stringify(data),
+      priority: 'high'
+    });
+
+    if (queueId) {
+      await this.processEmailQueue(1);
+      return true;
+    }
+    return false;
+  }
+
+  async sendPaymentReceiptEmail(data: BillingEmailData, tenantId?: number): Promise<boolean> {
+    const template = emailTemplates.paymentReceipt;
+    const subject = compileTemplate(template.subject, data);
+    const html = compileTemplate(template.html, data);
+    const text = compileTemplate(template.text, data);
+
+    const queueId = await this.queueEmail({
+      tenant_id: tenantId || 1,
+      to_email: data.email,
+      subject,
+      html_content: html,
+      text_content: text,
+      template_type: 'payment_receipt',
+      template_data: JSON.stringify(data),
+      priority: 'medium'
+    });
+
+    return !!queueId;
+  }
+
+  async sendSubscriptionUpdatedEmail(data: BillingEmailData, tenantId?: number): Promise<boolean> {
+    const template = emailTemplates.subscriptionUpdated;
+    const subject = compileTemplate(template.subject, data);
+    const html = compileTemplate(template.html, data);
+    const text = compileTemplate(template.text, data);
+
+    const queueId = await this.queueEmail({
+      tenant_id: tenantId || 1,
+      to_email: data.email,
+      subject,
+      html_content: html,
+      text_content: text,
+      template_type: 'subscription_updated',
+      template_data: JSON.stringify(data),
+      priority: 'medium'
+    });
+
+    return !!queueId;
   }
 
   async getEmailStats(tenantId: number = 1): Promise<any> {

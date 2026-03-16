@@ -100,6 +100,25 @@ export const getFromAddress = () => {
   return `"${config.from.name}" <${config.from.email}>`
 }
 
+// Resend transport (alternative to SMTP)
+let resendClient: any = null;
+
+export const getResendClient = () => {
+  if (resendClient) return resendClient;
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const { Resend } = require('resend');
+    resendClient = new Resend(apiKey);
+    return resendClient;
+  } catch {
+    logger.warn('Resend package not available');
+    return null;
+  }
+};
+
 // Email provider configurations
 export const emailProviders = {
   gmail: {
