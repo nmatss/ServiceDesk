@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Headphones } from 'lucide-react'
 import {
   HomeIcon,
   TicketIcon,
@@ -27,7 +28,8 @@ import {
   WrenchScrewdriverIcon,
   ChevronDownIcon,
   BuildingOffice2Icon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -270,6 +272,13 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
           iconSolid: BookOpenIcon
         },
         {
+          name: 'Cobrança',
+          href: '/admin/billing',
+          icon: CreditCardIcon,
+          iconSolid: CreditCardIcon,
+          section: 'sistema',
+        },
+        {
           name: 'Configurações',
           href: '/admin/settings',
           icon: Cog6ToothIcon,
@@ -406,14 +415,15 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
     <div className="flex flex-col h-full safe-top">
       {/* Logo */}
       <div className="flex items-center h-14 sm:h-16 px-4 sm:px-6 border-b border-neutral-200 dark:border-neutral-700/50 flex-shrink-0">
-        <div className={`flex items-center ${open ? 'space-x-3' : 'justify-center w-full'}`}>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-brand rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
-            <TicketIcon className="h-5 w-5 sm:h-5 sm:w-5 text-white" />
+        <div className={`flex items-center ${open ? 'gap-2.5' : 'justify-center w-full'}`}>
+          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-brand-600/20">
+            <Headphones className="w-[18px] h-[18px] sm:w-5 sm:h-5 text-white" />
           </div>
           {open && (
-            <span className="text-lg font-bold text-gradient truncate">
-              ServiceDesk Pro
-            </span>
+            <div className="leading-none">
+              <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
+              <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+            </div>
           )}
         </div>
       </div>

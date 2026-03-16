@@ -174,6 +174,16 @@ export async function POST(request: NextRequest) {
     const tenantContext = guard.context!.tenant
     const userContext = guard.context!.user
 
+    // Check ticket creation limit based on subscription plan
+    const { checkLimit } = await import('@/lib/billing/subscription-manager');
+    const limitCheck = await checkLimit(tenantContext.id, 'tickets');
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: limitCheck.message },
+        { status: 403 }
+      );
+    }
+
     const { title, description, category_id, priority_id } = await request.json()
 
     if (!title || !description || !category_id || !priority_id) {

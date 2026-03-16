@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS organizations (
     max_tickets_per_month INTEGER DEFAULT 1000,
     features JSONB,
     billing_email VARCHAR(255),
+    stripe_customer_id VARCHAR(255),
+    stripe_subscription_id VARCHAR(255),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -2762,6 +2764,103 @@ CREATE TABLE IF NOT EXISTS notification_deliveries (
 CREATE INDEX IF NOT EXISTS idx_notification_deliveries_notification_user ON notification_deliveries(notification_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_notification_deliveries_status_channel ON notification_deliveries(status, channel);
 CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created ON notification_deliveries(created_at);
+
+-- ========================================
+-- GAMIFICATION TABLES
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS gamification_points (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL,
+    points INTEGER NOT NULL DEFAULT 0,
+    action VARCHAR(255) NOT NULL,
+    description TEXT,
+    ticket_id BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gamification_points_user ON gamification_points(user_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_points_org ON gamification_points(organization_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_points_user_org ON gamification_points(user_id, organization_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_points_created ON gamification_points(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS gamification_achievements (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL,
+    achievement_id VARCHAR(100) NOT NULL,
+    achievement_name VARCHAR(255) NOT NULL,
+    achievement_description TEXT,
+    badge_icon VARCHAR(100),
+    unlocked_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gamification_achievements_user ON gamification_achievements(user_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_achievements_org ON gamification_achievements(organization_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_achievements_user_org ON gamification_achievements(user_id, organization_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_achievements_achievement ON gamification_achievements(achievement_id);
+
+CREATE TABLE IF NOT EXISTS gamification_challenges (
+    id SERIAL PRIMARY KEY,
+    organization_id BIGINT NOT NULL,
+    challenge_id VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL DEFAULT 'individual',
+    goal_type VARCHAR(100) NOT NULL,
+    goal_target INTEGER NOT NULL DEFAULT 10,
+    points_reward INTEGER NOT NULL DEFAULT 100,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gamification_challenges_org ON gamification_challenges(organization_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_challenges_status ON gamification_challenges(status);
+CREATE INDEX IF NOT EXISTS idx_gamification_challenges_dates ON gamification_challenges(start_date, end_date);
+
+CREATE TABLE IF NOT EXISTS gamification_challenge_participants (
+    id SERIAL PRIMARY KEY,
+    challenge_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL,
+    progress INTEGER NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (challenge_id) REFERENCES gamification_challenges(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    UNIQUE(challenge_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gamification_participants_challenge ON gamification_challenge_participants(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_participants_user ON gamification_challenge_participants(user_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_participants_org ON gamification_challenge_participants(organization_id);
+
+CREATE TABLE IF NOT EXISTS gamification_kudos (
+    id SERIAL PRIMARY KEY,
+    from_user_id BIGINT NOT NULL,
+    to_user_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL,
+    message TEXT NOT NULL,
+    reaction VARCHAR(50),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    FOREIGN KEY (from_user_id) REFERENCES users(id),
+    FOREIGN KEY (to_user_id) REFERENCES users(id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_gamification_kudos_from ON gamification_kudos(from_user_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_kudos_to ON gamification_kudos(to_user_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_kudos_org ON gamification_kudos(organization_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_kudos_created ON gamification_kudos(created_at DESC);
 
 -- ========================================
 -- END OF SCHEMA

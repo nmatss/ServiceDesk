@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Headphones } from 'lucide-react'
 import {
   HomeIcon,
   Cog6ToothIcon,
@@ -11,6 +12,7 @@ import {
   ChevronDownIcon,
   MagnifyingGlassIcon,
   ArrowRightOnRectangleIcon,
+  CreditCardIcon,
 } from '@heroicons/react/24/outline'
 
 interface MenuItem {
@@ -40,9 +42,14 @@ const mainMenuItems: MenuItem[] = [
       { name: 'Upgrade', href: '/admin/settings/upgrade' },
     ]
   },
-  { 
-    name: 'Help center', 
-    href: '/admin/help', 
+  {
+    name: 'Billing',
+    href: '/admin/billing',
+    icon: CreditCardIcon
+  },
+  {
+    name: 'Help center',
+    href: '/admin/help',
     icon: QuestionMarkCircleIcon
   }
 ]
@@ -107,37 +114,18 @@ export default function SidebarMenu() {
       collapsed ? 'w-16' : 'w-64'
     }`}>
       <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white dark:bg-neutral-800 px-6 pb-4 shadow-lg dark:shadow-neutral-900/20 border-r border-neutral-200 dark:border-neutral-700">
-        {/* Top Section with colored dots and logo */}
+        {/* Top Section with logo */}
         <div className="flex flex-col items-center py-4">
-          {/* Colored dots */}
-          <div className="flex gap-1 mb-3">
-            <div className="w-2 h-2 rounded-full bg-red-500"></div>
-            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          </div>
-          
           {/* Logo and text */}
-          <div className="flex items-center mb-4">
-            <div className="h-6 w-6 text-neutral-900 dark:text-neutral-100 flex items-center justify-center">
-              <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <rect width="32" height="32" rx="4" fill="#1a1a2e"></rect>
-                <g filter="url(#glow)">
-                  <path d="M6 12C8 8 12 8 16 12C20 16 24 16 26 12" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" fill="none"></path>
-                  <path d="M6 20C8 24 12 24 16 20C20 16 24 16 26 20" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" fill="none"></path>
-                </g>
-                <defs>
-                  <filter id="glow" x="-2" y="-2" width="36" height="36">
-                    <feGaussianBlur stdDeviation="1" result="coloredBlur"></feGaussianBlur>
-                    <feMerge>
-                      <feMergeNode in="coloredBlur"></feMergeNode>
-                      <feMergeNode in="SourceGraphic"></feMergeNode>
-                    </feMerge>
-                  </filter>
-                </defs>
-              </svg>
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-9 h-9 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20 flex-shrink-0">
+              <Headphones className="w-5 h-5 text-white" />
             </div>
             {!collapsed && (
-              <span className="ml-2 text-lg font-bold text-neutral-900 dark:text-neutral-100">SERVICEDESK</span>
+              <div className="leading-none">
+                <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
+                <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+              </div>
             )}
           </div>
           
