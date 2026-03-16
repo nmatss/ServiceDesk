@@ -25,6 +25,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // SECURITY: Require authentication for reading categories
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { success: false, error: 'Usuário não autenticado' },
+        { status: 401 }
+      )
+    }
+
     // Query categories with tenant isolation
     const categories = await executeQuery(`
       SELECT id, name, description, color, created_at, updated_at

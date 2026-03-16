@@ -29,13 +29,13 @@ export default function ForgotPasswordPage() {
       <div className="max-w-md w-full space-y-8 animate-slide-up">
         {/* Logo + Header */}
         <div className="flex items-center gap-4">
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-11 h-11 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
             <Image
               src="/favicon.svg"
               alt="ServiceDesk Logo"
-              width={48}
-              height={48}
-              className="rounded-xl shadow-md"
+              width={36}
+              height={36}
+              className="rounded-lg"
               priority
             />
           </div>

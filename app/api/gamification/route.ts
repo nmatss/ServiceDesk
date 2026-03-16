@@ -1,83 +1,67 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-import {
-  AchievementEngine,
-} from '@/lib/gamification/achievements';
-import {
-  PointsEngine,
-  LeaderboardManager,
-  LeaderboardEntry,
-  DEFAULT_POINTS_CONFIG
-} from '@/lib/gamification/points-system';
-import {
-  ChallengeManager,
-  MonthlyChallengeScheduler,
-  Challenge,
-  CHALLENGE_TEMPLATES
-} from '@/lib/gamification/challenges';
+import { apiSuccess, apiError } from '@/lib/api/api-helpers';
+import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
+import { sqlNow } from '@/lib/db/adapter';
 
 /**
  * GET /api/gamification
  * Query parameters:
- * - action: 'achievements' | 'leaderboard' | 'challenges' | 'points' | 'stats'
+ * - action: 'achievements' | 'leaderboard' | 'challenges' | 'points' | 'stats' | 'recognition' | 'challenge-detail'
  * - userId?: string (for specific user queries)
  * - period?: 'day' | 'week' | 'month' | 'all-time' (for leaderboard)
- * - teamId?: string (for team filtering)
  * - challengeId?: string (for specific challenge)
+ * - status?: string (for challenges filter)
  */
 export async function GET(request: NextRequest) {
-  // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
-    const { userId: currentUserId } = guard.auth!;
+    const { userId: currentUserId, organizationId } = guard.auth!;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-    const userId = String(searchParams.get('userId') || currentUserId);
-    const period = searchParams.get('period') as 'day' | 'week' | 'month' | 'all-time' || 'month';
-    const teamId = searchParams.get('teamId');
+    const userId = searchParams.get('userId') || String(currentUserId);
+    const period = (searchParams.get('period') as 'day' | 'week' | 'month' | 'all-time') || 'month';
     const challengeId = searchParams.get('challengeId');
+    const status = searchParams.get('status');
 
     switch (action) {
       case 'achievements':
-        return await getAchievements(userId);
+        return await getAchievements(userId, organizationId);
 
       case 'leaderboard':
-        return await getLeaderboard(period, teamId);
+        return await getLeaderboard(organizationId, period);
 
       case 'challenges':
-        return await getChallenges(userId);
+        return await getChallenges(organizationId, status);
 
       case 'challenge-detail':
         if (!challengeId) {
-          return NextResponse.json({ error: 'Challenge ID required' }, { status: 400 });
+          return apiError('Challenge ID required', 400);
         }
-        return await getChallengeDetail(challengeId, userId);
+        return await getChallengeDetail(challengeId, organizationId);
 
       case 'points':
-        return await getPointsHistory(userId);
+        return await getPointsHistory(userId, organizationId);
 
       case 'stats':
-        return await getUserStats(userId);
+        return await getUserStats(userId, organizationId);
 
       case 'recognition':
-        return await getRecognitionFeed();
+        return await getRecognitionFeed(organizationId);
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return apiError('Invalid action', 400);
     }
   } catch (error) {
     logger.error('Gamification API error', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('Internal server error', 500);
   }
 }
 
@@ -88,13 +72,10 @@ export async function GET(request: NextRequest) {
  * - unlock-achievement: Unlock achievement for user
  * - join-challenge: Join a challenge
  * - leave-challenge: Leave a challenge
- * - opt-in: Opt in to leaderboard
- * - opt-out: Opt out from leaderboard
  * - send-kudos: Send kudos to another user
- * - react: React to recognition
+ * - react: React to kudos
  */
 export async function POST(request: NextRequest) {
-  // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
 
@@ -102,508 +83,523 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
 
+    const currentUserId = String(guard.auth!.userId);
+    const organizationId = guard.auth!.organizationId;
+
     const body = await request.json();
     const { action } = body;
 
-    const currentUserId = String(guard.auth!.userId);
-
     switch (action) {
       case 'award-points':
-        return await awardPoints(currentUserId, body);
+        return await awardPoints(currentUserId, organizationId, body);
 
       case 'unlock-achievement':
-        return await unlockAchievement(currentUserId, body);
+        return await unlockAchievement(currentUserId, organizationId, body);
 
       case 'join-challenge':
-        return await joinChallenge(currentUserId, body.challengeId);
+        return await joinChallenge(currentUserId, organizationId, body.challengeId);
 
       case 'leave-challenge':
-        return await leaveChallenge(currentUserId, body.challengeId);
-
-      case 'opt-in':
-        return await updateLeaderboardOptIn(currentUserId, true);
-
-      case 'opt-out':
-        return await updateLeaderboardOptIn(currentUserId, false);
+        return await leaveChallenge(currentUserId, organizationId, body.challengeId);
 
       case 'send-kudos':
-        return await sendKudos(currentUserId, body);
+        return await sendKudos(currentUserId, organizationId, body);
 
       case 'react':
-        return await addReaction(currentUserId, body);
+        return await addReaction(body);
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return apiError('Invalid action', 400);
     }
   } catch (error) {
     logger.error('Gamification POST error', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return apiError('Internal server error', 500);
   }
 }
 
-/**
- * Get user achievements
- * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
- */
-async function getAchievements(userId: string) {
-  // Placeholder stats - replace with actual database queries
-  const userStats = {
-    ticketsResolved: 45,
-    fastResolutions: 12,
-    streakDays: 5,
-    perfectCsatCount: 8,
-    fcrRate: 0.92,
-    fcrTicketCount: 40,
-    slaStreak: 25,
-    qualityScore: 88,
-    qualityDays: 15,
-    ticketsAssisted: 6,
-    kudosReceived: 12,
-    menteesCount: 1,
-    kbArticles: 3,
-    kbViews: 150,
-    trainingCompleted: 5,
-    expertCategories: 1,
-    firstTicketDays: 8,
-    afterHoursTickets: 15,
-    weekendTickets: 7,
-    criticalDayMax: 3,
-    monthlyAwards: 0,
-    innovations: 0,
-  };
+// ========================================
+// GET handlers
+// ========================================
 
-  const calculatedStats = AchievementEngine.calculateUserStats(userStats);
-  const unlockedBadgeIds = ['first-ticket', 'speed-demon'];
-
-  const newlyUnlocked = await AchievementEngine.scanAndUnlock(
-    userId,
-    calculatedStats,
-    unlockedBadgeIds
-  );
-
-  const achievements = await AchievementEngine.getUserAchievements(
-    userId,
-    calculatedStats,
-    [...unlockedBadgeIds, ...newlyUnlocked.map((b) => b.id)]
-  );
-
-  return NextResponse.json({
-    _mock: true,
-    achievements,
-    newlyUnlocked,
-    stats: calculatedStats,
-  });
+interface AchievementRow {
+  id: number;
+  user_id: number;
+  achievement_id: string;
+  achievement_name: string;
+  achievement_description: string | null;
+  badge_icon: string | null;
+  unlocked_at: string;
+  username: string;
+  email: string;
 }
 
-/**
- * Get leaderboard
- * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
- */
-async function getLeaderboard(
-  period: 'day' | 'week' | 'month' | 'all-time',
-  teamId?: string | null
-) {
-  // Placeholder leaderboard data - replace with actual database queries
-  const mockLeaderboard: LeaderboardEntry[] = [
-    {
-      userId: '1',
-      username: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      teamId: 'team-1',
-      teamName: 'Support Team A',
-      points: 2450,
-      rank: 1,
-      ticketsResolved: 98,
-      avgCsat: 96,
-      fcrRate: 94,
-      currentStreak: 12,
-      badges: 8,
-      optedIn: true,
-    },
-    {
-      userId: '2',
-      username: 'Mike Chen',
-      email: 'mike@example.com',
-      teamId: 'team-1',
-      teamName: 'Support Team A',
-      points: 2180,
-      rank: 2,
-      ticketsResolved: 87,
-      avgCsat: 94,
-      fcrRate: 92,
-      currentStreak: 8,
-      badges: 6,
-      optedIn: true,
-    },
-    {
-      userId: '3',
-      username: 'Emily Davis',
-      email: 'emily@example.com',
-      teamId: 'team-2',
-      teamName: 'Support Team B',
-      points: 1950,
-      rank: 3,
-      ticketsResolved: 75,
-      avgCsat: 98,
-      fcrRate: 96,
-      currentStreak: 15,
-      badges: 7,
-      optedIn: true,
-    },
-  ];
+async function getAchievements(userId: string, organizationId: number) {
+  const achievements = await executeQuery<AchievementRow>(
+    `SELECT ga.id, ga.user_id, ga.achievement_id, ga.achievement_name,
+            ga.achievement_description, ga.badge_icon, ga.unlocked_at,
+            u.name AS username, u.email
+     FROM gamification_achievements ga
+     JOIN users u ON u.id = ga.user_id
+     WHERE ga.user_id = ? AND ga.organization_id = ?
+     ORDER BY ga.unlocked_at DESC`,
+    [userId, organizationId] as SqlParam[]
+  );
 
-  let filteredLeaderboard = mockLeaderboard;
+  return apiSuccess({ achievements });
+}
 
-  if (teamId && teamId !== 'all') {
-    filteredLeaderboard = LeaderboardManager.filterByTeam(mockLeaderboard, teamId);
+interface LeaderboardRow {
+  user_id: number;
+  username: string;
+  email: string;
+  total_points: number;
+  transactions_count: number;
+}
+
+async function getLeaderboard(organizationId: number, period: string) {
+  let dateFilter = '';
+  const params: SqlParam[] = [organizationId];
+
+  if (period === 'day') {
+    dateFilter = `AND gp.created_at >= ${sqlNow()} - INTERVAL '1 day'`;
+  } else if (period === 'week') {
+    dateFilter = `AND gp.created_at >= ${sqlNow()} - INTERVAL '7 days'`;
+  } else if (period === 'month') {
+    dateFilter = `AND gp.created_at >= ${sqlNow()} - INTERVAL '30 days'`;
+  }
+  // 'all-time' => no date filter
+
+  const leaderboard = await executeQuery<LeaderboardRow>(
+    `SELECT gp.user_id, u.name AS username, u.email,
+            SUM(gp.points) AS total_points,
+            COUNT(gp.id) AS transactions_count
+     FROM gamification_points gp
+     JOIN users u ON u.id = gp.user_id
+     WHERE gp.organization_id = ? ${dateFilter}
+     GROUP BY gp.user_id, u.name, u.email
+     ORDER BY total_points DESC
+     LIMIT 20`,
+    params
+  );
+
+  // Add rank
+  const ranked = leaderboard.map((entry, index) => ({
+    ...entry,
+    rank: index + 1,
+  }));
+
+  return apiSuccess({ leaderboard: ranked, period });
+}
+
+interface ChallengeRow {
+  id: number;
+  challenge_id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  goal_type: string;
+  goal_target: number;
+  points_reward: number;
+  start_date: string;
+  end_date: string;
+  status: string;
+  created_at: string;
+  participant_count: number;
+}
+
+async function getChallenges(organizationId: number, status: string | null) {
+  const params: SqlParam[] = [organizationId];
+  let statusFilter = '';
+
+  if (status) {
+    statusFilter = 'AND gc.status = ?';
+    params.push(status);
   }
 
-  const topPerformers = LeaderboardManager.getTopPerformers(filteredLeaderboard, 10);
+  const challenges = await executeQuery<ChallengeRow>(
+    `SELECT gc.id, gc.challenge_id, gc.title, gc.description, gc.type,
+            gc.goal_type, gc.goal_target, gc.points_reward,
+            gc.start_date, gc.end_date, gc.status, gc.created_at,
+            COUNT(gcp.id) AS participant_count
+     FROM gamification_challenges gc
+     LEFT JOIN gamification_challenge_participants gcp ON gcp.challenge_id = gc.id
+     WHERE gc.organization_id = ? ${statusFilter}
+     GROUP BY gc.id, gc.challenge_id, gc.title, gc.description, gc.type,
+              gc.goal_type, gc.goal_target, gc.points_reward,
+              gc.start_date, gc.end_date, gc.status, gc.created_at
+     ORDER BY gc.start_date DESC`,
+    params
+  );
 
-  return NextResponse.json({
-    _mock: true,
-    leaderboard: filteredLeaderboard,
-    topPerformers,
-    period,
-    teamId,
-  });
+  return apiSuccess({ challenges });
 }
 
-/**
- * Get challenges
- */
-async function getChallenges(userId: string) {
-  // Generate current month's challenges
-  const allChallenges = MonthlyChallengeScheduler.getCurrentMonthChallenges();
-
-  const activeChallenges = ChallengeManager.getActiveChallenges(allChallenges);
-  const upcomingChallenges = ChallengeManager.getUpcomingChallenges(allChallenges);
-  const userChallenges = ChallengeManager.getUserChallenges(allChallenges, userId);
-
-  return NextResponse.json({
-    active: activeChallenges,
-    upcoming: upcomingChallenges,
-    enrolled: userChallenges,
-    templates: CHALLENGE_TEMPLATES,
-  });
+interface ParticipantRow {
+  id: number;
+  user_id: number;
+  username: string;
+  email: string;
+  progress: number;
+  completed: number | boolean;
+  joined_at: string;
 }
 
-/**
- * Get challenge detail with progress
- * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
- */
-async function getChallengeDetail(challengeId: string, userId: string) {
-  // Placeholder challenge data - replace with actual database queries
-  const challenge: Challenge = {
-    id: challengeId,
-    title: 'Speed Racer',
-    description: 'Resolve the most tickets in under 10 minutes',
-    type: 'individual',
-    category: 'productivity',
-    startDate: new Date('2025-10-01'),
-    endDate: new Date('2025-10-07'),
-    status: 'active',
-    target: {
-      metric: 'fast_resolutions',
-      goal: 50,
-      unit: 'tickets',
-    },
-    rewards: {
-      first: 500,
-      second: 300,
-      third: 150,
-      participation: 25,
-    },
-    participants: ['1', '2', '3', userId],
-    icon: '🏎️',
-    difficulty: 'medium',
-  };
+async function getChallengeDetail(challengeId: string, organizationId: number) {
+  const challenge = await executeQueryOne<ChallengeRow>(
+    `SELECT gc.id, gc.challenge_id, gc.title, gc.description, gc.type,
+            gc.goal_type, gc.goal_target, gc.points_reward,
+            gc.start_date, gc.end_date, gc.status, gc.created_at,
+            COUNT(gcp.id) AS participant_count
+     FROM gamification_challenges gc
+     LEFT JOIN gamification_challenge_participants gcp ON gcp.challenge_id = gc.id
+     WHERE gc.id = ? AND gc.organization_id = ?
+     GROUP BY gc.id, gc.challenge_id, gc.title, gc.description, gc.type,
+              gc.goal_type, gc.goal_target, gc.points_reward,
+              gc.start_date, gc.end_date, gc.status, gc.created_at`,
+    [challengeId, organizationId] as SqlParam[]
+  );
 
-  // Mock progress data
-  const progresses = [
-    ChallengeManager.calculateProgress(challenge, '1', 'Sarah Johnson', 42),
-    ChallengeManager.calculateProgress(challenge, '2', 'Mike Chen', 38),
-    ChallengeManager.calculateProgress(challenge, '3', 'Emily Davis', 35),
-    ChallengeManager.calculateProgress(challenge, userId, 'You', 28),
-  ];
+  if (!challenge) {
+    return apiError('Desafio não encontrado', 404);
+  }
 
-  const rankedProgresses = ChallengeManager.rankParticipants(progresses);
+  const participants = await executeQuery<ParticipantRow>(
+    `SELECT gcp.id, gcp.user_id, u.name AS username, u.email,
+            gcp.progress, gcp.completed, gcp.joined_at
+     FROM gamification_challenge_participants gcp
+     JOIN users u ON u.id = gcp.user_id
+     WHERE gcp.challenge_id = ? AND gcp.organization_id = ?
+     ORDER BY gcp.progress DESC`,
+    [challengeId, organizationId] as SqlParam[]
+  );
 
-  return NextResponse.json({
-    _mock: true,
-    challenge,
-    progress: rankedProgresses,
-    userProgress: rankedProgresses.find((p) => p.participantId === userId),
-  });
+  return apiSuccess({ challenge, participants });
 }
 
-/**
- * Get points history
- * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
- */
-async function getPointsHistory(userId: string) {
-  // Placeholder points transactions - replace with actual database queries
-  const transactions = [
-    {
-      id: '1',
-      userId,
-      points: 25,
-      action: 'Ticket resolved with excellent CSAT',
-      metadata: { ticketId: 'T123', csat: 100 },
-      multipliers: { csat: 2.0, sla: 1.3 },
-      createdAt: new Date('2025-10-05T10:30:00'),
-    },
-    {
-      id: '2',
-      userId,
-      points: 10,
-      action: 'Kudos received from Mike Chen',
-      metadata: { fromUserId: '2' },
-      multipliers: {},
-      createdAt: new Date('2025-10-05T09:15:00'),
-    },
-  ];
+interface PointRow {
+  id: number;
+  user_id: number;
+  points: number;
+  action: string;
+  description: string | null;
+  ticket_id: number | null;
+  created_at: string;
+}
 
-  const totalPoints = transactions.reduce((sum, t) => sum + t.points, 0);
+async function getPointsHistory(userId: string, organizationId: number) {
+  const transactions = await executeQuery<PointRow>(
+    `SELECT id, user_id, points, action, description, ticket_id, created_at
+     FROM gamification_points
+     WHERE user_id = ? AND organization_id = ?
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [userId, organizationId] as SqlParam[]
+  );
 
-  return NextResponse.json({
-    _mock: true,
+  const totalRow = await executeQueryOne<{ total: number }>(
+    `SELECT COALESCE(SUM(points), 0) AS total
+     FROM gamification_points
+     WHERE user_id = ? AND organization_id = ?`,
+    [userId, organizationId] as SqlParam[]
+  );
+
+  return apiSuccess({
     transactions,
-    totalPoints,
-    redemptionValues: DEFAULT_POINTS_CONFIG.redemptionValues,
+    totalPoints: totalRow?.total ?? 0,
   });
 }
 
-/**
- * Get user stats
- * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
- */
-async function getUserStats(userId: string) {
-  // Placeholder user stats - replace with actual database queries
-  return NextResponse.json({
-    _mock: true,
+interface RankRow {
+  user_rank: number;
+}
+
+async function getUserStats(userId: string, organizationId: number) {
+  // Total points
+  const pointsRow = await executeQueryOne<{ total: number }>(
+    `SELECT COALESCE(SUM(points), 0) AS total
+     FROM gamification_points
+     WHERE user_id = ? AND organization_id = ?`,
+    [userId, organizationId] as SqlParam[]
+  );
+
+  // Achievements count
+  const achievementsRow = await executeQueryOne<{ total: number }>(
+    `SELECT COUNT(*) AS total
+     FROM gamification_achievements
+     WHERE user_id = ? AND organization_id = ?`,
+    [userId, organizationId] as SqlParam[]
+  );
+
+  // Challenges completed
+  const challengesRow = await executeQueryOne<{ total: number }>(
+    `SELECT COUNT(*) AS total
+     FROM gamification_challenge_participants
+     WHERE user_id = ? AND organization_id = ? AND completed = 1`,
+    [userId, organizationId] as SqlParam[]
+  );
+
+  // Kudos received
+  const kudosRow = await executeQueryOne<{ total: number }>(
+    `SELECT COUNT(*) AS total
+     FROM gamification_kudos
+     WHERE to_user_id = ? AND organization_id = ?`,
+    [userId, organizationId] as SqlParam[]
+  );
+
+  // Rank (based on total points among all users in org)
+  const rankRow = await executeQueryOne<RankRow>(
+    `SELECT COUNT(*) + 1 AS user_rank
+     FROM (
+       SELECT user_id, SUM(points) AS tp
+       FROM gamification_points
+       WHERE organization_id = ?
+       GROUP BY user_id
+     ) ranked
+     WHERE ranked.tp > COALESCE((
+       SELECT SUM(points)
+       FROM gamification_points
+       WHERE user_id = ? AND organization_id = ?
+     ), 0)`,
+    [organizationId, userId, organizationId] as SqlParam[]
+  );
+
+  return apiSuccess({
     userId,
-    totalPoints: 845,
-    rank: 12,
-    percentile: 88,
-    currentStreak: 5,
-    longestStreak: 12,
-    badges: {
-      total: 5,
-      common: 2,
-      rare: 2,
-      epic: 1,
-      legendary: 0,
-    },
-    thisMonth: {
-      ticketsResolved: 45,
-      avgCsat: 92,
-      fcrRate: 89,
-      kudosReceived: 8,
-    },
+    totalPoints: pointsRow?.total ?? 0,
+    rank: rankRow?.user_rank ?? 1,
+    achievementsCount: achievementsRow?.total ?? 0,
+    challengesCompleted: challengesRow?.total ?? 0,
+    kudosReceived: kudosRow?.total ?? 0,
   });
 }
 
-/**
- * Get recognition feed
- * NOTE: Uses placeholder data. Replace with actual DB queries when gamification tables are implemented.
- */
-async function getRecognitionFeed() {
-  // Placeholder recognition data - replace with actual database queries
-  const recognitions = [
-    {
-      id: '1',
-      type: 'kudos' as const,
-      fromUserId: '2',
-      fromUsername: 'Mike Chen',
-      toUserId: '1',
-      toUsername: 'Sarah Johnson',
-      message: 'Thanks for helping me with that complex billing issue! Your expertise saved the day!',
-      points: 10,
-      createdAt: new Date('2025-10-05T10:00:00'),
-      reactions: [
-        { userId: '3', emoji: '👍' },
-        { userId: '4', emoji: '❤️' },
-      ],
-    },
-    {
-      id: '2',
-      type: 'milestone' as const,
-      fromUserId: '1',
-      fromUsername: 'Sarah Johnson',
-      toUserId: '1',
-      toUsername: 'Sarah Johnson',
-      message: 'Just hit 100 tickets resolved this month! 🎯',
-      points: 100,
-      createdAt: new Date('2025-10-04T15:30:00'),
-      reactions: [
-        { userId: '2', emoji: '🎉' },
-        { userId: '3', emoji: '🔥' },
-        { userId: '5', emoji: '💯' },
-      ],
-    },
-  ];
-
-  return NextResponse.json({ _mock: true, recognitions });
+interface KudosRow {
+  id: number;
+  from_user_id: number;
+  from_username: string;
+  to_user_id: number;
+  to_username: string;
+  message: string;
+  reaction: string | null;
+  created_at: string;
 }
 
-/**
- * Award points to user
- */
-async function awardPoints(userId: string, data: Record<string, unknown>) {
-  const pointsEngine = new PointsEngine();
+async function getRecognitionFeed(organizationId: number) {
+  const recognitions = await executeQuery<KudosRow>(
+    `SELECT gk.id, gk.from_user_id, uf.name AS from_username,
+            gk.to_user_id, ut.name AS to_username,
+            gk.message, gk.reaction, gk.created_at
+     FROM gamification_kudos gk
+     JOIN users uf ON uf.id = gk.from_user_id
+     JOIN users ut ON ut.id = gk.to_user_id
+     WHERE gk.organization_id = ?
+     ORDER BY gk.created_at DESC
+     LIMIT 30`,
+    [organizationId] as SqlParam[]
+  );
 
-  const calculation = pointsEngine.calculateTicketPoints({
-    csat: data.csat as number | undefined,
-    fcr: data.fcr as boolean,
-    slaPercentage: data.slaPercentage as number,
-    resolutionTimeMinutes: data.resolutionTimeMinutes as number,
-    currentStreak: (data.currentStreak as number) || 0,
-    teamMetGoal: (data.teamMetGoal as boolean) || false,
-  });
-
-  // TODO: Save to database (placeholder - gamification tables not yet implemented)
-  const transaction = {
-    id: `txn_${Date.now()}`,
-    userId,
-    points: calculation.totalPoints,
-    action: data.action || 'Ticket resolved',
-    metadata: data.metadata || {},
-    multipliers: calculation.breakdown,
-    createdAt: new Date(),
-  };
-
-  return NextResponse.json({
-    success: true,
-    transaction,
-    calculation,
-  });
+  return apiSuccess({ recognitions });
 }
 
-/**
- * Unlock achievement
- */
-async function unlockAchievement(userId: string, data: { badgeId: string }) {
-  const badge = AchievementEngine.getBadge(data.badgeId);
+// ========================================
+// POST handlers
+// ========================================
 
-  if (!badge) {
-    return NextResponse.json({ error: 'Badge not found' }, { status: 404 });
+async function awardPoints(
+  userId: string,
+  organizationId: number,
+  data: { points?: number; pointsAction?: string; description?: string; ticketId?: number }
+) {
+  const points = data.points || 0;
+  const action = data.pointsAction || 'manual';
+  const description = data.description || null;
+  const ticketId = data.ticketId || null;
+
+  if (points <= 0) {
+    return apiError('Pontos devem ser maiores que zero', 400);
   }
 
-  // TODO: Save to database (placeholder - gamification tables not yet implemented)
-  const achievement = {
-    userId,
-    badgeId: badge.id,
-    unlockedAt: new Date(),
-    progress: 100,
-    notified: false,
-  };
+  const result = await executeRun(
+    `INSERT INTO gamification_points (user_id, organization_id, points, action, description, ticket_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [userId, organizationId, points, action, description, ticketId] as SqlParam[]
+  );
 
-  const notification = AchievementEngine.createUnlockNotification(badge);
-
-  return NextResponse.json({
+  return apiSuccess({
     success: true,
-    achievement,
-    notification,
+    id: result.lastInsertRowid,
+    points,
+    action,
   });
 }
 
-/**
- * Join challenge
- */
-async function joinChallenge(userId: string, challengeId: string) {
-  // TODO: Implement actual database operation when gamification tables exist
-  return NextResponse.json({
+async function unlockAchievement(
+  userId: string,
+  organizationId: number,
+  data: { achievementId: string; achievementName: string; achievementDescription?: string; badgeIcon?: string }
+) {
+  if (!data.achievementId || !data.achievementName) {
+    return apiError('Achievement ID e nome são obrigatórios', 400);
+  }
+
+  // Check if already unlocked
+  const existing = await executeQueryOne<{ id: number }>(
+    `SELECT id FROM gamification_achievements
+     WHERE user_id = ? AND organization_id = ? AND achievement_id = ?`,
+    [userId, organizationId, data.achievementId] as SqlParam[]
+  );
+
+  if (existing) {
+    return apiError('Conquista já desbloqueada', 409);
+  }
+
+  const result = await executeRun(
+    `INSERT INTO gamification_achievements (user_id, organization_id, achievement_id, achievement_name, achievement_description, badge_icon)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      userId,
+      organizationId,
+      data.achievementId,
+      data.achievementName,
+      data.achievementDescription || null,
+      data.badgeIcon || null,
+    ] as SqlParam[]
+  );
+
+  return apiSuccess({
+    success: true,
+    id: result.lastInsertRowid,
+    achievementId: data.achievementId,
+    achievementName: data.achievementName,
+  });
+}
+
+async function joinChallenge(userId: string, organizationId: number, challengeId: string) {
+  if (!challengeId) {
+    return apiError('Challenge ID é obrigatório', 400);
+  }
+
+  // Verify challenge exists and is active
+  const challenge = await executeQueryOne<{ id: number; status: string }>(
+    `SELECT id, status FROM gamification_challenges
+     WHERE id = ? AND organization_id = ?`,
+    [challengeId, organizationId] as SqlParam[]
+  );
+
+  if (!challenge) {
+    return apiError('Desafio não encontrado', 404);
+  }
+
+  if (challenge.status !== 'active') {
+    return apiError('Desafio não está ativo', 400);
+  }
+
+  // Check if already joined
+  const existing = await executeQueryOne<{ id: number }>(
+    `SELECT id FROM gamification_challenge_participants
+     WHERE challenge_id = ? AND user_id = ?`,
+    [challengeId, userId] as SqlParam[]
+  );
+
+  if (existing) {
+    return apiError('Já inscrito neste desafio', 409);
+  }
+
+  const result = await executeRun(
+    `INSERT INTO gamification_challenge_participants (challenge_id, user_id, organization_id)
+     VALUES (?, ?, ?)`,
+    [challengeId, userId, organizationId] as SqlParam[]
+  );
+
+  return apiSuccess({
+    success: true,
+    id: result.lastInsertRowid,
+    challengeId,
+    userId,
+  });
+}
+
+async function leaveChallenge(userId: string, organizationId: number, challengeId: string) {
+  if (!challengeId) {
+    return apiError('Challenge ID é obrigatório', 400);
+  }
+
+  const result = await executeRun(
+    `DELETE FROM gamification_challenge_participants
+     WHERE challenge_id = ? AND user_id = ? AND organization_id = ?`,
+    [challengeId, userId, organizationId] as SqlParam[]
+  );
+
+  if (result.changes === 0) {
+    return apiError('Inscrição não encontrada', 404);
+  }
+
+  return apiSuccess({
     success: true,
     challengeId,
     userId,
-    joinedAt: new Date(),
   });
 }
 
-/**
- * Leave challenge
- */
-async function leaveChallenge(userId: string, challengeId: string) {
-  // TODO: Implement actual database operation when gamification tables exist
-  return NextResponse.json({
-    success: true,
-    challengeId,
-    userId,
-    leftAt: new Date(),
-  });
-}
-
-/**
- * Update leaderboard opt-in preference
- */
-async function updateLeaderboardOptIn(userId: string, optedIn: boolean) {
-  // TODO: Save to database (placeholder - gamification tables not yet implemented)
-  return NextResponse.json({
-    success: true,
-    userId,
-    optedIn,
-    updatedAt: new Date(),
-  });
-}
-
-/**
- * Send kudos
- */
 async function sendKudos(
   fromUserId: string,
+  organizationId: number,
   data: { toUserId: string; message: string }
 ) {
-  const pointsEngine = new PointsEngine();
+  if (!data.toUserId || !data.message) {
+    return apiError('Destinatário e mensagem são obrigatórios', 400);
+  }
 
-  // Award points to sender
-  const senderPoints = pointsEngine.calculateActionPoints('kudosGiven');
+  if (String(fromUserId) === String(data.toUserId)) {
+    return apiError('Não é possível enviar kudos para si mesmo', 400);
+  }
 
-  // Award points to receiver
-  const receiverPoints = pointsEngine.calculateActionPoints('kudosReceived');
+  // Insert kudos
+  const result = await executeRun(
+    `INSERT INTO gamification_kudos (from_user_id, to_user_id, organization_id, message)
+     VALUES (?, ?, ?, ?)`,
+    [fromUserId, data.toUserId, organizationId, data.message] as SqlParam[]
+  );
 
-  // Create recognition entry (mock)
-  const recognition = {
-    id: `kudos_${Date.now()}`,
-    type: 'kudos' as const,
-    fromUserId,
-    fromUsername: 'Current User', // Replace with actual username
-    toUserId: data.toUserId,
-    toUsername: 'Recipient', // Replace with actual username
-    message: data.message,
-    points: receiverPoints,
-    createdAt: new Date(),
-    reactions: [],
-  };
+  // Award points to recipient (10 points for receiving kudos)
+  await executeRun(
+    `INSERT INTO gamification_points (user_id, organization_id, points, action, description)
+     VALUES (?, ?, ?, ?, ?)`,
+    [data.toUserId, organizationId, 10, 'kudos_received', `Kudos recebido do usuário ${fromUserId}`] as SqlParam[]
+  );
 
-  return NextResponse.json({
+  // Award points to sender (5 points for sending kudos)
+  await executeRun(
+    `INSERT INTO gamification_points (user_id, organization_id, points, action, description)
+     VALUES (?, ?, ?, ?, ?)`,
+    [fromUserId, organizationId, 5, 'kudos_sent', `Kudos enviado para usuário ${data.toUserId}`] as SqlParam[]
+  );
+
+  return apiSuccess({
     success: true,
-    recognition,
-    senderPoints,
-    receiverPoints,
+    id: result.lastInsertRowid,
+    senderPoints: 5,
+    receiverPoints: 10,
   });
 }
 
-/**
- * Add reaction to recognition
- */
-async function addReaction(
-  userId: string,
-  data: { recognitionId: string; emoji: string }
-) {
-  // Save reaction to database (mock)
-  const reaction = {
-    recognitionId: data.recognitionId,
-    userId,
-    emoji: data.emoji,
-    createdAt: new Date(),
-  };
+async function addReaction(data: { kudosId: string; emoji: string }) {
+  if (!data.kudosId || !data.emoji) {
+    return apiError('Kudos ID e emoji são obrigatórios', 400);
+  }
 
-  return NextResponse.json({
+  const result = await executeRun(
+    `UPDATE gamification_kudos SET reaction = ? WHERE id = ?`,
+    [data.emoji, data.kudosId] as SqlParam[]
+  );
+
+  if (result.changes === 0) {
+    return apiError('Kudos não encontrado', 404);
+  }
+
+  return apiSuccess({
     success: true,
-    reaction,
+    kudosId: data.kudosId,
+    emoji: data.emoji,
   });
 }

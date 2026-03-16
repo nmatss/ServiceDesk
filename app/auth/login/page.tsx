@@ -93,8 +93,8 @@ export default function LoginPage() {
         <div className="max-w-[420px] w-full relative z-10 animate-slide-up">
           {/* Logo + Header */}
           <div className="mb-10">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="flex-shrink-0 p-2 bg-white dark:bg-neutral-800 rounded-xl shadow-md border border-neutral-200/60 dark:border-neutral-700/60">
+            <div className="flex items-center gap-2.5 mb-8">
+              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
                 <Image
                   src="/favicon.svg"
                   alt="ServiceDesk Logo"
@@ -104,7 +104,10 @@ export default function LoginPage() {
                   priority
                 />
               </div>
-              <span className="text-lg font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
+              <div className="leading-none">
+                <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
+                <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+              </div>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">
               Bem-vindo de volta

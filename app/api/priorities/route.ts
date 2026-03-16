@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/db/adapter';
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
+import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Tenant não encontrado' },
         { status: 400 }
+      )
+    }
+
+    // SECURITY: Require authentication for reading priorities
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { success: false, error: 'Usuário não autenticado' },
+        { status: 401 }
       )
     }
 

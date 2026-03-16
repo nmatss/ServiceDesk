@@ -11,11 +11,17 @@ import { verifyToken } from '@/lib/auth/auth-service';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { isAdmin } from '@/lib/auth/roles';
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/auth/sso/providers
  * Get list of available SSO providers
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  // SECURITY: Rate limiting
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     // Get all active providers
     const providers = await ssoManager.getActiveProviders();

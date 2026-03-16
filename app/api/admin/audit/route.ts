@@ -3,6 +3,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isAdmin } from '@/lib/auth/roles';
 import { apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, executeRun, RunResult } from '@/lib/db/adapter';
+import { getDatabaseType } from '@/lib/db/config';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -23,7 +24,15 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = auth.organizationId;
-    const auditColumns = await executeQuery<{ name?: string }>(`PRAGMA table_info(audit_logs)`);
+    let auditColumns: { name?: string }[];
+    if (getDatabaseType() === 'sqlite') {
+      auditColumns = await executeQuery<{ name?: string }>(`PRAGMA table_info(audit_logs)`);
+    } else {
+      auditColumns = await executeQuery<{ name?: string }>(
+        `SELECT column_name as name, data_type as type FROM information_schema.columns WHERE table_name = ?`,
+        ['audit_logs']
+      );
+    }
     const hasResourceType = auditColumns.some((column) => column.name === 'resource_type');
     const hasResourceId = auditColumns.some((column) => column.name === 'resource_id');
     const resourceTypeExpr = hasResourceType ? 'al.resource_type' : 'al.entity_type';

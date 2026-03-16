@@ -24,6 +24,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // SECURITY: Require authentication for reading statuses
+    const userContext = getUserContextFromRequest(request)
+    if (!userContext) {
+      return NextResponse.json(
+        { success: false, error: 'Usuário não autenticado' },
+        { status: 401 }
+      )
+    }
+
     // Query statuses with tenant isolation
     let statuses: unknown[]
     try {
