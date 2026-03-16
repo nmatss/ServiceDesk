@@ -4,6 +4,7 @@ import AppLayout from '@/src/components/layout/AppLayout'
 import { baseMetadata } from '@/lib/seo/metadata'
 import WebVitalsReporter from '@/components/WebVitalsReporter'
 import { ToastProvider } from '@/components/ui/toast'
+import CookieConsent from '@/src/components/compliance/CookieConsent'
 
 // Sentry client config is initialized via instrumentation.ts (server) and
 // inline in sentry.client.config.ts (client) — no eager import needed here
@@ -75,6 +76,7 @@ export default function RootLayout({
         <AppLayout>
           {children}
         </AppLayout>
+        <CookieConsent />
       </body>
     </html>
   )

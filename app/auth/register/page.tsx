@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [passwordStrengthMessage, setPasswordStrengthMessage] = useState('')
   const router = useRouter()
@@ -34,6 +35,12 @@ export default function RegisterPage() {
 
     if (password.length < 6) {
       setError('A senha deve ter pelo menos 6 caracteres.')
+      setLoading(false)
+      return
+    }
+
+    if (!acceptTerms) {
+      setError('Voce deve aceitar os Termos de Uso e a Politica de Privacidade.')
       setLoading(false)
       return
     }
@@ -203,13 +210,13 @@ export default function RegisterPage() {
         <div className="max-w-md w-full space-y-6 animate-slide-up">
           {/* Logo + Header */}
           <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 lg:hidden">
+            <div className="flex-shrink-0 lg:hidden w-11 h-11 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
               <Image
                 src="/favicon.svg"
                 alt="ServiceDesk Logo"
-                width={48}
-                height={48}
-                className="rounded-xl shadow-md"
+                width={36}
+                height={36}
+                className="rounded-lg"
                 priority
               />
             </div>
@@ -376,6 +383,30 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
+            </div>
+
+            {/* Terms Acceptance */}
+            <div className="flex items-start gap-3">
+              <input
+                id="acceptTerms"
+                name="acceptTerms"
+                type="checkbox"
+                required
+                aria-required="true"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 text-brand-600 border-neutral-300 dark:border-neutral-600 rounded focus:ring-brand-500"
+              />
+              <label htmlFor="acceptTerms" className="text-sm text-neutral-600 dark:text-neutral-400">
+                Li e aceito os{' '}
+                <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">
+                  Termos de Uso
+                </a>{' '}
+                e a{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">
+                  Politica de Privacidade
+                </a>
+              </label>
             </div>
 
             {/* Error Message */}
