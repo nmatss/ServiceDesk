@@ -228,6 +228,9 @@ export const RATE_LIMITS = {
   ADMIN_MUTATION: { windowMs: 60 * 1000, max: 20, keyPrefix: 'admin:mutation' }, // 20/min
   ADMIN_USER: { windowMs: 60 * 1000, max: 20, keyPrefix: 'admin:user' }, // 20/min
 
+  // Billing
+  BILLING: { windowMs: 15 * 60 * 1000, max: 30, keyPrefix: 'billing' }, // 30/15min
+
   // Default/General
-  DEFAULT: { windowMs: 60 * 1000, max: 60, keyPrefix: 'api' }, // 60/min
+  DEFAULT: { windowMs: 60 * 1000, max: process.env.NODE_ENV === 'production' ? 120 : 60, keyPrefix: 'api' }, // 120/min prod, 60/min dev
 } as const;

@@ -5,7 +5,7 @@ import { executeQuery, executeQueryOne, sqlFalse } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')).split(',').map(s => s.trim()).filter(Boolean);
 
 // Poll interval for checking new notifications (ms)
 const POLL_INTERVAL = 10000; // 10 seconds
@@ -87,6 +87,12 @@ export async function GET(request: NextRequest) {
     keyPrefix: 'sse:notifications'
   });
   if (rateLimitResponse) return rateLimitResponse;
+
+  // SECURITY: In production, ALLOWED_ORIGINS must be configured
+  if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+    logger.error('ALLOWED_ORIGINS not configured in production');
+    return new Response('Server configuration error', { status: 500 });
+  }
 
   try {
     const tenantContext = getTenantContextFromRequest(request)

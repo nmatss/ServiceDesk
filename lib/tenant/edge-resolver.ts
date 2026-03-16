@@ -58,7 +58,9 @@ const DEV_DEFAULT_TENANT: EdgeTenantInfo = {
  * In production: allow if DEFAULT_TENANT_SLUG is set (single-tenant mode)
  */
 function shouldUseDefaultTenant(): boolean {
-  return process.env.NODE_ENV !== 'production' || !!process.env.DEFAULT_TENANT_SLUG;
+  if (process.env.NODE_ENV !== 'production') return true;
+  // In production, only allow default tenant in explicit single-tenant mode
+  return process.env.SINGLE_TENANT_MODE === 'true' && !!process.env.DEFAULT_TENANT_SLUG;
 }
 
 /**

@@ -127,6 +127,9 @@ const PUBLIC_ROUTES = [
   '/sitemap.xml',
   '/landing',
   '/auth',
+  '/privacy',
+  '/terms',
+  '/api/billing/webhook',
 ]
 
 // Routes that are tenant-specific but public (no auth required)
@@ -251,7 +254,7 @@ export async function middleware(request: NextRequest) {
     pathname,
     headers: tenantHeaders,
     cookies,
-    allowDevDefault: true, // Allow default tenant for all routes (required for single-tenant deployments)
+    allowDevDefault: process.env.SINGLE_TENANT_MODE === 'true', // Only allow default tenant in explicit single-tenant mode
   })
 
   // Log tenant resolution for debugging (simplified for Edge Runtime)

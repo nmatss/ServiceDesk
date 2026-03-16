@@ -516,7 +516,7 @@ export function getWhatsAppConfig() {
   return validateWhatsAppConfig();
 }
 
-// Auto-validate on import in production (skip during build time)
-if (isProduction() && !IS_BUILD_TIME) {
+// Auto-validate on import in production/staging (skip during build time and local scripts)
+if ((isProduction() || isStaging()) && !IS_BUILD_TIME) {
   validateEnvironment();
 }
