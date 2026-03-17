@@ -1,464 +1,255 @@
-# Security Guide - ServiceDesk Pro
+# Security Policy
 
-## 🔒 Security Architecture
+## Overview
 
-This document outlines the comprehensive security measures implemented in ServiceDesk Pro.
+ServiceDesk takes security seriously. This document describes our security policy, the security features implemented in the platform, and how to report vulnerabilities.
 
-## Table of Contents
+## Supported Versions
 
-1. [Authentication & Authorization](#authentication--authorization)
-2. [Multi-Tenant Security](#multi-tenant-security)
-3. [Input Validation](#input-validation)
-4. [Database Security](#database-security)
-5. [API Security](#api-security)
-6. [Error Handling](#error-handling)
-7. [Environment Configuration](#environment-configuration)
-8. [Security Headers](#security-headers)
-9. [Deployment Security](#deployment-security)
-10. [Security Checklist](#security-checklist)
+| Version | Supported |
+|---------|-----------|
+| 1.0.x   | Yes       |
+| < 1.0   | No        |
 
----
+Only the latest release in the 1.0.x line receives security updates. We recommend always running the latest version.
 
-## Authentication & Authorization
+## Reporting a Vulnerability
 
-### JWT-Based Authentication
+**Do NOT create public GitHub issues for security vulnerabilities.**
 
-**Location**: `middleware.ts`, `lib/config/env.ts`
+### How to Report
 
-- **Algorithm**: HS256
-- **Token Storage**: HTTP-only cookies (primary) + Authorization header (fallback)
-- **Validation**: Issuer + Audience + Expiration checks
-- **Secret Management**: Validated at startup, minimum 32 characters
+Email: **security@servicedesk.com.br**
 
-```typescript
-// Token validation includes:
-- Signature verification
-- Tenant/organization match
-- Role validation
-- Expiration check
-```
+Include the following in your report:
 
-### Role-Based Access Control (RBAC)
+- A clear description of the vulnerability
+- Steps to reproduce the issue
+- Potential impact assessment
+- Affected component(s) and version(s)
+- Suggested fix, if any
 
-**Roles Hierarchy**:
-1. `super_admin` - Full system access
-2. `tenant_admin` - Tenant-wide administration
-3. `team_manager` - Team management
-4. `admin` - Administrative functions
-5. `agent` - Ticket handling
-6. `user` - End user access
+### Response Timeline
 
-**Implementation**:
-```typescript
-import { requireAdmin, requireRole } from '@/lib/api/api-helpers'
+| Action | Timeframe |
+|--------|-----------|
+| Acknowledgment of report | 48 hours |
+| Initial assessment | 5 business days |
+| Status update to reporter | 10 business days |
+| Fix for critical vulnerabilities | 15 business days |
+| Fix for non-critical vulnerabilities | 30 business days |
 
-// Require admin access
-requireAdmin(user)
+We will keep reporters informed throughout the process. If the vulnerability is confirmed, we will credit the reporter in the security advisory (unless anonymity is requested).
 
-// Require specific roles
-requireRole(user, ['admin', 'team_manager'])
-```
-
----
-
-## Multi-Tenant Security
-
-### Tenant Isolation
-
-**Critical Feature**: Every database query MUST include `organization_id` filter
-
-**Enforcement Layers**:
-
-1. **Middleware Level**: Validates tenant context
-2. **API Level**: Validates resource access
-3. **Database Level**: Automatic filtering
-
-```typescript
-import { validateTenantAccess } from '@/lib/api/api-helpers'
-
-// Validate user can access resource
-validateTenantAccess(user, resource.organization_id)
-```
-
-### Tenant Resolution Methods
-
-1. **Subdomain**: `demo.servicedesk.com` → tenant `demo`
-2. **Path-based**: `/t/demo/portal` → tenant `demo`
-3. **Headers**: Explicit tenant headers (for APIs)
-
----
-
-## Input Validation
-
-### Zod Schema Validation
-
-**Location**: `lib/validation/schemas.ts`
-
-All API inputs validated with type-safe Zod schemas:
-
-```typescript
-import { parseJSONBody } from '@/lib/api/api-helpers'
-import { ticketSchemas } from '@/lib/validation/schemas'
-
-// Automatically validates and throws on error
-const data = await parseJSONBody(request, ticketSchemas.create)
-```
-
-### Validation Rules
-
-- **Email**: RFC 5322 compliant
-- **Password**: Min 8 chars, uppercase, lowercase, number
-- **Slug**: Lowercase alphanumeric + hyphens only
-- **ID**: Positive integers only
-- **File Size**: Max 50MB
-- **String Length**: Context-specific limits
-
-### Sanitization
-
-```typescript
-import { sanitizeString } from '@/lib/db/safe-queries'
-
-// Remove control characters
-const safe = sanitizeString(userInput, maxLength)
-```
-
----
-
-## Database Security
-
-### SQL Injection Prevention
-
-**Status**: ✅ **PROTECTED**
-
-- All queries use prepared statements
-- No string concatenation in SQL
-- Parameterized queries only
-
-```typescript
-// ❌ NEVER DO THIS
-db.prepare(`SELECT * FROM users WHERE email = '${email}'`)
-
-// ✅ ALWAYS DO THIS
-db.prepare('SELECT * FROM users WHERE email = ?').get(email)
-```
-
-### Safe Query Wrappers
-
-```typescript
-import { safeQuery, validateId } from '@/lib/db/safe-queries'
-
-// Wrapped execution with error handling
-const result = safeQuery(
-  () => userQueries.getById(id),
-  'get user by ID'
-)
-
-if (!result.success) {
-  throw new Error(result.error)
-}
-```
-
-### Transaction Support
-
-```typescript
-import { safeTransaction } from '@/lib/db/safe-queries'
-
-const result = safeTransaction(db, (db) => {
-  // Multiple operations
-  const ticket = ticketQueries.create(data)
-  commentQueries.create({ ticket_id: ticket.id, ...commentData })
-  return ticket
-}, 'create ticket with comment')
-```
-
----
-
-## API Security
-
-### Request Flow
-
-```
-Client → Middleware → Route Handler → Business Logic → Database
-         ↓           ↓                ↓                 ↓
-         Auth        Validation       Authorization     Safe Queries
-```
-
-### Security Layers
-
-1. **Middleware** (`middleware.ts`)
-   - Authentication
-   - Tenant resolution
-   - Security headers
-
-2. **Route Handler** (API routes)
-   - Input validation
-   - Authorization checks
-   - Business logic
-
-3. **Database Layer** (`lib/db/queries.ts`)
-   - Prepared statements
-   - Safe wrappers
-   - Tenant filtering
-
-### API Helper Functions
-
-```typescript
-import {
-  apiHandler,           // Error handling wrapper
-  getUserFromRequest,   // Extract authenticated user
-  getTenantFromRequest, // Extract tenant context
-  parseJSONBody,        // Validate JSON body
-  parseQueryParams,     // Validate query params
-  getIdFromParams,      // Validate URL params
-} from '@/lib/api/api-helpers'
-```
-
----
-
-## Error Handling
-
-### Centralized Error System
-
-**Location**: `lib/errors/error-handler.ts`
-
-**Error Types**:
-- `ValidationError` - Input validation failures (400)
-- `AuthenticationError` - Authentication required (401)
-- `AuthorizationError` - Insufficient permissions (403)
-- `NotFoundError` - Resource not found (404)
-- `ConflictError` - Business logic conflicts (409)
-- `RateLimitError` - Too many requests (429)
-- `DatabaseError` - Database failures (500)
-- `ExternalAPIError` - External service failures (503)
-
-### Usage
-
-```typescript
-import { NotFoundError, ConflictError } from '@/lib/errors/error-handler'
-
-if (!ticket) {
-  throw new NotFoundError('Ticket')
-}
-
-if (ticket.status === 'closed') {
-  throw new ConflictError('Cannot modify closed tickets')
-}
-```
-
-### Consistent API Responses
-
-**Success**:
-```json
-{
-  "success": true,
-  "data": { ... }
-}
-```
-
-**Error**:
-```json
-{
-  "success": false,
-  "error": {
-    "type": "VALIDATION_ERROR",
-    "message": "Validation failed",
-    "details": { "email": ["Invalid email format"] },
-    "timestamp": "2024-01-01T12:00:00.000Z"
-  }
-}
-```
-
----
-
-## Environment Configuration
-
-### Critical Variables
-
-**Location**: `lib/config/env.ts`
-
-```env
-# REQUIRED in production
-JWT_SECRET=your-very-strong-secret-minimum-32-characters
-
-# OPTIONAL
-DATABASE_URL=./servicedesk.db
-NODE_ENV=production
-PORT=3000
-ALLOWED_ORIGINS=https://yourdomain.com
-```
-
-### Validation on Startup
-
-```bash
-npm run env:validate
-```
-
-Validates:
-- JWT_SECRET exists and is strong
-- All required variables present
-- Variable format correctness
-
----
-
-## Security Headers
-
-**Location**: `lib/security/headers.ts`
-
-### Applied Headers
-
-```
-X-Content-Type-Options: nosniff
-X-Frame-Options: DENY
-X-XSS-Protection: 1; mode=block
-Referrer-Policy: strict-origin-when-cross-origin
-Strict-Transport-Security: max-age=31536000; includeSubDomains
-Content-Security-Policy: [detailed policy]
-Permissions-Policy: camera=(), microphone=(), geolocation=()
-```
-
-### Content Security Policy (CSP)
-
-```
-default-src 'self'
-script-src 'self' 'unsafe-eval' 'unsafe-inline'
-style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
-font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com data:
-img-src 'self' data: https: blob:
-connect-src 'self' https://api.openai.com wss:
-frame-ancestors 'none'
-```
-
----
-
-## Deployment Security
-
-### Pre-Deployment Checklist
-
-- [ ] **Environment Variables**
-  - [ ] JWT_SECRET set (32+ chars)
-  - [ ] All secrets configured
-  - [ ] No default values in production
-
-- [ ] **Code Quality**
-  - [ ] `npm run validate` passes
-  - [ ] `npm run type-check` passes (no TypeScript errors)
-  - [ ] `npm run lint` passes
-  - [ ] All tests pass
-
-- [ ] **Database**
-  - [ ] Migrations applied
-  - [ ] Indexes created
-  - [ ] Backup strategy configured
-
-- [ ] **Security**
-  - [ ] HTTPS enforced
-  - [ ] Security headers configured
-  - [ ] Rate limiting enabled
-  - [ ] CORS properly configured
-
-- [ ] **Monitoring**
-  - [ ] Error tracking setup (Sentry, etc.)
-  - [ ] Performance monitoring
-  - [ ] Audit logging enabled
-  - [ ] Uptime monitoring
-
-### Production Environment
-
-```bash
-# Build with validation
-npm run build
-
-# Starts with env validation
-npm run start
-```
-
----
-
-## Security Checklist
-
-### Development
-
-- [x] TypeScript strict mode enabled
-- [x] ESLint configured
-- [x] No `any` types (strict typing)
-- [x] All inputs validated with Zod
-- [x] Prepared statements for SQL
-- [x] Error handling on all async operations
+## Security Features
 
 ### Authentication
 
-- [x] JWT with strong secret
-- [x] HTTP-only cookies
-- [x] Token expiration
-- [x] Refresh token mechanism
-- [x] Password hashing (bcrypt)
-- [x] Multi-factor authentication support
+- **JWT Tokens**: HS256-signed access tokens (15-minute expiry) and refresh tokens (7-day expiry) stored in httpOnly cookies with device fingerprinting
+- **Password Hashing**: bcryptjs with 12 salt rounds
+- **Password Policies**: Entropy checks, dictionary validation, history tracking (last 5 passwords), 90-day expiration
+- **Multi-Factor Authentication (MFA)**: TOTP (authenticator apps), SMS, Email, and 10 backup codes stored with HMAC-SHA256 hashing
+- **Single Sign-On (SSO)**: OAuth2 and SAML provider support
+- **Gov.br Integration**: Authentication for Brazilian government agencies
+- **WebAuthn/Biometric**: Passwordless authentication via platform authenticators
+- **Login Monitoring**: Login attempt tracking with suspicious activity detection
 
-### Authorization
+### Authorization (RBAC)
 
-- [x] Role-based access control
-- [x] Resource-level permissions
-- [x] Tenant isolation enforced
-- [x] Cross-tenant access prevention
+Six-tier role hierarchy with 29 granular permissions:
 
-### Data Protection
+```
+super_admin > admin > tenant_admin > team_manager > agent > user
+```
 
-- [x] Input validation (Zod schemas)
-- [x] Input sanitization
-- [x] SQL injection prevention
-- [x] XSS prevention
-- [x] CSRF protection (SameSite cookies)
+- Role checks use constants from `lib/auth/roles.ts` (never hardcoded strings)
+- Conditional permissions: `owner_only`, `department_only`, `business_hours`
+- Permission engine in `lib/auth/rbac.ts`
+- Unified auth guard: `requireTenantUserContext(request)` on all protected endpoints
+- Super Admin guard: `requireSuperAdmin(request)` for cross-tenant operations
 
-### API Security
+### CSRF Protection
 
-- [x] Rate limiting ready
-- [x] Request size limits
-- [x] Timeout configurations
-- [x] CORS configured
-- [x] Security headers applied
+- Double Submit Cookie pattern with HMAC-SHA256 signing
+- Session-bound tokens with 1-hour expiry
+- Pre-authentication endpoints (login, register) are exempt
+- Implementation in `lib/security/csrf.ts`
 
-### Error Handling
+### Encryption
 
-- [x] No sensitive data in errors
-- [x] Consistent error responses
-- [x] Proper status codes
-- [x] Error logging
-- [x] Production vs development messages
+- **AES-256-GCM** encryption for sensitive database fields
+- Key rotation support for encrypted data
+- Implementation in `lib/security/` modules
+
+### Content Security Policy (CSP)
+
+- Strict CSP in production mode
+- `X-Frame-Options: DENY` to prevent clickjacking
+- `X-Content-Type-Options: nosniff`
+- `Strict-Transport-Security` with `includeSubDomains`
+- `Permissions-Policy` restricting camera, microphone, and geolocation
+- `Referrer-Policy: strict-origin-when-cross-origin`
+
+### Rate Limiting
+
+Per-endpoint rate limits enforced via Redis (with graceful fallback):
+
+| Endpoint | Limit |
+|----------|-------|
+| Login | 5 requests / 15 minutes |
+| Register | 3 requests / hour |
+| Password reset | 3 requests / hour |
+| Default API | 60 requests / minute |
+
+### SQL Injection Prevention
+
+- All queries use parameterized statements via the database adapter
+- No string concatenation in SQL
+- LIKE wildcard escaping (`%` and `_`) on all search parameters
+- Pagination capped at 100 results per request
+- Array input limited to 50 items per request
+
+### XSS Prevention
+
+- Input sanitization via `isomorphic-dompurify`
+- Output encoding in React components (default behavior)
+- CSP headers restrict inline script execution
+
+### Multi-Tenant Isolation
+
+- Every database query is scoped by `organization_id` from the authenticated JWT
+- Tenant resolution via middleware (subdomain, header, or JWT claim)
+- Cross-tenant access is blocked at the middleware, API, and database layers
+- Super Admin operations require explicit `organizationId === 1` or `super_admin` role
+
+### SSRF Protection
+
+- Workflow webhook executor validates target URLs against an IP whitelist
+- Internal network addresses are blocked from webhook destinations
+
+### Workflow Security
+
+- Tenant isolation enforced on all workflow operations via `organization_id`
+- Secrets are masked in variable logging
+- Approval tokens stored in the database (not in memory)
+
+### PII and Data Protection
+
+- PII detection and masking in logs and exports
+- Sensitive field encryption at rest (AES-256-GCM)
+- Audit logging for all data access and modifications
+
+## Security Best Practices for Contributors
+
+### Code
+
+1. **Never commit secrets** — use environment variables for all sensitive configuration
+2. **Always use parameterized queries** — never concatenate user input into SQL
+3. **Always scope by organization_id** — every query must filter by tenant
+4. **Always apply rate limiting** — use `applyRateLimit(request, RATE_LIMITS.*)` on all endpoints
+5. **Always validate input** — use Zod schemas for request body validation
+6. **Always sanitize output** — use DOMPurify for user-generated content
+7. **Never expose internal errors** — use `apiError()` with safe messages
+8. **Use ROLES constants** — never hardcode role strings
+
+### LIKE Escaping
+
+```typescript
+const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+conditions.push("(name LIKE ? ESCAPE '\\')");
+params.push(`%${escaped}%`);
+```
+
+### Pagination Cap
+
+```typescript
+const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100);
+```
+
+### Division by Zero
+
+```sql
+SELECT total / NULLIF(divisor, 0) FROM table
+```
+
+### Date Validation
+
+```typescript
+const date = new Date(input);
+if (isNaN(date.getTime())) return apiError('Invalid date', 400);
+```
+
+### Array Input Cap
+
+```typescript
+const ids = requestIds.slice(0, 50);
+```
+
+## Compliance
+
+### LGPD (Lei Geral de Protecao de Dados) / GDPR
+
+ServiceDesk implements the following data protection measures:
+
+- **Consent Tracking**: All data processing requires explicit user consent with documented legal basis, stored in the `lgpd_consents` table
+- **Privacy Policy**: Comprehensive privacy policy accessible to all users
+- **Terms of Service**: Clear terms of service with acceptance tracking
+- **Cookie Consent**: Banner for cookie consent with granular control
+- **Data Portability**: Users can export all their personal data (Article 18, LGPD)
+- **Right to Erasure**: Users can request deletion of their personal data (Article 18, LGPD)
+- **Data Retention**: 3-year retention policy with automatic cleanup
+- **Data Minimization**: Only necessary data is collected and stored
+- **Audit Trail**: All data access and modifications are logged for compliance auditing
+- **PII Detection**: Automated detection and masking of personally identifiable information
+
+### Audit Logging
+
+All security-relevant actions are recorded in audit logs:
+
+- Authentication events (login, logout, failed attempts, MFA verification)
+- Authorization failures (access denied)
+- Data access and modifications
+- Administrative actions (user management, configuration changes)
+- Cross-tenant operations by Super Admin
+
+Audit logs are queryable by date, organization, user, and action type.
+
+## Security Architecture
+
+```
+Client Request
+    |
+    v
+[Middleware] ── Rate Limiting ── Tenant Resolution ── JWT Verification
+    |
+    v
+[API Route] ── requireTenantUserContext() ── Input Validation (Zod)
+    |
+    v
+[Business Logic] ── RBAC Permission Check ── Data Sanitization
+    |
+    v
+[Database Adapter] ── Parameterized Queries ── organization_id Scoping
+    |
+    v
+[Response] ── apiSuccess() / apiError() ── Security Headers
+```
+
+## Infrastructure Security
+
+- **Docker**: Multi-stage build (<200MB), non-root user, tini init system
+- **Health Checks**: `/api/health/live`, `/api/health/ready`, `/api/health/startup`
+- **Monitoring**: Sentry (server/client/edge) for error tracking, Prometheus for metrics
+- **TLS**: HTTPS enforced in production with HSTS
+- **Graceful Shutdown**: Custom server handles SIGTERM/SIGINT for clean shutdown
+
+## Contact
+
+- Security issues: security@servicedesk.com.br
+- General inquiries: Open a GitHub issue
 
 ---
 
-## Reporting Security Issues
-
-**DO NOT** create public GitHub issues for security vulnerabilities.
-
-Instead, email: security@yourcompany.com
-
-Include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
-
----
-
-## Security Audit Log
-
-| Date | Version | Changes |
-|------|---------|---------|
-| 2024-01-01 | 0.1.0 | Initial security implementation |
-| 2024-01-01 | 0.2.0 | Enhanced middleware, validation, error handling |
-
----
-
-## Additional Resources
-
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [OWASP API Security Top 10](https://owasp.org/www-project-api-security/)
-- [Next.js Security Best Practices](https://nextjs.org/docs/advanced-features/security-headers)
-- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
-
----
-
-**Last Updated**: 2024-10-04
-**Maintained By**: Development Team
-**Security Review**: Required quarterly
+Last Updated: 2026-03-16
+Maintained By: ServiceDesk Development Team
+Security Review: Required quarterly

@@ -125,16 +125,19 @@ super_admin → admin → tenant_admin → team_manager → agent → user
 
 ### Directory Structure
 ```
-app/                          # Next.js App Router (76 pages)
-├── api/                      # 197 API route files, 358 HTTP handlers
-│   ├── auth/                 # Authentication (login, register, SSO, GovBR, MFA)
+app/                          # Next.js App Router (85 pages)
+├── api/                      # 232 API route files, 405 HTTP handlers
+│   ├── auth/                 # Authentication (login, register, SSO, GovBR)
+│   │   └── mfa/              # MFA management (setup, verify, disable, status, backup-codes)
 │   ├── admin/super/          # Super Admin (dashboard, orgs, users, audit, settings)
 │   ├── tickets/              # Ticket CRUD + comments, attachments, tags
+│   │   └── bulk-update/      # Bulk ticket operations
 │   ├── problems/             # ITIL Problem Management
 │   ├── changes/              # ITIL Change Management
 │   ├── cmdb/                 # ITIL Configuration Management
 │   ├── catalog/              # ITIL Service Catalog
 │   ├── cab/                  # Change Advisory Board
+│   ├── cron/                 # Background jobs (process-emails, lgpd-retention, cleanup)
 │   ├── knowledge/            # Knowledge Base (20 routes)
 │   ├── ai/                   # AI features (9 routes)
 │   ├── analytics/            # Analytics & reporting
@@ -152,7 +155,7 @@ app/                          # Next.js App Router (76 pages)
 ├── workflows/                # Workflow builder
 └── layout.tsx                # Root layout with AppLayout
 
-lib/                          # 49 modules, 398 files
+lib/                          # 50 modules, 376 files
 ├── db/                       # Database layer (adapter, queries, schemas, migrations)
 ├── auth/                     # Authentication (25 files: JWT, RBAC, MFA, SSO, biometric)
 ├── security/                 # Security (25 files: encryption, CSRF, CSP, audit, PII)
@@ -174,7 +177,7 @@ lib/                          # 49 modules, 398 files
 ├── design-system/            # Design system (5 files: tokens, themes, personas)
 └── ...                       # + email, reports, sla, search, compliance, lgpd, gamification
 
-src/components/               # 125 components
+src/components/               # 134 components
 ├── workflow/                 # 27 components (15 node types, 3 edge types, builder)
 ├── dashboard/                # 24 components (12 widgets, builder, COBIT)
 ├── mobile/                   # 13 components (gestures, biometria, voice)
@@ -261,7 +264,7 @@ components/ui/                # 49 base UI components
 - **CSRF**: Double Submit Cookie + HMAC-SHA256, session-bound, 1-hour expiry
 - **Encryption**: AES-256-GCM with key rotation for sensitive fields
 - **CSP**: Strict mode in production, Permissions-Policy, HSTS, X-Frame-Options DENY
-- **Rate Limiting**: Per-endpoint limits (login 5/15min, register 3/hr, default 60/min)
+- **Rate Limiting**: Per-endpoint limits (login 5/15min, register 3/hr, default 60/min); Redis-backed when `REDIS_URL` is set, in-memory fallback
 - **SQL Injection**: Parameterized queries + LIKE wildcard escaping
 - **XSS**: isomorphic-dompurify sanitization
 - **Tenant Isolation**: organization_id scoping + JWT validation in middleware
@@ -312,6 +315,16 @@ const ids = requestIds.slice(0, 50);
 - **DB Indexes**: 365 indexes, N+1 queries eliminated with JOINs
 - **Tree-shaking**: optimizePackageImports for heroicons, headlessui, lucide-react, recharts, framer-motion, date-fns
 
+## Cron Jobs (Vercel)
+
+| Route | Schedule | Description |
+|-------|----------|-------------|
+| `/api/cron/process-emails` | `*/5 * * * *` | Process email queue (max 50/cycle) |
+| `/api/cron/lgpd-retention` | `0 3 * * *` | LGPD data retention, consent expiry, anonymization |
+| `/api/cron/cleanup` | `0 4 * * *` | Clean expired tokens, sessions, cache, old audit logs |
+
+All cron routes require `CRON_SECRET` env var for authentication.
+
 ## Common Development Tasks
 
 ### Adding New Features
@@ -348,10 +361,11 @@ export async function GET(request: NextRequest) {
 
 ### Build Status
 - **TypeScript**: 0 errors
-- **Next.js Build**: SUCCESS (199 pages)
+- **Next.js Build**: SUCCESS (304 routes, 85 pages)
 - **SQLite→PG Migration**: 100% complete
 - **ESLint `any` warnings**: ~1,141 (reduced from ~1,900; suppressed via `ignoreDuringBuilds`)
 - **Color compliance**: 0 `blue-*`, 0 `gray-*`, 0 hardcoded role strings
+- **Cron Jobs**: 3 scheduled tasks
 
 ### Infrastructure
 - **Docker**: Multi-stage build (<200MB), non-root user, tini init
@@ -359,3 +373,4 @@ export async function GET(request: NextRequest) {
 - **Supabase**: PostgreSQL with 119 tables, 365 indexes, 59 triggers
 - **Monitoring**: Sentry (server/client/edge) + Prometheus metrics
 - **Custom Server**: server.ts with Socket.io + compression + graceful shutdown
+- **Environment**: `CRON_SECRET` for cron auth, `REDIS_URL` for Redis-backed rate limiting (optional)
