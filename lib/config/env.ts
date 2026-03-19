@@ -428,6 +428,22 @@ export function validateEnvironment(): void {
 
     // Production-specific validations
     if (isProduction()) {
+      // NEXT_PUBLIC_APP_URL must be set (no localhost fallback in production)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+      if (!appUrl || appUrl.includes('localhost')) {
+        errors.push('NEXT_PUBLIC_APP_URL must be set to a real domain in production (not localhost)');
+      }
+
+      // CRON_SECRET required for Vercel cron job authentication
+      if (!process.env.CRON_SECRET) {
+        errors.push('CRON_SECRET is required in production for cron job authentication');
+      }
+
+      // ALLOWED_ORIGINS required for SSE security
+      if (!process.env.ALLOWED_ORIGINS) {
+        warnings.push('ALLOWED_ORIGINS not configured - SSE will reject connections');
+      }
+
       // Check Redis
       const redis = validateRedisConfig();
       if (!redis) {

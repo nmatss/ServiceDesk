@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
     }
 
     const info = await getSubscriptionStatus(guard.auth.organizationId);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+    if (!appUrl) {
+      console.error('NEXT_PUBLIC_APP_URL is not configured');
+      return apiError('Server configuration error: APP_URL not set', 500);
+    }
 
     const session = await createCheckoutSession(
       guard.auth.organizationId,

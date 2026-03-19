@@ -19,7 +19,12 @@ export async function POST(request: NextRequest) {
       return apiError('No Stripe customer found. Please subscribe to a plan first.', 400);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+    if (!appUrl) {
+      console.error('NEXT_PUBLIC_APP_URL is not configured');
+      return apiError('Server configuration error: APP_URL not set', 500);
+    }
 
     const session = await createPortalSession(
       info.stripe_customer_id,

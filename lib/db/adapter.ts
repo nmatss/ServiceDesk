@@ -13,13 +13,15 @@ import type { SqlParam } from './connection.postgres';
 import type Database from 'better-sqlite3';
 
 // Lazy-load SQLite only when needed (not in production/Vercel)
+// better-sqlite3 is listed in next.config.js serverExternalPackages so it won't be bundled
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _sqliteDb: any = null;
 
 function getSQLiteDb(): Database.Database {
   if (!_sqliteDb) {
     try {
-      const mod = eval("require")('./connection');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require('./connection');
       _sqliteDb = mod.default || mod;
     } catch {
       throw new Error('SQLite (better-sqlite3) is not available. Set DB_TYPE=postgresql for production.');
@@ -345,6 +347,14 @@ export function getDatabase(): DatabaseAdapter {
     adapterInstance = createDatabaseAdapter();
   }
   return adapterInstance;
+}
+
+/**
+ * Reset adapter singleton (for testing only)
+ */
+export function _resetAdapterForTesting(): void {
+  adapterInstance = null;
+  _sqliteDb = null;
 }
 
 /**
