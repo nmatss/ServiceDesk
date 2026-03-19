@@ -17,6 +17,7 @@
 import nodemailer from 'nodemailer';
 import Handlebars from 'handlebars';
 import { ImapFlow } from 'imapflow';
+import { getAppUrl } from '@/lib/config/app-url';
 import { simpleParser, Attachment } from 'mailparser';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { sqlNow } from '@/lib/db/adapter';
@@ -176,7 +177,7 @@ export class EmailAutomation {
     });
 
     Handlebars.registerHelper('ticketUrl', (ticketId: number) => {
-      return `${process.env.APP_URL || 'http://localhost:3000'}/tickets/${ticketId}`;
+      return `${getAppUrl()}/tickets/${ticketId}`;
     });
   }
 

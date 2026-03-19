@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { getAppUrl } from '@/lib/config/app-url';
 
 interface SEOData {
   title: string
@@ -20,7 +21,7 @@ export interface PageSEOConfig {
 
 // Base metadata for the application
 export const baseMetadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'),
+  metadataBase: new URL(getAppUrl()),
   title: {
     template: '%s | ServiceDesk Pro - Sistema Completo de Atendimento',
     default: 'ServiceDesk Pro - Sistema Completo de Atendimento ao Cliente'

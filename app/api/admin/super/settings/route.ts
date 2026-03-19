@@ -19,7 +19,7 @@ interface SettingRow {
 
 const DEFAULT_SETTINGS: Record<string, { value: string; type: string; description: string }> = {
   system_name: { value: 'ServiceDesk', type: 'string', description: 'Nome do sistema' },
-  base_url: { value: 'http://localhost:3000', type: 'string', description: 'URL base do sistema' },
+  base_url: { value: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000', type: 'string', description: 'URL base do sistema' },
   maintenance_mode: { value: 'false', type: 'boolean', description: 'Modo de manutenção ativo' },
   max_organizations: { value: '100', type: 'number', description: 'Número máximo de organizações' },
   default_max_users_per_org: { value: '50', type: 'number', description: 'Limite padrão de usuários por organização' },

@@ -1,5 +1,6 @@
 // Use edge-compatible logger to support middleware/edge runtime
 import logger from '../monitoring/edge-logger';
+import { getAppUrl } from './app-url';
 
 /**
  * Environment Variable Validation and Management
@@ -367,8 +368,8 @@ export function getEnvironmentConfig(): EnvironmentConfig {
     isDevelopment: isDevelopment(),
 
     // Application URLs
-    appUrl: getEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'),
-    apiUrl: getEnv('NEXT_PUBLIC_API_URL', 'http://localhost:3000/api'),
+    appUrl: getAppUrl(),
+    apiUrl: getEnv('NEXT_PUBLIC_API_URL', `${getAppUrl()}/api`),
     port: getEnvNumber('PORT', 3000),
 
     // Security

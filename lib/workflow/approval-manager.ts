@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import logger from '../monitoring/structured-logger';
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
+import { getAppUrl } from '@/lib/config/app-url';
 import {
   WorkflowApproval,
   ApprovalNodeConfig,
@@ -247,7 +248,7 @@ export class ApprovalManager {
       approvalId,
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = getAppUrl();
     return `${baseUrl}/api/workflows/approve?token=${token}`;
   }
 

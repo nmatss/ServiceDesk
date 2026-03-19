@@ -6,6 +6,7 @@
  */
 
 import { logger, EventType, LogLevel } from '@/lib/monitoring/logger';
+import { getAppUrl } from '@/lib/config/app-url';
 import type { ExecutionResult } from './runbook-executor';
 import type { NormalizedAlert } from './monitor-bridge';
 
@@ -153,7 +154,7 @@ export class RemediationVerifier {
    * Perform an internal health check.
    */
   private async performInternalHealthCheck(): Promise<VerificationCheck> {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const baseUrl = getAppUrl();
 
     try {
       const controller = new AbortController();

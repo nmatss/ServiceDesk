@@ -8,6 +8,7 @@
 
 import { executeRun, executeQuery, sqlNow } from '@/lib/db/adapter';
 import { logger, EventType, LogLevel } from '@/lib/monitoring/logger';
+import { getAppUrl } from '@/lib/config/app-url';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -345,7 +346,7 @@ export class RunbookExecutor {
     const body = config.body as Record<string, unknown> | undefined;
 
     // Internal API call - use relative URL with base
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    const baseUrl = getAppUrl();
     const url = `${baseUrl}${endpoint}`;
 
     const response = await fetch(url, {
@@ -381,7 +382,7 @@ export class RunbookExecutor {
 
     // Try internal health endpoint
     if (check === 'service_health' || check === 'db_connection') {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+      const baseUrl = getAppUrl();
       try {
         const response = await fetch(`${baseUrl}/api/health/ready`, { method: 'GET' });
         if (response.ok) {
@@ -470,7 +471,7 @@ export class RunbookExecutor {
       ci_id: context.ci_id?.toString() || '',
       severity: context.severity || '',
       organization_id: context.organization_id.toString(),
-      webhook_url: (context.tags.webhook_url as string) || process.env.SELF_HEALING_WEBHOOK_URL || 'http://localhost:9090',
+      webhook_url: (context.tags.webhook_url as string) || process.env.SELF_HEALING_WEBHOOK_URL || '',
     };
 
     return this.deepInterpolate(config, vars);

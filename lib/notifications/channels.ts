@@ -6,6 +6,7 @@ import { NotificationPayload } from './realtime-engine'
 import { executeQuery, executeQueryOne, executeRun, sqlTrue, sqlFalse } from '@/lib/db/adapter'
 import { getDatabaseType } from '@/lib/db/config'
 import logger from '../monitoring/structured-logger';
+import { getAppUrl } from '@/lib/config/app-url';
 
 export interface ChannelConfig {
   [key: string]: unknown
@@ -513,7 +514,7 @@ export class NotificationChannelManager {
 
   // Message formatting methods
   private async generateEmailContent(notification: NotificationPayload, user: UserInfo | null) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = getAppUrl()
     const ticketUrl = notification.ticketId ? `${baseUrl}/tickets/${notification.ticketId}` : baseUrl
 
     const html = `
@@ -713,7 +714,7 @@ export class NotificationChannelManager {
   }
 
   private getNotificationUrl(notification: NotificationPayload): string {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = getAppUrl()
     return notification.ticketId ? `${baseUrl}/tickets/${notification.ticketId}` : `${baseUrl}/notifications`
   }
 

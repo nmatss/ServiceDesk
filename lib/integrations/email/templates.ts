@@ -13,6 +13,7 @@
  */
 
 import * as Handlebars from 'handlebars';
+import { getAppUrl } from '@/lib/config/app-url';
 import { executeQueryOne, executeRun, sqlTrue, sqlNow, type SqlParam } from '@/lib/db/adapter';
 import logger from '@/lib/monitoring/structured-logger';
 
@@ -138,16 +139,16 @@ export class TemplateEngine {
 
     // URL helpers
     Handlebars.registerHelper('ticketUrl', (ticketId: number) => {
-      return `${process.env.APP_URL || 'http://localhost:3000'}/tickets/${ticketId}`;
+      return `${getAppUrl()}/tickets/${ticketId}`;
     });
 
     Handlebars.registerHelper('portalUrl', (path?: string) => {
-      const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+      const baseUrl = getAppUrl();
       return path ? `${baseUrl}/portal/${path}` : `${baseUrl}/portal`;
     });
 
     Handlebars.registerHelper('loginUrl', () => {
-      return `${process.env.APP_URL || 'http://localhost:3000'}/auth/login`;
+      return `${getAppUrl()}/auth/login`;
     });
 
     // Priority badge helper

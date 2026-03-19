@@ -2,6 +2,7 @@ import emailService from './service'
 import { TicketEmailData, UserEmailData } from './templates'
 import { executeQueryOne } from '@/lib/db/adapter'
 import logger from '../monitoring/structured-logger';
+import { getAppUrl } from '@/lib/config/app-url';
 
 // Interface for ticket database row
 interface TicketRow {
@@ -61,8 +62,8 @@ export const getTicketEmailData = async (ticketId: number): Promise<TicketEmailD
         supportEmail: 'suporte@servicedesk.com' // Should be configurable
       },
       urls: {
-        ticketUrl: `${process.env.APP_URL || 'http://localhost:3000'}/tickets/${ticket.id}`,
-        portalUrl: `${process.env.APP_URL || 'http://localhost:3000'}/portal`
+        ticketUrl: `${getAppUrl()}/tickets/${ticket.id}`,
+        portalUrl: `${getAppUrl()}/portal`
       }
     }
   } catch (error) {
@@ -103,8 +104,8 @@ export const getUserEmailData = async (userId: number, includePassword = false):
         name: user.tenant_name
       },
       urls: {
-        loginUrl: `${process.env.APP_URL || 'http://localhost:3000'}/login`,
-        resetUrl: includePassword ? `${process.env.APP_URL || 'http://localhost:3000'}/reset-password` : undefined
+        loginUrl: `${getAppUrl()}/login`,
+        resetUrl: includePassword ? `${getAppUrl()}/reset-password` : undefined
       }
     }
   } catch (error) {
@@ -182,7 +183,7 @@ export const emailHooks = {
           },
           urls: {
             ...ticketData.urls,
-            ticketUrl: `${process.env.APP_URL || 'http://localhost:3000'}/admin/tickets/${ticketId}`
+            ticketUrl: `${getAppUrl()}/admin/tickets/${ticketId}`
           }
         }
 
@@ -216,7 +217,7 @@ export const emailHooks = {
       const userData = await getUserEmailData(userId)
       if (userData) {
         userData.resetToken = resetToken
-        userData.urls.resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+        userData.urls.resetUrl = `${getAppUrl()}/reset-password?token=${resetToken}`
 
         await emailService.sendPasswordResetEmail(userData)
         logger.info(`📧 Password reset email queued for user ${userData.email}`)
