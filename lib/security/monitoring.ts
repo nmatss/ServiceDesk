@@ -485,15 +485,15 @@ export class SecurityLogger {
    * Helper methods
    */
   private generateEventId(): string {
-    return `sec_event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `sec_event_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private generateAlertId(): string {
-    return `sec_alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `sec_alert_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private generateCorrelationId(): string {
-    return `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `corr_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private generateAlertTitle(event: SecurityEvent): string {

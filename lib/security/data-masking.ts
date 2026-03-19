@@ -624,7 +624,7 @@ class DataMaskingManager {
   }
 
   private generateRuleId(): string {
-    return `mask_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    return `mask_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private sortRulesByPriority(key: string): void {

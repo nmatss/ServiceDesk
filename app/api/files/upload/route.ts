@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import {
-  getTenantContextFromRequest,
-  getUserContextFromRequest,
-  validateTenantAccess,
-} from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { ADMIN_ROLES, TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
@@ -19,6 +15,7 @@ import {
   getFileIcon,
   isImageFile
 } from '@/lib/utils/file-upload'
+import { scanFile } from '@/lib/security/virus-scanner'
 
 const TICKET_ELEVATED_ROLES = [...TICKET_MANAGEMENT_ROLES, 'manager'];
 const ALLOWED_ENTITY_TYPES = new Set(['ticket', 'comment', 'knowledge_article']);
@@ -66,19 +63,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    if (!validateTenantAccess(userContext, tenantContext)) {
-      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -102,7 +88,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'entityType inválido' }, { status: 400 })
     }
 
-    if (isPublic && !isAdminRole(userContext.role)) {
+    if (isPublic && !isAdminRole(auth.role)) {
       return NextResponse.json({ error: 'Apenas administradores podem publicar arquivos' }, { status: 403 })
     }
 
@@ -118,11 +104,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: magicValidation.error }, { status: 400 })
     }
 
+    // Virus scan
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const scanResult = await scanFile(fileBuffer, file.name);
+    if (!scanResult.safe) {
+      return NextResponse.json(
+        { error: `Arquivo rejeitado: ${scanResult.threat || 'possível ameaça detectada'}` },
+        { status: 400 }
+      );
+    }
+
     // Validate entity if provided
     if (entityType && entityId !== null) {
       switch (entityType) {
         case 'ticket': {
-          if (!await hasTicketAccess(entityId, tenantContext.id, userContext.id, userContext.role)) {
+          if (!await hasTicketAccess(entityId, auth.organizationId, auth.userId, auth.role)) {
             return NextResponse.json({ error: 'Ticket não encontrado ou sem permissão' }, { status: 404 })
           }
           break
@@ -137,14 +133,14 @@ export async function POST(request: NextRequest) {
               FROM comments c
               JOIN tickets t ON c.ticket_id = t.id
               WHERE c.id = ? AND c.tenant_id = ? AND t.tenant_id = ?
-            `, [entityId, tenantContext.id, tenantContext.id]);
+            `, [entityId, auth.organizationId, auth.organizationId]);
           } catch {
             comment = await executeQueryOne<{ id: number; ticket_id: number; ticket_user_id: number }>(`
               SELECT c.id, c.ticket_id, t.user_id as ticket_user_id
               FROM comments c
               JOIN tickets t ON c.ticket_id = t.id
               WHERE c.id = ? AND t.organization_id = ?
-            `, [entityId, tenantContext.id]);
+            `, [entityId, auth.organizationId]);
           }
 
           if (!comment) {
@@ -152,8 +148,8 @@ export async function POST(request: NextRequest) {
           }
 
           const canAccessCommentTicket =
-            TICKET_ELEVATED_ROLES.includes(userContext.role) ||
-            comment.ticket_user_id === userContext.id;
+            TICKET_ELEVATED_ROLES.includes(auth.role) ||
+            comment.ticket_user_id === auth.userId;
           if (!canAccessCommentTicket) {
             return NextResponse.json({ error: 'Sem permissão para anexar neste comentário' }, { status: 403 })
           }
@@ -161,13 +157,13 @@ export async function POST(request: NextRequest) {
         }
 
         case 'knowledge_article': {
-          if (!isAdminRole(userContext.role)) {
+          if (!isAdminRole(auth.role)) {
             return NextResponse.json({ error: 'Permissão insuficiente para anexar arquivos em artigos' }, { status: 403 })
           }
 
           let articleExists = false;
           try {
-            const article = await executeQueryOne('SELECT id FROM kb_articles WHERE id = ? AND tenant_id = ?', [entityId, tenantContext.id]);
+            const article = await executeQueryOne('SELECT id FROM kb_articles WHERE id = ? AND tenant_id = ?', [entityId, auth.organizationId]);
             articleExists = Boolean(article);
           } catch {
             // Fall through to legacy table check.
@@ -179,7 +175,7 @@ export async function POST(request: NextRequest) {
               FROM knowledge_articles ka
               INNER JOIN users u ON u.id = ka.author_id
               WHERE ka.id = ? AND u.tenant_id = ?
-            `, [entityId, tenantContext.id]);
+            `, [entityId, auth.organizationId]);
             articleExists = Boolean(legacyArticle);
           }
 
@@ -196,8 +192,8 @@ export async function POST(request: NextRequest) {
 
     // Create subdirectory based on entity type and tenant
     const subPath = entityType
-      ? `${tenantContext.id}/${entityType}`
-      : `${tenantContext.id}/general`
+      ? `${auth.organizationId}/${entityType}`
+      : `${auth.organizationId}/general`
 
     // Save file locally
     const filePath = await saveFileLocally(file, secureFilename, subPath)
@@ -209,8 +205,8 @@ export async function POST(request: NextRequest) {
         mime_type, size, file_size, file_path, storage_path, storage_type,
         uploaded_by, entity_type, entity_id, is_public, virus_scanned, virus_scan_result, uploaded_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `, [tenantContext.id,
-      tenantContext.id,
+    `, [auth.organizationId,
+      auth.organizationId,
       secureFilename,
       file.name,
       file.name,
@@ -220,12 +216,12 @@ export async function POST(request: NextRequest) {
       filePath,
       filePath,
       'local',
-      userContext.id,
+      auth.userId,
       entityType || null,
       entityId ?? null,
       isPublic ? 1 : 0,
-      0, // virus_scanned - TODO: Implement virus scanning
-      null // virus_scan_result
+      scanResult.skipped ? 0 : 1,
+      scanResult.skipped ? null : 'clean'
     ])
 
     // Get the created file record with user info
@@ -276,19 +272,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    if (!validateTenantAccess(userContext, tenantContext)) {
-      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     const { searchParams } = new URL(request.url)
     const entityType = searchParams.get('entityType')
@@ -329,7 +314,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON fs.uploaded_by = u.id
       WHERE COALESCE(fs.tenant_id, fs.organization_id) = ?
     `
-    const queryParams: (string | number)[] = [tenantContext.id]
+    const queryParams: (string | number)[] = [auth.organizationId]
 
     if (entityType) {
       query += ' AND fs.entity_type = ?'
@@ -342,9 +327,9 @@ export async function GET(request: NextRequest) {
     }
 
     // If not admin, only show files uploaded by user or public files
-    if (!isAdminRole(userContext.role)) {
+    if (!isAdminRole(auth.role)) {
       query += ' AND (fs.uploaded_by = ? OR fs.is_public = 1)'
-      queryParams.push(userContext.id)
+      queryParams.push(auth.userId)
     }
 
     query += ' ORDER BY fs.created_at DESC LIMIT ? OFFSET ?'
@@ -354,7 +339,7 @@ export async function GET(request: NextRequest) {
 
     // Get total count for pagination
     let countQuery = 'SELECT COUNT(*) as count FROM file_storage WHERE COALESCE(tenant_id, organization_id) = ?'
-    const countParams: (string | number)[] = [tenantContext.id]
+    const countParams: (string | number)[] = [auth.organizationId]
 
     if (entityType) {
       countQuery += ' AND entity_type = ?'
@@ -366,9 +351,9 @@ export async function GET(request: NextRequest) {
       countParams.push(parsedEntityId as number)
     }
 
-    if (!isAdminRole(userContext.role)) {
+    if (!isAdminRole(auth.role)) {
       countQuery += ' AND (uploaded_by = ? OR is_public = 1)'
-      countParams.push(userContext.id)
+      countParams.push(auth.userId)
     }
 
     const totalCount = (await executeQueryOne<any>(countQuery, countParams))?.count || 0

@@ -898,7 +898,7 @@ export class SmartFilteringEngine {
 
   // Public management methods
   public async createFilterRule(rule: Omit<FilterRule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    const ruleId = `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const ruleId = `rule_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`
     const now = new Date()
 
     const fullRule: FilterRule = {

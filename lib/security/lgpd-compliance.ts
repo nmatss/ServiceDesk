@@ -355,7 +355,7 @@ export class LgpdComplianceManager {
    * Private helper methods
    */
   private generateId(): string {
-    return `lgpd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `lgpd_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private calculateExpiryDate(): Date {

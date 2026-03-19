@@ -8,7 +8,7 @@ import { VectorDatabase } from '@/lib/ai/vector-database';
 import { HybridSearchEngine } from '@/lib/ai/hybrid-search';
 import { logger } from '@/lib/monitoring/logger';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const vectorDb = new VectorDatabase();
@@ -20,14 +20,9 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
@@ -149,16 +144,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
-    const userContext = getUserContextFromRequest(request)
     const body = await request.json();
     const { query, articleId, position, userId } = body;
 
@@ -189,7 +178,7 @@ export async function POST(request: NextRequest) {
       INSERT INTO search_analytics (
         query, article_id, position, user_id
       ) VALUES (?, ?, ?, ?)
-    `, [query, articleId, position || 0, userContext?.id || userId || null]);
+    `, [query, articleId, position || 0, auth.userId || userId || null]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

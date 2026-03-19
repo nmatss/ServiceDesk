@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, executeQueryOne, executeRun, executeTransaction, type DatabaseAdapter } from '@/lib/db/adapter';
@@ -29,14 +28,9 @@ export async function GET(
 
   try {
     const { slug } = await params
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
     // Buscar artigo por slug
     const article = await executeQueryOne<{ id: number } & Record<string, unknown>>(`
@@ -119,8 +113,7 @@ export async function GET(
     `, [article.id, article.id, tenantId])
 
     // Registrar visualização (audit log)
-    const userContext = getUserContextFromRequest(request)
-    const userId = userContext?.id || null
+    const userId = auth.userId || null
 
     // Inserir log de auditoria para incrementar view_count via trigger
     await executeRun(`

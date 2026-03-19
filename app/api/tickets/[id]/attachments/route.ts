@@ -5,6 +5,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isPrivileged } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export async function GET(
@@ -37,7 +38,7 @@ export async function GET(
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isElevatedRole = isPrivileged(userContext.role)
     if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
@@ -140,7 +141,7 @@ export async function POST(
     }
 
     // Verificar se o usuário tem acesso ao ticket
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isElevatedRole = isPrivileged(userContext.role)
     if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }

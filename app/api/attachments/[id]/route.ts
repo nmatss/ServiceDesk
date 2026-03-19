@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
-import {
-  getTenantContextFromRequest,
-  getUserContextFromRequest,
-  validateTenantAccess,
-} from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { readFile } from 'fs/promises';
 import { basename, join } from 'path';
 import { logger } from '@/lib/monitoring/logger';
@@ -97,19 +93,8 @@ export async function GET(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
-
-    if (!validateTenantAccess(userContext, tenantContext)) {
-      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 });
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
     const { id } = await params;
     if (!isPositiveInteger(id)) {
@@ -117,14 +102,14 @@ export async function GET(
     }
     const attachmentId = Number.parseInt(id, 10);
 
-    const attachment = await getAttachmentByIdScoped(attachmentId, tenantContext.id);
+    const attachment = await getAttachmentByIdScoped(attachmentId, auth.organizationId);
     if (!attachment) {
       return NextResponse.json({ error: 'Anexo não encontrado' }, { status: 404 });
     }
 
     const canAccessTicket =
-      TICKET_ELEVATED_ROLES.includes(userContext.role) ||
-      attachment.ticket_owner_id === userContext.id;
+      TICKET_ELEVATED_ROLES.includes(auth.role) ||
+      attachment.ticket_owner_id === auth.userId;
     if (!canAccessTicket) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
@@ -133,7 +118,7 @@ export async function GET(
     if (safeFilename !== attachment.filename) {
       logger.warn('Attachment filename rejected due to unsafe path characters', {
         attachmentId,
-        tenantId: tenantContext.id,
+        tenantId: auth.organizationId,
       });
       return NextResponse.json({ error: 'Anexo inválido' }, { status: 400 });
     }
@@ -169,19 +154,8 @@ export async function DELETE(
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
   if (rateLimitResponse) return rateLimitResponse;
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
-
-    if (!validateTenantAccess(userContext, tenantContext)) {
-      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 });
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
     const { id } = await params;
     if (!isPositiveInteger(id)) {
@@ -189,19 +163,19 @@ export async function DELETE(
     }
     const attachmentId = Number.parseInt(id, 10);
 
-    const attachment = await getAttachmentByIdScoped(attachmentId, tenantContext.id);
+    const attachment = await getAttachmentByIdScoped(attachmentId, auth.organizationId);
     if (!attachment) {
       return NextResponse.json({ error: 'Anexo não encontrado' }, { status: 404 });
     }
 
     const canDelete =
-      attachment.uploaded_by === userContext.id ||
-      ATTACHMENT_DELETE_ROLES.includes(userContext.role);
+      attachment.uploaded_by === auth.userId ||
+      ATTACHMENT_DELETE_ROLES.includes(auth.role);
     if (!canDelete) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    const success = await deleteAttachmentScoped(attachmentId, tenantContext.id);
+    const success = await deleteAttachmentScoped(attachmentId, auth.organizationId);
     if (!success) {
       return NextResponse.json({ error: 'Erro ao deletar anexo' }, { status: 500 });
     }

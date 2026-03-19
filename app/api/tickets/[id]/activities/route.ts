@@ -10,6 +10,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isPrivileged } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 interface RouteParams {
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isElevatedRole = isPrivileged(userContext.role)
     if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json(
         { error: 'Acesso negado' },
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)
+    const isElevatedRole = isPrivileged(userContext.role)
     if (!isElevatedRole && ticket.user_id !== userContext.id) {
       return NextResponse.json(
         { error: 'Acesso negado' },

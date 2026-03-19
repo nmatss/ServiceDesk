@@ -96,6 +96,17 @@ export function getRedisClient(): Redis | null {
   }
 }
 
+// Graceful shutdown
+if (typeof process !== 'undefined') {
+  const cleanup = () => {
+    if (redisClient) {
+      redisClient.disconnect();
+    }
+  };
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
+}
+
 // ---------------------------------------------------------------------------
 // In-memory sliding window store (fallback)
 // ---------------------------------------------------------------------------
@@ -146,7 +157,7 @@ async function checkRateLimitRedis(
 ): Promise<RateLimitResult> {
   const now = Date.now();
   const windowStart = now - config.windowMs;
-  const member = `${now}:${Math.random().toString(36).slice(2, 10)}`;
+  const member = `${now}:${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
   const ttlSeconds = Math.ceil(config.windowMs / 1000);
 
   const pipeline = redis.pipeline();

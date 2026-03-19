@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import emailService from '@/lib/email/service'
 import { logger } from '@/lib/monitoring/logger';
 import { isAdmin } from '@/lib/auth/roles';
@@ -12,18 +12,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     // Only admin users can send emails directly
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
@@ -83,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Queue the email
     const queueId = await emailService.queueEmail({
-      tenant_id: tenantContext.id,
+      tenant_id: auth.organizationId,
       to_email: Array.isArray(to) ? to.join(',') : to,
       cc_emails: cc ? (Array.isArray(cc) ? cc.join(',') : cc) : undefined,
       bcc_emails: bcc ? (Array.isArray(bcc) ? bcc.join(',') : bcc) : undefined,
@@ -127,22 +120,15 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
     // Get email statistics
-    const stats = await emailService.getEmailStats(tenantContext.id)
+    const stats = await emailService.getEmailStats(auth.organizationId)
 
     return NextResponse.json({
       success: true,

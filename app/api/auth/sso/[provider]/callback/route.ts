@@ -8,12 +8,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import ssoManager from '@/lib/auth/sso-manager';
-import { sign } from 'jsonwebtoken';
+import { SignJWT } from 'jose';
 import { validateJWTSecret } from '@/lib/config/env';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
-const JWT_SECRET = validateJWTSecret();
+const JWT_SECRET = new TextEncoder().encode(validateJWTSecret());
 const COOKIE_NAME = 'servicedesk_token';
 
 /**
@@ -81,16 +81,15 @@ export async function GET(
     }
 
     // Generate JWT token
-    const token = sign(
-      {
+    const token = await new SignJWT({
         userId: user.id,
         email: user.email,
         role: user.role,
         ssoProvider: provider,
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+      })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('7d')
+      .sign(JWT_SECRET);
 
     // Set authentication cookie
     cookieStore.set(COOKIE_NAME, token, {
@@ -175,16 +174,15 @@ export async function POST(
 
     // Generate JWT token
     const cookieStore = await cookies();
-    const token = sign(
-      {
+    const token = await new SignJWT({
         userId: user.id,
         email: user.email,
         role: user.role,
         ssoProvider: provider,
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+      })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime('7d')
+      .sign(JWT_SECRET);
 
     // Set authentication cookie
     cookieStore.set(COOKIE_NAME, token, {

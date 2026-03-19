@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { templateEngine, EmailTemplate } from '@/lib/integrations/email/templates';
 import { executeQuery, executeQueryOne, sqlTrue } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
@@ -20,18 +20,11 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
     // Only admins can view templates
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
@@ -46,7 +39,7 @@ export async function GET(request: NextRequest) {
       SELECT * FROM email_templates
       WHERE (tenant_id = ? OR tenant_id IS NULL)
     `;
-    const params: (string | number | boolean | null)[] = [tenantContext.id];
+    const params: (string | number | boolean | null)[] = [auth.organizationId];
 
     if (category) {
       query += ' AND category = ?';
@@ -103,18 +96,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
     // Only admins can create templates
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
@@ -132,7 +118,7 @@ export async function POST(request: NextRequest) {
     const existing = await executeQueryOne(`
       SELECT id FROM email_templates
       WHERE code = ? AND language = ? AND tenant_id = ?
-    `, [data.code, data.language || 'pt-BR', tenantContext.id]);
+    `, [data.code, data.language || 'pt-BR', auth.organizationId]);
 
     if (existing) {
       return NextResponse.json(
@@ -153,7 +139,7 @@ export async function POST(request: NextRequest) {
       variables: data.variables || [],
       description: data.description,
       isActive: data.isActive !== false,
-      tenantId: tenantContext.id,
+      tenantId: auth.organizationId,
     };
 
     const templateId = await templateEngine.saveTemplate(template);

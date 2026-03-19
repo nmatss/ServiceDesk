@@ -361,7 +361,7 @@ export class ConnectionPool extends EventEmitter {
   }
 
   private createConnection(): PooledConnection {
-    const connectionId = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const connectionId = `conn_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
 
     try {
       const database = new Database(process.env.DATABASE_URL || 'servicedesk.db', {
@@ -402,7 +402,7 @@ export class ConnectionPool extends EventEmitter {
   }
 
   private createReadConnection(url: string): PooledConnection {
-    const connectionId = `read_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const connectionId = `read_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
 
     try {
       const database = new Database(url, {

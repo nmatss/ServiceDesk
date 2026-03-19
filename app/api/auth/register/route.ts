@@ -79,7 +79,8 @@ async function userExists(email: string, tenantId: number): Promise<boolean> {
       [email, tenantId]
     );
     return !!row;
-  } catch {
+  } catch (err) {
+    logger.warn('userExists: organization_id column query failed, trying tenant_id', err);
     const row = await executeQueryOne<{ id: number }>(
       `SELECT id FROM users WHERE email = ? AND tenant_id = ?`,
       [email, tenantId]
@@ -95,7 +96,8 @@ async function activeUserCount(tenantId: number): Promise<number> {
       [tenantId]
     );
     return Number(row?.count ?? 0);
-  } catch {
+  } catch (err) {
+    logger.warn('activeUserCount: organization_id column query failed, trying tenant_id', err);
     const row = await executeQueryOne<{ count: number }>(
       `SELECT COUNT(*) AS count FROM users WHERE tenant_id = ? AND is_active = ${sqlTrue()}`,
       [tenantId]
@@ -133,8 +135,8 @@ async function insertUser(params: {
       ]
     );
     return;
-  } catch {
-    // Fallback for schemas without optional profile columns.
+  } catch (err) {
+    logger.warn('insertUser: full columns insert failed, trying minimal schema', err);
   }
 
   try {
@@ -146,7 +148,8 @@ async function insertUser(params: {
       [params.tenantId, params.name, params.email, params.passwordHash, 'user']
     );
     return;
-  } catch {
+  } catch (err) {
+    logger.warn('insertUser: organization_id insert failed, trying tenant_id', err);
     await executeRun(
       `
       INSERT INTO users (tenant_id, name, email, password_hash, role, is_active)
@@ -169,7 +172,8 @@ async function getRegisteredUser(email: string, tenantId: number): Promise<Regis
       `,
       [email, tenantId]
     );
-  } catch {
+  } catch (err) {
+    logger.warn('getRegisteredUser: organization_id column query failed, trying tenant_id', err);
     return await executeQueryOne<RegisteredUserRow>(
       `
       SELECT id, tenant_id, name, email, role, job_title, department, phone, created_at
@@ -213,8 +217,8 @@ async function insertRegistrationAudit(params: {
       ]
     );
     return;
-  } catch {
-    // Fallback for schemas without organization_id on audit_logs.
+  } catch (err) {
+    logger.warn('insertRegistrationAudit: full schema insert failed, trying without organization_id', err);
   }
 
   try {
@@ -226,7 +230,8 @@ async function insertRegistrationAudit(params: {
       [params.tenantId, params.userId, params.userId, payload, params.ipAddress, params.userAgent]
     );
     return;
-  } catch {
+  } catch (err) {
+    logger.warn('insertRegistrationAudit: tenant_id insert failed, trying minimal schema', err);
     await executeRun(
       `
       INSERT INTO audit_logs (user_id, entity_type, entity_id, action, new_values, ip_address, user_agent)
@@ -416,7 +421,8 @@ export async function POST(request: NextRequest) {
           `UPDATE users SET role = 'admin' WHERE email = ? AND organization_id = ?`,
           [normalizedEmail, tenantContext.id]
         );
-      } catch {
+      } catch (err) {
+        logger.warn('Promote to admin: organization_id update failed, trying tenant_id', err);
         await executeRun(
           `UPDATE users SET role = 'admin' WHERE email = ? AND tenant_id = ?`,
           [normalizedEmail, tenantContext.id]

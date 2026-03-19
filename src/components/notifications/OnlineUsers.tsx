@@ -85,11 +85,10 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
       aria-label="Usuários online"
     >
       {/* Header */}
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+      <button
+        type="button"
+        className="flex items-center justify-between w-full p-4 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors bg-transparent border-0 text-left"
         onClick={() => setIsExpanded(!isExpanded)}
-        role="button"
-        tabIndex={0}
         aria-expanded={isExpanded}
         aria-controls="online-users-list"
         aria-label={`Usuários online: ${onlineUsers.length}. ${isExpanded ? 'Clique para ocultar' : 'Clique para expandir'}`}
@@ -101,9 +100,9 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
           />
           <div className="flex items-center space-x-2">
             <UsersIcon className="w-5 h-5 text-neutral-600 dark:text-neutral-400" aria-hidden="true" />
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Usuários Online ({onlineUsers.length})
-            </h3>
+            </span>
           </div>
         </div>
 
@@ -112,7 +111,7 @@ export default function OnlineUsers({ showCompact = false }: OnlineUsersProps) {
         ) : (
           <ChevronDownIcon className="w-4 h-4 text-neutral-400" aria-hidden="true" />
         )}
-      </div>
+      </button>
 
       {/* Lista de usuários */}
       {isExpanded && (

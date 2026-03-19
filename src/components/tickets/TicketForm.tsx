@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { z } from 'zod'
 import { logger } from '@/lib/monitoring/logger'
 import {
   PaperClipIcon,
@@ -57,6 +58,14 @@ interface FormData {
   tags: string[]
   attachments: File[]
 }
+
+const ticketFormSchema = z.object({
+  title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres').max(200, 'O título deve ter no máximo 200 caracteres'),
+  description: z.string().min(10, 'A descrição deve ter pelo menos 10 caracteres').max(5000, 'A descrição deve ter no máximo 5000 caracteres'),
+  category_id: z.string().min(1, 'Selecione uma categoria'),
+  priority_id: z.string().min(1, 'Selecione uma prioridade'),
+  tags: z.array(z.string().max(50)).max(10, 'Máximo de 10 tags').optional(),
+})
 
 const initialFormData: FormData = {
   title: '',
@@ -200,30 +209,30 @@ export default function TicketForm({
   }
 
   const validateForm = () => {
-    const errors: Record<string, string> = {}
+    const result = ticketFormSchema.safeParse({
+      title: formData.title.trim(),
+      description: formData.description.trim(),
+      category_id: formData.category_id,
+      priority_id: formData.priority_id,
+      tags: formData.tags,
+    })
 
-    if (!formData.title.trim()) {
-      errors.title = 'O título é obrigatório'
-    }
-    if (!formData.description.trim()) {
-      errors.description = 'A descrição é obrigatória'
-    }
-    if (!formData.category_id) {
-      errors.category_id = 'Selecione uma categoria'
-    }
-    if (!formData.priority_id) {
-      errors.priority_id = 'Selecione uma prioridade'
-    }
-
-    setFieldErrors(errors)
-
-    if (Object.keys(errors).length > 0) {
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as string
+        if (!errors[field]) {
+          errors[field] = issue.message
+        }
+      }
+      setFieldErrors(errors)
       const errorMessage = Object.values(errors).join('. ')
       setError(errorMessage)
       setStatusMessage(`Erro de validação: ${errorMessage}`)
       return false
     }
 
+    setFieldErrors({})
     return true
   }
 

@@ -62,7 +62,7 @@ export class ReadReplicaManager extends EventEmitter {
    * Add a read replica to the pool
    */
   async addReplica(config: ReadReplicaConfig): Promise<string> {
-    const replicaId = `replica_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const replicaId = `replica_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
 
     try {
       const database = new Database(config.url, {

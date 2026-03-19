@@ -205,10 +205,11 @@ export default function ProblemsPage() {
           {showFilters && (
             <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700 grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-down">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                <label htmlFor="filter-status" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Status
                 </label>
                 <select
+                  id="filter-status"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as ProblemStatus | '')}
                   aria-label="Filtrar por status"
@@ -224,10 +225,11 @@ export default function ProblemsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                <label htmlFor="filter-priority" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                   Impacto
                 </label>
                 <select
+                  id="filter-priority"
                   value={impactFilter}
                   onChange={(e) => setImpactFilter(e.target.value as ProblemImpact | '')}
                   aria-label="Filtrar por impacto"

@@ -365,7 +365,8 @@ export async function GET(request: NextRequest) {
 - **SQLite→PG Migration**: 100% complete
 - **ESLint `any` warnings**: ~1,141 (reduced from ~1,900; suppressed via `ignoreDuringBuilds`)
 - **Color compliance**: 0 `blue-*`, 0 `gray-*`, 0 hardcoded role strings
-- **Cron Jobs**: 3 scheduled tasks
+- **Auth guard**: All protected routes use `requireTenantUserContext()`
+- **Cron Jobs**: 3 scheduled tasks (all rate-limited)
 
 ### Infrastructure
 - **Docker**: Multi-stage build (<200MB), non-root user, tini init
@@ -373,4 +374,5 @@ export async function GET(request: NextRequest) {
 - **Supabase**: PostgreSQL with 119 tables, 365 indexes, 59 triggers
 - **Monitoring**: Sentry (server/client/edge) + Prometheus metrics
 - **Custom Server**: server.ts with Socket.io + compression + graceful shutdown
-- **Environment**: `CRON_SECRET` for cron auth, `REDIS_URL` for Redis-backed rate limiting (optional)
+- **Virus Scanning**: VirusTotal API v3 integration for file uploads (optional)
+- **Environment**: `CRON_SECRET` for cron auth, `REDIS_URL` for Redis-backed rate limiting (optional), `VIRUSTOTAL_API_KEY` for file scanning (optional), `EMAIL_WEBHOOK_SECRET` for email webhook auth (required)

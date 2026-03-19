@@ -356,7 +356,7 @@ export class EmailParser {
    * Generate unique message ID
    */
   private generateMessageId(): string {
-    return `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@servicedesk.local>`;
+    return `<${Date.now()}.${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}@servicedesk.local>`;
   }
 
   /**

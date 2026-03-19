@@ -131,7 +131,7 @@ export async function GET(
       members,
       votes,
       user_membership: userMembership,
-      can_vote: !!userMembership || ['admin', 'manager'].includes(role)
+      can_vote: !!userMembership || isAdmin(role)
     })
   } catch (error) {
     logger.error('Error fetching CAB meeting', error)
@@ -159,7 +159,7 @@ export async function PUT(
     const { userId, organizationId, role } = guard.auth!
 
     // Only admins and managers can update meetings
-    if (!['admin', 'manager'].includes(role)) {
+    if (!isAdmin(role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }

@@ -376,7 +376,7 @@ function logError(
  * Generate correlation ID
  */
 function generateCorrelationId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  return `${Date.now()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
 }
 
 // ======================

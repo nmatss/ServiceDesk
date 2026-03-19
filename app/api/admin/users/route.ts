@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { executeQuery } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit'
@@ -20,24 +20,11 @@ export async function GET(request: NextRequest) {
     return rateLimitResult // Rate limit exceeded
   }
   try {
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
-
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     // Verificar se é admin do tenant
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json(
         { error: 'Acesso negado - permissão insuficiente' },
         { status: 403 }
@@ -62,7 +49,7 @@ export async function GET(request: NextRequest) {
         WHERE COALESCE(u.tenant_id, u.organization_id) = ?
         GROUP BY u.id
         ORDER BY u.created_at DESC
-      `, [tenantContext.id, tenantContext.id])
+      `, [auth.organizationId, auth.organizationId])
     } catch {
       users = await executeQuery<any>(`
         SELECT
@@ -79,7 +66,7 @@ export async function GET(request: NextRequest) {
         WHERE u.organization_id = ?
         GROUP BY u.id
         ORDER BY u.created_at DESC
-      `, [tenantContext.id, tenantContext.id])
+      `, [auth.organizationId, auth.organizationId])
     }
 
     return NextResponse.json({

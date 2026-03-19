@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
-import { isAdmin } from '@/lib/auth/roles'
+import { isAdmin, isPrivileged } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -170,7 +170,7 @@ export async function PUT(
     const { userId, organizationId, role } = guard.auth!
 
     // Check permissions
-    if (!['admin', 'agent', 'manager'].includes(role)) {
+    if (!isPrivileged(role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão negada' },
         { status: 403 }

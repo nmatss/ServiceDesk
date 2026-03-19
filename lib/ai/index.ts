@@ -114,7 +114,7 @@ export const AIUtils = {
    */
   generateOperationId: (operationType: string, entityId?: number): string => {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = crypto.randomUUID().replace(/-/g, '').slice(0, 6);
     return `${operationType}_${timestamp}_${random}${entityId ? `_${entityId}` : ''}`;
   },
 

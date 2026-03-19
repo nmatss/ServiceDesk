@@ -626,7 +626,7 @@ This link expires in 48 hours.
 
   // Helper methods
   private generateApprovalId(): number {
-    return Date.now() + Math.floor(Math.random() * 1000);
+    return Date.now() + (parseInt(crypto.randomUUID().slice(0, 8), 16) % 1000);
   }
 
   private async getApproval(id: number): Promise<WorkflowApproval | null> {

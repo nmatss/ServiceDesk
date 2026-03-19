@@ -564,7 +564,7 @@ export class BoletoClient {
    */
   private generateNossoNumero(): string {
     const timestamp = Date.now().toString();
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = crypto.randomUUID().replace(/-/g, '').slice(0, 6);
     return `${timestamp}${random}`.substring(0, 17);
   }
 

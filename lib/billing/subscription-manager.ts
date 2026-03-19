@@ -1,5 +1,6 @@
 import { executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { sqlStartOfMonth } from '@/lib/db/adapter';
+import { logger } from '@/lib/monitoring/logger';
 
 export interface PlanLimits {
   users: number;      // -1 = unlimited
@@ -122,6 +123,19 @@ export async function updateSubscription(
   params.push(orgId);
 
   await executeRun(`UPDATE organizations SET ${setClauses} WHERE id = ?`, params);
+
+  logger.info('Subscription updated', { orgId, plan, stripeCustomerId, stripeSubscriptionId });
+
+  // Audit log
+  try {
+    await executeRun(
+      `INSERT INTO audit_logs (organization_id, tenant_id, entity_type, entity_id, action, new_values)
+       VALUES (?, ?, 'organization', ?, 'subscription_update', ?)`,
+      [orgId, orgId, orgId, JSON.stringify({ plan, stripeCustomerId, stripeSubscriptionId, expiresAt })]
+    );
+  } catch (err) {
+    logger.warn('Failed to write subscription audit log', err);
+  }
 }
 
 export async function cancelSubscription(orgId: number): Promise<void> {
@@ -129,6 +143,18 @@ export async function cancelSubscription(orgId: number): Promise<void> {
     `UPDATE organizations SET subscription_status = 'cancelled' WHERE id = ?`,
     [orgId]
   );
+
+  logger.info('Subscription cancelled', { orgId });
+
+  try {
+    await executeRun(
+      `INSERT INTO audit_logs (organization_id, tenant_id, entity_type, entity_id, action, new_values)
+       VALUES (?, ?, 'organization', ?, 'subscription_cancel', '{}')`,
+      [orgId, orgId, orgId]
+    );
+  } catch (err) {
+    logger.warn('Failed to write subscription cancel audit log', err);
+  }
 }
 
 export async function handlePaymentFailed(orgId: number): Promise<void> {
@@ -136,4 +162,16 @@ export async function handlePaymentFailed(orgId: number): Promise<void> {
     `UPDATE organizations SET subscription_status = 'past_due' WHERE id = ?`,
     [orgId]
   );
+
+  logger.info('Payment failed', { orgId });
+
+  try {
+    await executeRun(
+      `INSERT INTO audit_logs (organization_id, tenant_id, entity_type, entity_id, action, new_values)
+       VALUES (?, ?, 'organization', ?, 'payment_failed', '{}')`,
+      [orgId, orgId, orgId]
+    );
+  } catch (err) {
+    logger.warn('Failed to write payment failed audit log', err);
+  }
 }

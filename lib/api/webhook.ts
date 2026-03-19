@@ -8,6 +8,7 @@ import crypto from 'crypto'
 import { WebhookEvent, WebhookEndpoint, WebhookDelivery } from './types'
 import { v4 as uuidv4 } from 'uuid'
 import logger from '../monitoring/structured-logger';
+import { isPrivateIP, isValidIPv4 } from './ip-validation';
 
 // Webhook Configuration
 interface WebhookConfig {
@@ -170,6 +171,7 @@ export class WebhookManager {
     headers?: Record<string, string>
     active?: boolean
   }): Promise<WebhookEndpoint> {
+    this.validateWebhookUrl(data.url);
     const secret = data.secret || this.generateSecret()
 
     return this.store.createEndpoint({
@@ -339,6 +341,8 @@ export class WebhookManager {
 
   // Deliver webhook to endpoint
   private async deliverWebhook(endpoint: WebhookEndpoint, event: WebhookEvent): Promise<Response> {
+    this.validateWebhookUrl(endpoint.url);
+
     const payload = JSON.stringify({
       id: event.id,
       type: event.type,
@@ -476,6 +480,43 @@ export class WebhookManager {
   // Stop queue processor
   stop(): void {
     this.processing = false
+  }
+
+  // Validate webhook URL to prevent SSRF
+  private validateWebhookUrl(url: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error(`Invalid webhook URL: ${url}`);
+    }
+
+    // Block non-HTTP(S) protocols
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error(`Invalid webhook URL protocol: ${parsed.protocol}`);
+    }
+
+    // Require HTTPS in production
+    if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+      throw new Error('Webhook URLs must use HTTPS in production');
+    }
+
+    const hostname = parsed.hostname;
+
+    // Block localhost variants
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') {
+      throw new Error('Webhook URLs cannot target localhost');
+    }
+
+    // Block private IPs
+    if (isValidIPv4(hostname) && isPrivateIP(hostname)) {
+      throw new Error('Webhook URLs cannot target private IP addresses');
+    }
+
+    // Block metadata endpoints (cloud providers)
+    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+      throw new Error('Webhook URLs cannot target cloud metadata endpoints');
+    }
   }
 
   // Utility function for sleep

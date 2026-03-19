@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlNow } from '@/lib/db/adapter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { ADMIN_ROLES } from '@/lib/auth/roles';
+import { ADMIN_ROLES, isPrivileged } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!['agent', 'admin'].includes(role)) {
+    if (!isPrivileged(role)) {
       return NextResponse.json(
         { error: 'Role deve ser "agent" ou "admin"' },
         { status: 400 }

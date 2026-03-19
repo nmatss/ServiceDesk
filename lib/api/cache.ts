@@ -319,14 +319,14 @@ export class CacheManager {
     }
 
     const keyString = JSON.stringify(keyData)
-    const hash = crypto.createHash('md5').update(keyString).digest('hex')
+    const hash = crypto.createHash('sha256').update(keyString).digest('hex')
 
     return `${this.config.keyPrefix}${hash}`
   }
 
   // Generate ETag
   private generateETag(data: unknown): string {
-    const hash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex')
+    const hash = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex')
     return `"${hash}"`
   }
 

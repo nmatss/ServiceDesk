@@ -360,7 +360,7 @@ class OfflineManager {
   // Public API for offline actions
 
   async createTicketOffline(ticketData: Partial<TicketData>): Promise<string> {
-    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tempId = `temp_${Date.now()}_${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
 
     const ticket = {
       id: tempId,
@@ -436,7 +436,7 @@ class OfflineManager {
   }
 
   async addCommentOffline(ticketId: string, commentData: Partial<CommentData>): Promise<string> {
-    const tempId = `temp_comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const tempId = `temp_comment_${Date.now()}_${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
 
     const comment = {
       id: tempId,

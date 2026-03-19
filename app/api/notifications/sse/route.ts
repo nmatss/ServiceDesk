@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, executeQueryOne, sqlFalse } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
@@ -95,15 +95,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return new Response('Tenant não encontrado', { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return new Response('Usuário não autenticado', { status: 401 })
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     const encoder = new TextEncoder()
     let lastCheck = new Date().toISOString()
@@ -135,7 +128,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Send initial connection message with unread count
-        const unreadCount = await getUnreadCount(userContext.id, tenantContext.id);
+        const unreadCount = await getUnreadCount(auth.userId, auth.organizationId);
         sendNotification({
           id: Date.now(),
           type: 'connection',
@@ -149,8 +142,8 @@ export async function GET(request: NextRequest) {
           if (isClosed) return;
 
           const notifications = await fetchUserNotifications(
-            userContext.id,
-            tenantContext.id,
+            auth.userId,
+            auth.organizationId,
             lastCheck
           );
 
@@ -171,7 +164,7 @@ export async function GET(request: NextRequest) {
             }
 
             // Send updated unread count
-            const newUnreadCount = await getUnreadCount(userContext.id, tenantContext.id);
+            const newUnreadCount = await getUnreadCount(auth.userId, auth.organizationId);
             sendNotification({
               type: 'unread_count',
               count: newUnreadCount,

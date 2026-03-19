@@ -239,9 +239,11 @@ export default function ChangesPage() {
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="flex-1">
+            <label htmlFor="changes-filter-search" className="sr-only">Buscar mudanças</label>
             <div className="relative">
               <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-icon-muted" />
               <input
+                id="changes-filter-search"
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -252,11 +254,14 @@ export default function ChangesPage() {
           </div>
 
           {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all h-11"
-          >
+          <div>
+            <label htmlFor="changes-filter-status" className="sr-only">Filtrar por status</label>
+            <select
+              id="changes-filter-status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all h-11"
+            >
             <option value="">Todos os status</option>
             <option value="draft">Rascunho</option>
             <option value="submitted">Submetido</option>
@@ -266,19 +271,24 @@ export default function ChangesPage() {
             <option value="in_progress">Em Execução</option>
             <option value="completed">Concluído</option>
             <option value="failed">Falhou</option>
-          </select>
+            </select>
+          </div>
 
           {/* Category Filter */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all h-11"
-          >
-            <option value="">Todas as categorias</option>
-            <option value="standard">Padrão</option>
-            <option value="normal">Normal</option>
-            <option value="emergency">Emergência</option>
-          </select>
+          <div>
+            <label htmlFor="changes-filter-category" className="sr-only">Filtrar por categoria</label>
+            <select
+              id="changes-filter-category"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full sm:w-auto px-3 py-2.5 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 transition-all h-11"
+            >
+              <option value="">Todas as categorias</option>
+              <option value="standard">Padrão</option>
+              <option value="normal">Normal</option>
+              <option value="emergency">Emergência</option>
+            </select>
+          </div>
 
           <div className="flex items-center gap-2">
             <button

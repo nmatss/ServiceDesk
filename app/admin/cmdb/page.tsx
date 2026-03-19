@@ -360,10 +360,11 @@ export default function CMDBPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               {/* Search */}
               <div className="sm:col-span-2 lg:col-span-1">
-                <label className="block text-xs font-medium text-muted-content mb-1">Buscar</label>
+                <label htmlFor="cmdb-filter-search" className="block text-xs font-medium text-muted-content mb-1">Buscar</label>
                 <div className="relative">
                   <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-icon-muted" />
                   <input
+                    id="cmdb-filter-search"
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -375,8 +376,9 @@ export default function CMDBPage() {
 
               {/* Type Filter */}
               <div>
-                <label className="block text-xs font-medium text-muted-content mb-1">Tipo</label>
+                <label htmlFor="cmdb-filter-type" className="block text-xs font-medium text-muted-content mb-1">Tipo</label>
                 <select
+                  id="cmdb-filter-type"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100"
@@ -390,8 +392,9 @@ export default function CMDBPage() {
 
               {/* Status Filter */}
               <div>
-                <label className="block text-xs font-medium text-muted-content mb-1">Status</label>
+                <label htmlFor="cmdb-filter-status" className="block text-xs font-medium text-muted-content mb-1">Status</label>
                 <select
+                  id="cmdb-filter-status"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100"
@@ -405,8 +408,9 @@ export default function CMDBPage() {
 
               {/* Environment Filter */}
               <div>
-                <label className="block text-xs font-medium text-muted-content mb-1">Ambiente</label>
+                <label htmlFor="cmdb-filter-environment" className="block text-xs font-medium text-muted-content mb-1">Ambiente</label>
                 <select
+                  id="cmdb-filter-environment"
                   value={environmentFilter}
                   onChange={(e) => setEnvironmentFilter(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100"
@@ -422,8 +426,9 @@ export default function CMDBPage() {
 
               {/* Criticality Filter */}
               <div>
-                <label className="block text-xs font-medium text-muted-content mb-1">Criticidade</label>
+                <label htmlFor="cmdb-filter-criticality" className="block text-xs font-medium text-muted-content mb-1">Criticidade</label>
                 <select
+                  id="cmdb-filter-criticality"
                   value={criticalityFilter}
                   onChange={(e) => setCriticalityFilter(e.target.value)}
                   className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 bg-white/50 dark:bg-neutral-800/50 hover:bg-white dark:hover:bg-neutral-800 transition-colors text-neutral-900 dark:text-neutral-100"

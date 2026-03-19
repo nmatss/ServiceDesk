@@ -353,7 +353,7 @@ export class DataPortabilityService {
    */
   private generateExportId(userId: number): string {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substr(2, 9);
+    const random = crypto.randomUUID().replace(/-/g, '').slice(0, 9);
     return `EXPORT_${userId}_${timestamp}_${random}`;
   }
 

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import slugify from 'slugify'
 import { logger } from '@/lib/monitoring/logger'
 import { jsonWithCache } from '@/lib/api/cache-headers'

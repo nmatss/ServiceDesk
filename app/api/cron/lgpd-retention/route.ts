@@ -4,10 +4,14 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { LGPDComplianceManager } from '@/lib/compliance/lgpd';
 import { LgpdComplianceManager } from '@/lib/security/lgpd-compliance';
 import { createAuditLog } from '@/lib/audit/logger';
+import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+  if (rateLimitResponse) return rateLimitResponse;
+
   // Verify cron secret
   if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return apiError('Unauthorized', 401);

@@ -27,7 +27,7 @@ export class WorkflowQueueManager {
   async enqueue(job: Omit<QueueJob, 'id' | 'createdAt' | 'retries'>): Promise<void> {
     const queueJob: QueueJob = {
       ...job,
-      id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `job_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`,
       retries: 0,
       createdAt: new Date(),
     };

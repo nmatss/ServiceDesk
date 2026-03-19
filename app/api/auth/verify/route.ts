@@ -3,6 +3,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { verifyAccessToken } from '@/lib/auth/token-manager';
 import { executeQueryOne, sqlTrue } from '@/lib/db/adapter';
+import { apiError } from '@/lib/api/api-helpers';
 
 async function verifyTokenString(token?: string | null) {
   if (!token) {
@@ -44,41 +45,17 @@ export async function GET(request: NextRequest) {
       tokenFromCookieHeader(request.headers.get('cookie'));
 
     if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          valid: false,
-          error: 'Token não fornecido',
-          code: 'NO_TOKEN',
-        },
-        { status: 401 }
-      );
+      return apiError('Token não fornecido', 401, 'NO_TOKEN');
     }
 
     const user = await verifyTokenString(token);
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          valid: false,
-          error: 'Token inválido ou expirado',
-          code: 'INVALID_TOKEN',
-        },
-        { status: 401 }
-      );
+      return apiError('Token inválido ou expirado', 401, 'INVALID_TOKEN');
     }
 
     const activeUser = await isActiveUser(user.user_id, user.tenant_id);
     if (!activeUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          valid: false,
-          error: 'Token inválido ou expirado',
-          code: 'INVALID_TOKEN',
-        },
-        { status: 401 }
-      );
+      return apiError('Token inválido ou expirado', 401, 'INVALID_TOKEN');
     }
 
     return NextResponse.json({
@@ -95,15 +72,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error('Error verifying token', error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        valid: false,
-        error: 'Erro interno do servidor',
-        code: 'INTERNAL_ERROR',
-      },
-      { status: 500 }
-    );
+    return apiError('Erro interno do servidor', 500, 'INTERNAL_ERROR');
   }
 }
 
@@ -115,41 +84,17 @@ export async function POST(request: NextRequest) {
     const { token } = await request.json();
 
     if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          valid: false,
-          error: 'Token não fornecido',
-          code: 'NO_TOKEN',
-        },
-        { status: 400 }
-      );
+      return apiError('Token não fornecido', 400, 'NO_TOKEN');
     }
 
     const user = await verifyTokenString(token);
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          valid: false,
-          error: 'Token inválido ou expirado',
-          code: 'INVALID_TOKEN',
-        },
-        { status: 401 }
-      );
+      return apiError('Token inválido ou expirado', 401, 'INVALID_TOKEN');
     }
 
     const activeUser = await isActiveUser(user.user_id, user.tenant_id);
     if (!activeUser) {
-      return NextResponse.json(
-        {
-          success: false,
-          valid: false,
-          error: 'Token inválido ou expirado',
-          code: 'INVALID_TOKEN',
-        },
-        { status: 401 }
-      );
+      return apiError('Token inválido ou expirado', 401, 'INVALID_TOKEN');
     }
 
     return NextResponse.json({
@@ -166,14 +111,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error('Error verifying token', error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        valid: false,
-        error: 'Erro interno do servidor',
-        code: 'INTERNAL_ERROR',
-      },
-      { status: 500 }
-    );
+    return apiError('Erro interno do servidor', 500, 'INTERNAL_ERROR');
   }
 }

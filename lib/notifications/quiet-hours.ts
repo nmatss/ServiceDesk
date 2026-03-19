@@ -421,7 +421,7 @@ export class QuietHoursManager {
     exception: Omit<QuietHoursException, 'id'>
   ): Promise<string> {
     const config = this.getUserConfig(userId)
-    const exceptionId = `exc_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+    const exceptionId = `exc_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`
 
     const newException: QuietHoursException = {
       ...exception,

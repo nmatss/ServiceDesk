@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
-import { ADMIN_ROLES } from '@/lib/auth/roles';
+import { ADMIN_ROLES, ROLES } from '@/lib/auth/roles';
 import { executeQueryOne, executeRun, sqlFalse } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -165,7 +165,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
     }
 
-    if (role && !['admin', 'agent', 'user'].includes(role)) {
+    if (role && ![ROLES.ADMIN, ROLES.AGENT, ROLES.USER].includes(role as any)) {
       return NextResponse.json({ error: 'Role inválida' }, { status: 400 });
     }
 

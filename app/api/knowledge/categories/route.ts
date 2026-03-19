@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantContextFromRequest } from '@/lib/tenant/context'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 import slugify from 'slugify'

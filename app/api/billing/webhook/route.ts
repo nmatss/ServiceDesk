@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getStripeInstance } from '@/lib/billing/stripe-client';
 import { updateSubscription, cancelSubscription, handlePaymentFailed } from '@/lib/billing/subscription-manager';
 import { executeQueryOne } from '@/lib/db/adapter';
+import { apiError } from '@/lib/api/api-helpers';
 
 export async function POST(request: NextRequest) {
   const stripe = getStripeInstance();
@@ -10,14 +11,14 @@ export async function POST(request: NextRequest) {
 
   if (!webhookSecret) {
     console.error('STRIPE_WEBHOOK_SECRET not configured');
-    return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
+    return apiError('Webhook not configured', 500);
   }
 
   const body = await request.text();
   const signature = request.headers.get('stripe-signature');
 
   if (!signature) {
-    return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
+    return apiError('Missing signature', 400);
   }
 
   let event;
@@ -25,16 +26,15 @@ export async function POST(request: NextRequest) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    return apiError('Invalid signature', 400);
   }
 
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const session = event.data.object as any;
-        const orgId = parseInt(session.metadata?.organization_id, 10);
-        if (!orgId) break;
+        const session = event.data.object as Stripe.Checkout.Session;
+        const orgId = Number(session.metadata?.organization_id);
+        if (!Number.isFinite(orgId) || orgId <= 0) break;
 
         // Get subscription details
         const subscriptionId = session.subscription as string;
@@ -54,9 +54,8 @@ export async function POST(request: NextRequest) {
       }
 
       case 'invoice.paid': {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const invoice = event.data.object as any;
-        const subscriptionId = invoice.subscription as string;
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = (invoice as unknown as Record<string, unknown>).subscription as string;
         if (!subscriptionId) break;
 
         const org = await executeQueryOne<{ id: number }>(
@@ -74,9 +73,8 @@ export async function POST(request: NextRequest) {
       }
 
       case 'invoice.payment_failed': {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const invoice = event.data.object as any;
-        const subscriptionId = invoice.subscription as string;
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = (invoice as unknown as Record<string, unknown>).subscription as string;
         if (!subscriptionId) break;
 
         const org = await executeQueryOne<{ id: number }>(
@@ -90,8 +88,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'customer.subscription.updated': {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const subscription = event.data.object as any;
+        const subscription = event.data.object as Stripe.Subscription;
         const org = await executeQueryOne<{ id: number }>(
           'SELECT id FROM organizations WHERE stripe_subscription_id = ?',
           [subscription.id]
@@ -106,8 +103,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'customer.subscription.deleted': {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const subscription = event.data.object as any;
+        const subscription = event.data.object as Stripe.Subscription;
         const org = await executeQueryOne<{ id: number }>(
           'SELECT id FROM organizations WHERE stripe_subscription_id = ?',
           [subscription.id]
@@ -122,7 +118,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Webhook processing error:', error);
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+    return apiError('Webhook processing failed', 500);
   }
 }
 

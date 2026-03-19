@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlNow, sqlDatetimeSubMinutes, sqlDatetimeSubHours, sqlFalse, sqlTrue } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -10,21 +10,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
     // Buscar notificações não lidas do usuário
     // Note: user_id already provides tenant isolation since users belong to specific organizations
     const notifications = await executeQuery(`
@@ -56,14 +43,14 @@ export async function GET(request: NextRequest) {
       WHERE user_id = ? AND is_read = ${sqlFalse()}
       ORDER BY created_at DESC
       LIMIT 50
-    `, [userContext.id])
+    `, [auth.userId])
 
     // Contar total de não lidas
     const unreadCount = await executeQueryOne(`
       SELECT COUNT(*) as count
       FROM notifications
       WHERE user_id = ? AND is_read = ${sqlFalse()}
-    `, [userContext.id])
+    `, [auth.userId])
 
     // Contar por tipo
     const countByType = await executeQuery(`
@@ -73,7 +60,7 @@ export async function GET(request: NextRequest) {
       FROM notifications
       WHERE user_id = ? AND is_read = ${sqlFalse()}
       GROUP BY type
-    `, [userContext.id])
+    `, [auth.userId])
 
     // Formatar notificações
     interface NotificationRow { id: number; type: string; title: string; message: string; data: string | null; severity: string; urgency: string; is_read: boolean | number; created_at: string }
@@ -142,21 +129,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     const { notificationIds, markAll = false } = await request.json()
     if (markAll) {
@@ -165,7 +139,7 @@ export async function POST(request: NextRequest) {
         UPDATE notifications
         SET is_read = ${sqlTrue()}, updated_at = ${sqlNow()}
         WHERE user_id = ? AND is_read = ${sqlFalse()}
-      `, [userContext.id])
+      `, [auth.userId])
 
       return NextResponse.json({
         success: true,
@@ -179,7 +153,7 @@ export async function POST(request: NextRequest) {
         UPDATE notifications
         SET is_read = ${sqlTrue()}, updated_at = ${sqlNow()}
         WHERE id IN (${placeholders}) AND user_id = ?
-      `, [...notificationIds, userContext.id])
+      `, [...notificationIds, auth.userId])
 
       return NextResponse.json({
         success: true,

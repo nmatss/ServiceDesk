@@ -37,11 +37,11 @@ A aplicacao oferece gestao de tickets, processos ITIL completos (Problem, Change
 | Metrica | Valor |
 |---|---|
 | Paginas | 304 rotas |
-| API Handlers | 358 handlers em 197 arquivos |
-| Componentes React | 125 feature + 49 UI base |
-| Modulos em `lib/` | 49 diretorios, 398 arquivos |
+| API Handlers | 405 handlers em 237 arquivos |
+| Componentes React | 134 feature + 53 UI base |
+| Modulos em `lib/` | 50 diretorios, 376 arquivos |
 | Tabelas no Banco | 119 |
-| Testes Automatizados | 79+ (smoke, tenant isolation, API, e2e) |
+| Testes Automatizados | 99 (unit, integration, e2e, security) |
 
 ---
 

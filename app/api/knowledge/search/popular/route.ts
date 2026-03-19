@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as semanticSearchModule from '@/lib/knowledge/semantic-search';
 import { logger } from '@/lib/monitoring/logger';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 function resolveSemanticSearchEngine() {
@@ -31,23 +31,16 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 100);
     const days = parseInt(searchParams.get('days') || '30');
-    const userContext = getUserContextFromRequest(request)
 
     // Get analytics data
     const analytics = typeof semanticSearchEngine?.getSearchAnalytics === 'function'
-      ? semanticSearchEngine.getSearchAnalytics(userContext?.id ? String(userContext.id) : undefined, days)
+      ? semanticSearchEngine.getSearchAnalytics(auth.userId ? String(auth.userId) : undefined, days)
       : {
         topQueries: [],
         topArticles: [],

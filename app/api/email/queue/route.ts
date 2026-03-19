@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import emailService from '@/lib/email/service'
 import { executeQuery, executeQueryOne, executeRun, sqlDatetimeSub } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
@@ -13,17 +13,10 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
@@ -36,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let whereClause = 'WHERE tenant_id = ?'
-    const queryParams: (string | number)[] = [tenantContext.id]
+    const queryParams: (string | number)[] = [auth.organizationId]
 
     if (status) {
       whereClause += ' AND status = ?'
@@ -76,7 +69,7 @@ export async function GET(request: NextRequest) {
       FROM email_queue
       WHERE tenant_id = ?
       GROUP BY status, priority
-    `, [tenantContext.id])
+    `, [auth.organizationId])
 
     return NextResponse.json({
       success: true,
@@ -104,17 +97,10 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
 
@@ -137,7 +123,7 @@ export async function POST(request: NextRequest) {
         WHERE tenant_id = ?
           AND status = 'failed'
           AND created_at < ${sqlDatetimeSub(7)}
-      `, [tenantContext.id])
+      `, [auth.organizationId])
 
       return NextResponse.json({
         success: true,
@@ -154,7 +140,7 @@ export async function POST(request: NextRequest) {
         WHERE tenant_id = ?
           AND status = 'failed'
           AND attempts < max_attempts
-      `, [tenantContext.id])
+      `, [auth.organizationId])
 
       return NextResponse.json({
         success: true,

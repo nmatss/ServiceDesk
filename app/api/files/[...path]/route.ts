@@ -3,11 +3,14 @@ import { NextRequest } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
+// NOTE: GET uses old pattern intentionally — public files don't require auth.
+// DELETE uses requireTenantUserContext (always requires auth).
 import {
   getTenantContextFromRequest,
   getUserContextFromRequest,
   validateTenantAccess,
 } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -230,19 +233,8 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 })
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 })
-    }
-
-    if (!validateTenantAccess(userContext, tenantContext)) {
-      return NextResponse.json({ error: 'Acesso negado - mismatch de tenant' }, { status: 403 })
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     const { path: filePath } = await params
     const fullPath = filePath.join('/')
@@ -258,9 +250,9 @@ export async function DELETE(
     // Get file record
     let fileRecord: any;
     try {
-      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND COALESCE(tenant_id, organization_id) = ?', [decodedPath, decodedPath, tenantContext.id])
+      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND COALESCE(tenant_id, organization_id) = ?', [decodedPath, decodedPath, auth.organizationId])
     } catch {
-      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND organization_id = ?', [decodedPath, decodedPath, tenantContext.id])
+      fileRecord = await executeQueryOne<any>('SELECT id, tenant_id, organization_id, filename, original_name, original_filename, mime_type, size, file_size, file_path, storage_path, storage_type, uploaded_by, entity_type, entity_id, is_public, created_at FROM file_storage WHERE (file_path = ? OR storage_path = ?) AND organization_id = ?', [decodedPath, decodedPath, auth.organizationId])
     }
 
     if (!fileRecord) {
@@ -268,14 +260,14 @@ export async function DELETE(
     }
 
     const recordTenantId = Number(fileRecord.tenant_id ?? fileRecord.organization_id ?? 0);
-    if (recordTenantId !== tenantContext.id) {
+    if (recordTenantId !== auth.organizationId) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
     // Check permissions - only file owner or admins can delete
     const canDelete = (
-      fileRecord.uploaded_by === userContext.id ||
-      FILE_ADMIN_ROLES.includes(userContext.role)
+      fileRecord.uploaded_by === auth.userId ||
+      FILE_ADMIN_ROLES.includes(auth.role)
     )
 
     if (!canDelete) {
@@ -289,9 +281,9 @@ export async function DELETE(
 
     // Delete database record
     try {
-      await executeRun('DELETE FROM file_storage WHERE id = ? AND COALESCE(tenant_id, organization_id) = ?', [fileRecord.id, tenantContext.id])
+      await executeRun('DELETE FROM file_storage WHERE id = ? AND COALESCE(tenant_id, organization_id) = ?', [fileRecord.id, auth.organizationId])
     } catch {
-      await executeRun('DELETE FROM file_storage WHERE id = ? AND organization_id = ?', [fileRecord.id, tenantContext.id])
+      await executeRun('DELETE FROM file_storage WHERE id = ? AND organization_id = ?', [fileRecord.id, auth.organizationId])
     }
 
     return NextResponse.json({

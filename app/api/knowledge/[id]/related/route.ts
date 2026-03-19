@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { VectorDatabase } from '@/lib/ai/vector-database';
 import { logger } from '@/lib/monitoring/logger';
 import { executeQueryOne } from '@/lib/db/adapter';
-import { getTenantContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 const vectorDb = new VectorDatabase();
@@ -24,14 +24,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
     const { id } = await params;
     const articleId = parseInt(id);

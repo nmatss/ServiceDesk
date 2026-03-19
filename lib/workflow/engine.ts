@@ -856,7 +856,7 @@ export class WorkflowEngine {
   }
 
   private generateCorrelationId(): string {
-    return `wf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `wf_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private async emitEvent(type: WorkflowEventType, payload: Record<string, EventPayloadValue>): Promise<void> {

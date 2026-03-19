@@ -99,6 +99,8 @@ Per-endpoint rate limits enforced via Redis (with graceful fallback):
 | Login | 5 requests / 15 minutes |
 | Register | 3 requests / hour |
 | Password reset | 3 requests / hour |
+| Webhooks | Rate-limited per endpoint |
+| Cron jobs | 60 requests / minute |
 | Default API | 60 requests / minute |
 
 ### SQL Injection Prevention
@@ -124,8 +126,20 @@ Per-endpoint rate limits enforced via Redis (with graceful fallback):
 
 ### SSRF Protection
 
-- Workflow webhook executor validates target URLs against an IP whitelist
-- Internal network addresses are blocked from webhook destinations
+- Webhook manager validates all target URLs before delivery:
+  - Blocks private IPs (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16)
+  - Blocks localhost variants and cloud metadata endpoints (169.254.169.254)
+  - Requires HTTPS in production
+  - Only allows HTTP/HTTPS protocols
+- Validation runs on both endpoint creation and webhook delivery
+- IP validation via `lib/api/ip-validation.ts` (`isPrivateIP()`)
+
+### File Upload Security
+
+- Virus scanning via VirusTotal API v3 (`lib/security/virus-scanner.ts`)
+- Files are scanned before storage — malicious files are rejected with 400 error
+- Graceful degradation when `VIRUSTOTAL_API_KEY` is not configured (logs warning, allows upload)
+- File type and size validation on upload
 
 ### Workflow Security
 
@@ -250,6 +264,6 @@ Client Request
 
 ---
 
-Last Updated: 2026-03-16
+Last Updated: 2026-03-19
 Maintained By: ServiceDesk Development Team
 Security Review: Required quarterly

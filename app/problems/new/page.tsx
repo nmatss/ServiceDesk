@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { z } from 'zod';
 import {
   ExclamationTriangleIcon,
   HomeIcon,
@@ -40,11 +41,19 @@ interface User {
   email: string;
 }
 
+const problemFormSchema = z.object({
+  title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres').max(200, 'O título deve ter no máximo 200 caracteres'),
+  description: z.string().min(10, 'A descrição deve ter pelo menos 10 caracteres').max(5000, 'A descrição deve ter no máximo 5000 caracteres'),
+  impact: z.string().optional(),
+  urgency: z.string().optional(),
+});
+
 export default function NewProblemPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Form data
   const [title, setTitle] = useState('');
@@ -107,18 +116,45 @@ export default function NewProblemPage() {
     fetchOptions();
   }, []);
 
+  const clearFieldError = (field: string) => {
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      // Validate required fields
-      if (!title.trim() || !description.trim()) {
-        setError('Título e descrição são obrigatórios');
+      // Validate with Zod
+      const result = problemFormSchema.safeParse({
+        title: title.trim(),
+        description: description.trim(),
+        impact: impact || undefined,
+        urgency: urgency || undefined,
+      });
+
+      if (!result.success) {
+        const errors: Record<string, string> = {};
+        for (const issue of result.error.issues) {
+          const field = issue.path[0] as string;
+          if (!errors[field]) {
+            errors[field] = issue.message;
+          }
+        }
+        setFieldErrors(errors);
+        setError(Object.values(errors).join('. '));
         setLoading(false);
         return;
       }
+
+      setFieldErrors({});
 
       const input: CreateProblemInput = {
         title: title.trim(),
@@ -189,13 +225,17 @@ export default function NewProblemPage() {
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={(e) => { setTitle(e.target.value); clearFieldError('title'); }}
                   placeholder="Descreva o problema de forma resumida"
                   required
                   aria-label="Título do problema"
                   aria-required="true"
+                  aria-invalid={!!fieldErrors.title}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 h-11 text-base sm:text-sm sm:h-auto"
                 />
+                {fieldErrors.title && (
+                  <p className="mt-1 text-sm text-red-500 dark:text-red-400" role="alert">{fieldErrors.title}</p>
+                )}
               </div>
 
               <div>
@@ -204,14 +244,18 @@ export default function NewProblemPage() {
                 </label>
                 <textarea
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => { setDescription(e.target.value); clearFieldError('description'); }}
                   placeholder="Descreva o problema em detalhes, incluindo quando e como foi identificado"
                   required
                   aria-label="Descrição do problema"
                   aria-required="true"
+                  aria-invalid={!!fieldErrors.description}
                   rows={5}
                   className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:ring-2 focus:ring-brand-500 resize-none"
                 />
+                {fieldErrors.description && (
+                  <p className="mt-1 text-sm text-red-500 dark:text-red-400" role="alert">{fieldErrors.description}</p>
+                )}
               </div>
 
             </div>

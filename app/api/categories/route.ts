@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 import { isAdmin } from '@/lib/auth/roles';
 
@@ -15,24 +15,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    // Get tenant context from middleware
-    const tenantContext = getTenantContextFromRequest(request)
-
-    if (!tenantContext) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    // SECURITY: Require authentication for reading categories
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { success: false, error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     // Query categories with tenant isolation
     const categories = await executeQuery(`
@@ -40,7 +24,7 @@ export async function GET(request: NextRequest) {
       FROM categories
       WHERE tenant_id = ?
       ORDER BY name
-    `, [tenantContext.id])
+    `, [auth.organizationId])
 
     // Add cache control headers
     const response = NextResponse.json({
@@ -66,25 +50,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    // SECURITY: Require authentication for creating categories
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { success: false, error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response } = requireTenantUserContext(request)
+    if (response) return response
 
     // Only admins can create categories
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json(
         { success: false, error: 'Permissão insuficiente' },
         { status: 403 }
@@ -94,9 +64,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { name, description, color } = body
 
-    if (!name || !color) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return NextResponse.json({ success: false, error: 'Nome é obrigatório' }, { status: 400 });
+    }
+    if (name.length > 100) {
+      return NextResponse.json({ success: false, error: 'Nome deve ter no máximo 100 caracteres' }, { status: 400 });
+    }
+    if (description !== undefined && description !== null && typeof description !== 'string') {
+      return NextResponse.json({ success: false, error: 'Descrição deve ser texto' }, { status: 400 });
+    }
+    if (typeof description === 'string' && description.length > 500) {
+      return NextResponse.json({ success: false, error: 'Descrição deve ter no máximo 500 caracteres' }, { status: 400 });
+    }
+
+    if (!color) {
       return NextResponse.json(
-        { success: false, error: 'Nome e cor são obrigatórios' },
+        { success: false, error: 'Cor é obrigatória' },
         { status: 400 }
       )
     }
@@ -104,7 +87,7 @@ export async function POST(request: NextRequest) {
     const result = await executeRun(`
       INSERT INTO categories (name, description, color, tenant_id)
       VALUES (?, ?, ?, ?)
-    `, [name, description || null, color, tenantContext.id])
+    `, [name, description || null, color, auth.organizationId])
 
     const category = await executeQueryOne(`
       SELECT * FROM categories WHERE id = ?

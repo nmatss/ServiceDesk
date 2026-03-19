@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { emailSender } from '@/lib/integrations/email/sender';
 import { logger } from '@/lib/monitoring/logger';
 import { isAdmin, isPrivileged } from '@/lib/auth/roles';
@@ -18,18 +18,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
-
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
     // Only authorized users can send emails
-    if (!isPrivileged(userContext.role)) {
+    if (!isPrivileged(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
@@ -61,7 +54,7 @@ export async function POST(request: NextRequest) {
           data.templateCode,
           data.to,
           data.templateData,
-          tenantContext.id,
+          auth.organizationId,
           {
             cc: data.cc,
             bcc: data.bcc,
@@ -137,7 +130,7 @@ export async function POST(request: NextRequest) {
             headers: data.headers,
             metadata: data.metadata,
           },
-          tenantContext.id
+          auth.organizationId
         );
 
         if (!queueId) {
@@ -196,21 +189,14 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request);
-    if (!tenantContext) {
-      return NextResponse.json({ error: 'Tenant não encontrado' }, { status: 400 });
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
 
-    const userContext = getUserContextFromRequest(request);
-    if (!userContext) {
-      return NextResponse.json({ error: 'Usuário não autenticado' }, { status: 401 });
-    }
-
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 });
     }
 
-    const stats = await emailSender.getStats(tenantContext.id);
+    const stats = await emailSender.getStats(auth.organizationId);
 
     return NextResponse.json({
       success: true,

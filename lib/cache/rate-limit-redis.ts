@@ -133,7 +133,8 @@ export class RedisRateLimiter {
       pipeline.zcard(key);
 
       // Add new entry
-      pipeline.zadd(key, now, `${now}-${Math.random()}`);
+      const member = `${now}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+      pipeline.zadd(key, now, member);
 
       // Set expiry
       pipeline.expire(key, Math.ceil(windowMs / 1000));
@@ -157,7 +158,7 @@ export class RedisRateLimiter {
 
       if (!allowed) {
         // Remove the entry we just added
-        await redis.zrem(key, `${now}-${Math.random()}`);
+        await redis.zrem(key, member);
 
         logger.warn('Rate limit exceeded (sliding window log)', {
           identifier,

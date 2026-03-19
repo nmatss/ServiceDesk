@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 import { isPrivileged } from '@/lib/auth/roles';
 
@@ -12,21 +12,8 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response } = requireTenantUserContext(request)
+    if (response) return response
 
     const { searchParams } = new URL(request.url)
     const ticketId = searchParams.get('ticket_id')
@@ -41,12 +28,12 @@ export async function GET(request: NextRequest) {
 
     // Verify ticket exists and user has access to it
     let ticketQuery = 'SELECT id FROM tickets WHERE id = ? AND tenant_id = ?'
-    let ticketParams = [parseInt(ticketId), tenantContext.id]
+    let ticketParams = [parseInt(ticketId), auth.organizationId]
 
     // If not admin, check if user owns the ticket
-    if (!isPrivileged(userContext.role)) {
+    if (!isPrivileged(auth.role)) {
       ticketQuery += ' AND user_id = ?'
-      ticketParams.push(userContext.id)
+      ticketParams.push(auth.userId)
     }
 
     const ticket = await executeQueryOne(ticketQuery, ticketParams)
@@ -74,7 +61,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON a.uploaded_by = u.id AND u.tenant_id = ?
       WHERE a.ticket_id = ? AND a.tenant_id = ?
     `
-    const queryParams = [tenantContext.id, parseInt(ticketId), tenantContext.id]
+    const queryParams = [auth.organizationId, parseInt(ticketId), auth.organizationId]
 
     if (commentId) {
       attachmentsQuery += ' AND a.comment_id = ?'
@@ -104,21 +91,8 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response } = requireTenantUserContext(request)
+    if (response) return response
 
     const {
       ticket_id,
@@ -140,12 +114,12 @@ export async function POST(request: NextRequest) {
 
     // Verify ticket exists and user has access to it
     let ticketQuery = 'SELECT id FROM tickets WHERE id = ? AND tenant_id = ?'
-    let ticketParams = [ticket_id, tenantContext.id]
+    let ticketParams = [ticket_id, auth.organizationId]
 
     // If not admin, check if user owns the ticket
-    if (!isPrivileged(userContext.role)) {
+    if (!isPrivileged(auth.role)) {
       ticketQuery += ' AND user_id = ?'
-      ticketParams.push(userContext.id)
+      ticketParams.push(auth.userId)
     }
 
     const ticket = await executeQueryOne(ticketQuery, ticketParams)
@@ -159,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     // If comment_id is provided, verify it exists and belongs to the ticket
     if (comment_id) {
-      const comment = await executeQueryOne('SELECT id FROM comments WHERE id = ? AND ticket_id = ? AND tenant_id = ?', [comment_id, ticket_id, tenantContext.id])
+      const comment = await executeQueryOne('SELECT id FROM comments WHERE id = ? AND ticket_id = ? AND tenant_id = ?', [comment_id, ticket_id, auth.organizationId])
 
       if (!comment) {
         return NextResponse.json(
@@ -180,11 +154,11 @@ export async function POST(request: NextRequest) {
       original_name,
       mime_type,
       size,
-      userContext.id,
+      auth.userId,
       file_path || null,
       comment_id || null,
       (is_public || false) ? 1 : 0,
-      tenantContext.id])
+      auth.organizationId])
 
     // Get created attachment with user info
     const newAttachment = await executeQueryOne(`
@@ -201,7 +175,7 @@ export async function POST(request: NextRequest) {
       FROM attachments a
       LEFT JOIN users u ON a.uploaded_by = u.id AND u.tenant_id = ?
       WHERE a.id = ?
-    `, [tenantContext.id, result.lastInsertRowid])
+    `, [auth.organizationId, result.lastInsertRowid])
 
     return NextResponse.json({
       success: true,

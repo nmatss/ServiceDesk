@@ -135,7 +135,7 @@ export class MonitorBridge {
     const fingerprint = this.generateFingerprint(orgId, alert, service);
 
     return {
-      id: `alert-${orgId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `alert-${orgId}-${Date.now()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`,
       source: alert.source,
       severity: alert.severity,
       title: alert.title.trim(),

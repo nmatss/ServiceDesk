@@ -18,10 +18,13 @@ export async function POST(request: NextRequest) {
   try {
     // Get webhook secret for verification
     const webhookSecret = process.env.EMAIL_WEBHOOK_SECRET;
-    const authHeader = request.headers.get('authorization');
+    if (!webhookSecret) {
+      logger.error('EMAIL_WEBHOOK_SECRET not configured');
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
+    }
 
-    // Verify webhook secret
-    if (webhookSecret && authHeader !== `Bearer ${webhookSecret}`) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${webhookSecret}`) {
       logger.warn('Unauthorized webhook attempt', {
         ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
       });
@@ -41,7 +44,11 @@ export async function POST(request: NextRequest) {
 
       // Extract tenant ID if provided
       if (data.tenantId) {
-        tenantId = parseInt(data.tenantId);
+        const parsed = parseInt(data.tenantId, 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          return NextResponse.json({ error: 'Invalid tenantId' }, { status: 400 });
+        }
+        tenantId = parsed;
       }
 
       // Parse different webhook formats
@@ -77,7 +84,11 @@ export async function POST(request: NextRequest) {
       // Extract tenant ID from custom headers if provided
       const tenantHeader = formData.get('X-Tenant-Id');
       if (tenantHeader) {
-        tenantId = parseInt(tenantHeader.toString());
+        const parsed = parseInt(tenantHeader.toString(), 10);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          return NextResponse.json({ error: 'Invalid tenantId' }, { status: 400 });
+        }
+        tenantId = parsed;
       }
     } else {
       // Assume raw email

@@ -486,7 +486,7 @@ class OfflineOperations {
   }
 
   private generateId(): string {
-    return `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `offline_${Date.now()}_${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   private dispatchEvent(type: string, detail: unknown): void {

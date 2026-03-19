@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
+import { isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -69,7 +70,7 @@ export async function POST(
       [userId, organizationId]
     )
 
-    if (!isCabMember && !['admin', 'manager'].includes(role)) {
+    if (!isCabMember && !isAdmin(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas membros do CAB podem votar' },
         { status: 403 }

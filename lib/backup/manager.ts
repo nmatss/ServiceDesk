@@ -275,12 +275,12 @@ class BackupManager {
   }
 
   /**
-   * Calcular checksum MD5
+   * Calcular checksum SHA-256
    */
   private async calculateChecksum(filePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const crypto = require('crypto')
-      const hash = crypto.createHash('md5')
+      const hash = crypto.createHash('sha256')
       const stream = fs.createReadStream(filePath)
 
       stream.on('data', data => hash.update(data))

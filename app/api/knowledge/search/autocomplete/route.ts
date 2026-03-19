@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as semanticSearchModule from '@/lib/knowledge/semantic-search';
 import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, getDbType } from '@/lib/db/adapter';
-import { getTenantContextFromRequest } from '@/lib/tenant/context';
+import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 function resolveSemanticSearchEngine() {
@@ -32,14 +32,9 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';

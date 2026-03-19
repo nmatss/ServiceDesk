@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { isPrivileged } from '@/lib/auth/roles';
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -45,7 +46,7 @@ export async function GET(
     const userId = userIdResult.data
 
     // 3. AUTHORIZATION: user can only see own tickets unless role is elevated
-    const isElevatedRole = ['admin', 'agent', 'manager', 'super_admin', 'tenant_admin', 'team_manager'].includes(authenticatedUser.role)
+    const isElevatedRole = isPrivileged(authenticatedUser.role)
     if (!isElevatedRole && authenticatedUser.id !== userId) {
       logger.warn('Forbidden access attempt to user tickets', {
         requestingUserId: authenticatedUser.id,

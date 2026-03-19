@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
+import { isPrivileged } from '@/lib/auth/roles';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -14,14 +15,9 @@ export async function POST(
 
   try {
     const { slug } = await params
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
     const { was_helpful, comment } = await request.json()
 
@@ -43,9 +39,8 @@ export async function POST(
       )
     }
 
-    // Usuário autenticado é opcional para feedback.
-    const userContext = getUserContextFromRequest(request)
-    let userId = userContext?.id || null
+    // Usar userId do contexto autenticado
+    let userId = auth.userId || null
     let sessionId = null
 
     // Se não autenticado, usar session ID baseado no IP + User Agent
@@ -134,14 +129,9 @@ export async function GET(
 
   try {
     const { slug } = await params
-    const tenantContext = getTenantContextFromRequest(request)
-    const tenantId = tenantContext?.id ?? (process.env.NODE_ENV === 'test' ? 1 : null)
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
+    const { auth, response: authResponse } = requireTenantUserContext(request);
+    if (authResponse) return authResponse;
+    const tenantId = auth.organizationId;
 
     // Buscar artigo
     const article = await executeQueryOne<{ id: number }>(
@@ -172,8 +162,7 @@ export async function GET(
 
     // Buscar comentários de feedback (apenas para perfis privilegiados)
     let comments: unknown[] = []
-    const userContext = getUserContextFromRequest(request)
-    if (userContext && ['admin', 'agent', 'super_admin', 'tenant_admin', 'team_manager'].includes(userContext.role)) {
+    if (auth.role && isPrivileged(auth.role)) {
       comments = await executeQuery(`
         SELECT
           f.was_helpful,

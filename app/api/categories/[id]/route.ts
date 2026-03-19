@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 import { executeQueryOne, executeRun } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 import { isAdmin } from '@/lib/auth/roles';
 
@@ -15,26 +15,11 @@ export async function PUT(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    // SECURITY: Require authentication for updating categories
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     // Only admins can update categories
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json(
         { error: 'Permissão insuficiente' },
         { status: 403 }
@@ -53,7 +38,7 @@ export async function PUT(
     // Verify category exists and belongs to tenant
     const existing = await executeQueryOne(`
       SELECT * FROM categories WHERE id = ? AND tenant_id = ?
-    `, [id, tenantContext.id])
+    `, [id, auth.organizationId])
 
     if (!existing) {
       return NextResponse.json(
@@ -90,7 +75,7 @@ export async function PUT(
     }
 
     updates.push('updated_at = CURRENT_TIMESTAMP')
-    values.push(id, tenantContext.id)
+    values.push(id, auth.organizationId)
 
     await executeRun(`
       UPDATE categories
@@ -124,26 +109,11 @@ export async function DELETE(
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-
-    if (!tenantContext) {
-      return NextResponse.json(
-        { error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    // SECURITY: Require authentication for deleting categories
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     // Only admins can delete categories
-    if (!isAdmin(userContext.role)) {
+    if (!isAdmin(auth.role)) {
       return NextResponse.json(
         { error: 'Permissão insuficiente' },
         { status: 403 }
@@ -176,7 +146,7 @@ export async function DELETE(
     const result = await executeRun(`
       DELETE FROM categories
       WHERE id = ? AND tenant_id = ?
-    `, [id, tenantContext.id])
+    `, [id, auth.organizationId])
 
     if (result.changes === 0) {
       return NextResponse.json(

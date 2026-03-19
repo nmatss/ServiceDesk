@@ -5,6 +5,7 @@ import { getTenantContextFromRequest } from '@/lib/tenant/context';
 import { captureAuthError } from '@/lib/monitoring/sentry-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
+import { apiError } from '@/lib/api/api-helpers';
 
 interface TenantContext {
   id: number;
@@ -214,24 +215,12 @@ export async function POST(request: NextRequest) {
     const normalizedTenantSlug = normalizeString(tenant_slug);
 
     if (!normalizedEmail || !normalizedPassword) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Email e senha são obrigatórios',
-        },
-        { status: 400 }
-      );
+      return apiError('Email e senha são obrigatórios', 400);
     }
 
     const tenantContext = await resolveTenantContext(request, normalizedTenantSlug);
     if (!tenantContext) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Tenant não encontrado',
-        },
-        { status: 400 }
-      );
+      return apiError('Tenant não encontrado', 400);
     }
 
     const user = await getUserByEmailForTenant(normalizedEmail, tenantContext.id);
@@ -288,13 +277,7 @@ export async function POST(request: NextRequest) {
         organizationId: tenantContext.id,
       });
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Credenciais inválidas',
-        },
-        { status: 401 }
-      );
+      return apiError('Credenciais inválidas', 401);
     }
 
     const isValidPassword = await verifyPassword(normalizedPassword, user.password_hash);
@@ -351,13 +334,7 @@ export async function POST(request: NextRequest) {
       });
 
       // SECURITY: Do not reveal remaining_attempts to prevent user enumeration
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Credenciais inválidas',
-        },
-        { status: 401 }
-      );
+      return apiError('Credenciais inválidas', 401);
     }
 
     await runUserScopedUpdate(
@@ -460,12 +437,6 @@ export async function POST(request: NextRequest) {
     logger.error('Login error:', error);
     captureAuthError(error, { method: 'password' });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Erro interno do servidor',
-      },
-      { status: 500 }
-    );
+    return apiError('Erro interno do servidor', 500);
   }
 }

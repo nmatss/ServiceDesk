@@ -5,6 +5,52 @@ Todas as mudancas notaveis deste projeto serao documentadas neste arquivo.
 O formato e baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto segue o [Versionamento Semantico](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] - 2026-03-19
+
+Auditoria completa de seguranca, qualidade de codigo e acessibilidade — 35 itens em 4 tiers de prioridade.
+
+### Seguranca (TIER 1 — Critical)
+- Protecao SSRF em webhook manager: validacao de URL com bloqueio de IPs privados, localhost, metadata endpoints e requisito HTTPS em producao
+- Email webhook: secret agora obrigatorio (fail-closed), retorna 500 se `EMAIL_WEBHOOK_SECRET` nao configurado
+- Email webhook: validacao de tenant ID (inteiro positivo) em payloads externos
+- Billing webhook: correcao de bug NaN com `parseInt` → `Number()` + `isFinite()` para org ID
+- Remocao de stack traces em respostas de erro de API (prevencao de information disclosure)
+- Scanner de virus em uploads de arquivo via VirusTotal API (graceful degradation quando API key nao configurada)
+
+### Qualidade de Codigo (TIER 2 — High)
+- Eliminacao de 12+ empty catch blocks silenciosos em auth/register e statuses (agora logam warnings)
+- Substituicao de ~30 hardcoded role strings por constantes `ROLES.*` e helpers `isAdmin()`/`isPrivileged()` em 17 arquivos
+- Migracao de ~25 rotas de API do pattern antigo `getTenantContextFromRequest` para `requireTenantUserContext()` unificado
+- Validacao de input Zod em POST routes (statuses, categories) — nome max 100 chars, cor #RRGGBB
+- Validacao Zod client-side em formularios de ticket e problema (titulo, descricao, prioridade)
+- Subscription manager: audit logging de mudancas de plano, cancelamento e falha de pagamento
+- Billing webhook: substituicao de `as any` por tipos Stripe (`Stripe.Checkout.Session`, `Stripe.Invoice`, `Stripe.Subscription`)
+- SSO callback: migracao de `jsonwebtoken` para `jose` (eliminacao de duplicacao)
+
+### Acessibilidade e UX (TIER 2-3)
+- Labels `htmlFor`/`id` em filtros de problemas, CMDB e mudancas (screen readers)
+- Substituicao de `div[role="button"]` por `<button>` semantico em componente OnlineUsers
+- Padronizacao de respostas de erro com `apiSuccess()`/`apiError()` em rotas de auth e billing
+
+### Infraestrutura (TIER 3-4)
+- Rate limiting em 3 cron jobs (process-emails, cleanup, lgpd-retention)
+- Graceful shutdown para conexao Redis (handlers SIGTERM/SIGINT)
+- Substituicao de `Math.random()` por `crypto.randomUUID()` em 27 arquivos (IDs e identificadores)
+- Substituicao de MD5 por SHA-256 em 3 modulos de cache/checksum
+- Remocao da rota example-with-sentry do build de producao
+
+### Removido
+- `app/api/example-with-sentry/route.ts` (rota de exemplo/teste)
+
+### Estatisticas
+- **91 arquivos modificados** em 35 itens de auditoria
+- **0 erros TypeScript** | **Build SUCCESS**
+- **0 stack traces** em respostas de API
+- **0 hardcoded role arrays** em checks de autorizacao
+- **0 empty catch blocks** em rotas criticas
+
+---
+
 ## [1.0.0] - 2026-03-16
 
 Lancamento inicial em producao do ServiceDesk — plataforma completa de gestao de servicos de TI com suporte ITIL, multi-tenancy e conformidade LGPD.

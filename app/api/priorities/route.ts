@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery } from '@/lib/db/adapter';
-import { getTenantContextFromRequest, getUserContextFromRequest } from '@/lib/tenant/context'
+import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -13,29 +13,15 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const tenantContext = getTenantContextFromRequest(request)
-    if (!tenantContext) {
-      return NextResponse.json(
-        { success: false, error: 'Tenant não encontrado' },
-        { status: 400 }
-      )
-    }
-
-    // SECURITY: Require authentication for reading priorities
-    const userContext = getUserContextFromRequest(request)
-    if (!userContext) {
-      return NextResponse.json(
-        { success: false, error: 'Usuário não autenticado' },
-        { status: 401 }
-      )
-    }
+    const { auth, context, response: authResponse } = requireTenantUserContext(request)
+    if (authResponse) return authResponse
 
     const priorities = await executeQuery(`
       SELECT id, name, level, color, created_at, updated_at
       FROM priorities
       WHERE tenant_id = ?
       ORDER BY level
-    `, [tenantContext.id])
+    `, [auth.organizationId])
 
     // Add cache control headers
     const response = NextResponse.json({

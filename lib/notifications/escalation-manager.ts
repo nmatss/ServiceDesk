@@ -909,7 +909,7 @@ export class EscalationManager {
 
   // Public API methods
   public async createEscalationRule(rule: Omit<EscalationRule, 'id' | 'createdAt' | 'updatedAt'>, createdBy: number): Promise<string> {
-    const ruleId = `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const ruleId = `rule_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`
     const now = new Date()
 
     const fullRule: EscalationRule = {

@@ -390,7 +390,7 @@ class PWAOfflineSync {
   }
 
   private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `${Date.now()}-${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   public getQueueStatus() {

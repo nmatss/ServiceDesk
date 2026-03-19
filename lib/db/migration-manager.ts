@@ -97,12 +97,12 @@ export class MigrationManager {
   }
 
   /**
-   * Calcula checksum MD5 de um arquivo
+   * Calcula checksum SHA-256 de um arquivo
    */
   private async calculateChecksum(filePath: string): Promise<string> {
     const crypto = await import('crypto');
     const content = await fs.readFile(filePath, 'utf-8');
-    return crypto.createHash('md5').update(content).digest('hex');
+    return crypto.createHash('sha256').update(content).digest('hex');
   }
 
   /**

@@ -194,7 +194,7 @@ export async function PUT(
       userId === existingChange.requester_id ||
       userId === existingChange.owner_id ||
       userId === existingChange.implementer_id ||
-      ['admin', 'manager'].includes(role)
+      isAdmin(role)
 
     if (!canUpdate) {
       return NextResponse.json(

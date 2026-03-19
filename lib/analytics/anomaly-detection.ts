@@ -665,7 +665,7 @@ export class AnomalyDetectionEngine {
       : 0;
 
     return {
-      anomaly_id: `${entityType}_${entityId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      anomaly_id: `${entityType}_${entityId}_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`,
       entity_type: entityType as any,
       entity_id: entityId,
       anomaly_type: anomalyType,

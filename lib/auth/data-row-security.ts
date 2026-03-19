@@ -636,7 +636,7 @@ class DataRowSecurityManager {
    * Generate a unique policy ID
    */
   private generatePolicyId(): string {
-    return `rls_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `rls_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').slice(0, 9)}`;
   }
 
   /**

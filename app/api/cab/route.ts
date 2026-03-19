@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 import { logger } from '@/lib/monitoring/logger'
+import { isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
     const { userId, organizationId, role } = guard.auth!
 
     // Only admins, managers, and CAB members can view meetings
-    if (!['admin', 'manager'].includes(role)) {
+    if (!isAdmin(role)) {
       // Check if user is a CAB member
       const isCabMember = await executeQueryOne<{ result: number }>(
         `SELECT 1 as result FROM cab_members WHERE user_id = ? AND is_active = ${sqlTrue()}`,
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
     const { userId, organizationId, role } = guard.auth!
 
     // Only admins and managers can create meetings
-    if (!['admin', 'manager'].includes(role)) {
+    if (!isAdmin(role)) {
       return NextResponse.json(
         { success: false, error: 'Apenas administradores podem criar reuniões do CAB' },
         { status: 403 }
