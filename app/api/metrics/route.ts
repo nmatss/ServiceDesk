@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // SECURITY: In production, require METRICS_API_KEY to be configured
+    if (!expectedApiKey && process.env.NODE_ENV === 'production') {
+      return new NextResponse('Forbidden — METRICS_API_KEY not configured', {
+        status: 403,
+      });
+    }
+
     // Get metrics in Prometheus format
     const metrics = await getMetrics();
 

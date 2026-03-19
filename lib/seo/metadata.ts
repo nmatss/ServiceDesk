@@ -245,7 +245,7 @@ export function generateStructuredData(type: string, data: any = {}) {
           '@type': 'Offer',
           priceCurrency: 'BRL',
           price: '0',
-          priceValidUntil: '2024-12-31'
+          priceValidUntil: '2027-12-31'
         },
         aggregateRating: {
           '@type': 'AggregateRating',

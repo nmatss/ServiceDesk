@@ -1,4 +1,4 @@
-import { executeQuery, executeQueryOne, executeRun, getDbType, type SqlParam } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, executeRun, getDbType, sqlDatetimeSubHours, type SqlParam } from '@/lib/db/adapter';
 import { AuditLog, CreateAuditLog, AuditLogWithDetails } from '../types/database';
 import logger from '../monitoring/structured-logger';
 
@@ -1106,7 +1106,7 @@ export async function verifyAuditIntegrity(): Promise<{
           user_id,
           COUNT(*) as action_count
         FROM audit_logs
-        WHERE created_at >= datetime('now', '-1 hour')
+        WHERE created_at >= ${sqlDatetimeSubHours(1)}
         GROUP BY user_id
         HAVING action_count > 100
       )

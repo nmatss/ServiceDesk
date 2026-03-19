@@ -333,11 +333,10 @@ export class EncryptionManager {
         totalVersions: this.keyVersions.size
       });
 
-      // 5. Log instructions for key storage
+      // 5. Log instructions for key storage (NEVER log the key value)
       logger.warn('IMPORTANT: Store new encryption key in environment variables', {
         envVar: `ENCRYPTION_KEY_V${newVersion}`,
-        value: '[REDACTED - Check secure logs]',
-        action: `Set ENCRYPTION_KEY_V${newVersion}=${newKey} in your environment`
+        action: `New key generated for version ${newVersion}. Retrieve it securely and set ENCRYPTION_KEY_V${newVersion} in your environment.`
       });
 
       // Note: Actual re-encryption of data should be done by a separate migration process

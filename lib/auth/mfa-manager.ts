@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { User } from '../types/database';
 import logger from '../monitoring/structured-logger';
+import { EncryptionManager } from '../security/encryption';
 
 /**
  * Get MFA secret for HMAC operations
@@ -124,6 +125,11 @@ class MFAManager {
           .digest('hex')
       );
 
+      // Encrypt TOTP secret before storage
+      const encryption = EncryptionManager.getInstance();
+      const encryptedSecret = await encryption.encrypt(secret);
+      const encryptedSecretStr = JSON.stringify(encryptedSecret);
+
       // Update user record
       const result = await executeRun(`
         UPDATE users
@@ -132,7 +138,7 @@ class MFAManager {
             two_factor_backup_codes = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-      `, [secret, JSON.stringify(hashedBackupCodes), userId]);
+      `, [encryptedSecretStr, JSON.stringify(hashedBackupCodes), userId]);
 
       if (result.changes > 0) {
         // Log the MFA enablement
@@ -161,9 +167,20 @@ class MFAManager {
         return { isValid: false, method: 'totp' };
       }
 
+      // Decrypt the TOTP secret before verification
+      const encryption = EncryptionManager.getInstance();
+      let totpSecret: string;
+      try {
+        const encryptedData = JSON.parse(user.two_factor_secret);
+        totpSecret = await encryption.decrypt(encryptedData);
+      } catch {
+        // Backwards compatibility: if not valid JSON, treat as plaintext (pre-encryption)
+        totpSecret = user.two_factor_secret;
+      }
+
       const isValid = authenticator.verify({
         token,
-        secret: user.two_factor_secret
+        secret: totpSecret
       });
 
       if (isValid) {
@@ -238,12 +255,12 @@ class MFAManager {
       const expiresAt = new Date(Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000);
       const hashedCode = this.hashVerificationCode(code);
 
-      // Store verification code
+      // Store verification code (only the hash — never persist plaintext)
       await executeRun(`
         INSERT INTO verification_codes
         (user_id, code, code_hash, type, expires_at, max_attempts)
-        VALUES (?, ?, ?, 'two_factor_sms', ?, 3)
-      `, [userId, code, hashedCode, expiresAt.toISOString()]);
+        VALUES (?, '', ?, 'two_factor_sms', ?, 3)
+      `, [userId, hashedCode, expiresAt.toISOString()]);
 
       // SECURITY FIX: Never log MFA codes in production
       if (process.env.NODE_ENV === 'development') {
@@ -320,12 +337,12 @@ class MFAManager {
       const expiresAt = new Date(Date.now() + this.CODE_EXPIRY_MINUTES * 60 * 1000);
       const hashedCode = this.hashVerificationCode(code);
 
-      // Store verification code
+      // Store verification code (only the hash — never persist plaintext)
       await executeRun(`
         INSERT INTO verification_codes
         (user_id, email, code, code_hash, type, expires_at, max_attempts)
-        VALUES (?, ?, ?, ?, 'two_factor_email', ?, 3)
-      `, [userId, user.email, code, hashedCode, expiresAt.toISOString()]);
+        VALUES (?, ?, '', ?, 'two_factor_email', ?, 3)
+      `, [userId, user.email, hashedCode, expiresAt.toISOString()]);
 
       // SECURITY FIX: Never log MFA codes in production
       if (process.env.NODE_ENV === 'development') {

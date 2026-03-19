@@ -3,7 +3,7 @@
  * Preloads critical caches on server start for optimal performance
  */
 
-import { executeQuery, executeQueryOne, sqlTrue } from '@/lib/db/adapter'
+import { executeQuery, executeQueryOne, sqlTrue, sqlDatetimeSub } from '@/lib/db/adapter'
 import { logger } from '@/lib/monitoring/logger'
 
 /**
@@ -142,7 +142,7 @@ export async function warmOrganizationCache(organizationId: number): Promise<voi
     const tickets = await executeQueryOne<{ count: number }>(
       `SELECT COUNT(*) as count FROM tickets
        WHERE organization_id = ?
-       AND created_at >= datetime('now', '-7 days')`,
+       AND created_at >= ${sqlDatetimeSub(7)}`,
       [organizationId]
     )
 

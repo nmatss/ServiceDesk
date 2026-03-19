@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS verification_codes (
     email TEXT,
     code TEXT NOT NULL,
     code_hash TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('email_verification', 'password_reset', 'two_factor_backup', 'login_verification')),
+    type TEXT NOT NULL CHECK (type IN ('email_verification', 'password_reset', 'two_factor_backup', 'login_verification', 'two_factor_sms', 'two_factor_email')),
     expires_at DATETIME NOT NULL,
     used_at DATETIME,
     attempts INTEGER DEFAULT 0,

@@ -13,7 +13,7 @@
 
 import { CacheManager, getCacheManager, CacheOptions } from './cache-manager';
 import logger from '../monitoring/structured-logger';
-import { executeQuery, executeQueryOne } from '@/lib/db/adapter';
+import { executeQuery, executeQueryOne, sqlDatetimeSub, sqlDatetimeSubHours } from '@/lib/db/adapter';
 
 export interface WarmingStrategy {
   name: string;
@@ -109,7 +109,7 @@ export class CacheWarmer {
           const activeUsers = await executeQuery<{ id: number; email: string; name: string; role: string; tenant_id: number }>(
             `SELECT id, email, name, role, tenant_id
              FROM users
-             WHERE last_login > datetime('now', '-1 day')
+             WHERE last_login > ${sqlDatetimeSub(1)}
              LIMIT 100`,
             []
           );
@@ -143,7 +143,7 @@ export class CacheWarmer {
           // Get recently updated tickets
           const recentTickets = await executeQuery<{ id: number; [key: string]: any }>(
             `SELECT * FROM tickets
-             WHERE updated_at > datetime('now', '-6 hours')
+             WHERE updated_at > ${sqlDatetimeSubHours(6)}
              ORDER BY updated_at DESC
              LIMIT 50`,
             []

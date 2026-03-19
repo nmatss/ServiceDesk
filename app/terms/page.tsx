@@ -32,7 +32,7 @@ export default function TermsPage() {
               &quot;Servico&quot; ou &quot;nos&quot;), voce declara que leu, compreendeu e concorda integralmente com estes Termos de
               Uso (&quot;Termos&quot;). Caso nao concorde com qualquer disposicao, voce nao devera utilizar o Servico.
               Estes Termos constituem um contrato vinculativo entre voce (&quot;Usuario&quot;, &quot;voce&quot;) e a ServiceDesk
-              Pro Tecnologia Ltda., inscrita no CNPJ sob o n. XX.XXX.XXX/0001-XX, com sede em Sao Paulo/SP.
+              Pro Tecnologia Ltda., com sede em Sao Paulo/SP.
             </p>
           </section>
 

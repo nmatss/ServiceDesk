@@ -300,7 +300,7 @@ CREATE TABLE IF NOT EXISTS verification_codes (
     email VARCHAR(255),
     code VARCHAR(20) NOT NULL,
     code_hash VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL CHECK (type IN ('email_verification', 'password_reset', 'two_factor_backup', 'login_verification')),
+    type VARCHAR(50) NOT NULL CHECK (type IN ('email_verification', 'password_reset', 'two_factor_backup', 'login_verification', 'two_factor_sms', 'two_factor_email')),
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     used_at TIMESTAMP WITH TIME ZONE,
     attempts INTEGER DEFAULT 0,

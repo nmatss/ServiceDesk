@@ -94,11 +94,7 @@ export function applyCspHeaders(response: NextResponse, nonces?: CspNonce): void
 
   response.headers.set(headerName, cspValue);
 
-  // Set nonce headers for client-side access
-  if (nonces && csp.useNonce) {
-    response.headers.set('X-Script-Nonce', nonces.scriptNonce);
-    response.headers.set('X-Style-Nonce', nonces.styleNonce);
-  }
+  // Nonces are only injected server-side into HTML tags — never exposed via response headers
 }
 
 /**
