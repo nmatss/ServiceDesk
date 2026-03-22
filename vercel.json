@@ -3,7 +3,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
-  "regions": ["gru1", "iad1"],
+  "regions": ["gru1"],
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30,
@@ -44,7 +44,7 @@
     "ENABLE_MULTI_TENANCY": "true"
   },
   "crons": [
-    { "path": "/api/cron/process-emails", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/process-emails", "schedule": "0 8 * * *" },
     { "path": "/api/cron/lgpd-retention", "schedule": "0 3 * * *" },
     { "path": "/api/cron/cleanup", "schedule": "0 4 * * *" }
   ]
