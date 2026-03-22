@@ -451,10 +451,6 @@ if (process.env.ANALYZE === 'true') {
   finalConfig = withBundleAnalyzer(nextConfig)
 }
 
-// Wrap with Sentry config
-// Only apply Sentry wrapper if DSN is configured
-if (process.env.SENTRY_DSN) {
-  module.exports = withSentryConfig(finalConfig, sentryWebpackPluginOptions)
-} else {
-  module.exports = finalConfig
-}
+// Sentry source map upload is handled post-build via sentry-cli
+// The Sentry SDK runtime (sentry.*.config.ts) still captures errors
+module.exports = finalConfig
