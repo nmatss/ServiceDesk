@@ -422,26 +422,23 @@ const { withSentryConfig } = require('@sentry/nextjs')
 
 // Sentry webpack plugin options
 const sentryWebpackPluginOptions = {
-  // Show logs in production for transparency during deployment
-  silent: false,
+  silent: true,
 
-  // Organization and project slugs from environment
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-
-  // Auth token for uploading source maps
   authToken: process.env.SENTRY_AUTH_TOKEN,
 
-  // Upload source maps to Sentry in production when auth token is available
-  // This will be a dry run (no upload) if:
-  // - Not in production environment
-  // - SENTRY_AUTH_TOKEN is not set
+  // Only upload source maps in production with valid auth token
   dryRun: process.env.NODE_ENV !== 'production' || !process.env.SENTRY_AUTH_TOKEN,
 
-  // Source map upload configuration
-  widenClientFileUpload: true,  // Upload all client files for better stack traces
-  hideSourceMaps: true,          // Remove source maps from public output (SECURITY)
-  disableLogger: false,          // Enable logging to see upload status
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+
+  // CRITICAL: Do not fail the build if source map upload fails
+  errorHandler: (err) => {
+    console.warn('Sentry source map upload warning:', err.message)
+  },
 }
 
 // Bundle analyzer plugin
