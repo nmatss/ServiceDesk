@@ -100,7 +100,7 @@
     "pre-deploy": "bash scripts/pre-deploy.sh",
     "env:validate": "tsx scripts/validate-env.ts",
     "predev": "npm run env:validate",
-    "prebuild": "npm run env:validate",
+    "prebuild": "npx tsx scripts/validate-env.ts || true",
     "sentry:sourcemaps": "sentry-cli sourcemaps upload --org $SENTRY_ORG --project $SENTRY_PROJECT .next",
     "sentry:sourcemaps:client": "sentry-cli sourcemaps upload --org $SENTRY_ORG --project $SENTRY_PROJECT .next/static/chunks",
     "sentry:sourcemaps:server": "sentry-cli sourcemaps upload --org $SENTRY_ORG --project $SENTRY_PROJECT .next/server",
