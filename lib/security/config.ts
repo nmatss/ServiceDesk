@@ -143,7 +143,7 @@ export function getSecurityConfig(): SecurityConfig {
   return {
     cors: {
       allowedOrigins: isProduction
-        ? (process.env.ALLOWED_ORIGINS?.split(',') || ['https://servicedesk.com'])
+        ? (process.env.ALLOWED_ORIGINS?.split(',') || ['https://insighta.com.br'])
         : ['http://localhost:3000', 'http://127.0.0.1:3000'],
       allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: [
@@ -202,7 +202,7 @@ export function getSecurityConfig(): SecurityConfig {
           'https://api.openai.com', // For AI features
           ...(isDevelopment
             ? ['ws://localhost:3000', 'http://localhost:3000', 'wss://localhost:3000']
-            : ['wss://*.servicedesk.com'])
+            : ['wss://*.insighta.com.br'])
         ],
         mediaSrc: ["'self'", 'data:', 'blob:'],
         objectSrc: ["'none'"],

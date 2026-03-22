@@ -28,8 +28,8 @@ if (SENTRY_ENABLED && SENTRY_DSN) {
         routingInstrumentation: Sentry.reactRouterV6Instrumentation,
         tracePropagationTargets: [
           'localhost',
-          /^https:\/\/[^/]*\.servicedesk\.com/,
-          /^https:\/\/api\.servicedesk\.com/,
+          /^https:\/\/[^/]*\.insighta\.com\.br/,
+          /^https:\/\/insighta\.com\.br/,
         ],
       })
     )

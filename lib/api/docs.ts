@@ -173,19 +173,19 @@ export class OpenAPIGenerator {
     return {
       openapi: '3.0.3',
       info: {
-        title: 'ServiceDesk API',
+        title: 'Insighta API',
         description: 'Enterprise Service Desk Management System API',
         version: '1.0.0',
         contact: {
-          name: 'ServiceDesk Support',
-          email: 'support@servicedesk.com',
-          url: 'https://servicedesk.com/support',
+          name: 'Insighta Suporte',
+          email: 'suporte@insighta.com.br',
+          url: 'https://insighta.com.br/support',
         },
         license: {
           name: 'MIT',
           url: 'https://opensource.org/licenses/MIT',
         },
-        termsOfService: 'https://servicedesk.com/terms',
+        termsOfService: 'https://insighta.com.br/terms',
       },
       servers: [
         {
@@ -193,7 +193,7 @@ export class OpenAPIGenerator {
           description: 'Development server',
         },
         {
-          url: 'https://api.servicedesk.com/{version}',
+          url: 'https://insighta.com.br/api/{version}',
           description: 'Production server',
           variables: {
             version: {

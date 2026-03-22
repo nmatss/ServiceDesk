@@ -18,11 +18,21 @@ import { executeQueryOne } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 export const GET = withObservability(
   async (request: NextRequest) => {
+    // Only allow in development
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Test endpoints are disabled in production' },
+        { status: 403 }
+      );
+    }
+
+    const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
+    if (rateLimitResponse) return rateLimitResponse;
+
     const { searchParams } = request.nextUrl;
     const errorType = searchParams.get('type') || 'simple';
 
-    // Only allow in development
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_TEST_ERRORS !== 'true') {
+    if (false) {
       return NextResponse.json(
         { error: 'Test endpoints are disabled in production' },
         { status: 403 }
