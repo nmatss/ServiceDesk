@@ -40,7 +40,6 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production",
     "ENABLE_MULTI_TENANCY": "true"
   },
   "crons": [
