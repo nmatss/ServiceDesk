@@ -113,6 +113,68 @@ super_admin → admin → tenant_admin → team_manager → agent → user
 - Auth routes: `/api/auth/*` — login, register, verify, profile, SSO, GovBR
 - All API routes: Protected via `requireTenantUserContext()` with tenant isolation
 
+## Billing & Subscription System
+
+### Plan Tiers
+| | **Starter** | **Essencial** | **Profissional** | **Enterprise** |
+|---|---|---|---|---|
+| Price | Free | R$89/agent/mo | R$149/agent/mo | Custom |
+| Agents | 3 | 10 | 50 | Unlimited |
+| Tickets/mo | 100 | Unlimited | Unlimited | Unlimited |
+| AI | None | Basic classification | Copilot + Sentiment | Full (auto-resolve) |
+| ITIL | None | Incidents | + Problem, Change | + CMDB, Catalog, CAB |
+| Workflows | None | None | Builder | + Approvals |
+| Integrations | Email | + WhatsApp | + API, Webhooks | + ERP, SSO/SAML |
+| Analytics | Basic | Standard | Custom reports | Predictive |
+
+### Key Files
+- **Plan definitions**: `lib/billing/plans.ts` — Single source of truth for all plan tiers, features, and limits
+- **Feature gate**: `lib/billing/feature-gate.ts` — `requireFeature(orgId, feature, level)` returns `NextResponse | null`
+- **Subscription manager**: `lib/billing/subscription-manager.ts` — Plan limits, status, enforcement
+- **Stripe client**: `lib/billing/stripe-client.ts` — Checkout sessions, portal, webhooks
+- **Frontend hook**: `lib/hooks/usePlan.ts` — `usePlan()` hook for plan-aware UI components
+
+### Feature Gating Pattern
+```typescript
+import { requireFeature } from '@/lib/billing/feature-gate';
+
+// After requireTenantUserContext:
+const featureGate = await requireFeature(auth.organizationId, 'ai', 'basic');
+if (featureGate) return featureGate;
+```
+
+### Quantitative Limit Pattern
+```typescript
+import { requireLimit } from '@/lib/billing/feature-gate';
+
+const count = await executeQueryOne<{ count: number }>('SELECT COUNT(*) as count FROM automations WHERE organization_id = ?', [orgId]);
+const limitGate = await requireLimit(orgId, 'maxAutomationRules', count?.count || 0);
+if (limitGate) return limitGate;
+```
+
+### Feature Levels
+- **AI**: `'none'` | `'basic'` | `'copilot'` | `'full'`
+- **ITIL**: `'none'` | `'incident'` | `'standard'` | `'full'`
+- **Workflows**: `'none'` | `'builder'` | `'full'`
+- **Knowledge Base**: `'read'` | `'readwrite'` | `'ai'` | `'full'`
+- **Integrations**: `'email'` | `'whatsapp'` | `'api'` | `'full'`
+- **Analytics**: `'basic'` | `'standard'` | `'custom'` | `'predictive'`
+- **Security**: `'basic'` | `'rbac'` | `'audit'` | `'enterprise'`
+
+### Gated Routes (68 total)
+- AI routes (17): `/api/ai/*` — basic/copilot/full levels
+- ITIL Problem (5): `/api/problems/*` — standard level
+- ITIL Change (3): `/api/changes/*` — standard level
+- ITIL CMDB (7): `/api/cmdb/*` — full level
+- ITIL Catalog (4): `/api/catalog/*` — full level
+- ITIL CAB (4): `/api/cab/*` — full level
+- Workflows (4): `/api/workflows/*` — builder level
+- WhatsApp (8): `/api/integrations/whatsapp/*` — whatsapp level
+- Banking (1): `/api/integrations/banking` — full level
+- Knowledge Base write (6): `/api/knowledge` POST/PATCH — readwrite/ai levels
+- Analytics (5): `/api/analytics/realtime|detailed|knowledge|cobit|web-vitals` — standard/custom/predictive
+- Admin (3): `/api/admin/automations` POST, `/api/admin/sla` POST, `/api/admin/audit` — limit/audit checks
+
 ## Application Architecture
 
 ### Framework & Stack
@@ -204,6 +266,8 @@ components/ui/                # 49 base UI components
 - **Type Safety**: Comprehensive TypeScript interfaces for all database entities; `SqlParam` type for query params
 - **Integration Pattern**: `BaseConnector` class from `lib/integrations/base-connector.ts` for all integrations
 - **SLA Service**: `lib/sla/sla-service.ts` — application-layer SLA tracking (replaces DB triggers)
+- **Feature Gate**: `requireFeature(orgId, feature, level)` from `lib/billing/feature-gate.ts` — plan-based access control
+- **Plan Hook**: `usePlan()` from `lib/hooks/usePlan.ts` — frontend plan awareness for conditional UI
 
 ## Super Admin Area
 
@@ -334,8 +398,9 @@ All cron routes require `CRON_SECRET` env var for authentication.
 4. Use dialect helpers (`sqlNow()`, etc.) for cross-DB SQL
 5. Implement API routes with `requireTenantUserContext()` guard
 6. Add rate limiting with `applyRateLimit(request, RATE_LIMITS.*)`
-7. Return responses with `apiSuccess()` / `apiError()`
-8. Build frontend components with dark mode (`dark:` variants) and Portuguese i18n
+7. Add feature gate with `requireFeature(orgId, feature, level)` if plan-gated
+8. Return responses with `apiSuccess()` / `apiError()`
+9. Build frontend components with dark mode (`dark:` variants) and Portuguese i18n
 
 ### Adding New API Routes
 ```typescript
@@ -344,6 +409,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 
 export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -351,6 +417,10 @@ export async function GET(request: NextRequest) {
 
   const { auth, context, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  // Feature gate (if plan-gated)
+  const featureGate = await requireFeature(auth.organizationId, 'ai', 'basic');
+  if (featureGate) return featureGate;
 
   const data = await executeQuery('SELECT * FROM table WHERE organization_id = ?', [context.organizationId]);
   return apiSuccess(data);
@@ -365,7 +435,7 @@ export async function GET(request: NextRequest) {
 - **SQLite→PG Migration**: 100% complete
 - **ESLint `any` warnings**: ~1,141 (reduced from ~1,900; suppressed via `ignoreDuringBuilds`)
 - **Color compliance**: 0 `blue-*`, 0 `gray-*`, 0 hardcoded role strings
-- **Auth guard**: All protected routes use `requireTenantUserContext()`
+- **Auth guard**: All protected routes use `requireTenantUserContext()` + `requireFeature()` for plan-gated routes
 - **Cron Jobs**: 3 scheduled tasks (all rate-limited)
 
 ### Infrastructure
