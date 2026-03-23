@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Politica de Privacidade | ServiceDesk Pro',
+  title: 'Politica de Privacidade | Insighta',
   description: 'Politica de Privacidade e protecao de dados conforme LGPD',
 };
 
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
               1. Introducao
             </h2>
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
-              A <strong>ServiceDesk Pro</strong> (&quot;nos&quot;, &quot;nosso&quot; ou &quot;Empresa&quot;) esta comprometida com a protecao
+              A <strong>Insighta</strong> (&quot;nos&quot;, &quot;nosso&quot; ou &quot;Empresa&quot;) esta comprometida com a protecao
               da privacidade e dos dados pessoais de seus usuarios, em conformidade com a Lei Geral de Protecao de
               Dados Pessoais (Lei n. 13.709/2018 — LGPD) e demais normas aplicaveis. Esta Politica de Privacidade
               descreve como coletamos, utilizamos, armazenamos, compartilhamos e protegemos suas informacoes

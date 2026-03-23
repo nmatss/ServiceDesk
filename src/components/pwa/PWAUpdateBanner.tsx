@@ -139,8 +139,8 @@ export default function PWAUpdateBanner() {
                 </div>
                 <p className={`text-sm ${isForced ? 'text-orange-100' : 'text-green-100'}`}>
                   {isForced
-                    ? 'Esta atualização é necessária para continuar usando o ServiceDesk'
-                    : updateInfo?.description || 'Uma nova versão do ServiceDesk está disponível com melhorias e correções'
+                    ? 'Esta atualização é necessária para continuar usando o Insighta'
+                    : updateInfo?.description || 'Uma nova versão do Insighta está disponível com melhorias e correções'
                   }
                 </p>
               </div>

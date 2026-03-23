@@ -530,7 +530,7 @@ export class EmailAutomation {
             email: email.from.email,
           },
           tenant: {
-            name: 'ServiceDesk',
+            name: 'Insighta',
             supportEmail: process.env.SUPPORT_EMAIL,
           },
         },
@@ -566,7 +566,7 @@ export class EmailAutomation {
           },
           updateMessage: 'Seu comentário foi adicionado ao ticket.',
           tenant: {
-            name: 'ServiceDesk',
+            name: 'Insighta',
             supportEmail: process.env.SUPPORT_EMAIL,
           },
         }
@@ -608,7 +608,7 @@ export class EmailAutomation {
             createdAt: new Date(),
           },
           tenant: {
-            name: 'ServiceDesk',
+            name: 'Insighta',
           },
         },
         1,
@@ -647,7 +647,7 @@ export class EmailAutomation {
           },
           updateMessage: 'Este ticket foi atribuído a você.',
           tenant: {
-            name: 'ServiceDesk',
+            name: 'Insighta',
           },
         },
         1,

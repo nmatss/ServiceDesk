@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
           <div className="flex-shrink-0 w-11 h-11 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
             <Image
               src="/favicon.svg"
-              alt="ServiceDesk Logo"
+              alt="Insighta Logo"
               width={36}
               height={36}
               className="rounded-lg"

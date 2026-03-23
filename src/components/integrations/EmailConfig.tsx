@@ -49,7 +49,7 @@ export default function EmailConfig() {
     secure: false,
     user: '',
     pass: '',
-    fromName: 'ServiceDesk',
+    fromName: 'Insighta',
     fromEmail: '',
   });
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -116,7 +116,7 @@ export default function EmailConfig() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: testEmail,
-          subject: 'Email de Teste - ServiceDesk',
+          subject: 'Email de Teste - Insighta',
           html: '<h1>Este é um email de teste</h1><p>Sua configuração de email está funcionando corretamente!</p>',
           text: 'Este é um email de teste. Sua configuração de email está funcionando corretamente!',
           queue: false,
@@ -287,7 +287,7 @@ export default function EmailConfig() {
                 <Input
                   value={smtpConfig.fromName}
                   onChange={(e) => setSMTPConfig({ ...smtpConfig, fromName: e.target.value })}
-                  placeholder="ServiceDesk"
+                  placeholder="Insighta"
                 />
               </div>
 

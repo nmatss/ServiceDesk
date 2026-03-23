@@ -18,7 +18,7 @@ interface SettingRow {
 }
 
 const DEFAULT_SETTINGS: Record<string, { value: string; type: string; description: string }> = {
-  system_name: { value: 'ServiceDesk', type: 'string', description: 'Nome do sistema' },
+  system_name: { value: 'Insighta', type: 'string', description: 'Nome do sistema' },
   base_url: { value: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000', type: 'string', description: 'URL base do sistema' },
   maintenance_mode: { value: 'false', type: 'boolean', description: 'Modo de manutenção ativo' },
   max_organizations: { value: '100', type: 'number', description: 'Número máximo de organizações' },
@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: Record<string, { value: string; type: string; descriptio
   smtp_port: { value: '587', type: 'number', description: 'Porta SMTP' },
   smtp_user: { value: '', type: 'string', description: 'Usuário SMTP' },
   smtp_from_email: { value: '', type: 'string', description: 'E-mail de envio' },
-  smtp_from_name: { value: 'ServiceDesk', type: 'string', description: 'Nome do remetente' },
+  smtp_from_name: { value: 'Insighta', type: 'string', description: 'Nome do remetente' },
   password_min_length: { value: '8', type: 'number', description: 'Tamanho mínimo de senha' },
   session_timeout_minutes: { value: '60', type: 'number', description: 'Timeout de sessão em minutos' },
   require_2fa: { value: 'false', type: 'boolean', description: 'Exigir autenticação de dois fatores' },

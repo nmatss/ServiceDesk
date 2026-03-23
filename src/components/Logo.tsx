@@ -71,7 +71,7 @@ const Logo: React.FC<LogoProps> = ({
       
       {/* Texto do logo */}
       <span className={`ml-2 text-xl font-bold ${colorClasses[variant]}`}>
-        ServiceDesk
+        Insighta
       </span>
     </div>
   );

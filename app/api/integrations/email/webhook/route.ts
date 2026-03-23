@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    service: 'ServiceDesk Email Webhook',
+    service: 'Insighta Email Webhook',
     version: '1.0',
     status: 'active',
   });

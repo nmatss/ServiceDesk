@@ -333,8 +333,8 @@ export async function setupTwoFactor(userId: number): Promise<TwoFactorSetup> {
 
     // Gerar secret para TOTP
     const secret = speakeasy.generateSecret({
-      name: `ServiceDesk (${user.email})`,
-      issuer: 'ServiceDesk',
+      name: `Insighta (${user.email})`,
+      issuer: 'Insighta',
       length: 32
     });
 

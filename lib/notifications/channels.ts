@@ -532,11 +532,11 @@ export class NotificationChannelManager {
               ${notification.ticketId ? `<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;"><p style="margin: 0; color: #666;"><strong>Ticket:</strong> #${notification.ticketId}</p></div>` : ''}
               ${notification.data ? `<div style="margin: 20px 0;"><h3 style="color: #333; margin-bottom: 10px;">Detalhes:</h3><pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;">${JSON.stringify(notification.data, null, 2)}</pre></div>` : ''}
               <div style="text-align: center; margin-top: 30px;">
-                <a href="${ticketUrl}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Ver no ServiceDesk</a>
+                <a href="${ticketUrl}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Ver no Insighta</a>
               </div>
             </div>
             <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px;">
-              <p style="margin: 0;">ServiceDesk - Sistema de Atendimento</p>
+              <p style="margin: 0;">Insighta - Sistema de Atendimento</p>
               <p style="margin: 5px 0 0 0;">Este é um email automático, não responda.</p>
             </div>
           </div>
@@ -544,9 +544,9 @@ export class NotificationChannelManager {
       </html>
     `
 
-    const text = `${notification.title}\n\nOlá ${user?.name || 'Usuário'},\n\n${notification.message}\n\n${notification.ticketId ? `Ticket: #${notification.ticketId}` : ''}\n\nAcesse: ${ticketUrl}\n\nServiceDesk - Sistema de Atendimento`
+    const text = `${notification.title}\n\nOlá ${user?.name || 'Usuário'},\n\n${notification.message}\n\n${notification.ticketId ? `Ticket: #${notification.ticketId}` : ''}\n\nAcesse: ${ticketUrl}\n\nInsighta - Sistema de Atendimento`
 
-    return { subject: `[ServiceDesk] ${notification.title}`, html, text }
+    return { subject: `[Insighta] ${notification.title}`, html, text }
   }
 
   private formatSlackMessage(notification: NotificationPayload, _user: UserInfo | null) {
@@ -581,7 +581,7 @@ export class NotificationChannelManager {
   }
 
   private formatSMSMessage(notification: NotificationPayload, _user: UserInfo | null): string {
-    let message = `ServiceDesk: ${notification.title}`
+    let message = `Insighta: ${notification.title}`
     if (notification.ticketId) message += ` - Ticket #${notification.ticketId}`
     if (message.length > 160) message = message.substring(0, 155) + '...'
     return message

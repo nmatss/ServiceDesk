@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import ServicesClient from './services-client'
 
 export const metadata: Metadata = {
-  title: 'Central de Serviços | ServiceDesk',
+  title: 'Central de Serviços | Insighta',
   description: 'Todas as áreas da empresa em um só lugar',
 }
 

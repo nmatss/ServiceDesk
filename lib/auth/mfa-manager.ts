@@ -78,7 +78,7 @@ class MFAManager {
   /**
    * Generate MFA setup for TOTP (Time-based One-Time Password)
    */
-  async generateTOTPSetup(userId: number, issuer: string = 'ServiceDesk'): Promise<MFASetup | null> {
+  async generateTOTPSetup(userId: number, issuer: string = 'Insighta'): Promise<MFASetup | null> {
     try {
       const user = await executeQueryOne<User>('SELECT * FROM users WHERE id = ?', [userId]);
       if (!user) return null;

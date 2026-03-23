@@ -88,7 +88,7 @@ export interface BiometricDevice {
 }
 
 class BiometricAuthManager {
-  private readonly RP_NAME = 'ServiceDesk';
+  private readonly RP_NAME = 'Insighta';
   private readonly RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost';
   private readonly CHALLENGE_LENGTH = 32;
   private readonly TIMEOUT = 60000; // 60 seconds

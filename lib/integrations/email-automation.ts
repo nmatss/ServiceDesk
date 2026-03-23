@@ -1,6 +1,6 @@
 /**
  * Advanced Email Automation System
- * Complete email management for ServiceDesk
+ * Complete email management for Insighta
  *
  * Features:
  * - Incoming email parsing (IMAP/POP3)

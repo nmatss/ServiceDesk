@@ -107,7 +107,7 @@ export const useBiometricAuth = () => {
       const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
         challenge,
         rp: {
-          name: options.rpName || 'ServiceDesk Pro',
+          name: options.rpName || 'Insighta',
           id: options.rpId || window.location.hostname
         },
         user: {

@@ -15,8 +15,8 @@ export async function GET() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="ServiceDesk API Documentation" />
-    <title>ServiceDesk API Documentation</title>
+    <meta name="description" content="Insighta API Documentation" />
+    <title>Insighta API Documentation</title>
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
     <style>
       body {
@@ -59,7 +59,7 @@ export async function GET() {
   </head>
   <body>
     <div class="custom-header">
-      <h1>🎫 ServiceDesk API Documentation</h1>
+      <h1>🎫 Insighta API Documentation</h1>
       <p>Enterprise Service Desk Platform - RESTful API v1.0.0</p>
     </div>
     <div id="swagger-ui"></div>

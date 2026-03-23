@@ -115,7 +115,7 @@ export class UserService {
       await createNotification({
         user_id: user.id,
         type: 'welcome',
-        title: 'Bem-vindo ao ServiceDesk',
+        title: 'Bem-vindo ao Insighta',
         message: `Sua conta foi criada com sucesso. Bem-vindo, ${user.name}!`,
         is_read: false,
         sent_via_email: true,

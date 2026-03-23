@@ -38,7 +38,7 @@ export default function AdminSettingsPage() {
         {/* Modern PageHeader with Icon */}
         <PageHeader
           title="Configurações"
-          description="Gerencie as configurações gerais do ServiceDesk Pro"
+          description="Gerencie as configurações gerais do Insighta"
           icon={CogIcon}
           breadcrumbs={[
             { label: 'Admin', href: '/admin' },

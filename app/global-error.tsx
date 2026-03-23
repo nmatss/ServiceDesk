@@ -64,7 +64,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Erro Crítico - ServiceDesk</title>
+        <title>Erro Crítico - Insighta</title>
       </head>
       <body>
         <div

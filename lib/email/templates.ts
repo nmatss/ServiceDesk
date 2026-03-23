@@ -144,13 +144,13 @@ const baseHtmlTemplate = `
     <div class="container">
         <div class="header">
             <div class="logo">{{tenant.name}}</div>
-            <div>ServiceDesk Pro</div>
+            <div>Insighta</div>
         </div>
         <div class="content">
             {{{content}}}
         </div>
         <div class="footer">
-            <p>Este é um email automático do sistema ServiceDesk Pro.</p>
+            <p>Este é um email automático do sistema Insighta.</p>
             {{#if tenant.supportEmail}}
             <p>Para suporte, entre em contato: <a href="mailto:{{tenant.supportEmail}}">{{tenant.supportEmail}}</a></p>
             {{/if}}
@@ -284,11 +284,11 @@ Ver ticket: {{urls.ticketUrl}}
 
 // Welcome User Template
 export const welcomeUserTemplate: EmailTemplate = {
-  subject: 'Bem-vindo ao {{tenant.name}} - ServiceDesk Pro',
+  subject: 'Bem-vindo ao {{tenant.name}} - Insighta',
   html: baseHtmlTemplate.replace('{{{content}}}', `
     <h2>🎉 Bem-vindo!</h2>
     <p>Olá {{name}},</p>
-    <p>Sua conta foi criada com sucesso no ServiceDesk Pro.</p>
+    <p>Sua conta foi criada com sucesso no Insighta.</p>
 
     <div class="ticket-info">
         <h3>Suas credenciais de acesso</h3>
@@ -308,7 +308,7 @@ export const welcomeUserTemplate: EmailTemplate = {
 
 Olá {{name}},
 
-Sua conta foi criada com sucesso no ServiceDesk Pro.
+Sua conta foi criada com sucesso no Insighta.
 
 Credenciais:
 - Email: {{email}}
@@ -354,7 +354,7 @@ export const trialExpiringTemplate: EmailTemplate = {
   html: baseHtmlTemplate.replace('{{{content}}}', `
     <h2>Seu período de avaliação está acabando</h2>
     <p>Olá {{name}},</p>
-    <p>Seu período de avaliação do ServiceDesk Pro expira em <strong>{{daysLeft}} dias</strong>.</p>
+    <p>Seu período de avaliação do Insighta expira em <strong>{{daysLeft}} dias</strong>.</p>
 
     <div class="ticket-info">
         <h3>O que acontece após o trial?</h3>
@@ -375,7 +375,7 @@ Seu período de avaliação está acabando
 
 Olá {{name}},
 
-Seu período de avaliação do ServiceDesk Pro expira em {{daysLeft}} dias.
+Seu período de avaliação do Insighta expira em {{daysLeft}} dias.
 
 Após o término, sua conta será limitada ao plano Starter (gratuito).
 
@@ -403,7 +403,7 @@ export const paymentReceiptTemplate: EmailTemplate = {
 
     <a href="{{urls.billingUrl}}" class="button">Ver Detalhes da Assinatura</a>
 
-    <p>Obrigado por escolher o ServiceDesk Pro!</p>
+    <p>Obrigado por escolher o Insighta!</p>
   `),
   text: `
 Pagamento confirmado!
@@ -428,7 +428,7 @@ export const subscriptionUpdatedTemplate: EmailTemplate = {
   html: baseHtmlTemplate.replace('{{{content}}}', `
     <h2>Seu plano foi atualizado!</h2>
     <p>Olá {{name}},</p>
-    <p>Seu plano do ServiceDesk Pro foi atualizado com sucesso.</p>
+    <p>Seu plano do Insighta foi atualizado com sucesso.</p>
 
     <div class="ticket-info">
         <h3>Novo plano</h3>

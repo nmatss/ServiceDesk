@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import CatalogClient from './catalog-client'
 
 export const metadata: Metadata = {
-  title: 'Catálogo de Serviços | ServiceDesk',
+  title: 'Catálogo de Serviços | Insighta',
   description: 'Encontre e solicite os serviços que você precisa',
 }
 

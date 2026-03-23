@@ -28,7 +28,7 @@ interface KnowledgeData {
 }
 
 export const metadata: Metadata = {
-  title: 'Base de Conhecimento | ServiceDesk',
+  title: 'Base de Conhecimento | Insighta',
   description: 'Encontre respostas para suas dúvidas em nossa base de conhecimento',
 }
 

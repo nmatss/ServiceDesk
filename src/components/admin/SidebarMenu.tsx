@@ -123,8 +123,7 @@ export default function SidebarMenu() {
             </div>
             {!collapsed && (
               <div className="leading-none">
-                <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
-                <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+                <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">Insighta</span>
               </div>
             )}
           </div>

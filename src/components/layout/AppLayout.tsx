@@ -22,10 +22,10 @@ interface User {
 }
 
 // Public routes that don't require authentication
-const publicRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/govbr', '/onboarding', '/tenant-not-found', '/unauthorized']
+const publicRoutes = ['/', '/landing', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/govbr', '/onboarding', '/tenant-not-found', '/unauthorized', '/privacy', '/terms']
 
 // Routes that don't need the full layout (auth pages and landing)
-const authRoutes = ['/landing', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/govbr', '/onboarding', '/tenant-not-found', '/unauthorized']
+const authRoutes = ['/', '/landing', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/govbr', '/onboarding', '/tenant-not-found', '/unauthorized', '/privacy', '/terms']
 
 // Routes that have their own layout (admin section)
 const customLayoutRoutes = ['/admin']
@@ -232,7 +232,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
           <div aria-hidden="true" className="w-16 h-16 loading-spinner mx-auto mb-4"></div>
           <span className="sr-only">Carregando...</span>
           <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-            ServiceDesk
+            Insighta
           </h2>
           <p className="text-description">
             Carregando...
@@ -285,7 +285,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
             <div className="container-responsive">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0">
                 <div className="text-xs sm:text-sm text-description text-center sm:text-left">
-                  © {new Date().getFullYear()} ServiceDesk Pro. Todos os direitos reservados.
+                  © {new Date().getFullYear()} Insighta. Todos os direitos reservados.
                 </div>
                 <nav className="flex items-center space-x-4" aria-label="Links do rodapé">
                   <a

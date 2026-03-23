@@ -1,9 +1,9 @@
 {
-  "name": "ServiceDesk Pro - Sistema de Suporte Completo",
-  "short_name": "ServiceDesk Pro",
+  "name": "Insighta - Sistema de Suporte Completo",
+  "short_name": "Insighta",
   "description": "Sistema avançado de gerenciamento de tickets, suporte ao cliente e service desk com recursos offline",
   "start_url": "/?source=pwa",
-  "id": "servicedesk-pro",
+  "id": "insighta",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
@@ -74,7 +74,7 @@
       "sizes": "1280x720",
       "type": "image/jpeg",
       "form_factor": "wide",
-      "label": "Dashboard principal do ServiceDesk"
+      "label": "Dashboard principal do Insighta"
     },
     {
       "src": "/screenshots/mobile-tickets.jpg",

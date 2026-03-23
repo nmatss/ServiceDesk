@@ -75,7 +75,7 @@ class BiometricAuthManager {
         publicKey: {
           challenge,
           rp: {
-            name: 'ServiceDesk Pro',
+            name: 'Insighta',
             id: window.location.hostname
           },
           user: {

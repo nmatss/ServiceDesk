@@ -256,7 +256,7 @@ export function applyHelmetHeaders(response: NextResponse): NextResponse {
 
   // Server header (optional - hide server information)
   if (isProduction()) {
-    response.headers.set('Server', 'ServiceDesk');
+    response.headers.set('Server', 'Insighta');
   }
 
   return response;

@@ -389,7 +389,7 @@ export function getEnvironmentConfig(): EnvironmentConfig {
     // Email
     emailProvider: getEnv('EMAIL_PROVIDER', 'smtp') as any,
     emailFrom: {
-      name: getEnv('EMAIL_FROM_NAME', 'ServiceDesk'),
+      name: getEnv('EMAIL_FROM_NAME', 'Insighta'),
       address: getEnv('EMAIL_FROM_ADDRESS', 'noreply@servicedesk.com'),
     },
 

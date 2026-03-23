@@ -641,7 +641,7 @@ export class WhatsAppWebhookHandler {
 
     // Respostas automáticas para saudações
     if (['oi', 'olá', 'bom dia', 'boa tarde', 'boa noite'].includes(text.trim())) {
-      const response = `Olá! 👋\n\nEu sou o assistente virtual do ServiceDesk.\n\nComo posso ajudar você hoje?\n\n💡 Dica: Descreva seu problema ou dúvida que criarei um chamado automaticamente.`;
+      const response = `Olá! 👋\n\nEu sou o assistente virtual do Insighta.\n\nComo posso ajudar você hoje?\n\n💡 Dica: Descreva seu problema ou dúvida que criarei um chamado automaticamente.`;
 
       try {
         await this.client.sendTextMessage(contact.phone_number, response);

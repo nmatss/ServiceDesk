@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Termos de Uso | ServiceDesk Pro',
-  description: 'Termos de Uso e condicoes de servico da plataforma ServiceDesk Pro',
+  title: 'Termos de Uso | Insighta',
+  description: 'Termos de Uso e condicoes de servico da plataforma Insighta',
 };
 
 export default function TermsPage() {
@@ -28,11 +28,11 @@ export default function TermsPage() {
               1. Aceitacao dos Termos
             </h2>
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
-              Ao criar uma conta, acessar ou utilizar a plataforma <strong>ServiceDesk Pro</strong> (&quot;Plataforma&quot;,
+              Ao criar uma conta, acessar ou utilizar a plataforma <strong>Insighta</strong> (&quot;Plataforma&quot;,
               &quot;Servico&quot; ou &quot;nos&quot;), voce declara que leu, compreendeu e concorda integralmente com estes Termos de
               Uso (&quot;Termos&quot;). Caso nao concorde com qualquer disposicao, voce nao devera utilizar o Servico.
-              Estes Termos constituem um contrato vinculativo entre voce (&quot;Usuario&quot;, &quot;voce&quot;) e a ServiceDesk
-              Pro Tecnologia Ltda., com sede em Sao Paulo/SP.
+              Estes Termos constituem um contrato vinculativo entre voce (&quot;Usuario&quot;, &quot;voce&quot;) e a Insighta
+              Tecnologia Ltda., com sede em Sao Paulo/SP.
             </p>
           </section>
 
@@ -42,7 +42,7 @@ export default function TermsPage() {
               2. Descricao do Servico
             </h2>
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed mb-4">
-              O ServiceDesk Pro e uma plataforma SaaS (Software as a Service) de gestao de servicos de TI
+              O Insighta e uma plataforma SaaS (Software as a Service) de gestao de servicos de TI
               que oferece:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-neutral-700 dark:text-neutral-300">
@@ -130,7 +130,7 @@ export default function TermsPage() {
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed mb-4">
               Todo o conteudo da plataforma, incluindo codigo-fonte, design, logotipos, textos, graficos,
               interfaces, algoritmos de IA, workflows e documentacao, e de propriedade exclusiva da
-              ServiceDesk Pro ou de seus licenciadores, protegido pelas leis de propriedade intelectual
+              Insighta ou de seus licenciadores, protegido pelas leis de propriedade intelectual
               brasileiras e tratados internacionais.
             </p>
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
@@ -221,7 +221,7 @@ export default function TermsPage() {
             </p>
             <p className="text-neutral-700 dark:text-neutral-300 leading-relaxed">
               Quando o Usuario atua como controlador de dados pessoais inseridos na plataforma (ex: dados
-              de clientes do Usuario), a ServiceDesk Pro atua como operadora de dados, tratando-os
+              de clientes do Usuario), a Insighta atua como operadora de dados, tratando-os
               exclusivamente conforme as instrucoes do controlador e em conformidade com a LGPD.
             </p>
           </section>

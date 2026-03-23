@@ -28,7 +28,7 @@ interface SystemSettings {
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
-  system_name: 'ServiceDesk',
+  system_name: 'Insighta',
   base_url: 'http://localhost:3000',
   maintenance_mode: false,
   max_organizations: 100,
@@ -38,7 +38,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   smtp_port: 587,
   smtp_user: '',
   smtp_from_email: '',
-  smtp_from_name: 'ServiceDesk',
+  smtp_from_name: 'Insighta',
   password_min_length: 8,
   session_timeout_minutes: 60,
   require_2fa: false,
@@ -114,7 +114,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Configurações do Sistema"
-          description="Configurações globais do ServiceDesk"
+          description="Configurações globais do Insighta"
           icon={Cog6ToothIcon}
         />
         <div className="flex items-center justify-center py-16">
@@ -128,7 +128,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Configurações do Sistema"
-        description="Configurações globais do ServiceDesk"
+        description="Configurações globais do Insighta"
         icon={Cog6ToothIcon}
       />
 
@@ -164,7 +164,7 @@ export default function SettingsPage() {
                 name="system_name"
                 value={settings.system_name}
                 onChange={(e) => updateField('system_name', e.target.value)}
-                placeholder="ServiceDesk"
+                placeholder="Insighta"
               />
               <FormField
                 label="URL Base"
@@ -264,7 +264,7 @@ export default function SettingsPage() {
                 name="smtp_from_name"
                 value={settings.smtp_from_name}
                 onChange={(e) => updateField('smtp_from_name', e.target.value)}
-                placeholder="ServiceDesk"
+                placeholder="Insighta"
               />
             </div>
           </div>

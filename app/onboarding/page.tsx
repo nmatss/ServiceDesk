@@ -11,7 +11,7 @@ export default function OnboardingPage() {
             <div className="relative z-10 w-full max-w-4xl mx-auto">
                 <div className="text-center mb-8 sm:mb-12">
                     <h1 className="text-2xl sm:text-4xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
-                        Bem-vindo ao <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-purple-400">ServiceDesk Pro</span>
+                        Bem-vindo ao <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-purple-400">Insighta</span>
                     </h1>
                     <p className="text-neutral-400 text-base sm:text-lg">
                         Configure seu ambiente corporativo em poucos minutos.

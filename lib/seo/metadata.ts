@@ -23,12 +23,12 @@ export interface PageSEOConfig {
 export const baseMetadata = {
   metadataBase: new URL(getAppUrl()),
   title: {
-    template: '%s | ServiceDesk Pro - Sistema Completo de Atendimento',
-    default: 'ServiceDesk Pro - Sistema Completo de Atendimento ao Cliente'
+    template: '%s | Insighta - Sistema Completo de Atendimento',
+    default: 'Insighta - Sistema Completo de Atendimento ao Cliente'
   },
-  description: 'Sistema completo de ServiceDesk para gerenciamento de tickets, atendimento ao cliente e suporte técnico. Solução profissional com SLA, relatórios e automação.',
+  description: 'Sistema completo de help desk para gerenciamento de tickets, atendimento ao cliente e suporte técnico. Solução profissional com SLA, relatórios e automação.',
   keywords: [
-    'servicedesk',
+    'insighta',
     'help desk',
     'sistema de tickets',
     'atendimento ao cliente',
@@ -39,9 +39,9 @@ export const baseMetadata = {
     'automação',
     'relatórios'
   ],
-  authors: [{ name: 'ServiceDesk Pro' }],
-  creator: 'ServiceDesk Pro',
-  publisher: 'ServiceDesk Pro',
+  authors: [{ name: 'Insighta' }],
+  creator: 'Insighta',
+  publisher: 'Insighta',
   formatDetection: {
     email: false,
     address: false,
@@ -50,19 +50,19 @@ export const baseMetadata = {
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
-    siteName: 'ServiceDesk Pro',
+    siteName: 'Insighta',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'ServiceDesk Pro - Sistema Completo de Atendimento'
+        alt: 'Insighta - Sistema Completo de Atendimento'
       }
     ]
   },
   twitter: {
     card: 'summary_large_image',
-    creator: '@servicedeskpro'
+    creator: '@insighta'
   },
   robots: {
     index: true,
@@ -84,7 +84,7 @@ export const baseMetadata = {
 
 // Generate metadata for specific pages
 export function generatePageMetadata(config: PageSEOConfig): Metadata {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://servicedesk.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://insighta.com.br'
 
   return {
     title: config.title,
@@ -94,7 +94,7 @@ export function generatePageMetadata(config: PageSEOConfig): Metadata {
       title: config.title,
       description: config.description,
       url: baseUrl,
-      siteName: 'ServiceDesk Pro',
+      siteName: 'Insighta',
       images: [
         {
           url: '/og-image.png',
@@ -121,10 +121,10 @@ export function generatePageMetadata(config: PageSEOConfig): Metadata {
 // SEO configurations for different pages
 export const pageSEOConfigs = {
   home: {
-    title: 'ServiceDesk Pro - Sistema Completo de Atendimento ao Cliente',
-    description: 'Transforme seu atendimento com o ServiceDesk Pro. Sistema completo para gestão de tickets, SLA automático, relatórios avançados e suporte multi-tenant. Aumente a satisfação dos clientes.',
+    title: 'Insighta - Sistema Completo de Atendimento ao Cliente',
+    description: 'Transforme seu atendimento com o Insighta. Sistema completo para gestão de tickets, SLA automático, relatórios avançados e suporte multi-tenant. Aumente a satisfação dos clientes.',
     keywords: [
-      'sistema servicedesk',
+      'sistema insighta',
       'help desk completo',
       'gestão de tickets',
       'atendimento ao cliente',
@@ -140,7 +140,7 @@ export const pageSEOConfigs = {
 
   portal: {
     title: 'Portal do Cliente - Abra e Acompanhe seus Tickets',
-    description: 'Portal do cliente ServiceDesk Pro. Abra tickets, acompanhe o status em tempo real, acesse a base de conhecimento e comunique-se diretamente com nossa equipe de suporte.',
+    description: 'Portal do cliente Insighta. Abra tickets, acompanhe o status em tempo real, acesse a base de conhecimento e comunique-se diretamente com nossa equipe de suporte.',
     keywords: [
       'portal do cliente',
       'abrir ticket',
@@ -156,7 +156,7 @@ export const pageSEOConfigs = {
 
   knowledge: {
     title: 'Base de Conhecimento - Encontre Respostas Rapidamente',
-    description: 'Base de conhecimento completa do ServiceDesk Pro. Encontre respostas, tutoriais, guias e soluções para os problemas mais comuns. Suporte 24/7 ao seu alcance.',
+    description: 'Base de conhecimento completa do Insighta. Encontre respostas, tutoriais, guias e soluções para os problemas mais comuns. Suporte 24/7 ao seu alcance.',
     keywords: [
       'base de conhecimento',
       'FAQ',
@@ -172,8 +172,8 @@ export const pageSEOConfigs = {
   },
 
   admin: {
-    title: 'Painel Administrativo - Gerencie seu ServiceDesk',
-    description: 'Painel administrativo completo do ServiceDesk Pro. Gerencie tickets, usuários, relatórios, SLA e configurações. Dashboard com métricas em tempo real.',
+    title: 'Painel Administrativo - Gerencie seu Insighta',
+    description: 'Painel administrativo completo do Insighta. Gerencie tickets, usuários, relatórios, SLA e configurações. Dashboard com métricas em tempo real.',
     keywords: [
       'painel administrativo',
       'dashboard',
@@ -190,7 +190,7 @@ export const pageSEOConfigs = {
 
   tickets: {
     title: 'Gestão de Tickets - Controle Total dos Chamados',
-    description: 'Sistema avançado de gestão de tickets do ServiceDesk Pro. Acompanhe, priorize e resolva chamados com eficiência. SLA automático e notificações em tempo real.',
+    description: 'Sistema avançado de gestão de tickets do Insighta. Acompanhe, priorize e resolva chamados com eficiência. SLA automático e notificações em tempo real.',
     keywords: [
       'gestão de tickets',
       'chamados',
@@ -208,15 +208,15 @@ export const pageSEOConfigs = {
 
 // Generate structured data for different content types
 export function generateStructuredData(type: string, data: any = {}) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://servicedesk.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://insighta.com.br'
 
   const structuredData: any = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'ServiceDesk Pro',
+    name: 'Insighta',
     url: baseUrl,
     logo: `${baseUrl}/logo.png`,
-    description: 'Sistema completo de ServiceDesk para atendimento ao cliente',
+    description: 'Sistema completo de atendimento ao cliente',
     contactPoint: {
       '@type': 'ContactPoint',
       telephone: '+55-11-1234-5678',
@@ -224,8 +224,8 @@ export function generateStructuredData(type: string, data: any = {}) {
       availableLanguage: 'Portuguese'
     },
     sameAs: [
-      'https://linkedin.com/company/servicedeskpro',
-      'https://twitter.com/servicedeskpro'
+      'https://linkedin.com/company/insighta',
+      'https://twitter.com/insighta'
     ]
   }
 
@@ -234,10 +234,10 @@ export function generateStructuredData(type: string, data: any = {}) {
       return {
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
-        name: 'ServiceDesk Pro',
+        name: 'Insighta',
         applicationCategory: 'BusinessApplication',
         operatingSystem: 'Web',
-        description: 'Sistema completo de ServiceDesk para gestão de tickets e atendimento ao cliente',
+        description: 'Sistema completo para gestão de tickets e atendimento ao cliente',
         url: baseUrl,
         screenshot: `${baseUrl}/screenshot.png`,
         softwareVersion: '1.0.0',
@@ -254,7 +254,7 @@ export function generateStructuredData(type: string, data: any = {}) {
         },
         publisher: {
           '@type': 'Organization',
-          name: 'ServiceDesk Pro'
+          name: 'Insighta'
         }
       }
 
@@ -266,11 +266,11 @@ export function generateStructuredData(type: string, data: any = {}) {
         description: data.description,
         author: {
           '@type': 'Organization',
-          name: 'ServiceDesk Pro'
+          name: 'Insighta'
         },
         publisher: {
           '@type': 'Organization',
-          name: 'ServiceDesk Pro',
+          name: 'Insighta',
           logo: {
             '@type': 'ImageObject',
             url: `${baseUrl}/logo.png`
@@ -288,11 +288,11 @@ export function generateStructuredData(type: string, data: any = {}) {
       return {
         '@context': 'https://schema.org',
         '@type': 'Service',
-        name: data.name || 'ServiceDesk Pro',
+        name: data.name || 'Insighta',
         description: data.description || 'Sistema completo de atendimento ao cliente',
         provider: {
           '@type': 'Organization',
-          name: 'ServiceDesk Pro'
+          name: 'Insighta'
         },
         serviceType: 'Help Desk Software',
         areaServed: 'BR',
@@ -325,13 +325,13 @@ export function generateStructuredData(type: string, data: any = {}) {
 // Generate conversational meta descriptions optimized for AI
 export function generateConversationalDescription(pageType: string, data: any = {}) {
   const descriptions = {
-    service: `Como posso te ajudar com atendimento ao cliente? O ServiceDesk Pro oferece ${data.features || 'gestão completa de tickets, SLA automático e relatórios avançados'}. Ideal para empresas que buscam excelência no suporte.`,
+    service: `Como posso te ajudar com atendimento ao cliente? O Insighta oferece ${data.features || 'gestão completa de tickets, SLA automático e relatórios avançados'}. Ideal para empresas que buscam excelência no suporte.`,
 
     knowledge: `Procurando respostas sobre ${data.topic || 'suporte técnico'}? Nossa base de conhecimento tem ${data.articleCount || 'centenas de'} artigos com soluções práticas e guias detalhados para resolver seus problemas rapidamente.`,
 
     portal: `Precisa abrir um ticket ou acompanhar seu chamado? No portal do cliente você pode ${data.features || 'criar tickets, acompanhar status em tempo real e acessar nossa base de conhecimento'}. Suporte disponível 24/7.`,
 
-    admin: `Quer gerenciar seu ServiceDesk com eficiência? O painel administrativo oferece ${data.features || 'dashboard completo, relatórios em tempo real, gestão de SLA e automação de processos'}. Controle total em suas mãos.`
+    admin: `Quer gerenciar seu Insighta com eficiência? O painel administrativo oferece ${data.features || 'dashboard completo, relatórios em tempo real, gestão de SLA e automação de processos'}. Controle total em suas mãos.`
   }
 
   return descriptions[pageType as keyof typeof descriptions] || descriptions.service

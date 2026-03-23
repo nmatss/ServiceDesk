@@ -114,7 +114,7 @@ export async function registerBiometric(
     const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
       challenge: challenge as BufferSource,
       rp: {
-        name: 'ServiceDesk',
+        name: 'Insighta',
         id: window.location.hostname
       },
       user: {

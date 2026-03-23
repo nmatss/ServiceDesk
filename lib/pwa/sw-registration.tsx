@@ -149,7 +149,7 @@ class PWAManager {
       this.state.installPrompt = null;
       this.emit('app-installed', true);
 
-      toast.success('ServiceDesk instalado com sucesso!', {
+      toast.success('Insighta instalado com sucesso!', {
         icon: '📱',
         duration: 4000,
       });
@@ -407,7 +407,7 @@ class PWAManager {
       <div className="flex items-center space-x-3">
         <span className="text-2xl">📱</span>
         <div>
-          <p className="font-medium">Instalar ServiceDesk</p>
+          <p className="font-medium">Instalar Insighta</p>
           <p className="text-sm text-neutral-600">
             Adicione à tela inicial para acesso rápido
           </p>
@@ -443,7 +443,7 @@ class PWAManager {
         <div>
           <p className="font-medium">Atualização disponível</p>
           <p className="text-sm text-neutral-600">
-            Nova versão do ServiceDesk disponível
+            Nova versão do Insighta disponível
           </p>
         </div>
         <div className="flex space-x-2">

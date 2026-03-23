@@ -124,7 +124,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Left Side - Brand Panel */}
-      <div className="hidden lg:flex lg:flex-1 relative overflow-hidden items-center justify-center" role="complementary" aria-label="Informações sobre o ServiceDesk">
+      <div className="hidden lg:flex lg:flex-1 relative overflow-hidden items-center justify-center" role="complementary" aria-label="Informações sobre o Insighta">
         {/* Deep gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0c1929] via-[#0f2847] to-[#1a1a2e]" />
 
@@ -148,7 +148,7 @@ export default function RegisterPage() {
             <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl">
               <Image
                 src="/favicon.svg"
-                alt="ServiceDesk Logo"
+                alt="Insighta Logo"
                 width={64}
                 height={64}
                 className="rounded-xl"
@@ -213,7 +213,7 @@ export default function RegisterPage() {
             <div className="flex-shrink-0 lg:hidden w-11 h-11 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
               <Image
                 src="/favicon.svg"
-                alt="ServiceDesk Logo"
+                alt="Insighta Logo"
                 width={36}
                 height={36}
                 className="rounded-lg"

@@ -44,7 +44,7 @@ const getEmailConfig = (): EmailConfig => {
       pass: process.env.SMTP_PASS || ''
     },
     from: {
-      name: process.env.EMAIL_FROM_NAME || 'ServiceDesk Pro',
+      name: process.env.EMAIL_FROM_NAME || 'Insighta',
       email: process.env.EMAIL_FROM_ADDRESS || 'noreply@servicedesk.com'
     }
   }

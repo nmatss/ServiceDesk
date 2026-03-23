@@ -765,7 +765,7 @@ Ver comentário: {{ticketUrl ticket.id}}
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); padding: 30px 20px; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">{{tenant.name}}</h1>
-            <p style="color: #dbeafe; margin: 5px 0 0 0; font-size: 14px;">ServiceDesk Pro</p>
+            <p style="color: #dbeafe; margin: 5px 0 0 0; font-size: 14px;">Insighta</p>
         </div>
 
         <!-- Content -->
@@ -775,7 +775,7 @@ Ver comentário: {{ticketUrl ticket.id}}
 
         <!-- Footer -->
         <div style="background: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-            <p style="color: #64748b; font-size: 14px; margin: 0 0 10px 0;">Este é um email automático do sistema ServiceDesk Pro.</p>
+            <p style="color: #64748b; font-size: 14px; margin: 0 0 10px 0;">Este é um email automático do sistema Insighta.</p>
             {{#if tenant.supportEmail}}
             <p style="color: #64748b; font-size: 14px; margin: 0;">
                 Para suporte, entre em contato: <a href="mailto:{{tenant.supportEmail}}" style="color: #2563eb; text-decoration: none;">{{tenant.supportEmail}}</a>

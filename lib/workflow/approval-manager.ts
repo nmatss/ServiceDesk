@@ -469,7 +469,7 @@ This link expires in 48 hours.
           </div>
           <div class="footer">
             <p>This approval link expires in 48 hours.</p>
-            <p>ServiceDesk Workflow System</p>
+            <p>Insighta Workflow System</p>
           </div>
         </div>
       </body>

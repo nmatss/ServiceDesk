@@ -163,7 +163,7 @@ function NavBar() {
               <Headphones className="w-5 h-5 text-white" />
             </div>
             <div className="leading-none">
-              <span className="font-bold text-lg text-foreground tracking-tight">ServiceDesk</span>
+              <span className="font-bold text-lg text-foreground tracking-tight">Insighta</span>
               <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
             </div>
           </a>
@@ -366,7 +366,7 @@ function HeroSection() {
                         <div className="w-3 h-3 rounded-full bg-yellow-400" />
                         <div className="w-3 h-3 rounded-full bg-green-400" />
                       </div>
-                      <span className="text-white/60 text-xs font-medium ml-2">ServiceDesk Pro — Dashboard</span>
+                      <span className="text-white/60 text-xs font-medium ml-2">Insighta — Dashboard</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -463,7 +463,7 @@ function HeroSection() {
             className="mt-16 lg:mt-24 pt-8 border-t border-neutral-200/60 dark:border-neutral-800/60"
           >
             <p className="text-xs font-medium text-muted-foreground text-center uppercase tracking-wider mb-6">
-              Empresas que confiam no ServiceDesk Pro
+              Empresas que confiam no Insighta
             </p>
             <div className="flex flex-wrap justify-center items-center gap-x-10 gap-y-4 opacity-40">
               {["TechCorp", "Grupo Viva", "LogiPrime", "MedCenter", "BancaSul", "IndoBrasil"].map((name) => (
@@ -522,7 +522,7 @@ function BenefitsSection() {
           label="Por que nos escolher"
           title="Transforme seu suporte em"
           highlight="vantagem competitiva"
-          description="Empresas que usam o ServiceDesk Pro reportam aumento de produtividade e redução de custos operacionais desde o primeiro mês."
+          description="Empresas que usam o Insighta reportam aumento de produtividade e redução de custos operacionais desde o primeiro mês."
         />
 
         <motion.div
@@ -1022,7 +1022,7 @@ function TestimonialsSection() {
       role: "Gerente de Service Desk",
       company: "Hospital Regional — 500 leitos",
       segment: "Saúde",
-      content: "Em ambiente critico como saude, não podemos falhar. O ServiceDesk Pro nos deu visibilidade total com dashboards em tempo real e escalação automática. Passamos na auditoria ISO 20000.",
+      content: "Em ambiente critico como saude, não podemos falhar. O Insighta nos deu visibilidade total com dashboards em tempo real e escalação automática. Passamos na auditoria ISO 20000.",
       metrics: { sla: "98%", uptime: "99.9%", audit: "ISO" }
     },
     {
@@ -1049,7 +1049,7 @@ function TestimonialsSection() {
           label="Depoimentos"
           title="O que nossos clientes"
           highlight="dizem sobre nós"
-          description="Empresas de todos os tamanhos e segmentos confiam no ServiceDesk Pro para suas operações críticas de suporte."
+          description="Empresas de todos os tamanhos e segmentos confiam no Insighta para suas operações críticas de suporte."
         />
 
         {/* Testimonial Cards */}
@@ -1179,7 +1179,7 @@ function CTASection() {
               custom={0.05}
               className="text-lg text-brand-100/70 mb-10 max-w-xl mx-auto leading-relaxed"
             >
-              Comece gratuitamente e descubra como o ServiceDesk Pro pode
+              Comece gratuitamente e descubra como o Insighta pode
               ajudar sua equipe a entregar um atendimento excepcional.
             </motion.p>
 
@@ -1268,7 +1268,7 @@ function Footer() {
                 <Headphones className="w-5 h-5 text-white" />
               </div>
               <div className="leading-none">
-                <span className="font-bold text-lg text-white tracking-tight">ServiceDesk</span>
+                <span className="font-bold text-lg text-white tracking-tight">Insighta</span>
                 <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
               </div>
             </div>
@@ -1317,7 +1317,7 @@ function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-neutral-800/50 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-neutral-600">
-            &copy; {new Date().getFullYear()} ServiceDesk Pro. Todos os direitos reservados.
+            &copy; {new Date().getFullYear()} Insighta. Todos os direitos reservados.
           </p>
           <div className="flex gap-2">
             {[

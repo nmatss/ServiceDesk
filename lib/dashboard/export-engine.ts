@@ -39,7 +39,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     metrics,
     orientation = 'landscape',
     pageSize = 'a4',
-    author = 'ServiceDesk',
+    author = 'Insighta',
     includeCharts = true
   } = options;
 
@@ -56,7 +56,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       title: title,
       subject: subtitle || 'Dashboard Report',
       author: author,
-      creator: 'ServiceDesk Export Engine'
+      creator: 'Insighta Export Engine'
     });
 
     let yPosition = 20;
@@ -120,7 +120,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         { align: 'center' }
       );
       pdf.text(
-        'ServiceDesk - Dashboard Report',
+        'Insighta - Dashboard Report',
         margin,
         pageHeight - 10
       );
@@ -232,7 +232,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 
   try {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'ServiceDesk';
+    workbook.creator = 'Insighta';
     workbook.created = new Date();
 
     // Add summary sheet
@@ -246,7 +246,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
       ];
 
       const summaryData = [
-        ['ServiceDesk Dashboard Report'],
+        ['Insighta Dashboard Report'],
         ['Generated:', new Date().toLocaleString()],
         [],
         ['Key Performance Indicators'],

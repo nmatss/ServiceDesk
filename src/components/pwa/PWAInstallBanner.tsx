@@ -140,7 +140,7 @@ export default function PWAInstallBanner() {
         browser: 'Chrome/Edge',
         steps: [
           'Clique no ícone de instalação na barra de endereços',
-          'Ou use o menu > Instalar ServiceDesk Pro',
+          'Ou use o menu > Instalar Insighta',
           'Confirme a instalação'
         ]
       };
@@ -172,7 +172,7 @@ export default function PWAInstallBanner() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
                   <h3 className="text-lg font-semibold">
-                    Instalar ServiceDesk Pro
+                    Instalar Insighta
                   </h3>
                   {installStats && installStats.visitCount > 1 && (
                     <span className="text-xs bg-brand-500 bg-opacity-50 px-2 py-1 rounded-full">

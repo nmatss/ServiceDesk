@@ -59,7 +59,7 @@ export default function ConversationalPortal() {
       const greeting: MessageItem = {
         id: 'greeting',
         role: 'bot',
-        text: 'Olá! Sou o assistente virtual do ServiceDesk. Descreva o seu problema ou dúvida e vou tentar ajudar. Se necessário, posso abrir um ticket para você.',
+        text: 'Olá! Sou o assistente virtual do Insighta. Descreva o seu problema ou dúvida e vou tentar ajudar. Se necessário, posso abrir um ticket para você.',
         type: 'text',
         timestamp: new Date(),
         quickReplies: [
@@ -193,7 +193,7 @@ export default function ConversationalPortal() {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-semibold truncate">Assistente Virtual ServiceDesk</h2>
+          <h2 className="text-sm font-semibold truncate">Assistente Virtual Insighta</h2>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             <span className="text-xs text-white/80">Online</span>

@@ -485,7 +485,7 @@ export const PREDEFINED_TEMPLATES = {
       },
       {
         type: 'FOOTER' as const,
-        text: 'ServiceDesk - Atendimento automatizado',
+        text: 'Insighta - Atendimento automatizado',
       },
     ],
   },

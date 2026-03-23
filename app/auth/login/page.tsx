@@ -97,7 +97,7 @@ export default function LoginPage() {
               <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-brand-500 to-brand-700 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20">
                 <Image
                   src="/favicon.svg"
-                  alt="ServiceDesk Logo"
+                  alt="Insighta Logo"
                   width={36}
                   height={36}
                   className="rounded-lg"
@@ -105,8 +105,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="leading-none">
-                <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">ServiceDesk</span>
-                <span className="text-[10px] font-semibold text-brand-500 block -mt-0.5 tracking-wider">PRO</span>
+                <span className="font-bold text-lg text-neutral-900 dark:text-neutral-100 tracking-tight">Insighta</span>
               </div>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">
@@ -278,13 +277,13 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="mt-12 text-center text-xs text-neutral-400 dark:text-neutral-600">
-            &copy; {new Date().getFullYear()} ServiceDesk. Todos os direitos reservados.
+            &copy; {new Date().getFullYear()} Insighta. Todos os direitos reservados.
           </p>
         </div>
       </div>
 
       {/* Right Side - Brand Showcase Panel */}
-      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden items-center justify-center" role="complementary" aria-label="Informacoes sobre o ServiceDesk">
+      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden items-center justify-center" role="complementary" aria-label="Informacoes sobre o Insighta">
         {/* Gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b1a2e] via-[#0e2444] to-[#141432]" />
 
@@ -308,7 +307,7 @@ export default function LoginPage() {
             <div className="inline-flex p-3.5 rounded-2xl bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] shadow-2xl">
               <Image
                 src="/favicon.svg"
-                alt="ServiceDesk Logo"
+                alt="Insighta Logo"
                 width={52}
                 height={52}
                 className="rounded-xl"

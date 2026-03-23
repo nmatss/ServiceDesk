@@ -133,7 +133,7 @@ export const formattedContacts = {
   },
   whatsapp: {
     support: getWhatsAppLink(contactInfo.phone.whatsapp, 'Olá, preciso de suporte!'),
-    sales: getWhatsAppLink(contactInfo.phone.whatsapp, 'Olá, gostaria de saber mais sobre o ServiceDesk Pro')
+    sales: getWhatsAppLink(contactInfo.phone.whatsapp, 'Olá, gostaria de saber mais sobre o Insighta')
   },
   mailto: {
     support: getMailtoLink(contactInfo.email.support),

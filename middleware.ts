@@ -147,7 +147,6 @@ const ADMIN_ROUTES = ['/admin', '/api/teams', '/api/users', '/api/tenant']
 
 // Routes that require authentication
 const PROTECTED_ROUTES = [
-  '/',
   '/dashboard',
   '/tickets',
   '/problems', // Problem Management

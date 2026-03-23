@@ -19,8 +19,8 @@ import {
 } from '@heroicons/react/24/outline'
 
 export const metadata: Metadata = {
-  title: 'Dashboard Administrativo | ServiceDesk',
-  description: 'Visao geral completa do sistema ServiceDesk Pro',
+  title: 'Dashboard Administrativo | Insighta',
+  description: 'Visao geral completa do sistema Insighta',
 }
 
 // Esta pagina depende de dados autenticados internos e nao deve ser pre-renderizada em build.
@@ -358,7 +358,7 @@ export default async function AdminPage() {
             Dashboard Administrativo
           </h1>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Visao geral completa do sistema ServiceDesk Pro
+            Visao geral completa do sistema Insighta
           </p>
         </div>
         <Link
