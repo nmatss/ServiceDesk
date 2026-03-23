@@ -11,6 +11,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 interface RouteParams {
   params: Promise<{
     id: string;
@@ -28,6 +29,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant
+
+    // Feature gate: Knowledge Base AI access
+    const gate = await requireFeature(guard.auth.organizationId, 'knowledgeBase', 'ai');
+    if (gate) return gate;
 
     const { id } = await params;
     const articleId = parseInt(id);
@@ -105,6 +110,10 @@ export async function POST(request: NextRequest) {
   try {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
+
+    // Feature gate: Knowledge Base AI access
+    const gatePost = await requireFeature(guard.auth.organizationId, 'knowledgeBase', 'ai');
+    if (gatePost) return gatePost;
 
     const body = await request.json();
     const { title, content, summary, tags } = body;

@@ -6,6 +6,7 @@ import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/ada
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireLimit } from '@/lib/billing/feature-gate';
 // GET - Listar automações
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -148,6 +149,16 @@ export async function POST(request: NextRequest) {
         error: 'Formato inválido para condições ou ações'
       }, { status: 400 });
     }
+
+    // Feature gate: check automation rules limit
+    const countResult = await executeQueryOne<{ count: number }>(`
+      SELECT COUNT(*) as count FROM automations a
+      LEFT JOIN users u ON a.created_by = u.id
+      WHERE u.organization_id = ?
+    `, [tenantId]);
+    const currentCount = countResult?.count ?? 0;
+    const limitGate = await requireLimit(tenantId, 'maxAutomationRules', currentCount);
+    if (limitGate) return limitGate;
 
     // Verificar se já existe automação com o mesmo nome NO TENANT
     const existingAutomation = await executeQueryOne(`

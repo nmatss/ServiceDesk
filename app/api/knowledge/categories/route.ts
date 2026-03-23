@@ -6,6 +6,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { executeQuery, executeQueryOne, executeRun, sqlTrue } from '@/lib/db/adapter';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function GET(request: NextRequest) {
   try {
     // SECURITY: Require authentication
@@ -62,6 +63,10 @@ export async function POST(request: NextRequest) {
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant
+
+    // Feature gate: Knowledge Base write access
+    const gate = await requireFeature(tenantContext.id, 'knowledgeBase', 'readwrite');
+    if (gate) return gate;
 
     const { name, description, icon, color, parent_id, sort_order } = await request.json()
 

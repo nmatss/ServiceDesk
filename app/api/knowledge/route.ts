@@ -6,6 +6,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isAdmin } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -148,6 +149,10 @@ export async function POST(request: NextRequest) {
     if (!isAdmin(userContext.role)) {
       return NextResponse.json({ error: 'Permissão insuficiente' }, { status: 403 })
     }
+
+    // Feature gate: Knowledge Base write access
+    const gate = await requireFeature(tenantContext.id, 'knowledgeBase', 'readwrite');
+    if (gate) return gate;
 
     const { title, content, excerpt, category, tags, status } = await request.json()
 

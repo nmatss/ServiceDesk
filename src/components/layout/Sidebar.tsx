@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Headphones } from 'lucide-react'
+import { usePlan } from '@/lib/hooks/usePlan'
 import {
   HomeIcon,
   TicketIcon,
@@ -48,6 +49,11 @@ interface SidebarProps {
   userEmail?: string
 }
 
+interface PlanGate {
+  feature: 'itil' | 'workflows' | 'ai' | 'analytics' | 'security'
+  level: string
+}
+
 interface MenuItem {
   name: string
   href: string
@@ -56,6 +62,7 @@ interface MenuItem {
   badge?: number | string
   submenu?: SubMenuItem[]
   section?: string
+  planGate?: PlanGate
 }
 
 interface SubMenuItem {
@@ -85,6 +92,7 @@ const roleBadgeColors: Record<string, string> = {
 
 export default function Sidebar({ open, setOpen, userRole, organizationId = 0, userName, userEmail }: SidebarProps) {
   const pathname = usePathname()
+  const { hasFeature, loading: planLoading } = usePlan()
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
   const [ticketCounts, setTicketCounts] = useState({
     total: 0,
@@ -153,6 +161,13 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
     }
   }
 
+  // Plan-based access check — show all while loading to avoid flash
+  const canAccess = (gate?: PlanGate): boolean => {
+    if (!gate) return true
+    if (planLoading) return true
+    return hasFeature(gate.feature, gate.level)
+  }
+
   // Menu items based on user role — with section markers for dividers
   const getMenuItems = (): MenuItem[] => {
     const baseItems: MenuItem[] = [
@@ -188,6 +203,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
           icon: ExclamationTriangleIcon,
           iconSolid: ExclamationTriangleIcon,
           section: 'itil',
+          planGate: { feature: 'itil', level: 'standard' },
           submenu: [
             { name: 'Todos os Problemas', href: '/admin/problems', icon: ExclamationTriangleIcon },
             { name: 'KEDB', href: '/admin/problems/kedb', icon: BookOpenIcon },
@@ -199,6 +215,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
           href: '/admin/changes',
           icon: ArrowPathIcon,
           iconSolid: ArrowPathIcon,
+          planGate: { feature: 'itil', level: 'standard' },
           submenu: [
             { name: 'Todas as RFCs', href: '/admin/changes', icon: ArrowPathIcon },
             { name: 'CAB', href: '/admin/cab', icon: UserGroupIcon },
@@ -211,6 +228,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
           href: '/admin/cmdb',
           icon: ServerStackIcon,
           iconSolid: ServerStackIcon,
+          planGate: { feature: 'itil', level: 'full' },
           submenu: [
             { name: 'Itens de Configuração', href: '/admin/cmdb', icon: ServerStackIcon },
             { name: 'Novo CI', href: '/admin/cmdb/new', icon: PlusIcon }
@@ -220,7 +238,8 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
           name: 'Catálogo',
           href: '/portal/catalog',
           icon: RectangleGroupIcon,
-          iconSolid: RectangleGroupIcon
+          iconSolid: RectangleGroupIcon,
+          planGate: { feature: 'itil', level: 'full' }
         },
         {
           name: 'Usuários',
@@ -321,6 +340,7 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
           icon: ExclamationTriangleIcon,
           iconSolid: ExclamationTriangleIcon,
           section: 'itil',
+          planGate: { feature: 'itil', level: 'standard' },
           submenu: [
             { name: 'Todos os Problemas', href: '/admin/problems', icon: ExclamationTriangleIcon },
             { name: 'KEDB', href: '/admin/problems/kedb', icon: BookOpenIcon }
@@ -371,7 +391,8 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
     }
   }
 
-  const menuItems = useMemo(() => getMenuItems(), [userRole, ticketCounts])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const menuItems = useMemo(() => getMenuItems(), [userRole, ticketCounts, planLoading])
 
   // Super Admin menu — visible only to org 1 users
   const isSuperAdmin = organizationId === 1
@@ -522,6 +543,9 @@ export default function Sidebar({ open, setOpen, userRole, organizationId = 0, u
         )}
 
         {menuItems.map((item, index) => {
+          // Hide menu items the current plan doesn't include
+          if (!canAccess(item.planGate)) return null
+
           const isItemActive = isActive(item.href)
           const hasActiveChild = hasActiveSubmenu(item.submenu)
           const isExpanded = expandedMenus.includes(item.name)

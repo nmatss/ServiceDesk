@@ -25,11 +25,24 @@ import {
 interface CachedPlan {
   tier: PlanTier;
   features: PlanFeatures;
+  status: string;
   fetchedAt: number;
 }
 
 const CACHE_TTL_MS = 60_000; // 60 seconds
 const planCache = new Map<number, CachedPlan>();
+
+// Periodic cleanup to prevent memory leaks
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of planCache) {
+      if (now - val.fetchedAt > CACHE_TTL_MS * 3) {
+        planCache.delete(key);
+      }
+    }
+  }, 300_000); // Every 5 minutes
+}
 
 async function getOrgPlan(orgId: number): Promise<CachedPlan> {
   const cached = planCache.get(orgId);
@@ -37,20 +50,32 @@ async function getOrgPlan(orgId: number): Promise<CachedPlan> {
     return cached;
   }
 
-  const org = await executeQueryOne<{ subscription_plan: string }>(
-    'SELECT subscription_plan FROM organizations WHERE id = ?',
-    [orgId]
-  );
+  try {
+    const org = await executeQueryOne<{ subscription_plan: string; subscription_status: string }>(
+      'SELECT subscription_plan, subscription_status FROM organizations WHERE id = ?',
+      [orgId]
+    );
 
-  const tier = resolvePlanTier(org?.subscription_plan || 'starter');
-  const entry: CachedPlan = {
-    tier,
-    features: PLAN_FEATURES[tier],
-    fetchedAt: Date.now(),
-  };
+    const tier = resolvePlanTier(org?.subscription_plan || 'starter');
+    const entry: CachedPlan = {
+      tier,
+      features: PLAN_FEATURES[tier],
+      status: org?.subscription_status || 'active',
+      fetchedAt: Date.now(),
+    };
 
-  planCache.set(orgId, entry);
-  return entry;
+    planCache.set(orgId, entry);
+    return entry;
+  } catch {
+    // Fail-closed: default to most restrictive plan
+    const fallback: CachedPlan = {
+      tier: 'starter',
+      features: PLAN_FEATURES.starter,
+      status: 'active',
+      fetchedAt: 0, // Don't cache error state
+    };
+    return fallback;
+  }
 }
 
 /**
@@ -104,6 +129,19 @@ export async function requireFeature(
   requiredLevel: string
 ): Promise<NextResponse | null> {
   const plan = await getOrgPlan(orgId);
+
+  if (plan.status === 'cancelled') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Sua assinatura foi cancelada. Reative seu plano para continuar usando este recurso.',
+        code: 'SUBSCRIPTION_CANCELLED',
+        upgrade_url: '/admin/billing',
+      },
+      { status: 403 }
+    );
+  }
+
   const actual = plan.features[feature] as string;
 
   if (meetsFeatureLevel(feature, actual, requiredLevel)) {

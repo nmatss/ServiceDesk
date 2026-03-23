@@ -144,5 +144,5 @@ function mapPriceIdToPlan(priceId: string | undefined): string {
   // Remove empty string key that comes from undefined env vars
   delete priceMap[''];
 
-  return priceMap[priceId] || 'essencial';
+  return priceMap[priceId] || 'starter';
 }

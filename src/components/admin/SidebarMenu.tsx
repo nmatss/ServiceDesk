@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Headphones } from 'lucide-react'
+import { usePlan } from '@/lib/hooks/usePlan'
 import {
   HomeIcon,
   Cog6ToothIcon,
@@ -15,6 +16,11 @@ import {
   CreditCardIcon,
 } from '@heroicons/react/24/outline'
 
+interface PlanGate {
+  feature: 'itil' | 'workflows' | 'ai' | 'analytics' | 'security'
+  level: string
+}
+
 interface MenuItem {
   name: string
   href: string
@@ -23,6 +29,7 @@ interface MenuItem {
   locked?: boolean
   initial?: string
   color?: string
+  planGate?: PlanGate
 }
 
 const mainMenuItems: MenuItem[] = [
@@ -60,19 +67,21 @@ const teamItems: MenuItem[] = [
     href: '/admin/teams', 
     icon: UserGroupIcon
   },
-  { 
-    name: 'Finance', 
-    href: '/admin/teams/finance', 
-    initial: 'F', 
+  {
+    name: 'Finance',
+    href: '/admin/teams/finance',
+    initial: 'F',
     color: 'bg-brand-500',
     locked: true,
+    planGate: { feature: 'security', level: 'rbac' },
   },
-  { 
-    name: 'Product', 
-    href: '/admin/teams/product', 
-    initial: 'P', 
+  {
+    name: 'Product',
+    href: '/admin/teams/product',
+    initial: 'P',
     color: 'bg-orange-500',
     locked: true,
+    planGate: { feature: 'security', level: 'rbac' },
   }
 ]
 
@@ -81,6 +90,14 @@ export default function SidebarMenu() {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
   const pathname = usePathname()
+  const { hasFeature, loading: planLoading } = usePlan()
+
+  // Plan-based access check — show all while loading to avoid flash
+  const canAccess = (gate?: PlanGate): boolean => {
+    if (!gate) return true
+    if (planLoading) return true
+    return hasFeature(gate.feature, gate.level)
+  }
 
   const isItemActive = (href: string) => {
     return pathname === href
@@ -163,10 +180,12 @@ export default function SidebarMenu() {
               )}
               <ul role="list" className="-mx-2 space-y-1">
                 {mainMenuItems.map((item) => {
+                  if (!canAccess(item.planGate)) return null
+
                   const isActive = isItemActive(item.href)
                   const isExpanded = expandedItems.has(item.name)
                   const hasSubmenu = item.submenu && item.submenu.length > 0
-                  
+
                   return (
                     <li key={item.name} className="relative">
                       <div
@@ -262,8 +281,10 @@ export default function SidebarMenu() {
               )}
               <ul role="list" className="-mx-2 space-y-1">
                 {teamItems.map((team) => {
+                  if (!canAccess(team.planGate)) return null
+
                   const isActive = isItemActive(team.href)
-                  
+
                   return (
                     <li key={team.name} className="relative">
                       <div

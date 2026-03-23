@@ -5,6 +5,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isAdmin, ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -101,6 +102,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Apenas o autor ou administradores podem editar' }, { status: 403 })
     }
 
+    // Feature gate: Knowledge Base write access
+    const gate = await requireFeature(tenantContext.id, 'knowledgeBase', 'readwrite');
+    if (gate) return gate;
+
     // Update article
     await executeRun(`
       UPDATE knowledge_articles
@@ -166,6 +171,10 @@ export async function DELETE(
 
     const { id } = await params
     const articleId = parseInt(id)
+
+    // Feature gate: Knowledge Base write access
+    const gate = await requireFeature(tenantContext.id, 'knowledgeBase', 'readwrite');
+    if (gate) return gate;
 
     // Verify article exists and belongs to tenant
     const existingArticle = await executeQueryOne(

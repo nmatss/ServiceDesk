@@ -7,6 +7,7 @@ import { getDatabaseType } from '@/lib/db/config';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // GET - Buscar logs de auditoria
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -22,6 +23,10 @@ export async function GET(request: NextRequest) {
     if (!isAdmin(auth.role)) {
       return apiError('Acesso negado', 403);
     }
+
+    // Feature gate: Security audit access
+    const gate = await requireFeature(auth.organizationId, 'security', 'audit');
+    if (gate) return gate;
 
     const tenantId = auth.organizationId;
     let auditColumns: { name?: string }[];
@@ -194,6 +199,10 @@ export async function POST(request: NextRequest) {
       return apiError('Acesso negado', 403);
     }
 
+    // Feature gate: Security audit access
+    const gate = await requireFeature(auth.organizationId, 'security', 'audit');
+    if (gate) return gate;
+
     const body = await request.json();
     const {
       action,
@@ -286,6 +295,10 @@ export async function DELETE(request: NextRequest) {
     if (!isAdmin(auth.role)) {
       return apiError('Acesso negado', 403);
     }
+
+    // Feature gate: Security audit access
+    const gateDelete = await requireFeature(auth.organizationId, 'security', 'audit');
+    if (gateDelete) return gateDelete;
 
     const tenantId = auth.organizationId;
 

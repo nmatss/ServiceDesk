@@ -10,6 +10,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -21,6 +22,10 @@ export async function GET(request: NextRequest) {
     })
     if (guard.response) return guard.response
     const tenantContext = guard.context!.tenant
+
+    // Feature gate: Knowledge Base AI access
+    const gate = await requireFeature(guard.auth.organizationId, 'knowledgeBase', 'ai');
+    if (gate) return gate;
 
     const { searchParams } = new URL(request.url);
     const days = parseInt(searchParams.get('days') || '30');

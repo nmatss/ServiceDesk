@@ -6,6 +6,8 @@ import { CreateSLAPolicy } from '@/lib/types/database';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireLimit } from '@/lib/billing/feature-gate';
+import { executeQueryOne } from '@/lib/db/adapter';
 // GET - Listar todas as políticas de SLA ou métricas
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
@@ -68,6 +70,15 @@ export async function POST(request: NextRequest) {
     if (!ADMIN_ROLES.includes(auth.role)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
+
+    // Feature gate: check SLA policies limit
+    const countResult = await executeQueryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM sla_policies WHERE organization_id = ?',
+      [context.tenant.id]
+    );
+    const currentCount = countResult?.count ?? 0;
+    const limitGate = await requireLimit(context.tenant.id, 'maxSlaPolicies', currentCount);
+    if (limitGate) return limitGate;
 
     const body = await request.json();
     const {

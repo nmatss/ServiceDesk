@@ -17,6 +17,7 @@ import { createRateLimitMiddleware } from '@/lib/rate-limit'
 import { cacheInvalidation } from '@/lib/api/cache'
 import { sanitizeRequestBody } from '@/lib/api/sanitize-middleware'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
+import { checkLimit } from '@/lib/billing/subscription-manager'
 
 // Rate limiting moderado para criação de tickets (100 requests em 15 minutos)
 const createTicketRateLimit = createRateLimitMiddleware('api')
@@ -85,6 +86,17 @@ export const POST = apiHandler(async (request: NextRequest) => {
   }
   const tenant = guard.context!.tenant
   const user = guard.context!.user
+
+  // 1b. Check ticket creation limit for the plan
+  const limitCheck = await checkLimit(tenant.id, 'tickets');
+  if (!limitCheck.allowed) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: limitCheck.message || 'Limite de tickets atingido',
+      code: 'PLAN_LIMIT_REACHED',
+      upgrade_url: '/admin/billing',
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  }
 
   // 2. Validate and parse request body with Zod schema
   const createTicketSchema = ticketSchemas.create.extend({
