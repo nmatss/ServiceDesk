@@ -183,7 +183,7 @@ async function uploadSourceMaps() {
 
   // Step 1: Check Sentry CLI
   if (!checkSentryCLI()) {
-    process.exit(1);
+    process.exit(0);
   }
 
   // Step 2: Validate configuration
@@ -192,7 +192,7 @@ async function uploadSourceMaps() {
       log('⚠️  Skipping source map upload in CI due to missing configuration', 'yellow');
       process.exit(0);
     }
-    process.exit(1);
+    process.exit(0);
   }
 
   log('\n📦 Starting upload process...\n', 'cyan');
@@ -209,7 +209,7 @@ async function uploadSourceMaps() {
     } else {
       log('   ❌ Failed to create release', 'red');
       log(`   ${createResult.error}\n`, 'red');
-      process.exit(1);
+      process.exit(0);
     }
   } else {
     log(`   ✅ Release ${config.release} created`, 'green');
@@ -277,7 +277,7 @@ async function uploadSourceMaps() {
   if (!finalizeResult.success) {
     log('   ❌ Failed to finalize release', 'red');
     log(`   ${finalizeResult.error}\n`, 'red');
-    process.exit(1);
+    process.exit(0);
   } else {
     log('   ✅ Release finalized', 'green');
   }
@@ -292,10 +292,10 @@ async function uploadSourceMaps() {
   log('');
 }
 
-// Run the script
+// Run the script — never fail the build
 uploadSourceMaps().catch(error => {
-  log('\n❌ Upload failed with error:', 'red');
-  log(error.message, 'red');
+  log('\n⚠️  Source map upload failed (non-blocking):', 'yellow');
+  log(error.message, 'yellow');
   log('');
-  process.exit(1);
+  process.exit(0);
 });
