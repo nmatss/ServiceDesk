@@ -17,6 +17,7 @@ import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, type SqlParam } from '@/lib/db/adapter';
 import { getDatabaseType } from '@/lib/db/config';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { isPrivileged } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -211,6 +212,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     if (!isPrivileged(auth.role)) {
       return apiError('Permissão insuficiente', 403);

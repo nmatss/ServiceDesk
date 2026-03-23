@@ -10,6 +10,7 @@ import { NextRequest } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import {
   getServiceRequestById,
   updateServiceRequestStatus,
@@ -31,6 +32,9 @@ export async function GET(
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth!.organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
     const requestId = parseInt(id, 10);
@@ -76,6 +80,9 @@ export async function PUT(
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth!.organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
     const requestId = parseInt(id, 10);
@@ -146,6 +153,9 @@ export async function DELETE(
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth!.organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
     const requestId = parseInt(id, 10);

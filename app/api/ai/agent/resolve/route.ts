@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { autonomousAgent } from '@/lib/ai/autonomous-agent';
 import { logger } from '@/lib/monitoring/logger';
 
@@ -21,6 +22,9 @@ export async function POST(request: NextRequest) {
   const guard = requireTenantUserContext(request);
   if (guard.response) return guard.response;
   const { auth } = guard;
+
+  const featureGate = await requireFeature(auth.organizationId, 'ai', 'full');
+  if (featureGate) return featureGate;
 
   try {
     const body = await request.json();

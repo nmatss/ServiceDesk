@@ -4,6 +4,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
@@ -11,6 +12,9 @@ export async function GET(request: NextRequest) {
 
   const { auth, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGate = await requireFeature(auth.organizationId, 'analytics', 'custom');
+  if (featureGate) return featureGate;
 
   try {
     const { searchParams } = new URL(request.url)

@@ -5,6 +5,7 @@ import { executeQuery, executeQueryOne, executeRun } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 
 const classifyTicketSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
@@ -25,6 +26,9 @@ export async function POST(request: NextRequest) {
     if (guard.response) return guard.response;
     const { auth } = guard;
     const organizationId = auth.organizationId;
+
+    const featureGate = await requireFeature(organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     // Validar entrada
     const body = await request.json();
@@ -210,6 +214,9 @@ export async function GET(request: NextRequest) {
     // Verificar autenticação
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');

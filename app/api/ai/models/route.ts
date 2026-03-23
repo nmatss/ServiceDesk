@@ -11,6 +11,7 @@ import { isAdmin, isPrivileged } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function POST(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.AI_CLASSIFY);
@@ -20,6 +21,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     // Admin-only endpoint
     if (!isAdmin(auth.role) && !isPrivileged(auth.role)) {
@@ -100,6 +104,9 @@ export async function GET(request: NextRequest) {
   try {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');

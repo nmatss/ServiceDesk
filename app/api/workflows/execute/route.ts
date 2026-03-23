@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
+import { requireFeature } from '@/lib/billing/feature-gate';
 
 // Request validation schema
 const ExecuteWorkflowSchema = z.object({
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
       requireRoles: [...TICKET_MANAGEMENT_ROLES],
     });
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGate) return featureGate;
 
     const body = await request.json();
 
@@ -199,6 +203,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
 
+    const featureGateGet = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGateGet) return featureGateGet;
+
     const { searchParams } = new URL(request.url);
     const executionId = searchParams.get('executionId');
 
@@ -254,6 +261,9 @@ export async function DELETE(request: NextRequest) {
     // SECURITY: Require authentication
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+
+    const featureGateDel = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGateDel) return featureGateDel;
 
     const { searchParams } = new URL(request.url);
     const executionId = searchParams.get('executionId');

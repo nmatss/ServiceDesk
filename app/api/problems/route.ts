@@ -22,6 +22,7 @@ import { jsonWithCache } from '@/lib/api/cache-headers';
 import { cacheInvalidation } from '@/lib/api/cache';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -37,6 +38,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -152,6 +156,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     // Only agents and admins can create problems
     if (auth.role === ROLES.USER) {

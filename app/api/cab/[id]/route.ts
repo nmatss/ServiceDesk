@@ -12,6 +12,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const updateMeetingSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
@@ -47,6 +48,9 @@ export async function GET(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params
     const meetingId = parseInt(id)
@@ -157,6 +161,9 @@ export async function PUT(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Only admins and managers can update meetings
     if (!isAdmin(role)) {
@@ -294,6 +301,9 @@ export async function DELETE(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Only admins can cancel meetings
     if (!isAdmin(role)) {

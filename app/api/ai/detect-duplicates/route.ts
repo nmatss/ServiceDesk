@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { z } from 'zod';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 
 // Initialize OpenAI client
 let openai: OpenAI | null = null;
@@ -39,6 +40,9 @@ export async function POST(request: NextRequest) {
 
     // SECURITY: Extract tenant_id from auth guard (not from request body!)
     const tenantId = guard.auth.organizationId;
+
+    const featureGate = await requireFeature(tenantId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     // Check if AI features are enabled
     if (!process.env.OPENAI_API_KEY) {

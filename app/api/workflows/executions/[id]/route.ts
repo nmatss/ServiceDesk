@@ -9,6 +9,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 /**
  * GET /api/workflows/executions/[id]
  * Get execution details and history
@@ -25,6 +26,9 @@ export async function GET(
     // Verify authentication
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
     const executionId = parseInt(id);
@@ -106,6 +110,9 @@ export async function PUT(
     // Verify authentication
     const guardPut = requireTenantUserContext(request);
     if (guardPut.response) return guardPut.response;
+
+    const featureGatePut = await requireFeature(guardPut.auth!.organizationId, 'workflows', 'builder');
+    if (featureGatePut) return featureGatePut;
 
     const { id } = await params;
     const executionId = parseInt(id);

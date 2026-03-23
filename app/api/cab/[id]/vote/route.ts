@@ -12,6 +12,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const voteSchema = z.object({
   change_request_id: z.number().int().positive(),
   vote: z.enum(['approved', 'rejected', 'abstained', 'deferred']),
@@ -34,6 +35,9 @@ export async function POST(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params
     const meetingId = parseInt(id)
@@ -185,6 +189,9 @@ export async function GET(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params
     const meetingId = parseInt(id)

@@ -13,6 +13,7 @@ import { z } from 'zod';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const templateSchema = z.object({
   name: z.string().min(1).max(512),
   category: z.enum(['TRANSACTIONAL', 'MARKETING', 'AUTHENTICATION', 'UTILITY']),
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest) {
     // Verify authentication
     const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] });
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGate) return featureGate;
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status') || undefined;
@@ -86,6 +90,10 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const guardPost = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] });
     if (guardPost.response) return guardPost.response;
+
+    const featureGatePost = await requireFeature(guardPost.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGatePost) return featureGatePost;
+
     const { userId } = guardPost.auth!;
 
     const body = await request.json();
@@ -146,6 +154,10 @@ export async function DELETE(request: NextRequest) {
     // Verify authentication
     const guardDel = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] });
     if (guardDel.response) return guardDel.response;
+
+    const featureGateDel = await requireFeature(guardDel.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGateDel) return featureGateDel;
+
     const userIdDel = guardDel.auth!.userId;
 
     const searchParams = request.nextUrl.searchParams;

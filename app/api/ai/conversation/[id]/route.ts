@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { conversationEngine } from '@/lib/ai/conversation-engine';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
 
@@ -73,6 +77,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
 

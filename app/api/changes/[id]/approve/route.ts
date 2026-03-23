@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { approveChangeRequest } from '@/lib/db/queries/change-queries';
 
 export async function POST(
@@ -21,6 +22,9 @@ export async function POST(
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth!.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
     const changeId = parseInt(id, 10);

@@ -123,12 +123,26 @@ export async function POST(request: NextRequest) {
 }
 
 function mapPriceIdToPlan(priceId: string | undefined): string {
-  if (!priceId) return 'basic';
+  if (!priceId) return 'starter';
 
   const priceMap: Record<string, string> = {
+    // Essencial (monthly + yearly)
+    [process.env.STRIPE_PRICE_ESSENCIAL_MONTHLY || '']: 'essencial',
+    [process.env.STRIPE_PRICE_ESSENCIAL_YEARLY || '']: 'essencial',
+    // Professional (monthly + yearly)
+    [process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || '']: 'professional',
+    [process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY || '']: 'professional',
+    // Legacy professional price ID
     [process.env.STRIPE_PRICE_PROFESSIONAL || '']: 'professional',
+    // Enterprise (monthly + yearly)
+    [process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || '']: 'enterprise',
+    [process.env.STRIPE_PRICE_ENTERPRISE_YEARLY || '']: 'enterprise',
+    // Legacy enterprise price ID
     [process.env.STRIPE_PRICE_ENTERPRISE || '']: 'enterprise',
   };
 
-  return priceMap[priceId] || 'professional';
+  // Remove empty string key that comes from undefined env vars
+  delete priceMap[''];
+
+  return priceMap[priceId] || 'essencial';
 }

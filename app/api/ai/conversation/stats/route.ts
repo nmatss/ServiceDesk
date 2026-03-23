@@ -3,6 +3,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, sqlDateSub, getDbType } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { conversationEngine } from '@/lib/ai/conversation-engine';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     const orgId = auth.organizationId;
 

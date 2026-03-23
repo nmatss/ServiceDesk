@@ -12,6 +12,7 @@ import { createAuditLog } from '@/lib/audit/logger';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 /**
  * POST - Register all predefined templates
  */
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN] });
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGate) return featureGate;
+
     const { userId } = guard.auth!;
 
     const businessAccountId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '';
@@ -112,6 +117,9 @@ export async function GET(request: NextRequest) {
     // Verify authentication
     const guardGet = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] });
     if (guardGet.response) return guardGet.response;
+
+    const featureGateGet = await requireFeature(guardGet.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGateGet) return featureGateGet;
 
     const templates = Object.entries(PREDEFINED_TEMPLATES).map(([key, template]) => ({
       key,

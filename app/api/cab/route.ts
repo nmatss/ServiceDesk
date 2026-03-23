@@ -12,6 +12,7 @@ import { isAdmin } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // Validation schemas
 const createMeetingSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -53,6 +54,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Only admins, managers, and CAB members can view meetings
     if (!isAdmin(role)) {
@@ -155,6 +159,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Only admins and managers can create meetings
     if (!isAdmin(role)) {

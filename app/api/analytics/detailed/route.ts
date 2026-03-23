@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeQuery, executeQueryOne, sqlDateDiff, sqlExtractHour, sqlExtractDayOfWeek } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // ========================================
 // GET - Get detailed analytics
 // ========================================
@@ -22,6 +23,9 @@ export async function GET(request: NextRequest) {
 
   const { auth, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGate = await requireFeature(auth.organizationId, 'analytics', 'custom');
+  if (featureGate) return featureGate;
 
   try {
     const { searchParams } = new URL(request.url);

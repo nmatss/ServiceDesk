@@ -10,6 +10,7 @@ import {
   TicketIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
+import { PLAN_DISPLAY, PLAN_FEATURE_LISTS, PLAN_TIER_ORDER, type PlanTier } from '@/lib/billing/plans'
 
 interface BillingStatus {
   plan: string
@@ -21,56 +22,23 @@ interface BillingStatus {
   }
 }
 
-const PLANS = [
-  {
-    name: 'Starter',
-    price: 'Gratuito',
-    period: '',
-    priceId: null,
-    features: [
-      '3 usuarios',
-      '100 tickets/mes',
-      'Base de conhecimento',
-      'Suporte por email',
-    ],
-    limits: { users: 3, tickets: 100 },
-    highlight: false,
-  },
-  {
-    name: 'Professional',
-    price: 'R$ 109',
-    period: '/mes',
-    priceId: 'professional',
-    features: [
-      '15 usuarios',
-      '1.000 tickets/mes',
-      'IA & Copilot',
-      'ESM',
-      'SLA avancado',
-      'Integracoes',
-      'Suporte prioritario',
-    ],
-    limits: { users: 15, tickets: 1000 },
-    highlight: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'R$ 179',
-    period: '/mes',
-    priceId: 'enterprise',
-    features: [
-      'Usuarios ilimitados',
-      'Tickets ilimitados',
-      'Tudo do Professional',
-      'SSO/SAML',
-      'Audit log avancado',
-      'SLA customizado',
-      'Suporte dedicado',
-    ],
-    limits: { users: -1, tickets: -1 },
-    highlight: false,
-  },
-]
+const PLANS = PLAN_TIER_ORDER.map(tier => {
+  const display = PLAN_DISPLAY[tier];
+  const features = PLAN_FEATURE_LISTS[tier];
+  return {
+    id: tier,
+    name: display.name,
+    price: display.priceMonthly === null ? 'Sob consulta' : display.priceMonthly === 0 ? 'Gratuito' : `R$ ${display.priceMonthly}`,
+    priceId: tier === 'starter' ? null : tier,
+    features: features.slice(0, 7), // show top 7 features
+    highlight: display.popular,
+    period: tier === 'starter' ? '' : tier === 'enterprise' ? '' : '/agente/mes',
+    limits: {
+      users: display.features.maxAgents,
+      tickets: display.features.ticketsPerMonth,
+    },
+  };
+});
 
 export default function BillingPage() {
   const [billing, setBilling] = useState<BillingStatus | null>(null)

@@ -9,6 +9,7 @@ import { ROLES } from '@/lib/auth/roles';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 /**
  * POST - Test WhatsApp connection
  */
@@ -21,6 +22,9 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] });
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGate) return featureGate;
 
     // Get configuration
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;

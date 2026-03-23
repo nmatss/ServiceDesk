@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const sendMessageSchema = z.object({
   to: z.string().min(10, 'Phone number must be at least 10 digits'),
   type: z.enum(['text', 'image', 'document', 'template']),
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest) {
     // Verifica autenticação
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGate) return featureGate;
+
     const { userId } = guard.auth!;
 
     const body = await request.json();

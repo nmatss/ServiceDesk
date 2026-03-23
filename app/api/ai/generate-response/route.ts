@@ -7,6 +7,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { isPrivileged } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const generateResponseSchema = z.object({
   ticketId: z.number(),
   responseType: z.enum(['initial_response', 'follow_up', 'resolution', 'escalation']).default('initial_response'),
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
     if (guard.response) return guard.response;
     const { auth } = guard;
     const organizationId = auth.organizationId;
+
+    const featureGate = await requireFeature(organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     // Verificar permissões (apenas agentes e admins podem gerar respostas)
     if (!isPrivileged(auth.role)) {
@@ -238,6 +242,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const organizationId = guard.auth.organizationId;
+
+    const featureGate = await requireFeature(organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');

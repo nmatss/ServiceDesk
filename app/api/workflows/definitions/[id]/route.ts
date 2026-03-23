@@ -11,6 +11,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { isAdmin, ROLES, TICKET_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 /**
  * GET /api/workflows/definitions/[id]
  * Get a specific workflow definition
@@ -27,6 +28,9 @@ export async function GET(
     // Verify authentication
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGate) return featureGate;
 
     const { id } = await params;
     const workflowId = parseInt(id);
@@ -125,6 +129,10 @@ export async function PUT(
     // Verify authentication
     const guard = requireTenantUserContext(request, { requireRoles: [...TICKET_MANAGEMENT_ROLES] });
     if (guard.response) return guard.response;
+
+    const featureGatePut = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGatePut) return featureGatePut;
+
     const { userId, role, organizationId } = guard.auth!;
 
     const { id } = await params;
@@ -310,6 +318,9 @@ export async function DELETE(
     // Verify authentication
     const guardDel = requireTenantUserContext(request, { requireRoles: [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.TENANT_ADMIN] });
     if (guardDel.response) return guardDel.response;
+
+    const featureGateDel = await requireFeature(guardDel.auth!.organizationId, 'workflows', 'builder');
+    if (featureGateDel) return featureGateDel;
 
     const { id } = await params;
     const workflowId = parseInt(id);

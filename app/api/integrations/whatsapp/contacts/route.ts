@@ -9,6 +9,7 @@ import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { sqlNow, getDbType } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { logger } from '@/lib/monitoring/logger';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,9 @@ export async function GET(request: NextRequest) {
 
   const { auth, context, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGate = await requireFeature(auth!.organizationId, 'integrations', 'whatsapp');
+  if (featureGate) return featureGate;
 
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -132,6 +136,9 @@ export async function POST(request: NextRequest) {
 
   const { auth, context, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGatePost = await requireFeature(auth!.organizationId, 'integrations', 'whatsapp');
+  if (featureGatePost) return featureGatePost;
 
   try {
     const body = await request.json();

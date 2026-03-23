@@ -6,6 +6,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const analyzeSentimentSchema = z.object({
   text: z.string().min(1, 'Text is required').max(5000, 'Text too long'),
   ticketId: z.number().optional(),
@@ -24,6 +25,9 @@ export async function POST(request: NextRequest) {
     if (guard.response) return guard.response;
     const { auth } = guard;
     const organizationId = auth.organizationId;
+
+    const featureGate = await requireFeature(organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     // Validar entrada
     const body = await request.json();
@@ -276,6 +280,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const organizationId = guard.auth.organizationId;
+
+    const featureGate = await requireFeature(organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url);
     const ticketId = searchParams.get('ticketId');

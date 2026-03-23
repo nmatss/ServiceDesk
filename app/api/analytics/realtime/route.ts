@@ -13,6 +13,7 @@ import { getFromCache, setCache } from '@/lib/cache/lru-cache';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // ============================================================================
 // Types & Interfaces
 // ============================================================================
@@ -459,8 +460,11 @@ export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const { context, response } = requireTenantUserContext(request);
+  const { auth, context, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGate = await requireFeature(auth!.organizationId, 'analytics', 'standard');
+  if (featureGate) return featureGate;
 
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -553,8 +557,11 @@ export async function POST(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.ANALYTICS);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const { response: authResponse } = requireTenantUserContext(request);
+  const { auth: authPost, response: authResponse } = requireTenantUserContext(request);
   if (authResponse) return authResponse;
+
+  const featureGatePost = await requireFeature(authPost!.organizationId, 'analytics', 'standard');
+  if (featureGatePost) return featureGatePost;
 
   try {
     const body = await request.json();

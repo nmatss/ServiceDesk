@@ -10,6 +10,7 @@ import problemQueries from '@/lib/db/queries/problem-queries';
 import { ROLES } from '@/lib/auth/roles';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
   try {
     const { auth, response } = requireTenantUserContext(request);
     if (response) return response;
+
+    const featureGate = await requireFeature(auth.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     // Only agents and admins can view statistics
     if (auth.role === ROLES.USER) {

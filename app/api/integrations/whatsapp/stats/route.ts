@@ -10,6 +10,7 @@ import { getWhatsAppStats } from '@/lib/integrations/whatsapp/storage';
 import logger from '@/lib/monitoring/structured-logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 /**
  * GET - Get WhatsApp statistics
  */
@@ -22,6 +23,9 @@ export async function GET(request: NextRequest) {
     // Verify authentication
     const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER, ROLES.AGENT] });
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'integrations', 'whatsapp');
+    if (featureGate) return featureGate;
 
     const searchParams = request.nextUrl.searchParams;
     const days = parseInt(searchParams.get('days') || '30');

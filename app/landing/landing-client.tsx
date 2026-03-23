@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { contactInfo, formattedContacts } from '@/lib/config/contact'
+import { PLAN_FEATURE_LISTS, PLAN_DISPLAY } from '@/lib/billing/plans'
 import {
   Headphones,
   Clock,
@@ -795,83 +796,46 @@ function PricingSection() {
 
   const plans = [
     {
-      name: "Starter",
-      description: "Equipes pequenas ou primeiro Help Desk",
+      name: PLAN_DISPLAY.starter.name,
+      description: PLAN_DISPLAY.starter.description,
       price: 0,
       period: "para sempre",
-      features: [
-        "Ate 3 agentes",
-        "100 tickets/mes",
-        "Portal do cliente",
-        "E-mail e formulario web",
-        "SLAs básicos",
-        "Base de conhecimento",
-        "Relatórios essenciais"
-      ],
-      cta: "Começar Grátis",
+      features: PLAN_FEATURE_LISTS.starter,
+      cta: "Comecar Gratis",
       popular: false,
       icon: Users,
       gradient: "from-neutral-500 to-neutral-600"
     },
     {
-      name: "Essencial",
-      description: "Times de suporte em crescimento",
-      priceMonthly: 109,
-      priceYearly: 89,
+      name: PLAN_DISPLAY.essencial.name,
+      description: PLAN_DISPLAY.essencial.description,
+      priceMonthly: PLAN_DISPLAY.essencial.priceMonthly,
+      priceYearly: PLAN_DISPLAY.essencial.priceYearly,
       period: "/agente/mes",
-      features: [
-        "Ate 10 agentes",
-        "Tickets ilimitados",
-        "WhatsApp + E-mail + Portal",
-        "SLA avancado com alertas",
-        "Automações (ate 10 regras)",
-        "Gestão de Incidentes ITIL",
-        "Relatórios personalizados",
-        "Suporte por chat"
-      ],
-      cta: "Teste Grátis 14 Dias",
+      features: PLAN_FEATURE_LISTS.essencial,
+      cta: "Teste Gratis 14 Dias",
       popular: false,
       icon: Zap,
       gradient: "from-brand-500 to-brand-600"
     },
     {
-      name: "Profissional",
-      description: "Service Desk corporativo completo",
-      priceMonthly: 179,
-      priceYearly: 149,
+      name: PLAN_DISPLAY.professional.name,
+      description: PLAN_DISPLAY.professional.description,
+      priceMonthly: PLAN_DISPLAY.professional.priceMonthly,
+      priceYearly: PLAN_DISPLAY.professional.priceYearly,
       period: "/agente/mes",
-      features: [
-        "Ate 50 agentes",
-        "Tudo do Essencial +",
-        "Gestão de Problemas e Mudancas",
-        "CMDB e Catálogo de Serviços",
-        "IA para classificação",
-        "Automações ilimitadas",
-        "API RESTful completa",
-        "Integração ERP/CRM",
-        "Suporte prioritario 24/7"
-      ],
-      cta: "Teste Grátis 14 Dias",
+      features: PLAN_FEATURE_LISTS.professional,
+      cta: "Teste Gratis 14 Dias",
       popular: true,
       icon: Award,
       gradient: "from-brand-600 to-brand-700"
     },
     {
-      name: "Enterprise",
-      description: "BPO, MSP ou grandes corporações",
+      name: PLAN_DISPLAY.enterprise.name,
+      description: PLAN_DISPLAY.enterprise.description,
       price: null,
       period: "sob consulta",
-      features: [
-        "Agentes ilimitados",
-        "Tudo do Profissional +",
-        "Multi-tenant (multi-empresa)",
-        "SSO/SAML/LDAP",
-        "Audit trail 7 anos (COBIT)",
-        "SLA contratual garantido",
-        "Gerente de sucesso dedicado",
-        "Onboarding e treinamento",
-        "Ambiente dedicado opcional"
-      ],
+      features: PLAN_FEATURE_LISTS.enterprise,
       cta: "Falar com Especialista",
       popular: false,
       icon: Building2,

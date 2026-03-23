@@ -3,6 +3,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, type SqlParam } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { getDatabaseType } from '@/lib/db/config';
 import { isAdmin } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
@@ -21,6 +22,9 @@ export async function GET(request: NextRequest) {
   const guard = requireTenantUserContext(request);
   if (guard.response) return guard.response;
   const { auth } = guard;
+
+  const featureGate = await requireFeature(auth.organizationId, 'ai', 'full');
+  if (featureGate) return featureGate;
 
   if (!isAdmin(auth.role)) {
     return apiError('Acesso restrito a administradores', 403);

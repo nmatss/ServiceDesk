@@ -13,6 +13,7 @@ import problemQueries from '@/lib/db/queries/problem-queries';
 import type { UpdateProblemInput } from '@/lib/types/problem';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export const dynamic = 'force-dynamic';
 
 interface RouteParams {
@@ -40,6 +41,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { auth, response } = requireTenantUserContext(request);
     if (response) return response;
+
+    const featureGate = await requireFeature(auth.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     // Fetch problem
     const problem = await problemQueries.getProblemById(
@@ -102,6 +106,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { auth, response } = requireTenantUserContext(request);
     if (response) return response;
+
+    const featureGate = await requireFeature(auth.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     // Only agents and admins can update problems
     if (auth.role === ROLES.USER) {
@@ -195,6 +202,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const { auth, response } = requireTenantUserContext(request);
     if (response) return response;
+
+    const featureGate = await requireFeature(auth.organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     // Only admins can delete problems
     if (!ADMIN_ROLES.includes(auth.role)) {

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { conversationEngine } from '@/lib/ai/conversation-engine';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,6 +20,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'copilot');
+    if (featureGate) return featureGate;
 
     const body = await request.json();
     const { session_id, message } = body as { session_id?: string; message?: string };

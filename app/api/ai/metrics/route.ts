@@ -11,6 +11,7 @@ import { isAdmin, isPrivileged } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 /**
  * GET /api/ai/metrics
  * Get comprehensive AI performance metrics
@@ -32,6 +33,9 @@ export async function GET(request: NextRequest) {
     if (guard.response) return guard.response;
     const { auth } = guard;
     const organizationId = String(auth.organizationId);
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'day';
@@ -423,6 +427,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     // Admin-only endpoint
     if (!isAdmin(auth.role) && !isPrivileged(auth.role)) {

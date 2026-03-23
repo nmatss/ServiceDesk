@@ -12,6 +12,7 @@ import { ROLES } from '@/lib/auth/roles'
 import { logger } from '@/lib/monitoring/logger'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 interface COBITMetrics {
   // EDM - Evaluate, Direct, Monitor (Governance)
   governance: {
@@ -63,6 +64,10 @@ export async function GET(request: NextRequest) {
   try {
     const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.TEAM_MANAGER] })
     if (guard.response) return guard.response
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'analytics', 'predictive');
+    if (featureGate) return featureGate;
+
     const { organizationId } = guard.auth!
 
     const { searchParams } = new URL(request.url)

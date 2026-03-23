@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { isAdmin } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // Validation schemas
 const createRequestSchema = z.object({
   catalog_item_id: z.number().int().positive(),
@@ -58,6 +59,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
@@ -148,6 +152,10 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
+
     const userName = guard.auth!.name || ''
     const userEmail = guard.auth!.email
 

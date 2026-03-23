@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { ROLES } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // Validation schemas
 const createChangeSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
@@ -195,6 +199,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     const body = await request.json()
     const data = createChangeSchema.parse(body)

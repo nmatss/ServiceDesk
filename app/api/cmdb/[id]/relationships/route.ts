@@ -12,6 +12,7 @@ import { isPrivileged } from '@/lib/auth/roles'
 import { z } from 'zod'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const createRelationshipSchema = z.object({
   child_ci_id: z.number().int().positive(),
   relationship_type_id: z.number().int().positive(),
@@ -34,6 +35,9 @@ export async function GET(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { organizationId } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { id } = await params
     const ciId = parseInt(id)
@@ -131,6 +135,9 @@ export async function POST(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Check permissions
     if (!isPrivileged(role)) {
@@ -269,6 +276,9 @@ export async function DELETE(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Check permissions
     if (!isPrivileged(role)) {

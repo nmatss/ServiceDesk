@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { isAdmin } from '@/lib/auth/roles'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 const updateChangeSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -48,6 +49,9 @@ export async function GET(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     const { id } = await params
     const changeId = parseInt(id)
@@ -167,6 +171,9 @@ export async function PUT(
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
 
+    const featureGate = await requireFeature(organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
+
     const { id } = await params
     const changeId = parseInt(id)
     if (isNaN(changeId)) {
@@ -273,6 +280,9 @@ export async function DELETE(
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'standard');
+    if (featureGate) return featureGate;
 
     const { id } = await params
     const changeId = parseInt(id)

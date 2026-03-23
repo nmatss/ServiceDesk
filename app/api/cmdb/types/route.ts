@@ -7,6 +7,7 @@ import { executeQuery } from '@/lib/db/adapter'
 import { requireTenantUserContext } from '@/lib/tenant/request-guard'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 export async function GET(request: NextRequest) {
   // SECURITY: Rate limiting
   const rateLimitResponse = await applyRateLimit(request, RATE_LIMITS.DEFAULT);
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { organizationId } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const types = await executeQuery<Record<string, unknown>>(`
       SELECT * FROM ci_types

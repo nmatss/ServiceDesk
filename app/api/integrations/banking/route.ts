@@ -9,6 +9,7 @@ import { requireTenantUserContext } from '@/lib/tenant/request-guard';
 import { apiSuccess, apiError } from '@/lib/api/api-helpers';
 import { executeQuery, executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 import { isAdmin } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 import { sqlNow } from '@/lib/db/adapter';
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest) {
 
   const { auth, context, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGate = await requireFeature(auth.organizationId, 'integrations', 'full');
+  if (featureGate) return featureGate;
 
   if (!isAdmin(auth.role)) {
     return apiError('Admin access required', 403);
@@ -102,6 +106,9 @@ export async function POST(request: NextRequest) {
 
   const { auth, context, response } = requireTenantUserContext(request);
   if (response) return response;
+
+  const featureGatePost = await requireFeature(auth.organizationId, 'integrations', 'full');
+  if (featureGatePost) return featureGatePost;
 
   if (!isAdmin(auth.role)) {
     return apiError('Admin access required', 403);

@@ -28,12 +28,13 @@ export async function createCheckoutSession(
   priceId: string,
   customerId: string | undefined,
   successUrl: string,
-  cancelUrl: string
+  cancelUrl: string,
+  quantity?: number
 ): Promise<Stripe.Checkout.Session> {
   const stripe = getStripeInstance();
   return stripe.checkout.sessions.create({
     mode: 'subscription',
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: quantity || 1 }],
     success_url: successUrl,
     cancel_url: cancelUrl,
     customer: customerId || undefined,

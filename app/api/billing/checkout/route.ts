@@ -13,10 +13,21 @@ export async function POST(request: NextRequest) {
   if (guard.response) return guard.response;
 
   try {
-    const { priceId } = await request.json();
+    const { priceId, planTier, billingPeriod } = await request.json();
 
-    if (!priceId) {
-      return apiError('priceId is required', 400);
+    // Support new format: planTier + billingPeriod
+    let resolvedPriceId = priceId;
+    if (!resolvedPriceId && planTier) {
+      const priceMap: Record<string, Record<string, string | undefined>> = {
+        essencial: { monthly: process.env.STRIPE_PRICE_ESSENCIAL_MONTHLY, yearly: process.env.STRIPE_PRICE_ESSENCIAL_YEARLY },
+        professional: { monthly: process.env.STRIPE_PRICE_PROFESSIONAL_MONTHLY || process.env.STRIPE_PRICE_PROFESSIONAL, yearly: process.env.STRIPE_PRICE_PROFESSIONAL_YEARLY },
+        enterprise: { monthly: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY || process.env.STRIPE_PRICE_ENTERPRISE, yearly: process.env.STRIPE_PRICE_ENTERPRISE_YEARLY },
+      };
+      resolvedPriceId = priceMap[planTier]?.[billingPeriod || 'monthly'];
+    }
+
+    if (!resolvedPriceId) {
+      return apiError('priceId or planTier is required', 400);
     }
 
     const info = await getSubscriptionStatus(guard.auth.organizationId);
@@ -29,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const session = await createCheckoutSession(
       guard.auth.organizationId,
-      priceId,
+      resolvedPriceId,
       info.stripe_customer_id || undefined,
       `${appUrl}/admin/billing?success=true`,
       `${appUrl}/admin/billing?cancelled=true`

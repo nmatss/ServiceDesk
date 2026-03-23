@@ -1,20 +1,26 @@
 import { executeQueryOne, executeRun, type SqlParam } from '@/lib/db/adapter';
 import { sqlStartOfMonth } from '@/lib/db/adapter';
 import { logger } from '@/lib/monitoring/logger';
+import { PLAN_FEATURES, resolvePlanTier, getLegacyLimits, type LegacyPlanLimits } from './plans';
+import { invalidateFeatureCache } from './feature-gate';
 
-export interface PlanLimits {
-  users: number;      // -1 = unlimited
-  tickets_month: number; // -1 = unlimited
-  ai: boolean;
-  esm: boolean;
-}
+// ─── Legacy interface (used by existing billing status/admin pages) ─────────
 
-export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  basic:        { users: 3,  tickets_month: 100,  ai: false, esm: false },
-  starter:      { users: 3,  tickets_month: 100,  ai: false, esm: false },
-  professional: { users: 15, tickets_month: 1000, ai: true,  esm: true  },
-  enterprise:   { users: -1, tickets_month: -1,   ai: true,  esm: true  },
+export type { LegacyPlanLimits as PlanLimits };
+
+/**
+ * Legacy PLAN_LIMITS for backwards compatibility.
+ * New code should use PLAN_FEATURES from plans.ts directly.
+ */
+export const PLAN_LIMITS: Record<string, LegacyPlanLimits> = {
+  basic:        getLegacyLimits('basic'),
+  starter:      getLegacyLimits('starter'),
+  essencial:    getLegacyLimits('essencial'),
+  professional: getLegacyLimits('professional'),
+  enterprise:   getLegacyLimits('enterprise'),
 };
+
+// ─── Subscription Info ──────────────────────────────────────────────────────
 
 export interface SubscriptionInfo {
   plan: string;
@@ -22,7 +28,7 @@ export interface SubscriptionInfo {
   expires_at: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
-  limits: PlanLimits;
+  limits: LegacyPlanLimits;
   usage: {
     users: number;
     tickets_this_month: number;
@@ -43,7 +49,7 @@ export async function getSubscriptionStatus(orgId: number): Promise<Subscription
   `, [orgId]);
 
   const plan = org?.subscription_plan || 'basic';
-  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.basic;
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.starter;
 
   // Get current usage
   const userCount = await executeQueryOne<{ count: number }>(
@@ -70,13 +76,15 @@ export async function getSubscriptionStatus(orgId: number): Promise<Subscription
   };
 }
 
+// ─── Limit Checking ─────────────────────────────────────────────────────────
+
 export async function checkLimit(orgId: number, resource: 'users' | 'tickets'): Promise<{ allowed: boolean; message?: string }> {
   const info = await getSubscriptionStatus(orgId);
 
   if (resource === 'users') {
     if (info.limits.users === -1) return { allowed: true };
     if (info.usage.users >= info.limits.users) {
-      return { allowed: false, message: `Limite de ${info.limits.users} usuários do plano ${info.plan} atingido. Faça upgrade para adicionar mais.` };
+      return { allowed: false, message: `Limite de ${info.limits.users} usuarios do plano ${info.plan} atingido. Faca upgrade para adicionar mais.` };
     }
     return { allowed: true };
   }
@@ -84,13 +92,15 @@ export async function checkLimit(orgId: number, resource: 'users' | 'tickets'): 
   if (resource === 'tickets') {
     if (info.limits.tickets_month === -1) return { allowed: true };
     if (info.usage.tickets_this_month >= info.limits.tickets_month) {
-      return { allowed: false, message: `Limite de ${info.limits.tickets_month} tickets/mês do plano ${info.plan} atingido. Faça upgrade para continuar.` };
+      return { allowed: false, message: `Limite de ${info.limits.tickets_month} tickets/mes do plano ${info.plan} atingido. Faca upgrade para continuar.` };
     }
     return { allowed: true };
   }
 
   return { allowed: true };
 }
+
+// ─── Subscription Updates ───────────────────────────────────────────────────
 
 export async function updateSubscription(
   orgId: number,
@@ -116,13 +126,17 @@ export async function updateSubscription(
   }
 
   // Update max_users and max_tickets_per_month based on plan
-  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.basic;
+  const tier = resolvePlanTier(plan);
+  const features = PLAN_FEATURES[tier];
   setClauses += ', max_users = ?, max_tickets_per_month = ?';
-  params.push(limits.users, limits.tickets_month);
+  params.push(features.maxAgents, features.ticketsPerMonth);
 
   params.push(orgId);
 
   await executeRun(`UPDATE organizations SET ${setClauses} WHERE id = ?`, params);
+
+  // Invalidate feature gate cache so new plan takes effect immediately
+  invalidateFeatureCache(orgId);
 
   logger.info('Subscription updated', { orgId, plan, stripeCustomerId, stripeSubscriptionId });
 
@@ -144,6 +158,7 @@ export async function cancelSubscription(orgId: number): Promise<void> {
     [orgId]
   );
 
+  invalidateFeatureCache(orgId);
   logger.info('Subscription cancelled', { orgId });
 
   try {
@@ -163,6 +178,7 @@ export async function handlePaymentFailed(orgId: number): Promise<void> {
     [orgId]
   );
 
+  invalidateFeatureCache(orgId);
   logger.info('Payment failed', { orgId });
 
   try {

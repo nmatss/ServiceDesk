@@ -11,6 +11,7 @@ import { ROLES } from '@/lib/auth/roles';
 import { logger } from '@/lib/monitoring/logger';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // Validation schemas
 const CreateWorkflowSchema = z.object({
   name: z.string().min(1).max(255),
@@ -228,6 +229,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
 
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGate) return featureGate;
+
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 100);
@@ -366,6 +370,10 @@ export async function POST(request: NextRequest) {
     // Verify authentication
     const guard = requireTenantUserContext(request, { requireRoles: [ROLES.ADMIN, ROLES.AGENT] });
     if (guard.response) return guard.response;
+
+    const featureGate = await requireFeature(guard.auth!.organizationId, 'workflows', 'builder');
+    if (featureGate) return featureGate;
+
     const { userId } = guard.auth!;
 
     const body = await request.json();

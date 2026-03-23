@@ -11,6 +11,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { createRateLimitMiddleware } from '@/lib/rate-limit';
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // Rate limiting muito restritivo para treinamento de AI (máximo 3 requests por hora)
 const trainRateLimit = createRateLimitMiddleware('auth-strict')
 
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth } = guard;
+
+    const featureGate = await requireFeature(auth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     // Admin-only endpoint
     if (!isAdmin(auth.role) && !isPrivileged(auth.role)) {
@@ -107,6 +111,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request);
     if (guard.response) return guard.response;
     const { auth: getAuth } = guard;
+
+    const featureGate = await requireFeature(getAuth.organizationId, 'ai', 'basic');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');

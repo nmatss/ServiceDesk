@@ -15,6 +15,7 @@ import { jsonWithCache } from '@/lib/api/cache-headers'
 import { cacheInvalidation } from '@/lib/api/cache'
 
 import { applyRateLimit, RATE_LIMITS } from '@/lib/rate-limit/redis-limiter';
+import { requireFeature } from '@/lib/billing/feature-gate';
 // Validation schemas
 const catalogItemSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
@@ -82,6 +83,9 @@ export async function GET(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { organizationId } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     const { searchParams } = new URL(request.url)
     const params = querySchema.parse(Object.fromEntries(searchParams))
@@ -182,6 +186,9 @@ export async function POST(request: NextRequest) {
     const guard = requireTenantUserContext(request)
     if (guard.response) return guard.response
     const { userId, organizationId, role } = guard.auth!
+
+    const featureGate = await requireFeature(organizationId, 'itil', 'full');
+    if (featureGate) return featureGate;
 
     // Only admins can create catalog items
     if (!isAdmin(role)) {
